@@ -1,6 +1,11 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Orbit.Api.Auth;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Notes;
 using Orbit.Core;
+using Orbit.Core.Abstractions;
 using Orbit.Data;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
@@ -55,6 +60,47 @@ try
     builder.Services.AddOrbitData(builder.Configuration);
     builder.Services.AddOrbitHealthChecks(builder.Configuration);
 
+    builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+    builder.Services.AddSingleton<TokenService>();
+    builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
+
+    // Fails fast on startup instead of on the first login attempt if the signing key was never
+    // configured, or is too short to be a usable HMAC-SHA256 key - see JwtSettings for where it's
+    // supposed to come from.
+    var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
+    if (string.IsNullOrWhiteSpace(jwtSettings.SigningKey))
+    {
+        throw new InvalidOperationException(
+            "Jwt:SigningKey is not configured. Set the JWT_SIGNING_KEY environment variable (see " +
+            ".env.example) when running via Docker Compose, or run " +
+            "`dotnet user-secrets set \"Jwt:SigningKey\" \"<a long random string>\"` for local `dotnet run`.");
+    }
+    if (jwtSettings.SigningKey.Length < 32)
+    {
+        throw new InvalidOperationException("Jwt:SigningKey must be at least 32 characters long.");
+    }
+
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            // Keeps the JWT's own claim names ("sub", "email", ...) instead of ASP.NET Core's default
+            // remapping to legacy XML-namespace claim URIs, so endpoint code can read claims by the
+            // same names TokenService issued them under.
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtSettings.Issuer,
+                ValidateAudience = true,
+                ValidAudience = jwtSettings.Audience,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SigningKey)),
+                ClockSkew = TimeSpan.FromSeconds(30)
+            };
+        });
+    builder.Services.AddAuthorization();
+
     // Traces every incoming HTTP request, every outgoing HttpClient call, and every command/query
     // dispatched through Orbit.Core's "Orbit.Core" ActivitySource (see LoggingDispatcher), so a
     // single user click shows up as one connected trace: HTTP request -> command -> its timing.
@@ -68,7 +114,10 @@ try
 
     var app = builder.Build();
 
-    // Prototype convenience: creates the SQLite schema on startup instead of running migrations.
+    // Prototype convenience: creates the SQLite schema on startup instead of running migrations. Since
+    // this only creates a database that doesn't exist yet, adding a table or column (as the Users
+    // feature just did) has no effect on a database file created by an older version of the app -
+    // delete the SQLite file to pick up a schema change locally.
     using (var scope = app.Services.CreateScope())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<OrbitDbContext>();
@@ -77,7 +126,10 @@ try
 
     app.UseSerilogRequestLogging();
     app.UseCors(webClientCorsPolicy);
+    app.UseAuthentication();
+    app.UseAuthorization();
 
+    app.MapAuthEndpoints();
     app.MapNoteEndpoints();
     app.MapHealthEndpoints();
 

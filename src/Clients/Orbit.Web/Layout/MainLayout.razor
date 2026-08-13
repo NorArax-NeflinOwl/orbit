@@ -1,7 +1,28 @@
 @inherits LayoutComponentBase
+@using Orbit.Web.Services
+@inject AuthApiClient AuthApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
 
 <div class="page">
     <main>
+        <AuthorizeView>
+            <Authorized>
+                <div class="user-bar">
+                    <span>@context.User.Identity?.Name</span>
+                    <button @onclick="LogoutAsync">Wyloguj</button>
+                </div>
+            </Authorized>
+        </AuthorizeView>
         @Body
     </main>
 </div>
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await AuthApiClient.LogoutAsync();
+        AuthenticationStateProvider.NotifyAuthenticationStateChanged();
+        NavigationManager.NavigateTo("/login");
+    }
+}

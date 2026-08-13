@@ -2,4 +2,4 @@ using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Notes.GetNotes;
 
-public sealed record GetNotesQuery : IRequest<IReadOnlyList<Note>>;
+public sealed record GetNotesQuery(Guid UserId) : IRequest<IReadOnlyList<Note>>;

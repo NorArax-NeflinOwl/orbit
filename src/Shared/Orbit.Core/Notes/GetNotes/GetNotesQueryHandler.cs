@@ -12,5 +12,5 @@ public sealed class GetNotesQueryHandler : IRequestHandler<GetNotesQuery, IReadO
     }
 
     public Task<IReadOnlyList<Note>> HandleAsync(GetNotesQuery request, CancellationToken cancellationToken)
-        => _noteRepository.GetAllAsync(cancellationToken);
+        => _noteRepository.GetAllAsync(request.UserId, cancellationToken);
 }

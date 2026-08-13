@@ -1,9 +1,18 @@
-<Router AppAssembly="@typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
-    </Found>
-    <NotFound>
-        <PageTitle>Nie znaleziono</PageTitle>
-        <p>Strona nie istnieje.</p>
-    </NotFound>
-</Router>
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+                <Authorizing>
+                    <p>Trwa sprawdzanie uprawnień…</p>
+                </Authorizing>
+            </AuthorizeRouteView>
+        </Found>
+        <NotFound>
+            <PageTitle>Nie znaleziono</PageTitle>
+            <p>Strona nie istnieje.</p>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

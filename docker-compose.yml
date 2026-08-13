@@ -28,6 +28,8 @@ services:
       # Origin the Blazor client is actually served from in this compose stack (see orbit-web below).
       WebClientOrigins: "http://localhost:8080"
       ConnectionStrings__Orbit: "Data Source=/app/data/orbit.db"
+      # Secret - read from the .env file at the repo root (see .env.example), never hardcoded here.
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in a .env file - see .env.example}"
     volumes:
       # Bind mount instead of a named volume so orbit.db lives at a real path on disk (./data) -
       # point a SQLite client (e.g. Visual Studio's SQLite/SQL Server Compact Toolbox extension) at

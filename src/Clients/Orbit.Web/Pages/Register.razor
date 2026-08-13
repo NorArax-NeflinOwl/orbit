@@ -1,0 +1,70 @@
+@page "/register"
+@using Orbit.Web.Services
+@inject AuthApiClient AuthApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<Register> Logger
+
+<PageTitle>Orbit — Rejestracja</PageTitle>
+
+<h1>Rejestracja</h1>
+
+<EditForm Model="_formModel" OnValidSubmit="SubmitAsync">
+    <div>
+        <label>E-mail</label>
+        <InputText id="email" @bind-Value="_formModel.Email" />
+    </div>
+    <div>
+        <label>Wyświetlana nazwa</label>
+        <InputText id="displayName" @bind-Value="_formModel.DisplayName" />
+    </div>
+    <div>
+        <label>Hasło</label>
+        <!-- InputText always renders type="text" regardless of splatted attributes, so a real masked
+             password field needs a plain <input> with a manual two-way binding instead. -->
+        <input type="password" id="password" @bind="_formModel.Password" />
+    </div>
+    <button type="submit" disabled="@_isSubmitting">Zarejestruj się</button>
+</EditForm>
+
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+
+<p>Masz już konto? <a href="/login">Zaloguj się</a></p>
+
+@code {
+    private readonly RegisterFormModel _formModel = new();
+    private bool _isSubmitting;
+    private string? _errorMessage;
+
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        var result = await AuthApiClient.RegisterAsync(_formModel.Email, _formModel.DisplayName, _formModel.Password);
+        if (result.Outcome == AuthOutcome.Success)
+        {
+            Logger.LogInformation("User registered");
+            AuthenticationStateProvider.NotifyAuthenticationStateChanged();
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        _errorMessage = result.Outcome switch
+        {
+            AuthOutcome.EmailAlreadyRegistered => "Ten adres e-mail jest już zarejestrowany.",
+            _ => "Wystąpił błąd podczas rejestracji. Spróbuj ponownie."
+        };
+        _isSubmitting = false;
+    }
+
+    private sealed class RegisterFormModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

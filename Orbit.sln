@@ -25,6 +25,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{9756B2A6
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orbit.Api.Tests", "tests\Orbit.Api.Tests\Orbit.Api.Tests.csproj", "{B676F932-EDF9-43E7-A35A-BDCA94D12A11}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orbit.Web.Tests", "tests\Orbit.Web.Tests\Orbit.Web.Tests.csproj", "{F1B5DFFF-8132-49D6-9EA8-78DAAAEE3985}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,10 @@ Global
 		{B676F932-EDF9-43E7-A35A-BDCA94D12A11}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B676F932-EDF9-43E7-A35A-BDCA94D12A11}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B676F932-EDF9-43E7-A35A-BDCA94D12A11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F1B5DFFF-8132-49D6-9EA8-78DAAAEE3985}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1B5DFFF-8132-49D6-9EA8-78DAAAEE3985}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1B5DFFF-8132-49D6-9EA8-78DAAAEE3985}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1B5DFFF-8132-49D6-9EA8-78DAAAEE3985}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -71,6 +77,7 @@ Global
 		{E1D73CAF-3FDC-4FA6-A572-FEA68EA10E2F} = {354BE1F8-76F8-47D8-ACE0-3CDBCB5C88C5}
 		{C8C2167F-7C76-4B00-9830-21DD06009D3F} = {D697A40B-5BDF-4682-B990-3CC5CC3D73A6}
 		{B676F932-EDF9-43E7-A35A-BDCA94D12A11} = {9756B2A6-FC62-4445-A461-D136C629D97C}
+		{F1B5DFFF-8132-49D6-9EA8-78DAAAEE3985} = {9756B2A6-FC62-4445-A461-D136C629D97C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6664CB17-67A1-41D0-84D3-7C91146B5E45}

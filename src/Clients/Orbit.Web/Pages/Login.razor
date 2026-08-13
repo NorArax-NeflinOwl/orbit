@@ -1,0 +1,65 @@
+@page "/login"
+@using Orbit.Web.Services
+@inject AuthApiClient AuthApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<Login> Logger
+
+<PageTitle>Orbit — Logowanie</PageTitle>
+
+<h1>Logowanie</h1>
+
+<EditForm Model="_formModel" OnValidSubmit="SubmitAsync">
+    <div>
+        <label>E-mail</label>
+        <InputText id="email" @bind-Value="_formModel.Email" />
+    </div>
+    <div>
+        <label>Hasło</label>
+        <!-- InputText always renders type="text" regardless of splatted attributes, so a real masked
+             password field needs a plain <input> with a manual two-way binding instead. -->
+        <input type="password" id="password" @bind="_formModel.Password" />
+    </div>
+    <button type="submit" disabled="@_isSubmitting">Zaloguj się</button>
+</EditForm>
+
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+
+<p>Nie masz konta? <a href="/register">Zarejestruj się</a></p>
+
+@code {
+    private readonly LoginFormModel _formModel = new();
+    private bool _isSubmitting;
+    private string? _errorMessage;
+
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        var result = await AuthApiClient.LoginAsync(_formModel.Email, _formModel.Password);
+        if (result.Outcome == AuthOutcome.Success)
+        {
+            Logger.LogInformation("User logged in");
+            AuthenticationStateProvider.NotifyAuthenticationStateChanged();
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        _errorMessage = result.Outcome switch
+        {
+            AuthOutcome.InvalidCredentials => "Nieprawidłowy e-mail lub hasło.",
+            _ => "Wystąpił błąd podczas logowania. Spróbuj ponownie."
+        };
+        _isSubmitting = false;
+    }
+
+    private sealed class LoginFormModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

@@ -13,12 +13,13 @@ public sealed class NoteRepository : INoteRepository
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<Note>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Note>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
     {
         // SQLite can't translate ORDER BY on a DateTimeOffset column, so the sort has to happen in
         // memory after fetching (see the EF Core NotSupportedException this avoids).
         var entities = await _dbContext.Notes
             .AsNoTracking()
+            .Where(entity => entity.UserId == userId)
             .ToListAsync(cancellationToken);
 
         return entities
@@ -27,11 +28,11 @@ public sealed class NoteRepository : INoteRepository
             .ToList();
     }
 
-    public async Task<Note?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<Note?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.Notes
             .AsNoTracking()
-            .FirstOrDefaultAsync(note => note.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(note => note.Id == id && note.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
     }
@@ -49,12 +50,13 @@ public sealed class NoteRepository : INoteRepository
     }
 
     private static Note ToDomain(NoteEntity entity)
-        => Note.FromPersistence(entity.Id, entity.Title, entity.Content, entity.CreatedAtUtc, entity.UpdatedAtUtc);
+        => Note.FromPersistence(entity.Id, entity.UserId, entity.Title, entity.Content, entity.CreatedAtUtc, entity.UpdatedAtUtc);
 
     private static NoteEntity ToEntity(Note note)
         => new()
         {
             Id = note.Id,
+            UserId = note.UserId,
             Title = note.Title,
             Content = note.Content,
             CreatedAtUtc = note.CreatedAtUtc,

@@ -1,5 +1,6 @@
 @page "/notes/new"
 @page "/notes/{Id:guid}"
+@attribute [Authorize]
 @using Orbit.Contracts.Notes
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient

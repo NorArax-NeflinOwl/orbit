@@ -12,5 +12,5 @@ public sealed class GetNoteByIdQueryHandler : IRequestHandler<GetNoteByIdQuery, 
     }
 
     public Task<Note?> HandleAsync(GetNoteByIdQuery request, CancellationToken cancellationToken)
-        => _noteRepository.GetByIdAsync(request.Id, cancellationToken);
+        => _noteRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
 }

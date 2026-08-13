@@ -1,0 +1,53 @@
+### Orbit.Api manual test requests.
+### Works with Visual Studio's built-in .http endpoint explorer and VS Code's "REST Client" extension.
+### Run against the Docker Compose stack (`docker compose up --build`) unless you change @baseUrl below.
+
+@baseUrl = http://localhost:8081
+
+### Register a new account. Change the email if you run this more than once - it's unique per account.
+# @name register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "displayName": "Test User",
+  "password": "correct horse battery staple"
+}
+
+### Log in with the same credentials. Copy the "token" value from the response into @token below
+### (VS Code's REST Client can do this automatically via {{login.response.body.$.token}}; if your
+### tool doesn't support that, paste it in by hand).
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "correct horse battery staple"
+}
+
+### Everything below requires a token from register/login above.
+@token = {{login.response.body.$.token}}
+
+### Should be empty ([]) the first time.
+GET {{baseUrl}}/api/notes
+Authorization: Bearer {{token}}
+
+### Create a note.
+# @name createNote
+POST {{baseUrl}}/api/notes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "First note",
+  "content": "Created through requests.http"
+}
+
+### List notes again - the one just created should be the only entry.
+GET {{baseUrl}}/api/notes
+Authorization: Bearer {{token}}
+
+### Without a token at all, this should now return 401 (previously it returned notes for everyone).
+GET {{baseUrl}}/api/notes

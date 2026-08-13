@@ -1,0 +1,32 @@
+using Orbit.Core.Notes;
+
+namespace Orbit.Api.Tests.TestDoubles;
+
+/// <summary>
+/// In-memory <see cref="INoteRepository"/> stub for unit tests that need real add/lookup/update
+/// behavior, including per-user ownership scoping, without spinning up SQLite.
+/// </summary>
+internal sealed class InMemoryNoteRepository : INoteRepository
+{
+    private readonly List<Note> _notes = [];
+
+    public Task<IReadOnlyList<Note>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<Note>>(_notes.Where(note => note.UserId == userId).ToList());
+
+    public Task<Note?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+        => Task.FromResult(_notes.FirstOrDefault(note => note.Id == id && note.UserId == userId));
+
+    public Task AddAsync(Note note, CancellationToken cancellationToken)
+    {
+        _notes.Add(note);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(Note note, CancellationToken cancellationToken)
+    {
+        // Handlers mutate the same Note instance this repository already holds a reference to, so
+        // there is nothing to replace here - this mirrors how the EF Core repository just calls
+        // SaveChangesAsync on an already-tracked entity.
+        return Task.CompletedTask;
+    }
+}

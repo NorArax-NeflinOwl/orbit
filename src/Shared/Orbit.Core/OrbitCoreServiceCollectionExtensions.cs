@@ -6,6 +6,9 @@ using Orbit.Core.Notes.CreateNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.UpdateNote;
+using Orbit.Core.Users;
+using Orbit.Core.Users.Login;
+using Orbit.Core.Users.RegisterUser;
 
 namespace Orbit.Core;
 
@@ -21,6 +24,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<UpdateNoteCommand, bool>, UpdateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<GetNotesQuery, IReadOnlyList<Note>>, GetNotesQueryHandler>();
         services.AddScoped<IRequestHandler<GetNoteByIdQuery, Note?>, GetNoteByIdQueryHandler>();
+
+        services.AddScoped<IRequestHandler<RegisterUserCommand, RegisterUserResult>, RegisterUserCommandHandler>();
+        services.AddScoped<IRequestHandler<LoginQuery, User?>, LoginQueryHandler>();
 
         services.AddScoped<Dispatcher>();
         services.AddScoped<IDispatcher>(provider => new LoggingDispatcher(

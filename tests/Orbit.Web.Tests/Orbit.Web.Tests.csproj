@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Orbit.Web.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="coverlet.collector" Version="10.0.1" />
+    <!-- Renders the Login/Register components in an isolated test DOM so their submit behavior and
+         validation-error messages can be verified without a browser. -->
+    <PackageReference Include="bunit" Version="1.35.3" />
+    <!-- bUnit pulls in AngleSharp 1.1.2 transitively, which carries a known mXSS advisory
+         (GHSA-pgww-w46g-26qg, CVE-2026-54570). Pinned directly to the first patched release so the
+         resolved version clears the NuGet audit check, even though this project only ever parses
+         markup the app itself rendered, never attacker-controlled input. -->
+    <PackageReference Include="AngleSharp" Version="1.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Clients\Orbit.Web\Orbit.Web.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -19,3 +19,9 @@
 *.jks
 secrets/
 credentials/
+
+# .env itself is gitignored above (it holds real secrets), but the placeholder template should be
+# tracked so new clones know which variables to set.
+!.env.example
+
+/data
