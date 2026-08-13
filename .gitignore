@@ -1,0 +1,21 @@
+/.vs
+**/bin/
+**/obj/
+
+# Orbit.Api prototype runtime artifacts (SQLite database, Serilog file sink)
+**/orbit.db
+**/orbit.db-*
+/src/Server/Orbit.Api/logs/
+
+# Per-developer IDE settings; not shared across the team.
+*.csproj.user
+
+# Secrets and credentials - never commit these.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+credentials/

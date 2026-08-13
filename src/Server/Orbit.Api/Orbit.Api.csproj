@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Orbit.Api</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Orbit.Core\Orbit.Core.csproj" />
+    <ProjectReference Include="..\..\Shared\Orbit.Contracts\Orbit.Contracts.csproj" />
+    <ProjectReference Include="..\Orbit.Data\Orbit.Data.csproj" />
+    <ProjectReference Include="..\Orbit.GoogleIntegration\Orbit.GoogleIntegration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lets Orbit.Api.Tests call the endpoint handlers in HealthEndpoints directly instead of only
+         through HTTP, without making them part of Orbit.Api's public surface. -->
+    <InternalsVisibleTo Include="Orbit.Api.Tests" />
+  </ItemGroup>
+
+</Project>

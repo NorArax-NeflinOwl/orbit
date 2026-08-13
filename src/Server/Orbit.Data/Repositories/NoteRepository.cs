@@ -1,0 +1,63 @@
+using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Notes;
+using Orbit.Data.Entities;
+
+namespace Orbit.Data.Repositories;
+
+public sealed class NoteRepository : INoteRepository
+{
+    private readonly OrbitDbContext _dbContext;
+
+    public NoteRepository(OrbitDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<IReadOnlyList<Note>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        // SQLite can't translate ORDER BY on a DateTimeOffset column, so the sort has to happen in
+        // memory after fetching (see the EF Core NotSupportedException this avoids).
+        var entities = await _dbContext.Notes
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return entities
+            .OrderByDescending(entity => entity.UpdatedAtUtc)
+            .Select(ToDomain)
+            .ToList();
+    }
+
+    public async Task<Note?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Notes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(note => note.Id == id, cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
+    public async Task AddAsync(Note note, CancellationToken cancellationToken)
+    {
+        _dbContext.Notes.Add(ToEntity(note));
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateAsync(Note note, CancellationToken cancellationToken)
+    {
+        _dbContext.Notes.Update(ToEntity(note));
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static Note ToDomain(NoteEntity entity)
+        => Note.FromPersistence(entity.Id, entity.Title, entity.Content, entity.CreatedAtUtc, entity.UpdatedAtUtc);
+
+    private static NoteEntity ToEntity(Note note)
+        => new()
+        {
+            Id = note.Id,
+            Title = note.Title,
+            Content = note.Content,
+            CreatedAtUtc = note.CreatedAtUtc,
+            UpdatedAtUtc = note.UpdatedAtUtc
+        };
+}

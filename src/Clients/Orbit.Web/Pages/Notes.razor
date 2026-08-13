@@ -1,0 +1,59 @@
+@page "/"
+@using Orbit.Contracts.Notes
+@using Orbit.Web.Services
+@inject NotesApiClient NotesApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<Notes> Logger
+
+<PageTitle>Orbit — Notatki</PageTitle>
+
+<h1>Notatki</h1>
+
+<p><button @onclick="GoToAddNote">Dodaj notatkę</button></p>
+
+@if (_notes is null)
+{
+    <p>Ładowanie…</p>
+}
+else if (_notes.Count == 0)
+{
+    <p>Brak notatek.</p>
+}
+else
+{
+    <ul>
+        @foreach (var note in _notes)
+        {
+            <li>
+                <strong>@note.Title</strong>
+                <p>@note.Content</p>
+                <small>Utworzono: @note.CreatedAtUtc.LocalDateTime</small><br>
+                <small>Ostatnia zmiana: @note.UpdatedAtUtc.LocalDateTime</small><br>
+                <button @onclick="() => GoToEditNote(note.Id)">Edytuj</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private IReadOnlyList<NoteDto>? _notes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("Notes page opened, loading notes");
+        _notes = await NotesApiClient.GetNotesAsync();
+        Logger.LogInformation("Loaded {NoteCount} notes", _notes.Count);
+    }
+
+    private void GoToAddNote()
+    {
+        Logger.LogInformation("User clicked 'Dodaj notatkę'");
+        NavigationManager.NavigateTo("/notes/new");
+    }
+
+    private void GoToEditNote(Guid noteId)
+    {
+        Logger.LogInformation("User clicked 'Edytuj' for note {NoteId}", noteId);
+        NavigationManager.NavigateTo($"/notes/{noteId}");
+    }
+}

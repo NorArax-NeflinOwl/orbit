@@ -1,0 +1,90 @@
+@page "/notes/new"
+@page "/notes/{Id:guid}"
+@using Orbit.Contracts.Notes
+@using Orbit.Web.Services
+@inject NotesApiClient NotesApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<NoteEditor> Logger
+
+<PageTitle>@(IsNewNote ? "Nowa notatka" : "Edytuj notatkę")</PageTitle>
+
+<h1>@(IsNewNote ? "Nowa notatka" : "Edytuj notatkę")</h1>
+
+@if (_isLoading)
+{
+    <p>Ładowanie…</p>
+}
+else
+{
+    <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
+        <div>
+            <label>Tytuł</label>
+            <InputText @bind-Value="_formModel.Title" />
+        </div>
+        <div>
+            <label>Treść</label>
+            <InputTextArea @bind-Value="_formModel.Content" />
+        </div>
+        <button type="submit">Zapisz</button>
+        <button type="button" @onclick="Cancel">Anuluj</button>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private bool IsNewNote => Id is null;
+    private bool _isLoading = true;
+    private NoteFormModel _formModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is { } noteId)
+        {
+            Logger.LogInformation("Note editor opened for note {NoteId}", noteId);
+            var note = await NotesApiClient.GetNoteByIdAsync(noteId);
+            if (note is not null)
+            {
+                _formModel = new NoteFormModel { Title = note.Title, Content = note.Content };
+            }
+        }
+        else
+        {
+            Logger.LogInformation("Note editor opened for a new note");
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        Logger.LogInformation(
+            "User clicked 'Zapisz' ({Mode}, NoteId={NoteId})", IsNewNote ? "create" : "update", Id);
+
+        if (IsNewNote)
+        {
+            var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(_formModel.Title, _formModel.Content));
+            Logger.LogInformation("Note {NoteId} created", newNoteId);
+        }
+        else
+        {
+            await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content));
+            Logger.LogInformation("Note {NoteId} updated", Id);
+        }
+
+        NavigationManager.NavigateTo("/");
+    }
+
+    private void Cancel()
+    {
+        Logger.LogInformation("User clicked 'Anuluj'");
+        NavigationManager.NavigateTo("/");
+    }
+
+    private sealed class NoteFormModel
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+}

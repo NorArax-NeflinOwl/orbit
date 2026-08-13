@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/logs/
+**/orbit.db
+**/orbit.db-*
+.git/
+.vs/
+.github/

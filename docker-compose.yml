@@ -1,0 +1,54 @@
+services:
+  # Local, visual view of everything Orbit.Api logs and traces: http://localhost:18888
+  # Orbit.Api sends both structured logs (Serilog OTLP sink) and traces (OpenTelemetry SDK) here,
+  # correlated by trace/span id, so a single user click shows up as one connected timeline.
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    container_name: orbit-aspire-dashboard
+    ports:
+      - "18888:18888" # dashboard UI
+      - "18889:18889" # OTLP gRPC receiver
+      - "18890:18890" # OTLP HTTP receiver
+    environment:
+      # Local prototype only: skips dashboard auth so there's no token to configure.
+      # Never set this in a non-local environment.
+      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+
+  orbit-api:
+    build:
+      context: .
+      dockerfile: src/Server/Orbit.Api/Dockerfile
+    container_name: orbit-api
+    ports:
+      - "8081:8080"
+    environment:
+      # "aspire-dashboard" resolves via Docker's internal DNS; "localhost" here would mean this
+      # container itself, not the dashboard container.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+      # Origin the Blazor client is actually served from in this compose stack (see orbit-web below).
+      WebClientOrigins: "http://localhost:8080"
+      ConnectionStrings__Orbit: "Data Source=/app/data/orbit.db"
+    volumes:
+      # Bind mount instead of a named volume so orbit.db lives at a real path on disk (./data) -
+      # point a SQLite client (e.g. Visual Studio's SQLite/SQL Server Compact Toolbox extension) at
+      # ./data/orbit.db to browse tables and run queries while the container is running.
+      - ./data:/app/data
+      - orbit-api-logs:/app/logs
+    depends_on:
+      - aspire-dashboard
+
+  orbit-web:
+    build:
+      context: .
+      dockerfile: src/Clients/Orbit.Web/Dockerfile
+    container_name: orbit-web
+    ports:
+      - "8080:80"
+    depends_on:
+      orbit-api:
+        # Waits for the HEALTHCHECK in Orbit.Api's Dockerfile (GET /health/live) instead of just the
+        # container starting, so orbit-web doesn't come up while the API is still initializing.
+        condition: service_healthy
+
+volumes:
+  orbit-api-logs:
