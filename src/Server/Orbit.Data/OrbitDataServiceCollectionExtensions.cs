@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Orbit.Core.Notes;
+using Orbit.Core.Tasks;
 using Orbit.Core.Users;
 using Orbit.Data.Repositories;
 
@@ -19,6 +20,7 @@ public static class OrbitDataServiceCollectionExtensions
 
         services.AddDbContext<OrbitDbContext>(options => options.UseSqlite(connectionString));
         services.AddScoped<INoteRepository, NoteRepository>();
+        services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
 
         return services;

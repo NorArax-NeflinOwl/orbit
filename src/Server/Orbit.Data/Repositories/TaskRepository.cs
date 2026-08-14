@@ -1,0 +1,103 @@
+using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Tasks;
+using Orbit.Data.Entities;
+
+namespace Orbit.Data.Repositories;
+
+public sealed class TaskRepository : ITaskRepository
+{
+    private readonly OrbitDbContext _dbContext;
+
+    public TaskRepository(OrbitDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<IReadOnlyList<TaskList>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        // SQLite can't translate ORDER BY on a DateTimeOffset column, so the sort has to happen in
+        // memory after fetching (see the EF Core NotSupportedException this avoids) - same reason
+        // NoteRepository sorts after ToListAsync.
+        var entities = await _dbContext.Tasks
+            .AsNoTracking()
+            .Include(task => task.Items)
+            .Where(task => task.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        return entities
+            .OrderByDescending(task => task.UpdatedAtUtc)
+            .Select(ToDomain)
+            .ToList();
+    }
+
+    public async Task<TaskList?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Tasks
+            .AsNoTracking()
+            .Include(task => task.Items)
+            .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
+    public async Task AddAsync(TaskList taskList, CancellationToken cancellationToken)
+    {
+        _dbContext.Tasks.Add(ToEntity(taskList));
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateAsync(TaskList taskList, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
+        entity.Title = taskList.Title;
+        entity.IsCompleted = taskList.IsCompleted;
+        entity.UpdatedAtUtc = taskList.UpdatedAtUtc;
+
+        // The domain always replaces the whole checklist on update rather than diffing individual
+        // items (see TaskList.Update). Clearing and re-populating the tracked Items navigation
+        // instead of this explicit remove/add made EF Core treat the freshly-created items as
+        // updates to rows that don't exist yet (DbUpdateConcurrencyException: 0 rows affected),
+        // since their ids are already non-default by the time they reach the change tracker.
+        var existingItems = await _dbContext.Set<TaskItemEntity>()
+            .Where(item => item.TaskId == taskList.Id)
+            .ToListAsync(cancellationToken);
+        _dbContext.RemoveRange(existingItems);
+        _dbContext.AddRange(taskList.Items.Select(item => ToItemEntity(item, taskList.Id)));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static TaskList ToDomain(TaskEntity entity)
+        => TaskList.FromPersistence(
+            entity.Id,
+            entity.UserId,
+            entity.Title,
+            entity.Items.Select(ToItemDomain).ToList(),
+            entity.CreatedAtUtc,
+            entity.UpdatedAtUtc);
+
+    private static TaskItem ToItemDomain(TaskItemEntity entity)
+        => TaskItem.FromPersistence(entity.Id, entity.Description, entity.DueDateUtc, entity.IsCompleted);
+
+    private static TaskEntity ToEntity(TaskList taskList)
+        => new()
+        {
+            Id = taskList.Id,
+            UserId = taskList.UserId,
+            Title = taskList.Title,
+            IsCompleted = taskList.IsCompleted,
+            CreatedAtUtc = taskList.CreatedAtUtc,
+            UpdatedAtUtc = taskList.UpdatedAtUtc,
+            Items = taskList.Items.Select(item => ToItemEntity(item, taskList.Id)).ToList()
+        };
+
+    private static TaskItemEntity ToItemEntity(TaskItem item, Guid taskId)
+        => new()
+        {
+            Id = item.Id,
+            TaskId = taskId,
+            Description = item.Description,
+            DueDateUtc = item.DueDateUtc,
+            IsCompleted = item.IsCompleted
+        };
+}

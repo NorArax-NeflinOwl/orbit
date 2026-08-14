@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Orbit.Api.Auth;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Notes;
+using Orbit.Api.Tasks;
 using Orbit.Core;
 using Orbit.Core.Abstractions;
 using Orbit.Data;
@@ -131,6 +132,7 @@ try
 
     app.MapAuthEndpoints();
     app.MapNoteEndpoints();
+    app.MapTaskEndpoints();
     app.MapHealthEndpoints();
 
     app.Run();

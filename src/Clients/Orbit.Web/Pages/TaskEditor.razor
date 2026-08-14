@@ -1,0 +1,149 @@
+@page "/tasks/new"
+@page "/tasks/{Id:guid}"
+@attribute [Authorize]
+@using Orbit.Contracts.Tasks
+@using Orbit.Web.Services
+@inject TasksApiClient TasksApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<TaskEditor> Logger
+
+<PageTitle>@(IsNewTaskList ? "Nowa lista zadań" : "Edytuj listę zadań")</PageTitle>
+
+<h1>@(IsNewTaskList ? "Nowa lista zadań" : "Edytuj listę zadań")</h1>
+
+@if (_isLoading)
+{
+    <p>Ładowanie…</p>
+}
+else
+{
+    <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
+        <div>
+            <label>Tytuł</label>
+            <InputText @bind-Value="_formModel.Title" />
+        </div>
+
+        <h2>Zadania</h2>
+        @foreach (var item in _formModel.Items)
+        {
+            <div @key="item">
+                <InputText @bind-Value="item.Description" placeholder="Opis zadania" />
+                <InputDate @bind-Value="item.DueDate" />
+                <input type="time" @bind="item.DueTime" />
+                <label>
+                    <InputCheckbox @bind-Value="item.IsCompleted" />
+                    Ukończone
+                </label>
+                <button type="button" @onclick="() => RemoveItem(item)">Usuń</button>
+            </div>
+        }
+        <button type="button" @onclick="AddItem">Dodaj zadanie</button>
+
+        <div>
+            <button type="submit">Zapisz</button>
+            <button type="button" @onclick="Cancel">Anuluj</button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private bool IsNewTaskList => Id is null;
+    private bool _isLoading = true;
+    private TaskListFormModel _formModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is { } taskListId)
+        {
+            Logger.LogInformation("Task list editor opened for task list {TaskListId}", taskListId);
+            var taskList = await TasksApiClient.GetTaskListByIdAsync(taskListId);
+            if (taskList is not null)
+            {
+                _formModel = new TaskListFormModel
+                {
+                    Title = taskList.Title,
+                    Items = taskList.Items
+                        .Select(item => new TaskItemFormModel
+                        {
+                            Description = item.Description,
+                            DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
+                            DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
+                            IsCompleted = item.IsCompleted
+                        })
+                        .ToList()
+                };
+            }
+        }
+        else
+        {
+            Logger.LogInformation("Task list editor opened for a new task list");
+        }
+
+        _isLoading = false;
+    }
+
+    private void AddItem()
+    {
+        _formModel.Items.Add(new TaskItemFormModel());
+    }
+
+    private void RemoveItem(TaskItemFormModel item)
+    {
+        _formModel.Items.Remove(item);
+    }
+
+    private async Task SaveAsync()
+    {
+        Logger.LogInformation(
+            "User clicked 'Zapisz' ({Mode}, TaskListId={TaskListId})", IsNewTaskList ? "create" : "update", Id);
+
+        var items = _formModel.Items
+            .Select(item => new TaskItemRequest(item.Description, ToDueDateUtc(item), item.IsCompleted))
+            .ToList();
+
+        if (IsNewTaskList)
+        {
+            var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items));
+            Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
+        }
+        else
+        {
+            await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items));
+            Logger.LogInformation("Task list {TaskListId} updated", Id);
+        }
+
+        NavigationManager.NavigateTo("/tasks");
+    }
+
+    private void Cancel()
+    {
+        Logger.LogInformation("User clicked 'Anuluj'");
+        NavigationManager.NavigateTo("/tasks");
+    }
+
+    /// <summary>
+    /// Combines the separately-edited date and time-of-day into the single timestamp the API
+    /// expects, defaulting to midnight when a date was picked without a specific time.
+    /// </summary>
+    private static DateTimeOffset? ToDueDateUtc(TaskItemFormModel item)
+        => item.DueDate is { } dueDate
+            ? new DateTimeOffset(dueDate.ToDateTime(item.DueTime ?? TimeOnly.MinValue, DateTimeKind.Local))
+            : null;
+
+    private sealed class TaskListFormModel
+    {
+        public string Title { get; set; } = string.Empty;
+        public List<TaskItemFormModel> Items { get; set; } = [];
+    }
+
+    private sealed class TaskItemFormModel
+    {
+        public string Description { get; set; } = string.Empty;
+        public DateOnly? DueDate { get; set; }
+        public TimeOnly? DueTime { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+}

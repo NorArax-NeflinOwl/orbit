@@ -1,0 +1,69 @@
+@page "/tasks"
+@attribute [Authorize]
+@using Orbit.Contracts.Tasks
+@using Orbit.Web.Services
+@inject TasksApiClient TasksApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<Tasks> Logger
+
+<PageTitle>Orbit — Zadania</PageTitle>
+
+<h1>Zadania</h1>
+
+<p><button @onclick="GoToAddTaskList">Dodaj listę zadań</button></p>
+
+@if (_taskLists is null)
+{
+    <p>Ładowanie…</p>
+}
+else if (_taskLists.Count == 0)
+{
+    <p>Brak list zadań.</p>
+}
+else
+{
+    <ul>
+        @foreach (var taskList in _taskLists)
+        {
+            <li>
+                <strong>@taskList.Title</strong> @(taskList.IsCompleted ? "✓" : "")
+                <ul>
+                    @foreach (var item in taskList.Items)
+                    {
+                        <li>
+                            @(item.IsCompleted ? "☑" : "☐") @item.Description
+                            @if (item.DueDateUtc is { } dueDate)
+                            {
+                                <small> — termin: @dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
+                            }
+                        </li>
+                    }
+                </ul>
+                <button @onclick="() => GoToEditTaskList(taskList.Id)">Edytuj</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private IReadOnlyList<TaskDto>? _taskLists;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("Tasks page opened, loading task lists");
+        _taskLists = await TasksApiClient.GetTaskListsAsync();
+        Logger.LogInformation("Loaded {TaskListCount} task lists", _taskLists.Count);
+    }
+
+    private void GoToAddTaskList()
+    {
+        Logger.LogInformation("User clicked 'Dodaj listę zadań'");
+        NavigationManager.NavigateTo("/tasks/new");
+    }
+
+    private void GoToEditTaskList(Guid taskListId)
+    {
+        Logger.LogInformation("User clicked 'Edytuj' for task list {TaskListId}", taskListId);
+        NavigationManager.NavigateTo($"/tasks/{taskListId}");
+    }
+}

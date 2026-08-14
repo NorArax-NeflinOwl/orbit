@@ -8,6 +8,10 @@
     <main>
         <AuthorizeView>
             <Authorized>
+                <nav class="main-nav">
+                    <NavLink href="/" Match="NavLinkMatch.All">Notatki</NavLink>
+                    <NavLink href="/tasks">Zadania</NavLink>
+                </nav>
                 <div class="user-bar">
                     <span>@context.User.Identity?.Name</span>
                     <button @onclick="LogoutAsync">Wyloguj</button>

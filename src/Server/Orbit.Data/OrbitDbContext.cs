@@ -10,6 +10,7 @@ public sealed class OrbitDbContext : DbContext
     }
 
     public DbSet<NoteEntity> Notes => Set<NoteEntity>();
+    public DbSet<TaskEntity> Tasks => Set<TaskEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -22,6 +23,29 @@ public sealed class OrbitDbContext : DbContext
             // Every note query is scoped to a single user's notes; this is the index that makes those
             // lookups fast instead of scanning the whole table.
             entity.HasIndex(note => note.UserId);
+        });
+
+        modelBuilder.Entity<TaskEntity>(entity =>
+        {
+            entity.HasKey(task => task.Id);
+            entity.Property(task => task.Title).IsRequired().HasMaxLength(200);
+            // Every task list query is scoped to a single user's task lists; this is the index that
+            // makes those lookups fast instead of scanning the whole table.
+            entity.HasIndex(task => task.UserId);
+
+            // Items are only ever read/written through their owning task list (see TaskRepository), so
+            // there is no reason to expose a top-level DbSet<TaskItemEntity> - this navigation is the
+            // only way EF Core needs to know about them.
+            entity.HasMany(task => task.Items)
+                .WithOne()
+                .HasForeignKey(item => item.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaskItemEntity>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Description).IsRequired().HasMaxLength(500);
         });
 
         modelBuilder.Entity<UserEntity>(entity =>
