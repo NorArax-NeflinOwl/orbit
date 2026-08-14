@@ -8,8 +8,7 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// Lowest level: log everything, including user interactions, to the browser console.
-builder.Logging.SetMinimumLevel(LogLevel.Trace);
+builder.Logging.SetMinimumLevel(LogLevel.Error);
 
 // Read from wwwroot/appsettings.json (or appsettings.Development.json under `dotnet run`/`dotnet
 // watch`, which the Blazor dev server selects automatically). This runs in the browser, so it must
@@ -28,6 +27,8 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddHttpClient<NotesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<TasksApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<AuthApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();

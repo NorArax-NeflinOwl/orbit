@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Orbit.Api.Auth;
+using Orbit.Api.Calendar;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Notes;
 using Orbit.Api.Tasks;
@@ -133,6 +134,7 @@ try
     app.MapAuthEndpoints();
     app.MapNoteEndpoints();
     app.MapTaskEndpoints();
+    app.MapCalendarEndpoints();
     app.MapHealthEndpoints();
 
     app.Run();

@@ -1,0 +1,94 @@
+@page "/calendar"
+@attribute [Authorize]
+@using Orbit.Contracts.Calendar
+@using Orbit.Web.Services
+@inject CalendarApiClient CalendarApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<Calendar> Logger
+
+<PageTitle>Orbit — Kalendarz</PageTitle>
+
+<h1>Kalendarz</h1>
+
+<p><button @onclick="GoToAddEvent">Dodaj wydarzenie</button></p>
+
+@if (_events is null)
+{
+    <p>Ładowanie…</p>
+}
+else if (_events.Count == 0)
+{
+    <p>Brak wydarzeń.</p>
+}
+else
+{
+    <ul>
+        @foreach (var calendarEvent in _events)
+        {
+            <li>
+                <strong>@calendarEvent.Details.Title</strong>
+                @if (!string.IsNullOrWhiteSpace(calendarEvent.Details.Color))
+                {
+                    <span style="display:inline-block;width:0.75em;height:0.75em;background-color:@calendarEvent.Details.Color;border-radius:50%;"></span>
+                }
+                <br>
+                <small>@FormatTimeRange(calendarEvent.Details)</small>
+                @if (!string.IsNullOrWhiteSpace(calendarEvent.Details.Location))
+                {
+                    <br><small>Lokalizacja: @calendarEvent.Details.Location</small>
+                }
+                @if (calendarEvent.Details.Recurrence is { } recurrence)
+                {
+                    <br><small>Powtarza się: @FormatRecurrence(recurrence)</small>
+                }
+                @if (calendarEvent.Details.Guests.Count > 0)
+                {
+                    <br><small>Goście: @string.Join(", ", calendarEvent.Details.Guests)</small>
+                }
+                <br>
+                <button @onclick="() => GoToEditEvent(calendarEvent.Id)">Edytuj</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private IReadOnlyList<CalendarEventDto>? _events;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("Calendar page opened, loading events");
+        _events = await CalendarApiClient.GetCalendarEventsAsync();
+        Logger.LogInformation("Loaded {EventCount} calendar events", _events.Count);
+    }
+
+    private void GoToAddEvent()
+    {
+        Logger.LogInformation("User clicked 'Dodaj wydarzenie'");
+        NavigationManager.NavigateTo("/calendar/new");
+    }
+
+    private void GoToEditEvent(Guid eventId)
+    {
+        Logger.LogInformation("User clicked 'Edytuj' for calendar event {EventId}", eventId);
+        NavigationManager.NavigateTo($"/calendar/{eventId}");
+    }
+
+    private static string FormatTimeRange(CalendarEventDetailsDto details)
+        => details.IsAllDay
+            ? $"{details.StartUtc.LocalDateTime:dd.MM.yyyy} (cały dzień)"
+            : $"{details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm} – {details.EndUtc.LocalDateTime:dd.MM.yyyy HH:mm}";
+
+    private static string FormatRecurrence(RecurrenceDto recurrence)
+    {
+        var frequencyLabel = recurrence.Frequency switch
+        {
+            "Daily" => "co dzień",
+            "Weekly" => "co tydzień",
+            "Monthly" => "co miesiąc",
+            _ => recurrence.Frequency
+        };
+        var intervalLabel = recurrence.IntervalCount > 1 ? $"{frequencyLabel} (co {recurrence.IntervalCount})" : frequencyLabel;
+        return recurrence.UntilUtc is { } until ? $"{intervalLabel}, do {until.LocalDateTime:dd.MM.yyyy}" : intervalLabel;
+    }
+}

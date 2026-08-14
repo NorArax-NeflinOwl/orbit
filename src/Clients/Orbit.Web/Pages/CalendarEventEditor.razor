@@ -1,0 +1,253 @@
+@page "/calendar/new"
+@page "/calendar/{Id:guid}"
+@attribute [Authorize]
+@using Orbit.Contracts.Calendar
+@using Orbit.Web.Services
+@inject CalendarApiClient CalendarApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<CalendarEventEditor> Logger
+
+<PageTitle>@(IsNewEvent ? "Nowe wydarzenie" : "Edytuj wydarzenie")</PageTitle>
+
+<h1>@(IsNewEvent ? "Nowe wydarzenie" : "Edytuj wydarzenie")</h1>
+
+@if (_isLoading)
+{
+    <p>Ładowanie…</p>
+}
+else
+{
+    <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
+        <div>
+            <label>Tytuł</label>
+            <InputText @bind-Value="_formModel.Title" />
+        </div>
+        <div>
+            <label>Opis</label>
+            <InputTextArea @bind-Value="_formModel.Description" />
+        </div>
+        <div>
+            <label>Lokalizacja</label>
+            <InputText @bind-Value="_formModel.Location" />
+        </div>
+        <div>
+            <label>Kolor</label>
+            <input type="color" @bind="_formModel.Color" />
+        </div>
+        <div>
+            <label>
+                <InputCheckbox @bind-Value="_formModel.IsAllDay" />
+                Wydarzenie całodniowe
+            </label>
+        </div>
+        <div>
+            <label>Początek</label>
+            <InputDate @bind-Value="_formModel.StartDate" />
+            @if (!_formModel.IsAllDay)
+            {
+                <input type="time" @bind="_formModel.StartTime" />
+            }
+        </div>
+        <div>
+            <label>Koniec</label>
+            <InputDate @bind-Value="_formModel.EndDate" />
+            @if (!_formModel.IsAllDay)
+            {
+                <input type="time" @bind="_formModel.EndTime" />
+            }
+        </div>
+        <div>
+            <label>
+                <InputCheckbox @bind-Value="_formModel.IsRecurring" />
+                Wydarzenie cykliczne
+            </label>
+        </div>
+        @if (_formModel.IsRecurring)
+        {
+            <div>
+                <label>Częstotliwość</label>
+                <InputSelect @bind-Value="_formModel.RecurrenceFrequency">
+                    <option value="Daily">Co dzień</option>
+                    <option value="Weekly">Co tydzień</option>
+                    <option value="Monthly">Co miesiąc</option>
+                </InputSelect>
+            </div>
+            <div>
+                <label>Co ile</label>
+                <InputNumber @bind-Value="_formModel.RecurrenceIntervalCount" />
+            </div>
+            <div>
+                <label>Powtarzaj do (opcjonalnie)</label>
+                <InputDate @bind-Value="_formModel.RecurrenceUntil" />
+            </div>
+        }
+        <div>
+            <label>Goście (adresy e-mail oddzielone przecinkami)</label>
+            <InputText @bind-Value="_formModel.GuestsText" />
+        </div>
+        <div>
+            <label>Przypomnienia (minuty przed wydarzeniem, oddzielone przecinkami)</label>
+            <InputText @bind-Value="_formModel.RemindersText" />
+        </div>
+
+        <div>
+            <button type="submit">Zapisz</button>
+            <button type="button" @onclick="Cancel">Anuluj</button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private bool IsNewEvent => Id is null;
+    private bool _isLoading = true;
+    private CalendarEventFormModel _formModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is { } eventId)
+        {
+            Logger.LogInformation("Calendar event editor opened for event {EventId}", eventId);
+            var calendarEvent = await CalendarApiClient.GetCalendarEventByIdAsync(eventId);
+            if (calendarEvent is not null)
+            {
+                _formModel = CalendarEventFormModel.FromDto(calendarEvent.Details);
+            }
+        }
+        else
+        {
+            Logger.LogInformation("Calendar event editor opened for a new event");
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        Logger.LogInformation(
+            "User clicked 'Zapisz' ({Mode}, EventId={EventId})", IsNewEvent ? "create" : "update", Id);
+
+        var details = _formModel.ToRequest();
+
+        if (IsNewEvent)
+        {
+            var newEventId = await CalendarApiClient.CreateCalendarEventAsync(new CreateCalendarEventRequest(details));
+            Logger.LogInformation("Calendar event {EventId} created", newEventId);
+        }
+        else
+        {
+            await CalendarApiClient.UpdateCalendarEventAsync(Id!.Value, new UpdateCalendarEventRequest(details));
+            Logger.LogInformation("Calendar event {EventId} updated", Id);
+        }
+
+        NavigationManager.NavigateTo("/calendar");
+    }
+
+    private void Cancel()
+    {
+        Logger.LogInformation("User clicked 'Anuluj'");
+        NavigationManager.NavigateTo("/calendar");
+    }
+
+    private sealed class CalendarEventFormModel
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public string Color { get; set; } = "#4a90d9";
+        public bool IsAllDay { get; set; }
+        public DateOnly? StartDate { get; set; }
+        public TimeOnly? StartTime { get; set; }
+        public DateOnly? EndDate { get; set; }
+        public TimeOnly? EndTime { get; set; }
+        public bool IsRecurring { get; set; }
+        public string RecurrenceFrequency { get; set; } = "Weekly";
+        public int RecurrenceIntervalCount { get; set; } = 1;
+        public DateOnly? RecurrenceUntil { get; set; }
+        public string GuestsText { get; set; } = string.Empty;
+        public string RemindersText { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Defaults a new event to start now and end an hour later. Start and end are each derived from
+        /// a single timestamp (rather than combining DateTime.Today with a separately-computed time) so
+        /// the end date rolls over correctly when starting late enough that adding an hour crosses
+        /// midnight - otherwise the end date could default to the still-current day while the end time
+        /// wraps to just after midnight, putting the end before the start.
+        /// </summary>
+        public CalendarEventFormModel()
+        {
+            var start = DateTime.Now;
+            var end = start.AddHours(1);
+            StartDate = DateOnly.FromDateTime(start);
+            StartTime = TimeOnly.FromDateTime(start);
+            EndDate = DateOnly.FromDateTime(end);
+            EndTime = TimeOnly.FromDateTime(end);
+        }
+
+        public static CalendarEventFormModel FromDto(CalendarEventDetailsDto details)
+            => new()
+            {
+                Title = details.Title,
+                Description = details.Description ?? string.Empty,
+                Location = details.Location ?? string.Empty,
+                Color = string.IsNullOrWhiteSpace(details.Color) ? "#4a90d9" : details.Color,
+                IsAllDay = details.IsAllDay,
+                StartDate = DateOnly.FromDateTime(details.StartUtc.LocalDateTime),
+                StartTime = TimeOnly.FromDateTime(details.StartUtc.LocalDateTime),
+                EndDate = DateOnly.FromDateTime(details.EndUtc.LocalDateTime),
+                EndTime = TimeOnly.FromDateTime(details.EndUtc.LocalDateTime),
+                IsRecurring = details.Recurrence is not null,
+                RecurrenceFrequency = details.Recurrence?.Frequency ?? "Weekly",
+                RecurrenceIntervalCount = details.Recurrence?.IntervalCount ?? 1,
+                RecurrenceUntil = details.Recurrence?.UntilUtc is { } until ? DateOnly.FromDateTime(until.LocalDateTime) : null,
+                GuestsText = string.Join(", ", details.Guests),
+                RemindersText = string.Join(", ", details.ReminderMinutesBeforeStart)
+            };
+
+        public CalendarEventDetailsRequest ToRequest()
+        {
+            var startUtc = ToDateTimeOffset(StartDate, StartTime, IsAllDay);
+            var endUtc = ToDateTimeOffset(EndDate, EndTime, IsAllDay);
+            var recurrence = IsRecurring
+                ? new RecurrenceRequest(RecurrenceFrequency, RecurrenceIntervalCount, ToOptionalDateTimeOffset(RecurrenceUntil))
+                : null;
+
+            return new CalendarEventDetailsRequest(
+                Title,
+                string.IsNullOrWhiteSpace(Description) ? null : Description,
+                string.IsNullOrWhiteSpace(Location) ? null : Location,
+                Color,
+                startUtc,
+                endUtc,
+                IsAllDay,
+                recurrence,
+                ParseCommaSeparatedList(GuestsText),
+                ParseCommaSeparatedIntegers(RemindersText));
+        }
+
+        /// <summary>
+        /// Combines the separately-edited date and time-of-day into the single timestamp the API
+        /// expects. All-day events are anchored to local midnight regardless of the time field.
+        /// </summary>
+        private static DateTimeOffset ToDateTimeOffset(DateOnly? date, TimeOnly? time, bool isAllDay)
+        {
+            var effectiveDate = date ?? DateOnly.FromDateTime(DateTime.Today);
+            var effectiveTime = isAllDay ? TimeOnly.MinValue : time ?? TimeOnly.MinValue;
+            return new DateTimeOffset(effectiveDate.ToDateTime(effectiveTime, DateTimeKind.Local));
+        }
+
+        private static DateTimeOffset? ToOptionalDateTimeOffset(DateOnly? date)
+            => date is { } value ? new DateTimeOffset(value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local)) : null;
+
+        private static List<string> ParseCommaSeparatedList(string text)
+            => text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+        private static List<int> ParseCommaSeparatedIntegers(string text)
+            => text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(part => int.TryParse(part, out _))
+                .Select(int.Parse)
+                .ToList();
+    }
+}

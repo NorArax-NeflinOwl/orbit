@@ -11,6 +11,7 @@ public sealed class OrbitDbContext : DbContext
 
     public DbSet<NoteEntity> Notes => Set<NoteEntity>();
     public DbSet<TaskEntity> Tasks => Set<TaskEntity>();
+    public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -46,6 +47,19 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(item => item.Id);
             entity.Property(item => item.Description).IsRequired().HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<CalendarEventEntity>(entity =>
+        {
+            entity.HasKey(calendarEvent => calendarEvent.Id);
+            entity.Property(calendarEvent => calendarEvent.Title).IsRequired().HasMaxLength(200);
+            entity.Property(calendarEvent => calendarEvent.Description).HasMaxLength(2000);
+            entity.Property(calendarEvent => calendarEvent.Location).HasMaxLength(300);
+            entity.Property(calendarEvent => calendarEvent.Color).HasMaxLength(20);
+            entity.Property(calendarEvent => calendarEvent.RecurrenceFrequency).HasMaxLength(20);
+            // Every calendar event query is scoped to a single user's events; this is the index that
+            // makes those lookups fast instead of scanning the whole table.
+            entity.HasIndex(calendarEvent => calendarEvent.UserId);
         });
 
         modelBuilder.Entity<UserEntity>(entity =>

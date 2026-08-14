@@ -1,6 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Calendar;
+using Orbit.Core.Calendar.CreateCalendarEvent;
+using Orbit.Core.Calendar.GetCalendarEventById;
+using Orbit.Core.Calendar.GetCalendarEvents;
+using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.CreateNote;
 using Orbit.Core.Notes.GetNoteById;
@@ -34,6 +39,11 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, bool>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
+
+        services.AddScoped<IRequestHandler<CreateCalendarEventCommand, Guid>, CreateCalendarEventCommandHandler>();
+        services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, bool>, UpdateCalendarEventCommandHandler>();
+        services.AddScoped<IRequestHandler<GetCalendarEventsQuery, IReadOnlyList<CalendarEvent>>, GetCalendarEventsQueryHandler>();
+        services.AddScoped<IRequestHandler<GetCalendarEventByIdQuery, CalendarEvent?>, GetCalendarEventByIdQueryHandler>();
 
         services.AddScoped<IRequestHandler<RegisterUserCommand, RegisterUserResult>, RegisterUserCommandHandler>();
         services.AddScoped<IRequestHandler<LoginQuery, User?>, LoginQueryHandler>();

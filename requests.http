@@ -53,3 +53,49 @@ Authorization: Bearer {{token}}
 
 ### Without a token at all, this should now return 401 (previously it returned notes for everyone).
 GET {{baseUrl}}/api/notes
+
+### Should be empty ([]) the first time.
+GET {{baseUrl}}/api/tasks
+Authorization: Bearer {{token}}
+
+### Create a task list. isCompleted on the task list itself is derived server-side from whether every
+### item is completed, so it's ignored here even if you set it - see the "Tasks" section in README.md.
+# @name createTaskList
+POST {{baseUrl}}/api/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Groceries",
+  "items": [
+    { "description": "Buy milk", "dueDateUtc": "2026-08-20T18:00:00Z", "isCompleted": false },
+    { "description": "Buy bread", "dueDateUtc": null, "isCompleted": false }
+  ]
+}
+
+### List task lists again - the one just created should be the only entry.
+GET {{baseUrl}}/api/tasks
+Authorization: Bearer {{token}}
+
+### Fetch it by id (VS Code's REST Client can pick the id up automatically via
+### {{createTaskList.response.body.$}}; if your tool doesn't support that, paste it in by hand).
+@taskListId = {{createTaskList.response.body.$}}
+GET {{baseUrl}}/api/tasks/{{taskListId}}
+Authorization: Bearer {{token}}
+
+### Update it - checking off both items should flip isCompleted to true on the task list itself.
+PUT {{baseUrl}}/api/tasks/{{taskListId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Groceries",
+  "items": [
+    { "description": "Buy milk", "dueDateUtc": "2026-08-20T18:00:00Z", "isCompleted": true },
+    { "description": "Buy bread", "dueDateUtc": null, "isCompleted": true }
+  ]
+}
+
+### Fetch it again - isCompleted should now be true.
+GET {{baseUrl}}/api/tasks/{{taskListId}}
+Authorization: Bearer {{token}}
