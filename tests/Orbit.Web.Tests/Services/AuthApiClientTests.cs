@@ -10,13 +10,29 @@ namespace Orbit.Web.Tests.Services;
 public sealed class AuthApiClientTests
 {
     [Fact]
-    public async Task LoginAsync_stores_the_token_and_reports_success_for_valid_credentials()
+    public async Task LoginAsync_stores_the_token_and_reports_success_for_a_valid_email()
     {
         var authResponse = new AuthResponse("a-token", Guid.NewGuid(), "user@example.com", "User");
         var tokenStore = new TokenStore(new StubJSRuntime());
         var client = new AuthApiClient(CreateHttpClient(_ => JsonResponse(authResponse)), tokenStore);
 
         var result = await client.LoginAsync("user@example.com", "correct-password");
+
+        Assert.Equal(AuthOutcome.Success, result.Outcome);
+        Assert.Equal("a-token", await tokenStore.GetTokenAsync());
+    }
+
+    [Fact]
+    public async Task LoginAsync_stores_the_token_and_reports_success_for_a_valid_username()
+    {
+        // AuthApiClient forwards whatever identifier it's given without inspecting it - the API
+        // decides whether it looks like an email or a username - so this exercises the same code path
+        // as the email test above with a username-shaped value instead.
+        var authResponse = new AuthResponse("a-token", Guid.NewGuid(), "user@example.com", "User");
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        var client = new AuthApiClient(CreateHttpClient(_ => JsonResponse(authResponse)), tokenStore);
+
+        var result = await client.LoginAsync("username", "correct-password");
 
         Assert.Equal(AuthOutcome.Success, result.Outcome);
         Assert.Equal("a-token", await tokenStore.GetTokenAsync());
@@ -41,21 +57,21 @@ public sealed class AuthApiClientTests
         var tokenStore = new TokenStore(new StubJSRuntime());
         var client = new AuthApiClient(CreateHttpClient(_ => JsonResponse(authResponse)), tokenStore);
 
-        var result = await client.RegisterAsync("new@example.com", "New User", "s3cret-password");
+        var result = await client.RegisterAsync("new@example.com", "newuser", "New User", "s3cret-password");
 
         Assert.Equal(AuthOutcome.Success, result.Outcome);
         Assert.Equal("a-token", await tokenStore.GetTokenAsync());
     }
 
     [Fact]
-    public async Task RegisterAsync_reports_email_already_registered_without_storing_a_token()
+    public async Task RegisterAsync_reports_email_or_username_already_taken_without_storing_a_token()
     {
         var tokenStore = new TokenStore(new StubJSRuntime());
         var client = new AuthApiClient(CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict)), tokenStore);
 
-        var result = await client.RegisterAsync("taken@example.com", "Someone", "password");
+        var result = await client.RegisterAsync("taken@example.com", "takenname", "Someone", "password");
 
-        Assert.Equal(AuthOutcome.EmailAlreadyRegistered, result.Outcome);
+        Assert.Equal(AuthOutcome.EmailOrUserNameAlreadyTaken, result.Outcome);
         Assert.Null(await tokenStore.GetTokenAsync());
     }
 

@@ -16,7 +16,7 @@ public static class AuthEndpoints
             RegisterUserRequest request, IDispatcher dispatcher, TokenService tokenService, CancellationToken cancellationToken) =>
         {
             var result = await dispatcher.SendAsync(
-                new RegisterUserCommand(request.Email, request.DisplayName, request.Password), cancellationToken);
+                new RegisterUserCommand(request.Email, request.UserName, request.DisplayName, request.Password), cancellationToken);
 
             if (result.User is null)
             {
@@ -29,7 +29,7 @@ public static class AuthEndpoints
         auth.MapPost("/login", async (
             LoginRequest request, IDispatcher dispatcher, TokenService tokenService, CancellationToken cancellationToken) =>
         {
-            var user = await dispatcher.SendAsync(new LoginQuery(request.Email, request.Password), cancellationToken);
+            var user = await dispatcher.SendAsync(new LoginQuery(request.EmailOrUserName, request.Password), cancellationToken);
 
             return user is null ? Results.Unauthorized() : Results.Ok(ToAuthResponse(user, tokenService));
         });

@@ -20,22 +20,24 @@ public sealed class AuthApiClient
         _tokenStore = tokenStore;
     }
 
-    public async Task<AuthResult> RegisterAsync(string email, string displayName, string password, CancellationToken cancellationToken = default)
+    public async Task<AuthResult> RegisterAsync(
+        string email, string userName, string displayName, string password, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(
-            "api/auth/register", new RegisterUserRequest(email, displayName, password), cancellationToken);
+            "api/auth/register", new RegisterUserRequest(email, userName, displayName, password), cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
-            return AuthResult.EmailAlreadyRegistered();
+            return AuthResult.EmailOrUserNameAlreadyTaken();
         }
 
         return await StoreTokenAndSucceedAsync(response, cancellationToken);
     }
 
-    public async Task<AuthResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
+    public async Task<AuthResult> LoginAsync(string emailOrUserName, string password, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/auth/login", new LoginRequest(email, password), cancellationToken);
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/auth/login", new LoginRequest(emailOrUserName, password), cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {

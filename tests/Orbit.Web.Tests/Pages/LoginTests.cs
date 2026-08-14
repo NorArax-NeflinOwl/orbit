@@ -28,13 +28,27 @@ public sealed class LoginTests : TestContext
     }
 
     [Fact]
-    public void Submitting_valid_credentials_navigates_to_the_notes_page()
+    public void Submitting_a_valid_email_navigates_to_the_notes_page()
     {
         RegisterAuthApiClient(_ => JsonResponse(new AuthResponse("a-token", Guid.NewGuid(), "user@example.com", "User")));
         var navigationManager = Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderComponent<Login>();
-        cut.Find("#email").Change("user@example.com");
+        cut.Find("#emailOrUserName").Change("user@example.com");
+        cut.Find("#password").Change("correct-password");
+        cut.Find("form").Submit();
+
+        Assert.EndsWith("/", navigationManager.Uri);
+    }
+
+    [Fact]
+    public void Submitting_a_valid_username_navigates_to_the_notes_page()
+    {
+        RegisterAuthApiClient(_ => JsonResponse(new AuthResponse("a-token", Guid.NewGuid(), "user@example.com", "User")));
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+
+        var cut = RenderComponent<Login>();
+        cut.Find("#emailOrUserName").Change("username");
         cut.Find("#password").Change("correct-password");
         cut.Find("form").Submit();
 
@@ -47,11 +61,11 @@ public sealed class LoginTests : TestContext
         RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
 
         var cut = RenderComponent<Login>();
-        cut.Find("#email").Change("user@example.com");
+        cut.Find("#emailOrUserName").Change("user@example.com");
         cut.Find("#password").Change("wrong-password");
         cut.Find("form").Submit();
 
-        Assert.Contains("Nieprawidłowy e-mail lub hasło.", cut.Markup);
+        Assert.Contains("Nieprawidłowy e-mail, login lub hasło.", cut.Markup);
     }
 
     private void RegisterAuthApiClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

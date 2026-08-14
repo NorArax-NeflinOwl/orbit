@@ -14,12 +14,13 @@ public sealed class RegisterUserCommandHandlerTests
         var handler = new RegisterUserCommandHandler(repository, new PasswordHasher());
 
         var result = await handler.HandleAsync(
-            new RegisterUserCommand("New@Example.com", "New User", "s3cret-password"), CancellationToken.None);
+            new RegisterUserCommand("New@Example.com", "NewUser", "New User", "s3cret-password"), CancellationToken.None);
 
         Assert.NotNull(result.User);
         Assert.Null(result.Error);
-        // Registration normalizes the email so login is case-insensitive.
+        // Registration normalizes the email and username so login is case-insensitive for both.
         Assert.Equal("new@example.com", result.User!.Email);
+        Assert.Equal("newuser", result.User.UserName);
         Assert.NotEqual("s3cret-password", result.User.PasswordHash);
 
         var stored = await repository.GetByEmailAsync("new@example.com", CancellationToken.None);
@@ -32,10 +33,27 @@ public sealed class RegisterUserCommandHandlerTests
         var repository = new InMemoryUserRepository();
         var passwordHasher = new PasswordHasher();
         var handler = new RegisterUserCommandHandler(repository, passwordHasher);
-        await handler.HandleAsync(new RegisterUserCommand("taken@example.com", "First", "password-one"), CancellationToken.None);
+        await handler.HandleAsync(
+            new RegisterUserCommand("taken@example.com", "first", "First", "password-one"), CancellationToken.None);
 
         var result = await handler.HandleAsync(
-            new RegisterUserCommand("taken@example.com", "Second", "password-two"), CancellationToken.None);
+            new RegisterUserCommand("taken@example.com", "second", "Second", "password-two"), CancellationToken.None);
+
+        Assert.Null(result.User);
+        Assert.NotNull(result.Error);
+    }
+
+    [Fact]
+    public async Task HandleAsync_rejects_a_username_that_is_already_taken()
+    {
+        var repository = new InMemoryUserRepository();
+        var passwordHasher = new PasswordHasher();
+        var handler = new RegisterUserCommandHandler(repository, passwordHasher);
+        await handler.HandleAsync(
+            new RegisterUserCommand("first@example.com", "TakenName", "First", "password-one"), CancellationToken.None);
+
+        var result = await handler.HandleAsync(
+            new RegisterUserCommand("second@example.com", "takenname", "Second", "password-two"), CancellationToken.None);
 
         Assert.Null(result.User);
         Assert.NotNull(result.Error);

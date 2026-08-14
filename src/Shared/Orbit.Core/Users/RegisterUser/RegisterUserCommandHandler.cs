@@ -15,17 +15,23 @@ public sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserCom
 
     public async Task<RegisterUserResult> HandleAsync(RegisterUserCommand request, CancellationToken cancellationToken)
     {
-        // Normalized so "a@b.com" and "A@B.com" are treated as the same account both here and at login.
+        // Normalized so "a@b.com"/"A@B.com" and "alice"/"Alice" are treated as the same account both
+        // here and at login.
         var email = request.Email.Trim().ToLowerInvariant();
+        var userName = request.UserName.Trim().ToLowerInvariant();
 
-        var existingUser = await _userRepository.GetByEmailAsync(email, cancellationToken);
-        if (existingUser is not null)
+        if (await _userRepository.GetByEmailAsync(email, cancellationToken) is not null)
         {
             return RegisterUserResult.Failure("An account with this email address already exists.");
         }
 
+        if (await _userRepository.GetByUserNameAsync(userName, cancellationToken) is not null)
+        {
+            return RegisterUserResult.Failure("This username is already taken.");
+        }
+
         var passwordHash = _passwordHasher.Hash(request.Password);
-        var user = User.Create(email, request.DisplayName, passwordHash);
+        var user = User.Create(email, userName, request.DisplayName, passwordHash);
         await _userRepository.AddAsync(user, cancellationToken);
 
         return RegisterUserResult.Success(user);

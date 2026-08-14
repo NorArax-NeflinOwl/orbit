@@ -11,8 +11,8 @@
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync">
     <div>
-        <label>E-mail</label>
-        <InputText id="email" @bind-Value="_formModel.Email" />
+        <label>E-mail lub login</label>
+        <InputText id="emailOrUserName" @bind-Value="_formModel.EmailOrUserName" />
     </div>
     <div>
         <label>Hasło</label>
@@ -40,7 +40,7 @@
         _isSubmitting = true;
         _errorMessage = null;
 
-        var result = await AuthApiClient.LoginAsync(_formModel.Email, _formModel.Password);
+        var result = await AuthApiClient.LoginAsync(_formModel.EmailOrUserName, _formModel.Password);
         if (result.Outcome == AuthOutcome.Success)
         {
             Logger.LogInformation("User logged in");
@@ -51,7 +51,7 @@
 
         _errorMessage = result.Outcome switch
         {
-            AuthOutcome.InvalidCredentials => "Nieprawidłowy e-mail lub hasło.",
+            AuthOutcome.InvalidCredentials => "Nieprawidłowy e-mail, login lub hasło.",
             _ => "Wystąpił błąd podczas logowania. Spróbuj ponownie."
         };
         _isSubmitting = false;
@@ -59,7 +59,7 @@
 
     private sealed class LoginFormModel
     {
-        public string Email { get; set; } = string.Empty;
+        public string EmailOrUserName { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }
 }

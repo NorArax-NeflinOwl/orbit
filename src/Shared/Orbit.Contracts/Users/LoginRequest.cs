@@ -1,3 +1,3 @@
 namespace Orbit.Contracts.Users;
 
-public sealed record LoginRequest(string Email, string Password);
+public sealed record LoginRequest(string EmailOrUserName, string Password);

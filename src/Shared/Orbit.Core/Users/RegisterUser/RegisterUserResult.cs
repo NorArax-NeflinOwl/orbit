@@ -2,7 +2,7 @@ namespace Orbit.Core.Users.RegisterUser;
 
 /// <summary>
 /// Outcome of <see cref="RegisterUserCommand"/>: either the newly created user, or the reason
-/// registration was rejected (currently just a taken email address).
+/// registration was rejected (currently a taken email address or a taken username).
 /// </summary>
 public sealed class RegisterUserResult
 {

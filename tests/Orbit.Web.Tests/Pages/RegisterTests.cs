@@ -35,6 +35,7 @@ public sealed class RegisterTests : TestContext
 
         var cut = RenderComponent<Register>();
         cut.Find("#email").Change("new@example.com");
+        cut.Find("#userName").Change("newuser");
         cut.Find("#displayName").Change("New User");
         cut.Find("#password").Change("s3cret-password");
         cut.Find("form").Submit();
@@ -43,17 +44,18 @@ public sealed class RegisterTests : TestContext
     }
 
     [Fact]
-    public void Submitting_an_email_that_is_already_registered_shows_a_polish_error_message()
+    public void Submitting_an_email_or_username_that_is_already_taken_shows_a_polish_error_message()
     {
         RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict));
 
         var cut = RenderComponent<Register>();
         cut.Find("#email").Change("taken@example.com");
+        cut.Find("#userName").Change("takenname");
         cut.Find("#displayName").Change("Someone");
         cut.Find("#password").Change("password");
         cut.Find("form").Submit();
 
-        Assert.Contains("Ten adres e-mail jest już zarejestrowany.", cut.Markup);
+        Assert.Contains("Ten adres e-mail lub login jest już zajęty.", cut.Markup);
     }
 
     private void RegisterAuthApiClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

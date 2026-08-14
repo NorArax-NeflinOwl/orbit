@@ -4,26 +4,28 @@
 
 @baseUrl = http://localhost:8081
 
-### Register a new account. Change the email if you run this more than once - it's unique per account.
+### Register a new account. Change the email/userName if you run this more than once - both are unique
+### per account.
 # @name register
 POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
   "email": "test@example.com",
+  "userName": "testuser",
   "displayName": "Test User",
   "password": "correct horse battery staple"
 }
 
-### Log in with the same credentials. Copy the "token" value from the response into @token below
-### (VS Code's REST Client can do this automatically via {{login.response.body.$.token}}; if your
-### tool doesn't support that, paste it in by hand).
+### Log in with the same credentials - emailOrUserName accepts either one. Copy the "token" value from
+### the response into @token below (VS Code's REST Client can do this automatically via
+### {{login.response.body.$.token}}; if your tool doesn't support that, paste it in by hand).
 # @name login
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "test@example.com",
+  "emailOrUserName": "testuser",
   "password": "correct horse battery staple"
 }
 

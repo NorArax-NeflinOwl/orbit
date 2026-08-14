@@ -42,9 +42,11 @@ themselves (rendered with [bUnit](https://bunit.dev)).
 
 ## Authentication
 
-`POST /api/auth/register` (`email`, `displayName`, `password`) and `POST /api/auth/login` (`email`,
-`password`) both return `{ token, userId, email, displayName }` on success. Send the token on every
-`/api/notes` request as `Authorization: Bearer <token>`; without it, the API returns 401.
+`POST /api/auth/register` (`email`, `userName`, `displayName`, `password`) and `POST /api/auth/login`
+(`emailOrUserName`, `password`) both return `{ token, userId, email, displayName }` on success. Login
+accepts either the account's email address or its username in the same field - both are unique, so
+there's no ambiguity. Send the token on every `/api/notes` request as `Authorization: Bearer <token>`;
+without it, the API returns 401.
 
 The Blazor client handles this itself once signed in: `/login` and `/register` call the endpoints
 above, store the returned token in `localStorage`, and a `DelegatingHandler` attaches it as a bearer
@@ -79,9 +81,10 @@ This starts:
   `/api/notes`)
 - the [Aspire dashboard](http://localhost:18888) for live logs and traces from the API
 
-If you already had the stack running before the accounts feature was added, delete `data/orbit.db` (and
-any `orbit.db-shm`/`orbit.db-wal` next to it) first — the API creates its SQLite schema once on first
-run (`EnsureCreated`, not migrations) and won't add the new `Users` table to an existing database file.
+If you already had the stack running before the accounts feature was added, or before login-by-username
+was added, delete `data/orbit.db` (and any `orbit.db-shm`/`orbit.db-wal` next to it) first — the API
+creates its SQLite schema once on first run (`EnsureCreated`, not migrations) and won't add the new
+`Users` table, or the `UserName` column on it, to an existing database file.
 
 Alternatively, each project can be run directly with `dotnet run` from its own folder
 (`src/Server/Orbit.Api`, `src/Clients/Orbit.Web`) using the `https` launch profile; see

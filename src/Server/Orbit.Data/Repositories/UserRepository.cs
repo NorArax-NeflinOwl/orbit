@@ -31,6 +31,15 @@ public sealed class UserRepository : IUserRepository
         return entity is null ? null : ToDomain(entity);
     }
 
+    public async Task<User?> GetByUserNameAsync(string userName, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(user => user.UserName == userName, cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
     public async Task AddAsync(User user, CancellationToken cancellationToken)
     {
         _dbContext.Users.Add(ToEntity(user));
@@ -38,13 +47,14 @@ public sealed class UserRepository : IUserRepository
     }
 
     private static User ToDomain(UserEntity entity)
-        => User.FromPersistence(entity.Id, entity.Email, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc);
+        => User.FromPersistence(entity.Id, entity.Email, entity.UserName, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc);
 
     private static UserEntity ToEntity(User user)
         => new()
         {
             Id = user.Id,
             Email = user.Email,
+            UserName = user.UserName,
             DisplayName = user.DisplayName,
             PasswordHash = user.PasswordHash,
             CreatedAtUtc = user.CreatedAtUtc

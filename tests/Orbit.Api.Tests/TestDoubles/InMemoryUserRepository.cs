@@ -16,6 +16,9 @@ internal sealed class InMemoryUserRepository : IUserRepository
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken)
         => Task.FromResult(_users.FirstOrDefault(user => user.Email == email));
 
+    public Task<User?> GetByUserNameAsync(string userName, CancellationToken cancellationToken)
+        => Task.FromResult(_users.FirstOrDefault(user => user.UserName == userName));
+
     public Task AddAsync(User user, CancellationToken cancellationToken)
     {
         _users.Add(user);

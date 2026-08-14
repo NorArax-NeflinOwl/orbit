@@ -28,11 +28,14 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(user => user.Id);
             entity.Property(user => user.Email).IsRequired().HasMaxLength(320);
+            entity.Property(user => user.UserName).IsRequired().HasMaxLength(64);
             entity.Property(user => user.DisplayName).IsRequired().HasMaxLength(200);
             entity.Property(user => user.PasswordHash).IsRequired();
-            // Registration checks this before creating an account, and login looks users up by it;
-            // the unique index makes both fast and rules out duplicate accounts at the database level.
+            // Registration checks these before creating an account, and login looks users up by
+            // either one; the unique indexes make all of that fast and rule out duplicate accounts or
+            // duplicate usernames at the database level.
             entity.HasIndex(user => user.Email).IsUnique();
+            entity.HasIndex(user => user.UserName).IsUnique();
         });
     }
 }
