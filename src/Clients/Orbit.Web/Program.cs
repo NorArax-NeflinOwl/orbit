@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 using Orbit.Web;
 using Orbit.Web.Services;
 
@@ -14,9 +16,16 @@ builder.Logging.SetMinimumLevel(LogLevel.Error);
 // watch`, which the Blazor dev server selects automatically). This runs in the browser, so it must
 // point at an address the browser can reach - never a docker-compose service name.
 var apiBaseAddress = builder.Configuration["ApiBaseAddress"] ?? "https://localhost:7080/";
+const string tokenRefreshHttpClientName = "Orbit.Web.TokenRefresh";
 
 builder.Services.AddScoped<TokenStore>();
-builder.Services.AddScoped<AuthorizationMessageHandler>();
+
+// A separate, unauthenticated client for AuthorizationMessageHandler's own token-refresh call (see its
+// class comment for why that call can't go through AuthorizationMessageHandler itself).
+builder.Services.AddHttpClient(tokenRefreshHttpClientName, httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress));
+builder.Services.AddScoped<AuthorizationMessageHandler>(services => new AuthorizationMessageHandler(
+    services.GetRequiredService<TokenStore>(),
+    services.GetRequiredService<IHttpClientFactory>().CreateClient(tokenRefreshHttpClientName)));
 
 // Registered once as the concrete type and forwarded from the AuthenticationStateProvider base type,
 // so both injection sites resolve to the same scoped instance.

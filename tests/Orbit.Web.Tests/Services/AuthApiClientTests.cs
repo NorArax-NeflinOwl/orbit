@@ -10,9 +10,9 @@ namespace Orbit.Web.Tests.Services;
 public sealed class AuthApiClientTests
 {
     [Fact]
-    public async Task LoginAsync_stores_the_token_and_reports_success_for_a_valid_email()
+    public async Task LoginAsync_stores_the_tokens_and_reports_success_for_a_valid_email()
     {
-        var authResponse = new AuthResponse("a-token", Guid.NewGuid(), "user@example.com", "User");
+        var authResponse = new AuthResponse("a-token", "a-refresh-token", Guid.NewGuid(), "user@example.com", "User");
         var tokenStore = new TokenStore(new StubJSRuntime());
         var client = new AuthApiClient(CreateHttpClient(_ => JsonResponse(authResponse)), tokenStore);
 
@@ -20,15 +20,16 @@ public sealed class AuthApiClientTests
 
         Assert.Equal(AuthOutcome.Success, result.Outcome);
         Assert.Equal("a-token", await tokenStore.GetTokenAsync());
+        Assert.Equal("a-refresh-token", await tokenStore.GetRefreshTokenAsync());
     }
 
     [Fact]
-    public async Task LoginAsync_stores_the_token_and_reports_success_for_a_valid_username()
+    public async Task LoginAsync_stores_the_tokens_and_reports_success_for_a_valid_username()
     {
         // AuthApiClient forwards whatever identifier it's given without inspecting it - the API
         // decides whether it looks like an email or a username - so this exercises the same code path
         // as the email test above with a username-shaped value instead.
-        var authResponse = new AuthResponse("a-token", Guid.NewGuid(), "user@example.com", "User");
+        var authResponse = new AuthResponse("a-token", "a-refresh-token", Guid.NewGuid(), "user@example.com", "User");
         var tokenStore = new TokenStore(new StubJSRuntime());
         var client = new AuthApiClient(CreateHttpClient(_ => JsonResponse(authResponse)), tokenStore);
 
@@ -36,6 +37,7 @@ public sealed class AuthApiClientTests
 
         Assert.Equal(AuthOutcome.Success, result.Outcome);
         Assert.Equal("a-token", await tokenStore.GetTokenAsync());
+        Assert.Equal("a-refresh-token", await tokenStore.GetRefreshTokenAsync());
     }
 
     [Fact]
@@ -51,9 +53,9 @@ public sealed class AuthApiClientTests
     }
 
     [Fact]
-    public async Task RegisterAsync_stores_the_token_and_reports_success()
+    public async Task RegisterAsync_stores_the_tokens_and_reports_success()
     {
-        var authResponse = new AuthResponse("a-token", Guid.NewGuid(), "new@example.com", "New User");
+        var authResponse = new AuthResponse("a-token", "a-refresh-token", Guid.NewGuid(), "new@example.com", "New User");
         var tokenStore = new TokenStore(new StubJSRuntime());
         var client = new AuthApiClient(CreateHttpClient(_ => JsonResponse(authResponse)), tokenStore);
 
@@ -61,6 +63,7 @@ public sealed class AuthApiClientTests
 
         Assert.Equal(AuthOutcome.Success, result.Outcome);
         Assert.Equal("a-token", await tokenStore.GetTokenAsync());
+        Assert.Equal("a-refresh-token", await tokenStore.GetRefreshTokenAsync());
     }
 
     [Fact]
@@ -73,6 +76,27 @@ public sealed class AuthApiClientTests
 
         Assert.Equal(AuthOutcome.EmailOrUserNameAlreadyTaken, result.Outcome);
         Assert.Null(await tokenStore.GetTokenAsync());
+    }
+
+    [Fact]
+    public async Task LogoutAsync_revokes_the_refresh_token_on_the_api_and_clears_both_stored_tokens()
+    {
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        await tokenStore.SetTokensAsync("a-token", "a-refresh-token");
+        HttpRequestMessage? capturedRequest = null;
+        var client = new AuthApiClient(
+            CreateHttpClient(request =>
+            {
+                capturedRequest = request;
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }),
+            tokenStore);
+
+        await client.LogoutAsync();
+
+        Assert.Equal("api/auth/logout", capturedRequest!.RequestUri!.PathAndQuery.TrimStart('/'));
+        Assert.Null(await tokenStore.GetTokenAsync());
+        Assert.Null(await tokenStore.GetRefreshTokenAsync());
     }
 
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

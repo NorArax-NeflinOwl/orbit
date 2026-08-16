@@ -30,7 +30,7 @@ public sealed class RegisterTests : TestContext
     [Fact]
     public void Submitting_a_new_account_navigates_to_the_notes_page()
     {
-        RegisterAuthApiClient(_ => JsonResponse(new AuthResponse("a-token", Guid.NewGuid(), "new@example.com", "New User")));
+        RegisterAuthApiClient(_ => JsonResponse(new AuthResponse("a-token", "a-refresh-token", Guid.NewGuid(), "new@example.com", "New User")));
         var navigationManager = Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderComponent<Register>();

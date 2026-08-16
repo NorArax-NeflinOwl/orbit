@@ -13,6 +13,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<TaskEntity> Tasks => Set<TaskEntity>();
     public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
+    public DbSet<RefreshTokenEntity> RefreshTokens => Set<RefreshTokenEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,6 +75,17 @@ public sealed class OrbitDbContext : DbContext
             // duplicate usernames at the database level.
             entity.HasIndex(user => user.Email).IsUnique();
             entity.HasIndex(user => user.UserName).IsUnique();
+        });
+
+        modelBuilder.Entity<RefreshTokenEntity>(entity =>
+        {
+            entity.HasKey(refreshToken => refreshToken.Id);
+            // SHA-256 hex digest is always exactly 64 characters.
+            entity.Property(refreshToken => refreshToken.TokenHash).IsRequired().HasMaxLength(64);
+            // A redeemed or revoked token is looked up by its hash on every refresh/logout call; this
+            // unique index makes that lookup fast and guarantees hashes can't collide across rows.
+            entity.HasIndex(refreshToken => refreshToken.TokenHash).IsUnique();
+            entity.HasIndex(refreshToken => refreshToken.UserId);
         });
     }
 }

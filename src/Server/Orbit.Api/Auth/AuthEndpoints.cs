@@ -1,3 +1,4 @@
+using Orbit.Api;
 using Orbit.Contracts.Users;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Users;
@@ -10,10 +11,11 @@ public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this WebApplication app)
     {
-        var auth = app.MapGroup("/api/auth");
+        var auth = app.MapGroup("/api/auth").RequireRateLimiting(RateLimiterPolicyNames.Auth);
 
         auth.MapPost("/register", async (
-            RegisterUserRequest request, IDispatcher dispatcher, TokenService tokenService, CancellationToken cancellationToken) =>
+            RegisterUserRequest request, IDispatcher dispatcher, TokenService tokenService,
+            RefreshTokenService refreshTokenService, CancellationToken cancellationToken) =>
         {
             var result = await dispatcher.SendAsync(
                 new RegisterUserCommand(request.Email, request.UserName, request.DisplayName, request.Password), cancellationToken);
@@ -23,18 +25,54 @@ public static class AuthEndpoints
                 return Results.Conflict(new { message = result.Error });
             }
 
-            return Results.Ok(ToAuthResponse(result.User, tokenService));
+            return Results.Ok(await ToAuthResponseAsync(result.User, tokenService, refreshTokenService, cancellationToken));
         });
 
         auth.MapPost("/login", async (
-            LoginRequest request, IDispatcher dispatcher, TokenService tokenService, CancellationToken cancellationToken) =>
+            LoginRequest request, IDispatcher dispatcher, TokenService tokenService,
+            RefreshTokenService refreshTokenService, CancellationToken cancellationToken) =>
         {
             var user = await dispatcher.SendAsync(new LoginQuery(request.EmailOrUserName, request.Password), cancellationToken);
 
-            return user is null ? Results.Unauthorized() : Results.Ok(ToAuthResponse(user, tokenService));
+            return user is null
+                ? Results.Unauthorized()
+                : Results.Ok(await ToAuthResponseAsync(user, tokenService, refreshTokenService, cancellationToken));
+        });
+
+        auth.MapPost("/refresh", async (
+            RefreshTokenRequest request, IUserRepository userRepository, TokenService tokenService,
+            RefreshTokenService refreshTokenService, CancellationToken cancellationToken) =>
+        {
+            var redemption = await refreshTokenService.RedeemAsync(request.RefreshToken, cancellationToken);
+            if (redemption is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var user = await userRepository.GetByIdAsync(redemption.UserId, cancellationToken);
+            if (user is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            return Results.Ok(ToAuthResponse(user, redemption.RefreshToken, tokenService));
+        });
+
+        auth.MapPost("/logout", async (
+            RefreshTokenRequest request, RefreshTokenService refreshTokenService, CancellationToken cancellationToken) =>
+        {
+            await refreshTokenService.RevokeAsync(request.RefreshToken, cancellationToken);
+            return Results.NoContent();
         });
     }
 
-    private static AuthResponse ToAuthResponse(User user, TokenService tokenService)
-        => new(tokenService.CreateToken(user), user.Id, user.Email, user.DisplayName);
+    private static async Task<AuthResponse> ToAuthResponseAsync(
+        User user, TokenService tokenService, RefreshTokenService refreshTokenService, CancellationToken cancellationToken)
+    {
+        var refreshToken = await refreshTokenService.IssueAsync(user.Id, cancellationToken);
+        return ToAuthResponse(user, refreshToken, tokenService);
+    }
+
+    private static AuthResponse ToAuthResponse(User user, string refreshToken, TokenService tokenService)
+        => new(tokenService.CreateToken(user), refreshToken, user.Id, user.Email, user.DisplayName);
 }

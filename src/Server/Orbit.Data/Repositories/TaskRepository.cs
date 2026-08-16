@@ -77,7 +77,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.UpdatedAtUtc);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
-        => TaskItem.FromPersistence(entity.Id, entity.Description, entity.DueDateUtc, entity.IsCompleted);
+        => TaskItem.FromPersistence(entity.Id, entity.Description, entity.DueDateUtc, entity.IsCompleted, entity.LinkedTaskListId);
 
     private static TaskEntity ToEntity(TaskList taskList)
         => new()
@@ -98,6 +98,7 @@ public sealed class TaskRepository : ITaskRepository
             TaskId = taskId,
             Description = item.Description,
             DueDateUtc = item.DueDateUtc,
-            IsCompleted = item.IsCompleted
+            IsCompleted = item.IsCompleted,
+            LinkedTaskListId = item.LinkedTaskListId
         };
 }

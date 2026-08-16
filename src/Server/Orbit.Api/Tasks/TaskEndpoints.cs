@@ -60,13 +60,15 @@ public static class TaskEndpoints
     }
 
     private static IReadOnlyList<TaskItem> ToDomainItems(IReadOnlyList<TaskItemRequest> items)
-        => items.Select(item => TaskItem.Create(item.Description, item.DueDateUtc, item.IsCompleted)).ToList();
+        => items.Select(item => TaskItem.Create(item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId)).ToList();
 
     private static TaskDto ToDto(TaskList taskList)
         => new(
             taskList.Id,
             taskList.Title,
-            taskList.Items.Select(item => new TaskItemDto(item.Id, item.Description, item.DueDateUtc, item.IsCompleted)).ToList(),
+            taskList.Items
+                .Select(item => new TaskItemDto(item.Id, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId))
+                .ToList(),
             taskList.IsCompleted,
             taskList.CreatedAtUtc,
             taskList.UpdatedAtUtc);

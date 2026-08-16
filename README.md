@@ -16,14 +16,17 @@ location sharing, and the MAUI client are not implemented yet.
 The solution is split into three layers:
 
 - **`src/Server`** — the backend.
-  - `Orbit.Api`: an ASP.NET Core minimal API exposing `/api/auth/register` and `/api/auth/login`
-    (issuing JWTs), the `/api/notes`, `/api/tasks`, and `/api/calendar-events` endpoints (all require a
-    valid JWT and are scoped to the caller's own data), and a set of `/health*` endpoints (liveness,
-    readiness, and a full report covering the database, disk space, external services, and background
-    services). Logs through Serilog and emits OpenTelemetry traces, both at the lowest level.
+  - `Orbit.Api`: an ASP.NET Core minimal API exposing `/api/auth/register`, `/api/auth/login`,
+    `/api/auth/refresh`, and `/api/auth/logout` (see "Authentication" below), the `/api/notes`,
+    `/api/tasks`, and `/api/calendar-events` endpoints (all require a valid JWT and are scoped to the
+    caller's own data), and a set of `/health*` endpoints (liveness, readiness, and a full report
+    covering the database, disk space, external services, and background services). `/api/auth/*` is
+    rate-limited (see "Authentication"). Logs through Serilog and emits OpenTelemetry traces, both at
+    the lowest level.
   - `Orbit.Data`: EF Core persistence on SQLite, isolated behind `INoteRepository`/`ITaskRepository`/
-    `ICalendarEventRepository`/`IUserRepository` so the domain layer in `Orbit.Core` never depends on
-    the storage technology.
+    `ICalendarEventRepository`/`IUserRepository`/`IRefreshTokenRepository` so the domain layer in
+    `Orbit.Core` never depends on the storage technology. Schema changes are applied through EF Core
+    Migrations (see "Running locally").
   - `Orbit.GoogleIntegration`: an empty placeholder project for the future Google Calendar/Contacts
     sync referenced by the calendar feature (see "Calendar" below for what's implemented so far without it).
 - **`src/Clients/Orbit.Web`** — a Blazor WebAssembly client, currently the only client, served as
@@ -37,25 +40,44 @@ The solution is split into three layers:
     reference, so the two can't drift out of sync.
 
 `tests/Orbit.Api.Tests` covers the health check infrastructure and the accounts, notes, tasks, and
-calendar features on the API side (password hashing, registration, login, per-owner note access,
-per-owner task list access including the checklist-completion rule, and per-owner calendar event access
-including the start-before-end validation rule). `tests/Orbit.Web.Tests` covers the Blazor
-client's auth wiring: the token store, the handler that attaches it to outgoing requests,
+calendar features on the API side (password hashing, refresh token issuing/redeeming/revoking,
+registration, login, per-owner note access, per-owner task list access including the
+checklist-completion rule and the task-list-linking rules below, and per-owner calendar event access
+including the start-before-end validation rule). `tests/Orbit.Web.Tests` covers the Blazor client's
+auth wiring: the token store, the
+handler that attaches the access token to outgoing requests and transparently refreshes it after a 401,
 `AuthApiClient`, `OrbitAuthenticationStateProvider`, and the `Login`/`Register` pages themselves
-(rendered with [bUnit](https://bunit.dev)).
+(rendered with [bUnit](https://bunit.dev)). Not covered by an automated test: the `/api/auth/*` rate
+limiter and the exact 429 behavior, and the client-side retry-after-refresh path end-to-end through a
+real `HttpClientHandler` pipeline - both would need HTTP-integration test infrastructure
+(`WebApplicationFactory` on the API side) that this project doesn't have yet.
 
 ## Authentication
 
 `POST /api/auth/register` (`email`, `userName`, `displayName`, `password`) and `POST /api/auth/login`
-(`emailOrUserName`, `password`) both return `{ token, userId, email, displayName }` on success. Login
-accepts either the account's email address or its username in the same field - both are unique, so
-there's no ambiguity. Send the token on every `/api/notes` request as `Authorization: Bearer <token>`;
-without it, the API returns 401.
+(`emailOrUserName`, `password`) both return `{ token, refreshToken, userId, email, displayName }` on
+success. Login accepts either the account's email address or its username in the same field - both are
+unique, so there's no ambiguity. Send the access token on every `/api/notes`-style request as
+`Authorization: Bearer <token>`; without it, the API returns 401.
 
-The Blazor client handles this itself once signed in: `/login` and `/register` call the endpoints
-above, store the returned token in `localStorage`, and a `DelegatingHandler` attaches it as a bearer
-token to every subsequent API call. Any page that isn't explicitly public redirects to `/login` when
-there's no valid token.
+`token` is a short-lived JWT (15 minutes by default, `Jwt:ExpiryMinutes`). `refreshToken` is a
+long-lived (30 days), single-use, opaque value: `POST /api/auth/refresh` (`refreshToken`) exchanges it
+for a new `{ token, refreshToken, ... }` pair and revokes the one that was redeemed, so a leaked refresh
+token that gets replayed after the legitimate client already used it is rejected. `POST /api/auth/logout`
+(`refreshToken`) revokes it outright. Only the SHA-256 hash of a refresh token is ever stored - a
+database leak alone can't be used to sign in as a user, the same way a leaked password hash can't be
+used to log in directly.
+
+The Blazor client handles all of this itself once signed in: `/login` and `/register` call the
+endpoints above and store both returned tokens in `localStorage`; a `DelegatingHandler` attaches the
+access token as a bearer token to every subsequent API call, and if a call comes back 401 (the access
+token expired), transparently redeems the refresh token for a new pair and retries the call once before
+giving up. Logging out revokes the refresh token on the API and clears both tokens locally. Any page
+that isn't explicitly public redirects to `/login` when there's no valid access token.
+
+`/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` are all rate
+limited to 5 requests per minute per client IP address (no queueing - an excess request gets an
+immediate 429), as brute-force protection for login attempts in particular.
 
 The JWT signing key is a secret and is never checked into source control:
 
@@ -71,14 +93,35 @@ Studio's built-in HTTP file support or VS Code's "REST Client" extension).
 ## Tasks
 
 `POST /api/tasks` and `PUT /api/tasks/{id}` both take `{ title, items }`, where each item is
-`{ description, dueDateUtc, isCompleted }` (`dueDateUtc` is optional). `GET /api/tasks` and
-`GET /api/tasks/{id}` return the same shape back, plus `isCompleted` on the task list itself - this is
-derived automatically (a list is complete only once every item on it is checked off) and can't be set
-directly. Updating a task list always replaces its whole checklist rather than patching individual
-items, since the client always sends the full current list back.
+`{ description, dueDateUtc, isCompleted, linkedTaskListId }` (`dueDateUtc` and `linkedTaskListId` are
+both optional). `GET /api/tasks` and `GET /api/tasks/{id}` return the same shape back, plus
+`isCompleted` on the task list itself - this is derived automatically (a list is complete only once
+every item on it is checked off) and can't be set directly. Updating a task list always replaces its
+whole checklist rather than patching individual items, since the client always sends the full current
+list back.
 
 The domain type behind this is named `TaskList`, not `Task`: `Orbit.Core.Tasks.Task` would collide with
 `System.Threading.Tasks.Task`, which every async method in the codebase returns.
+
+An item can instead reference another of the user's task lists via `linkedTaskListId`, rather than
+being independently completable. A linked item's `isCompleted` is entirely derived - it follows the
+referenced list's own completion (true only once every item on that list is checked off) and is
+resolved live on every read (`LinkedTaskCompletionResolver`), the same "never trust the persisted
+completion column, always recompute it" approach `TaskList.IsCompleted` already used, extended
+transitively across a chain of linked lists. Because of this, a linked item's completion **cannot be
+set manually** - `isCompleted` in the request is ignored for a linked item and it is always stored as
+not completed; the only way to complete it is to complete every item on the list it links to.
+
+`linkedTaskListId` is validated on create and update (`TaskListLinkValidator`): it must reference a
+task list that exists and is owned by the same user, an item can't link to the list it belongs to, and
+a link can't close a cycle between task lists (directly, or transitively through a chain of other
+links) - either of the last two would make completion resolution loop forever without this check. A
+validation failure throws `ArgumentException`, which is not caught anywhere and surfaces as an
+unhandled 500, matching how `CalendarEvent`'s start-before-end validation already behaves in this
+codebase. The Blazor client's task editor only excludes linking a list to itself from its dropdown of
+linkable lists; it does not check for longer cycles client-side, so building one still relies on the
+API's validation and surfaces as a failed save rather than a client-side error message - a known rough
+edge, not a silent gap.
 
 In the Blazor client, each item's due date and time are edited separately (`InputDate` plus a native
 `<input type="time">`) and combined into one timestamp on save; a date picked without a time is stored
@@ -123,11 +166,21 @@ This starts:
   `/api/notes`, `/api/tasks`, `/api/calendar-events`)
 - the [Aspire dashboard](http://localhost:18888) for live logs and traces from the API
 
-If you already had the stack running before the accounts feature was added, before login-by-username
-was added, before tasks were added, or before the calendar was added, delete `data/orbit.db` (and any
-`orbit.db-shm`/`orbit.db-wal` next to it) first — the API creates its SQLite schema once on first run
-(`EnsureCreated`, not migrations) and won't add the new `Users` table, the `UserName` column on it, the
-`Tasks`/`TaskItems` tables, or the `CalendarEvents` table, to an existing database file.
+Orbit.Api applies EF Core Migrations on startup (`Database.Migrate()`) rather than the prototype
+`EnsureCreated()` approach used previously - it creates the SQLite schema on first run and brings an
+existing database up to date with any migrations added since. **After pulling changes that touch the EF
+Core model in `Orbit.Data`** (entities under `src/Server/Orbit.Data/Entities`, or `OrbitDbContext`),
+generate the corresponding migration once with the [`dotnet-ef` tool](https://learn.microsoft.com/ef/core/cli/dotnet)
+(`dotnet tool install --global dotnet-ef` if it isn't installed yet):
+
+```
+dotnet ef migrations add <DescriptiveName> --project src/Server/Orbit.Data --startup-project src/Server/Orbit.Api
+```
+
+If you already had the stack running before EF Core Migrations replaced `EnsureCreated()`, delete
+`data/orbit.db` (and any `orbit.db-shm`/`orbit.db-wal` next to it) once before starting the updated API
+- a database created by `EnsureCreated()` has no migration history table, so `Migrate()` would otherwise
+try to create tables that already exist and fail.
 
 Alternatively, each project can be run directly with `dotnet run` from its own folder
 (`src/Server/Orbit.Api`, `src/Clients/Orbit.Web`) using the `https` launch profile; see

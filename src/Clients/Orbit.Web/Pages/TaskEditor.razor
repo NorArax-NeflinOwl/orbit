@@ -31,9 +31,29 @@ else
                 <InputDate @bind-Value="item.DueDate" />
                 <input type="time" @bind="item.DueTime" />
                 <label>
-                    <InputCheckbox @bind-Value="item.IsCompleted" />
-                    Ukończone
+                    Powiązanie z listą
+                    <select @bind="item.LinkedTaskListId">
+                        <option value="">Brak</option>
+                        @foreach (var linkableTaskList in _linkableTaskLists)
+                        {
+                            <option value="@linkableTaskList.Id">@linkableTaskList.Title</option>
+                        }
+                    </select>
                 </label>
+                @if (string.IsNullOrEmpty(item.LinkedTaskListId))
+                {
+                    <label>
+                        <InputCheckbox @bind-Value="item.IsCompleted" />
+                        Ukończone
+                    </label>
+                }
+                else
+                {
+                    <label>
+                        <input type="checkbox" checked="@item.IsCompleted" disabled />
+                        Ukończone (zależne od powiązanej listy, nie do ustawienia ręcznie)
+                    </label>
+                }
                 <button type="button" @onclick="() => RemoveItem(item)">Usuń</button>
             </div>
         }
@@ -53,9 +73,17 @@ else
     private bool IsNewTaskList => Id is null;
     private bool _isLoading = true;
     private TaskListFormModel _formModel = new();
+    private IReadOnlyList<TaskDto> _linkableTaskLists = [];
 
     protected override async Task OnInitializedAsync()
     {
+        // Populates the "link to another list" dropdown - excludes the list being edited itself, since
+        // an item can't link to the list it belongs to (see TaskListLinkValidator on the API side).
+        var allTaskLists = await TasksApiClient.GetTaskListsAsync();
+        _linkableTaskLists = Id is { } currentTaskListId
+            ? allTaskLists.Where(taskList => taskList.Id != currentTaskListId).ToList()
+            : allTaskLists;
+
         if (Id is { } taskListId)
         {
             Logger.LogInformation("Task list editor opened for task list {TaskListId}", taskListId);
@@ -71,7 +99,8 @@ else
                             Description = item.Description,
                             DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
                             DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
-                            IsCompleted = item.IsCompleted
+                            IsCompleted = item.IsCompleted,
+                            LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty
                         })
                         .ToList()
                 };
@@ -101,7 +130,7 @@ else
             "User clicked 'Zapisz' ({Mode}, TaskListId={TaskListId})", IsNewTaskList ? "create" : "update", Id);
 
         var items = _formModel.Items
-            .Select(item => new TaskItemRequest(item.Description, ToDueDateUtc(item), item.IsCompleted))
+            .Select(item => new TaskItemRequest(item.Description, ToDueDateUtc(item), item.IsCompleted, ToLinkedTaskListId(item)))
             .ToList();
 
         if (IsNewTaskList)
@@ -133,6 +162,9 @@ else
             ? new DateTimeOffset(dueDate.ToDateTime(item.DueTime ?? TimeOnly.MinValue, DateTimeKind.Local))
             : null;
 
+    private static Guid? ToLinkedTaskListId(TaskItemFormModel item)
+        => string.IsNullOrEmpty(item.LinkedTaskListId) ? null : Guid.Parse(item.LinkedTaskListId);
+
     private sealed class TaskListFormModel
     {
         public string Title { get; set; } = string.Empty;
@@ -145,5 +177,6 @@ else
         public DateOnly? DueDate { get; set; }
         public TimeOnly? DueTime { get; set; }
         public bool IsCompleted { get; set; }
+        public string LinkedTaskListId { get; set; } = string.Empty;
     }
 }

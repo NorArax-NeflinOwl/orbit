@@ -5,10 +5,12 @@ namespace Orbit.Core.Tasks.UpdateTaskList;
 public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskListCommand, bool>
 {
     private readonly ITaskRepository _taskRepository;
+    private readonly TaskListLinkValidator _taskListLinkValidator;
 
-    public UpdateTaskListCommandHandler(ITaskRepository taskRepository)
+    public UpdateTaskListCommandHandler(ITaskRepository taskRepository, TaskListLinkValidator taskListLinkValidator)
     {
         _taskRepository = taskRepository;
+        _taskListLinkValidator = taskListLinkValidator;
     }
 
     /// <summary>
@@ -22,6 +24,8 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         {
             return false;
         }
+
+        await _taskListLinkValidator.ValidateAsync(request.UserId, request.Id, request.Items, cancellationToken);
 
         taskList.Update(request.Title, request.Items);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);

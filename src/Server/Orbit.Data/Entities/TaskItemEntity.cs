@@ -10,4 +10,10 @@ public sealed class TaskItemEntity
     public string Description { get; set; } = string.Empty;
     public DateTimeOffset? DueDateUtc { get; set; }
     public bool IsCompleted { get; set; }
+
+    /// <summary>
+    /// Id of another <see cref="TaskEntity"/> this entry references instead of being independently
+    /// completable - see <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>.
+    /// </summary>
+    public Guid? LinkedTaskListId { get; set; }
 }

@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Json;
+using Orbit.Contracts.Users;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Xunit;
@@ -13,8 +15,11 @@ public sealed class AuthorizationMessageHandlerTests
         var tokenStore = new TokenStore(new StubJSRuntime());
         await tokenStore.SetTokenAsync("a-token");
         HttpRequestMessage? capturedRequest = null;
-        var handler = new AuthorizationMessageHandler(tokenStore) { InnerHandler = new RecordingHandler(request => capturedRequest = request) };
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var httpClient = CreateHttpClient(tokenStore, request =>
+        {
+            capturedRequest = request;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
 
         await httpClient.GetAsync("api/notes");
 
@@ -28,21 +33,76 @@ public sealed class AuthorizationMessageHandlerTests
     {
         var tokenStore = new TokenStore(new StubJSRuntime());
         HttpRequestMessage? capturedRequest = null;
-        var handler = new AuthorizationMessageHandler(tokenStore) { InnerHandler = new RecordingHandler(request => capturedRequest = request) };
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var httpClient = CreateHttpClient(tokenStore, request =>
+        {
+            capturedRequest = request;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
 
         await httpClient.GetAsync("api/notes");
 
         Assert.Null(capturedRequest!.Headers.Authorization);
     }
 
-    /// <summary>Terminal handler that records the request it receives and returns a canned empty response.</summary>
-    private sealed class RecordingHandler(Action<HttpRequestMessage> onRequest) : HttpMessageHandler
+    [Fact]
+    public async Task SendAsync_refreshes_the_access_token_and_retries_once_after_a_401()
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            onRequest(request);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
-        }
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        await tokenStore.SetTokensAsync("expired-token", "a-refresh-token");
+        var attemptCount = 0;
+        var httpClient = CreateHttpClient(
+            tokenStore,
+            _ => ++attemptCount == 1 ? new HttpResponseMessage(HttpStatusCode.Unauthorized) : new HttpResponseMessage(HttpStatusCode.OK),
+            _ => JsonResponse(new AuthResponse("new-token", "new-refresh-token", Guid.NewGuid(), "user@example.com", "User")));
+
+        var response = await httpClient.GetAsync("api/notes");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(2, attemptCount);
+        Assert.Equal("new-token", await tokenStore.GetTokenAsync());
+        Assert.Equal("new-refresh-token", await tokenStore.GetRefreshTokenAsync());
     }
+
+    [Fact]
+    public async Task SendAsync_returns_the_original_401_without_retrying_when_the_refresh_token_is_also_rejected()
+    {
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        await tokenStore.SetTokensAsync("expired-token", "a-stale-refresh-token");
+        var attemptCount = 0;
+        var httpClient = CreateHttpClient(
+            tokenStore,
+            _ =>
+            {
+                attemptCount++;
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var response = await httpClient.GetAsync("api/notes");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(1, attemptCount);
+        Assert.Null(await tokenStore.GetTokenAsync());
+    }
+
+    private static HttpClient CreateHttpClient(
+        TokenStore tokenStore,
+        Func<HttpRequestMessage, HttpResponseMessage> respondToInnerRequest,
+        Func<HttpRequestMessage, HttpResponseMessage>? respondToRefreshRequest = null)
+    {
+        var refreshHttpClient = new HttpClient(
+            new StubHttpMessageHandler(respondToRefreshRequest ?? (_ => new HttpResponseMessage(HttpStatusCode.Unauthorized))))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        var handler = new AuthorizationMessageHandler(tokenStore, refreshHttpClient)
+        {
+            InnerHandler = new StubHttpMessageHandler(respondToInnerRequest)
+        };
+
+        return new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+    }
+
+    private static HttpResponseMessage JsonResponse(AuthResponse body)
+        => new(HttpStatusCode.OK) { Content = JsonContent.Create(body) };
 }

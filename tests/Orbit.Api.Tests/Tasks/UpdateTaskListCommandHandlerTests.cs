@@ -11,7 +11,7 @@ public sealed class UpdateTaskListCommandHandlerTests
     public async Task HandleAsync_updates_a_task_list_owned_by_the_requesting_user()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository);
+        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Original title", [TaskItem.Create("Original item", null, false)]);
         await repository.AddAsync(taskList, CancellationToken.None);
@@ -30,7 +30,7 @@ public sealed class UpdateTaskListCommandHandlerTests
     public async Task HandleAsync_recomputes_completion_after_replacing_the_items()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository);
+        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Errands", [TaskItem.Create("Buy milk", null, false)]);
         await repository.AddAsync(taskList, CancellationToken.None);
@@ -46,7 +46,7 @@ public sealed class UpdateTaskListCommandHandlerTests
     public async Task HandleAsync_returns_false_and_does_not_update_a_task_list_owned_by_a_different_user()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository);
+        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
         var ownerId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
         var taskList = TaskList.Create(ownerId, "Original title", []);
@@ -63,11 +63,26 @@ public sealed class UpdateTaskListCommandHandlerTests
     [Fact]
     public async Task HandleAsync_returns_false_for_an_unknown_task_list_id()
     {
-        var handler = new UpdateTaskListCommandHandler(new InMemoryTaskRepository());
+        var repository = new InMemoryTaskRepository();
+        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
 
         var wasUpdated = await handler.HandleAsync(
             new UpdateTaskListCommand(Guid.NewGuid(), Guid.NewGuid(), "Title", []), CancellationToken.None);
 
         Assert.False(wasUpdated);
+    }
+
+    [Fact]
+    public async Task HandleAsync_rejects_an_update_that_links_an_item_to_the_list_itself()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var userId = Guid.NewGuid();
+        var taskList = TaskList.Create(userId, "Errands", []);
+        await repository.AddAsync(taskList, CancellationToken.None);
+        var itemsLinkingToSelf = new[] { TaskItem.Create("Self reference", null, false, taskList.Id) };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(
+            new UpdateTaskListCommand(userId, taskList.Id, "Errands", itemsLinkingToSelf), CancellationToken.None));
     }
 }

@@ -32,6 +32,10 @@ else
                     {
                         <li>
                             @(item.IsCompleted ? "☑" : "☐") @item.Description
+                            @if (item.LinkedTaskListId is not null)
+                            {
+                                <small> (zależne od innej listy)</small>
+                            }
                             @if (item.DueDateUtc is { } dueDate)
                             {
                                 <small> — termin: @dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
@@ -51,7 +55,18 @@ else
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Tasks page opened, loading task lists");
-        _taskLists = await TasksApiClient.GetTaskListsAsync();
+        try
+        {
+            _taskLists = await TasksApiClient.GetTaskListsAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // The access token expired and AuthorizationMessageHandler's automatic refresh-and-retry
+            // also failed (e.g. the refresh token itself expired or was revoked) - the session is no
+            // longer valid, so send the user back to sign in instead of leaving the page stuck loading.
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
         Logger.LogInformation("Loaded {TaskListCount} task lists", _taskLists.Count);
     }
 

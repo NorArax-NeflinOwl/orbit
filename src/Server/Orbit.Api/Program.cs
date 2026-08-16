@@ -1,6 +1,10 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Orbit.Api;
 using Orbit.Api.Auth;
 using Orbit.Api.Calendar;
 using Orbit.Api.HealthChecks;
@@ -64,6 +68,7 @@ try
 
     builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
     builder.Services.AddSingleton<TokenService>();
+    builder.Services.AddScoped<RefreshTokenService>();
     builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
     // Fails fast on startup instead of on the first login attempt if the signing key was never
@@ -103,6 +108,23 @@ try
         });
     builder.Services.AddAuthorization();
 
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        // Brute-force protection for /api/auth/*: 5 requests per minute per client IP, with no
+        // queueing, so a client that exceeds this gets an immediate 429 instead of waiting. Partitioned
+        // by IP address (rather than one limiter shared by every caller) so one aggressive client can't
+        // also lock out every other client hitting these endpoints.
+        options.AddPolicy(RateLimiterPolicyNames.Auth, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+    });
+
     // Traces every incoming HTTP request, every outgoing HttpClient call, and every command/query
     // dispatched through Orbit.Core's "Orbit.Core" ActivitySource (see LoggingDispatcher), so a
     // single user click shows up as one connected trace: HTTP request -> command -> its timing.
@@ -116,18 +138,19 @@ try
 
     var app = builder.Build();
 
-    // Prototype convenience: creates the SQLite schema on startup instead of running migrations. Since
-    // this only creates a database that doesn't exist yet, adding a table or column (as the Users
-    // feature just did) has no effect on a database file created by an older version of the app -
-    // delete the SQLite file to pick up a schema change locally.
+    // Applies any pending EF Core migrations on startup - creates the database on first run and brings
+    // an existing one up to date on later runs. Unlike EnsureCreated (the previous approach here), this
+    // requires migration files to exist under Orbit.Data/Migrations; see README.md for the
+    // `dotnet ef migrations add` command to run after changing the EF Core model.
     using (var scope = app.Services.CreateScope())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<OrbitDbContext>();
-        dbContext.Database.EnsureCreated();
+        dbContext.Database.Migrate();
     }
 
     app.UseSerilogRequestLogging();
     app.UseCors(webClientCorsPolicy);
+    app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
 

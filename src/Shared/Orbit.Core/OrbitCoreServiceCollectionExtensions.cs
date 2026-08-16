@@ -39,6 +39,10 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, bool>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
+        // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
+        services.AddScoped<TaskListLinkValidator>();
+        // Stateless per call - safe to share a single instance for the app's lifetime.
+        services.AddSingleton<LinkedTaskCompletionResolver>();
 
         services.AddScoped<IRequestHandler<CreateCalendarEventCommand, Guid>, CreateCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, bool>, UpdateCalendarEventCommandHandler>();
