@@ -1,0 +1,20 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-orbit-api",
+            // Runs before every Orbit.Api debug launch (see launch.json's preLaunchTask) so the
+            // debugger always attaches to a binary whose PDB matches the current source. Without
+            // this, F5 can silently reuse a stale build and breakpoints never bind.
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Server/Orbit.Api/Orbit.Api.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}

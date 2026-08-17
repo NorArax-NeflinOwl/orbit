@@ -10,7 +10,7 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Logging.SetMinimumLevel(LogLevel.Error);
+builder.Logging.SetMinimumLevel(LogLevel.Trace);
 
 // Read from wwwroot/appsettings.json (or appsettings.Development.json under `dotnet run`/`dotnet
 // watch`, which the Blazor dev server selects automatically). This runs in the browser, so it must
