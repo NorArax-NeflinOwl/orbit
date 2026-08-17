@@ -26,3 +26,4 @@ credentials/
 
 /data
 *.DS_Store
+*.Development.json
