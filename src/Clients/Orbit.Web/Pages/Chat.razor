@@ -145,7 +145,7 @@ else
         }
 
         var plainText = await _cryptoModule.InvokeAsync<string?>(
-            "decryptMessage", _otherUser.PublicKeyBase64, message.CiphertextBase64, message.NonceBase64);
+            "decryptMessage", _ownUserId, _otherUser.PublicKeyBase64, message.CiphertextBase64, message.NonceBase64);
         if (plainText is not null)
         {
             _decryptedContentByMessageId[message.Id] = plainText;
@@ -171,7 +171,7 @@ else
         try
         {
             var payload = await _cryptoModule.InvokeAsync<EncryptedPayload>(
-                "encryptMessage", _otherUser.PublicKeyBase64, _draftMessage);
+                "encryptMessage", _ownUserId, _otherUser.PublicKeyBase64, _draftMessage);
             var sent = await ChatApiClient.SendMessageAsync(
                 new SendMessageRequest(UserId, payload.CiphertextBase64, payload.NonceBase64));
 

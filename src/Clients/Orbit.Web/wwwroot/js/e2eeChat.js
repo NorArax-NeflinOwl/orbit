@@ -11,8 +11,16 @@
 
 const databaseName = 'orbit-e2ee';
 const keyStoreName = 'keys';
-const ownPrivateKeyRecordId = 'own-private-key';
-const ownPublicKeyRecordId = 'own-public-key';
+
+// Record IDs are namespaced by ownUserId so that two different accounts signing into the same browser
+// each get their own key pair in IndexedDB instead of one overwriting or reusing the other's.
+function ownPrivateKeyRecordId(ownUserId) {
+    return `own-private-key:${ownUserId}`;
+}
+
+function ownPublicKeyRecordId(ownUserId) {
+    return `own-public-key:${ownUserId}`;
+}
 
 function openKeyDatabase() {
     return new Promise((resolve, reject) => {
@@ -50,11 +58,11 @@ function base64ToUint8Array(base64) {
     return Uint8Array.from(atob(base64), character => character.charCodeAt(0));
 }
 
-/// Returns this browser's ECDH public key as base64, generating and persisting a non-extractable
-/// private key on first use. IndexedDB can store a CryptoKey object directly, so the private key
+/// Returns ownUserId's ECDH public key as base64, generating and persisting a non-extractable private
+/// key on first use for that user. IndexedDB can store a CryptoKey object directly, so the private key
 /// material itself never has to be exported, even to this module.
-export async function ensureOwnPublicKey() {
-    const existingPublicKeyBase64 = await getKeyRecord(ownPublicKeyRecordId);
+export async function ensureOwnPublicKey(ownUserId) {
+    const existingPublicKeyBase64 = await getKeyRecord(ownPublicKeyRecordId(ownUserId));
     if (existingPublicKeyBase64) {
         return existingPublicKeyBase64;
     }
@@ -62,15 +70,15 @@ export async function ensureOwnPublicKey() {
     const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey']);
     const publicKeyBase64 = arrayBufferToBase64(await crypto.subtle.exportKey('raw', keyPair.publicKey));
 
-    await putKeyRecord(ownPrivateKeyRecordId, keyPair.privateKey);
-    await putKeyRecord(ownPublicKeyRecordId, publicKeyBase64);
+    await putKeyRecord(ownPrivateKeyRecordId(ownUserId), keyPair.privateKey);
+    await putKeyRecord(ownPublicKeyRecordId(ownUserId), publicKeyBase64);
     return publicKeyBase64;
 }
 
-async function deriveSharedKey(otherPartyPublicKeyBase64) {
-    const ownPrivateKey = await getKeyRecord(ownPrivateKeyRecordId);
+async function deriveSharedKey(ownUserId, otherPartyPublicKeyBase64) {
+    const ownPrivateKey = await getKeyRecord(ownPrivateKeyRecordId(ownUserId));
     if (!ownPrivateKey) {
-        throw new Error('No local private key - call ensureOwnPublicKey first.');
+        throw new Error('No local private key for this user - call ensureOwnPublicKey first.');
     }
 
     const otherPartyPublicKey = await crypto.subtle.importKey(
@@ -81,11 +89,11 @@ async function deriveSharedKey(otherPartyPublicKeyBase64) {
         ['encrypt', 'decrypt']);
 }
 
-/// Encrypts plainText for the holder of otherPartyPublicKeyBase64. Returns { ciphertextBase64,
-/// nonceBase64 } - the random 12-byte AES-GCM nonce must travel alongside the ciphertext, since
-/// decryption needs the exact same value.
-export async function encryptMessage(otherPartyPublicKeyBase64, plainText) {
-    const sharedKey = await deriveSharedKey(otherPartyPublicKeyBase64);
+/// Encrypts plainText, sent by ownUserId, for the holder of otherPartyPublicKeyBase64. Returns
+/// { ciphertextBase64, nonceBase64 } - the random 12-byte AES-GCM nonce must travel alongside the
+/// ciphertext, since decryption needs the exact same value.
+export async function encryptMessage(ownUserId, otherPartyPublicKeyBase64, plainText) {
+    const sharedKey = await deriveSharedKey(ownUserId, otherPartyPublicKeyBase64);
     const nonce = crypto.getRandomValues(new Uint8Array(12));
     const ciphertext = await crypto.subtle.encrypt(
         { name: 'AES-GCM', iv: nonce }, sharedKey, new TextEncoder().encode(plainText));
@@ -96,12 +104,12 @@ export async function encryptMessage(otherPartyPublicKeyBase64, plainText) {
     };
 }
 
-/// Reverses encryptMessage. Returns null instead of throwing when decryption fails (e.g. a message
-/// encrypted for a since-replaced key pair), so the caller can render a placeholder instead of crashing
-/// the chat window.
-export async function decryptMessage(otherPartyPublicKeyBase64, ciphertextBase64, nonceBase64) {
+/// Reverses encryptMessage for ownUserId, the recipient. Returns null instead of throwing when
+/// decryption fails (e.g. a message encrypted for a since-replaced key pair), so the caller can render a
+/// placeholder instead of crashing the chat window.
+export async function decryptMessage(ownUserId, otherPartyPublicKeyBase64, ciphertextBase64, nonceBase64) {
     try {
-        const sharedKey = await deriveSharedKey(otherPartyPublicKeyBase64);
+        const sharedKey = await deriveSharedKey(ownUserId, otherPartyPublicKeyBase64);
         const plainTextBuffer = await crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: base64ToUint8Array(nonceBase64) }, sharedKey, base64ToUint8Array(ciphertextBase64));
         return new TextDecoder().decode(plainTextBuffer);
