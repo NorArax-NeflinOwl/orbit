@@ -63,7 +63,7 @@ public static class CalendarEndpoints
         => new(
             request.Title,
             request.Description,
-            request.Location,
+            ToDomainLocation(request.Location),
             request.Color,
             request.StartUtc,
             request.EndUtc,
@@ -71,6 +71,9 @@ public static class CalendarEndpoints
             ToDomainRecurrence(request.Recurrence),
             request.Guests,
             request.ReminderMinutesBeforeStart);
+
+    private static EventLocation? ToDomainLocation(EventLocationRequest? request)
+        => request is null ? null : new EventLocation(request.Address, request.Latitude, request.Longitude);
 
     private static EventRecurrence? ToDomainRecurrence(RecurrenceRequest? request)
         => request is null
@@ -83,7 +86,7 @@ public static class CalendarEndpoints
         var detailsDto = new CalendarEventDetailsDto(
             details.Title,
             details.Description,
-            details.Location,
+            ToLocationDto(details.Location),
             details.Color,
             details.StartUtc,
             details.EndUtc,
@@ -94,6 +97,9 @@ public static class CalendarEndpoints
 
         return new CalendarEventDto(calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc);
     }
+
+    private static EventLocationDto? ToLocationDto(EventLocation? location)
+        => location is null ? null : new EventLocationDto(location.Address, location.Latitude, location.Longitude);
 
     private static RecurrenceDto? ToRecurrenceDto(EventRecurrence? recurrence)
         => recurrence is null ? null : new RecurrenceDto(recurrence.Frequency.ToString(), recurrence.IntervalCount, recurrence.UntilUtc);

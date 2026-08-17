@@ -56,4 +56,35 @@ public sealed class UpdateCalendarEventCommandHandlerTests
 
         Assert.False(wasUpdated);
     }
+
+    [Fact]
+    public async Task HandleAsync_updates_an_events_location()
+    {
+        var repository = new InMemoryCalendarEventRepository();
+        var handler = new UpdateCalendarEventCommandHandler(repository);
+        var userId = Guid.NewGuid();
+        var calendarEvent = CalendarEvent.Create(userId, DefaultDetails);
+        await repository.AddAsync(calendarEvent, CancellationToken.None);
+        var location = new EventLocation("Rynek Główny 1, Kraków", 50.0617, 19.9373);
+
+        await handler.HandleAsync(
+            new UpdateCalendarEventCommand(userId, calendarEvent.Id, DefaultDetails with { Location = location }), CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(userId, calendarEvent.Id, CancellationToken.None);
+        Assert.Equal(location, stored!.Details.Location);
+    }
+
+    [Fact]
+    public async Task HandleAsync_throws_when_the_updated_locations_latitude_is_out_of_range()
+    {
+        var repository = new InMemoryCalendarEventRepository();
+        var handler = new UpdateCalendarEventCommandHandler(repository);
+        var userId = Guid.NewGuid();
+        var calendarEvent = CalendarEvent.Create(userId, DefaultDetails);
+        await repository.AddAsync(calendarEvent, CancellationToken.None);
+        var invalidLocation = new EventLocation(null, 90.1, 19.9373);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(
+            new UpdateCalendarEventCommand(userId, calendarEvent.Id, DefaultDetails with { Location = invalidLocation }), CancellationToken.None));
+    }
 }

@@ -8,7 +8,7 @@ namespace Orbit.Core.Calendar;
 public sealed record CalendarEventDetails(
     string Title,
     string? Description,
-    string? Location,
+    EventLocation? Location,
     string? Color,
     DateTimeOffset StartUtc,
     DateTimeOffset EndUtc,

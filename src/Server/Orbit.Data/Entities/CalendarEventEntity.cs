@@ -11,7 +11,17 @@ public sealed class CalendarEventEntity
     public Guid UserId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public string? Location { get; set; }
+
+    /// <summary>Human-readable address resolved for <see cref="LocationLatitude"/>/<see cref="LocationLongitude"/>.</summary>
+    public string? LocationAddress { get; set; }
+
+    /// <summary>
+    /// Null exactly when no location was picked - <see cref="LocationLongitude"/> is always set
+    /// together with this (see <see cref="Orbit.Core.Calendar.EventLocation"/>).
+    /// </summary>
+    public double? LocationLatitude { get; set; }
+    public double? LocationLongitude { get; set; }
+
     public string? Color { get; set; }
     public DateTimeOffset StartUtc { get; set; }
     public DateTimeOffset EndUtc { get; set; }

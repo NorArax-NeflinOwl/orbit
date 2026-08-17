@@ -6,6 +6,10 @@
     <title>Orbit</title>
     <base href="/" />
     <link href="css/app.css" rel="stylesheet" />
+    <!-- Leaflet: renders the map CalendarEventEditor.razor opens to pick an event's location (see
+         wwwroot/js/mapPicker.js). Loaded from a CDN rather than as a NuGet/npm package - it's plain
+         JS/CSS with no build step, and Blazor WebAssembly has no built-in mapping component. -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
     <div id="app">Ładowanie…</div>
@@ -15,6 +19,7 @@
         <a href="" class="reload">Odśwież</a>
         <a class="dismiss">🗙</a>
     </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 </html>

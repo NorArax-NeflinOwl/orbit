@@ -42,15 +42,16 @@ The solution is split into three layers:
 `tests/Orbit.Api.Tests` covers the health check infrastructure and the accounts, notes, tasks, and
 calendar features on the API side (password hashing, refresh token issuing/redeeming/revoking,
 registration, login, per-owner note access, per-owner task list access including the
-checklist-completion rule and the task-list-linking rules below, and per-owner calendar event access
-including the start-before-end validation rule). `tests/Orbit.Web.Tests` covers the Blazor client's
-auth wiring: the token store, the
+checklist-completion rule and the task-list-linking rules below, per-owner calendar event access
+including the start-before-end validation rule, and the calendar event reminder scheduling logic below).
+`tests/Orbit.Web.Tests` covers the Blazor client's auth wiring: the token store, the
 handler that attaches the access token to outgoing requests and transparently refreshes it after a 401,
 `AuthApiClient`, `OrbitAuthenticationStateProvider`, and the `Login`/`Register` pages themselves
 (rendered with [bUnit](https://bunit.dev)). Not covered by an automated test: the `/api/auth/*` rate
-limiter and the exact 429 behavior, and the client-side retry-after-refresh path end-to-end through a
-real `HttpClientHandler` pipeline - both would need HTTP-integration test infrastructure
-(`WebApplicationFactory` on the API side) that this project doesn't have yet.
+limiter and the exact 429 behavior, the client-side retry-after-refresh path end-to-end through a
+real `HttpClientHandler` pipeline (both would need HTTP-integration test infrastructure -
+`WebApplicationFactory` on the API side - that this project doesn't have yet), and actually sending an
+email through `SmtpEmailSender` (needs a real or fake SMTP server to connect to).
 
 ## Authentication
 
@@ -137,6 +138,24 @@ reminderMinutesBeforeStart }` (`description`, `location`, `color`, and `recurren
 across the request body, because there are enough of them that flattening them out would be harder to
 read - see `CalendarEventDetails` in `Orbit.Core.Calendar` for the same grouping on the domain side.
 
+`endUtc` can't be before `startUtc` (`CalendarEvent.ValidateTimeRange`) - checked both server-side, where
+a violation throws `ArgumentException` and surfaces as an unhandled 500, and client-side in
+`CalendarEventEditor.razor`, which shows an inline error instead of submitting a request that's bound to
+fail.
+
+`location`, when present, is `{ address, latitude, longitude }` - `address` is optional (reverse
+geocoding can fail to resolve one), `latitude` and `longitude` are always required and validated to be
+within their valid ranges (±90/±180 degrees). Unlike the rest of the form, this isn't free text: the
+Blazor client's event editor has a "Wybierz na mapie" button that opens an embedded
+[Leaflet](https://leafletjs.com) map (OpenStreetMap tiles, loaded from a CDN - no API key needed, see
+`wwwroot/index.html` and `wwwroot/js/mapPicker.js`). Clicking a point on the map stores its coordinates
+and resolves an address for them via OpenStreetMap's free Nominatim reverse-geocoding endpoint
+(`GeocodingApiClient`); typing directly into the address field only relabels an already-picked point; it
+doesn't set a location on its own; and the Nominatim call intentionally does not go through
+`AuthorizationMessageHandler`, so Orbit's own bearer token is never sent to that third-party host.
+Nominatim's usage policy caps this to light, non-commercial traffic - a deployment with real volume
+should self-host it instead (see https://operations.osmfoundation.org/policies/nominatim/).
+
 `recurrence`, when present, is `{ frequency, intervalCount, untilUtc }` (`frequency` is `"Daily"`,
 `"Weekly"`, or `"Monthly"`; `untilUtc` is optional). A recurring event is stored as a single event
 carrying this rule - the API does not expand it into individual occurrences, so the calendar page lists
@@ -149,17 +168,46 @@ reminders (`reminderMinutesBeforeStart`, minutes before the event starts) are ed
 client as comma-separated text rather than as an add/remove list like task items are, since neither
 needed per-item editing for a first pass.
 
+### Calendar event reminders
+
+Each `reminderMinutesBeforeStart` entry results in one email to the event's owner (the account that
+created it - not the `guests` list, which isn't wired to notifications yet), sent once its lead time is
+reached. This runs entirely inside Orbit.Api as `CalendarEventReminderBackgroundService`, a
+`BackgroundService` that polls once a minute: sending real email needs SMTP credentials, and those must
+never reach the Blazor WebAssembly client, so this can't live in Orbit.Web despite reminders being a
+calendar-page feature. `EventReminderScheduler` (`Orbit.Core.Calendar.Reminders`) holds the actual
+"what's due right now" logic, kept independent of ASP.NET Core hosting so it's unit-testable on its own.
+
+A reminder is due once `startUtc` minus its lead time has passed, and stays eligible for 5 minutes after
+that (`LookBackWindow`) so a reminder isn't lost if a poll is briefly delayed - after that window it's
+treated as missed rather than emailed late. Each event/lead-time pair is recorded in a dedicated
+`EventReminderDeliveries` table once sent (unique-indexed on the pair), so the same reminder is never
+emailed twice even across restarts. Recurring events only get a reminder for the single `startUtc` they
+carry, matching the existing limitation that recurring events aren't expanded into individual
+occurrences server-side (see above).
+
+Email is sent via [MailKit](https://github.com/jstedfast/MailKit) (`SmtpEmailSender`), configured
+through the `Smtp` section (`Smtp:Host`, `Smtp:Port`, `Smtp:UserName`, `Smtp:FromAddress`,
+`Smtp:FromDisplayName`, `Smtp:UseStartTls`) plus `Smtp:Password` from an environment variable or
+user-secrets - never from a committed appsettings file (see "Running locally" below for exactly where).
+Unlike the JWT signing key, SMTP isn't required to start the API: `SmtpEmailSender` just logs a warning
+and skips sending when `Smtp:Host`/`Smtp:FromAddress` are unset, so a fresh local checkout still runs
+without anyone having set up email delivery. The background service reports a heartbeat to the existing
+`HostedServiceHealthTracker` on every poll (success or failure), so a crashed or stuck reminder loop
+shows up in the `hosted-services` health check the same way any other background service would.
+
 ## Running locally
 
 The simplest way to run the whole stack is Docker Compose, which builds the API and the web client
 and wires them together:
 
 ```
-cp .env.example .env   # then fill in JWT_SIGNING_KEY
+cp .env.example .env   # then fill in JWT_SIGNING_KEY (required) and the SMTP_* variables (optional)
 docker compose up --build
 ```
 
-This starts:
+Leaving the `SMTP_*` variables blank is fine - see "Calendar event reminders" above for what that means
+at runtime. This starts:
 
 - the web client at `http://localhost:8080`
 - the API at `http://localhost:8081` (`/health`, `/health/ready`, `/health/live`, `/api/auth/*`,
@@ -185,7 +233,9 @@ try to create tables that already exist and fail.
 Alternatively, each project can be run directly with `dotnet run` from its own folder
 (`src/Server/Orbit.Api`, `src/Clients/Orbit.Web`) using the `https` launch profile; see
 `Properties/launchSettings.json` in each project for the exact ports. Set the JWT signing key via
-`dotnet user-secrets` first (see "Authentication" above).
+`dotnet user-secrets` first (see "Authentication" above); optionally set `Smtp:Password` the same way
+(`dotnet user-secrets set "Smtp:Password" "<your SMTP password>"`) alongside the rest of the `Smtp`
+section in `appsettings.Development.json` if you want to actually see reminder emails locally.
 
 ## Tests
 

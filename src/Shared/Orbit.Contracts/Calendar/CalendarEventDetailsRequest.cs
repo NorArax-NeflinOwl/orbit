@@ -3,7 +3,7 @@ namespace Orbit.Contracts.Calendar;
 public sealed record CalendarEventDetailsRequest(
     string Title,
     string? Description,
-    string? Location,
+    EventLocationRequest? Location,
     string? Color,
     DateTimeOffset StartUtc,
     DateTimeOffset EndUtc,

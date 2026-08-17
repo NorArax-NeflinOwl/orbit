@@ -1,9 +1,12 @@
 @page "/calendar/new"
 @page "/calendar/{Id:guid}"
 @attribute [Authorize]
+@implements IAsyncDisposable
 @using Orbit.Contracts.Calendar
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
+@inject GeocodingApiClient GeocodingApiClient
+@inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ILogger<CalendarEventEditor> Logger
 
@@ -28,7 +31,17 @@ else
         </div>
         <div>
             <label>Lokalizacja</label>
-            <InputText @bind-Value="_formModel.Location" />
+            <InputText @bind-Value="_formModel.LocationAddress" placeholder="Wybierz punkt na mapie, aby ustawić adres" />
+            <button type="button" @onclick="ToggleMapAsync">@(_isMapVisible ? "Ukryj mapę" : "Wybierz na mapie")</button>
+            @if (_formModel.LocationLatitude is { } latitude && _formModel.LocationLongitude is { } longitude)
+            {
+                <span> Współrzędne: @latitude.ToString("F5") , @longitude.ToString("F5")</span>
+                <button type="button" @onclick="ClearLocation">Usuń lokalizację</button>
+            }
+            @if (_isMapVisible)
+            {
+                <div id="@MapElementId" style="height: 300px; margin-top: 0.5rem;"></div>
+            }
         </div>
         <div>
             <label>Kolor</label>
@@ -95,15 +108,26 @@ else
             <button type="button" @onclick="Cancel">Anuluj</button>
         </div>
     </EditForm>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="error">@_errorMessage</p>
+    }
 }
 
 @code {
+    private const string MapElementId = "eventLocationMap";
+
     [Parameter]
     public Guid? Id { get; set; }
 
     private bool IsNewEvent => Id is null;
     private bool _isLoading = true;
     private CalendarEventFormModel _formModel = new();
+    private string? _errorMessage;
+    private bool _isMapVisible;
+    private IJSObjectReference? _mapPickerModule;
+    private DotNetObjectReference<CalendarEventEditor>? _dotNetHelper;
 
     protected override async Task OnInitializedAsync()
     {
@@ -124,12 +148,61 @@ else
         _isLoading = false;
     }
 
+    /// <summary>
+    /// The map is only initialized once it becomes visible, and torn down again when hidden - it isn't
+    /// worth keeping a live Leaflet instance (and its tile requests) around for a panel the user closed.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_isMapVisible && _mapPickerModule is null)
+        {
+            _mapPickerModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapPicker.js");
+            _dotNetHelper = DotNetObjectReference.Create(this);
+            await _mapPickerModule.InvokeVoidAsync(
+                "initializeMapPicker", MapElementId, _dotNetHelper, _formModel.LocationLatitude, _formModel.LocationLongitude);
+        }
+    }
+
+    private async Task ToggleMapAsync()
+    {
+        _isMapVisible = !_isMapVisible;
+        if (!_isMapVisible)
+        {
+            await DisposeMapAsync();
+        }
+    }
+
+    /// <summary>Called from mapPicker.js when the user clicks a point on the map.</summary>
+    [JSInvokable]
+    public async Task OnMapLocationPicked(double latitude, double longitude)
+    {
+        _formModel.LocationLatitude = latitude;
+        _formModel.LocationLongitude = longitude;
+        _formModel.LocationAddress = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude) ?? _formModel.LocationAddress;
+        StateHasChanged();
+    }
+
+    private void ClearLocation()
+    {
+        _formModel.LocationAddress = string.Empty;
+        _formModel.LocationLatitude = null;
+        _formModel.LocationLongitude = null;
+    }
+
     private async Task SaveAsync()
     {
         Logger.LogInformation(
             "User clicked 'Zapisz' ({Mode}, EventId={EventId})", IsNewEvent ? "create" : "update", Id);
 
         var details = _formModel.ToRequest();
+        if (details.EndUtc < details.StartUtc)
+        {
+            // Also enforced server-side (CalendarEvent.ValidateTimeRange) - this just gives the user an
+            // inline message instead of letting the request fail with an unhandled 500.
+            _errorMessage = "Koniec wydarzenia nie może być wcześniej niż jego początek.";
+            return;
+        }
+        _errorMessage = null;
 
         if (IsNewEvent)
         {
@@ -151,11 +224,31 @@ else
         NavigationManager.NavigateTo("/calendar");
     }
 
+    private async Task DisposeMapAsync()
+    {
+        if (_mapPickerModule is not null)
+        {
+            await _mapPickerModule.InvokeVoidAsync("disposeMapPicker", MapElementId);
+            await _mapPickerModule.DisposeAsync();
+            _mapPickerModule = null;
+        }
+
+        _dotNetHelper?.Dispose();
+        _dotNetHelper = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisposeMapAsync();
+    }
+
     private sealed class CalendarEventFormModel
     {
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public string Location { get; set; } = string.Empty;
+        public string LocationAddress { get; set; } = string.Empty;
+        public double? LocationLatitude { get; set; }
+        public double? LocationLongitude { get; set; }
         public string Color { get; set; } = "#4a90d9";
         public bool IsAllDay { get; set; }
         public DateOnly? StartDate { get; set; }
@@ -191,7 +284,9 @@ else
             {
                 Title = details.Title,
                 Description = details.Description ?? string.Empty,
-                Location = details.Location ?? string.Empty,
+                LocationAddress = details.Location?.Address ?? string.Empty,
+                LocationLatitude = details.Location?.Latitude,
+                LocationLongitude = details.Location?.Longitude,
                 Color = string.IsNullOrWhiteSpace(details.Color) ? "#4a90d9" : details.Color,
                 IsAllDay = details.IsAllDay,
                 StartDate = DateOnly.FromDateTime(details.StartUtc.LocalDateTime),
@@ -213,11 +308,14 @@ else
             var recurrence = IsRecurring
                 ? new RecurrenceRequest(RecurrenceFrequency, RecurrenceIntervalCount, ToOptionalDateTimeOffset(RecurrenceUntil))
                 : null;
+            var location = LocationLatitude is { } latitude && LocationLongitude is { } longitude
+                ? new EventLocationRequest(string.IsNullOrWhiteSpace(LocationAddress) ? null : LocationAddress, latitude, longitude)
+                : null;
 
             return new CalendarEventDetailsRequest(
                 Title,
                 string.IsNullOrWhiteSpace(Description) ? null : Description,
-                string.IsNullOrWhiteSpace(Location) ? null : Location,
+                location,
                 Color,
                 startUtc,
                 endUtc,

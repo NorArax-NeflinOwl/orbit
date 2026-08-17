@@ -33,9 +33,9 @@ else
                 }
                 <br>
                 <small>@FormatTimeRange(calendarEvent.Details)</small>
-                @if (!string.IsNullOrWhiteSpace(calendarEvent.Details.Location))
+                @if (calendarEvent.Details.Location is { } location)
                 {
-                    <br><small>Lokalizacja: @calendarEvent.Details.Location</small>
+                    <br><small>Lokalizacja: @FormatLocation(location)</small>
                 }
                 @if (calendarEvent.Details.Recurrence is { } recurrence)
                 {
@@ -89,6 +89,11 @@ else
         => details.IsAllDay
             ? $"{details.StartUtc.LocalDateTime:dd.MM.yyyy} (cały dzień)"
             : $"{details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm} – {details.EndUtc.LocalDateTime:dd.MM.yyyy HH:mm}";
+
+    private static string FormatLocation(EventLocationDto location)
+        => string.IsNullOrWhiteSpace(location.Address)
+            ? $"{location.Latitude:F5}, {location.Longitude:F5}"
+            : location.Address;
 
     private static string FormatRecurrence(RecurrenceDto recurrence)
     {

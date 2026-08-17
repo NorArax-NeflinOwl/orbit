@@ -23,6 +23,7 @@ public sealed class CalendarEvent
     public static CalendarEvent Create(Guid userId, CalendarEventDetails details)
     {
         ValidateTimeRange(details);
+        ValidateLocation(details);
         var now = DateTimeOffset.UtcNow;
         return new CalendarEvent(Guid.NewGuid(), userId, details, now, now);
     }
@@ -36,6 +37,7 @@ public sealed class CalendarEvent
     public void Update(CalendarEventDetails details)
     {
         ValidateTimeRange(details);
+        ValidateLocation(details);
         Details = details;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
@@ -45,6 +47,24 @@ public sealed class CalendarEvent
         if (details.EndUtc < details.StartUtc)
         {
             throw new ArgumentException("An event's end time can't be before its start time.", nameof(details));
+        }
+    }
+
+    private static void ValidateLocation(CalendarEventDetails details)
+    {
+        if (details.Location is not { } location)
+        {
+            return;
+        }
+
+        if (location.Latitude is < -90 or > 90)
+        {
+            throw new ArgumentException("A location's latitude must be between -90 and 90 degrees.", nameof(details));
+        }
+
+        if (location.Longitude is < -180 or > 180)
+        {
+            throw new ArgumentException("A location's longitude must be between -180 and 180 degrees.", nameof(details));
         }
     }
 }

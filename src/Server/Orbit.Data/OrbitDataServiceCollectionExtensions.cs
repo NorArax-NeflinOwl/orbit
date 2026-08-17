@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Orbit.Core.Calendar;
+using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Notes;
 using Orbit.Core.Tasks;
 using Orbit.Core.Users;
@@ -25,6 +26,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<ICalendarEventRepository, CalendarEventRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IEventReminderRepository, EventReminderRepository>();
 
         return services;
     }

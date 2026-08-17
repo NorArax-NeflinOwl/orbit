@@ -9,9 +9,11 @@ using Orbit.Api.Auth;
 using Orbit.Api.Calendar;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Notes;
+using Orbit.Api.Notifications;
 using Orbit.Api.Tasks;
 using Orbit.Core;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
 using Orbit.Data;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
@@ -65,6 +67,13 @@ try
     builder.Services.AddOrbitCore();
     builder.Services.AddOrbitData(builder.Configuration);
     builder.Services.AddOrbitHealthChecks(builder.Configuration);
+
+    // Calendar event reminder emails (see CalendarEventReminderBackgroundService). SmtpEmailSender
+    // itself just logs a warning and skips sending when Smtp:Host/Smtp:FromAddress aren't configured,
+    // rather than failing startup - a fresh local checkout should still run without email set up.
+    builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+    builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+    builder.Services.AddHostedService<CalendarEventReminderBackgroundService>();
 
     builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
     builder.Services.AddSingleton<TokenService>();

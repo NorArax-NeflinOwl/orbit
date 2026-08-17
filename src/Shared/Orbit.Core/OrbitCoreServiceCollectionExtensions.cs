@@ -5,6 +5,7 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.CreateCalendarEvent;
 using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
+using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.CreateNote;
@@ -48,6 +49,10 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, bool>, UpdateCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventsQuery, IReadOnlyList<CalendarEvent>>, GetCalendarEventsQueryHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventByIdQuery, CalendarEvent?>, GetCalendarEventByIdQueryHandler>();
+        // Depends on IEventReminderRepository (scoped, backed by the DbContext), so it must be scoped
+        // too - used by Orbit.Api's CalendarEventReminderBackgroundService, not through IDispatcher,
+        // since it's a system-level poll rather than a per-user command or query.
+        services.AddScoped<EventReminderScheduler>();
 
         services.AddScoped<IRequestHandler<RegisterUserCommand, RegisterUserResult>, RegisterUserCommandHandler>();
         services.AddScoped<IRequestHandler<LoginQuery, User?>, LoginQueryHandler>();

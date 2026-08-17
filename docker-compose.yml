@@ -30,6 +30,13 @@ services:
       ConnectionStrings__Orbit: "Data Source=/app/data/orbit.db"
       # Secret - read from the .env file at the repo root (see .env.example), never hardcoded here.
       Jwt__SigningKey: "${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in a .env file - see .env.example}"
+      # Optional - calendar event reminder emails (see README.md's "Calendar event reminders"
+      # section). Left unset, SmtpEmailSender just logs a warning and skips sending.
+      Smtp__Host: "${SMTP_HOST:-}"
+      Smtp__Port: "${SMTP_PORT:-587}"
+      Smtp__UserName: "${SMTP_USER_NAME:-}"
+      Smtp__Password: "${SMTP_PASSWORD:-}"
+      Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
     volumes:
       # Bind mount instead of a named volume so orbit.db lives at a real path on disk (./data) -
       # point a SQLite client (e.g. Visual Studio's SQLite/SQL Server Compact Toolbox extension) at

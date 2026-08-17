@@ -42,4 +42,9 @@ builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseA
 builder.Services.AddHttpClient<AuthApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 
+// A third-party host, not Orbit.Api - deliberately not given AuthorizationMessageHandler, so Orbit's
+// own bearer token is never sent to it (see GeocodingApiClient's class comment).
+builder.Services.AddHttpClient<GeocodingApiClient>(
+    httpClient => httpClient.BaseAddress = new Uri("https://nominatim.openstreetmap.org/"));
+
 await builder.Build().RunAsync();

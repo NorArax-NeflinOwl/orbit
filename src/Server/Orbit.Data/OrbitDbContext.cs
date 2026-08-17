@@ -14,6 +14,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<RefreshTokenEntity> RefreshTokens => Set<RefreshTokenEntity>();
+    public DbSet<EventReminderDeliveryEntity> EventReminderDeliveries => Set<EventReminderDeliveryEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -55,7 +56,7 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(calendarEvent => calendarEvent.Id);
             entity.Property(calendarEvent => calendarEvent.Title).IsRequired().HasMaxLength(200);
             entity.Property(calendarEvent => calendarEvent.Description).HasMaxLength(2000);
-            entity.Property(calendarEvent => calendarEvent.Location).HasMaxLength(300);
+            entity.Property(calendarEvent => calendarEvent.LocationAddress).HasMaxLength(300);
             entity.Property(calendarEvent => calendarEvent.Color).HasMaxLength(20);
             entity.Property(calendarEvent => calendarEvent.RecurrenceFrequency).HasMaxLength(20);
             // Every calendar event query is scoped to a single user's events; this is the index that
@@ -86,6 +87,15 @@ public sealed class OrbitDbContext : DbContext
             // unique index makes that lookup fast and guarantees hashes can't collide across rows.
             entity.HasIndex(refreshToken => refreshToken.TokenHash).IsUnique();
             entity.HasIndex(refreshToken => refreshToken.UserId);
+        });
+
+        modelBuilder.Entity<EventReminderDeliveryEntity>(entity =>
+        {
+            entity.HasKey(delivery => delivery.Id);
+            // A given event/lead-time pair is only ever sent once; this unique index is what actually
+            // enforces that - EventReminderRepository's HasBeenSentAsync check is a check-then-act read
+            // that alone can't guarantee it.
+            entity.HasIndex(delivery => new { delivery.CalendarEventId, delivery.MinutesBeforeStart }).IsUnique();
         });
     }
 }

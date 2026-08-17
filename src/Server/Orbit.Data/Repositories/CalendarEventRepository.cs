@@ -1,7 +1,5 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Calendar;
-using Orbit.Data.Entities;
 
 namespace Orbit.Data.Repositories;
 
@@ -26,7 +24,7 @@ public sealed class CalendarEventRepository : ICalendarEventRepository
 
         return entities
             .OrderBy(entity => entity.StartUtc)
-            .Select(ToDomain)
+            .Select(CalendarEventEntityMapper.ToDomain)
             .ToList();
     }
 
@@ -36,66 +34,18 @@ public sealed class CalendarEventRepository : ICalendarEventRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(calendarEvent => calendarEvent.Id == id && calendarEvent.UserId == userId, cancellationToken);
 
-        return entity is null ? null : ToDomain(entity);
+        return entity is null ? null : CalendarEventEntityMapper.ToDomain(entity);
     }
 
     public async Task AddAsync(CalendarEvent calendarEvent, CancellationToken cancellationToken)
     {
-        _dbContext.CalendarEvents.Add(ToEntity(calendarEvent));
+        _dbContext.CalendarEvents.Add(CalendarEventEntityMapper.ToEntity(calendarEvent));
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(CalendarEvent calendarEvent, CancellationToken cancellationToken)
     {
-        _dbContext.CalendarEvents.Update(ToEntity(calendarEvent));
+        _dbContext.CalendarEvents.Update(CalendarEventEntityMapper.ToEntity(calendarEvent));
         await _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    private static CalendarEvent ToDomain(CalendarEventEntity entity)
-    {
-        var recurrence = entity.RecurrenceFrequency is null
-            ? null
-            : new EventRecurrence(
-                Enum.Parse<RecurrenceFrequency>(entity.RecurrenceFrequency),
-                entity.RecurrenceIntervalCount ?? 1,
-                entity.RecurrenceUntilUtc);
-
-        var details = new CalendarEventDetails(
-            entity.Title,
-            entity.Description,
-            entity.Location,
-            entity.Color,
-            entity.StartUtc,
-            entity.EndUtc,
-            entity.IsAllDay,
-            recurrence,
-            JsonSerializer.Deserialize<List<string>>(entity.GuestsJson) ?? [],
-            JsonSerializer.Deserialize<List<int>>(entity.RemindersJson) ?? []);
-
-        return CalendarEvent.FromPersistence(entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc);
-    }
-
-    private static CalendarEventEntity ToEntity(CalendarEvent calendarEvent)
-    {
-        var details = calendarEvent.Details;
-        return new CalendarEventEntity
-        {
-            Id = calendarEvent.Id,
-            UserId = calendarEvent.UserId,
-            Title = details.Title,
-            Description = details.Description,
-            Location = details.Location,
-            Color = details.Color,
-            StartUtc = details.StartUtc,
-            EndUtc = details.EndUtc,
-            IsAllDay = details.IsAllDay,
-            RecurrenceFrequency = details.Recurrence?.Frequency.ToString(),
-            RecurrenceIntervalCount = details.Recurrence?.IntervalCount,
-            RecurrenceUntilUtc = details.Recurrence?.UntilUtc,
-            GuestsJson = JsonSerializer.Serialize(details.Guests),
-            RemindersJson = JsonSerializer.Serialize(details.ReminderMinutesBeforeStart),
-            CreatedAtUtc = calendarEvent.CreatedAtUtc,
-            UpdatedAtUtc = calendarEvent.UpdatedAtUtc
-        };
     }
 }

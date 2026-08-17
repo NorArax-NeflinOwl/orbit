@@ -29,6 +29,13 @@ RUN dotnet publish src/Server/Orbit.Api/Orbit.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
+# Alpine's base image ships without the IANA time zone database, so without tzdata the container's
+# clock - and every DateTimeOffset.Now-based log timestamp Serilog writes - is always UTC regardless
+# of the TZ variable below. Orbit is a Poland-only product for now (see the Polish-language client),
+# so logs are written in the operator's own local time rather than UTC.
+RUN apk add --no-cache tzdata
+ENV TZ=Europe/Warsaw
+
 # Data and logs are volume-mounted (see docker-compose.yml); owning them before switching off root
 # means the non-root $APP_UID user (built into the base image) can actually write to the volumes.
 RUN mkdir -p /app/data /app/logs && chown -R $APP_UID:$APP_UID /app/data /app/logs

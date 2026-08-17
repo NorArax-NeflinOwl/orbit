@@ -35,4 +35,33 @@ public sealed class CreateCalendarEventCommandHandlerTests
         await Assert.ThrowsAsync<ArgumentException>(
             () => handler.HandleAsync(new CreateCalendarEventCommand(Guid.NewGuid(), details), CancellationToken.None));
     }
+
+    [Fact]
+    public async Task HandleAsync_creates_a_calendar_event_with_a_map_location()
+    {
+        var repository = new InMemoryCalendarEventRepository();
+        var handler = new CreateCalendarEventCommandHandler(repository);
+        var userId = Guid.NewGuid();
+        var location = new EventLocation("Rynek Główny 1, Kraków", 50.0617, 19.9373);
+        var details = DefaultDetails with { Location = location };
+
+        var eventId = await handler.HandleAsync(new CreateCalendarEventCommand(userId, details), CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(userId, eventId, CancellationToken.None);
+        Assert.Equal(location, stored!.Details.Location);
+    }
+
+    [Theory]
+    [InlineData(90.1, 19.9373)]
+    [InlineData(-90.1, 19.9373)]
+    [InlineData(50.0617, 180.1)]
+    [InlineData(50.0617, -180.1)]
+    public async Task HandleAsync_throws_when_the_locations_coordinates_are_out_of_range(double latitude, double longitude)
+    {
+        var handler = new CreateCalendarEventCommandHandler(new InMemoryCalendarEventRepository());
+        var details = DefaultDetails with { Location = new EventLocation(null, latitude, longitude) };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => handler.HandleAsync(new CreateCalendarEventCommand(Guid.NewGuid(), details), CancellationToken.None));
+    }
 }

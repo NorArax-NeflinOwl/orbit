@@ -14,6 +14,9 @@
          require this on the startup project, not just on the project the DbContext lives in
          (Orbit.Data) - see the matching reference and comment there. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" PrivateAssets="all" />
+    <!-- Sends calendar event reminder emails (see CalendarEventReminderBackgroundService) over real
+         SMTP. Actively maintained, unlike the built-in System.Net.Mail.SmtpClient. -->
+    <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />

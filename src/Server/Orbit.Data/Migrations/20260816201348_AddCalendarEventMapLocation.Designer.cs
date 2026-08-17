@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Orbit.Data;
 
@@ -10,9 +11,11 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    partial class OrbitDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260816201348_AddCalendarEventMapLocation")]
+    partial class AddCalendarEventMapLocation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -87,29 +90,6 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("CalendarEvents");
-                });
-
-            modelBuilder.Entity("Orbit.Data.Entities.EventReminderDeliveryEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("CalendarEventId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("MinutesBeforeStart")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("SentAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CalendarEventId", "MinutesBeforeStart")
-                        .IsUnique();
-
-                    b.ToTable("EventReminderDeliveries");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.NoteEntity", b =>

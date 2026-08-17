@@ -24,4 +24,11 @@ FROM nginx:alpine AS runtime
 COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 COPY src/Clients/Orbit.Web/nginx.conf /etc/nginx/conf.d/default.conf
 
+# `dotnet publish`'s output carries whatever file permissions the build stage's umask produced,
+# which for plain wwwroot static files (as opposed to the specially processed _framework/ assets)
+# can be too restrictive for nginx's worker processes to read - they drop privileges to the
+# unprivileged "nginx" user rather than running as root. Without this, requests for those files
+# (e.g. favicon.ico, wwwroot/js/*.js) fail with 403 Forbidden instead of being served.
+RUN chmod -R a+rX /usr/share/nginx/html
+
 EXPOSE 80
