@@ -4,6 +4,7 @@ using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.CreateTaskList;
+using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.UpdateTaskList;
@@ -44,6 +45,12 @@ public static class TaskEndpoints
             var updated = await dispatcher.SendAsync(
                 new UpdateTaskListCommand(GetUserId(user), id, request.Title, ToDomainItems(request.Items)), cancellationToken);
             return updated ? Results.NoContent() : Results.NotFound();
+        });
+
+        tasks.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var deleted = await dispatcher.SendAsync(new DeleteTaskListCommand(GetUserId(user), id), cancellationToken);
+            return deleted ? Results.NoContent() : Results.NotFound();
         });
     }
 

@@ -67,6 +67,22 @@ public sealed class TaskRepository : ITaskRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Tasks
+            .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
+        if (entity is null)
+        {
+            return;
+        }
+
+        // No need to load or remove the Items navigation separately - the foreign key from
+        // TaskItemEntity to this row was created with ON DELETE CASCADE (see OrbitDbContext), so SQLite
+        // removes them itself once this row goes away.
+        _dbContext.Tasks.Remove(entity);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private static TaskList ToDomain(TaskEntity entity)
         => TaskList.FromPersistence(
             entity.Id,

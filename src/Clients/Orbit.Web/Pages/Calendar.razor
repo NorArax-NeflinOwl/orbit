@@ -5,6 +5,7 @@
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @inject ILogger<Calendar> Logger
 
 <PageTitle>Orbit — Kalendarz</PageTitle>
@@ -48,6 +49,7 @@ else
                 }
                 <br>
                 <button @onclick="() => GoToEditEvent(calendarEvent.Id)">Edytuj</button>
+                <button @onclick="() => DeleteEventAsync(calendarEvent)">Usuń</button>
             </li>
         }
     </ul>
@@ -84,6 +86,20 @@ else
     {
         Logger.LogInformation("User clicked 'Edytuj' for calendar event {EventId}", eventId);
         NavigationManager.NavigateTo($"/calendar/{eventId}");
+    }
+
+    private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
+    {
+        Logger.LogInformation("User clicked 'Usuń' for calendar event {EventId}", calendarEvent.Id);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Usunąć wydarzenie „{calendarEvent.Details.Title}”?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await CalendarApiClient.DeleteCalendarEventAsync(calendarEvent.Id);
+        _events = _events!.Where(existingEvent => existingEvent.Id != calendarEvent.Id).ToList();
+        Logger.LogInformation("Calendar event {EventId} deleted", calendarEvent.Id);
     }
 
     private static string FormatTimeRange(CalendarEventDetailsDto details)

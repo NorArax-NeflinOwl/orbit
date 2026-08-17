@@ -38,6 +38,16 @@ public sealed class CalendarEventEntity
     /// <summary>JSON-encoded list of reminder offsets, in minutes before the event start.</summary>
     public string RemindersJson { get; set; } = "[]";
 
+    /// <summary>Whether an email is sent to the event's owner immediately when the event is first created.</summary>
+    public bool NotifyOnCreation { get; set; }
+
+    /// <summary>
+    /// Whether the reminder emails configured via <see cref="RemindersJson"/> are actually sent as their
+    /// lead time is reached - lets an owner keep configured lead times without clearing them while
+    /// temporarily silencing "approaching event" notifications.
+    /// </summary>
+    public bool NotifyBeforeStart { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

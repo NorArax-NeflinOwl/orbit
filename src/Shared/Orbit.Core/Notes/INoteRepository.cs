@@ -9,4 +9,6 @@ public interface INoteRepository
     Task AddAsync(Note note, CancellationToken cancellationToken);
 
     Task UpdateAsync(Note note, CancellationToken cancellationToken);
+
+    Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken);
 }

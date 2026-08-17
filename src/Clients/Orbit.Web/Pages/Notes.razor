@@ -4,6 +4,7 @@
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @inject ILogger<Notes> Logger
 
 <PageTitle>Orbit — Notatki</PageTitle>
@@ -31,6 +32,7 @@ else
                 <small>Utworzono: @note.CreatedAtUtc.LocalDateTime</small><br>
                 <small>Ostatnia zmiana: @note.UpdatedAtUtc.LocalDateTime</small><br>
                 <button @onclick="() => GoToEditNote(note.Id)">Edytuj</button>
+                <button @onclick="() => DeleteNoteAsync(note)">Usuń</button>
             </li>
         }
     </ul>
@@ -67,5 +69,19 @@ else
     {
         Logger.LogInformation("User clicked 'Edytuj' for note {NoteId}", noteId);
         NavigationManager.NavigateTo($"/notes/{noteId}");
+    }
+
+    private async Task DeleteNoteAsync(NoteDto note)
+    {
+        Logger.LogInformation("User clicked 'Usuń' for note {NoteId}", note.Id);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Usunąć notatkę „{note.Title}”?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await NotesApiClient.DeleteNoteAsync(note.Id);
+        _notes = _notes!.Where(existingNote => existingNote.Id != note.Id).ToList();
+        Logger.LogInformation("Note {NoteId} deleted", note.Id);
     }
 }

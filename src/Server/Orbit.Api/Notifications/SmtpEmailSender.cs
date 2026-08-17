@@ -32,6 +32,13 @@ public sealed class SmtpEmailSender : IEmailSender
                 toEmailAddress, subject);
             return;
         }
+        if(string.IsNullOrEmpty(currentSettings.UserName) || string.IsNullOrEmpty(currentSettings.Password))
+        {
+            _logger.LogWarning(
+                "Smtp is not configured (see Smtp:UserName/Smtp:Password) - dropped an email to {ToEmailAddress}: {Subject}",
+                toEmailAddress, subject);
+            return;
+        }
 
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(currentSettings.FromDisplayName, currentSettings.FromAddress));
@@ -40,6 +47,14 @@ public sealed class SmtpEmailSender : IEmailSender
         message.Body = new TextPart("plain") { Text = body };
 
         using var smtpClient = new SmtpClient();
+
+        // Some networks (VPNs, corporate/home firewalls) block the OCSP/CRL lookups .NET performs to
+        // check whether the server's certificate has been revoked, which SslStream then treats as a
+        // hard TLS failure ("An incomplete certificate revocation check occurred") even though the
+        // certificate itself is valid. Revocation checking still happens whenever it can complete; this
+        // only stops an unrelated network hiccup from blocking every outgoing email.
+        smtpClient.CheckCertificateRevocation = false;
+
         var socketOptions = currentSettings.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
         await smtpClient.ConnectAsync(currentSettings.Host, currentSettings.Port, socketOptions, cancellationToken);
 

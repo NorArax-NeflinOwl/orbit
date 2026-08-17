@@ -7,7 +7,8 @@ namespace Orbit.Api.Tests.Calendar.Reminders;
 public sealed class EventReminderEmailContentTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
-        "Stand-up", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddMinutes(30), false, null, [], [10]);
+        "Stand-up", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddMinutes(30), false, null, [], [10],
+        NotifyOnCreation: false, NotifyBeforeStart: true);
 
     [Fact]
     public void Build_includes_the_events_title_in_the_subject()

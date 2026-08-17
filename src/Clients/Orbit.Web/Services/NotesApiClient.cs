@@ -43,4 +43,10 @@ public sealed class NotesApiClient
         var response = await _httpClient.PutAsJsonAsync($"api/notes/{id}", request, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task DeleteNoteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/notes/{id}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 }

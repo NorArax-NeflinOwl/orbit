@@ -4,6 +4,7 @@ using Orbit.Contracts.Calendar;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.CreateCalendarEvent;
+using Orbit.Core.Calendar.DeleteCalendarEvent;
 using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
@@ -45,6 +46,12 @@ public static class CalendarEndpoints
                 new UpdateCalendarEventCommand(GetUserId(user), id, ToDomainDetails(request.Details)), cancellationToken);
             return updated ? Results.NoContent() : Results.NotFound();
         });
+
+        calendarEvents.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var deleted = await dispatcher.SendAsync(new DeleteCalendarEventCommand(GetUserId(user), id), cancellationToken);
+            return deleted ? Results.NoContent() : Results.NotFound();
+        });
     }
 
     /// <summary>
@@ -70,7 +77,9 @@ public static class CalendarEndpoints
             request.IsAllDay,
             ToDomainRecurrence(request.Recurrence),
             request.Guests,
-            request.ReminderMinutesBeforeStart);
+            request.ReminderMinutesBeforeStart,
+            request.NotifyOnCreation,
+            request.NotifyBeforeStart);
 
     private static EventLocation? ToDomainLocation(EventLocationRequest? request)
         => request is null ? null : new EventLocation(request.Address, request.Latitude, request.Longitude);
@@ -93,7 +102,9 @@ public static class CalendarEndpoints
             details.IsAllDay,
             ToRecurrenceDto(details.Recurrence),
             details.Guests,
-            details.ReminderMinutesBeforeStart);
+            details.ReminderMinutesBeforeStart,
+            details.NotifyOnCreation,
+            details.NotifyBeforeStart);
 
         return new CalendarEventDto(calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc);
     }

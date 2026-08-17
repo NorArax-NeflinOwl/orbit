@@ -9,4 +9,6 @@ public interface ITaskRepository
     Task AddAsync(TaskList taskList, CancellationToken cancellationToken);
 
     Task UpdateAsync(TaskList taskList, CancellationToken cancellationToken);
+
+    Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken);
 }

@@ -49,6 +49,19 @@ public sealed class NoteRepository : INoteRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Notes
+            .FirstOrDefaultAsync(note => note.Id == id && note.UserId == userId, cancellationToken);
+        if (entity is null)
+        {
+            return;
+        }
+
+        _dbContext.Notes.Remove(entity);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private static Note ToDomain(NoteEntity entity)
         => Note.FromPersistence(entity.Id, entity.UserId, entity.Title, entity.Content, entity.CreatedAtUtc, entity.UpdatedAtUtc);
 

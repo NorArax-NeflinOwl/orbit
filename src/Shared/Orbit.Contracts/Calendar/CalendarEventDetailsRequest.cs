@@ -10,4 +10,6 @@ public sealed record CalendarEventDetailsRequest(
     bool IsAllDay,
     RecurrenceRequest? Recurrence,
     IReadOnlyList<string> Guests,
-    IReadOnlyList<int> ReminderMinutesBeforeStart);
+    IReadOnlyList<int> ReminderMinutesBeforeStart,
+    bool NotifyOnCreation,
+    bool NotifyBeforeStart);

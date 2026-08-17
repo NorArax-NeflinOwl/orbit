@@ -21,6 +21,12 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
     private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan LookBackWindow = TimeSpan.FromMinutes(5);
 
+    // Caps how many reminder emails a single poll sends. Protects against a burst of simultaneously due
+    // reminders (e.g. many events all set to remind "10 minutes before", clustered around the same
+    // time) overwhelming the SMTP server or this process; anything beyond the cap is simply picked up on
+    // the next minute's poll instead of being dropped.
+    private const int MaxRemindersPerPoll = 100;
+
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly HostedServiceHealthTracker _healthTracker;
     private readonly ILogger<CalendarEventReminderBackgroundService> _logger;
@@ -68,7 +74,8 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         var eventReminderRepository = scope.ServiceProvider.GetRequiredService<IEventReminderRepository>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
-        var dueReminders = await scheduler.FindDueRemindersAsync(DateTimeOffset.UtcNow, LookBackWindow, cancellationToken);
+        var dueReminders = await scheduler.FindDueRemindersAsync(
+            DateTimeOffset.UtcNow, LookBackWindow, cancellationToken, maxResults: MaxRemindersPerPoll);
         foreach (var dueReminder in dueReminders)
         {
             await SendReminderEmailAsync(dueReminder, userRepository, eventReminderRepository, emailSender, cancellationToken);
@@ -83,15 +90,39 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         CancellationToken cancellationToken)
     {
         var calendarEvent = dueReminder.CalendarEvent;
+
+        // Reserves this specific reminder before doing anything else - the unique index backing
+        // TryClaimAsync (see its comment) is the actual concurrency guard, letting more than one
+        // instance of this background service poll at the same time in the future without a distributed
+        // lock or message queue: whichever instance's claim lands first wins, the other backs off here.
+        var claimedAtUtc = DateTimeOffset.UtcNow;
+        var claimed = await eventReminderRepository.TryClaimAsync(
+            calendarEvent.Id, dueReminder.MinutesBeforeStart, claimedAtUtc, cancellationToken);
+        if (!claimed)
+        {
+            return;
+        }
+
         var owner = await userRepository.GetByIdAsync(calendarEvent.UserId, cancellationToken);
         if (owner is null)
         {
-            // The owning account was deleted after the event was created - nothing meaningful to notify.
+            // The owning account was deleted after the event was created - nothing meaningful to notify,
+            // and no one to ever notify, so the claim stays in place rather than being retried.
             return;
         }
 
         var (subject, body) = EventReminderEmailContent.Build(calendarEvent.Details, dueReminder.MinutesBeforeStart);
-        await emailSender.SendAsync(owner.Email, subject, body, cancellationToken);
-        await eventReminderRepository.MarkAsSentAsync(calendarEvent.Id, dueReminder.MinutesBeforeStart, DateTimeOffset.UtcNow, cancellationToken);
+
+        try
+        {
+            await emailSender.SendAsync(owner.Email, subject, body, cancellationToken);
+        }
+        catch
+        {
+            // The claim already reserved this reminder; release it so a later poll retries the send
+            // instead of silently losing it because of a transient SMTP failure.
+            await eventReminderRepository.ReleaseClaimAsync(calendarEvent.Id, dueReminder.MinutesBeforeStart, cancellationToken);
+            throw;
+        }
     }
 }

@@ -20,3 +20,15 @@
     right: 0.75rem;
     top: 0.5rem;
 }
+
+/* Dashboard.razor: one column per item type (notes/tasks/events), wrapping onto multiple rows on
+   narrow viewports instead of forcing a horizontal scrollbar. */
+.dashboard-columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+}
+
+.dashboard-column {
+    min-width: 16rem;
+}

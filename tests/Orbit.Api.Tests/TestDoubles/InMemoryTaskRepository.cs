@@ -29,4 +29,10 @@ internal sealed class InMemoryTaskRepository : ITaskRepository
         // SaveChangesAsync on an already-tracked entity.
         return Task.CompletedTask;
     }
+
+    public Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        _taskLists.RemoveAll(taskList => taskList.Id == id && taskList.UserId == userId);
+        return Task.CompletedTask;
+    }
 }

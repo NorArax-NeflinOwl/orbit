@@ -9,4 +9,6 @@ public interface ICalendarEventRepository
     Task AddAsync(CalendarEvent calendarEvent, CancellationToken cancellationToken);
 
     Task UpdateAsync(CalendarEvent calendarEvent, CancellationToken cancellationToken);
+
+    Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken);
 }

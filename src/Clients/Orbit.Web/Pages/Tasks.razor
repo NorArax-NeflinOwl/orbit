@@ -4,6 +4,7 @@
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @inject ILogger<Tasks> Logger
 
 <PageTitle>Orbit — Zadania</PageTitle>
@@ -44,6 +45,7 @@ else
                     }
                 </ul>
                 <button @onclick="() => GoToEditTaskList(taskList.Id)">Edytuj</button>
+                <button @onclick="() => DeleteTaskListAsync(taskList)">Usuń</button>
             </li>
         }
     </ul>
@@ -80,5 +82,19 @@ else
     {
         Logger.LogInformation("User clicked 'Edytuj' for task list {TaskListId}", taskListId);
         NavigationManager.NavigateTo($"/tasks/{taskListId}");
+    }
+
+    private async Task DeleteTaskListAsync(TaskDto taskList)
+    {
+        Logger.LogInformation("User clicked 'Usuń' for task list {TaskListId}", taskList.Id);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Usunąć listę zadań „{taskList.Title}”?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await TasksApiClient.DeleteTaskListAsync(taskList.Id);
+        _taskLists = _taskLists!.Where(existingTaskList => existingTaskList.Id != taskList.Id).ToList();
+        Logger.LogInformation("Task list {TaskListId} deleted", taskList.Id);
     }
 }

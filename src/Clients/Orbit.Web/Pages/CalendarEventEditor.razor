@@ -102,6 +102,18 @@ else
             <label>Przypomnienia (minuty przed wydarzeniem, oddzielone przecinkami)</label>
             <InputText @bind-Value="_formModel.RemindersText" />
         </div>
+        <div>
+            <label>
+                <InputCheckbox @bind-Value="_formModel.NotifyOnCreation" />
+                Wyślij powiadomienie e-mail o utworzeniu wydarzenia
+            </label>
+        </div>
+        <div>
+            <label>
+                <InputCheckbox @bind-Value="_formModel.NotifyBeforeStart" />
+                Wyślij powiadomienie e-mail o zbliżającym się wydarzeniu
+            </label>
+        </div>
 
         <div>
             <button type="submit">Zapisz</button>
@@ -261,6 +273,8 @@ else
         public DateOnly? RecurrenceUntil { get; set; }
         public string GuestsText { get; set; } = string.Empty;
         public string RemindersText { get; set; } = string.Empty;
+        public bool NotifyOnCreation { get; set; }
+        public bool NotifyBeforeStart { get; set; }
 
         /// <summary>
         /// Defaults a new event to start now and end an hour later. Start and end are each derived from
@@ -298,7 +312,9 @@ else
                 RecurrenceIntervalCount = details.Recurrence?.IntervalCount ?? 1,
                 RecurrenceUntil = details.Recurrence?.UntilUtc is { } until ? DateOnly.FromDateTime(until.LocalDateTime) : null,
                 GuestsText = string.Join(", ", details.Guests),
-                RemindersText = string.Join(", ", details.ReminderMinutesBeforeStart)
+                RemindersText = string.Join(", ", details.ReminderMinutesBeforeStart),
+                NotifyOnCreation = details.NotifyOnCreation,
+                NotifyBeforeStart = details.NotifyBeforeStart
             };
 
         public CalendarEventDetailsRequest ToRequest()
@@ -322,7 +338,9 @@ else
                 IsAllDay,
                 recurrence,
                 ParseCommaSeparatedList(GuestsText),
-                ParseCommaSeparatedIntegers(RemindersText));
+                ParseCommaSeparatedIntegers(RemindersText),
+                NotifyOnCreation,
+                NotifyBeforeStart);
         }
 
         /// <summary>

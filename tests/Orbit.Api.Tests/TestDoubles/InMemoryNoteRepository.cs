@@ -29,4 +29,10 @@ internal sealed class InMemoryNoteRepository : INoteRepository
         // SaveChangesAsync on an already-tracked entity.
         return Task.CompletedTask;
     }
+
+    public Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        _notes.RemoveAll(note => note.Id == id && note.UserId == userId);
+        return Task.CompletedTask;
+    }
 }

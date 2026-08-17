@@ -1,0 +1,123 @@
+@page "/dashboard"
+@attribute [Authorize]
+@using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Notes
+@using Orbit.Contracts.Tasks
+@using Orbit.Web.Services
+@inject NotesApiClient NotesApiClient
+@inject TasksApiClient TasksApiClient
+@inject CalendarApiClient CalendarApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<Dashboard> Logger
+
+<PageTitle>Orbit — Pulpit</PageTitle>
+
+<h1>Pulpit</h1>
+
+@if (_notes is null || _taskLists is null || _events is null)
+{
+    <p>Ładowanie…</p>
+}
+else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0)
+{
+    <p>Brak elementów do wyświetlenia.</p>
+}
+else
+{
+    <div class="dashboard-columns">
+        @if (_notes.Count > 0)
+        {
+            <div class="dashboard-column">
+                <h2>Notatki</h2>
+                <ul>
+                    @foreach (var note in _notes)
+                    {
+                        <li><button @onclick="() => GoToEditNote(note.Id)">@note.Title</button></li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (_taskLists.Count > 0)
+        {
+            <div class="dashboard-column">
+                <h2>Zadania</h2>
+                <ul>
+                    @foreach (var taskList in _taskLists)
+                    {
+                        <li>
+                            <button @onclick="() => GoToEditTaskList(taskList.Id)">
+                                @taskList.Title @(taskList.IsCompleted ? "✓" : "")
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (_events.Count > 0)
+        {
+            <div class="dashboard-column">
+                <h2>Wydarzenia</h2>
+                <ul>
+                    @foreach (var calendarEvent in _events)
+                    {
+                        <li><button @onclick="() => GoToEditEvent(calendarEvent.Id)">@calendarEvent.Details.Title</button></li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<NoteDto>? _notes;
+    private IReadOnlyList<TaskDto>? _taskLists;
+    private IReadOnlyList<CalendarEventDto>? _events;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("Dashboard opened, loading notes/task lists/events");
+        try
+        {
+            // Loaded together rather than one after another, so the dashboard's total load time is the
+            // slowest single call instead of the sum of all three.
+            await Task.WhenAll(LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync());
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // The access token expired and AuthorizationMessageHandler's automatic refresh-and-retry
+            // also failed (e.g. the refresh token itself expired or was revoked) - the session is no
+            // longer valid, so send the user back to sign in instead of leaving the page stuck loading.
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        Logger.LogInformation(
+            "Dashboard loaded {NoteCount} notes, {TaskListCount} task lists, {EventCount} events",
+            _notes!.Count, _taskLists!.Count, _events!.Count);
+    }
+
+    private async Task LoadNotesAsync() => _notes = await NotesApiClient.GetNotesAsync();
+
+    private async Task LoadTaskListsAsync() => _taskLists = await TasksApiClient.GetTaskListsAsync();
+
+    private async Task LoadEventsAsync() => _events = await CalendarApiClient.GetCalendarEventsAsync();
+
+    private void GoToEditNote(Guid noteId)
+    {
+        Logger.LogInformation("User clicked a note on the dashboard ({NoteId})", noteId);
+        NavigationManager.NavigateTo($"/notes/{noteId}");
+    }
+
+    private void GoToEditTaskList(Guid taskListId)
+    {
+        Logger.LogInformation("User clicked a task list on the dashboard ({TaskListId})", taskListId);
+        NavigationManager.NavigateTo($"/tasks/{taskListId}");
+    }
+
+    private void GoToEditEvent(Guid eventId)
+    {
+        Logger.LogInformation("User clicked a calendar event on the dashboard ({EventId})", eventId);
+        NavigationManager.NavigateTo($"/calendar/{eventId}");
+    }
+}

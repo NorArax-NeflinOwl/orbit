@@ -48,4 +48,17 @@ public sealed class CalendarEventRepository : ICalendarEventRepository
         _dbContext.CalendarEvents.Update(CalendarEventEntityMapper.ToEntity(calendarEvent));
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.CalendarEvents
+            .FirstOrDefaultAsync(calendarEvent => calendarEvent.Id == id && calendarEvent.UserId == userId, cancellationToken);
+        if (entity is null)
+        {
+            return;
+        }
+
+        _dbContext.CalendarEvents.Remove(entity);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

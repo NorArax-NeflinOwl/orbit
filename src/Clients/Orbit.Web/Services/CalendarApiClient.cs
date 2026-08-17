@@ -44,4 +44,10 @@ public sealed class CalendarApiClient
         var response = await _httpClient.PutAsJsonAsync($"api/calendar-events/{id}", request, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task DeleteCalendarEventAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/calendar-events/{id}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 }

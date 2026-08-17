@@ -4,6 +4,7 @@ using Orbit.Contracts.Notes;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.CreateNote;
+using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.UpdateNote;
@@ -44,6 +45,12 @@ public static class NoteEndpoints
             var updated = await dispatcher.SendAsync(
                 new UpdateNoteCommand(GetUserId(user), id, request.Title, request.Content), cancellationToken);
             return updated ? Results.NoContent() : Results.NotFound();
+        });
+
+        notes.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var deleted = await dispatcher.SendAsync(new DeleteNoteCommand(GetUserId(user), id), cancellationToken);
+            return deleted ? Results.NoContent() : Results.NotFound();
         });
     }
 

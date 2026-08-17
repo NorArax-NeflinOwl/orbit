@@ -1,0 +1,11 @@
+{
+  "_comment": "Copy this file to appsettings.Development.json (already gitignored via '*.Development.json' - see .gitignore) and fill in real values. That file is only loaded when ASPNETCORE_ENVIRONMENT=Development, which is what the 'http'/'https' launch profiles (Properties/launchSettings.json) and VS Code's debugger set for `dotnet run`/F5. Never put real values here or in the tracked appsettings.json.",
+  "Smtp": {
+    "Host": "smtp.example.com",
+    "Port": 587,
+    "UserName": "your-account@example.com",
+    "UseStartTls": true,
+    "FromAddress": "your-account@example.com",
+    "FromDisplayName": "Orbit"
+  }
+}

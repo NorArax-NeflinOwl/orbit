@@ -29,4 +29,10 @@ internal sealed class InMemoryCalendarEventRepository : ICalendarEventRepository
         // SaveChangesAsync on an already-tracked entity.
         return Task.CompletedTask;
     }
+
+    public Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        _calendarEvents.RemoveAll(calendarEvent => calendarEvent.Id == id && calendarEvent.UserId == userId);
+        return Task.CompletedTask;
+    }
 }

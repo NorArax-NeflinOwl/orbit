@@ -35,7 +35,9 @@ internal static class CalendarEventEntityMapper
             entity.IsAllDay,
             recurrence,
             JsonSerializer.Deserialize<List<string>>(entity.GuestsJson) ?? [],
-            JsonSerializer.Deserialize<List<int>>(entity.RemindersJson) ?? []);
+            JsonSerializer.Deserialize<List<int>>(entity.RemindersJson) ?? [],
+            entity.NotifyOnCreation,
+            entity.NotifyBeforeStart);
 
         return CalendarEvent.FromPersistence(entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc);
     }
@@ -61,6 +63,8 @@ internal static class CalendarEventEntityMapper
             RecurrenceUntilUtc = details.Recurrence?.UntilUtc,
             GuestsJson = JsonSerializer.Serialize(details.Guests),
             RemindersJson = JsonSerializer.Serialize(details.ReminderMinutesBeforeStart),
+            NotifyOnCreation = details.NotifyOnCreation,
+            NotifyBeforeStart = details.NotifyBeforeStart,
             CreatedAtUtc = calendarEvent.CreatedAtUtc,
             UpdatedAtUtc = calendarEvent.UpdatedAtUtc
         };

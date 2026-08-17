@@ -8,8 +8,10 @@ by a shared ASP.NET Core API, so every device stays in sync.
 
 This repository is an early-stage prototype. **Accounts, notes, tasks, and a basic calendar** are
 implemented end to end, including the Blazor web client: register or log in on `/register`/`/login`,
-and the notes, tasks, and calendar pages are only reachable once signed in. Encrypted messaging,
-location sharing, and the MAUI client are not implemented yet.
+and the dashboard and the notes, tasks, and calendar pages are only reachable once signed in. A note,
+task list, or calendar event can be created, edited, or deleted from its own page; the dashboard
+(`/dashboard`, see "Dashboard" below) lists all three at a glance. Encrypted messaging, location
+sharing, and the MAUI client are not implemented yet.
 
 ## Architecture
 
@@ -41,17 +43,21 @@ The solution is split into three layers:
 
 `tests/Orbit.Api.Tests` covers the health check infrastructure and the accounts, notes, tasks, and
 calendar features on the API side (password hashing, refresh token issuing/redeeming/revoking,
-registration, login, per-owner note access, per-owner task list access including the
-checklist-completion rule and the task-list-linking rules below, per-owner calendar event access
-including the start-before-end validation rule, and the calendar event reminder scheduling logic below).
+registration, login, per-owner note access including deletion, per-owner task list access including the
+checklist-completion rule, the task-list-linking rules below, and deletion, per-owner calendar event
+access including the start-before-end validation rule and deletion, and the calendar event reminder
+scheduling logic below).
 `tests/Orbit.Web.Tests` covers the Blazor client's auth wiring: the token store, the
 handler that attaches the access token to outgoing requests and transparently refreshes it after a 401,
 `AuthApiClient`, `OrbitAuthenticationStateProvider`, and the `Login`/`Register` pages themselves
 (rendered with [bUnit](https://bunit.dev)). Not covered by an automated test: the `/api/auth/*` rate
 limiter and the exact 429 behavior, the client-side retry-after-refresh path end-to-end through a
 real `HttpClientHandler` pipeline (both would need HTTP-integration test infrastructure -
-`WebApplicationFactory` on the API side - that this project doesn't have yet), and actually sending an
-email through `SmtpEmailSender` (needs a real or fake SMTP server to connect to).
+`WebApplicationFactory` on the API side - that this project doesn't have yet), actually sending an
+email through `SmtpEmailSender` (needs a real or fake SMTP server to connect to), and the
+`Notes`/`Tasks`/`Calendar`/`Dashboard` pages themselves (the delete-confirmation flow and the
+dashboard's per-column rendering only have the command-handler tests above, not a bUnit test against the
+actual pages, unlike `Login`/`Register`).
 
 ## Authentication
 
@@ -128,6 +134,14 @@ In the Blazor client, each item's due date and time are edited separately (`Inpu
 `<input type="time">`) and combined into one timestamp on save; a date picked without a time is stored
 as midnight.
 
+`DELETE /api/tasks/{id}` deletes a task list (and its items, via the `ON DELETE CASCADE` foreign key
+from `TaskItemEntity` to its owning list - see `OrbitDbContext`); like the other endpoints, it 404s if
+the id doesn't exist or isn't owned by the caller. Deleting a list that another list's item links to via
+`linkedTaskListId` leaves that reference dangling rather than blocking the delete or cascading further -
+`LinkedTaskCompletionResolver` already treats a link to a missing list as "not completed" instead of
+failing, so this is safe, just something to be aware of if a list you expect to still be linkable is
+gone. The Blazor client's task list page asks for confirmation before calling this endpoint.
+
 ## Calendar
 
 `POST /api/calendar-events` and `PUT /api/calendar-events/{id}` both take `{ details }`, where `details`
@@ -163,28 +177,58 @@ each recurring event once with the rule described in text (e.g. "co tydzień, do
 showing every future occurrence. Turning that into a real occurrence expansion, and a month/week grid
 view to place them on, is follow-up work.
 
-Like notes and tasks, calendar events can be created and updated but not deleted yet. Guests and
-reminders (`reminderMinutesBeforeStart`, minutes before the event starts) are edited in the Blazor
-client as comma-separated text rather than as an add/remove list like task items are, since neither
-needed per-item editing for a first pass.
+Guests and reminders (`reminderMinutesBeforeStart`, minutes before the event starts) are edited in the
+Blazor client as comma-separated text rather than as an add/remove list like task items are, since
+neither needed per-item editing for a first pass.
+
+`DELETE /api/calendar-events/{id}` deletes an event, 404ing under the same ownership rule as the other
+endpoints. Any reminder claims already recorded for it in `EventReminderDeliveries` (see "Calendar event
+reminders" below) are left in place rather than cleaned up, since they're not a foreign key relationship
+and a deleted event simply stops producing new reminders. The Blazor client's calendar page asks for
+confirmation before calling this endpoint.
 
 ### Calendar event reminders
 
-Each `reminderMinutesBeforeStart` entry results in one email to the event's owner (the account that
-created it - not the `guests` list, which isn't wired to notifications yet), sent once its lead time is
-reached. This runs entirely inside Orbit.Api as `CalendarEventReminderBackgroundService`, a
+Two independent notification emails can go to an event's owner (the account that created it - not the
+`guests` list, which isn't wired to notifications yet), each gated by its own checkbox in the event
+editor:
+
+- **`notifyOnCreation`**: sent once, immediately, the first time the event is saved. Handled directly in
+  `CreateCalendarEventCommandHandler` - not by the polling service below - since it's a one-off reaction
+  to a single request rather than something that needs to be discovered later. A failure to send it (e.g.
+  SMTP briefly unreachable) is logged but never fails the request: the event is already persisted by that
+  point.
+- **`notifyBeforeStart`**: sent per `reminderMinutesBeforeStart` entry, once its lead time before the
+  event's start is reached. All-day events are anchored to local midnight (see `CalendarEventEditor.razor`),
+  so a `0`-minutes entry on one of those fires "at 00:00" - except when the event is all-day *and* was
+  created on the same calendar day it starts: that specific reminder is suppressed, since the creation
+  email above already told the owner about an event starting the same day.
+
+The "approaching event" side runs entirely inside Orbit.Api as `CalendarEventReminderBackgroundService`, a
 `BackgroundService` that polls once a minute: sending real email needs SMTP credentials, and those must
 never reach the Blazor WebAssembly client, so this can't live in Orbit.Web despite reminders being a
 calendar-page feature. `EventReminderScheduler` (`Orbit.Core.Calendar.Reminders`) holds the actual
-"what's due right now" logic, kept independent of ASP.NET Core hosting so it's unit-testable on its own.
+"what's due right now" logic (including the all-day/same-day suppression rule above), kept independent of
+ASP.NET Core hosting so it's unit-testable on its own.
 
 A reminder is due once `startUtc` minus its lead time has passed, and stays eligible for 5 minutes after
 that (`LookBackWindow`) so a reminder isn't lost if a poll is briefly delayed - after that window it's
-treated as missed rather than emailed late. Each event/lead-time pair is recorded in a dedicated
-`EventReminderDeliveries` table once sent (unique-indexed on the pair), so the same reminder is never
-emailed twice even across restarts. Recurring events only get a reminder for the single `startUtc` they
-carry, matching the existing limitation that recurring events aren't expanded into individual
-occurrences server-side (see above).
+treated as missed rather than emailed late. A single poll sends at most 100 reminders
+(`MaxRemindersPerPoll`), protecting against a burst of simultaneously due reminders overwhelming the SMTP
+server; anything past that cap is simply picked up on the next minute's poll.
+
+Each reminder is reserved before it's sent, not just recorded after: `EventReminderRepository.TryClaimAsync`
+inserts its row into a dedicated `EventReminderDeliveries` table (unique-indexed on the event/lead-time
+pair) *before* the email goes out, and only sends if that insert wins the race. A failed insert means
+another worker already claimed the same reminder, so this one backs off instead of sending a duplicate -
+the unique index is the actual concurrency guard, not the earlier existence check
+(`HasBeenSentAsync`), which stays as a cheap pre-filter only. This is what makes it safe to eventually run
+more than one instance of this background service at once, without needing a distributed lock or message
+queue: whichever instance's insert lands first wins, everyone else backs off. If sending fails after the
+claim succeeds (e.g. a transient SMTP error), `ReleaseClaimAsync` removes the reservation so the reminder
+is retried on a later poll instead of being silently lost. Recurring events only get a reminder for the
+single `startUtc` they carry, matching the existing limitation that recurring events aren't expanded into
+individual occurrences server-side (see above).
 
 Email is sent via [MailKit](https://github.com/jstedfast/MailKit) (`SmtpEmailSender`), configured
 through the `Smtp` section (`Smtp:Host`, `Smtp:Port`, `Smtp:UserName`, `Smtp:FromAddress`,
@@ -195,6 +239,17 @@ and skips sending when `Smtp:Host`/`Smtp:FromAddress` are unset, so a fresh loca
 without anyone having set up email delivery. The background service reports a heartbeat to the existing
 `HostedServiceHealthTracker` on every poll (success or failure), so a crashed or stuck reminder loop
 shows up in the `hosted-services` health check the same way any other background service would.
+
+## Dashboard
+
+`/dashboard` (`Dashboard.razor`) gives a single-page overview of everything the signed-in user owns,
+loading notes, task lists, and calendar events concurrently rather than one after another so the page's
+load time is the slowest of the three calls rather than their sum. Each item type gets its own column,
+but only if it actually has items in it - an empty column (e.g. no task lists yet) is left out entirely
+rather than shown with a "brak..." placeholder, since the point of this page is a quick glance at what
+exists, not a third copy of each list page's empty state. Clicking any item navigates straight to its
+editor (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`), the same page `Notes`/`Tasks`/`Calendar`'s
+own "Edytuj" button opens - the dashboard has no editing of its own.
 
 ## Running locally
 
@@ -233,9 +288,27 @@ try to create tables that already exist and fail.
 Alternatively, each project can be run directly with `dotnet run` from its own folder
 (`src/Server/Orbit.Api`, `src/Clients/Orbit.Web`) using the `https` launch profile; see
 `Properties/launchSettings.json` in each project for the exact ports. Set the JWT signing key via
-`dotnet user-secrets` first (see "Authentication" above); optionally set `Smtp:Password` the same way
-(`dotnet user-secrets set "Smtp:Password" "<your SMTP password>"`) alongside the rest of the `Smtp`
-section in `appsettings.Development.json` if you want to actually see reminder emails locally.
+`dotnet user-secrets` first (see "Authentication" above); optionally configure SMTP the same way if you
+want to actually see reminder emails locally - see "Configuring SMTP for local development" right below.
+
+### Configuring SMTP for local development
+
+`dotnet run`/VS Code's debugger set `ASPNETCORE_ENVIRONMENT=Development` (see the launch profiles in
+`Properties/launchSettings.json`), so `appsettings.Development.json` is loaded on top of the tracked
+`appsettings.json` and never committed (`*.Development.json` is in `.gitignore`) - this is where local,
+per-developer SMTP settings belong, never in the tracked `appsettings.json`. `Smtp:Password` goes through
+`dotnet user-secrets` instead, on top of both, so it never touches a file on disk that could be
+accidentally committed or copied elsewhere:
+
+```
+cd src/Server/Orbit.Api
+cp appsettings.Development.json.example appsettings.Development.json
+# then edit appsettings.Development.json and fill in Smtp:Host/UserName/FromAddress/etc.
+dotnet user-secrets set "Smtp:Password" "<your SMTP password>"
+```
+
+Leaving all of this unset is fine too - see "Calendar event reminders" above for what that means at
+runtime.
 
 ## Tests
 

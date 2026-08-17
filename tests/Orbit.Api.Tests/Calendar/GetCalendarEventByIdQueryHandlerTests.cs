@@ -8,7 +8,8 @@ namespace Orbit.Api.Tests.Calendar;
 public sealed class GetCalendarEventByIdQueryHandlerTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
-        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], []);
+        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [],
+        NotifyOnCreation: false, NotifyBeforeStart: false);
 
     [Fact]
     public async Task HandleAsync_returns_the_event_when_owned_by_the_requesting_user()

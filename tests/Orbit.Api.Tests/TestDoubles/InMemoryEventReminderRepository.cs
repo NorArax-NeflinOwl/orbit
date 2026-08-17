@@ -5,12 +5,12 @@ namespace Orbit.Api.Tests.TestDoubles;
 
 /// <summary>
 /// In-memory <see cref="IEventReminderRepository"/> stub for unit tests, standing in for the
-/// cross-user reminder query and sent-reminder tracking EventReminderRepository backs with SQLite.
+/// cross-user reminder query and claim/send tracking EventReminderRepository backs with SQLite.
 /// </summary>
 internal sealed class InMemoryEventReminderRepository : IEventReminderRepository
 {
     private readonly List<CalendarEvent> _calendarEvents;
-    private readonly HashSet<(Guid CalendarEventId, int MinutesBeforeStart)> _sentReminders = [];
+    private readonly HashSet<(Guid CalendarEventId, int MinutesBeforeStart)> _claimedReminders = [];
 
     public InMemoryEventReminderRepository(IEnumerable<CalendarEvent> calendarEvents)
     {
@@ -18,15 +18,21 @@ internal sealed class InMemoryEventReminderRepository : IEventReminderRepository
     }
 
     public Task<IReadOnlyList<CalendarEvent>> GetAllWithRemindersConfiguredAsync(CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<CalendarEvent>>(
-            _calendarEvents.Where(calendarEvent => calendarEvent.Details.ReminderMinutesBeforeStart.Count > 0).ToList());
+        => Task.FromResult<IReadOnlyList<CalendarEvent>>(_calendarEvents
+            .Where(calendarEvent => calendarEvent.Details.ReminderMinutesBeforeStart.Count > 0 && calendarEvent.Details.NotifyBeforeStart)
+            .ToList());
 
     public Task<bool> HasBeenSentAsync(Guid calendarEventId, int minutesBeforeStart, CancellationToken cancellationToken)
-        => Task.FromResult(_sentReminders.Contains((calendarEventId, minutesBeforeStart)));
+        => Task.FromResult(_claimedReminders.Contains((calendarEventId, minutesBeforeStart)));
 
-    public Task MarkAsSentAsync(Guid calendarEventId, int minutesBeforeStart, DateTimeOffset sentAtUtc, CancellationToken cancellationToken)
+    public Task<bool> TryClaimAsync(Guid calendarEventId, int minutesBeforeStart, DateTimeOffset claimedAtUtc, CancellationToken cancellationToken)
+        // HashSet<T>.Add already returns false when the item is present, which is exactly the "someone
+        // else claimed this first" signal TryClaimAsync needs - no separate lookup required.
+        => Task.FromResult(_claimedReminders.Add((calendarEventId, minutesBeforeStart)));
+
+    public Task ReleaseClaimAsync(Guid calendarEventId, int minutesBeforeStart, CancellationToken cancellationToken)
     {
-        _sentReminders.Add((calendarEventId, minutesBeforeStart));
+        _claimedReminders.Remove((calendarEventId, minutesBeforeStart));
         return Task.CompletedTask;
     }
 }

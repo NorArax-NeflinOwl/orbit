@@ -43,4 +43,10 @@ public sealed class TasksApiClient
         var response = await _httpClient.PutAsJsonAsync($"api/tasks/{id}", request, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task DeleteTaskListAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/tasks/{id}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 }
