@@ -74,13 +74,13 @@ else
             Logger.LogInformation("Note {NoteId} updated", Id);
         }
 
-        NavigationManager.NavigateTo("/");
+        NavigationManager.NavigateTo("/notes");
     }
 
     private void Cancel()
     {
         Logger.LogInformation("User clicked 'Anuluj'");
-        NavigationManager.NavigateTo("/");
+        NavigationManager.NavigateTo("/notes");
     }
 
     private sealed class NoteFormModel

@@ -8,9 +8,10 @@ by a shared ASP.NET Core API, so every device stays in sync.
 
 This repository is an early-stage prototype. **Accounts, notes, tasks, and a basic calendar** are
 implemented end to end, including the Blazor web client: register or log in on `/register`/`/login`,
-and the dashboard and the notes, tasks, and calendar pages are only reachable once signed in. A note,
-task list, or calendar event can be created, edited, or deleted from its own page; the dashboard
-(`/dashboard`, see "Dashboard" below) lists all three at a glance. Encrypted messaging, location
+and the dashboard and the notes, tasks, and calendar pages are only reachable once signed in. Signing in
+lands on the dashboard (`/`, see "Dashboard" below), which lists notes, task lists, and calendar events
+at a glance; each has its own page (`/notes`, `/tasks`, `/calendar`) where it can be created, edited, or
+deleted. Encrypted messaging, location
 sharing, and the MAUI client are not implemented yet.
 
 ## Architecture
@@ -242,7 +243,8 @@ shows up in the `hosted-services` health check the same way any other background
 
 ## Dashboard
 
-`/dashboard` (`Dashboard.razor`) gives a single-page overview of everything the signed-in user owns,
+`/` (`Dashboard.razor`) is the landing page after signing in, giving a single-page overview of
+everything the signed-in user owns,
 loading notes, task lists, and calendar events concurrently rather than one after another so the page's
 load time is the slowest of the three calls rather than their sum. Each item type gets its own column,
 but only if it actually has items in it - an empty column (e.g. no task lists yet) is left out entirely
