@@ -3,8 +3,10 @@
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Chat
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
+@inject ChatApiClient ChatApiClient
 @inject GeocodingApiClient GeocodingApiClient
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
@@ -96,7 +98,25 @@ else
         }
         <div>
             <label>Goście (adresy e-mail oddzielone przecinkami)</label>
-            <InputText @bind-Value="_formModel.GuestsText" />
+            <InputText id="guestsInput" @bind-Value="_formModel.GuestsText" />
+        </div>
+        <div>
+            <label>Dodaj gościa z kontaktów</label>
+            @if (_contacts.Count == 0)
+            {
+                <p>Brak kontaktów. Kontakt pojawi się tutaj, gdy rozpoczniesz z kimś czat.</p>
+            }
+            else
+            {
+                <select id="guestContactSelect" @bind="_selectedContactUserId">
+                    <option value="">-- wybierz kontakt --</option>
+                    @foreach (var contact in _contacts)
+                    {
+                        <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                    }
+                </select>
+                <button type="button" id="addGuestFromContactButton" @onclick="AddSelectedContactAsGuest">Dodaj</button>
+            }
         </div>
         <div>
             <label>Przypomnienia (minuty przed wydarzeniem, oddzielone przecinkami)</label>
@@ -140,6 +160,8 @@ else
     private bool _isMapVisible;
     private IJSObjectReference? _mapPickerModule;
     private DotNetObjectReference<CalendarEventEditor>? _dotNetHelper;
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private string _selectedContactUserId = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -157,7 +179,29 @@ else
             Logger.LogInformation("Calendar event editor opened for a new event");
         }
 
+        _contacts = await ChatApiClient.GetContactsAsync();
         _isLoading = false;
+    }
+
+    /// <summary>
+    /// Adds the currently selected contact's e-mail address to the guest list, reusing the same
+    /// comma-separated text the free-form guest field already edits so both ways of adding a guest stay
+    /// in sync. Silently ignores an already-added contact instead of creating a duplicate entry.
+    /// </summary>
+    private void AddSelectedContactAsGuest()
+    {
+        if (!Guid.TryParse(_selectedContactUserId, out var contactUserId))
+        {
+            return;
+        }
+
+        var contact = _contacts.FirstOrDefault(candidate => candidate.UserId == contactUserId);
+        if (contact is not null)
+        {
+            _formModel.AddGuestEmail(contact.Email);
+        }
+
+        _selectedContactUserId = string.Empty;
     }
 
     /// <summary>
@@ -316,6 +360,22 @@ else
                 NotifyOnCreation = details.NotifyOnCreation,
                 NotifyBeforeStart = details.NotifyBeforeStart
             };
+
+        /// <summary>
+        /// Appends an e-mail address to <see cref="GuestsText"/>, unless it's already present
+        /// (case-insensitively) - used when adding a guest by picking a contact rather than typing.
+        /// </summary>
+        public void AddGuestEmail(string email)
+        {
+            var guests = ParseCommaSeparatedList(GuestsText);
+            if (guests.Any(guest => string.Equals(guest, email, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            guests.Add(email);
+            GuestsText = string.Join(", ", guests);
+        }
 
         public CalendarEventDetailsRequest ToRequest()
         {

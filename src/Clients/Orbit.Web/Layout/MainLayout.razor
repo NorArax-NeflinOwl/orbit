@@ -1,7 +1,9 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject NavigationManager NavigationManager
 
 <div class="page">
@@ -13,6 +15,7 @@
                     <NavLink href="/notes">Notatki</NavLink>
                     <NavLink href="/tasks">Zadania</NavLink>
                     <NavLink href="/calendar">Kalendarz</NavLink>
+                    <NavLink href="/contacts">Kontakty</NavLink>
                 </nav>
                 <div class="user-bar">
                     <span>@context.User.Identity?.Name</span>
@@ -25,10 +28,41 @@
 </div>
 
 @code {
+    protected override async Task OnInitializedAsync()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        await EnsureEncryptionKeyIfAuthenticatedAsync();
+    }
+
+    /// <summary>
+    /// Generates and publishes this browser's E2EE key pair the moment the user is known to be signed
+    /// in, rather than waiting for them to open the chat page - this is what lets someone else message
+    /// this user without first waiting for them to visit chat themselves (see OwnEncryptionKeyProvider
+    /// for what "ensure" does). Runs both on a page load where a token is already stored, and again
+    /// whenever the auth state changes (fresh sign-in or registration - see the event subscription
+    /// above), since this layout is only ever initialized once per SPA session.
+    /// </summary>
+    private async Task EnsureEncryptionKeyIfAuthenticatedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authenticationState.User.Identity?.IsAuthenticated == true)
+        {
+            await OwnEncryptionKeyProvider.EnsurePublicKeyAsync();
+        }
+    }
+
+    private void OnAuthenticationStateChanged(Task<AuthenticationState> newState)
+        => _ = EnsureEncryptionKeyIfAuthenticatedAsync();
+
     private async Task LogoutAsync()
     {
         await AuthApiClient.LogoutAsync();
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
         NavigationManager.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }

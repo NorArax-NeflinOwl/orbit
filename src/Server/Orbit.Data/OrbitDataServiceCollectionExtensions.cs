@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.Reminders;
+using Orbit.Core.Chat;
 using Orbit.Core.Notes;
 using Orbit.Core.Tasks;
 using Orbit.Core.Users;
@@ -27,6 +28,8 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IEventReminderRepository, EventReminderRepository>();
+        services.AddScoped<IContactRepository, ContactRepository>();
+        services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
 
         return services;
     }

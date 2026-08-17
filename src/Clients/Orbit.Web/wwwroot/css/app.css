@@ -32,3 +32,32 @@
 .dashboard-column {
     min-width: 16rem;
 }
+
+/* Chat.razor: a scrollable message list with own/other messages visually distinguished, roughly
+   mirroring the familiar left/right chat bubble layout without needing a dedicated component library. */
+.chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.chat-message-own {
+    align-self: flex-end;
+    background: #dcf0ff;
+    border-radius: 0.75rem;
+    margin: 0;
+    max-width: 70%;
+    padding: 0.5rem 0.75rem;
+}
+
+.chat-message-theirs {
+    align-self: flex-start;
+    background: #f0f0f0;
+    border-radius: 0.75rem;
+    margin: 0;
+    max-width: 70%;
+    padding: 0.5rem 0.75rem;
+}

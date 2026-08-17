@@ -1,0 +1,20 @@
+namespace Orbit.Data.Entities;
+
+/// <summary>
+/// Persistence shape of an encrypted chat message, mapped separately from
+/// <see cref="Orbit.Core.Chat.ChatMessage"/> so schema changes don't force changes onto domain logic,
+/// and vice versa. CiphertextBase64/NonceBase64 are opaque to the server - see ChatMessage's own doc
+/// comment.
+/// </summary>
+public sealed class ChatMessageEntity
+{
+    public Guid Id { get; set; }
+    public Guid SenderUserId { get; set; }
+    public Guid RecipientUserId { get; set; }
+    public string CiphertextBase64 { get; set; } = string.Empty;
+    public string NonceBase64 { get; set; } = string.Empty;
+    public DateTimeOffset SentAtUtc { get; set; }
+
+    /// <summary>Null until the recipient's chat window has polled this conversation at least once.</summary>
+    public DateTimeOffset? ReadAtUtc { get; set; }
+}

@@ -12,7 +12,16 @@ public sealed class User
     public string PasswordHash { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
-    private User(Guid id, string email, string userName, string displayName, string passwordHash, DateTimeOffset createdAtUtc)
+    /// <summary>
+    /// The browser-generated ECDH public key (raw bytes, base64) used for end-to-end-encrypted chat -
+    /// see wwwroot/js/e2eeChat.js. Null until the user has opened the chat feature at least once; the
+    /// matching private key never leaves the browser that generated it.
+    /// </summary>
+    public string? PublicKeyBase64 { get; private set; }
+
+    private User(
+        Guid id, string email, string userName, string displayName, string passwordHash, DateTimeOffset createdAtUtc,
+        string? publicKeyBase64)
     {
         Id = id;
         Email = email;
@@ -20,15 +29,27 @@ public sealed class User
         DisplayName = displayName;
         PasswordHash = passwordHash;
         CreatedAtUtc = createdAtUtc;
+        PublicKeyBase64 = publicKeyBase64;
     }
 
     public static User Create(string email, string userName, string displayName, string passwordHash)
-        => new(Guid.NewGuid(), email, userName, displayName, passwordHash, DateTimeOffset.UtcNow);
+        => new(Guid.NewGuid(), email, userName, displayName, passwordHash, DateTimeOffset.UtcNow, publicKeyBase64: null);
 
     /// <summary>
     /// Rebuilds a user from already-persisted values, bypassing creation rules.
     /// </summary>
     public static User FromPersistence(
-        Guid id, string email, string userName, string displayName, string passwordHash, DateTimeOffset createdAtUtc)
-        => new(id, email, userName, displayName, passwordHash, createdAtUtc);
+        Guid id, string email, string userName, string displayName, string passwordHash, DateTimeOffset createdAtUtc,
+        string? publicKeyBase64)
+        => new(id, email, userName, displayName, passwordHash, createdAtUtc, publicKeyBase64);
+
+    /// <summary>
+    /// Replaces the stored public key with the one the browser currently reports. Overwrites any
+    /// previous key outright - only the newest one is usable, since the matching private key for an
+    /// older one may no longer exist anywhere.
+    /// </summary>
+    public void SetPublicKey(string publicKeyBase64)
+    {
+        PublicKeyBase64 = publicKeyBase64;
+    }
 }

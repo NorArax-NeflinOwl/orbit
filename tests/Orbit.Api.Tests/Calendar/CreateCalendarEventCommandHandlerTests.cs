@@ -73,7 +73,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
     public async Task HandleAsync_emails_the_owner_when_notify_on_creation_is_enabled()
     {
         var userRepository = new InMemoryUserRepository();
-        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow);
+        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow, null);
         await userRepository.AddAsync(owner, CancellationToken.None);
         var emailSender = new RecordingEmailSender();
         var handler = CreateHandler(new InMemoryCalendarEventRepository(), userRepository, emailSender);
@@ -90,7 +90,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
     public async Task HandleAsync_does_not_email_the_owner_when_notify_on_creation_is_disabled()
     {
         var userRepository = new InMemoryUserRepository();
-        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow);
+        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow, null);
         await userRepository.AddAsync(owner, CancellationToken.None);
         var emailSender = new RecordingEmailSender();
         var handler = CreateHandler(new InMemoryCalendarEventRepository(), userRepository, emailSender);
@@ -106,7 +106,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
     {
         var repository = new InMemoryCalendarEventRepository();
         var userRepository = new InMemoryUserRepository();
-        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow);
+        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow, null);
         await userRepository.AddAsync(owner, CancellationToken.None);
         var handler = CreateHandler(repository, userRepository, new ThrowingEmailSender());
         var details = DefaultDetails with { Title = "Team sync", NotifyOnCreation = true };

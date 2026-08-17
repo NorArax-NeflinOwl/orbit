@@ -6,13 +6,14 @@ by a shared ASP.NET Core API, so every device stays in sync.
 
 ## Current status
 
-This repository is an early-stage prototype. **Accounts, notes, tasks, and a basic calendar** are
-implemented end to end, including the Blazor web client: register or log in on `/register`/`/login`,
-and the dashboard and the notes, tasks, and calendar pages are only reachable once signed in. Signing in
-lands on the dashboard (`/`, see "Dashboard" below), which lists notes, task lists, and calendar events
-at a glance; each has its own page (`/notes`, `/tasks`, `/calendar`) where it can be created, edited, or
-deleted. Encrypted messaging, location
-sharing, and the MAUI client are not implemented yet.
+This repository is an early-stage prototype. **Accounts, notes, tasks, a basic calendar, and
+end-to-end-encrypted 1:1 chat** are implemented end to end, including the Blazor web client: register or
+log in on `/register`/`/login`, and the dashboard, notes, tasks, calendar, and contacts/chat pages are
+only reachable once signed in. Signing in lands on the dashboard (`/`, see "Dashboard" below), which
+lists notes, task lists, and calendar events at a glance; each has its own page (`/notes`, `/tasks`,
+`/calendar`) where it can be created, edited, or deleted. `/contacts` searches for other users and lists
+existing conversations; see "Contacts and encrypted chat" below. Location sharing and the MAUI client are
+not implemented yet.
 
 ## Architecture
 
@@ -21,15 +22,15 @@ The solution is split into three layers:
 - **`src/Server`** — the backend.
   - `Orbit.Api`: an ASP.NET Core minimal API exposing `/api/auth/register`, `/api/auth/login`,
     `/api/auth/refresh`, and `/api/auth/logout` (see "Authentication" below), the `/api/notes`,
-    `/api/tasks`, and `/api/calendar-events` endpoints (all require a valid JWT and are scoped to the
-    caller's own data), and a set of `/health*` endpoints (liveness, readiness, and a full report
-    covering the database, disk space, external services, and background services). `/api/auth/*` is
-    rate-limited (see "Authentication"). Logs through Serilog and emits OpenTelemetry traces, both at
-    the lowest level.
+    `/api/tasks`, `/api/calendar-events`, `/api/users`, and `/api/chat` endpoints (all require a valid
+    JWT and are scoped to the caller's own data), and a set of `/health*` endpoints (liveness, readiness,
+    and a full report covering the database, disk space, external services, and background services).
+    `/api/auth/*` is rate-limited (see "Authentication"). Logs through Serilog and emits OpenTelemetry
+    traces, both at the lowest level.
   - `Orbit.Data`: EF Core persistence on SQLite, isolated behind `INoteRepository`/`ITaskRepository`/
-    `ICalendarEventRepository`/`IUserRepository`/`IRefreshTokenRepository` so the domain layer in
-    `Orbit.Core` never depends on the storage technology. Schema changes are applied through EF Core
-    Migrations (see "Running locally").
+    `ICalendarEventRepository`/`IUserRepository`/`IRefreshTokenRepository`/`IContactRepository`/
+    `IChatMessageRepository` so the domain layer in `Orbit.Core` never depends on the storage technology.
+    Schema changes are applied through EF Core Migrations (see "Running locally").
   - `Orbit.GoogleIntegration`: an empty placeholder project for the future Google Calendar/Contacts
     sync referenced by the calendar feature (see "Calendar" below for what's implemented so far without it).
 - **`src/Clients/Orbit.Web`** — a Blazor WebAssembly client, currently the only client, served as
@@ -42,12 +43,14 @@ The solution is split into three layers:
   - `Orbit.Contracts`: the DTOs and request/response shapes the API and the Blazor client both
     reference, so the two can't drift out of sync.
 
-`tests/Orbit.Api.Tests` covers the health check infrastructure and the accounts, notes, tasks, and
-calendar features on the API side (password hashing, refresh token issuing/redeeming/revoking,
-registration, login, per-owner note access including deletion, per-owner task list access including the
-checklist-completion rule, the task-list-linking rules below, and deletion, per-owner calendar event
-access including the start-before-end validation rule and deletion, and the calendar event reminder
-scheduling logic below).
+`tests/Orbit.Api.Tests` covers the health check infrastructure and the accounts, notes, tasks,
+calendar, and contacts/chat features on the API side (password hashing, refresh token
+issuing/redeeming/revoking, registration, login, per-owner note access including deletion, per-owner
+task list access including the checklist-completion rule, the task-list-linking rules below, and
+deletion, per-owner calendar event access including the start-before-end validation rule and deletion,
+the calendar event reminder scheduling logic below, exact-match user search including self-exclusion,
+setting a user's public key, and the chat message/contact handlers including the
+first-message-creates-a-contact-in-both-directions rule).
 `tests/Orbit.Web.Tests` covers the Blazor client's auth wiring: the token store, the
 handler that attaches the access token to outgoing requests and transparently refreshes it after a 401,
 `AuthApiClient`, `OrbitAuthenticationStateProvider`, and the `Login`/`Register` pages themselves
@@ -55,10 +58,14 @@ handler that attaches the access token to outgoing requests and transparently re
 limiter and the exact 429 behavior, the client-side retry-after-refresh path end-to-end through a
 real `HttpClientHandler` pipeline (both would need HTTP-integration test infrastructure -
 `WebApplicationFactory` on the API side - that this project doesn't have yet), actually sending an
-email through `SmtpEmailSender` (needs a real or fake SMTP server to connect to), and the
+email through `SmtpEmailSender` (needs a real or fake SMTP server to connect to), the
 `Notes`/`Tasks`/`Calendar`/`Dashboard` pages themselves (the delete-confirmation flow and the
 dashboard's per-column rendering only have the command-handler tests above, not a bUnit test against the
-actual pages, unlike `Login`/`Register`).
+actual pages, unlike `Login`/`Register`), and the `Contacts`/`Chat` pages and `wwwroot/js/e2eeChat.js`
+(the encryption/decryption round trip, key generation and persistence in IndexedDB, and the polling UI
+have no automated coverage at all - bUnit doesn't execute real browser crypto/IndexedDB APIs, and this
+project has no browser-driven test infrastructure like Playwright yet; only the server-side command/query
+handlers above are tested).
 
 ## Authentication
 
@@ -240,6 +247,41 @@ and skips sending when `Smtp:Host`/`Smtp:FromAddress` are unset, so a fresh loca
 without anyone having set up email delivery. The background service reports a heartbeat to the existing
 `HostedServiceHealthTracker` on every poll (success or failure), so a crashed or stuck reminder loop
 shows up in the `hosted-services` health check the same way any other background service would.
+
+## Contacts and encrypted chat
+
+`/contacts` (`Contacts.razor`) searches for another user by their **exact** email address or username
+(`GET /api/users/search?query=`, tried as an email first and then as a username - no partial/fuzzy
+matching, so it can't be used to enumerate the user base) and lists existing conversations
+(`GET /api/chat/contacts`), ordered most-recently-active first. Selecting a search result or an existing
+contact opens `/chat/{userId}` (`Chat.razor`). There is deliberately no separate "add contact" step: a
+`Contact` row is only created (in both directions at once, via `SendMessageCommandHandler`) the moment
+either side sends the first message between them - see `SendMessageCommand`.
+
+Messages are genuinely end-to-end encrypted, not just transport-encrypted: encryption and decryption
+happen entirely in the browser via the Web Crypto API (`wwwroot/js/e2eeChat.js`), and Orbit.Api only
+ever stores and relays `ciphertextBase64`/`nonceBase64` (`ChatMessageEntity`) - it has no way to read a
+message's content. Each browser generates a non-extractable ECDH (P-256) key pair on first use
+(`ensureOwnPublicKey` in `e2eeChat.js`), persists the private key directly as a `CryptoKey` in
+IndexedDB (it never leaves the browser, not even to be exported), and uploads only the public key
+(`PUT /api/users/me/public-key`, stored on `User.PublicKeyBase64`) so other users can find it. Sending or
+reading a message derives a shared AES-GCM key from the local private key and the other party's public
+key (`deriveSharedKey`), and that key encrypts/decrypts the message text with a fresh random nonce per
+message. `OwnEncryptionKeyProvider` (Blazor) makes sure this key pair exists and is published before
+`Chat.razor` tries to send or receive anything.
+
+Explicit scope limits for this first version, so they aren't mistaken for oversights: a single shared key
+per user pair rather than Signal's rotating Double Ratchet, so there is **no per-message forward
+secrecy** - compromising one derived key exposes the whole conversation with that person, not just one
+message. There is also no separate identity-verification step (e.g. comparing key fingerprints out of
+band), so the browser trusts whatever public key Orbit.Api currently reports for a user; a malicious or
+compromised server could substitute a different key and intercept new messages (it still can't read
+already-sent ciphertext without the right private key). Only 1:1 chats are supported, not groups.
+Message delivery is polling-based (`Chat.razor` polls `GET /api/chat/messages/{otherUserId}?sinceUtc=`
+every 3 seconds while a chat window is open), not push/real-time (no SignalR or WebSockets), and a
+message sent to a user who has never opened `/chat` (and so has no `PublicKeyBase64` yet) can't be
+encrypted - `Chat.razor` shows an explanatory message and disables sending in that case instead of
+silently failing.
 
 ## Dashboard
 

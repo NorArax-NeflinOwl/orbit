@@ -46,8 +46,16 @@ public sealed class UserRepository : IUserRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateAsync(User user, CancellationToken cancellationToken)
+    {
+        _dbContext.Users.Update(ToEntity(user));
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private static User ToDomain(UserEntity entity)
-        => User.FromPersistence(entity.Id, entity.Email, entity.UserName, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc);
+        => User.FromPersistence(
+            entity.Id, entity.Email, entity.UserName, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc,
+            entity.PublicKeyBase64);
 
     private static UserEntity ToEntity(User user)
         => new()
@@ -57,6 +65,7 @@ public sealed class UserRepository : IUserRepository
             UserName = user.UserName,
             DisplayName = user.DisplayName,
             PasswordHash = user.PasswordHash,
-            CreatedAtUtc = user.CreatedAtUtc
+            CreatedAtUtc = user.CreatedAtUtc,
+            PublicKeyBase64 = user.PublicKeyBase64
         };
 }

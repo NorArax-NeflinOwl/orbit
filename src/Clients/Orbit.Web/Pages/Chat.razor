@@ -1,0 +1,200 @@
+@page "/chat/{userId:guid}"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@using Orbit.Contracts.Chat
+@using Orbit.Contracts.Users
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
+@inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject ILogger<Chat> Logger
+
+<PageTitle>Orbit — Czat</PageTitle>
+
+@if (_otherUser is null)
+{
+    <p>Ładowanie…</p>
+}
+else
+{
+    <h1>Czat z @_otherUser.DisplayName</h1>
+
+    @if (_otherUser.PublicKeyBase64 is null)
+    {
+        <p>
+            @_otherUser.DisplayName nie ma jeszcze skonfigurowanego szyfrowania - musi się najpierw
+            zalogować we własnej przeglądarce, zanim będzie można do niego pisać.
+        </p>
+    }
+    else
+    {
+        <div class="chat-messages">
+            @foreach (var message in _messages)
+            {
+                <p class="@(message.SenderUserId == _ownUserId ? "chat-message-own" : "chat-message-theirs")">
+                    @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[nie można odszyfrować]")
+                    @if (message.SenderUserId == _ownUserId)
+                    {
+                        <span class="chat-message-status">@(IsReadByOtherParty(message) ? "✓✓ Przeczytano" : "✓ Wysłano")</span>
+                    }
+                </p>
+            }
+        </div>
+
+        <div>
+            <input @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Wiadomość" />
+            <button @onclick="SendMessageAsync" disabled="@_isSending">Wyślij</button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid UserId { get; set; }
+
+    private Guid _ownUserId;
+    private UserSearchResultDto? _otherUser;
+    private readonly List<ChatMessageDto> _messages = [];
+    private readonly Dictionary<Guid, string> _decryptedContentByMessageId = [];
+    private DateTimeOffset? _otherPartyReadUpToUtc;
+    private string _draftMessage = string.Empty;
+    private bool _isSending;
+    private IJSObjectReference? _cryptoModule;
+    private PeriodicTimer? _pollTimer;
+    private CancellationTokenSource? _pollCancellation;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _ownUserId = Guid.Parse(authenticationState.User.FindFirst("sub")!.Value);
+
+        await OwnEncryptionKeyProvider.EnsurePublicKeyAsync();
+        _cryptoModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
+
+        _otherUser = await UsersApiClient.GetUserAsync(UserId);
+        if (_otherUser is null)
+        {
+            NavigationManager.NavigateTo("/contacts");
+            return;
+        }
+
+        await LoadNewMessagesAsync();
+        await SyncReadStateAsync();
+        StartPolling();
+    }
+
+    private void StartPolling()
+    {
+        _pollCancellation = new CancellationTokenSource();
+        _pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        _ = PollAsync(_pollCancellation.Token);
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _pollTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                await LoadNewMessagesAsync();
+                await SyncReadStateAsync();
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the page navigates away and DisposeAsync cancels polling.
+        }
+    }
+
+    private async Task LoadNewMessagesAsync()
+    {
+        var sinceUtc = _messages.Count > 0 ? _messages[^1].SentAtUtc : (DateTimeOffset?)null;
+        var newMessages = await ChatApiClient.GetConversationAsync(UserId, sinceUtc);
+        foreach (var message in newMessages)
+        {
+            _messages.Add(message);
+            await DecryptAndCacheAsync(message);
+        }
+    }
+
+    /// <summary>
+    /// Treats "this chat window is open and actively polling" as "read" - a coarse stand-in for the
+    /// other party's messages actually being seen (it fires even with the browser tab backgrounded).
+    /// TODO: replace with real on-screen visibility tracking (tab focus / scroll position) once the
+    /// chat has a way to push that signal to the server instead of relying on this poll loop.
+    /// </summary>
+    private async Task SyncReadStateAsync()
+    {
+        await ChatApiClient.MarkConversationAsReadAsync(UserId);
+        _otherPartyReadUpToUtc = await ChatApiClient.GetReadReceiptAsync(UserId);
+    }
+
+    /// <summary>True once the other party has read up to at least this own message's send time.</summary>
+    private bool IsReadByOtherParty(ChatMessageDto message)
+        => _otherPartyReadUpToUtc is { } readUpToUtc && message.SentAtUtc <= readUpToUtc;
+
+    private async Task DecryptAndCacheAsync(ChatMessageDto message)
+    {
+        if (_otherUser?.PublicKeyBase64 is null || _cryptoModule is null)
+        {
+            return;
+        }
+
+        var plainText = await _cryptoModule.InvokeAsync<string?>(
+            "decryptMessage", _otherUser.PublicKeyBase64, message.CiphertextBase64, message.NonceBase64);
+        if (plainText is not null)
+        {
+            _decryptedContentByMessageId[message.Id] = plainText;
+        }
+    }
+
+    private async Task OnDraftKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await SendMessageAsync();
+        }
+    }
+
+    private async Task SendMessageAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_draftMessage) || _otherUser?.PublicKeyBase64 is null || _cryptoModule is null)
+        {
+            return;
+        }
+
+        _isSending = true;
+        try
+        {
+            var payload = await _cryptoModule.InvokeAsync<EncryptedPayload>(
+                "encryptMessage", _otherUser.PublicKeyBase64, _draftMessage);
+            var sent = await ChatApiClient.SendMessageAsync(
+                new SendMessageRequest(UserId, payload.CiphertextBase64, payload.NonceBase64));
+
+            _messages.Add(sent);
+            _decryptedContentByMessageId[sent.Id] = _draftMessage;
+            _draftMessage = string.Empty;
+        }
+        finally
+        {
+            _isSending = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _pollCancellation?.Cancel();
+        _pollTimer?.Dispose();
+        if (_cryptoModule is not null)
+        {
+            await _cryptoModule.DisposeAsync();
+        }
+    }
+
+    /// <summary>Shape returned by e2eeChat.js's encryptMessage - matched by camelCase property name.</summary>
+    private sealed record EncryptedPayload(string CiphertextBase64, string NonceBase64);
+}

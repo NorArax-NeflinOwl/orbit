@@ -8,6 +8,12 @@ using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
+using Orbit.Core.Chat;
+using Orbit.Core.Chat.GetContacts;
+using Orbit.Core.Chat.GetConversation;
+using Orbit.Core.Chat.GetReadReceipt;
+using Orbit.Core.Chat.MarkConversationAsRead;
+using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.CreateNote;
 using Orbit.Core.Notes.DeleteNote;
@@ -21,8 +27,11 @@ using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Users;
+using Orbit.Core.Users.GetUserById;
 using Orbit.Core.Users.Login;
 using Orbit.Core.Users.RegisterUser;
+using Orbit.Core.Users.SearchUser;
+using Orbit.Core.Users.SetPublicKey;
 
 namespace Orbit.Core;
 
@@ -62,6 +71,15 @@ public static class OrbitCoreServiceCollectionExtensions
 
         services.AddScoped<IRequestHandler<RegisterUserCommand, RegisterUserResult>, RegisterUserCommandHandler>();
         services.AddScoped<IRequestHandler<LoginQuery, User?>, LoginQueryHandler>();
+        services.AddScoped<IRequestHandler<SearchUserQuery, User?>, SearchUserQueryHandler>();
+        services.AddScoped<IRequestHandler<GetUserByIdQuery, User?>, GetUserByIdQueryHandler>();
+        services.AddScoped<IRequestHandler<SetPublicKeyCommand, bool>, SetPublicKeyCommandHandler>();
+
+        services.AddScoped<IRequestHandler<SendMessageCommand, ChatMessage?>, SendMessageCommandHandler>();
+        services.AddScoped<IRequestHandler<GetConversationQuery, IReadOnlyList<ChatMessage>>, GetConversationQueryHandler>();
+        services.AddScoped<IRequestHandler<GetContactsQuery, IReadOnlyList<ContactSummary>>, GetContactsQueryHandler>();
+        services.AddScoped<IRequestHandler<MarkConversationAsReadCommand, bool>, MarkConversationAsReadCommandHandler>();
+        services.AddScoped<IRequestHandler<GetReadReceiptQuery, DateTimeOffset?>, GetReadReceiptQueryHandler>();
 
         services.AddScoped<Dispatcher>();
         services.AddScoped<IDispatcher>(provider => new LoggingDispatcher(

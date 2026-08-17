@@ -15,6 +15,8 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<RefreshTokenEntity> RefreshTokens => Set<RefreshTokenEntity>();
     public DbSet<EventReminderDeliveryEntity> EventReminderDeliveries => Set<EventReminderDeliveryEntity>();
+    public DbSet<ContactEntity> Contacts => Set<ContactEntity>();
+    public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +73,9 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(user => user.UserName).IsRequired().HasMaxLength(64);
             entity.Property(user => user.DisplayName).IsRequired().HasMaxLength(200);
             entity.Property(user => user.PasswordHash).IsRequired();
+            // A P-256 ECDH public key (raw, uncompressed) base64-encodes to about 88 characters; 200
+            // leaves comfortable headroom without being unbounded.
+            entity.Property(user => user.PublicKeyBase64).HasMaxLength(200);
             // Registration checks these before creating an account, and login looks users up by
             // either one; the unique indexes make all of that fast and rule out duplicate accounts or
             // duplicate usernames at the database level.
@@ -96,6 +101,26 @@ public sealed class OrbitDbContext : DbContext
             // enforces that - EventReminderRepository's HasBeenSentAsync check is a check-then-act read
             // that alone can't guarantee it.
             entity.HasIndex(delivery => new { delivery.CalendarEventId, delivery.MinutesBeforeStart }).IsUnique();
+        });
+
+        modelBuilder.Entity<ContactEntity>(entity =>
+        {
+            entity.HasKey(contact => contact.Id);
+            // A contact relationship in one direction is unique per owner/other-user pair -
+            // ContactRepository.EnsureContactAsync relies on this to decide insert-vs-update - and this
+            // is also the index that makes "list my contacts" fast.
+            entity.HasIndex(contact => new { contact.OwnerUserId, contact.ContactUserId }).IsUnique();
+        });
+
+        modelBuilder.Entity<ChatMessageEntity>(entity =>
+        {
+            entity.HasKey(message => message.Id);
+            entity.Property(message => message.CiphertextBase64).IsRequired();
+            entity.Property(message => message.NonceBase64).IsRequired();
+            // A conversation is fetched by either direction between two users (see
+            // ChatMessageRepository.GetConversationAsync); these two indexes cover both.
+            entity.HasIndex(message => new { message.SenderUserId, message.RecipientUserId });
+            entity.HasIndex(message => new { message.RecipientUserId, message.SenderUserId });
         });
     }
 }

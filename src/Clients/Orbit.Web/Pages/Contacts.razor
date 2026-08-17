@@ -1,0 +1,98 @@
+@page "/contacts"
+@attribute [Authorize]
+@using Orbit.Contracts.Chat
+@using Orbit.Contracts.Users
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<Contacts> Logger
+
+<PageTitle>Orbit — Kontakty</PageTitle>
+
+<h1>Kontakty</h1>
+
+<div>
+    <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="Adres e-mail lub login" />
+    <button @onclick="SearchAsync" disabled="@_isSearching">Szukaj</button>
+</div>
+
+@if (_searchError is not null)
+{
+    <p>@_searchError</p>
+}
+
+@if (_searchResult is not null)
+{
+    <div>
+        <strong>@_searchResult.DisplayName</strong> (@_searchResult.UserName)
+        <button @onclick="() => OpenChat(_searchResult.Id)">Otwórz czat</button>
+    </div>
+}
+
+<h2>Czaty</h2>
+
+@if (_contacts is null)
+{
+    <p>Ładowanie…</p>
+}
+else if (_contacts.Count == 0)
+{
+    <p>Brak czatów. Wyszukaj użytkownika po adresie e-mail lub loginie, aby rozpocząć rozmowę.</p>
+}
+else
+{
+    <ul>
+        @foreach (var contact in _contacts)
+        {
+            <li>
+                <button @onclick="() => OpenChat(contact.UserId)">@contact.DisplayName (@contact.UserName)</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private string _searchIdentifier = string.Empty;
+    private bool _isSearching;
+    private string? _searchError;
+    private UserSearchResultDto? _searchResult;
+    private IReadOnlyList<ContactDto>? _contacts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _contacts = await ChatApiClient.GetContactsAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        _searchError = null;
+        _searchResult = null;
+
+        var identifier = _searchIdentifier.Trim();
+        if (identifier.Length == 0)
+        {
+            return;
+        }
+
+        _isSearching = true;
+        try
+        {
+            _searchResult = await UsersApiClient.SearchUserAsync(identifier);
+            if (_searchResult is null)
+            {
+                _searchError = "Nie znaleziono użytkownika o podanym adresie e-mail lub loginie.";
+            }
+        }
+        finally
+        {
+            _isSearching = false;
+        }
+    }
+
+    private void OpenChat(Guid userId)
+    {
+        Logger.LogInformation("User opening chat with {ContactUserId}", userId);
+        NavigationManager.NavigateTo($"/chat/{userId}");
+    }
+}

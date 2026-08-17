@@ -12,4 +12,5 @@ public sealed class UserEntity
     public string DisplayName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; set; }
+    public string? PublicKeyBase64 { get; set; }
 }

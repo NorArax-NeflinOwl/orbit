@@ -9,4 +9,6 @@ public interface IUserRepository
     Task<User?> GetByUserNameAsync(string userName, CancellationToken cancellationToken);
 
     Task AddAsync(User user, CancellationToken cancellationToken);
+
+    Task UpdateAsync(User user, CancellationToken cancellationToken);
 }

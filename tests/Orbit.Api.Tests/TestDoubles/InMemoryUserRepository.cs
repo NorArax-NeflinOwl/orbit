@@ -24,4 +24,11 @@ internal sealed class InMemoryUserRepository : IUserRepository
         _users.Add(user);
         return Task.CompletedTask;
     }
+
+    public Task UpdateAsync(User user, CancellationToken cancellationToken)
+    {
+        // Handlers mutate the same User instance this repository already holds a reference to, so
+        // there is nothing to replace here - this mirrors InMemoryNoteRepository.UpdateAsync.
+        return Task.CompletedTask;
+    }
 }

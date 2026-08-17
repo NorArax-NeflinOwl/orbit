@@ -7,10 +7,12 @@ using Microsoft.IdentityModel.Tokens;
 using Orbit.Api;
 using Orbit.Api.Auth;
 using Orbit.Api.Calendar;
+using Orbit.Api.Chat;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
 using Orbit.Api.Tasks;
+using Orbit.Api.Users;
 using Orbit.Core;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
@@ -164,6 +166,8 @@ try
     app.UseAuthorization();
 
     app.MapAuthEndpoints();
+    app.MapUserEndpoints();
+    app.MapChatEndpoints();
     app.MapNoteEndpoints();
     app.MapTaskEndpoints();
     app.MapCalendarEndpoints();
