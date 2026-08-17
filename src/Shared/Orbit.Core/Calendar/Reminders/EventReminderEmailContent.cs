@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Orbit.Core.Calendar.Reminders;
 
 /// <summary>Builds the subject and body of a calendar event reminder email.</summary>
@@ -36,6 +38,9 @@ public static class EventReminderEmailContent
 
     private static string FormatLocation(EventLocation location)
         => string.IsNullOrWhiteSpace(location.Address)
-            ? $"{location.Latitude:F5}, {location.Longitude:F5}"
+            // Invariant culture, not the server/thread's current culture: these are coordinates meant
+            // to be pasted into a map, so they must always use a period as the decimal separator
+            // rather than the comma pl-PL (and other cultures) format doubles with.
+            ? $"{location.Latitude.ToString("F5", CultureInfo.InvariantCulture)}, {location.Longitude.ToString("F5", CultureInfo.InvariantCulture)}"
             : location.Address;
 }

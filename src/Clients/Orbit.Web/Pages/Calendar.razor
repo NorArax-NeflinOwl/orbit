@@ -1,5 +1,6 @@
 @page "/calendar"
 @attribute [Authorize]
+@using System.Globalization
 @using Orbit.Contracts.Calendar
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
@@ -92,7 +93,10 @@ else
 
     private static string FormatLocation(EventLocationDto location)
         => string.IsNullOrWhiteSpace(location.Address)
-            ? $"{location.Latitude:F5}, {location.Longitude:F5}"
+            // Invariant culture, not the browser/thread's current culture: these are coordinates meant
+            // to be pasted into a map, so they must always use a period as the decimal separator
+            // rather than the comma pl-PL (and other cultures) format doubles with.
+            ? $"{location.Latitude.ToString("F5", CultureInfo.InvariantCulture)}, {location.Longitude.ToString("F5", CultureInfo.InvariantCulture)}"
             : location.Address;
 
     private static string FormatRecurrence(RecurrenceDto recurrence)
