@@ -17,6 +17,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<EventReminderDeliveryEntity> EventReminderDeliveries => Set<EventReminderDeliveryEntity>();
     public DbSet<ContactEntity> Contacts => Set<ContactEntity>();
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
+    public DbSet<CalendarEventShareEntity> CalendarEventShares => Set<CalendarEventShareEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,9 +62,16 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(calendarEvent => calendarEvent.LocationAddress).HasMaxLength(300);
             entity.Property(calendarEvent => calendarEvent.Color).HasMaxLength(20);
             entity.Property(calendarEvent => calendarEvent.RecurrenceFrequency).HasMaxLength(20);
+            // Matches UserEntity.UserName's max length, since this is always copied from there.
+            entity.Property(calendarEvent => calendarEvent.SharedByUserName).HasMaxLength(64);
             // Every calendar event query is scoped to a single user's events; this is the index that
             // makes those lookups fast instead of scanning the whole table.
             entity.HasIndex(calendarEvent => calendarEvent.UserId);
+        });
+
+        modelBuilder.Entity<CalendarEventShareEntity>(entity =>
+        {
+            entity.HasKey(share => share.Id);
         });
 
         modelBuilder.Entity<UserEntity>(entity =>

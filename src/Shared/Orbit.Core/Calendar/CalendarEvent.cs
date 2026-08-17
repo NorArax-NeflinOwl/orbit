@@ -11,13 +11,27 @@ public sealed class CalendarEvent
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
-    private CalendarEvent(Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
+    /// <summary>
+    /// True for a read-only copy created by accepting another user's share offer (see
+    /// CalendarEventShare and AcceptCalendarEventShareCommand) - false for an event the owner created
+    /// themselves. <see cref="Update"/> refuses to change a shared copy's details.
+    /// </summary>
+    public bool IsShared { get; private set; }
+
+    /// <summary>The sharing user's login, captured once at share-acceptance time. Null when IsShared is false.</summary>
+    public string? SharedByUserName { get; private set; }
+
+    private CalendarEvent(
+        Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        bool isShared, string? sharedByUserName)
     {
         Id = id;
         UserId = userId;
         Details = details;
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
+        IsShared = isShared;
+        SharedByUserName = sharedByUserName;
     }
 
     public static CalendarEvent Create(Guid userId, CalendarEventDetails details)
@@ -25,17 +39,37 @@ public sealed class CalendarEvent
         ValidateTimeRange(details);
         ValidateLocation(details);
         var now = DateTimeOffset.UtcNow;
-        return new CalendarEvent(Guid.NewGuid(), userId, details, now, now);
+        return new CalendarEvent(Guid.NewGuid(), userId, details, now, now, isShared: false, sharedByUserName: null);
+    }
+
+    /// <summary>
+    /// Creates recipientUserId's own read-only copy of details once they accept a share - see
+    /// AcceptCalendarEventShareCommandHandler. Nothing calls <see cref="Update"/> on the result, since it
+    /// refuses to change a shared event's details anyway.
+    /// </summary>
+    public static CalendarEvent CreateShared(Guid recipientUserId, CalendarEventDetails details, string sharedByUserName)
+    {
+        ValidateTimeRange(details);
+        ValidateLocation(details);
+        var now = DateTimeOffset.UtcNow;
+        return new CalendarEvent(Guid.NewGuid(), recipientUserId, details, now, now, isShared: true, sharedByUserName);
     }
 
     /// <summary>
     /// Rebuilds an event from already-persisted values, bypassing creation rules.
     /// </summary>
-    public static CalendarEvent FromPersistence(Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
-        => new(id, userId, details, createdAtUtc, updatedAtUtc);
+    public static CalendarEvent FromPersistence(
+        Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        bool isShared, string? sharedByUserName)
+        => new(id, userId, details, createdAtUtc, updatedAtUtc, isShared, sharedByUserName);
 
     public void Update(CalendarEventDetails details)
     {
+        if (IsShared)
+        {
+            throw new InvalidOperationException("A shared, read-only calendar event can't be edited.");
+        }
+
         ValidateTimeRange(details);
         ValidateLocation(details);
         Details = details;

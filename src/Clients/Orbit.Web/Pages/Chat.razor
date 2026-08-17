@@ -1,10 +1,12 @@
 @page "/chat/{userId:guid}"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Users
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
+@inject CalendarApiClient CalendarApiClient
 @inject UsersApiClient UsersApiClient
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -41,6 +43,20 @@ else
                         <span class="chat-message-status">@(IsReadByOtherParty(message) ? "✓✓ Przeczytano" : "✓ Wysłano")</span>
                     }
                 </p>
+                @if (message.SenderUserId != _ownUserId && _eventShareByMessageId.TryGetValue(message.Id, out var eventShare))
+                {
+                    @if (_acceptedEventShareIds.Contains(eventShare.ShareId))
+                    {
+                        <p class="event-share-status">Zaakceptowano - wydarzenie dodano do kalendarza (tylko do odczytu).</p>
+                    }
+                    else
+                    {
+                        <button type="button" disabled="@_acceptingEventShareIds.Contains(eventShare.ShareId)"
+                                @onclick="() => AcceptEventShareAsync(eventShare.ShareId)">
+                            Akceptuj
+                        </button>
+                    }
+                }
             }
         </div>
 
@@ -59,6 +75,16 @@ else
     private UserSearchResultDto? _otherUser;
     private readonly List<ChatMessageDto> _messages = [];
     private readonly Dictionary<Guid, string> _decryptedContentByMessageId = [];
+    private readonly Dictionary<Guid, EventShareMessagePayload> _eventShareByMessageId = [];
+
+    /// <summary>
+    /// Shares known to be accepted - seeded from CalendarApiClient.GetCalendarEventShareStatusAsync when
+    /// an event-share message is first decrypted (see DecryptAndCacheAsync), and updated immediately
+    /// when the user clicks "Akceptuj" (see AcceptEventShareAsync) rather than waiting on a re-fetch.
+    /// Keeping this cache is what lets the message list avoid a status round-trip on every render.
+    /// </summary>
+    private readonly HashSet<Guid> _acceptedEventShareIds = [];
+    private readonly HashSet<Guid> _acceptingEventShareIds = [];
     private DateTimeOffset? _otherPartyReadUpToUtc;
     private string _draftMessage = string.Empty;
     private bool _isSending;
@@ -146,9 +172,61 @@ else
 
         var plainText = await _cryptoModule.InvokeAsync<string?>(
             "decryptMessage", _ownUserId, _otherUser.PublicKeyBase64, message.CiphertextBase64, message.NonceBase64);
-        if (plainText is not null)
+        if (plainText is null)
         {
-            _decryptedContentByMessageId[message.Id] = plainText;
+            return;
+        }
+
+        if (TryParseEventShare(plainText) is { } eventShare)
+        {
+            _eventShareByMessageId[message.Id] = eventShare;
+            _decryptedContentByMessageId[message.Id] = $"Udostępniono wydarzenie: {eventShare.EventTitle}";
+            // Reflects an acceptance that may have happened in an earlier session (or after a reload),
+            // so the button doesn't misleadingly offer "Akceptuj" again for something already accepted.
+            // Skipped for a share this user sent themselves - the status endpoint is scoped to the
+            // recipient, so it would just be a guaranteed-404 lookup for those.
+            if (message.SenderUserId != _ownUserId && await CalendarApiClient.GetCalendarEventShareStatusAsync(eventShare.ShareId) == true)
+            {
+                _acceptedEventShareIds.Add(eventShare.ShareId);
+            }
+
+            return;
+        }
+
+        _decryptedContentByMessageId[message.Id] = plainText;
+    }
+
+    /// <summary>
+    /// A decrypted message's plaintext is ordinary user-typed text unless it happens to parse as this
+    /// exact structured shape (see EventShareMessagePayload) - anything else, including JSON that just
+    /// doesn't match, is treated as plain text rather than surfacing a parse error.
+    /// </summary>
+    private static EventShareMessagePayload? TryParseEventShare(string plainText)
+    {
+        try
+        {
+            var payload = JsonSerializer.Deserialize<EventShareMessagePayload>(plainText);
+            return payload?.Type == EventShareMessagePayload.MessageType ? payload : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private async Task AcceptEventShareAsync(Guid shareId)
+    {
+        _acceptingEventShareIds.Add(shareId);
+        try
+        {
+            if (await CalendarApiClient.AcceptCalendarEventShareAsync(shareId))
+            {
+                _acceptedEventShareIds.Add(shareId);
+            }
+        }
+        finally
+        {
+            _acceptingEventShareIds.Remove(shareId);
         }
     }
 

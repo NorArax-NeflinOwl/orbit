@@ -61,3 +61,29 @@
     max-width: 70%;
     padding: 0.5rem 0.75rem;
 }
+
+/* CalendarEventEditor.razor: the banner shown instead of the normal "Nowe/Edytuj wydarzenie" heading
+   context when viewing a read-only copy accepted from another user's share. */
+.shared-event-banner {
+    background: #fff8db;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+}
+
+/* Chat.razor: the confirmation line shown in place of the "Akceptuj" button once an event-share message
+   has been accepted. */
+.event-share-status {
+    color: #2c7a3f;
+    font-style: italic;
+    margin: 0;
+}
+
+/* Calendar.razor: the inline "Udostępnione przez ..." tag next to a shared, read-only event's title -
+   same idea as .shared-event-banner, just compact enough to sit inline in a list item. */
+.shared-event-badge {
+    background: #fff8db;
+    border-radius: 0.75rem;
+    font-size: 0.8em;
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+}

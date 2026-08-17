@@ -3,10 +3,13 @@ using System.Security.Claims;
 using Orbit.Contracts.Calendar;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
+using Orbit.Core.Calendar.AcceptCalendarEventShare;
 using Orbit.Core.Calendar.CreateCalendarEvent;
 using Orbit.Core.Calendar.DeleteCalendarEvent;
 using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
+using Orbit.Core.Calendar.GetCalendarEventShareStatus;
+using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 
 namespace Orbit.Api.Calendar;
@@ -51,6 +54,35 @@ public static class CalendarEndpoints
         {
             var deleted = await dispatcher.SendAsync(new DeleteCalendarEventCommand(GetUserId(user), id), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Offers a read-only copy of an owned event to another user - see ShareCalendarEventCommand.
+        // The client is responsible for notifying the recipient (a chat message carrying the returned
+        // share id), since only the browser holds the key material to encrypt that message.
+        calendarEvents.MapPost("/{id:guid}/shares", async (
+            Guid id, ShareCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var shareId = await dispatcher.SendAsync(
+                new ShareCalendarEventCommand(GetUserId(user), id, request.RecipientUserId), cancellationToken);
+            return shareId is null ? Results.NotFound() : Results.Ok(shareId);
+        });
+
+        // Resolves a share offered to the caller into a read-only copy in their own calendar - see
+        // AcceptCalendarEventShareCommand.
+        calendarEvents.MapPost("/shares/{shareId:guid}/accept", async (
+            Guid shareId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var accepted = await dispatcher.SendAsync(new AcceptCalendarEventShareCommand(GetUserId(user), shareId), cancellationToken);
+            return accepted ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Lets Chat.razor show an accurate "Akceptuj" vs. "already accepted" state for an event-share
+        // message even after a page reload, instead of only remembering what was clicked this session.
+        calendarEvents.MapGet("/shares/{shareId:guid}/status", async (
+            Guid shareId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var isAccepted = await dispatcher.SendAsync(new GetCalendarEventShareStatusQuery(GetUserId(user), shareId), cancellationToken);
+            return isAccepted is null ? Results.NotFound() : Results.Ok(isAccepted);
         });
     }
 
@@ -106,7 +138,9 @@ public static class CalendarEndpoints
             details.NotifyOnCreation,
             details.NotifyBeforeStart);
 
-        return new CalendarEventDto(calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc);
+        return new CalendarEventDto(
+            calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,
+            calendarEvent.IsShared, calendarEvent.SharedByUserName);
     }
 
     private static EventLocationDto? ToLocationDto(EventLocation? location)

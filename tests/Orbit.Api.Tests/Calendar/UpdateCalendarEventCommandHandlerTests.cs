@@ -48,6 +48,23 @@ public sealed class UpdateCalendarEventCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_returns_false_and_does_not_update_a_shared_read_only_event()
+    {
+        var repository = new InMemoryCalendarEventRepository();
+        var handler = new UpdateCalendarEventCommandHandler(repository);
+        var recipientId = Guid.NewGuid();
+        var sharedEvent = CalendarEvent.CreateShared(recipientId, DefaultDetails with { Title = "Original title" }, "owner");
+        await repository.AddAsync(sharedEvent, CancellationToken.None);
+
+        var wasUpdated = await handler.HandleAsync(
+            new UpdateCalendarEventCommand(recipientId, sharedEvent.Id, DefaultDetails with { Title = "Edited title" }), CancellationToken.None);
+
+        Assert.False(wasUpdated);
+        var stored = await repository.GetByIdAsync(recipientId, sharedEvent.Id, CancellationToken.None);
+        Assert.Equal("Original title", stored!.Details.Title);
+    }
+
+    [Fact]
     public async Task HandleAsync_returns_false_for_an_unknown_event_id()
     {
         var handler = new UpdateCalendarEventCommandHandler(new InMemoryCalendarEventRepository());

@@ -1,12 +1,14 @@
 @page "/"
 @attribute [Authorize]
 @using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
 @using Orbit.Contracts.Tasks
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
+@inject ChatApiClient ChatApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<Dashboard> Logger
 
@@ -14,11 +16,11 @@
 
 <h1>Pulpit</h1>
 
-@if (_notes is null || _taskLists is null || _events is null)
+@if (_notes is null || _taskLists is null || _events is null || _contacts is null)
 {
     <p>Ładowanie…</p>
 }
-else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0)
+else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _contacts.Count == 0)
 {
     <p>Brak elementów do wyświetlenia.</p>
 }
@@ -62,7 +64,34 @@ else
                 <ul>
                     @foreach (var calendarEvent in _events)
                     {
-                        <li><button @onclick="() => GoToEditEvent(calendarEvent.Id)">@calendarEvent.Details.Title</button></li>
+                        <li>
+                            <button @onclick="() => GoToEditEvent(calendarEvent.Id)">
+                                @calendarEvent.Details.Title @(calendarEvent.IsShared ? "(udostępnione)" : "")
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (_contacts.Count > 0)
+        {
+            <div class="dashboard-column">
+                <h2>Czaty</h2>
+                <ul>
+                    @foreach (var contact in _recentContacts)
+                    {
+                        <li><button @onclick="() => GoToChat(contact.UserId)">@contact.DisplayName (@contact.UserName)</button></li>
+                    }
+                </ul>
+            </div>
+
+            <div class="dashboard-column">
+                <h2>Kontakty</h2>
+                <ul>
+                    @foreach (var contact in _contactsAlphabetically)
+                    {
+                        <li><button @onclick="() => GoToChat(contact.UserId)">@contact.DisplayName (@contact.UserName)</button></li>
                     }
                 </ul>
             </div>
@@ -74,15 +103,24 @@ else
     private IReadOnlyList<NoteDto>? _notes;
     private IReadOnlyList<TaskDto>? _taskLists;
     private IReadOnlyList<CalendarEventDto>? _events;
+    private IReadOnlyList<ContactDto>? _contacts;
+
+    /// <summary>The "Czaty" column's ordering - most recently active conversation first.</summary>
+    private IEnumerable<ContactDto> _recentContacts
+        => (_contacts ?? []).OrderByDescending(contact => contact.LastMessageAtUtc);
+
+    /// <summary>The "Kontakty" column's ordering - a plain directory rather than a recency-based list.</summary>
+    private IEnumerable<ContactDto> _contactsAlphabetically
+        => (_contacts ?? []).OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
-        Logger.LogInformation("Dashboard opened, loading notes/task lists/events");
+        Logger.LogInformation("Dashboard opened, loading notes/task lists/events/contacts");
         try
         {
             // Loaded together rather than one after another, so the dashboard's total load time is the
-            // slowest single call instead of the sum of all three.
-            await Task.WhenAll(LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync());
+            // slowest single call instead of the sum of all four.
+            await Task.WhenAll(LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -93,8 +131,8 @@ else
             return;
         }
         Logger.LogInformation(
-            "Dashboard loaded {NoteCount} notes, {TaskListCount} task lists, {EventCount} events",
-            _notes!.Count, _taskLists!.Count, _events!.Count);
+            "Dashboard loaded {NoteCount} notes, {TaskListCount} task lists, {EventCount} events, {ContactCount} contacts",
+            _notes!.Count, _taskLists!.Count, _events!.Count, _contacts!.Count);
     }
 
     private async Task LoadNotesAsync() => _notes = await NotesApiClient.GetNotesAsync();
@@ -102,6 +140,14 @@ else
     private async Task LoadTaskListsAsync() => _taskLists = await TasksApiClient.GetTaskListsAsync();
 
     private async Task LoadEventsAsync() => _events = await CalendarApiClient.GetCalendarEventsAsync();
+
+    private async Task LoadContactsAsync() => _contacts = await ChatApiClient.GetContactsAsync();
+
+    private void GoToChat(Guid contactUserId)
+    {
+        Logger.LogInformation("User clicked a contact on the dashboard ({ContactUserId})", contactUserId);
+        NavigationManager.NavigateTo($"/chat/{contactUserId}");
+    }
 
     private void GoToEditNote(Guid noteId)
     {

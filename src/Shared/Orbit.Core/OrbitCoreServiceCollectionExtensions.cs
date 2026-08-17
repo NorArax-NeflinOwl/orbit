@@ -2,11 +2,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
+using Orbit.Core.Calendar.AcceptCalendarEventShare;
 using Orbit.Core.Calendar.CreateCalendarEvent;
 using Orbit.Core.Calendar.DeleteCalendarEvent;
 using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
+using Orbit.Core.Calendar.GetCalendarEventShareStatus;
 using Orbit.Core.Calendar.Reminders;
+using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.GetContacts;
@@ -64,6 +67,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<DeleteCalendarEventCommand, bool>, DeleteCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventsQuery, IReadOnlyList<CalendarEvent>>, GetCalendarEventsQueryHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventByIdQuery, CalendarEvent?>, GetCalendarEventByIdQueryHandler>();
+        services.AddScoped<IRequestHandler<ShareCalendarEventCommand, Guid?>, ShareCalendarEventCommandHandler>();
+        services.AddScoped<IRequestHandler<AcceptCalendarEventShareCommand, bool>, AcceptCalendarEventShareCommandHandler>();
+        services.AddScoped<IRequestHandler<GetCalendarEventShareStatusQuery, bool?>, GetCalendarEventShareStatusQueryHandler>();
         // Depends on IEventReminderRepository (scoped, backed by the DbContext), so it must be scoped
         // too - used by Orbit.Api's CalendarEventReminderBackgroundService, not through IDispatcher,
         // since it's a system-level poll rather than a per-user command or query.

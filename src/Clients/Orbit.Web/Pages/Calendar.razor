@@ -33,6 +33,10 @@ else
                 {
                     <span style="display:inline-block;width:0.75em;height:0.75em;background-color:@calendarEvent.Details.Color;border-radius:50%;"></span>
                 }
+                @if (calendarEvent.IsShared)
+                {
+                    <span class="shared-event-badge">Udostępnione przez @calendarEvent.SharedByUserName</span>
+                }
                 <br>
                 <small>@FormatTimeRange(calendarEvent.Details)</small>
                 @if (calendarEvent.Details.Location is { } location)
@@ -48,7 +52,7 @@ else
                     <br><small>Goście: @string.Join(", ", calendarEvent.Details.Guests)</small>
                 }
                 <br>
-                <button @onclick="() => GoToEditEvent(calendarEvent.Id)">Edytuj</button>
+                <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "Podgląd" : "Edytuj")</button>
                 <button @onclick="() => DeleteEventAsync(calendarEvent)">Usuń</button>
             </li>
         }

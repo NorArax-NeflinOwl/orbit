@@ -120,7 +120,8 @@ public sealed class EventReminderSchedulerTests
             NotifyOnCreation: false, NotifyBeforeStart: true);
         // FromPersistence (rather than Create) is the only way to control CreatedAtUtc directly, which
         // this suppression rule depends on.
-        var calendarEvent = CalendarEvent.FromPersistence(Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc);
+        var calendarEvent = CalendarEvent.FromPersistence(
+            Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, isShared: false, sharedByUserName: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
 
@@ -137,7 +138,8 @@ public sealed class EventReminderSchedulerTests
         var details = new CalendarEventDetails(
             "Holiday", null, null, null, startUtc, startUtc.AddDays(1), true, null, [], [0],
             NotifyOnCreation: false, NotifyBeforeStart: true);
-        var calendarEvent = CalendarEvent.FromPersistence(Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc);
+        var calendarEvent = CalendarEvent.FromPersistence(
+            Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, isShared: false, sharedByUserName: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
 

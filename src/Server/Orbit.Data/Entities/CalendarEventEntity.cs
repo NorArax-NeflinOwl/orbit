@@ -48,6 +48,12 @@ public sealed class CalendarEventEntity
     /// </summary>
     public bool NotifyBeforeStart { get; set; }
 
+    /// <summary>True for a read-only copy created by accepting a share offered by another user.</summary>
+    public bool IsShared { get; set; }
+
+    /// <summary>The sharing user's login, captured once at share-acceptance time. Null when IsShared is false.</summary>
+    public string? SharedByUserName { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

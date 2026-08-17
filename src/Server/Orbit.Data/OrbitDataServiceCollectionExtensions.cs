@@ -25,6 +25,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<ICalendarEventRepository, CalendarEventRepository>();
+        services.AddScoped<ICalendarEventShareRepository, CalendarEventShareRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IEventReminderRepository, EventReminderRepository>();

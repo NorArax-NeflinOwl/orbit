@@ -2,12 +2,15 @@
 @page "/calendar/{Id:guid}"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using System.Text.Json
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject GeocodingApiClient GeocodingApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ILogger<CalendarEventEditor> Logger
@@ -22,7 +25,15 @@
 }
 else
 {
+    @if (_isSharedReadOnly)
+    {
+        <p class="shared-event-banner">
+            To wydarzenie zostało udostępnione przez użytkownika <strong>@_sharedByUserName</strong> - tylko do odczytu.
+        </p>
+    }
+
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
+    <fieldset disabled="@_isSharedReadOnly">
         <div>
             <label>Tytuł</label>
             <InputText @bind-Value="_formModel.Title" />
@@ -139,6 +150,7 @@ else
             <button type="submit">Zapisz</button>
             <button type="button" @onclick="Cancel">Anuluj</button>
         </div>
+    </fieldset>
     </EditForm>
 
     @if (_errorMessage is not null)
@@ -162,9 +174,23 @@ else
     private DotNetObjectReference<CalendarEventEditor>? _dotNetHelper;
     private IReadOnlyList<ContactDto> _contacts = [];
     private string _selectedContactUserId = string.Empty;
+    private Guid _ownUserId;
+    private bool _isSharedReadOnly;
+    private string? _sharedByUserName;
+
+    /// <summary>
+    /// Contacts added as a guest via the picker during this editing session (not guests already present
+    /// when an existing event was loaded, and not free-typed e-mail addresses, which aren't linked to a
+    /// user id) - each one gets a share offer and a chat invite once the event is saved, see
+    /// ShareWithNewlyAddedContactsAsync.
+    /// </summary>
+    private readonly List<Guid> _shareRecipientUserIds = [];
 
     protected override async Task OnInitializedAsync()
     {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _ownUserId = Guid.Parse(authenticationState.User.FindFirst("sub")!.Value);
+
         if (Id is { } eventId)
         {
             Logger.LogInformation("Calendar event editor opened for event {EventId}", eventId);
@@ -172,6 +198,8 @@ else
             if (calendarEvent is not null)
             {
                 _formModel = CalendarEventFormModel.FromDto(calendarEvent.Details);
+                _isSharedReadOnly = calendarEvent.IsShared;
+                _sharedByUserName = calendarEvent.SharedByUserName;
             }
         }
         else
@@ -199,6 +227,10 @@ else
         if (contact is not null)
         {
             _formModel.AddGuestEmail(contact.Email);
+            if (!_shareRecipientUserIds.Contains(contactUserId))
+            {
+                _shareRecipientUserIds.Add(contactUserId);
+            }
         }
 
         _selectedContactUserId = string.Empty;
@@ -260,18 +292,73 @@ else
         }
         _errorMessage = null;
 
+        Guid eventId;
         if (IsNewEvent)
         {
-            var newEventId = await CalendarApiClient.CreateCalendarEventAsync(new CreateCalendarEventRequest(details));
-            Logger.LogInformation("Calendar event {EventId} created", newEventId);
+            eventId = await CalendarApiClient.CreateCalendarEventAsync(new CreateCalendarEventRequest(details));
+            Logger.LogInformation("Calendar event {EventId} created", eventId);
         }
         else
         {
-            await CalendarApiClient.UpdateCalendarEventAsync(Id!.Value, new UpdateCalendarEventRequest(details));
-            Logger.LogInformation("Calendar event {EventId} updated", Id);
+            eventId = Id!.Value;
+            await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
+            Logger.LogInformation("Calendar event {EventId} updated", eventId);
+        }
+
+        if (_shareRecipientUserIds.Count > 0)
+        {
+            _errorMessage = await ShareWithNewlyAddedContactsAsync(eventId, details.Title);
+            if (_errorMessage is not null)
+            {
+                // The event itself is already saved at this point - only the invite step failed, so this
+                // stays on the page to show which contacts weren't notified instead of navigating away
+                // and losing that information.
+                return;
+            }
         }
 
         NavigationManager.NavigateTo("/calendar");
+    }
+
+    /// <summary>
+    /// Offers a read-only copy of the just-saved event to every contact added as a guest via the picker
+    /// during this editing session (see AddSelectedContactAsGuest), and notifies each of them with an
+    /// encrypted chat message carrying an "Akceptuj" action (see EventShareMessagePayload). A recipient
+    /// without encryption configured yet, or any other per-recipient failure, is logged and skipped
+    /// rather than aborting the remaining invites - mirrors CreateCalendarEventCommandHandler's
+    /// best-effort treatment of the creation e-mail. Returns a message describing who could not be
+    /// notified, or null if every invite went out.
+    /// </summary>
+    private async Task<string?> ShareWithNewlyAddedContactsAsync(Guid eventId, string eventTitle)
+    {
+        var recipientsNotNotified = new List<string>();
+        foreach (var recipientUserId in _shareRecipientUserIds)
+        {
+            var contactDisplayName = _contacts.FirstOrDefault(contact => contact.UserId == recipientUserId)?.DisplayName
+                ?? recipientUserId.ToString();
+            try
+            {
+                var shareId = await CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId);
+                if (shareId is null)
+                {
+                    recipientsNotNotified.Add(contactDisplayName);
+                    continue;
+                }
+
+                var payloadJson = JsonSerializer.Serialize(new EventShareMessagePayload(shareId.Value, eventTitle));
+                await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Logger.LogWarning(
+                    exception, "Failed to share calendar event {EventId} with user {RecipientUserId}", eventId, recipientUserId);
+                recipientsNotNotified.Add(contactDisplayName);
+            }
+        }
+
+        return recipientsNotNotified.Count == 0
+            ? null
+            : $"Wydarzenie zostało zapisane, ale nie udało się wysłać zaproszenia do: {string.Join(", ", recipientsNotNotified)}.";
     }
 
     private void Cancel()

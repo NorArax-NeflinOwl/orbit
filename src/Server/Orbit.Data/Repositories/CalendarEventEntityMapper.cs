@@ -39,7 +39,8 @@ internal static class CalendarEventEntityMapper
             entity.NotifyOnCreation,
             entity.NotifyBeforeStart);
 
-        return CalendarEvent.FromPersistence(entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc);
+        return CalendarEvent.FromPersistence(
+            entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc, entity.IsShared, entity.SharedByUserName);
     }
 
     public static CalendarEventEntity ToEntity(CalendarEvent calendarEvent)
@@ -65,6 +66,8 @@ internal static class CalendarEventEntityMapper
             RemindersJson = JsonSerializer.Serialize(details.ReminderMinutesBeforeStart),
             NotifyOnCreation = details.NotifyOnCreation,
             NotifyBeforeStart = details.NotifyBeforeStart,
+            IsShared = calendarEvent.IsShared,
+            SharedByUserName = calendarEvent.SharedByUserName,
             CreatedAtUtc = calendarEvent.CreatedAtUtc,
             UpdatedAtUtc = calendarEvent.UpdatedAtUtc
         };
