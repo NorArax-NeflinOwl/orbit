@@ -1,5 +1,0 @@
-{
-    // C# debugging (coreclr) and Blazor WebAssembly debugging (blazorwasm) used by launch.json both
-    // require this extension; without it, F5 has no debugger to run and breakpoints are never hit.
-    "recommendations": ["ms-dotnettools.csharp"]
-}
