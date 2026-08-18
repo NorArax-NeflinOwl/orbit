@@ -122,7 +122,8 @@ try
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        // Brute-force protection for /api/auth/*: 5 requests per minute per client IP, with no
+        // Brute-force protection for /api/auth/register and /api/auth/login (see AuthEndpoints for why
+        // /refresh and /logout don't use this policy): 5 requests per minute per client IP, with no
         // queueing, so a client that exceeds this gets an immediate 429 instead of waiting. Partitioned
         // by IP address (rather than one limiter shared by every caller) so one aggressive client can't
         // also lock out every other client hitting these endpoints.

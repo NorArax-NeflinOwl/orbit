@@ -33,7 +33,7 @@ else
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
-    <fieldset disabled="@_isSharedReadOnly">
+    <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
         <div>
             <label>Tytuł</label>
             <InputText @bind-Value="_formModel.Title" />
@@ -177,6 +177,7 @@ else
     private Guid _ownUserId;
     private bool _isSharedReadOnly;
     private string? _sharedByUserName;
+    private bool _isSaving;
 
     /// <summary>
     /// Contacts added as a guest via the picker during this editing session (not guests already present
@@ -304,32 +305,56 @@ else
         }
         _errorMessage = null;
 
-        Guid eventId;
-        if (IsNewEvent)
+        // Locks the whole form (see the fieldset above) for the duration of the save, so a second click
+        // or a double Enter-press can't fire this again while the first request is still in flight and
+        // create a duplicate event.
+        _isSaving = true;
+        try
         {
-            eventId = await CalendarApiClient.CreateCalendarEventAsync(new CreateCalendarEventRequest(details));
-            Logger.LogInformation("Calendar event {EventId} created", eventId);
-        }
-        else
-        {
-            eventId = Id!.Value;
-            await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
-            Logger.LogInformation("Calendar event {EventId} updated", eventId);
-        }
-
-        if (_shareRecipientUserIds.Count > 0)
-        {
-            _errorMessage = await ShareWithNewlyAddedContactsAsync(eventId, details.Title);
-            if (_errorMessage is not null)
+            Guid eventId;
+            try
             {
-                // The event itself is already saved at this point - only the invite step failed, so this
-                // stays on the page to show which contacts weren't notified instead of navigating away
-                // and losing that information.
+                if (IsNewEvent)
+                {
+                    eventId = await CalendarApiClient.CreateCalendarEventAsync(new CreateCalendarEventRequest(details));
+                    Logger.LogInformation("Calendar event {EventId} created", eventId);
+                }
+                else
+                {
+                    eventId = Id!.Value;
+                    await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
+                    Logger.LogInformation("Calendar event {EventId} updated", eventId);
+                }
+            }
+            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                NavigationManager.NavigateTo("/login");
                 return;
             }
-        }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogError(exception, "Failed to {Mode} calendar event {EventId}", IsNewEvent ? "create" : "update", Id);
+                return;
+            }
 
-        NavigationManager.NavigateTo("/calendar");
+            if (_shareRecipientUserIds.Count > 0)
+            {
+                _errorMessage = await ShareWithNewlyAddedContactsAsync(eventId, details.Title);
+                if (_errorMessage is not null)
+                {
+                    // The event itself is already saved at this point - only the invite step failed, so this
+                    // stays on the page to show which contacts weren't notified instead of navigating away
+                    // and losing that information.
+                    return;
+                }
+            }
+
+            NavigationManager.NavigateTo("/calendar");
+        }
+        finally
+        {
+            _isSaving = false;
+        }
     }
 
     /// <summary>

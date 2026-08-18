@@ -16,22 +16,22 @@ public sealed class ChatMessageRepository : IChatMessageRepository
     public async Task<IReadOnlyList<ChatMessage>> GetConversationAsync(
         Guid userId, Guid otherUserId, DateTimeOffset? sinceUtc, CancellationToken cancellationToken)
     {
-        var query = _dbContext.ChatMessages
+        // Only the SenderUserId/RecipientUserId filter is translated to SQL. sinceUtc filtering and the
+        // final ordering both operate on the DateTimeOffset column, which SQLite can't translate (see the
+        // EF Core exception this avoids, and GetReadUpToUtcAsync below for the same limitation) - so both
+        // happen in memory after fetching the conversation instead.
+        var entities = await _dbContext.ChatMessages
             .AsNoTracking()
             .Where(message =>
                 (message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
-                (message.SenderUserId == otherUserId && message.RecipientUserId == userId));
+                (message.SenderUserId == otherUserId && message.RecipientUserId == userId))
+            .ToListAsync(cancellationToken);
 
-        if (sinceUtc is not null)
-        {
-            query = query.Where(message => message.SentAtUtc > sinceUtc.Value);
-        }
+        var messagesSinceUtc = sinceUtc is null
+            ? entities
+            : entities.Where(entity => entity.SentAtUtc > sinceUtc.Value);
 
-        // SQLite can't translate ORDER BY on a DateTimeOffset column, so the sort has to happen in
-        // memory after fetching (see the EF Core NotSupportedException this avoids).
-        var entities = await query.ToListAsync(cancellationToken);
-
-        return entities
+        return messagesSinceUtc
             .OrderBy(entity => entity.SentAtUtc)
             .Select(ToDomain)
             .ToList();

@@ -93,7 +93,21 @@ else
             return;
         }
 
-        await TasksApiClient.DeleteTaskListAsync(taskList.Id);
+        try
+        {
+            await TasksApiClient.DeleteTaskListAsync(taskList.Id);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to delete task list {TaskListId}", taskList.Id);
+            return;
+        }
+
         _taskLists = _taskLists!.Where(existingTaskList => existingTaskList.Id != taskList.Id).ToList();
         Logger.LogInformation("Task list {TaskListId} deleted", taskList.Id);
     }

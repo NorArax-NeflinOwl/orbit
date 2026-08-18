@@ -26,7 +26,7 @@ else
             <label>Treść</label>
             <InputTextArea @bind-Value="_formModel.Content" />
         </div>
-        <button type="submit">Zapisz</button>
+        <button type="submit" disabled="@_isSaving">Zapisz</button>
         <button type="button" @onclick="Cancel">Anuluj</button>
     </EditForm>
 }
@@ -37,6 +37,7 @@ else
 
     private bool IsNewNote => Id is null;
     private bool _isLoading = true;
+    private bool _isSaving;
     private NoteFormModel _formModel = new();
 
     protected override async Task OnInitializedAsync()
@@ -74,15 +75,36 @@ else
         Logger.LogInformation(
             "User clicked 'Zapisz' ({Mode}, NoteId={NoteId})", IsNewNote ? "create" : "update", Id);
 
-        if (IsNewNote)
+        // Blocks the button for the duration of the save (see the button above), so a second click or a
+        // double Enter-press can't fire this again while the first request is still in flight and create
+        // a duplicate note.
+        _isSaving = true;
+        try
         {
-            var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(_formModel.Title, _formModel.Content));
-            Logger.LogInformation("Note {NoteId} created", newNoteId);
+            if (IsNewNote)
+            {
+                var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(_formModel.Title, _formModel.Content));
+                Logger.LogInformation("Note {NoteId} created", newNoteId);
+            }
+            else
+            {
+                await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content));
+                Logger.LogInformation("Note {NoteId} updated", Id);
+            }
         }
-        else
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
-            await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content));
-            Logger.LogInformation("Note {NoteId} updated", Id);
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to {Mode} note {NoteId}", IsNewNote ? "create" : "update", Id);
+            return;
+        }
+        finally
+        {
+            _isSaving = false;
         }
 
         NavigationManager.NavigateTo("/notes");

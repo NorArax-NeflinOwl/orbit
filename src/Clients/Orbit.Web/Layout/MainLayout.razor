@@ -5,6 +5,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject NavigationManager NavigationManager
+@inject ILogger<MainLayout> Logger
 
 <div class="page">
     <main>
@@ -62,6 +63,25 @@
             // MainLayout, so without this catch a stale session would break the very first page the
             // user lands on instead of sending them back to sign in.
             NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            // Any other failure here (API unreachable, DNS, CORS, ...) surfaces with no HTTP status at
+            // all rather than 401, so the catch above doesn't apply. Publishing the public key is a
+            // best-effort step, not a precondition for using the app, and this runs on every route via
+            // MainLayout - letting it propagate would crash navigation entirely instead of just leaving
+            // the key unpublished until the next successful retry (next page load, or Chat.razor's own
+            // call when the user opens a conversation).
+            Logger.LogWarning(exception, "Failed to publish the local E2EE public key");
+        }
+        catch (JSException exception)
+        {
+            // crypto.subtle (which e2eeChat.js needs to generate the key pair) is only exposed by
+            // browsers in a secure context - HTTPS, or the special-cased "localhost"/"127.0.0.1" hosts -
+            // so opening Orbit.Web over plain HTTP via a LAN IP address makes this throw every time (see
+            // README.md's "Accessing Orbit.Web from another device on your network"). Same reasoning as
+            // the HttpRequestException catch above: best-effort, not a precondition for using the app.
+            Logger.LogWarning(exception, "End-to-end encryption is unavailable in this browsing context");
         }
     }
 

@@ -80,7 +80,21 @@ else
             return;
         }
 
-        await NotesApiClient.DeleteNoteAsync(note.Id);
+        try
+        {
+            await NotesApiClient.DeleteNoteAsync(note.Id);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to delete note {NoteId}", note.Id);
+            return;
+        }
+
         _notes = _notes!.Where(existingNote => existingNote.Id != note.Id).ToList();
         Logger.LogInformation("Note {NoteId} deleted", note.Id);
     }

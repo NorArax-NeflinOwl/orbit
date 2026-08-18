@@ -60,7 +60,7 @@ else
         <button type="button" @onclick="AddItem">Dodaj zadanie</button>
 
         <div>
-            <button type="submit">Zapisz</button>
+            <button type="submit" disabled="@_isSaving">Zapisz</button>
             <button type="button" @onclick="Cancel">Anuluj</button>
         </div>
     </EditForm>
@@ -72,6 +72,7 @@ else
 
     private bool IsNewTaskList => Id is null;
     private bool _isLoading = true;
+    private bool _isSaving;
     private TaskListFormModel _formModel = new();
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
 
@@ -144,15 +145,36 @@ else
             .Select(item => new TaskItemRequest(item.Description, ToDueDateUtc(item), item.IsCompleted, ToLinkedTaskListId(item)))
             .ToList();
 
-        if (IsNewTaskList)
+        // Blocks the button for the duration of the save (see the button above), so a second click or a
+        // double Enter-press can't fire this again while the first request is still in flight and create
+        // a duplicate task list.
+        _isSaving = true;
+        try
         {
-            var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items));
-            Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
+            if (IsNewTaskList)
+            {
+                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items));
+                Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
+            }
+            else
+            {
+                await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items));
+                Logger.LogInformation("Task list {TaskListId} updated", Id);
+            }
         }
-        else
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
-            await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items));
-            Logger.LogInformation("Task list {TaskListId} updated", Id);
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to {Mode} task list {TaskListId}", IsNewTaskList ? "create" : "update", Id);
+            return;
+        }
+        finally
+        {
+            _isSaving = false;
         }
 
         NavigationManager.NavigateTo("/tasks");

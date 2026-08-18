@@ -13,9 +13,24 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Logging.SetMinimumLevel(LogLevel.Trace);
 
 // Read from wwwroot/appsettings.json (or appsettings.Development.json under `dotnet run`/`dotnet
-// watch`, which the Blazor dev server selects automatically). This runs in the browser, so it must
-// point at an address the browser can reach - never a docker-compose service name.
-var apiBaseAddress = builder.Configuration["ApiBaseAddress"] ?? "https://localhost:7080/";
+// watch`, which the Blazor dev server selects automatically).
+//
+// wwwroot/appsettings.json (the Docker/nginx deployment) leaves this blank: nginx reverse-proxies
+// /api/* to Orbit.Api under the same origin the browser loaded the page from (see nginx.conf and
+// docker/reverse-proxy/nginx.conf), so the API is simply "wherever this page came from" - no separate
+// host or port to compute, and no CORS needed since every request is same-origin. This is also what
+// makes the app reachable from another device's browser via this machine's LAN IP: the browser only
+// ever talks to the one origin it loaded the page from.
+//
+// appsettings.Development.json (the `dotnet run`/`dotnet watch` dev server) still sets a concrete
+// address, since that dev server has no proxy in front of it and always runs on a fixed port
+// different from Orbit.Api's - only the host is replaced with whatever host the browser used, so a
+// `dotnet run` instance opened via a LAN IP still finds the right machine.
+var browserOrigin = new Uri(builder.HostEnvironment.BaseAddress);
+var configuredApiBaseAddressValue = builder.Configuration["ApiBaseAddress"];
+var apiBaseAddress = string.IsNullOrEmpty(configuredApiBaseAddressValue)
+    ? browserOrigin.ToString()
+    : new UriBuilder(new Uri(configuredApiBaseAddressValue)) { Host = browserOrigin.Host }.Uri.ToString();
 const string tokenRefreshHttpClientName = "Orbit.Web.TokenRefresh";
 
 builder.Services.AddScoped<TokenStore>();

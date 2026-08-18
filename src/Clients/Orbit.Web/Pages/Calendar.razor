@@ -101,7 +101,21 @@ else
             return;
         }
 
-        await CalendarApiClient.DeleteCalendarEventAsync(calendarEvent.Id);
+        try
+        {
+            await CalendarApiClient.DeleteCalendarEventAsync(calendarEvent.Id);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to delete calendar event {EventId}", calendarEvent.Id);
+            return;
+        }
+
         _events = _events!.Where(existingEvent => existingEvent.Id != calendarEvent.Id).ToList();
         Logger.LogInformation("Calendar event {EventId} deleted", calendarEvent.Id);
     }

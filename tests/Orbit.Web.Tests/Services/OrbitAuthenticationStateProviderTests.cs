@@ -38,6 +38,23 @@ public sealed class OrbitAuthenticationStateProviderTests
         Assert.Equal("11111111-1111-1111-1111-111111111111", state.User.FindFirst("sub")?.Value);
     }
 
+    [Fact]
+    public async Task GetAuthenticationStateAsync_returns_an_anonymous_principal_when_the_stored_token_is_expired()
+    {
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        await tokenStore.SetTokenAsync(CreateUnsignedJwt(new Dictionary<string, string>
+        {
+            ["sub"] = "11111111-1111-1111-1111-111111111111",
+            // Any point well in the past - the exact value doesn't matter, only that it's expired.
+            ["exp"] = "1000000000"
+        }));
+        var provider = new OrbitAuthenticationStateProvider(tokenStore);
+
+        var state = await provider.GetAuthenticationStateAsync();
+
+        Assert.False(state.User.Identity?.IsAuthenticated);
+    }
+
     /// <summary>
     /// Builds a JWT with a real header and payload but a dummy signature - enough to exercise the
     /// client's own claim-parsing logic, which never checks the signature (the server already did, on

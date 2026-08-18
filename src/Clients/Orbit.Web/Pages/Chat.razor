@@ -16,7 +16,14 @@
 
 <PageTitle>Orbit — Czat</PageTitle>
 
-@if (_otherUser is null)
+@if (_encryptionUnavailable)
+{
+    <p>
+        Czat wymaga bezpiecznego połączenia (adres zaczynający się od "https://", albo "http://localhost").
+        Otwórz Orbit pod takim adresem i spróbuj ponownie.
+    </p>
+}
+else if (_otherUser is null)
 {
     <p>Ładowanie…</p>
 }
@@ -88,6 +95,7 @@ else
     private DateTimeOffset? _otherPartyReadUpToUtc;
     private string _draftMessage = string.Empty;
     private bool _isSending;
+    private bool _encryptionUnavailable;
     private IJSObjectReference? _cryptoModule;
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
@@ -120,6 +128,18 @@ else
             NavigationManager.NavigateTo("/login");
             return;
         }
+        catch (JSException exception)
+        {
+            // crypto.subtle (which e2eeChat.js needs for every key/encrypt/decrypt operation) is only
+            // exposed by browsers in a secure context - HTTPS, or the special-cased
+            // "localhost"/"127.0.0.1" hosts (see README.md's "Accessing Orbit.Web from another device
+            // on your network"). Unlike MainLayout's best-effort key publishing, chat genuinely cannot
+            // work without this, so rather than silently continuing into a broken chat window, this
+            // stops here and renders a dedicated explanation instead (see the markup above).
+            Logger.LogError(exception, "End-to-end encryption is unavailable in this browsing context");
+            _encryptionUnavailable = true;
+            return;
+        }
 
         StartPolling();
     }
@@ -127,7 +147,7 @@ else
     private void StartPolling()
     {
         _pollCancellation = new CancellationTokenSource();
-        _pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        _pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         _ = PollAsync(_pollCancellation.Token);
     }
 
@@ -137,8 +157,7 @@ else
         {
             while (await _pollTimer!.WaitForNextTickAsync(cancellationToken))
             {
-                await LoadNewMessagesAsync();
-                await SyncReadStateAsync();
+                await PollOnceAsync();
                 StateHasChanged();
             }
         }
@@ -146,11 +165,29 @@ else
         {
             // Expected when the page navigates away and DisposeAsync cancels polling.
         }
+    }
+
+    /// <summary>
+    /// A single poll tick's worth of work, isolated so a transient failure (a brief server hiccup, or
+    /// the session having just expired) only gives up on this one tick instead of silently killing the
+    /// whole poll loop - and with it, live updates - for the rest of the time this chat window stays open.
+    /// </summary>
+    private async Task PollOnceAsync()
+    {
+        try
+        {
+            await LoadNewMessagesAsync();
+            await SyncReadStateAsync();
+        }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
             // Session expired while this chat window was already open and polling - same handling as
             // the initial load in OnInitializedAsync, just reached from the background poll loop instead.
             NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to poll for new messages with user {OtherUserId}", UserId);
         }
     }
 
@@ -242,6 +279,17 @@ else
                 _acceptedEventShareIds.Add(shareId);
             }
         }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            // Left off _acceptedEventShareIds, so the "Akceptuj" button just reappears - that absence is
+            // the only feedback the user gets that this didn't go through (see the class-level note on
+            // why this mechanism logs rather than showing a dedicated failure message).
+            Logger.LogError(exception, "Failed to accept calendar event share {ShareId}", shareId);
+        }
         finally
         {
             _acceptingEventShareIds.Remove(shareId);
@@ -274,6 +322,17 @@ else
             _messages.Add(sent);
             _decryptedContentByMessageId[sent.Id] = _draftMessage;
             _draftMessage = string.Empty;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            // The draft is deliberately left in _draftMessage (not cleared) and nothing is appended to
+            // _messages - that's the only signal the user gets that the message wasn't sent, so they can
+            // just retry instead of retyping it.
+            Logger.LogError(exception, "Failed to send a chat message to user {RecipientUserId}", UserId);
         }
         finally
         {

@@ -40,7 +40,23 @@
         _isSubmitting = true;
         _errorMessage = null;
 
-        var result = await AuthApiClient.LoginAsync(_formModel.EmailOrUserName, _formModel.Password);
+        AuthResult result;
+        try
+        {
+            result = await AuthApiClient.LoginAsync(_formModel.EmailOrUserName, _formModel.Password);
+        }
+        catch (HttpRequestException exception)
+        {
+            // No HTTP response was ever received (server unreachable, DNS failure, ...), so
+            // AuthApiClient never got the chance to turn this into an AuthOutcome - without this catch
+            // the exception propagates out of SubmitAsync and crashes the whole page instead of just
+            // showing the same inline error message as any other failed login attempt.
+            Logger.LogError(exception, "Failed to reach the server while logging in");
+            _errorMessage = "Nie udało się połączyć z serwerem. Sprawdź połączenie i spróbuj ponownie.";
+            _isSubmitting = false;
+            return;
+        }
+
         if (result.Outcome == AuthOutcome.Success)
         {
             Logger.LogInformation("User logged in");

@@ -29,7 +29,13 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
             return AnonymousState;
         }
 
-        var identity = new ClaimsIdentity(ParseClaimsFromJwt(token), authenticationType: "jwt", nameType: "name", roleType: null);
+        var claims = ParseClaimsFromJwt(token).ToList();
+        if (IsExpired(claims))
+        {
+            return AnonymousState;
+        }
+
+        var identity = new ClaimsIdentity(claims, authenticationType: "jwt", nameType: "name", roleType: null);
         return new AuthenticationState(new ClaimsPrincipal(identity));
     }
 
@@ -46,6 +52,26 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
             ?? new Dictionary<string, JsonElement>();
 
         return payloadProperties.Select(property => new Claim(property.Key, property.Value.ToString()));
+    }
+
+    /// <summary>
+    /// The server already rejects an expired token on every API call (see AuthorizationMessageHandler,
+    /// which then tries a silent refresh), but checking the "exp" claim here too means the UI itself -
+    /// the nav bar in MainLayout, [Authorize] route gating - never treats a stale token as a real session
+    /// in the first place, instead of only finding out once the first request fails. This also covers a
+    /// token that survives in localStorage across a local database reset (e.g. during development): it
+    /// looks unexpired and well-formed, and was otherwise indistinguishable from a genuine session until
+    /// something finally tried to use it.
+    /// </summary>
+    private static bool IsExpired(IEnumerable<Claim> claims)
+    {
+        var expiresAtClaim = claims.FirstOrDefault(claim => claim.Type == "exp");
+        if (expiresAtClaim is null || !long.TryParse(expiresAtClaim.Value, out var expiresAtUnixSeconds))
+        {
+            return false;
+        }
+
+        return DateTimeOffset.FromUnixTimeSeconds(expiresAtUnixSeconds) <= DateTimeOffset.UtcNow;
     }
 
     private static byte[] Base64UrlDecode(string base64Url)

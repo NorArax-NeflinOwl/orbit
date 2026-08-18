@@ -11,8 +11,14 @@ public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this WebApplication app)
     {
-        var auth = app.MapGroup("/api/auth").RequireRateLimiting(RateLimiterPolicyNames.Auth);
+        var auth = app.MapGroup("/api/auth");
 
+        // Only the two endpoints that accept a guessable credential (a password) share this brute-force
+        // budget - see RequireRateLimiting below. /refresh and /logout are gated by possession of an
+        // unguessable, high-entropy refresh token instead, so they don't need the same throttling, and
+        // sharing it with them would let unrelated refresh/logout traffic (e.g. a session repeatedly
+        // retrying a stale token in the background) exhaust the budget and lock out a legitimate login
+        // attempt from the same IP.
         auth.MapPost("/register", async (
             RegisterUserRequest request, IDispatcher dispatcher, TokenService tokenService,
             RefreshTokenService refreshTokenService, CancellationToken cancellationToken) =>
@@ -26,7 +32,7 @@ public static class AuthEndpoints
             }
 
             return Results.Ok(await ToAuthResponseAsync(result.User, tokenService, refreshTokenService, cancellationToken));
-        });
+        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
 
         auth.MapPost("/login", async (
             LoginRequest request, IDispatcher dispatcher, TokenService tokenService,
@@ -37,7 +43,7 @@ public static class AuthEndpoints
             return user is null
                 ? Results.Unauthorized()
                 : Results.Ok(await ToAuthResponseAsync(user, tokenService, refreshTokenService, cancellationToken));
-        });
+        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
 
         auth.MapPost("/refresh", async (
             RefreshTokenRequest request, IUserRepository userRepository, TokenService tokenService,
