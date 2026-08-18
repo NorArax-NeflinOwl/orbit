@@ -31,6 +31,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IEventReminderRepository, EventReminderRepository>();
         services.AddScoped<IContactRepository, ContactRepository>();
         services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+        services.AddScoped<IChatConversationAccessRepository, ChatConversationAccessRepository>();
 
         return services;
     }

@@ -5,6 +5,11 @@ namespace Orbit.Core.Calendar;
 /// together since CalendarEvent.Create and CalendarEvent.Update both take and replace this whole set at
 /// once.
 /// </summary>
+/// <param name="Guests">
+/// User ids of the invited guests, not their e-mail addresses or display names - both are resolved live
+/// from the user's current profile when displayed (see GetCalendarEventByIdQueryHandler's callers), the
+/// same way ContactSummary resolves a contact's profile rather than caching it.
+/// </param>
 public sealed record CalendarEventDetails(
     string Title,
     string? Description,
@@ -14,7 +19,7 @@ public sealed record CalendarEventDetails(
     DateTimeOffset EndUtc,
     bool IsAllDay,
     EventRecurrence? Recurrence,
-    IReadOnlyList<string> Guests,
+    IReadOnlyList<Guid> Guests,
     IReadOnlyList<int> ReminderMinutesBeforeStart,
     bool NotifyOnCreation,
     bool NotifyBeforeStart);

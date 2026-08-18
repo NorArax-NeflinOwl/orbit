@@ -30,20 +30,34 @@
     </div>
 }
 
+@if (_contacts is not null && _pendingRequests.Any())
+{
+    <h2>Nowe prośby</h2>
+    <ul>
+        @foreach (var contact in _pendingRequests)
+        {
+            <li>
+                <button @onclick="() => OpenChat(contact.UserId)">@contact.DisplayName (@contact.UserName)</button>
+                <span class="chat-request-badge">nowa prośba</span>
+            </li>
+        }
+    </ul>
+}
+
 <h2>Czaty</h2>
 
 @if (_contacts is null)
 {
     <p>Ładowanie…</p>
 }
-else if (_contacts.Count == 0)
+else if (!_establishedChats.Any())
 {
     <p>Brak czatów. Wyszukaj użytkownika po adresie e-mail lub loginie, aby rozpocząć rozmowę.</p>
 }
 else
 {
     <ul>
-        @foreach (var contact in _contacts)
+        @foreach (var contact in _establishedChats)
         {
             <li>
                 <button @onclick="() => OpenChat(contact.UserId)">@contact.DisplayName (@contact.UserName)</button>
@@ -58,6 +72,17 @@ else
     private string? _searchError;
     private UserSearchResultDto? _searchResult;
     private IReadOnlyList<ContactDto>? _contacts;
+
+    /// <summary>
+    /// Chat requests someone else sent that the current user hasn't approved yet - see
+    /// ChatConversationAccess. Shown separately from established chats, with a "nowa prośba" badge,
+    /// instead of mixed into the regular chat list.
+    /// </summary>
+    private IEnumerable<ContactDto> _pendingRequests
+        => (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser);
+
+    private IEnumerable<ContactDto> _establishedChats
+        => (_contacts ?? []).Where(contact => !contact.RequiresApprovalFromCurrentUser);
 
     protected override async Task OnInitializedAsync()
     {

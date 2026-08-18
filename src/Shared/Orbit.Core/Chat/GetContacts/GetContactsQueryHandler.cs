@@ -7,11 +7,15 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
 {
     private readonly IContactRepository _contactRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IChatConversationAccessRepository _chatConversationAccessRepository;
 
-    public GetContactsQueryHandler(IContactRepository contactRepository, IUserRepository userRepository)
+    public GetContactsQueryHandler(
+        IContactRepository contactRepository, IUserRepository userRepository,
+        IChatConversationAccessRepository chatConversationAccessRepository)
     {
         _contactRepository = contactRepository;
         _userRepository = userRepository;
+        _chatConversationAccessRepository = chatConversationAccessRepository;
     }
 
     /// <summary>
@@ -28,10 +32,14 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
         foreach (var contact in contacts)
         {
             var otherUser = await _userRepository.GetByIdAsync(contact.ContactUserId, cancellationToken);
-            if (otherUser is not null)
+            if (otherUser is null)
             {
-                summaries.Add(new ContactSummary(otherUser, contact.LastMessageAtUtc));
+                continue;
             }
+
+            var access = await _chatConversationAccessRepository.GetAsync(request.UserId, contact.ContactUserId, cancellationToken);
+            var requiresApprovalFromCurrentUser = access is { IsApproved: false } && access.InitiatedByUserId != request.UserId;
+            summaries.Add(new ContactSummary(otherUser, contact.LastMessageAtUtc, requiresApprovalFromCurrentUser));
         }
 
         return summaries;

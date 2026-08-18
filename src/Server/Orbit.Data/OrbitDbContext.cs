@@ -17,6 +17,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<EventReminderDeliveryEntity> EventReminderDeliveries => Set<EventReminderDeliveryEntity>();
     public DbSet<ContactEntity> Contacts => Set<ContactEntity>();
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
+    public DbSet<ChatConversationAccessEntity> ChatConversationAccesses => Set<ChatConversationAccessEntity>();
     public DbSet<CalendarEventShareEntity> CalendarEventShares => Set<CalendarEventShareEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -129,6 +130,15 @@ public sealed class OrbitDbContext : DbContext
             // ChatMessageRepository.GetConversationAsync); these two indexes cover both.
             entity.HasIndex(message => new { message.SenderUserId, message.RecipientUserId });
             entity.HasIndex(message => new { message.RecipientUserId, message.SenderUserId });
+        });
+
+        modelBuilder.Entity<ChatConversationAccessEntity>(entity =>
+        {
+            entity.HasKey(access => access.Id);
+            // Looked up by either user first (see ChatConversationAccessRepository.FindEntityAsync) -
+            // this index speeds up the "InitiatedByUserId == me" half of that lookup; the reversed half
+            // falls back to a table scan, acceptable at this app's scale.
+            entity.HasIndex(access => new { access.InitiatedByUserId, access.OtherUserId }).IsUnique();
         });
     }
 }

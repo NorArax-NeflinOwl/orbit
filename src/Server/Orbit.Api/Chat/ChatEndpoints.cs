@@ -3,8 +3,10 @@ using System.Security.Claims;
 using Orbit.Contracts.Chat;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Chat;
+using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.GetContacts;
 using Orbit.Core.Chat.GetConversation;
+using Orbit.Core.Chat.GetConversationAccess;
 using Orbit.Core.Chat.GetReadReceipt;
 using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
@@ -37,10 +39,41 @@ public static class ChatEndpoints
         chat.MapPost("/messages", async (
             SendMessageRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var message = await dispatcher.SendAsync(
+            var result = await dispatcher.SendAsync(
                 new SendMessageCommand(GetUserId(user), request.RecipientUserId, request.CiphertextBase64, request.NonceBase64),
                 cancellationToken);
-            return message is null ? Results.NotFound() : Results.Ok(ToDto(message));
+
+            return result.Outcome switch
+            {
+                SendMessageOutcome.Success => Results.Ok(ToDto(result.Message!)),
+                SendMessageOutcome.RecipientNotFound => Results.NotFound(),
+                // The sender is replying to a chat request someone else sent them that they haven't
+                // approved yet (see ChatConversationAccess) - Chat.razor normally prevents ever reaching
+                // this by hiding the compose box until the recipient approves, so this is a defense-in-
+                // depth 403 rather than a state the client is expected to handle specially.
+                SendMessageOutcome.ConversationNotApproved => Results.StatusCode(StatusCodes.Status403Forbidden),
+                _ => throw new InvalidOperationException($"Unhandled {nameof(SendMessageOutcome)}: {result.Outcome}")
+            };
+        });
+
+        // Looked up by the chat window on load and on every poll tick, so it can show a "chat request"
+        // banner (and disable the compose box) as soon as either party's approval state changes - see
+        // ChatConversationAccess. Returns no body (null) when the pair has never exchanged a message.
+        chat.MapGet("/conversations/{otherUserId:guid}/access", async (
+            Guid otherUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var access = await dispatcher.SendAsync(new GetConversationAccessQuery(GetUserId(user), otherUserId), cancellationToken);
+            return Results.Ok(access is null ? null : ToDto(access));
+        });
+
+        // Lets the non-initiating party in a brand-new conversation explicitly allow chatting with
+        // whoever started it - see ChatConversationAccess and SendMessageCommandHandler for what this
+        // unblocks.
+        chat.MapPost("/conversations/{otherUserId:guid}/approve", async (
+            Guid otherUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var approved = await dispatcher.SendAsync(new ApproveConversationCommand(GetUserId(user), otherUserId), cancellationToken);
+            return approved ? Results.NoContent() : Results.NotFound();
         });
 
         // Called by the recipient's chat window on every poll tick while it's open - see Chat.razor's
@@ -75,8 +108,13 @@ public static class ChatEndpoints
     }
 
     private static ContactDto ToDto(ContactSummary contact)
-        => new(contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64, contact.LastMessageAtUtc);
+        => new(
+            contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64,
+            contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser);
 
     private static ChatMessageDto ToDto(ChatMessage message)
         => new(message.Id, message.SenderUserId, message.RecipientUserId, message.CiphertextBase64, message.NonceBase64, message.SentAtUtc);
+
+    private static ChatConversationAccessDto ToDto(ChatConversationAccess access)
+        => new(access.InitiatedByUserId, access.IsApproved);
 }

@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orbit.Api.HealthChecks;
+using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Notifications;
 using Orbit.Core.Users;
@@ -9,11 +10,11 @@ using Orbit.Core.Users;
 namespace Orbit.Api.Calendar;
 
 /// <summary>
-/// Periodically checks for calendar event reminders that have come due and emails the event's owner
-/// about each one exactly once. Lives entirely in Orbit.Api: sending a real email needs an SMTP
-/// connection and credentials that must never reach the Blazor WebAssembly client (see
-/// GeocodingApiClient's class comment in Orbit.Web for the same reasoning applied to a different
-/// third-party call).
+/// Periodically checks for calendar event reminders that have come due and emails the event's owner,
+/// plus every guest who has accepted a share of the event, about each one exactly once. Lives entirely
+/// in Orbit.Api: sending a real email needs an SMTP connection and credentials that must never reach the
+/// Blazor WebAssembly client (see GeocodingApiClient's class comment in Orbit.Web for the same reasoning
+/// applied to a different third-party call).
 /// </summary>
 public sealed class CalendarEventReminderBackgroundService : BackgroundService
 {
@@ -71,6 +72,7 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         using var scope = _serviceScopeFactory.CreateScope();
         var scheduler = scope.ServiceProvider.GetRequiredService<EventReminderScheduler>();
         var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+        var calendarEventShareRepository = scope.ServiceProvider.GetRequiredService<ICalendarEventShareRepository>();
         var eventReminderRepository = scope.ServiceProvider.GetRequiredService<IEventReminderRepository>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
@@ -78,15 +80,18 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
             DateTimeOffset.UtcNow, LookBackWindow, cancellationToken, maxResults: MaxRemindersPerPoll);
         foreach (var dueReminder in dueReminders)
         {
-            await SendReminderEmailAsync(dueReminder, userRepository, eventReminderRepository, emailSender, cancellationToken);
+            await SendReminderEmailAsync(
+                dueReminder, userRepository, calendarEventShareRepository, eventReminderRepository, emailSender, _logger, cancellationToken);
         }
     }
 
     private static async Task SendReminderEmailAsync(
         DueEventReminder dueReminder,
         IUserRepository userRepository,
+        ICalendarEventShareRepository calendarEventShareRepository,
         IEventReminderRepository eventReminderRepository,
         IEmailSender emailSender,
+        ILogger<CalendarEventReminderBackgroundService> logger,
         CancellationToken cancellationToken)
     {
         var calendarEvent = dueReminder.CalendarEvent;
@@ -103,26 +108,72 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
             return;
         }
 
-        var owner = await userRepository.GetByIdAsync(calendarEvent.UserId, cancellationToken);
-        if (owner is null)
+        var recipients = await ResolveRecipientsAsync(calendarEvent, userRepository, calendarEventShareRepository, cancellationToken);
+        if (recipients.Count == 0)
         {
-            // The owning account was deleted after the event was created - nothing meaningful to notify,
-            // and no one to ever notify, so the claim stays in place rather than being retried.
+            // The owning account was deleted after the event was created, and no guest has accepted a
+            // share of it either - nothing meaningful to notify, and no one to ever notify, so the claim
+            // stays in place rather than being retried.
             return;
         }
 
         var (subject, body) = EventReminderEmailContent.Build(calendarEvent.Details, dueReminder.MinutesBeforeStart);
 
-        try
+        // Sent best-effort per recipient: the claim above guards the whole event+lead-time pair, not
+        // each recipient individually (see TryClaimAsync), so once at least one e-mail has gone out the
+        // claim must stay in place - releasing it would make a later poll resend to whoever already
+        // received it. Only when every single recipient fails does nothing go out, making a full retry
+        // on the next poll safe.
+        var sentToAnyRecipient = false;
+        foreach (var recipient in recipients)
         {
-            await emailSender.SendAsync(owner.Email, subject, body, cancellationToken);
+            try
+            {
+                await emailSender.SendAsync(recipient.Email, subject, body, cancellationToken);
+                sentToAnyRecipient = true;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogError(
+                    exception, "Failed to send calendar event reminder e-mail to user {RecipientUserId} for event {EventId}",
+                    recipient.Id, calendarEvent.Id);
+            }
         }
-        catch
+
+        if (!sentToAnyRecipient)
         {
-            // The claim already reserved this reminder; release it so a later poll retries the send
-            // instead of silently losing it because of a transient SMTP failure.
             await eventReminderRepository.ReleaseClaimAsync(calendarEvent.Id, dueReminder.MinutesBeforeStart, cancellationToken);
-            throw;
         }
+    }
+
+    /// <summary>
+    /// The event's owner, plus every guest who has accepted a share of the event (see
+    /// CalendarEventShare.IsAccepted) - an invited guest who never accepted isn't included, since they
+    /// never added the event to their own calendar. A deleted account is silently skipped rather than
+    /// surfaced as a broken recipient.
+    /// </summary>
+    private static async Task<IReadOnlyList<User>> ResolveRecipientsAsync(
+        CalendarEvent calendarEvent, IUserRepository userRepository, ICalendarEventShareRepository calendarEventShareRepository,
+        CancellationToken cancellationToken)
+    {
+        var recipients = new List<User>();
+
+        var owner = await userRepository.GetByIdAsync(calendarEvent.UserId, cancellationToken);
+        if (owner is not null)
+        {
+            recipients.Add(owner);
+        }
+
+        var acceptedGuestUserIds = await calendarEventShareRepository.GetAcceptedRecipientUserIdsAsync(calendarEvent.Id, cancellationToken);
+        foreach (var guestUserId in acceptedGuestUserIds)
+        {
+            var guest = await userRepository.GetByIdAsync(guestUserId, cancellationToken);
+            if (guest is not null)
+            {
+                recipients.Add(guest);
+            }
+        }
+
+        return recipients;
     }
 }

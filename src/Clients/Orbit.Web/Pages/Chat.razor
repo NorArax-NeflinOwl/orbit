@@ -40,6 +40,20 @@ else
     }
     else
     {
+        @if (RequiresApprovalFromMe)
+        {
+            <p class="chat-request-banner">
+                @_otherUser.DisplayName chce z Tobą porozmawiać.
+                <button type="button" disabled="@_isApprovingConversation" @onclick="ApproveConversationAsync">
+                    Zezwól na czatowanie
+                </button>
+            </p>
+        }
+        else if (IsPendingApprovalFromOtherParty)
+        {
+            <p class="chat-request-banner">Wiadomość czeka na zaakceptowanie przez @_otherUser.DisplayName.</p>
+        }
+
         <div class="chat-messages">
             @foreach (var message in _messages)
             {
@@ -68,8 +82,9 @@ else
         </div>
 
         <div>
-            <input @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Wiadomość" />
-            <button @onclick="SendMessageAsync" disabled="@_isSending">Wyślij</button>
+            <input @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Wiadomość"
+                   disabled="@RequiresApprovalFromMe" />
+            <button @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">Wyślij</button>
         </div>
     }
 }
@@ -93,12 +108,22 @@ else
     private readonly HashSet<Guid> _acceptedEventShareIds = [];
     private readonly HashSet<Guid> _acceptingEventShareIds = [];
     private DateTimeOffset? _otherPartyReadUpToUtc;
+    private ChatConversationAccessDto? _conversationAccess;
     private string _draftMessage = string.Empty;
     private bool _isSending;
+    private bool _isApprovingConversation;
     private bool _encryptionUnavailable;
     private IJSObjectReference? _cryptoModule;
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
+
+    /// <summary>True when the other party started this conversation and it's still waiting on this user's "Zezwól" click.</summary>
+    private bool RequiresApprovalFromMe
+        => _conversationAccess is { IsApproved: false } access && access.InitiatedByUserId != _ownUserId;
+
+    /// <summary>True when this user started the conversation and it's still waiting on the other party's approval.</summary>
+    private bool IsPendingApprovalFromOtherParty
+        => _conversationAccess is { IsApproved: false } access && access.InitiatedByUserId == _ownUserId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -117,6 +142,7 @@ else
                 return;
             }
 
+            await LoadConversationAccessAsync();
             await LoadNewMessagesAsync();
             await SyncReadStateAsync();
         }
@@ -176,6 +202,9 @@ else
     {
         try
         {
+            // Refreshed on every tick (not just once on load) so a "chat request" banner or a disabled
+            // compose box clears itself as soon as the other party approves, without needing a reload.
+            await LoadConversationAccessAsync();
             await LoadNewMessagesAsync();
             await SyncReadStateAsync();
         }
@@ -217,6 +246,33 @@ else
     /// <summary>True once the other party has read up to at least this own message's send time.</summary>
     private bool IsReadByOtherParty(ChatMessageDto message)
         => _otherPartyReadUpToUtc is { } readUpToUtc && message.SentAtUtc <= readUpToUtc;
+
+    private async Task LoadConversationAccessAsync()
+    {
+        _conversationAccess = await ChatApiClient.GetConversationAccessAsync(UserId);
+    }
+
+    private async Task ApproveConversationAsync()
+    {
+        _isApprovingConversation = true;
+        try
+        {
+            await ChatApiClient.ApproveConversationAsync(UserId);
+            await LoadConversationAccessAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to approve chatting with user {OtherUserId}", UserId);
+        }
+        finally
+        {
+            _isApprovingConversation = false;
+        }
+    }
 
     private async Task DecryptAndCacheAsync(ChatMessageDto message)
     {

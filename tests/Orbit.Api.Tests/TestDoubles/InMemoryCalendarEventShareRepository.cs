@@ -25,4 +25,13 @@ internal sealed class InMemoryCalendarEventShareRepository : ICalendarEventShare
         // reference to, so there is nothing to replace here - mirrors InMemoryCalendarEventRepository.
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<Guid>> GetAcceptedRecipientUserIdsAsync(Guid sourceCalendarEventId, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<Guid> recipientUserIds = _shares
+            .Where(share => share.SourceCalendarEventId == sourceCalendarEventId && share.IsAccepted)
+            .Select(share => share.RecipientUserId)
+            .ToList();
+        return Task.FromResult(recipientUserIds);
+    }
 }

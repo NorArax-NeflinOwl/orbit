@@ -12,4 +12,12 @@ public interface ICalendarEventShareRepository
     Task<CalendarEventShare?> GetByIdAsync(Guid recipientUserId, Guid id, CancellationToken cancellationToken);
 
     Task UpdateAsync(CalendarEventShare share, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// User ids of every recipient who has accepted a share of sourceCalendarEventId - used to decide
+    /// which guests, in addition to the owner, should receive the event's reminder e-mails (see
+    /// CalendarEventReminderBackgroundService). A guest who was invited but never accepted the share is
+    /// not included.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetAcceptedRecipientUserIdsAsync(Guid sourceCalendarEventId, CancellationToken cancellationToken);
 }

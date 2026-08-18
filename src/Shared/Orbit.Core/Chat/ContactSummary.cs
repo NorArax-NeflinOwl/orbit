@@ -5,4 +5,9 @@ namespace Orbit.Core.Chat;
 /// was last active. Kept separate from <see cref="Contact"/> itself, which only stores the ids - the
 /// profile fields are always read live (see GetContactsQueryHandler) rather than cached on the row.
 /// </summary>
-public sealed record ContactSummary(Orbit.Core.Users.User User, DateTimeOffset LastMessageAtUtc);
+/// <param name="RequiresApprovalFromCurrentUser">
+/// True when the other party started this conversation and the current user hasn't approved chatting
+/// with them yet - see ChatConversationAccess. Lets the contact list show it as a pending request
+/// instead of an established chat.
+/// </param>
+public sealed record ContactSummary(Orbit.Core.Users.User User, DateTimeOffset LastMessageAtUtc, bool RequiresApprovalFromCurrentUser);

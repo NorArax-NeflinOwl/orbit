@@ -8,6 +8,7 @@
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject GeocodingApiClient GeocodingApiClient
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -108,8 +109,23 @@ else
             </div>
         }
         <div>
-            <label>Goście (adresy e-mail oddzielone przecinkami)</label>
-            <InputText id="guestsInput" @bind-Value="_formModel.GuestsText" />
+            <label>Goście</label>
+            @if (_formModel.GuestUserIds.Count == 0)
+            {
+                <p>Brak gości.</p>
+            }
+            else
+            {
+                <ul id="guestList">
+                    @foreach (var guestUserId in _formModel.GuestUserIds)
+                    {
+                        <li>
+                            @GetGuestDisplayName(guestUserId)
+                            <button type="button" @onclick="() => RemoveGuest(guestUserId)">Usuń</button>
+                        </li>
+                    }
+                </ul>
+            }
         </div>
         <div>
             <label>Dodaj gościa z kontaktów</label>
@@ -187,6 +203,13 @@ else
     /// </summary>
     private readonly List<Guid> _shareRecipientUserIds = [];
 
+    /// <summary>
+    /// Login of every guest not found among <see cref="_contacts"/> (e.g. a guest added in an earlier
+    /// session who has since stopped being a contact), resolved once via UsersApiClient and cached here
+    /// instead of being looked up again on every render - see ResolveMissingGuestDisplayNamesAsync.
+    /// </summary>
+    private readonly Dictionary<Guid, string> _resolvedGuestUserNames = [];
+
     protected override async Task OnInitializedAsync()
     {
         var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -211,6 +234,7 @@ else
             }
 
             _contacts = await ChatApiClient.GetContactsAsync();
+            await ResolveMissingGuestDisplayNamesAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -225,9 +249,8 @@ else
     }
 
     /// <summary>
-    /// Adds the currently selected contact's e-mail address to the guest list, reusing the same
-    /// comma-separated text the free-form guest field already edits so both ways of adding a guest stay
-    /// in sync. Silently ignores an already-added contact instead of creating a duplicate entry.
+    /// Adds the currently selected contact as a guest by user id. Silently ignores an already-added
+    /// contact instead of creating a duplicate entry.
     /// </summary>
     private void AddSelectedContactAsGuest()
     {
@@ -236,17 +259,55 @@ else
             return;
         }
 
-        var contact = _contacts.FirstOrDefault(candidate => candidate.UserId == contactUserId);
-        if (contact is not null)
+        if (_contacts.Any(candidate => candidate.UserId == contactUserId) && !_formModel.GuestUserIds.Contains(contactUserId))
         {
-            _formModel.AddGuestEmail(contact.Email);
-            if (!_shareRecipientUserIds.Contains(contactUserId))
-            {
-                _shareRecipientUserIds.Add(contactUserId);
-            }
+            _formModel.GuestUserIds.Add(contactUserId);
+            _shareRecipientUserIds.Add(contactUserId);
         }
 
         _selectedContactUserId = string.Empty;
+    }
+
+    private void RemoveGuest(Guid guestUserId)
+    {
+        _formModel.GuestUserIds.Remove(guestUserId);
+        _shareRecipientUserIds.Remove(guestUserId);
+    }
+
+    /// <summary>
+    /// Looks up guestUserId's login for display, preferring the already-loaded contact list and falling
+    /// back to the id itself if the user can no longer be resolved (e.g. a deleted account).
+    /// </summary>
+    private string GetGuestDisplayName(Guid guestUserId)
+    {
+        var contact = _contacts.FirstOrDefault(candidate => candidate.UserId == guestUserId);
+        if (contact is not null)
+        {
+            return contact.UserName;
+        }
+
+        return _resolvedGuestUserNames.TryGetValue(guestUserId, out var userName) ? userName : guestUserId.ToString();
+    }
+
+    /// <summary>
+    /// A guest loaded from an existing event might not be among the current user's contacts (e.g. they
+    /// were removed as a contact after being invited) - this resolves those remaining guests' logins
+    /// directly via UsersApiClient so the guest list never falls back to showing a raw id.
+    /// </summary>
+    private async Task ResolveMissingGuestDisplayNamesAsync()
+    {
+        var missingGuestUserIds = _formModel.GuestUserIds
+            .Where(guestUserId => _contacts.All(contact => contact.UserId != guestUserId))
+            .Distinct();
+
+        foreach (var guestUserId in missingGuestUserIds)
+        {
+            var user = await UsersApiClient.GetUserAsync(guestUserId);
+            if (user is not null)
+            {
+                _resolvedGuestUserNames[guestUserId] = user.UserName;
+            }
+        }
     }
 
     /// <summary>
@@ -439,7 +500,7 @@ else
         public string RecurrenceFrequency { get; set; } = "Weekly";
         public int RecurrenceIntervalCount { get; set; } = 1;
         public DateOnly? RecurrenceUntil { get; set; }
-        public string GuestsText { get; set; } = string.Empty;
+        public List<Guid> GuestUserIds { get; set; } = [];
         public string RemindersText { get; set; } = string.Empty;
         public bool NotifyOnCreation { get; set; }
         public bool NotifyBeforeStart { get; set; }
@@ -479,27 +540,11 @@ else
                 RecurrenceFrequency = details.Recurrence?.Frequency ?? "Weekly",
                 RecurrenceIntervalCount = details.Recurrence?.IntervalCount ?? 1,
                 RecurrenceUntil = details.Recurrence?.UntilUtc is { } until ? DateOnly.FromDateTime(until.LocalDateTime) : null,
-                GuestsText = string.Join(", ", details.Guests),
+                GuestUserIds = details.Guests.ToList(),
                 RemindersText = string.Join(", ", details.ReminderMinutesBeforeStart),
                 NotifyOnCreation = details.NotifyOnCreation,
                 NotifyBeforeStart = details.NotifyBeforeStart
             };
-
-        /// <summary>
-        /// Appends an e-mail address to <see cref="GuestsText"/>, unless it's already present
-        /// (case-insensitively) - used when adding a guest by picking a contact rather than typing.
-        /// </summary>
-        public void AddGuestEmail(string email)
-        {
-            var guests = ParseCommaSeparatedList(GuestsText);
-            if (guests.Any(guest => string.Equals(guest, email, StringComparison.OrdinalIgnoreCase)))
-            {
-                return;
-            }
-
-            guests.Add(email);
-            GuestsText = string.Join(", ", guests);
-        }
 
         public CalendarEventDetailsRequest ToRequest()
         {
@@ -521,7 +566,7 @@ else
                 endUtc,
                 IsAllDay,
                 recurrence,
-                ParseCommaSeparatedList(GuestsText),
+                GuestUserIds,
                 ParseCommaSeparatedIntegers(RemindersText),
                 NotifyOnCreation,
                 NotifyBeforeStart);
@@ -540,9 +585,6 @@ else
 
         private static DateTimeOffset? ToOptionalDateTimeOffset(DateOnly? date)
             => date is { } value ? new DateTimeOffset(value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local)) : null;
-
-        private static List<string> ParseCommaSeparatedList(string text)
-            => text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
         private static List<int> ParseCommaSeparatedIntegers(string text)
             => text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

@@ -34,6 +34,13 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Guid>> GetAcceptedRecipientUserIdsAsync(Guid sourceCalendarEventId, CancellationToken cancellationToken)
+        => await _dbContext.CalendarEventShares
+            .AsNoTracking()
+            .Where(share => share.SourceCalendarEventId == sourceCalendarEventId && share.AcceptedAtUtc != null)
+            .Select(share => share.RecipientUserId)
+            .ToListAsync(cancellationToken);
+
     private static CalendarEventShare ToDomain(CalendarEventShareEntity entity)
         => CalendarEventShare.FromPersistence(
             entity.Id, entity.SourceCalendarEventId, entity.OwnerUserId, entity.RecipientUserId, entity.CreatedAtUtc,

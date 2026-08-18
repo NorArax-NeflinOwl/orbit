@@ -21,7 +21,7 @@ public sealed class CalendarEventEditorTests : TestContext
     private static readonly Guid ContactUserId = Guid.NewGuid();
     private static readonly Guid OwnUserId = Guid.NewGuid();
     private static readonly ContactDto Contact =
-        new(ContactUserId, "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow);
+        new(ContactUserId, "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false);
 
     public CalendarEventEditorTests()
     {
@@ -51,6 +51,7 @@ public sealed class CalendarEventEditorTests : TestContext
         // below, since bUnit treats that as "the component tree has started rendering".
         var jsRuntime = JSInterop.JSRuntime;
         var usersApiClient = new UsersApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") });
+        Services.AddSingleton(usersApiClient);
         var ownEncryptionKeyProvider = new OwnEncryptionKeyProvider(jsRuntime, usersApiClient, authenticationStateProvider);
         var chatApiClientForSender = new ChatApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") });
         Services.AddSingleton(new EncryptedChatMessageSender(jsRuntime, ownEncryptionKeyProvider, usersApiClient, chatApiClientForSender));
@@ -72,7 +73,7 @@ public sealed class CalendarEventEditorTests : TestContext
         => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     [Fact]
-    public void Picking_a_contact_appends_their_email_to_the_guest_list()
+    public void Picking_a_contact_adds_them_to_the_guest_list_by_login()
     {
         RegisterChatApiClient([Contact]);
 
@@ -80,7 +81,7 @@ public sealed class CalendarEventEditorTests : TestContext
         cut.Find("#guestContactSelect").Change(ContactUserId.ToString());
         cut.Find("#addGuestFromContactButton").Click();
 
-        Assert.Equal("anna@example.com", cut.Find("#guestsInput").GetAttribute("value"));
+        Assert.Contains("anna", cut.Find("#guestList").TextContent);
     }
 
     [Fact]
@@ -94,7 +95,21 @@ public sealed class CalendarEventEditorTests : TestContext
         cut.Find("#guestContactSelect").Change(ContactUserId.ToString());
         cut.Find("#addGuestFromContactButton").Click();
 
-        Assert.Equal("anna@example.com", cut.Find("#guestsInput").GetAttribute("value"));
+        Assert.Single(cut.Find("#guestList").Children);
+    }
+
+    [Fact]
+    public void Removing_a_guest_takes_them_off_the_list()
+    {
+        RegisterChatApiClient([Contact]);
+
+        var cut = RenderComponent<CalendarEventEditor>();
+        cut.Find("#guestContactSelect").Change(ContactUserId.ToString());
+        cut.Find("#addGuestFromContactButton").Click();
+        cut.Find("#guestList button").Click();
+
+        Assert.Empty(cut.FindAll("#guestList"));
+        Assert.Contains("Brak gości", cut.Markup);
     }
 
     [Fact]

@@ -54,4 +54,15 @@ public sealed class ChatApiClient
         var receipt = await _httpClient.GetFromJsonAsync<ReadReceiptDto>($"api/chat/messages/{otherUserId}/read-receipt", cancellationToken);
         return receipt?.ReadUpToUtc;
     }
+
+    /// <summary>Null means the caller and otherUserId have never exchanged a message, so nothing is gated.</summary>
+    public async Task<ChatConversationAccessDto?> GetConversationAccessAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<ChatConversationAccessDto?>($"api/chat/conversations/{otherUserId}/access", cancellationToken);
+
+    /// <summary>Allows the caller to chat with otherUserId, who started a conversation the caller hasn't approved yet.</summary>
+    public async Task ApproveConversationAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/chat/conversations/{otherUserId}/approve", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 }

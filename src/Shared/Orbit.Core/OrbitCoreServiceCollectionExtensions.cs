@@ -12,8 +12,10 @@ using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Chat;
+using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.GetContacts;
 using Orbit.Core.Chat.GetConversation;
+using Orbit.Core.Chat.GetConversationAccess;
 using Orbit.Core.Chat.GetReadReceipt;
 using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
@@ -81,11 +83,13 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetUserByIdQuery, User?>, GetUserByIdQueryHandler>();
         services.AddScoped<IRequestHandler<SetPublicKeyCommand, bool>, SetPublicKeyCommandHandler>();
 
-        services.AddScoped<IRequestHandler<SendMessageCommand, ChatMessage?>, SendMessageCommandHandler>();
+        services.AddScoped<IRequestHandler<SendMessageCommand, SendMessageResult>, SendMessageCommandHandler>();
         services.AddScoped<IRequestHandler<GetConversationQuery, IReadOnlyList<ChatMessage>>, GetConversationQueryHandler>();
         services.AddScoped<IRequestHandler<GetContactsQuery, IReadOnlyList<ContactSummary>>, GetContactsQueryHandler>();
         services.AddScoped<IRequestHandler<MarkConversationAsReadCommand, bool>, MarkConversationAsReadCommandHandler>();
         services.AddScoped<IRequestHandler<GetReadReceiptQuery, DateTimeOffset?>, GetReadReceiptQueryHandler>();
+        services.AddScoped<IRequestHandler<GetConversationAccessQuery, ChatConversationAccess?>, GetConversationAccessQueryHandler>();
+        services.AddScoped<IRequestHandler<ApproveConversationCommand, bool>, ApproveConversationCommandHandler>();
 
         services.AddScoped<Dispatcher>();
         services.AddScoped<IDispatcher>(provider => new LoggingDispatcher(

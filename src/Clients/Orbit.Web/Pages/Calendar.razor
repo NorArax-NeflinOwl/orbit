@@ -2,8 +2,11 @@
 @attribute [Authorize]
 @using System.Globalization
 @using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Chat
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
+@inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Calendar> Logger
@@ -49,7 +52,7 @@ else
                 }
                 @if (calendarEvent.Details.Guests.Count > 0)
                 {
-                    <br><small>Goście: @string.Join(", ", calendarEvent.Details.Guests)</small>
+                    <br><small>Goście: @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</small>
                 }
                 <br>
                 <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "Podgląd" : "Edytuj")</button>
@@ -61,6 +64,14 @@ else
 
 @code {
     private IReadOnlyList<CalendarEventDto>? _events;
+    private IReadOnlyList<ContactDto> _contacts = [];
+
+    /// <summary>
+    /// Login of every guest not found among <see cref="_contacts"/>, resolved once via UsersApiClient
+    /// and cached here instead of being looked up again on every render - see
+    /// ResolveMissingGuestDisplayNamesAsync.
+    /// </summary>
+    private readonly Dictionary<Guid, string> _resolvedGuestUserNames = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -68,6 +79,8 @@ else
         try
         {
             _events = await CalendarApiClient.GetCalendarEventsAsync();
+            _contacts = await ChatApiClient.GetContactsAsync();
+            await ResolveMissingGuestDisplayNamesAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -78,6 +91,43 @@ else
             return;
         }
         Logger.LogInformation("Loaded {EventCount} calendar events", _events.Count);
+    }
+
+    /// <summary>
+    /// Looks up guestUserId's login for display, preferring the already-loaded contact list and falling
+    /// back to the id itself if the user can no longer be resolved (e.g. a deleted account).
+    /// </summary>
+    private string GetGuestDisplayName(Guid guestUserId)
+    {
+        var contact = _contacts.FirstOrDefault(candidate => candidate.UserId == guestUserId);
+        if (contact is not null)
+        {
+            return contact.UserName;
+        }
+
+        return _resolvedGuestUserNames.TryGetValue(guestUserId, out var userName) ? userName : guestUserId.ToString();
+    }
+
+    /// <summary>
+    /// A guest might not be among the current user's contacts (e.g. they were removed as a contact
+    /// after being invited) - this resolves those remaining guests' logins directly via UsersApiClient
+    /// so the guest list never falls back to showing a raw id.
+    /// </summary>
+    private async Task ResolveMissingGuestDisplayNamesAsync()
+    {
+        var missingGuestUserIds = (_events ?? [])
+            .SelectMany(calendarEvent => calendarEvent.Details.Guests)
+            .Where(guestUserId => _contacts.All(contact => contact.UserId != guestUserId))
+            .Distinct();
+
+        foreach (var guestUserId in missingGuestUserIds)
+        {
+            var user = await UsersApiClient.GetUserAsync(guestUserId);
+            if (user is not null)
+            {
+                _resolvedGuestUserNames[guestUserId] = user.UserName;
+            }
+        }
     }
 
     private void GoToAddEvent()

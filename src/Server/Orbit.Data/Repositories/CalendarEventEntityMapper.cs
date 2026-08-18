@@ -34,7 +34,7 @@ internal static class CalendarEventEntityMapper
             entity.EndUtc,
             entity.IsAllDay,
             recurrence,
-            JsonSerializer.Deserialize<List<string>>(entity.GuestsJson) ?? [],
+            JsonSerializer.Deserialize<List<Guid>>(entity.GuestsJson) ?? [],
             JsonSerializer.Deserialize<List<int>>(entity.RemindersJson) ?? [],
             entity.NotifyOnCreation,
             entity.NotifyBeforeStart);
