@@ -45,9 +45,23 @@
     private async Task EnsureEncryptionKeyIfAuthenticatedAsync()
     {
         var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        if (authenticationState.User.Identity?.IsAuthenticated == true)
+        if (authenticationState.User.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        try
         {
             await OwnEncryptionKeyProvider.EnsurePublicKeyAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // IsAuthenticated above only reflects the stored token's claims, never its expiry (see
+            // OrbitAuthenticationStateProvider) - the server has already rejected it and
+            // AuthorizationMessageHandler's silent refresh also failed. This runs on every route via
+            // MainLayout, so without this catch a stale session would break the very first page the
+            // user lands on instead of sending them back to sign in.
+            NavigationManager.NavigateTo("/login");
         }
     }
 

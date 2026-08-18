@@ -77,38 +77,49 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Populates the "link to another list" dropdown - excludes the list being edited itself, since
-        // an item can't link to the list it belongs to (see TaskListLinkValidator on the API side).
-        var allTaskLists = await TasksApiClient.GetTaskListsAsync();
-        _linkableTaskLists = Id is { } currentTaskListId
-            ? allTaskLists.Where(taskList => taskList.Id != currentTaskListId).ToList()
-            : allTaskLists;
-
-        if (Id is { } taskListId)
+        try
         {
-            Logger.LogInformation("Task list editor opened for task list {TaskListId}", taskListId);
-            var taskList = await TasksApiClient.GetTaskListByIdAsync(taskListId);
-            if (taskList is not null)
+            // Populates the "link to another list" dropdown - excludes the list being edited itself, since
+            // an item can't link to the list it belongs to (see TaskListLinkValidator on the API side).
+            var allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _linkableTaskLists = Id is { } currentTaskListId
+                ? allTaskLists.Where(taskList => taskList.Id != currentTaskListId).ToList()
+                : allTaskLists;
+
+            if (Id is { } taskListId)
             {
-                _formModel = new TaskListFormModel
+                Logger.LogInformation("Task list editor opened for task list {TaskListId}", taskListId);
+                var taskList = await TasksApiClient.GetTaskListByIdAsync(taskListId);
+                if (taskList is not null)
                 {
-                    Title = taskList.Title,
-                    Items = taskList.Items
-                        .Select(item => new TaskItemFormModel
-                        {
-                            Description = item.Description,
-                            DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
-                            DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
-                            IsCompleted = item.IsCompleted,
-                            LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty
-                        })
-                        .ToList()
-                };
+                    _formModel = new TaskListFormModel
+                    {
+                        Title = taskList.Title,
+                        Items = taskList.Items
+                            .Select(item => new TaskItemFormModel
+                            {
+                                Description = item.Description,
+                                DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
+                                DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
+                                IsCompleted = item.IsCompleted,
+                                LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty
+                            })
+                            .ToList()
+                    };
+                }
+            }
+            else
+            {
+                Logger.LogInformation("Task list editor opened for a new task list");
             }
         }
-        else
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
-            Logger.LogInformation("Task list editor opened for a new task list");
+            // The access token expired and AuthorizationMessageHandler's automatic refresh-and-retry
+            // also failed (e.g. the refresh token itself expired or was revoked) - the session is no
+            // longer valid, so send the user back to sign in instead of leaving the page stuck loading.
+            NavigationManager.NavigateTo("/login");
+            return;
         }
 
         _isLoading = false;

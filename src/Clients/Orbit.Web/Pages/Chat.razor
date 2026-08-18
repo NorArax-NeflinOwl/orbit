@@ -97,18 +97,30 @@ else
         var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         _ownUserId = Guid.Parse(authenticationState.User.FindFirst("sub")!.Value);
 
-        await OwnEncryptionKeyProvider.EnsurePublicKeyAsync();
-        _cryptoModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
-
-        _otherUser = await UsersApiClient.GetUserAsync(UserId);
-        if (_otherUser is null)
+        try
         {
-            NavigationManager.NavigateTo("/contacts");
+            await OwnEncryptionKeyProvider.EnsurePublicKeyAsync();
+            _cryptoModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
+
+            _otherUser = await UsersApiClient.GetUserAsync(UserId);
+            if (_otherUser is null)
+            {
+                NavigationManager.NavigateTo("/contacts");
+                return;
+            }
+
+            await LoadNewMessagesAsync();
+            await SyncReadStateAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // The access token expired and AuthorizationMessageHandler's automatic refresh-and-retry
+            // also failed (e.g. the refresh token itself expired or was revoked) - the session is no
+            // longer valid, so send the user back to sign in instead of leaving the page stuck loading.
+            NavigationManager.NavigateTo("/login");
             return;
         }
 
-        await LoadNewMessagesAsync();
-        await SyncReadStateAsync();
         StartPolling();
     }
 
@@ -133,6 +145,12 @@ else
         catch (OperationCanceledException)
         {
             // Expected when the page navigates away and DisposeAsync cancels polling.
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // Session expired while this chat window was already open and polling - same handling as
+            // the initial load in OnInitializedAsync, just reached from the background poll loop instead.
+            NavigationManager.NavigateTo("/login");
         }
     }
 

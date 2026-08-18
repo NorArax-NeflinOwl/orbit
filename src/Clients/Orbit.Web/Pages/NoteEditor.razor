@@ -44,10 +44,21 @@ else
         if (Id is { } noteId)
         {
             Logger.LogInformation("Note editor opened for note {NoteId}", noteId);
-            var note = await NotesApiClient.GetNoteByIdAsync(noteId);
-            if (note is not null)
+            try
             {
-                _formModel = new NoteFormModel { Title = note.Title, Content = note.Content };
+                var note = await NotesApiClient.GetNoteByIdAsync(noteId);
+                if (note is not null)
+                {
+                    _formModel = new NoteFormModel { Title = note.Title, Content = note.Content };
+                }
+            }
+            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                // The access token expired and AuthorizationMessageHandler's automatic refresh-and-retry
+                // also failed (e.g. the refresh token itself expired or was revoked) - the session is no
+                // longer valid, so send the user back to sign in instead of leaving the page stuck loading.
+                NavigationManager.NavigateTo("/login");
+                return;
             }
         }
         else
