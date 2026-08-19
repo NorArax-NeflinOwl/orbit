@@ -60,8 +60,11 @@ builder.Services.AddHttpClient<UsersApiClient>(httpClient => httpClient.BaseAddr
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<ChatApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<PushNotificationApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddScoped<OwnEncryptionKeyProvider>();
 builder.Services.AddScoped<EncryptedChatMessageSender>();
+builder.Services.AddScoped<PushNotificationManager>();
 
 // A third-party host, not Orbit.Api - deliberately not given AuthorizationMessageHandler, so Orbit's
 // own bearer token is never sent to it (see GeocodingApiClient's class comment).

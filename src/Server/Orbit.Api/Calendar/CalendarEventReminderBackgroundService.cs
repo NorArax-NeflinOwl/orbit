@@ -11,10 +11,12 @@ namespace Orbit.Api.Calendar;
 
 /// <summary>
 /// Periodically checks for calendar event reminders that have come due and emails the event's owner,
-/// plus every guest who has accepted a share of the event, about each one exactly once. Lives entirely
-/// in Orbit.Api: sending a real email needs an SMTP connection and credentials that must never reach the
-/// Blazor WebAssembly client (see GeocodingApiClient's class comment in Orbit.Web for the same reasoning
-/// applied to a different third-party call).
+/// plus every guest who has accepted a share of the event, about each one exactly once - and, for
+/// whichever of those recipients has push notifications enabled, sends a push notification alongside the
+/// email (see PushNotificationDispatcher). Lives entirely in Orbit.Api: sending a real email needs an
+/// SMTP connection and credentials that must never reach the Blazor WebAssembly client (see
+/// GeocodingApiClient's class comment in Orbit.Web for the same reasoning applied to a different
+/// third-party call).
 /// </summary>
 public sealed class CalendarEventReminderBackgroundService : BackgroundService
 {
@@ -75,13 +77,15 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         var calendarEventShareRepository = scope.ServiceProvider.GetRequiredService<ICalendarEventShareRepository>();
         var eventReminderRepository = scope.ServiceProvider.GetRequiredService<IEventReminderRepository>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+        var pushNotificationDispatcher = scope.ServiceProvider.GetRequiredService<PushNotificationDispatcher>();
 
         var dueReminders = await scheduler.FindDueRemindersAsync(
             DateTimeOffset.UtcNow, LookBackWindow, cancellationToken, maxResults: MaxRemindersPerPoll);
         foreach (var dueReminder in dueReminders)
         {
             await SendReminderEmailAsync(
-                dueReminder, userRepository, calendarEventShareRepository, eventReminderRepository, emailSender, _logger, cancellationToken);
+                dueReminder, userRepository, calendarEventShareRepository, eventReminderRepository, emailSender,
+                pushNotificationDispatcher, _logger, cancellationToken);
         }
     }
 
@@ -91,6 +95,7 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         ICalendarEventShareRepository calendarEventShareRepository,
         IEventReminderRepository eventReminderRepository,
         IEmailSender emailSender,
+        PushNotificationDispatcher pushNotificationDispatcher,
         ILogger<CalendarEventReminderBackgroundService> logger,
         CancellationToken cancellationToken)
     {
@@ -118,12 +123,15 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         }
 
         var (subject, body) = EventReminderEmailContent.Build(calendarEvent.Details, dueReminder.MinutesBeforeStart);
+        var pushPayload = EventReminderPushContent.Build(calendarEvent.Details, calendarEvent.Id, dueReminder.MinutesBeforeStart);
 
         // Sent best-effort per recipient: the claim above guards the whole event+lead-time pair, not
         // each recipient individually (see TryClaimAsync), so once at least one e-mail has gone out the
         // claim must stay in place - releasing it would make a later poll resend to whoever already
         // received it. Only when every single recipient fails does nothing go out, making a full retry
-        // on the next poll safe.
+        // on the next poll safe. The push notification (sent to whichever recipients have push enabled)
+        // rides along on the same claim rather than needing one of its own - PushNotificationDispatcher
+        // never throws, so it never affects sentToAnyRecipient below.
         var sentToAnyRecipient = false;
         foreach (var recipient in recipients)
         {
@@ -138,6 +146,8 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
                     exception, "Failed to send calendar event reminder e-mail to user {RecipientUserId} for event {EventId}",
                     recipient.Id, calendarEvent.Id);
             }
+
+            await pushNotificationDispatcher.NotifyUserAsync(recipient.Id, pushPayload, cancellationToken);
         }
 
         if (!sentToAnyRecipient)

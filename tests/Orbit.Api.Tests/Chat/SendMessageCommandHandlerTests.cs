@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Chat.SendMessage;
+using Orbit.Core.Notifications;
 using Orbit.Core.Users;
 using Xunit;
 
@@ -16,7 +18,7 @@ public sealed class SendMessageCommandHandlerTests
         var messageRepository = new InMemoryChatMessageRepository();
         var contactRepository = new InMemoryContactRepository();
         var handler = new SendMessageCommandHandler(
-            userRepository, messageRepository, contactRepository, new InMemoryChatConversationAccessRepository());
+            userRepository, messageRepository, contactRepository, new InMemoryChatConversationAccessRepository(), CreateDispatcher());
         var senderId = Guid.NewGuid();
 
         var result = await handler.HandleAsync(
@@ -36,7 +38,7 @@ public sealed class SendMessageCommandHandlerTests
     {
         var handler = new SendMessageCommandHandler(
             new InMemoryUserRepository(), new InMemoryChatMessageRepository(), new InMemoryContactRepository(),
-            new InMemoryChatConversationAccessRepository());
+            new InMemoryChatConversationAccessRepository(), CreateDispatcher());
 
         var result = await handler.HandleAsync(
             new SendMessageCommand(Guid.NewGuid(), Guid.NewGuid(), "ciphertext", "nonce"), CancellationToken.None);
@@ -53,7 +55,8 @@ public sealed class SendMessageCommandHandlerTests
         await userRepository.AddAsync(recipient, CancellationToken.None);
         var contactRepository = new InMemoryContactRepository();
         var handler = new SendMessageCommandHandler(
-            userRepository, new InMemoryChatMessageRepository(), contactRepository, new InMemoryChatConversationAccessRepository());
+            userRepository, new InMemoryChatMessageRepository(), contactRepository, new InMemoryChatConversationAccessRepository(),
+            CreateDispatcher());
         var senderId = Guid.NewGuid();
 
         await handler.HandleAsync(new SendMessageCommand(senderId, recipient.Id, "first", "nonce"), CancellationToken.None);
@@ -70,7 +73,8 @@ public sealed class SendMessageCommandHandlerTests
         var recipient = User.FromPersistence(Guid.NewGuid(), "recipient@example.com", "recipient", "Recipient", "hash", DateTimeOffset.UtcNow, null);
         await userRepository.AddAsync(recipient, CancellationToken.None);
         var handler = new SendMessageCommandHandler(
-            userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository());
+            userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
+            CreateDispatcher());
         var senderId = Guid.NewGuid();
 
         await handler.HandleAsync(new SendMessageCommand(senderId, recipient.Id, "first", "nonce"), CancellationToken.None);
@@ -88,7 +92,8 @@ public sealed class SendMessageCommandHandlerTests
         await userRepository.AddAsync(initiator, CancellationToken.None);
         await userRepository.AddAsync(recipient, CancellationToken.None);
         var handler = new SendMessageCommandHandler(
-            userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository());
+            userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
+            CreateDispatcher());
 
         await handler.HandleAsync(new SendMessageCommand(initiator.Id, recipient.Id, "first", "nonce"), CancellationToken.None);
         var result = await handler.HandleAsync(new SendMessageCommand(recipient.Id, initiator.Id, "reply", "nonce"), CancellationToken.None);
@@ -107,7 +112,8 @@ public sealed class SendMessageCommandHandlerTests
         await userRepository.AddAsync(recipient, CancellationToken.None);
         var conversationAccessRepository = new InMemoryChatConversationAccessRepository();
         var handler = new SendMessageCommandHandler(
-            userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), conversationAccessRepository);
+            userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), conversationAccessRepository,
+            CreateDispatcher());
 
         await handler.HandleAsync(new SendMessageCommand(initiator.Id, recipient.Id, "first", "nonce"), CancellationToken.None);
         await conversationAccessRepository.ApproveAsync(recipient.Id, initiator.Id, CancellationToken.None);
@@ -115,4 +121,30 @@ public sealed class SendMessageCommandHandlerTests
 
         Assert.Equal(SendMessageOutcome.Success, result.Outcome);
     }
+
+    [Fact]
+    public async Task HandleAsync_sends_the_recipient_a_push_notification_naming_the_sender()
+    {
+        var userRepository = new InMemoryUserRepository();
+        var sender = User.FromPersistence(Guid.NewGuid(), "sender@example.com", "sender", "Ada Lovelace", "hash", DateTimeOffset.UtcNow, null);
+        var recipient = User.FromPersistence(Guid.NewGuid(), "recipient@example.com", "recipient", "Recipient", "hash", DateTimeOffset.UtcNow, null);
+        await userRepository.AddAsync(sender, CancellationToken.None);
+        await userRepository.AddAsync(recipient, CancellationToken.None);
+        var subscriptionRepository = new InMemoryPushSubscriptionRepository();
+        var subscription = PushSubscription.Create(recipient.Id, "https://push.example/a", "p256dh", "auth");
+        await subscriptionRepository.AddOrReplaceAsync(subscription, CancellationToken.None);
+        var pushSender = new RecordingPushNotificationSender();
+        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, pushSender, NullLogger<PushNotificationDispatcher>.Instance);
+        var handler = new SendMessageCommandHandler(
+            userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
+            dispatcher);
+
+        await handler.HandleAsync(new SendMessageCommand(sender.Id, recipient.Id, "ciphertext", "nonce"), CancellationToken.None);
+
+        var sent = Assert.Single(pushSender.SentNotifications);
+        Assert.Contains("Ada Lovelace", sent.Payload.Body);
+    }
+
+    private static PushNotificationDispatcher CreateDispatcher()
+        => new(new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(), NullLogger<PushNotificationDispatcher>.Instance);
 }

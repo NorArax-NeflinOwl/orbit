@@ -7,5 +7,10 @@
     "UseStartTls": true,
     "FromAddress": "your-account@example.com",
     "FromDisplayName": "Orbit"
+  },
+  "Vapid": {
+    "PublicKeyBase64Url": "your-vapid-public-key",
+    "PrivateKeyBase64Url": "your-vapid-private-key",
+    "Subject": "mailto:you@example.com"
   }
 }

@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
 using Orbit.Core.Users;
 
 namespace Orbit.Core.Chat.SendMessage;
@@ -9,17 +10,20 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
     private readonly IChatMessageRepository _chatMessageRepository;
     private readonly IContactRepository _contactRepository;
     private readonly IChatConversationAccessRepository _chatConversationAccessRepository;
+    private readonly PushNotificationDispatcher _pushNotificationDispatcher;
 
     public SendMessageCommandHandler(
         IUserRepository userRepository,
         IChatMessageRepository chatMessageRepository,
         IContactRepository contactRepository,
-        IChatConversationAccessRepository chatConversationAccessRepository)
+        IChatConversationAccessRepository chatConversationAccessRepository,
+        PushNotificationDispatcher pushNotificationDispatcher)
     {
         _userRepository = userRepository;
         _chatMessageRepository = chatMessageRepository;
         _contactRepository = contactRepository;
         _chatConversationAccessRepository = chatConversationAccessRepository;
+        _pushNotificationDispatcher = pushNotificationDispatcher;
     }
 
     /// <summary>
@@ -53,6 +57,25 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
         await _contactRepository.EnsureContactAsync(request.SenderUserId, request.RecipientUserId, message.SentAtUtc, cancellationToken);
         await _contactRepository.EnsureContactAsync(request.RecipientUserId, request.SenderUserId, message.SentAtUtc, cancellationToken);
 
+        await NotifyRecipientAsync(request, cancellationToken);
+
         return SendMessageResult.Success(message);
+    }
+
+    /// <summary>
+    /// Best-effort: the sender is already resolvable (they authenticated this request), but is fetched
+    /// again here anyway, since only their DisplayName - never looked up elsewhere in this handler - is
+    /// needed for the notification's body text (see ChatMessagePushContent).
+    /// </summary>
+    private async Task NotifyRecipientAsync(SendMessageCommand request, CancellationToken cancellationToken)
+    {
+        var sender = await _userRepository.GetByIdAsync(request.SenderUserId, cancellationToken);
+        if (sender is null)
+        {
+            return;
+        }
+
+        var payload = ChatMessagePushContent.Build(sender.Id, sender.DisplayName);
+        await _pushNotificationDispatcher.NotifyUserAsync(request.RecipientUserId, payload, cancellationToken);
     }
 }

@@ -42,6 +42,11 @@ services:
       Smtp__UserName: "${SMTP_USER_NAME:-}"
       Smtp__Password: "${SMTP_PASSWORD:-}"
       Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
+      # Optional - push notifications (see README.md's "Push notifications" section). Left unset,
+      # VapidPushNotificationSender just logs a warning and skips sending.
+      Vapid__PublicKeyBase64Url: "${VAPID_PUBLIC_KEY:-}"
+      Vapid__PrivateKeyBase64Url: "${VAPID_PRIVATE_KEY:-}"
+      Vapid__Subject: "${VAPID_SUBJECT:-}"
     volumes:
       # Bind mount instead of a named volume so orbit.db lives at a real path on disk (./data) -
       # point a SQLite client (e.g. Visual Studio's SQLite/SQL Server Compact Toolbox extension) at

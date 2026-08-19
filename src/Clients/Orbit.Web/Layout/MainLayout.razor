@@ -4,6 +4,7 @@
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
+@inject PushNotificationManager PushNotificationManager
 @inject NavigationManager NavigationManager
 @inject ILogger<MainLayout> Logger
 
@@ -20,6 +21,12 @@
                 </nav>
                 <div class="user-bar">
                     <span>@context.User.Identity?.Name</span>
+                    @if (_pushNotificationsSupported == true)
+                    {
+                        <button @onclick="TogglePushNotificationsAsync" disabled="@_pushNotificationActionInProgress">
+                            @(_pushNotificationsEnabled ? "Wyłącz powiadomienia push" : "Włącz powiadomienia push")
+                        </button>
+                    }
                     <button @onclick="LogoutAsync">Wyloguj</button>
                 </div>
             </Authorized>
@@ -29,10 +36,15 @@
 </div>
 
 @code {
+    private bool? _pushNotificationsSupported;
+    private bool _pushNotificationsEnabled;
+    private bool _pushNotificationActionInProgress;
+
     protected override async Task OnInitializedAsync()
     {
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
         await EnsureEncryptionKeyIfAuthenticatedAsync();
+        await RefreshPushNotificationStateIfAuthenticatedAsync();
     }
 
     /// <summary>
@@ -86,7 +98,78 @@
     }
 
     private void OnAuthenticationStateChanged(Task<AuthenticationState> newState)
-        => _ = EnsureEncryptionKeyIfAuthenticatedAsync();
+    {
+        _ = EnsureEncryptionKeyIfAuthenticatedAsync();
+        _ = RefreshPushNotificationStateIfAuthenticatedAsync();
+    }
+
+    /// <summary>
+    /// Determines whether the "enable/disable push notifications" button should be shown at all (the
+    /// browser must support push - see PushNotificationManager.IsSupportedAsync), and, if so, whether
+    /// this browser already has an active subscription - so a page reload doesn't show "Włącz..." for a
+    /// browser that already enabled push notifications in an earlier session.
+    /// </summary>
+    private async Task RefreshPushNotificationStateIfAuthenticatedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authenticationState.User.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        try
+        {
+            _pushNotificationsSupported = await PushNotificationManager.IsSupportedAsync();
+            _pushNotificationsEnabled = _pushNotificationsSupported == true && await PushNotificationManager.IsEnabledAsync();
+        }
+        catch (JSException exception)
+        {
+            // Same secure-context restriction as e2eeChat.js's crypto.subtle - see
+            // EnsureEncryptionKeyIfAuthenticatedAsync's matching catch. Best-effort: simply hides the
+            // button rather than breaking navigation.
+            _pushNotificationsSupported = false;
+            Logger.LogWarning(exception, "Push notifications are unavailable in this browsing context");
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task TogglePushNotificationsAsync()
+    {
+        _pushNotificationActionInProgress = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_pushNotificationsEnabled)
+            {
+                await PushNotificationManager.DisableAsync();
+                _pushNotificationsEnabled = false;
+            }
+            else
+            {
+                _pushNotificationsEnabled = await PushNotificationManager.EnableAsync();
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            // Registering/removing the subscription with Orbit.Api failed (API unreachable, expired
+            // session, ...) - logged rather than surfaced as a crash, same reasoning as
+            // EnsureEncryptionKeyIfAuthenticatedAsync's HttpRequestException catch.
+            Logger.LogWarning(exception, "Failed to update the push notification subscription");
+        }
+        catch (JSException exception)
+        {
+            // Same secure-context restriction as RefreshPushNotificationStateIfAuthenticatedAsync -
+            // IsSupportedAsync can pass (the browser APIs exist) while actually subscribing still fails
+            // outside a secure context.
+            Logger.LogWarning(exception, "Failed to update the push notification subscription");
+        }
+        finally
+        {
+            _pushNotificationActionInProgress = false;
+        }
+    }
 
     private async Task LogoutAsync()
     {

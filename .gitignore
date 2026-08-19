@@ -19,6 +19,7 @@
 *.key
 *.p12
 *.jks
+*.tar.gz
 secrets/
 credentials/
 

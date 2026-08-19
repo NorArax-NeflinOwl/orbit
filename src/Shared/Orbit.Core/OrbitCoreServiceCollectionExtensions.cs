@@ -25,11 +25,15 @@ using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.UpdateNote;
+using Orbit.Core.Notifications;
+using Orbit.Core.PushNotifications.SubscribeToPush;
+using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Users;
 using Orbit.Core.Users.GetUserById;
@@ -63,6 +67,11 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<TaskListLinkValidator>();
         // Stateless per call - safe to share a single instance for the app's lifetime.
         services.AddSingleton<LinkedTaskCompletionResolver>();
+        // Depends on IOverdueTaskNotificationRepository (scoped, backed by the DbContext), so it must be
+        // scoped too - used by Orbit.Api's OverdueTaskNotificationBackgroundService, not through
+        // IDispatcher, since it's a system-level poll rather than a per-user command or query (mirrors
+        // EventReminderScheduler below).
+        services.AddScoped<OverdueTaskNotificationScheduler>();
 
         services.AddScoped<IRequestHandler<CreateCalendarEventCommand, Guid>, CreateCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, bool>, UpdateCalendarEventCommandHandler>();
@@ -90,6 +99,13 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetReadReceiptQuery, DateTimeOffset?>, GetReadReceiptQueryHandler>();
         services.AddScoped<IRequestHandler<GetConversationAccessQuery, ChatConversationAccess?>, GetConversationAccessQueryHandler>();
         services.AddScoped<IRequestHandler<ApproveConversationCommand, bool>, ApproveConversationCommandHandler>();
+
+        services.AddScoped<IRequestHandler<SubscribeToPushCommand, bool>, SubscribeToPushCommandHandler>();
+        services.AddScoped<IRequestHandler<UnsubscribeFromPushCommand, bool>, UnsubscribeFromPushCommandHandler>();
+        // Depends on IPushSubscriptionRepository (scoped, backed by the DbContext), so it must be scoped
+        // too - called directly (not through IDispatcher) by SendMessageCommandHandler above and, in
+        // Orbit.Api, by CalendarEventReminderBackgroundService and OverdueTaskNotificationBackgroundService.
+        services.AddScoped<PushNotificationDispatcher>();
 
         services.AddScoped<Dispatcher>();
         services.AddScoped<IDispatcher>(provider => new LoggingDispatcher(

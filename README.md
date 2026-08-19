@@ -12,8 +12,10 @@ log in on `/register`/`/login`, and the dashboard, notes, tasks, calendar, and c
 only reachable once signed in. Signing in lands on the dashboard (`/`, see "Dashboard" below), which
 lists notes, task lists, and calendar events at a glance; each has its own page (`/notes`, `/tasks`,
 `/calendar`) where it can be created, edited, or deleted. `/contacts` searches for other users and lists
-existing conversations; see "Contacts and encrypted chat" below. Location sharing and the MAUI client are
-not implemented yet.
+existing conversations; see "Contacts and encrypted chat" below. Once a user approves browser
+notifications, **push notifications** fire for approaching calendar events, new chat messages, and
+overdue tasks - see "Push notifications" below. Location sharing and the MAUI client are not implemented
+yet.
 
 ## Architecture
 
@@ -22,15 +24,16 @@ The solution is split into three layers:
 - **`src/Server`** — the backend.
   - `Orbit.Api`: an ASP.NET Core minimal API exposing `/api/auth/register`, `/api/auth/login`,
     `/api/auth/refresh`, and `/api/auth/logout` (see "Authentication" below), the `/api/notes`,
-    `/api/tasks`, `/api/calendar-events`, `/api/users`, and `/api/chat` endpoints (all require a valid
-    JWT and are scoped to the caller's own data), and a set of `/health*` endpoints (liveness, readiness,
-    and a full report covering the database, disk space, external services, and background services).
-    `/api/auth/*` is rate-limited (see "Authentication"). Logs through Serilog and emits OpenTelemetry
-    traces, both at the lowest level.
+    `/api/tasks`, `/api/calendar-events`, `/api/users`, `/api/chat`, and `/api/push` endpoints (all
+    require a valid JWT and are scoped to the caller's own data), and a set of `/health*` endpoints
+    (liveness, readiness, and a full report covering the database, disk space, external services, and
+    background services). `/api/auth/*` is rate-limited (see "Authentication"). Logs through Serilog and
+    emits OpenTelemetry traces, both at the lowest level.
   - `Orbit.Data`: EF Core persistence on SQLite, isolated behind `INoteRepository`/`ITaskRepository`/
     `ICalendarEventRepository`/`IUserRepository`/`IRefreshTokenRepository`/`IContactRepository`/
-    `IChatMessageRepository` so the domain layer in `Orbit.Core` never depends on the storage technology.
-    Schema changes are applied through EF Core Migrations (see "Running locally").
+    `IChatMessageRepository`/`IPushSubscriptionRepository`/`IOverdueTaskNotificationRepository` so the
+    domain layer in `Orbit.Core` never depends on the storage technology. Schema changes are applied
+    through EF Core Migrations (see "Running locally").
   - `Orbit.GoogleIntegration`: an empty placeholder project for the future Google Calendar/Contacts
     sync referenced by the calendar feature (see "Calendar" below for what's implemented so far without it).
 - **`src/Clients/Orbit.Web`** — a Blazor WebAssembly client, currently the only client, served as
@@ -44,28 +47,33 @@ The solution is split into three layers:
     reference, so the two can't drift out of sync.
 
 `tests/Orbit.Api.Tests` covers the health check infrastructure and the accounts, notes, tasks,
-calendar, and contacts/chat features on the API side (password hashing, refresh token
+calendar, contacts/chat, and push notification features on the API side (password hashing, refresh token
 issuing/redeeming/revoking, registration, login, per-owner note access including deletion, per-owner
 task list access including the checklist-completion rule, the task-list-linking rules below, and
 deletion, per-owner calendar event access including the start-before-end validation rule and deletion,
 the calendar event reminder scheduling logic below, exact-match user search including self-exclusion,
-setting a user's public key, and the chat message/contact handlers including the
-first-message-creates-a-contact-in-both-directions rule).
+setting a user's public key, the chat message/contact handlers including the
+first-message-creates-a-contact-in-both-directions rule and the push notification it sends the
+recipient, subscribing/unsubscribing a push endpoint, `PushNotificationDispatcher`'s fan-out and
+expired-subscription pruning, and the overdue-task notification scheduling logic below).
 `tests/Orbit.Web.Tests` covers the Blazor client's auth wiring: the token store, the
 handler that attaches the access token to outgoing requests and transparently refreshes it after a 401,
-`AuthApiClient`, `OrbitAuthenticationStateProvider`, and the `Login`/`Register` pages themselves
-(rendered with [bUnit](https://bunit.dev)). Not covered by an automated test: the `/api/auth/*` rate
-limiter and the exact 429 behavior, the client-side retry-after-refresh path end-to-end through a
-real `HttpClientHandler` pipeline (both would need HTTP-integration test infrastructure -
-`WebApplicationFactory` on the API side - that this project doesn't have yet), actually sending an
-email through `SmtpEmailSender` (needs a real or fake SMTP server to connect to), the
+`AuthApiClient`, `OrbitAuthenticationStateProvider`, `PushNotificationApiClient`, and the
+`Login`/`Register` pages themselves (rendered with [bUnit](https://bunit.dev)). Not covered by an
+automated test: the `/api/auth/*` rate limiter and the exact 429 behavior, the client-side
+retry-after-refresh path end-to-end through a real `HttpClientHandler` pipeline (both would need
+HTTP-integration test infrastructure - `WebApplicationFactory` on the API side - that this project
+doesn't have yet), actually sending an email through `SmtpEmailSender` or a push notification through
+`VapidPushNotificationSender` (both need a real or fake server to connect to), the
 `Notes`/`Tasks`/`Calendar`/`Dashboard` pages themselves (the delete-confirmation flow and the
 dashboard's per-column rendering only have the command-handler tests above, not a bUnit test against the
-actual pages, unlike `Login`/`Register`), and the `Contacts`/`Chat` pages and `wwwroot/js/e2eeChat.js`
-(the encryption/decryption round trip, key generation and persistence in IndexedDB, and the polling UI
-have no automated coverage at all - bUnit doesn't execute real browser crypto/IndexedDB APIs, and this
+actual pages, unlike `Login`/`Register`), and the `Contacts`/`Chat` pages, `PushNotificationManager`, and
+`wwwroot/js/e2eeChat.js`/`wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` (the
+encryption/decryption round trip, key generation and persistence in IndexedDB, the polling UI, browser
+notification permission handling, and the push subscription/service worker lifecycle have no automated
+coverage at all - bUnit doesn't execute real browser crypto/IndexedDB/Push/Notification APIs, and this
 project has no browser-driven test infrastructure like Playwright yet; only the server-side command/query
-handlers above are tested).
+handlers and the pure-HTTP `PushNotificationApiClient` above are tested).
 
 ## Authentication
 
@@ -295,18 +303,64 @@ exists, not a third copy of each list page's empty state. Clicking any item navi
 editor (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`), the same page `Notes`/`Tasks`/`Calendar`'s
 own "Edytuj" button opens - the dashboard has no editing of its own.
 
+## Push notifications
+
+Orbit.Web can show real browser push notifications - delivered via a service worker, so they still
+arrive while no Orbit.Web tab is open - for three activities: an approaching calendar event, a new chat
+message, and a task item becoming overdue. Nothing is sent until the signed-in user explicitly turns
+this on with the "Włącz powiadomienia push" button in the top bar (`MainLayout.razor`), which asks the
+browser for notification permission and, once granted, registers a subscription with Orbit.Api.
+
+**Client side.** `wwwroot/js/pushNotifications.js` wraps the browser's Notification and Push APIs;
+`PushNotificationManager` (`Orbit.Web.Services`) drives it from C# and registers the resulting
+subscription (its endpoint plus the P-256 `p256dh`/`auth` keys the Push API returns) with Orbit.Api via
+`PushNotificationApiClient`. `wwwroot/service-worker.js` is the piece that actually receives a push
+event and shows the notification (and reopens/focuses an Orbit.Web tab and navigates it to the relevant
+page on click) - registered at the origin root (`/service-worker.js`) so its scope covers every route the
+Blazor Router handles.
+
+**Server side.** `PushSubscriptionEndpoints` (`/api/push/public-key`, `/api/push/subscriptions`) let the
+client fetch the VAPID public key it needs to subscribe, and register/remove a subscription.
+`PushNotificationDispatcher` (`Orbit.Core.Notifications`) is the single fan-out point every trigger below
+goes through: given a user id and a notification payload, it sends to every subscription that user
+currently has (more than one browser/device can each hold one), and prunes any subscription the push
+service reports as permanently gone (HTTP 404/410) rather than retrying it forever.
+`VapidPushNotificationSender` (`Orbit.Api.Notifications`) is the only piece that talks to a real push
+service, via the [WebPush](https://github.com/web-push-libs/web-push-csharp) package, which implements
+the RFC 8291 message encryption and RFC 8292 VAPID authentication a raw HTTP POST would otherwise have to
+hand-roll - the same reasoning as MailKit for SMTP (see "Calendar event reminders" above). Like
+`SmtpEmailSender`, it just logs a warning and skips sending when no VAPID key pair is configured, rather
+than failing startup.
+
+The three triggers:
+
+- **Approaching events** ride along on the existing `CalendarEventReminderBackgroundService` poll (see
+  "Calendar event reminders" above): whichever recipients of a due reminder have push enabled get a push
+  notification alongside their email, reusing that same once-only claim.
+- **New chat messages** are pushed from `SendMessageCommandHandler` itself, right after a message is
+  stored - to the recipient, naming the sender's display name. The notification never includes the
+  message itself: Orbit.Api only ever stores and relays ciphertext (see "Contacts and encrypted chat"
+  above), so there is no plaintext to put in a push payload even if it wanted to.
+- **Overdue tasks** get their own poller, `OverdueTaskNotificationBackgroundService`, mirroring
+  `CalendarEventReminderBackgroundService`'s claim-before-send pattern (`TaskOverdueNotificationDeliveries`,
+  unique-indexed on the task item) but with no look-back window: "overdue and not yet notified" is a
+  durable state rather than a point in time that can be missed by a brief outage, so a task item stays
+  eligible for exactly one notification for as long as it remains overdue and unnotified. A task item
+  that links to another task list (see "Tasks" above) is excluded from this check, since its true
+  completion depends on the list it links to, not its own stored (always-false) completion flag.
+
 ## Running locally
 
 The simplest way to run the whole stack is Docker Compose, which builds the API and the web client
 and wires them together:
 
 ```
-cp .env.example .env   # then fill in JWT_SIGNING_KEY (required) and the SMTP_* variables (optional)
+cp .env.example .env   # then fill in JWT_SIGNING_KEY (required) and the SMTP_*/VAPID_* variables (optional)
 docker compose up --build
 ```
 
-Leaving the `SMTP_*` variables blank is fine - see "Calendar event reminders" above for what that means
-at runtime. This starts:
+Leaving the `SMTP_*`/`VAPID_*` variables blank is fine - see "Calendar event reminders" and "Push
+notifications" above for what that means at runtime. This starts:
 
 - the web client at `https://localhost:8443` (its real, default entry point - see below) and also at
   `http://localhost:8080`, which stays on plain HTTP without redirecting since `localhost` already
@@ -356,8 +410,10 @@ try to create tables that already exist and fail.
 Alternatively, each project can be run directly with `dotnet run` from its own folder
 (`src/Server/Orbit.Api`, `src/Clients/Orbit.Web`) using the `https` launch profile; see
 `Properties/launchSettings.json` in each project for the exact ports. Set the JWT signing key via
-`dotnet user-secrets` first (see "Authentication" above); optionally configure SMTP the same way if you
-want to actually see reminder emails locally - see "Configuring SMTP for local development" right below.
+`dotnet user-secrets` first (see "Authentication" above); optionally configure SMTP and/or a VAPID key
+pair the same way if you want to actually see reminder emails and push notifications locally - see
+"Configuring SMTP for local development" and "Configuring push notifications for local development"
+right below.
 
 ### Configuring SMTP for local development
 
@@ -377,6 +433,22 @@ dotnet user-secrets set "Smtp:Password" "<your SMTP password>"
 
 Leaving all of this unset is fine too - see "Calendar event reminders" above for what that means at
 runtime.
+
+### Configuring push notifications for local development
+
+Same mechanism as SMTP above: `Vapid:PublicKeyBase64Url` and `Vapid:Subject` go in
+`appsettings.Development.json`, `Vapid:PrivateKeyBase64Url` goes through `dotnet user-secrets`. Generate a
+VAPID key pair once with, e.g., the `web-push` npm CLI:
+
+```
+npx web-push generate-vapid-keys
+cd src/Server/Orbit.Api
+cp appsettings.Development.json.example appsettings.Development.json
+# then edit appsettings.Development.json and fill in Vapid:PublicKeyBase64Url/Subject
+dotnet user-secrets set "Vapid:PrivateKeyBase64Url" "<your VAPID private key>"
+```
+
+Leaving this unset is fine too - see "Push notifications" above for what that means at runtime.
 
 ## Tests
 

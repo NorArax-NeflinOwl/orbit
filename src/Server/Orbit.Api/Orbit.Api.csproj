@@ -17,6 +17,10 @@
     <!-- Sends calendar event reminder emails (see CalendarEventReminderBackgroundService) over real
          SMTP. Actively maintained, unlike the built-in System.Net.Mail.SmtpClient. -->
     <PackageReference Include="MailKit" Version="4.17.0" />
+    <!-- Sends push notifications (see VapidPushNotificationSender) via the Web Push protocol -
+         implements the RFC 8291 message encryption and RFC 8292 VAPID authentication a raw HTTP POST
+         would otherwise have to hand-roll. -->
+    <PackageReference Include="WebPush" Version="1.0.12" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />

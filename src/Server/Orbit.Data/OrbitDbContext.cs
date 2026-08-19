@@ -19,6 +19,8 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
     public DbSet<ChatConversationAccessEntity> ChatConversationAccesses => Set<ChatConversationAccessEntity>();
     public DbSet<CalendarEventShareEntity> CalendarEventShares => Set<CalendarEventShareEntity>();
+    public DbSet<PushSubscriptionEntity> PushSubscriptions => Set<PushSubscriptionEntity>();
+    public DbSet<TaskOverdueNotificationDeliveryEntity> TaskOverdueNotificationDeliveries => Set<TaskOverdueNotificationDeliveryEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -139,6 +141,31 @@ public sealed class OrbitDbContext : DbContext
             // this index speeds up the "InitiatedByUserId == me" half of that lookup; the reversed half
             // falls back to a table scan, acceptable at this app's scale.
             entity.HasIndex(access => new { access.InitiatedByUserId, access.OtherUserId }).IsUnique();
+        });
+
+        modelBuilder.Entity<PushSubscriptionEntity>(entity =>
+        {
+            entity.HasKey(subscription => subscription.Id);
+            entity.Property(subscription => subscription.Endpoint).IsRequired();
+            entity.Property(subscription => subscription.P256dhBase64).IsRequired();
+            entity.Property(subscription => subscription.AuthBase64).IsRequired();
+            // A browser's subscription endpoint is unique across all users - this is what
+            // PushSubscriptionRepository.AddOrReplaceAsync relies on to decide insert-vs-update, and
+            // also the index that makes "who does this endpoint belong to" fast.
+            entity.HasIndex(subscription => subscription.Endpoint).IsUnique();
+            // Every "notify this user" fan-out (see PushNotificationDispatcher) looks up subscriptions
+            // by UserId; this index makes that fast instead of scanning the whole table.
+            entity.HasIndex(subscription => subscription.UserId);
+        });
+
+        modelBuilder.Entity<TaskOverdueNotificationDeliveryEntity>(entity =>
+        {
+            entity.HasKey(delivery => delivery.Id);
+            // A given task item is only ever notified about once; this unique index is what actually
+            // enforces that - OverdueTaskNotificationRepository.HasBeenNotifiedAsync's check is a
+            // check-then-act read that alone can't guarantee it (see EventReminderDeliveryEntity for the
+            // same reasoning applied to calendar event reminders).
+            entity.HasIndex(delivery => delivery.TaskItemId).IsUnique();
         });
     }
 }

@@ -11,6 +11,7 @@ using Orbit.Api.Chat;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
+using Orbit.Api.PushNotifications;
 using Orbit.Api.Tasks;
 using Orbit.Api.Users;
 using Orbit.Core;
@@ -76,6 +77,16 @@ try
     builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
     builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
     builder.Services.AddHostedService<CalendarEventReminderBackgroundService>();
+
+    // Push notifications for approaching events (above), new chat messages (see
+    // SendMessageCommandHandler) and overdue tasks (below). VapidPushNotificationSender itself just
+    // logs a warning and skips sending when Vapid:PublicKeyBase64Url/PrivateKeyBase64Url/Subject aren't
+    // configured, rather than failing startup - a fresh local checkout should still run without a VAPID
+    // key pair set up.
+    builder.Services.Configure<VapidSettings>(builder.Configuration.GetSection("Vapid"));
+    builder.Services.AddSingleton<WebPush.WebPushClient>();
+    builder.Services.AddSingleton<IPushNotificationSender, VapidPushNotificationSender>();
+    builder.Services.AddHostedService<OverdueTaskNotificationBackgroundService>();
 
     builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
     builder.Services.AddSingleton<TokenService>();
@@ -172,6 +183,7 @@ try
     app.MapNoteEndpoints();
     app.MapTaskEndpoints();
     app.MapCalendarEndpoints();
+    app.MapPushNotificationEndpoints();
     app.MapHealthEndpoints();
 
     app.Run();
