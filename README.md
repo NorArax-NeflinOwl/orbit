@@ -308,31 +308,32 @@ docker compose up --build
 Leaving the `SMTP_*` variables blank is fine - see "Calendar event reminders" above for what that means
 at runtime. This starts:
 
-- the web client at `http://localhost:8080`
+- the web client at `https://localhost:8443` (its real, default entry point - see below) and also at
+  `http://localhost:8080`, which stays on plain HTTP without redirecting since `localhost` already
+  satisfies the browser's secure-context requirement on its own
 - the API at `http://localhost:8081` (`/health`, `/health/ready`, `/health/live`, `/api/auth/*`,
   `/api/notes`, `/api/tasks`, `/api/calendar-events`)
-- a TLS-terminating reverse proxy at `https://localhost:8443`, in front of both of the above (see
-  below)
 - the [Aspire dashboard](http://localhost:18888) for live logs and traces from the API
 
 ### Accessing Orbit.Web from another device on your network
 
-The web client always calls the API under whatever origin you used to load the page - nginx (in
-`orbit-web`'s own container, and in the reverse proxy below) reverse-proxies `/api/*` to `orbit-api`, so
-the browser never has to know the API's separate host or port and no CORS configuration is needed for
-this.
+The web client always calls the API under whatever origin you used to load the page - `orbit-web`'s own
+nginx reverse-proxies `/api/*` to `orbit-api`, so the browser never has to know the API's separate host
+or port and no CORS configuration is needed for this.
 
-That's enough for most pages by opening `http://<this-machine's-LAN-IP>:8080` from another device -
-except the chat, which needs a genuinely secure context (HTTPS, or `localhost`) for the browser to
-expose the Web Crypto API its end-to-end encryption depends on. A plain `http://<LAN-IP>:8080` origin
-doesn't qualify, so opening a chat there fails with a `crypto.subtle` error. For that, use the reverse
-proxy instead:
+The chat needs a genuinely secure context (HTTPS, or `localhost`) for the browser to expose the Web
+Crypto API its end-to-end encryption depends on - a plain `http://<LAN-IP>:8080` origin doesn't qualify,
+so opening a chat there would fail with a `crypto.subtle` error. To avoid that, `orbit-web` serves HTTPS
+on port 8443 as its real, default entry point, and automatically redirects any other plain-HTTP request
+(e.g. a stray `http://<LAN-IP>:8080` hit) straight to it - `localhost`/`127.0.0.1` are the only hosts
+left on plain HTTP, since they're already a secure context without HTTPS:
 
-1. Set `TLS_CERTIFICATE_HOSTNAME` in `.env` to this machine's LAN IP (e.g. `192.168.1.50`) - the
-   reverse proxy generates a self-signed certificate covering that address on first startup (see
-   `docker/reverse-proxy/generate-certificate.sh`). Restart with `docker compose up -d --build` for a
+1. Set `TLS_CERTIFICATE_HOSTNAME` in `.env` to this machine's LAN IP (e.g. `192.168.1.50`) -
+   `orbit-web` generates a self-signed certificate covering that address on first startup (see
+   `src/Clients/Orbit.Web/generate-certificate.sh`). Restart with `docker compose up -d --build` for a
    changed value to take effect on an already-created container.
-2. From another device, open `https://<this-machine's-LAN-IP>:8443`. The browser will warn that the
+2. From another device, open `http://<this-machine's-LAN-IP>:8080` (or `https://<...>:8443` directly) -
+   either way you'll end up on `https://<this-machine's-LAN-IP>:8443`. The browser will warn that the
    certificate isn't trusted (it's self-signed, not issued by a real certificate authority) - accept the
    warning once per device to continue.
 

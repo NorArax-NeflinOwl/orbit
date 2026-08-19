@@ -1,11 +1,11 @@
 #!/bin/sh
 # Generates a self-signed TLS certificate on first startup if one doesn't already exist in the
-# persisted volume (see docker-compose.yml's reverse-proxy-certs volume) - later restarts reuse it
-# instead of generating a new one every time, since browsers would otherwise need to re-accept the
-# untrusted-certificate warning after every `docker compose up`.
+# persisted volume (see docker-compose.yml's orbit-web-certs volume) - later restarts reuse it instead
+# of generating a new one every time, since browsers would otherwise need to re-accept the untrusted-
+# certificate warning after every `docker compose up`.
 #
 # TLS_CERTIFICATE_HOSTNAME should be set to whatever hostname or LAN IP address other devices actually
-# use to reach this proxy (e.g. "192.168.1.50" - see .env.example). A self-signed certificate only
+# use to reach this container (e.g. "192.168.1.50" - see .env.example). A self-signed certificate only
 # satisfies the browser's "secure context" requirement (see nginx.conf and this Dockerfile's header
 # comment) for the exact host it was issued for. Every device still has to click through one
 # untrusted-certificate warning, since there's no real certificate authority behind this certificate.

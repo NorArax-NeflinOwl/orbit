@@ -26,11 +26,11 @@ services:
       # container itself, not the dashboard container.
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
       # Origin the Blazor client is actually served from in this compose stack (see orbit-web below).
-      # Requests through orbit-web's or reverse-proxy's own nginx (see their nginx.conf files) are
-      # same-origin and never hit this CORS policy at all, since /api/* is proxied under whatever
-      # origin the browser already loaded the page from - this only matters for a client that calls
-      # Orbit.Api directly from a different origin (e.g. the `dotnet run`/`dotnet watch` dev server).
-      # Set WEB_CLIENT_LAN_ORIGIN in .env for that case if needed.
+      # Requests through orbit-web's own nginx (see its nginx.conf) are same-origin and never hit this
+      # CORS policy at all, since /api/* is proxied under whatever origin the browser already loaded
+      # the page from - this only matters for a client that calls Orbit.Api directly from a different
+      # origin (e.g. the `dotnet run`/`dotnet watch` dev server). Set WEB_CLIENT_LAN_ORIGIN in .env for
+      # that case if needed.
       WebClientOrigins: "http://localhost:8080,${WEB_CLIENT_LAN_ORIGIN:-}"
       ConnectionStrings__Orbit: "Data Source=/app/data/orbit.db"
       # Secret - read from the .env file at the repo root (see .env.example), never hardcoded here.
@@ -57,37 +57,26 @@ services:
       dockerfile: src/Clients/Orbit.Web/Dockerfile
     container_name: orbit-web
     ports:
+      # 8443 (HTTPS) is the real, default entry point - see nginx.conf's header comment. 8080 (plain
+      # HTTP) stays published only so a stray request there still lands somewhere useful: nginx
+      # redirects it to 8443, except for "localhost"/"127.0.0.1", which stay on plain HTTP since they
+      # already satisfy the browser's secure-context requirement without it.
       - "8080:80"
+      - "8443:443"
+    environment:
+      # Set this to the LAN IP or hostname other devices use to reach this machine (e.g.
+      # "192.168.1.50") so the self-signed certificate covers that address - see
+      # generate-certificate.sh. Left unset, the certificate only covers "localhost", which isn't
+      # reachable from another device.
+      TLS_CERTIFICATE_HOSTNAME: "${TLS_CERTIFICATE_HOSTNAME:-localhost}"
+    volumes:
+      - orbit-web-certs:/etc/nginx/certs
     depends_on:
       orbit-api:
         # Waits for the HEALTHCHECK in Orbit.Api's Dockerfile (GET /health/live) instead of just the
         # container starting, so orbit-web doesn't come up while the API is still initializing.
         condition: service_healthy
 
-  # TLS-terminating reverse proxy in front of orbit-web and orbit-api - see docker/reverse-proxy and
-  # README.md's "Accessing Orbit.Web from another device on your network" section. This is a separate,
-  # additional entry point (https://<host>:8443) rather than a replacement for orbit-web's own
-  # http://<host>:8080 - "localhost" already satisfies the browser's secure-context requirement on its
-  # own, so plain HTTP is still fine for local use; this proxy is what's needed for the chat's
-  # end-to-end encryption to work when Orbit.Web is opened from another device via a LAN IP address.
-  reverse-proxy:
-    build:
-      context: docker/reverse-proxy
-    container_name: orbit-reverse-proxy
-    ports:
-      - "8443:443"
-    environment:
-      # Set this to the LAN IP or hostname other devices use to reach this machine (e.g.
-      # "192.168.1.50") so the self-signed certificate covers that address - see
-      # docker/reverse-proxy/generate-certificate.sh. Left unset, the certificate only covers
-      # "localhost", which isn't reachable from another device.
-      TLS_CERTIFICATE_HOSTNAME: "${TLS_CERTIFICATE_HOSTNAME:-localhost}"
-    volumes:
-      - reverse-proxy-certs:/etc/nginx/certs
-    depends_on:
-      - orbit-web
-      - orbit-api
-
 volumes:
   orbit-api-logs:
-  reverse-proxy-certs:
+  orbit-web-certs:

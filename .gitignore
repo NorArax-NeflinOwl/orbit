@@ -2,9 +2,10 @@
 /.vscode
 **/bin/
 **/obj/
+**_to_delete/
 
 # Orbit.Api prototype runtime artifacts (SQLite database, Serilog file sink)
-**/orbit.db
+**/orbit*.db
 **/orbit.db-*
 /src/Server/Orbit.Api/logs/
 

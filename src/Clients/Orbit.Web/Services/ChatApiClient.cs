@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Chat;
 
@@ -57,7 +58,16 @@ public sealed class ChatApiClient
 
     /// <summary>Null means the caller and otherUserId have never exchanged a message, so nothing is gated.</summary>
     public async Task<ChatConversationAccessDto?> GetConversationAccessAsync(Guid otherUserId, CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<ChatConversationAccessDto?>($"api/chat/conversations/{otherUserId}/access", cancellationToken);
+    {
+        var response = await _httpClient.GetAsync($"api/chat/conversations/{otherUserId}/access", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<ChatConversationAccessDto>(cancellationToken: cancellationToken);
+    }
 
     /// <summary>Allows the caller to chat with otherUserId, who started a conversation the caller hasn't approved yet.</summary>
     public async Task ApproveConversationAsync(Guid otherUserId, CancellationToken cancellationToken = default)

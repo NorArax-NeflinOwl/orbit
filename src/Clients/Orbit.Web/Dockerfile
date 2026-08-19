@@ -23,6 +23,7 @@ RUN dotnet publish src/Clients/Orbit.Web/Orbit.Web.csproj \
 FROM nginx:alpine AS runtime
 COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 COPY src/Clients/Orbit.Web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY src/Clients/Orbit.Web/nginx-app-locations.conf /etc/nginx/snippets/app-locations.conf
 
 # `dotnet publish`'s output carries whatever file permissions the build stage's umask produced,
 # which for plain wwwroot static files (as opposed to the specially processed _framework/ assets)
@@ -31,4 +32,16 @@ COPY src/Clients/Orbit.Web/nginx.conf /etc/nginx/conf.d/default.conf
 # (e.g. favicon.ico, wwwroot/js/*.js) fail with 403 Forbidden instead of being served.
 RUN chmod -R a+rX /usr/share/nginx/html
 
-EXPOSE 80
+# Needed at container startup to generate the self-signed TLS certificate (see
+# generate-certificate.sh) - not included in the base image. This is what makes browsers treat the
+# app as a secure context, which the chat's end-to-end encryption (the Web Crypto API's
+# crypto.subtle) requires in order to work at all - see README.md's "Accessing Orbit.Web from
+# another device on your network" section.
+RUN apk add --no-cache openssl
+
+# The base image's own docker-entrypoint.sh runs every executable script under /docker-entrypoint.d/
+# before starting nginx - no need to override the image's ENTRYPOINT/CMD to hook this in.
+COPY src/Clients/Orbit.Web/generate-certificate.sh /docker-entrypoint.d/10-generate-certificate.sh
+RUN chmod +x /docker-entrypoint.d/10-generate-certificate.sh
+
+EXPOSE 80 443

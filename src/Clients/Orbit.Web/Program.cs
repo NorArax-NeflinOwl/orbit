@@ -10,17 +10,17 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Logging.SetMinimumLevel(LogLevel.Error);
+builder.Logging.SetMinimumLevel(LogLevel.Trace);
 
 // Read from wwwroot/appsettings.json (or appsettings.Development.json under `dotnet run`/`dotnet
 // watch`, which the Blazor dev server selects automatically).
 //
 // wwwroot/appsettings.json (the Docker/nginx deployment) leaves this blank: nginx reverse-proxies
-// /api/* to Orbit.Api under the same origin the browser loaded the page from (see nginx.conf and
-// docker/reverse-proxy/nginx.conf), so the API is simply "wherever this page came from" - no separate
-// host or port to compute, and no CORS needed since every request is same-origin. This is also what
-// makes the app reachable from another device's browser via this machine's LAN IP: the browser only
-// ever talks to the one origin it loaded the page from.
+// /api/* to Orbit.Api under the same origin the browser loaded the page from (see nginx.conf), so the
+// API is simply "wherever this page came from" - no separate host or port to compute, and no CORS
+// needed since every request is same-origin. This is also what makes the app reachable from another
+// device's browser via this machine's LAN IP: the browser only ever talks to the one origin it loaded
+// the page from.
 //
 // appsettings.Development.json (the `dotnet run`/`dotnet watch` dev server) still sets a concrete
 // address, since that dev server has no proxy in front of it and always runs on a fixed port

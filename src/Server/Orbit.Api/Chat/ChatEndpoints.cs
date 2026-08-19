@@ -58,12 +58,15 @@ public static class ChatEndpoints
 
         // Looked up by the chat window on load and on every poll tick, so it can show a "chat request"
         // banner (and disable the compose box) as soon as either party's approval state changes - see
-        // ChatConversationAccess. Returns no body (null) when the pair has never exchanged a message.
+        // ChatConversationAccess. Answers with 204 (rather than 200 with a JSON "null" body) when the
+        // pair has never exchanged a message: Results.Ok(null) writes an empty response body instead of
+        // the literal 4-byte "null", which made the client's GetFromJsonAsync throw on an empty body
+        // instead of parsing null.
         chat.MapGet("/conversations/{otherUserId:guid}/access", async (
             Guid otherUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var access = await dispatcher.SendAsync(new GetConversationAccessQuery(GetUserId(user), otherUserId), cancellationToken);
-            return Results.Ok(access is null ? null : ToDto(access));
+            return access is null ? Results.NoContent() : Results.Ok(ToDto(access));
         });
 
         // Lets the non-initiating party in a brand-new conversation explicitly allow chatting with
