@@ -111,7 +111,7 @@ else
 
     /// <summary>The "Kontakty" column's ordering - a plain directory rather than a recency-based list.</summary>
     private IEnumerable<ContactDto> _contactsAlphabetically
-        => (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser)
+        => (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser == false)
         .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase);
 
     protected override async Task OnInitializedAsync()

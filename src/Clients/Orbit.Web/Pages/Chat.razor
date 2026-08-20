@@ -58,10 +58,11 @@ else
             @foreach (var message in _messages)
             {
                 <p class="@(message.SenderUserId == _ownUserId ? "chat-message-own" : "chat-message-theirs")">
+                    <span class="chat-message-time">@message.SentAtUtc.ToLocalTime().ToString("HH:mm")</span>
                     @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[nie można odszyfrować]")
                     @if (message.SenderUserId == _ownUserId)
                     {
-                        <span class="chat-message-status">@(IsReadByOtherParty(message) ? "✓✓ Przeczytano" : "✓ Wysłano")</span>
+                        <span class="chat-message-status">@(IsReadByOtherParty(message) ? "✓✓" : "✓")</span>
                     }
                 </p>
                 @if (message.SenderUserId != _ownUserId && _eventShareByMessageId.TryGetValue(message.Id, out var eventShare))
