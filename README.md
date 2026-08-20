@@ -362,9 +362,8 @@ docker compose up --build
 Leaving the `SMTP_*`/`VAPID_*` variables blank is fine - see "Calendar event reminders" and "Push
 notifications" above for what that means at runtime. This starts:
 
-- the web client at `https://localhost:8443` (its real, default entry point - see below) and also at
-  `http://localhost:8080`, which stays on plain HTTP without redirecting since `localhost` already
-  satisfies the browser's secure-context requirement on its own
+- the web client at `https://localhost:8443` (its one and only real entry point - see below);
+  `http://localhost:8080` also answers, but only to redirect straight to `https://localhost:8443`
 - the API at `http://localhost:8081` (`/health`, `/health/ready`, `/health/live`, `/api/auth/*`,
   `/api/notes`, `/api/tasks`, `/api/calendar-events`)
 - the [Aspire dashboard](http://localhost:18888) for live logs and traces from the API
@@ -375,12 +374,16 @@ The web client always calls the API under whatever origin you used to load the p
 nginx reverse-proxies `/api/*` to `orbit-api`, so the browser never has to know the API's separate host
 or port and no CORS configuration is needed for this.
 
-The chat needs a genuinely secure context (HTTPS, or `localhost`) for the browser to expose the Web
-Crypto API its end-to-end encryption depends on - a plain `http://<LAN-IP>:8080` origin doesn't qualify,
-so opening a chat there would fail with a `crypto.subtle` error. To avoid that, `orbit-web` serves HTTPS
-on port 8443 as its real, default entry point, and automatically redirects any other plain-HTTP request
-(e.g. a stray `http://<LAN-IP>:8080` hit) straight to it - `localhost`/`127.0.0.1` are the only hosts
-left on plain HTTP, since they're already a secure context without HTTPS:
+The chat needs a genuinely secure context (HTTPS) for the browser to expose the Web Crypto API its
+end-to-end encryption depends on - a plain `http://<LAN-IP>:8080` origin doesn't qualify, so opening a
+chat there would fail with a `crypto.subtle` error. To avoid that, `orbit-web` serves HTTPS on port 8443
+as its one and only real entry point, and automatically redirects any plain-HTTP request on port 8080
+straight to it - including `localhost`/`127.0.0.1`, even though those hosts would otherwise count as a
+secure context on plain HTTP too. That redirect is deliberate, not just for `crypto.subtle`: the chat's
+E2EE key pair is stored in the browser's IndexedDB, which is scoped per origin, so if the app were
+reachable under both `http://localhost:8080` and `https://localhost:8443` interchangeably, opening it on
+whichever port was on hand would silently mint a fresh key pair and permanently orphan every message
+encrypted under the old one. Forcing everything through the single `:8443` origin avoids that trap:
 
 1. Set `TLS_CERTIFICATE_HOSTNAME` in `.env` to this machine's LAN IP (e.g. `192.168.1.50`) -
    `orbit-web` generates a self-signed certificate covering that address on first startup (see
