@@ -42,6 +42,9 @@ services:
       Smtp__UserName: "${SMTP_USER_NAME:-}"
       Smtp__Password: "${SMTP_PASSWORD:-}"
       Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
+      # Optional - see .env.example. Read directly (not under a "Smtp__"-style prefix) since it's
+      # picked up by Azure Monitor's exporter by its own conventional env var name, not app config.
+      APPLICATIONINSIGHTS_CONNECTION_STRING: "${APPLICATIONINSIGHTS_CONNECTION_STRING:-}"
       # Optional - push notifications (see README.md's "Push notifications" section). Left unset,
       # VapidPushNotificationSender just logs a warning and skips sending.
       Vapid__PublicKeyBase64Url: "${VAPID_PUBLIC_KEY:-}"

@@ -23,11 +23,13 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Sinks.OpenTelemetry;
+using Azure.Monitor.OpenTelemetry.Exporter;
 
 // Standard OpenTelemetry env var name, so both this sink and the SDK exporter below pick it up the
 // same way. Defaults to Aspire Dashboard's local port; docker-compose overrides it to the dashboard's
 // service name, since "localhost" inside a container means the container itself, not the host.
 var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:18889";
+var applicationInsightsConnectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
 const string serviceName = "Orbit.Api";
 
 Log.Logger = new LoggerConfiguration()
@@ -153,11 +155,23 @@ try
     // single user click shows up as one connected trace: HTTP request -> command -> its timing.
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(resource => resource.AddService(serviceName))
-        .WithTracing(tracing => tracing
-            .AddSource("Orbit.Core")
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddOtlpExporter(otlp => otlp.Endpoint = new Uri(otlpEndpoint)));
+        .WithTracing(tracing =>
+        {
+            tracing
+                .AddSource("Orbit.Core")
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation();
+
+            if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
+            {
+                tracing.AddAzureMonitorTraceExporter(options =>
+                    options.ConnectionString = applicationInsightsConnectionString);
+            }
+            else
+            {
+                tracing.AddOtlpExporter(otlp => otlp.Endpoint = new Uri(otlpEndpoint));
+            }
+        });
 
     var app = builder.Build();
 
