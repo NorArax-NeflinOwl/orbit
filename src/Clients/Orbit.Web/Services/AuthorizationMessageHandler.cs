@@ -11,16 +11,10 @@ namespace Orbit.Web.Services;
 /// token for a new access token through a separate, unauthenticated HttpClient - reusing this handler
 /// for that call would recurse into this same retry logic - and retries the original request once.
 /// </summary>
-public sealed class AuthorizationMessageHandler : DelegatingHandler
+public sealed class AuthorizationMessageHandler(TokenStore tokenStore, HttpClient refreshHttpClient) : DelegatingHandler
 {
-    private readonly TokenStore _tokenStore;
-    private readonly HttpClient _refreshHttpClient;
-
-    public AuthorizationMessageHandler(TokenStore tokenStore, HttpClient refreshHttpClient)
-    {
-        _tokenStore = tokenStore;
-        _refreshHttpClient = refreshHttpClient;
-    }
+    private readonly TokenStore _tokenStore = tokenStore;
+    private readonly HttpClient _refreshHttpClient = refreshHttpClient;
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
