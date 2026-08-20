@@ -113,7 +113,7 @@ public static class ChatEndpoints
     private static ContactDto ToDto(ContactSummary contact)
         => new(
             contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64,
-            contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser);
+            contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty);
 
     private static ChatMessageDto ToDto(ChatMessage message)
         => new(message.Id, message.SenderUserId, message.RecipientUserId, message.CiphertextBase64, message.NonceBase64, message.SentAtUtc);

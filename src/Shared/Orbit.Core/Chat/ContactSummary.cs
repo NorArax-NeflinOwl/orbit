@@ -10,4 +10,12 @@ namespace Orbit.Core.Chat;
 /// with them yet - see ChatConversationAccess. Lets the contact list show it as a pending request
 /// instead of an established chat.
 /// </param>
-public sealed record ContactSummary(Orbit.Core.Users.User User, DateTimeOffset LastMessageAtUtc, bool RequiresApprovalFromCurrentUser);
+/// <param name="IsPendingApprovalFromOtherParty">
+/// True when the current user started this conversation and the other party hasn't approved chatting
+/// yet - see ChatConversationAccess. Lets a contact list distinguish this from an established chat even
+/// though, unlike <see cref="RequiresApprovalFromCurrentUser"/>, there's nothing for the current user to
+/// act on yet.
+/// </param>
+public sealed record ContactSummary(
+    Orbit.Core.Users.User User, DateTimeOffset LastMessageAtUtc, bool RequiresApprovalFromCurrentUser,
+    bool IsPendingApprovalFromOtherParty);

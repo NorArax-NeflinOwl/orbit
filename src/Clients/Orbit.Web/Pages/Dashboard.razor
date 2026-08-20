@@ -110,9 +110,14 @@ else
     private IEnumerable<ContactDto> _recentContacts
         => (_contacts ?? []).OrderByDescending(contact => contact.LastMessageAtUtc);
 
-    /// <summary>The "Kontakty" column's ordering - a plain directory rather than a recency-based list.</summary>
+    /// <summary>
+    /// The "Kontakty" column's ordering - a plain directory rather than a recency-based list. Excludes
+    /// any conversation that isn't fully established yet (a request either party still needs to approve),
+    /// so an unanswered chat only shows up once, in the "Czaty" column, instead of in both.
+    /// </summary>
     private IEnumerable<ContactDto> _contactsAlphabetically
-        => (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser == false)
+        => (_contacts ?? [])
+        .Where(contact => contact is { RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false })
         .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase);
 
     private PeriodicTimer? _pollTimer;

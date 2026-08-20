@@ -26,6 +26,7 @@ public sealed class GetContactsQueryHandlerTests
         Assert.Equal("public-key", contact.User.PublicKeyBase64);
         Assert.Equal(lastMessageAtUtc, contact.LastMessageAtUtc);
         Assert.False(contact.RequiresApprovalFromCurrentUser);
+        Assert.False(contact.IsPendingApprovalFromOtherParty);
     }
 
     [Fact]
@@ -54,11 +55,13 @@ public sealed class GetContactsQueryHandlerTests
 
         var contacts = await handler.HandleAsync(new GetContactsQuery(ownerId), CancellationToken.None);
 
-        Assert.True(Assert.Single(contacts).RequiresApprovalFromCurrentUser);
+        var contact = Assert.Single(contacts);
+        Assert.True(contact.RequiresApprovalFromCurrentUser);
+        Assert.False(contact.IsPendingApprovalFromOtherParty);
     }
 
     [Fact]
-    public async Task HandleAsync_does_not_flag_a_contact_the_current_user_started_the_conversation_with()
+    public async Task HandleAsync_flags_a_contact_the_current_user_started_as_pending_approval_from_the_other_party()
     {
         var userRepository = new InMemoryUserRepository();
         var otherUser = User.FromPersistence(Guid.NewGuid(), "other@example.com", "other", "Other", "hash", DateTimeOffset.UtcNow, null);
@@ -72,6 +75,8 @@ public sealed class GetContactsQueryHandlerTests
 
         var contacts = await handler.HandleAsync(new GetContactsQuery(ownerId), CancellationToken.None);
 
-        Assert.False(Assert.Single(contacts).RequiresApprovalFromCurrentUser);
+        var contact = Assert.Single(contacts);
+        Assert.False(contact.RequiresApprovalFromCurrentUser);
+        Assert.True(contact.IsPendingApprovalFromOtherParty);
     }
 }

@@ -39,7 +39,8 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
 
             var access = await _chatConversationAccessRepository.GetAsync(request.UserId, contact.ContactUserId, cancellationToken);
             var requiresApprovalFromCurrentUser = access is { IsApproved: false } && access.InitiatedByUserId != request.UserId;
-            summaries.Add(new ContactSummary(otherUser, contact.LastMessageAtUtc, requiresApprovalFromCurrentUser));
+            var isPendingApprovalFromOtherParty = access is { IsApproved: false } && access.InitiatedByUserId == request.UserId;
+            summaries.Add(new ContactSummary(otherUser, contact.LastMessageAtUtc, requiresApprovalFromCurrentUser, isPendingApprovalFromOtherParty));
         }
 
         return summaries;

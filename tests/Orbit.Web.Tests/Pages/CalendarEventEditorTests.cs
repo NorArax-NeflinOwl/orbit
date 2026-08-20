@@ -21,7 +21,8 @@ public sealed class CalendarEventEditorTests : TestContext
     private static readonly Guid ContactUserId = Guid.NewGuid();
     private static readonly Guid OwnUserId = Guid.NewGuid();
     private static readonly ContactDto Contact =
-        new(ContactUserId, "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false);
+        new(ContactUserId, "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false);
 
     public CalendarEventEditorTests()
     {
