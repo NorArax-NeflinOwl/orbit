@@ -52,6 +52,7 @@ jobs:
             --file src/Server/Orbit.Api/Dockerfile \
             --image orbit-api:${{ github.sha }} \
             --image orbit-api:latest \
+            --build-arg NGINX_CONF_FILE=nginx.azure.conf \
             .
 
       - name: Build and push orbit-web image

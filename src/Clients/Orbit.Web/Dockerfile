@@ -21,8 +21,15 @@ RUN dotnet publish src/Clients/Orbit.Web/Orbit.Web.csproj \
 # Blazor WebAssembly ships as static files; there's no .NET runtime to host it, so the final image
 # is plain nginx instead of an aspnet base.
 FROM nginx:alpine AS runtime
+
+# Selects which nginx config this image ships: nginx.conf (default) terminates TLS itself and proxies
+# to orbit-api over the local Docker network, for docker-compose; nginx.azure.conf instead proxies to
+# orbit-api's Container App FQDN and skips TLS, since Azure Container Apps' ingress already terminates
+# it - see main_orbit.yml, which is the only build that overrides this.
+ARG NGINX_CONF_FILE=nginx.conf
+
 COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
-COPY src/Clients/Orbit.Web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY src/Clients/Orbit.Web/${NGINX_CONF_FILE} /etc/nginx/conf.d/default.conf
 COPY src/Clients/Orbit.Web/nginx-app-locations.conf /etc/nginx/snippets/app-locations.conf
 
 # `dotnet publish`'s output carries whatever file permissions the build stage's umask produced,

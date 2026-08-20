@@ -1,0 +1,5 @@
+# Shell scripts must keep LF line endings regardless of the checkout platform's core.autocrlf
+# setting. A CRLF shebang line (e.g. "#!/bin/sh\r") is not a valid interpreter path on Linux, so a
+# script checked out with CRLF on Windows fails to run inside a Linux container with a misleading
+# "not found" error instead of a permission or syntax error.
+*.sh text eol=lf
