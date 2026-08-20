@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  registryName: orbitcontainerregistry
+  registryName: orbitContainerRegistry   
   registryLoginServer: orbitcontainerregistry.azurecr.io
   resourceGroupName: Orbit
 
