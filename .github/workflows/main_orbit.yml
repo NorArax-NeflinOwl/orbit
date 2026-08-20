@@ -1,7 +1,9 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Builds orbit-api and orbit-web images inside Azure Container Registry and updates both Azure
+# Container Apps to run the newly built image. Replaces the previous single-App-Service workflow that
+# Azure Deployment Center generated - Orbit is now deployed as two separate containers, matching the
+# local docker-compose topology instead of one combined ASP.NET Core app.
 
-name: Build and deploy ASP.Net Core app to Azure Web App - orbit
+name: Build and deploy Orbit to Azure Container Apps
 
 on:
   push:
@@ -9,57 +11,71 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  registryName: orbitcontainerregistry
+  registryLoginServer: orbitcontainerregistry.azurecr.io
+  resourceGroupName: Orbit
+
+permissions:
+  id-token: write   # required for OIDC login to Azure
+  contents: read
+
 jobs:
-  build:
-    runs-on: windows-latest
-    permissions:
-      contents: read #This is required for actions/checkout
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up .NET Core
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 'dotnet10.x'
-
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
-
-      - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
-
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-      
-      - name: Login to Azure
+      # OIDC login: Azure exchanges GitHub's short-lived token for an access token. No client secret
+      # is ever generated, stored, or rotated. Reuses the same identity (identity-orbit) and secrets
+      # Azure Deployment Center originally configured.
+      - name: Log in to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_439F88151FA943D78D4BF8F33E39354D }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_94E34BA93C604CA382EDE479DD7DF344 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4D66E98B9B334790B251FF8C8748B1B1 }}
 
-      - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'orbit'
-          slot-name: 'Production'
-          package: .
-          
+      # az containerapp commands need this CLI extension; installing it explicitly avoids relying on
+      # dynamic-install being enabled on the runner.
+      - name: Install the Container Apps CLI extension
+        run: az extension add --name containerapp --upgrade
+
+      # Builds happen inside ACR itself, so the runner never needs Docker installed - identity-orbit's
+      # AcrPush role is all the permission this step needs.
+      - name: Build and push orbit-api image
+        run: |
+          az acr build \
+            --registry ${{ env.registryName }} \
+            --file src/Server/Orbit.Api/Dockerfile \
+            --image orbit-api:${{ github.sha }} \
+            --image orbit-api:latest \
+            .
+
+      - name: Build and push orbit-web image
+        run: |
+          az acr build \
+            --registry ${{ env.registryName }} \
+            --file src/Clients/Orbit.Web/Dockerfile \
+            --image orbit-web:${{ github.sha }} \
+            --image orbit-web:latest \
+            .
+
+      # Points each Container App at the image just built, tagged by commit SHA so the deployed
+      # version is traceable back to this run. (":latest" is also pushed above for convenience, e.g.
+      # manual `az containerapp up` testing, but isn't what gets deployed here.)
+      - name: Deploy orbit-api
+        run: |
+          az containerapp update \
+            --name orbit-api \
+            --resource-group ${{ env.resourceGroupName }} \
+            --image ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }}
+
+      - name: Deploy orbit-web
+        run: |
+          az containerapp update \
+            --name orbit-web \
+            --resource-group ${{ env.resourceGroupName }} \
+            --image ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }}
