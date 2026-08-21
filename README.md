@@ -188,10 +188,13 @@ should self-host it instead (see https://operations.osmfoundation.org/policies/n
 
 `recurrence`, when present, is `{ frequency, intervalCount, untilUtc }` (`frequency` is `"Daily"`,
 `"Weekly"`, or `"Monthly"`; `untilUtc` is optional). A recurring event is stored as a single event
-carrying this rule - the API does not expand it into individual occurrences, so the calendar page lists
-each recurring event once with the rule described in text (e.g. "co tydzień, do 20.12.2026") rather than
-showing every future occurrence. Turning that into a real occurrence expansion, and a month/week grid
-view to place them on, is follow-up work.
+carrying this rule - the API itself never expands it into individual occurrences. The calendar page's
+day/month/year grid views do that expansion themselves, client-side, via
+`CalendarEventOccurrenceExpander` (`Orbit.Web.Services`): each occurrence that falls inside the grid's
+visible date range is generated on demand and placed on its own day/time slot, so a recurring event shows
+up on every matching date instead of only on its original `startUtc`. The server-side reminder pipeline
+does its own, independent occurrence expansion for a narrow due-or-soon window - see "Calendar event
+reminders" below.
 
 Guests and reminders (`reminderMinutesBeforeStart`, minutes before the event starts) are edited in the
 Blazor client as comma-separated text rather than as an add/remove list like task items are, since
@@ -234,17 +237,20 @@ treated as missed rather than emailed late. A single poll sends at most 100 remi
 server; anything past that cap is simply picked up on the next minute's poll.
 
 Each reminder is reserved before it's sent, not just recorded after: `EventReminderRepository.TryClaimAsync`
-inserts its row into a dedicated `EventReminderDeliveries` table (unique-indexed on the event/lead-time
-pair) *before* the email goes out, and only sends if that insert wins the race. A failed insert means
-another worker already claimed the same reminder, so this one backs off instead of sending a duplicate -
-the unique index is the actual concurrency guard, not the earlier existence check
+inserts its row into a dedicated `EventReminderDeliveries` table (unique-indexed on the event/lead-time/
+occurrence triple) *before* the email goes out, and only sends if that insert wins the race. A failed
+insert means another worker already claimed the same reminder, so this one backs off instead of sending a
+duplicate - the unique index is the actual concurrency guard, not the earlier existence check
 (`HasBeenSentAsync`), which stays as a cheap pre-filter only. This is what makes it safe to eventually run
 more than one instance of this background service at once, without needing a distributed lock or message
 queue: whichever instance's insert lands first wins, everyone else backs off. If sending fails after the
 claim succeeds (e.g. a transient SMTP error), `ReleaseClaimAsync` removes the reservation so the reminder
-is retried on a later poll instead of being silently lost. Recurring events only get a reminder for the
-single `startUtc` they carry, matching the existing limitation that recurring events aren't expanded into
-individual occurrences server-side (see above).
+is retried on a later poll instead of being silently lost. A recurring event gets a reminder for every
+occurrence, not just its original `startUtc`: `EventReminderScheduler` generates the occurrences that
+could plausibly be due right now with `CalendarEventOccurrenceGenerator` (`Orbit.Core.Calendar`) - a
+narrow window bounded by the look-back window and the event's reminder lead times, not the whole
+recurrence - and tracks each occurrence's claim separately via `OccurrenceStartUtc`, so one occurrence
+being sent never suppresses another's reminder.
 
 Email is sent via [MailKit](https://github.com/jstedfast/MailKit) (`SmtpEmailSender`), configured
 through the `Smtp` section (`Smtp:Host`, `Smtp:Port`, `Smtp:UserName`, `Smtp:FromAddress`,

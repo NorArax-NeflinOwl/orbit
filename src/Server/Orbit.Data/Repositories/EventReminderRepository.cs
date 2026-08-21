@@ -27,21 +27,25 @@ public sealed class EventReminderRepository : IEventReminderRepository
         return entities.Select(CalendarEventEntityMapper.ToDomain).ToList();
     }
 
-    public Task<bool> HasBeenSentAsync(Guid calendarEventId, int minutesBeforeStart, CancellationToken cancellationToken)
+    public Task<bool> HasBeenSentAsync(
+        Guid calendarEventId, int minutesBeforeStart, DateTimeOffset occurrenceStartUtc, CancellationToken cancellationToken)
         => _dbContext.EventReminderDeliveries
             .AsNoTracking()
             .AnyAsync(
-                delivery => delivery.CalendarEventId == calendarEventId && delivery.MinutesBeforeStart == minutesBeforeStart,
+                delivery => delivery.CalendarEventId == calendarEventId && delivery.MinutesBeforeStart == minutesBeforeStart
+                    && delivery.OccurrenceStartUtc == occurrenceStartUtc,
                 cancellationToken);
 
     public async Task<bool> TryClaimAsync(
-        Guid calendarEventId, int minutesBeforeStart, DateTimeOffset claimedAtUtc, CancellationToken cancellationToken)
+        Guid calendarEventId, int minutesBeforeStart, DateTimeOffset occurrenceStartUtc, DateTimeOffset claimedAtUtc,
+        CancellationToken cancellationToken)
     {
         var claim = new EventReminderDeliveryEntity
         {
             Id = Guid.NewGuid(),
             CalendarEventId = calendarEventId,
             MinutesBeforeStart = minutesBeforeStart,
+            OccurrenceStartUtc = occurrenceStartUtc,
             SentAtUtc = claimedAtUtc
         };
         _dbContext.EventReminderDeliveries.Add(claim);
@@ -53,20 +57,22 @@ public sealed class EventReminderRepository : IEventReminderRepository
         }
         catch (DbUpdateException)
         {
-            // The unique index on (CalendarEventId, MinutesBeforeStart) rejected the insert - another
-            // worker already claimed this reminder first. Detach the failed row so the change tracker
-            // doesn't keep retrying it on this DbContext's next SaveChangesAsync call (this instance is
-            // reused across every reminder processed in the same poll tick - see
+            // The unique index on (CalendarEventId, MinutesBeforeStart, OccurrenceStartUtc) rejected the
+            // insert - another worker already claimed this reminder first. Detach the failed row so the
+            // change tracker doesn't keep retrying it on this DbContext's next SaveChangesAsync call (this
+            // instance is reused across every reminder processed in the same poll tick - see
             // CalendarEventReminderBackgroundService).
             _dbContext.Entry(claim).State = EntityState.Detached;
             return false;
         }
     }
 
-    public async Task ReleaseClaimAsync(Guid calendarEventId, int minutesBeforeStart, CancellationToken cancellationToken)
+    public async Task ReleaseClaimAsync(
+        Guid calendarEventId, int minutesBeforeStart, DateTimeOffset occurrenceStartUtc, CancellationToken cancellationToken)
     {
         var claim = await _dbContext.EventReminderDeliveries.FirstOrDefaultAsync(
-            delivery => delivery.CalendarEventId == calendarEventId && delivery.MinutesBeforeStart == minutesBeforeStart,
+            delivery => delivery.CalendarEventId == calendarEventId && delivery.MinutesBeforeStart == minutesBeforeStart
+                && delivery.OccurrenceStartUtc == occurrenceStartUtc,
             cancellationToken);
 
         if (claim is not null)

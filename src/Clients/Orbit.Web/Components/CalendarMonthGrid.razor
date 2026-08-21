@@ -43,7 +43,7 @@
                                     {
                                         <span class="calendar-event-chip-time">@calendarEvent.Details.StartUtc.LocalDateTime.ToString("HH:mm")</span>
                                     }
-                                    <span class="calendar-event-chip-title">@calendarEvent.Details.Title</span>
+                                    <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@calendarEvent.Details.Title</span>
                                 </button>
                             }
                             @if (day.Events.Count > MaxVisibleEvents)
@@ -95,6 +95,9 @@
 
     private static string EventColor(CalendarEventDto calendarEvent)
         => string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "#4a90d9" : calendarEvent.Details.Color;
+
+    /// <summary>A small marker in front of a recurring event's title, distinguishing a generated occurrence from a one-off event.</summary>
+    private static string RecurringPrefix(CalendarEventDto calendarEvent) => calendarEvent.Details.Recurrence is not null ? "↻ " : "";
 
     private Task DaySelectedAsync(DateOnly date) => OnDaySelected.InvokeAsync(date);
 

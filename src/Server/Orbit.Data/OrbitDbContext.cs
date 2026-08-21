@@ -115,10 +115,12 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<EventReminderDeliveryEntity>(entity =>
         {
             entity.HasKey(delivery => delivery.Id);
-            // A given event/lead-time pair is only ever sent once; this unique index is what actually
-            // enforces that - EventReminderRepository's HasBeenSentAsync check is a check-then-act read
-            // that alone can't guarantee it.
-            entity.HasIndex(delivery => new { delivery.CalendarEventId, delivery.MinutesBeforeStart }).IsUnique();
+            // A given event/lead-time/occurrence triple is only ever sent once; this unique index is what
+            // actually enforces that - EventReminderRepository's HasBeenSentAsync check is a check-then-act
+            // read that alone can't guarantee it. OccurrenceStartUtc is part of the key (rather than just
+            // CalendarEventId/MinutesBeforeStart) so a recurring event's reminders are tracked per
+            // occurrence instead of only ever firing once for the whole series.
+            entity.HasIndex(delivery => new { delivery.CalendarEventId, delivery.MinutesBeforeStart, delivery.OccurrenceStartUtc }).IsUnique();
         });
 
         modelBuilder.Entity<ContactEntity>(entity =>

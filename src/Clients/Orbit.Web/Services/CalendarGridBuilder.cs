@@ -22,12 +22,13 @@ public static class CalendarGridBuilder
         var lastOfMonth = firstOfMonth.AddMonths(1).AddDays(-1);
         var gridStart = firstOfMonth.AddDays(-DaysSinceMonday(firstOfMonth.DayOfWeek));
         var gridEnd = lastOfMonth.AddDays(DaysUntilSunday(lastOfMonth.DayOfWeek));
+        var expandedEvents = ExpandRecurringEvents(events, gridStart, gridEnd);
 
         var weeks = new List<MonthGridWeek>();
         for (var weekStart = gridStart; weekStart <= gridEnd; weekStart = weekStart.AddDays(7))
         {
             var days = Enumerable.Range(0, 7)
-                .Select(dayOffset => BuildMonthGridDay(weekStart.AddDays(dayOffset), monthReferenceDate.Month, events))
+                .Select(dayOffset => BuildMonthGridDay(weekStart.AddDays(dayOffset), monthReferenceDate.Month, expandedEvents))
                 .ToList();
             weeks.Add(new MonthGridWeek(days));
         }
@@ -48,7 +49,8 @@ public static class CalendarGridBuilder
     /// </summary>
     public static DayGrid BuildDayGrid(DateOnly day, IReadOnlyList<CalendarEventDto> events)
     {
-        var eventsOnDay = events.Where(calendarEvent => OccursOnDate(calendarEvent.Details, day)).ToList();
+        var expandedEvents = ExpandRecurringEvents(events, day, day);
+        var eventsOnDay = expandedEvents.Where(calendarEvent => OccursOnDate(calendarEvent.Details, day)).ToList();
         var allDayEvents = eventsOnDay
             .Where(calendarEvent => calendarEvent.Details.IsAllDay)
             .OrderBy(calendarEvent => calendarEvent.Details.Title, StringComparer.CurrentCultureIgnoreCase)
@@ -62,6 +64,24 @@ public static class CalendarGridBuilder
 
         return new DayGrid(day, allDayEvents, AssignColumns(timedSlots));
     }
+
+    /// <summary>
+    /// Replaces every recurring event in events with one synthetic copy per occurrence that falls within
+    /// [windowStartDate, windowEndDateInclusive] (see CalendarEventOccurrenceExpander), so a weekly standup
+    /// or monthly bill shows up on each of its actual dates instead of only the single date the event
+    /// itself is stored under. Non-recurring events pass through unchanged.
+    /// </summary>
+    private static IReadOnlyList<CalendarEventDto> ExpandRecurringEvents(
+        IReadOnlyList<CalendarEventDto> events, DateOnly windowStartDate, DateOnly windowEndDateInclusive)
+    {
+        var windowStart = ToLocalStartOfDay(windowStartDate);
+        var windowEndExclusive = ToLocalStartOfDay(windowEndDateInclusive.AddDays(1));
+        return events
+            .SelectMany(calendarEvent => CalendarEventOccurrenceExpander.ExpandOccurrences(calendarEvent, windowStart, windowEndExclusive))
+            .ToList();
+    }
+
+    private static DateTimeOffset ToLocalStartOfDay(DateOnly date) => new(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local));
 
     private static MonthGridDay BuildMonthGridDay(DateOnly date, int displayedMonth, IReadOnlyList<CalendarEventDto> events)
     {

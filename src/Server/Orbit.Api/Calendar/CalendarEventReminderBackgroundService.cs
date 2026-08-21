@@ -107,7 +107,7 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         // lock or message queue: whichever instance's claim lands first wins, the other backs off here.
         var claimedAtUtc = DateTimeOffset.UtcNow;
         var claimed = await eventReminderRepository.TryClaimAsync(
-            calendarEvent.Id, dueReminder.MinutesBeforeStart, claimedAtUtc, cancellationToken);
+            calendarEvent.Id, dueReminder.MinutesBeforeStart, dueReminder.OccurrenceStartUtc, claimedAtUtc, cancellationToken);
         if (!claimed)
         {
             return;
@@ -122,8 +122,9 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
             return;
         }
 
-        var (subject, body) = EventReminderEmailContent.Build(calendarEvent.Details, dueReminder.MinutesBeforeStart);
-        var pushPayload = EventReminderPushContent.Build(calendarEvent.Details, calendarEvent.Id, dueReminder.MinutesBeforeStart);
+        var occurrenceDetails = BuildOccurrenceDetails(calendarEvent.Details, dueReminder.OccurrenceStartUtc);
+        var (subject, body) = EventReminderEmailContent.Build(occurrenceDetails, dueReminder.MinutesBeforeStart);
+        var pushPayload = EventReminderPushContent.Build(occurrenceDetails, calendarEvent.Id, dueReminder.MinutesBeforeStart);
 
         // Sent best-effort per recipient: the claim above guards the whole event+lead-time pair, not
         // each recipient individually (see TryClaimAsync), so once at least one e-mail has gone out the
@@ -152,8 +153,26 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
 
         if (!sentToAnyRecipient)
         {
-            await eventReminderRepository.ReleaseClaimAsync(calendarEvent.Id, dueReminder.MinutesBeforeStart, cancellationToken);
+            await eventReminderRepository.ReleaseClaimAsync(
+                calendarEvent.Id, dueReminder.MinutesBeforeStart, dueReminder.OccurrenceStartUtc, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// The event details to notify about: as stored, for a non-recurring event or a recurring event's very
+    /// first occurrence, or shifted onto occurrenceStartUtc (preserving the event's own duration) so the
+    /// reminder's subject/body/push payload reflect the occurrence that is actually due rather than always
+    /// the series' original start time.
+    /// </summary>
+    private static CalendarEventDetails BuildOccurrenceDetails(CalendarEventDetails details, DateTimeOffset occurrenceStartUtc)
+    {
+        if (occurrenceStartUtc == details.StartUtc)
+        {
+            return details;
+        }
+
+        var duration = details.EndUtc - details.StartUtc;
+        return details with { StartUtc = occurrenceStartUtc, EndUtc = occurrenceStartUtc + duration };
     }
 
     /// <summary>
