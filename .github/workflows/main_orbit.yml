@@ -49,6 +49,7 @@ jobs:
         run: |
           az acr build \
             --registry ${{ env.registryName }} \
+            --resource-group ${{ env.resourceGroupName }} \
             --file src/Server/Orbit.Api/Dockerfile \
             --image orbit-api:${{ github.sha }} \
             --image orbit-api:latest \
@@ -59,9 +60,11 @@ jobs:
         run: |
           az acr build \
             --registry ${{ env.registryName }} \
+            --resource-group ${{ env.resourceGroupName }} \
             --file src/Clients/Orbit.Web/Dockerfile \
             --image orbit-web:${{ github.sha }} \
             --image orbit-web:latest \
+            --build-arg NGINX_CONF_FILE=nginx.azure.conf \
             .
 
       # Points each Container App at the image just built, tagged by commit SHA so the deployed
