@@ -4,7 +4,9 @@ using Orbit.Contracts.Users;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Users;
 using Orbit.Core.Users.GetUserById;
+using Orbit.Core.Users.GetWrappedPrivateKey;
 using Orbit.Core.Users.SearchUser;
+using Orbit.Core.Users.SetEncryptionKey;
 using Orbit.Core.Users.SetPublicKey;
 
 namespace Orbit.Api.Users;
@@ -36,6 +38,26 @@ public static class UserEndpoints
             await dispatcher.SendAsync(new SetPublicKeyCommand(GetUserId(user), request.PublicKeyBase64), cancellationToken);
             return Results.NoContent();
         });
+
+        users.MapPut("/me/encryption-key", async (
+            SetEncryptionKeyRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var wrappedPrivateKey = new WrappedPrivateKey(
+                request.WrappedPrivateKey.CiphertextBase64, request.WrappedPrivateKey.NonceBase64,
+                request.WrappedPrivateKey.SaltBase64, request.WrappedPrivateKey.Iterations);
+            await dispatcher.SendAsync(
+                new SetEncryptionKeyCommand(GetUserId(user), request.PublicKeyBase64, wrappedPrivateKey), cancellationToken);
+            return Results.NoContent();
+        });
+
+        // Null means the caller has never backed up a private key from this account (or only ever used a
+        // browser predating this feature) - a normal state, not an error, so this is 204 rather than 404.
+        users.MapGet("/me/encryption-key", async (
+            ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var result = await dispatcher.SendAsync(new GetWrappedPrivateKeyQuery(GetUserId(user)), cancellationToken);
+            return result is null ? Results.NoContent() : Results.Ok(ToDto(result));
+        });
     }
 
     /// <summary>
@@ -52,4 +74,9 @@ public static class UserEndpoints
 
     private static UserSearchResultDto ToDto(User user)
         => new(user.Id, user.UserName, user.DisplayName, user.PublicKeyBase64);
+
+    private static WrappedPrivateKeyDto ToDto(WrappedPrivateKey wrappedPrivateKey)
+        => new(
+            wrappedPrivateKey.CiphertextBase64, wrappedPrivateKey.NonceBase64, wrappedPrivateKey.SaltBase64,
+            wrappedPrivateKey.Iterations);
 }

@@ -29,6 +29,10 @@
                     }
                     <button @onclick="LogoutAsync">Wyloguj</button>
                 </div>
+                @if (_pushNotificationErrorMessage is not null)
+                {
+                    <p class="error">@_pushNotificationErrorMessage</p>
+                }
             </Authorized>
         </AuthorizeView>
         @Body
@@ -39,6 +43,7 @@
     private bool? _pushNotificationsSupported;
     private bool _pushNotificationsEnabled;
     private bool _pushNotificationActionInProgress;
+    private string? _pushNotificationErrorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -95,6 +100,14 @@
             // the HttpRequestException catch above: best-effort, not a precondition for using the app.
             Logger.LogWarning(exception, "End-to-end encryption is unavailable in this browsing context");
         }
+        catch (EncryptionKeyLockedException)
+        {
+            // This browser has no local private key for the signed-in user (see
+            // OwnEncryptionKeyProvider.EnsurePublicKeyAsync) - restoring it needs the account password,
+            // which isn't available here since this runs on every page load, not just right after
+            // sign-in. Left unpublished until the user opens Chat.razor, which has a dedicated UI for
+            // this and, unlike here, offers a way to resolve it by signing in again.
+        }
     }
 
     private void OnAuthenticationStateChanged(Task<AuthenticationState> newState)
@@ -137,6 +150,7 @@
     private async Task TogglePushNotificationsAsync()
     {
         _pushNotificationActionInProgress = true;
+        _pushNotificationErrorMessage = null;
         StateHasChanged();
 
         try
@@ -149,6 +163,14 @@
             else
             {
                 _pushNotificationsEnabled = await PushNotificationManager.EnableAsync();
+                if (!_pushNotificationsEnabled)
+                {
+                    // EnableAsync returns false, rather than throwing, when the user denies browser
+                    // permission or Orbit.Api has no VAPID key configured - both silent by design up to
+                    // this point, so without this the button would otherwise just do nothing visible.
+                    _pushNotificationErrorMessage =
+                        "Nie udało się włączyć powiadomień push. Sprawdź uprawnienia przeglądarki i spróbuj ponownie.";
+                }
             }
         }
         catch (HttpRequestException exception)
@@ -157,13 +179,17 @@
             // session, ...) - logged rather than surfaced as a crash, same reasoning as
             // EnsureEncryptionKeyIfAuthenticatedAsync's HttpRequestException catch.
             Logger.LogWarning(exception, "Failed to update the push notification subscription");
+            _pushNotificationErrorMessage = "Nie udało się zaktualizować subskrypcji powiadomień. Spróbuj ponownie.";
         }
         catch (JSException exception)
         {
             // Same secure-context restriction as RefreshPushNotificationStateIfAuthenticatedAsync -
             // IsSupportedAsync can pass (the browser APIs exist) while actually subscribing still fails
-            // outside a secure context.
+            // outside a secure context. Also covers a stale browser-level subscription conflict that
+            // pushNotifications.js's requestPermissionAndSubscribe can no longer avoid on its own (e.g.
+            // an unusual failure clearing the old subscription first).
             Logger.LogWarning(exception, "Failed to update the push notification subscription");
+            _pushNotificationErrorMessage = "Nie udało się zaktualizować subskrypcji powiadomień. Spróbuj ponownie.";
         }
         finally
         {

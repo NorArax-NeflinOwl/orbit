@@ -4,6 +4,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -25,6 +26,22 @@ public sealed class RegisterTests : TestContext
         Services.AddSingleton(authenticationStateProvider);
         Services.AddSingleton<AuthenticationStateProvider>(authenticationStateProvider);
         Services.AddAuthorizationCore();
+
+        // Register now calls OwnEncryptionKeyProvider.UnlockOrCreateAsync after a successful sign-up, so
+        // it needs to resolve here too. JSInterop.JSRuntime (bUnit's own JS interop double), not
+        // Services.GetRequiredService<IJSRuntime>() - resolving a service from Services here would lock
+        // the container against further registrations, since bUnit treats that as "the component tree
+        // has started rendering".
+        var usersApiClient = new UsersApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") });
+        Services.AddSingleton(usersApiClient);
+        Services.AddSingleton(new OwnEncryptionKeyProvider(JSInterop.JSRuntime, usersApiClient, authenticationStateProvider));
+
+        // Simulates the same "crypto.subtle unavailable" condition e2eeChat.js hits outside a secure
+        // context, rather than leaving the unconfigured call return null (bUnit's default "Loose" JS
+        // interop mode) and crash with a NullReferenceException instead of hitting Register's own
+        // best-effort catch (JSException) path.
+        JSInterop.Setup<IJSObjectReference>("import", _ => true)
+            .SetException(new JSException("crypto.subtle is not available in this test environment."));
     }
 
     [Fact]

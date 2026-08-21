@@ -9,6 +9,7 @@
 @inject CalendarApiClient CalendarApiClient
 @inject UsersApiClient UsersApiClient
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
+@inject AuthApiClient AuthApiClient
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
@@ -16,11 +17,67 @@
 
 <PageTitle>Orbit — Czat</PageTitle>
 
+<style>
+    /* Make the chat stretch across the full browser width */
+    .chat-container {
+        width: 100vw;
+        max-width: 100%;
+        margin: 0;
+        padding: 1rem;
+        box-sizing: border-box;
+    }
+
+    /* Ensure messages and controls use the available width */
+    .chat-container .chat-messages {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .chat-container .chat-message-own,
+    .chat-container .chat-message-theirs {
+        max-width: 100%;
+        word-break: break-word;
+    }
+
+    .chat-controls {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 0.5rem;
+    }
+
+    .chat-controls .chat-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 0.5rem;
+        box-sizing: border-box;
+    }
+
+    .chat-controls button {
+        flex: 0 0 auto;
+    }
+
+    /* Optional: keep some max-width for very wide displays if desired */
+    /* .chat-container { max-width: 1600px; margin: 0 auto; } */
+</style>
+
+<div class="chat-container">
 @if (_encryptionUnavailable)
 {
     <p>
         Czat wymaga bezpiecznego połączenia (adres zaczynający się od "https://", albo "http://localhost").
         Otwórz Orbit pod takim adresem i spróbuj ponownie.
+    </p>
+}
+else if (_encryptionKeyLocked)
+{
+    <p>
+        Ta przeglądarka nie ma lokalnej kopii Twojego klucza szyfrowania - najprawdopodobniej dlatego, że
+        klucz został wygenerowany w innej przeglądarce albo lokalne dane zostały wyczyszczone. Zaloguj się
+        ponownie, aby odzyskać go z zaszyfrowanej hasłem kopii zapasowej.
+        <button type="button" @onclick="ReauthenticateAsync">Wyloguj i zaloguj ponownie</button>
     </p>
 }
 else if (_otherUser is null)
@@ -58,11 +115,11 @@ else
             @foreach (var message in _messages)
             {
                 <p class="@(message.SenderUserId == _ownUserId ? "chat-message-own" : "chat-message-theirs")">
-                    <span class="chat-message-time">@message.SentAtUtc.ToLocalTime().ToString("HH:mm")</span>
+                    <span class="chat-message-time">@message.SentAtUtc.ToLocalTime().ToString("HH:mm ")</span>
                     @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[nie można odszyfrować]")
                     @if (message.SenderUserId == _ownUserId)
                     {
-                        <span class="chat-message-status">@(IsReadByOtherParty(message) ? "✓✓" : "✓")</span>
+                        <span class="chat-message-status">@(IsReadByOtherParty(message) ? " ✓✓" : " ✓")</span>
                     }
                 </p>
                 @if (message.SenderUserId != _ownUserId && _eventShareByMessageId.TryGetValue(message.Id, out var eventShare))
@@ -82,13 +139,14 @@ else
             }
         </div>
 
-        <div>
-            <input @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Wiadomość"
+        <div class="chat-controls">
+            <input class="chat-input" @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Wiadomość"
                    disabled="@RequiresApprovalFromMe" />
             <button @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">Wyślij</button>
         </div>
     }
 }
+</div>
 
 @code {
     [Parameter]
@@ -114,6 +172,7 @@ else
     private bool _isSending;
     private bool _isApprovingConversation;
     private bool _encryptionUnavailable;
+    private bool _encryptionKeyLocked;
     private IJSObjectReference? _cryptoModule;
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
@@ -167,8 +226,28 @@ else
             _encryptionUnavailable = true;
             return;
         }
+        catch (EncryptionKeyLockedException)
+        {
+            // This browser has no local private key for the signed-in user - unlike MainLayout's
+            // best-effort publishing, this genuinely blocks chatting, so it's surfaced with a dedicated
+            // explanation and a way out (see the markup above and ReauthenticateAsync below) instead of
+            // silently generating a fresh key pair here, which would orphan any existing backup.
+            _encryptionKeyLocked = true;
+            return;
+        }
 
         StartPolling();
+    }
+
+    /// <summary>
+    /// Signs the user out and sends them back to the login page, where a fresh sign-in runs
+    /// OwnEncryptionKeyProvider.UnlockOrCreateAsync with the password needed to restore this browser's
+    /// private key from its server-side backup.
+    /// </summary>
+    private async Task ReauthenticateAsync()
+    {
+        await AuthApiClient.LogoutAsync();
+        NavigationManager.NavigateTo("/login");
     }
 
     private void StartPolling()

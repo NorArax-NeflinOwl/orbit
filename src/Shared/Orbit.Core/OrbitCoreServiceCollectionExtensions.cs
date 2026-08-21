@@ -37,9 +37,11 @@ using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Users;
 using Orbit.Core.Users.GetUserById;
+using Orbit.Core.Users.GetWrappedPrivateKey;
 using Orbit.Core.Users.Login;
 using Orbit.Core.Users.RegisterUser;
 using Orbit.Core.Users.SearchUser;
+using Orbit.Core.Users.SetEncryptionKey;
 using Orbit.Core.Users.SetPublicKey;
 
 namespace Orbit.Core;
@@ -91,6 +93,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<SearchUserQuery, User?>, SearchUserQueryHandler>();
         services.AddScoped<IRequestHandler<GetUserByIdQuery, User?>, GetUserByIdQueryHandler>();
         services.AddScoped<IRequestHandler<SetPublicKeyCommand, bool>, SetPublicKeyCommandHandler>();
+        services.AddScoped<IRequestHandler<SetEncryptionKeyCommand, bool>, SetEncryptionKeyCommandHandler>();
+        services.AddScoped<IRequestHandler<GetWrappedPrivateKeyQuery, WrappedPrivateKey?>, GetWrappedPrivateKeyQueryHandler>();
 
         services.AddScoped<IRequestHandler<SendMessageCommand, SendMessageResult>, SendMessageCommandHandler>();
         services.AddScoped<IRequestHandler<GetConversationQuery, IReadOnlyList<ChatMessage>>, GetConversationQueryHandler>();

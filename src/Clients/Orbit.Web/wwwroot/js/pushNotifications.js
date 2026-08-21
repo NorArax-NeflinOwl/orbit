@@ -51,6 +51,19 @@ export async function requestPermissionAndSubscribe(vapidPublicKeyBase64Url) {
 
     const registration = await navigator.serviceWorker.register(serviceWorkerUrl);
     await navigator.serviceWorker.ready;
+
+    // A subscription created under a different VAPID key than the one Orbit.Api currently has
+    // configured (e.g. an old subscription from before Vapid:PublicKeyBase64Url was set, or from
+    // pointing this browser at a different environment) can't just be replaced: subscribing again
+    // while it's still active throws "InvalidStateError: ... a subscription with a different
+    // applicationServerKey already exists" - and getExistingSubscriptionEndpoint doesn't distinguish
+    // that from a healthy subscription, so the "Włącz" button silently fails every time instead of
+    // just recovering. Clearing it first avoids the conflict outright, whatever caused it.
+    const existingSubscription = await registration.pushManager.getSubscription();
+    if (existingSubscription) {
+        await existingSubscription.unsubscribe();
+    }
+
     const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: base64UrlToUint8Array(vapidPublicKeyBase64Url)

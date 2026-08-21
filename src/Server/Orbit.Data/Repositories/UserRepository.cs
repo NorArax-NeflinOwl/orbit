@@ -55,7 +55,7 @@ public sealed class UserRepository : IUserRepository
     private static User ToDomain(UserEntity entity)
         => User.FromPersistence(
             entity.Id, entity.Email, entity.UserName, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc,
-            entity.PublicKeyBase64);
+            entity.PublicKeyBase64, ToWrappedPrivateKey(entity));
 
     private static UserEntity ToEntity(User user)
         => new()
@@ -66,6 +66,28 @@ public sealed class UserRepository : IUserRepository
             DisplayName = user.DisplayName,
             PasswordHash = user.PasswordHash,
             CreatedAtUtc = user.CreatedAtUtc,
-            PublicKeyBase64 = user.PublicKeyBase64
+            PublicKeyBase64 = user.PublicKeyBase64,
+            WrappedPrivateKeyBase64 = user.WrappedPrivateKey?.CiphertextBase64,
+            PrivateKeyWrapNonceBase64 = user.WrappedPrivateKey?.NonceBase64,
+            PrivateKeySaltBase64 = user.WrappedPrivateKey?.SaltBase64,
+            PrivateKeyDerivationIterations = user.WrappedPrivateKey?.Iterations
         };
+
+    /// <summary>
+    /// The four wrapped-private-key columns are only ever written together (see ToEntity) and read back
+    /// together here - null unless every one of them is present, rather than trusting just one to decide
+    /// whether a backup exists.
+    /// </summary>
+    private static WrappedPrivateKey? ToWrappedPrivateKey(UserEntity entity)
+    {
+        if (entity.WrappedPrivateKeyBase64 is null || entity.PrivateKeyWrapNonceBase64 is null ||
+            entity.PrivateKeySaltBase64 is null || entity.PrivateKeyDerivationIterations is null)
+        {
+            return null;
+        }
+
+        return new WrappedPrivateKey(
+            entity.WrappedPrivateKeyBase64, entity.PrivateKeyWrapNonceBase64, entity.PrivateKeySaltBase64,
+            entity.PrivateKeyDerivationIterations.Value);
+    }
 }

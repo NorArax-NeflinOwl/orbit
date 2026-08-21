@@ -87,6 +87,13 @@ public sealed class OrbitDbContext : DbContext
             // A P-256 ECDH public key (raw, uncompressed) base64-encodes to about 88 characters; 200
             // leaves comfortable headroom without being unbounded.
             entity.Property(user => user.PublicKeyBase64).HasMaxLength(200);
+            // The JWK-exported private key, AES-GCM-encrypted; JWK JSON for a P-256 key is small, but
+            // base64 overhead and formatting leave room to spare.
+            entity.Property(user => user.WrappedPrivateKeyBase64).HasMaxLength(1000);
+            // A 12-byte AES-GCM nonce base64-encodes to exactly 16 characters.
+            entity.Property(user => user.PrivateKeyWrapNonceBase64).HasMaxLength(16);
+            // A 16-byte PBKDF2 salt base64-encodes to exactly 24 characters.
+            entity.Property(user => user.PrivateKeySaltBase64).HasMaxLength(24);
             // Registration checks these before creating an account, and login looks users up by
             // either one; the unique indexes make all of that fast and rule out duplicate accounts or
             // duplicate usernames at the database level.

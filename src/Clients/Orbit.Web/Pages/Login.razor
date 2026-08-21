@@ -1,6 +1,7 @@
 @page "/login"
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
+@inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<Login> Logger
@@ -60,6 +61,11 @@
         if (result.Outcome == AuthOutcome.Success)
         {
             Logger.LogInformation("User logged in");
+            // Resolved before Notify, not after: Notify is what makes MainLayout's own (fire-and-forget,
+            // best-effort) key-publishing attempt run, and that attempt throws EncryptionKeyLockedException
+            // for a browser with no local key yet - which every fresh sign-in on a new browser is, until
+            // this call finishes. Running this first means that attempt always finds a key already there.
+            await TryUnlockEncryptionKeyAsync(_formModel.Password);
             AuthenticationStateProvider.NotifyAuthenticationStateChanged();
             NavigationManager.NavigateTo("/");
             return;
@@ -71,6 +77,29 @@
             _ => "Wystąpił błąd podczas logowania. Spróbuj ponownie."
         };
         _isSubmitting = false;
+    }
+
+    /// <summary>
+    /// Restores this browser's E2EE private key from its server-side backup, or generates a fresh one if
+    /// there is none - the plaintext password needed for either is only ever available right here, right
+    /// after a successful login (see OwnEncryptionKeyProvider.UnlockOrCreateAsync). Best-effort, like
+    /// MainLayout's own attempt on every page load: a failure here just leaves the key unresolved until
+    /// the user opens Chat.razor, which has a dedicated way to recover from that.
+    /// </summary>
+    private async Task TryUnlockEncryptionKeyAsync(string password)
+    {
+        try
+        {
+            await OwnEncryptionKeyProvider.UnlockOrCreateAsync(password);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to restore or publish the local E2EE key after logging in");
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "End-to-end encryption is unavailable in this browsing context");
+        }
     }
 
     private sealed class LoginFormModel
