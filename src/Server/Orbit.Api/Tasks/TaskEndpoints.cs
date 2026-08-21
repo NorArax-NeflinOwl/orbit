@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DeleteTaskList;
@@ -67,14 +68,33 @@ public static class TaskEndpoints
     }
 
     private static IReadOnlyList<TaskItem> ToDomainItems(IReadOnlyList<TaskItemRequest> items)
-        => items.Select(item => TaskItem.Create(item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId)).ToList();
+        => items
+            .Select(item => TaskItem.Create(
+                item.Description,
+                item.DueDateUtc,
+                item.IsCompleted,
+                item.LinkedTaskListId,
+                Enum.Parse<NotificationChannel>(item.OverdueNotificationChannel, ignoreCase: true),
+                item.RemindDaily,
+                Enum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, ignoreCase: true),
+                item.DailyReminderTimeOfDay))
+            .ToList();
 
     private static TaskDto ToDto(TaskList taskList)
         => new(
             taskList.Id,
             taskList.Title,
             taskList.Items
-                .Select(item => new TaskItemDto(item.Id, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId))
+                .Select(item => new TaskItemDto(
+                    item.Id,
+                    item.Description,
+                    item.DueDateUtc,
+                    item.IsCompleted,
+                    item.LinkedTaskListId,
+                    item.OverdueNotificationChannel.ToString(),
+                    item.RemindDaily,
+                    item.DailyReminderNotificationChannel.ToString(),
+                    item.DailyReminderTimeOfDay))
                 .ToList(),
             taskList.IsCompleted,
             taskList.CreatedAtUtc,

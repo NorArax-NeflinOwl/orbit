@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.AcceptCalendarEventShare;
+using Orbit.Core.Notifications;
 using Orbit.Core.Users;
 using Xunit;
 
@@ -10,7 +11,7 @@ public sealed class AcceptCalendarEventShareCommandHandlerTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
         "Team sync", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [],
-        NotifyOnCreation: false, NotifyBeforeStart: false);
+        CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.None);
 
     [Fact]
     public async Task HandleAsync_creates_a_read_only_copy_in_the_recipients_calendar()

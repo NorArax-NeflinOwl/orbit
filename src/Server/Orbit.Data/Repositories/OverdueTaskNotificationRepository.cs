@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Notifications;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Data.Entities;
 
@@ -22,6 +23,7 @@ public sealed class OverdueTaskNotificationRepository : IOverdueTaskNotification
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
             where !item.IsCompleted && item.DueDateUtc != null && item.LinkedTaskListId == null
+                && item.OverdueNotificationChannel != "None"
             select new
             {
                 item.Id,
@@ -29,11 +31,14 @@ public sealed class OverdueTaskNotificationRepository : IOverdueTaskNotification
                 task.UserId,
                 task.Title,
                 item.Description,
-                item.DueDateUtc
+                item.DueDateUtc,
+                item.OverdueNotificationChannel
             }).ToListAsync(cancellationToken);
 
         return rows
-            .Select(row => new OverdueTaskItem(row.Id, row.TaskId, row.UserId, row.Title, row.Description, row.DueDateUtc!.Value))
+            .Select(row => new OverdueTaskItem(
+                row.Id, row.TaskId, row.UserId, row.Title, row.Description, row.DueDateUtc!.Value,
+                Enum.Parse<NotificationChannel>(row.OverdueNotificationChannel, ignoreCase: true)))
             .ToList();
     }
 

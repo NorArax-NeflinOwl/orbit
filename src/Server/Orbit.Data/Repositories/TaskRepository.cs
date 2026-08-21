@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Data.Entities;
 
@@ -93,7 +94,16 @@ public sealed class TaskRepository : ITaskRepository
             entity.UpdatedAtUtc);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
-        => TaskItem.FromPersistence(entity.Id, entity.Description, entity.DueDateUtc, entity.IsCompleted, entity.LinkedTaskListId);
+        => TaskItem.FromPersistence(
+            entity.Id,
+            entity.Description,
+            entity.DueDateUtc,
+            entity.IsCompleted,
+            entity.LinkedTaskListId,
+            Enum.Parse<NotificationChannel>(entity.OverdueNotificationChannel, ignoreCase: true),
+            entity.RemindDaily,
+            Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
+            TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes)));
 
     private static TaskEntity ToEntity(TaskList taskList)
         => new()
@@ -115,6 +125,10 @@ public sealed class TaskRepository : ITaskRepository
             Description = item.Description,
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
-            LinkedTaskListId = item.LinkedTaskListId
+            LinkedTaskListId = item.LinkedTaskListId,
+            OverdueNotificationChannel = item.OverdueNotificationChannel.ToString(),
+            RemindDaily = item.RemindDaily,
+            DailyReminderNotificationChannel = item.DailyReminderNotificationChannel.ToString(),
+            DailyReminderTimeOfDayMinutes = item.DailyReminderTimeOfDay.Hour * 60 + item.DailyReminderTimeOfDay.Minute
         };
 }

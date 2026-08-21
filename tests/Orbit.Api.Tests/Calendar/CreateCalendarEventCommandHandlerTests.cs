@@ -12,7 +12,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
         "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [],
-        NotifyOnCreation: false, NotifyBeforeStart: false);
+        CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.None);
 
     [Fact]
     public async Task HandleAsync_creates_a_calendar_event_owned_by_the_requesting_user()
@@ -77,7 +77,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
         await userRepository.AddAsync(owner, CancellationToken.None);
         var emailSender = new RecordingEmailSender();
         var handler = CreateHandler(new InMemoryCalendarEventRepository(), userRepository, emailSender);
-        var details = DefaultDetails with { Title = "Team sync", NotifyOnCreation = true };
+        var details = DefaultDetails with { Title = "Team sync", CreationNotificationChannel = NotificationChannel.Email };
 
         await handler.HandleAsync(new CreateCalendarEventCommand(owner.Id, details), CancellationToken.None);
 
@@ -94,7 +94,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
         await userRepository.AddAsync(owner, CancellationToken.None);
         var emailSender = new RecordingEmailSender();
         var handler = CreateHandler(new InMemoryCalendarEventRepository(), userRepository, emailSender);
-        var details = DefaultDetails with { NotifyOnCreation = false };
+        var details = DefaultDetails with { CreationNotificationChannel = NotificationChannel.None };
 
         await handler.HandleAsync(new CreateCalendarEventCommand(owner.Id, details), CancellationToken.None);
 
@@ -109,7 +109,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
         var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow, null);
         await userRepository.AddAsync(owner, CancellationToken.None);
         var handler = CreateHandler(repository, userRepository, new ThrowingEmailSender());
-        var details = DefaultDetails with { Title = "Team sync", NotifyOnCreation = true };
+        var details = DefaultDetails with { Title = "Team sync", CreationNotificationChannel = NotificationChannel.Email };
 
         var eventId = await handler.HandleAsync(new CreateCalendarEventCommand(owner.Id, details), CancellationToken.None);
 
@@ -123,6 +123,9 @@ public sealed class CreateCalendarEventCommandHandlerTests
             repository,
             userRepository ?? new InMemoryUserRepository(),
             emailSender ?? new RecordingEmailSender(),
+            new PushNotificationDispatcher(
+                new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(),
+                NullLogger<PushNotificationDispatcher>.Instance),
             NullLogger<CreateCalendarEventCommandHandler>.Instance);
 
     /// <summary>Simulates a transient SMTP failure to verify creation stays successful despite it.</summary>

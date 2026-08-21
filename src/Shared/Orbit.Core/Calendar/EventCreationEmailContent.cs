@@ -2,7 +2,8 @@ namespace Orbit.Core.Calendar;
 
 /// <summary>
 /// Builds the subject and body of the email sent once, immediately, when a calendar event is first
-/// created with <see cref="CalendarEventDetails.NotifyOnCreation"/> turned on - see
+/// created with <see cref="CalendarEventDetails.CreationNotificationChannel"/> including
+/// <see cref="Notifications.NotificationChannel.Email"/> - see
 /// <see cref="Reminders.EventReminderEmailContent"/> for the separate "event is approaching" email.
 /// </summary>
 public static class EventCreationEmailContent

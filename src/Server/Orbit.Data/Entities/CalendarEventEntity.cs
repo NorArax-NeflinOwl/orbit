@@ -38,15 +38,19 @@ public sealed class CalendarEventEntity
     /// <summary>JSON-encoded list of reminder offsets, in minutes before the event start.</summary>
     public string RemindersJson { get; set; } = "[]";
 
-    /// <summary>Whether an email is sent to the event's owner immediately when the event is first created.</summary>
-    public bool NotifyOnCreation { get; set; }
+    /// <summary>
+    /// One of "None", "Email", "Push", "Both" - which channel(s) get notified immediately when the
+    /// event is first created (see Orbit.Core.Notifications.NotificationChannel).
+    /// </summary>
+    public string CreationNotificationChannel { get; set; } = "None";
 
     /// <summary>
-    /// Whether the reminder emails configured via <see cref="RemindersJson"/> are actually sent as their
-    /// lead time is reached - lets an owner keep configured lead times without clearing them while
-    /// temporarily silencing "approaching event" notifications.
+    /// One of "None", "Email", "Push", "Both" - which channel(s) get notified as the reminder lead
+    /// times configured via <see cref="RemindersJson"/> come due. Kept separate from
+    /// <see cref="RemindersJson"/> itself, so an owner can keep configured lead times without clearing
+    /// them while temporarily silencing "approaching event" notifications.
     /// </summary>
-    public bool NotifyBeforeStart { get; set; }
+    public string ReminderNotificationChannel { get; set; } = "None";
 
     /// <summary>True for a read-only copy created by accepting a share offered by another user.</summary>
     public bool IsShared { get; set; }

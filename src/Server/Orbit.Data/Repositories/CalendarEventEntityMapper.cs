@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Orbit.Core.Calendar;
+using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
 
 namespace Orbit.Data.Repositories;
@@ -36,8 +37,8 @@ internal static class CalendarEventEntityMapper
             recurrence,
             JsonSerializer.Deserialize<List<Guid>>(entity.GuestsJson) ?? [],
             JsonSerializer.Deserialize<List<int>>(entity.RemindersJson) ?? [],
-            entity.NotifyOnCreation,
-            entity.NotifyBeforeStart);
+            Enum.Parse<NotificationChannel>(entity.CreationNotificationChannel),
+            Enum.Parse<NotificationChannel>(entity.ReminderNotificationChannel));
 
         return CalendarEvent.FromPersistence(
             entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc, entity.IsShared, entity.SharedByUserName);
@@ -64,8 +65,8 @@ internal static class CalendarEventEntityMapper
             RecurrenceUntilUtc = details.Recurrence?.UntilUtc,
             GuestsJson = JsonSerializer.Serialize(details.Guests),
             RemindersJson = JsonSerializer.Serialize(details.ReminderMinutesBeforeStart),
-            NotifyOnCreation = details.NotifyOnCreation,
-            NotifyBeforeStart = details.NotifyBeforeStart,
+            CreationNotificationChannel = details.CreationNotificationChannel.ToString(),
+            ReminderNotificationChannel = details.ReminderNotificationChannel.ToString(),
             IsShared = calendarEvent.IsShared,
             SharedByUserName = calendarEvent.SharedByUserName,
             CreatedAtUtc = calendarEvent.CreatedAtUtc,

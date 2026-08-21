@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.Reminders;
+using Orbit.Core.Notifications;
 using Xunit;
 
 namespace Orbit.Api.Tests.Calendar.Reminders;
@@ -117,7 +118,7 @@ public sealed class EventReminderSchedulerTests
         var createdAtUtc = startUtc.AddHours(20);
         var details = new CalendarEventDetails(
             "Holiday", null, null, null, startUtc, startUtc.AddDays(1), true, null, [], [0],
-            NotifyOnCreation: false, NotifyBeforeStart: true);
+            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
         // FromPersistence (rather than Create) is the only way to control CreatedAtUtc directly, which
         // this suppression rule depends on.
         var calendarEvent = CalendarEvent.FromPersistence(
@@ -137,7 +138,7 @@ public sealed class EventReminderSchedulerTests
         var createdAtUtc = startUtc.AddDays(-3);
         var details = new CalendarEventDetails(
             "Holiday", null, null, null, startUtc, startUtc.AddDays(1), true, null, [], [0],
-            NotifyOnCreation: false, NotifyBeforeStart: true);
+            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.FromPersistence(
             Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, isShared: false, sharedByUserName: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
@@ -160,7 +161,7 @@ public sealed class EventReminderSchedulerTests
         var recurrence = new EventRecurrence(RecurrenceFrequency.Daily, 1, null);
         var details = new CalendarEventDetails(
             "Standup", null, null, null, firstOccurrenceStartUtc, firstOccurrenceStartUtc.AddMinutes(30), false, recurrence, [], [10],
-            NotifyOnCreation: false, NotifyBeforeStart: true);
+            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.Create(Guid.NewGuid(), details);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
@@ -205,7 +206,7 @@ public sealed class EventReminderSchedulerTests
         var recurrence = new EventRecurrence(RecurrenceFrequency.Daily, 1, null);
         var details = new CalendarEventDetails(
             "Daily holiday", null, null, null, firstOccurrenceStartUtc, firstOccurrenceStartUtc.AddDays(1), true, recurrence, [], [0],
-            NotifyOnCreation: false, NotifyBeforeStart: true);
+            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.FromPersistence(
             Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, isShared: false, sharedByUserName: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
@@ -235,7 +236,7 @@ public sealed class EventReminderSchedulerTests
         var recurrence = new EventRecurrence(RecurrenceFrequency.Daily, 1, null);
         var details = new CalendarEventDetails(
             "All-hands", null, null, null, todayOccurrenceStartUtc, todayOccurrenceStartUtc.AddHours(1), false, recurrence, [], [0, 1440],
-            NotifyOnCreation: false, NotifyBeforeStart: true);
+            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.Create(Guid.NewGuid(), details);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
@@ -263,7 +264,8 @@ public sealed class EventReminderSchedulerTests
         var startUtc = now.Add(leadTime);
         var details = new CalendarEventDetails(
             "Title", null, null, null, startUtc, startUtc.AddHours(1), false, null, [], reminderMinutesBeforeStart,
-            NotifyOnCreation: false, NotifyBeforeStart: notifyBeforeStart);
+            CreationNotificationChannel: NotificationChannel.None,
+            ReminderNotificationChannel: notifyBeforeStart ? NotificationChannel.Email : NotificationChannel.None);
         return CalendarEvent.Create(Guid.NewGuid(), details);
     }
 }

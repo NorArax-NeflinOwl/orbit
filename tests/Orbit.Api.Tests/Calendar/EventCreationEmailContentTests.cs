@@ -1,4 +1,5 @@
 using Orbit.Core.Calendar;
+using Orbit.Core.Notifications;
 using Xunit;
 
 namespace Orbit.Api.Tests.Calendar;
@@ -7,7 +8,7 @@ public sealed class EventCreationEmailContentTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
         "Stand-up", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddMinutes(30), false, null, [], [],
-        NotifyOnCreation: true, NotifyBeforeStart: false);
+        CreationNotificationChannel: NotificationChannel.Email, ReminderNotificationChannel: NotificationChannel.None);
 
     [Fact]
     public void Build_includes_the_events_title_in_the_subject()

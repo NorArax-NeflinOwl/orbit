@@ -21,6 +21,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<CalendarEventShareEntity> CalendarEventShares => Set<CalendarEventShareEntity>();
     public DbSet<PushSubscriptionEntity> PushSubscriptions => Set<PushSubscriptionEntity>();
     public DbSet<TaskOverdueNotificationDeliveryEntity> TaskOverdueNotificationDeliveries => Set<TaskOverdueNotificationDeliveryEntity>();
+    public DbSet<TaskDailyReminderDeliveryEntity> TaskDailyReminderDeliveries => Set<TaskDailyReminderDeliveryEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -55,6 +56,8 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(item => item.Id);
             entity.Property(item => item.Description).IsRequired().HasMaxLength(500);
+            entity.Property(item => item.OverdueNotificationChannel).HasMaxLength(20);
+            entity.Property(item => item.DailyReminderNotificationChannel).HasMaxLength(20);
         });
 
         modelBuilder.Entity<CalendarEventEntity>(entity =>
@@ -65,6 +68,8 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(calendarEvent => calendarEvent.LocationAddress).HasMaxLength(300);
             entity.Property(calendarEvent => calendarEvent.Color).HasMaxLength(20);
             entity.Property(calendarEvent => calendarEvent.RecurrenceFrequency).HasMaxLength(20);
+            entity.Property(calendarEvent => calendarEvent.CreationNotificationChannel).HasMaxLength(20);
+            entity.Property(calendarEvent => calendarEvent.ReminderNotificationChannel).HasMaxLength(20);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(calendarEvent => calendarEvent.SharedByUserName).HasMaxLength(64);
             // Every calendar event query is scoped to a single user's events; this is the index that
@@ -175,6 +180,16 @@ public sealed class OrbitDbContext : DbContext
             // check-then-act read that alone can't guarantee it (see EventReminderDeliveryEntity for the
             // same reasoning applied to calendar event reminders).
             entity.HasIndex(delivery => delivery.TaskItemId).IsUnique();
+        });
+
+        modelBuilder.Entity<TaskDailyReminderDeliveryEntity>(entity =>
+        {
+            entity.HasKey(delivery => delivery.Id);
+            // A given (task item, local date) pair is only ever reminded about once; this unique index
+            // is what actually enforces that - DailyTaskReminderRepository.HasBeenSentAsync's check is a
+            // check-then-act read that alone can't guarantee it (see TaskOverdueNotificationDeliveryEntity
+            // above for the same reasoning applied to overdue-task notifications).
+            entity.HasIndex(delivery => new { delivery.TaskItemId, delivery.ReminderDate }).IsUnique();
         });
     }
 }

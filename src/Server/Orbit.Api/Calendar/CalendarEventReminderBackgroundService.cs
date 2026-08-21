@@ -123,32 +123,39 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         }
 
         var occurrenceDetails = BuildOccurrenceDetails(calendarEvent.Details, dueReminder.OccurrenceStartUtc);
-        var (subject, body) = EventReminderEmailContent.Build(occurrenceDetails, dueReminder.MinutesBeforeStart);
-        var pushPayload = EventReminderPushContent.Build(occurrenceDetails, calendarEvent.Id, dueReminder.MinutesBeforeStart);
+        var channel = calendarEvent.Details.ReminderNotificationChannel;
 
         // Sent best-effort per recipient: the claim above guards the whole event+lead-time pair, not
-        // each recipient individually (see TryClaimAsync), so once at least one e-mail has gone out the
-        // claim must stay in place - releasing it would make a later poll resend to whoever already
-        // received it. Only when every single recipient fails does nothing go out, making a full retry
-        // on the next poll safe. The push notification (sent to whichever recipients have push enabled)
-        // rides along on the same claim rather than needing one of its own - PushNotificationDispatcher
-        // never throws, so it never affects sentToAnyRecipient below.
+        // each recipient individually (see TryClaimAsync), so once at least one notification has gone
+        // out the claim must stay in place - releasing it would make a later poll resend to whoever
+        // already received it. Only when every single recipient's e-mail fails (or the channel has no
+        // e-mail leg to begin with) does nothing go out, making a full retry on the next poll safe -
+        // PushNotificationDispatcher never throws, so a push send always counts as delivered here.
         var sentToAnyRecipient = false;
         foreach (var recipient in recipients)
         {
-            try
+            if (channel.HasFlag(NotificationChannel.Email))
             {
-                await emailSender.SendAsync(recipient.Email, subject, body, cancellationToken);
-                sentToAnyRecipient = true;
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                logger.LogError(
-                    exception, "Failed to send calendar event reminder e-mail to user {RecipientUserId} for event {EventId}",
-                    recipient.Id, calendarEvent.Id);
+                try
+                {
+                    var (subject, body) = EventReminderEmailContent.Build(occurrenceDetails, dueReminder.MinutesBeforeStart);
+                    await emailSender.SendAsync(recipient.Email, subject, body, cancellationToken);
+                    sentToAnyRecipient = true;
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogError(
+                        exception, "Failed to send calendar event reminder e-mail to user {RecipientUserId} for event {EventId}",
+                        recipient.Id, calendarEvent.Id);
+                }
             }
 
-            await pushNotificationDispatcher.NotifyUserAsync(recipient.Id, pushPayload, cancellationToken);
+            if (channel.HasFlag(NotificationChannel.Push))
+            {
+                var pushPayload = EventReminderPushContent.Build(occurrenceDetails, calendarEvent.Id, dueReminder.MinutesBeforeStart);
+                await pushNotificationDispatcher.NotifyUserAsync(recipient.Id, pushPayload, cancellationToken);
+                sentToAnyRecipient = true;
+            }
         }
 
         if (!sentToAnyRecipient)

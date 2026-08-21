@@ -54,6 +54,35 @@ else
                         Ukończone (zależne od powiązanej listy, nie do ustawienia ręcznie)
                     </label>
                 }
+                <label>
+                    Powiadomienie o zaległym zadaniu
+                    <select @bind="item.OverdueNotificationChannel">
+                        @foreach (var option in NotificationChannelOption.All)
+                        {
+                            <option value="@option.Value">@option.Label</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    <InputCheckbox @bind-Value="item.RemindDaily" />
+                    Przypominaj codziennie
+                </label>
+                @if (item.RemindDaily)
+                {
+                    <label>
+                        Kanał codziennego przypomnienia
+                        <select @bind="item.DailyReminderNotificationChannel">
+                            @foreach (var option in NotificationChannelOption.All)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                    </label>
+                    <label>
+                        Godzina codziennego przypomnienia
+                        <input type="time" @bind="item.DailyReminderTimeOfDay" />
+                    </label>
+                }
                 <button type="button" @onclick="() => RemoveItem(item)">Usuń</button>
             </div>
         }
@@ -103,7 +132,11 @@ else
                                 DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
                                 IsCompleted = item.IsCompleted,
-                                LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty
+                                LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty,
+                                OverdueNotificationChannel = item.OverdueNotificationChannel,
+                                RemindDaily = item.RemindDaily,
+                                DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
+                                DailyReminderTimeOfDay = item.DailyReminderTimeOfDay
                             })
                             .ToList()
                     };
@@ -142,7 +175,15 @@ else
             "User clicked 'Zapisz' ({Mode}, TaskListId={TaskListId})", IsNewTaskList ? "create" : "update", Id);
 
         var items = _formModel.Items
-            .Select(item => new TaskItemRequest(item.Description, ToDueDateUtc(item), item.IsCompleted, ToLinkedTaskListId(item)))
+            .Select(item => new TaskItemRequest(
+                item.Description,
+                ToDueDateUtc(item),
+                item.IsCompleted,
+                ToLinkedTaskListId(item),
+                item.OverdueNotificationChannel,
+                item.RemindDaily,
+                item.DailyReminderNotificationChannel,
+                item.DailyReminderTimeOfDay))
             .ToList();
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
@@ -211,5 +252,9 @@ else
         public TimeOnly? DueTime { get; set; }
         public bool IsCompleted { get; set; }
         public string LinkedTaskListId { get; set; } = string.Empty;
+        public string OverdueNotificationChannel { get; set; } = "Push";
+        public bool RemindDaily { get; set; }
+        public string DailyReminderNotificationChannel { get; set; } = "Push";
+        public TimeOnly DailyReminderTimeOfDay { get; set; }
     }
 }

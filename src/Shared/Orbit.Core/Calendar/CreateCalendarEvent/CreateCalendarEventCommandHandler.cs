@@ -10,17 +10,20 @@ public sealed class CreateCalendarEventCommandHandler : IRequestHandler<CreateCa
     private readonly ICalendarEventRepository _calendarEventRepository;
     private readonly IUserRepository _userRepository;
     private readonly IEmailSender _emailSender;
+    private readonly PushNotificationDispatcher _pushNotificationDispatcher;
     private readonly ILogger<CreateCalendarEventCommandHandler> _logger;
 
     public CreateCalendarEventCommandHandler(
         ICalendarEventRepository calendarEventRepository,
         IUserRepository userRepository,
         IEmailSender emailSender,
+        PushNotificationDispatcher pushNotificationDispatcher,
         ILogger<CreateCalendarEventCommandHandler> logger)
     {
         _calendarEventRepository = calendarEventRepository;
         _userRepository = userRepository;
         _emailSender = emailSender;
+        _pushNotificationDispatcher = pushNotificationDispatcher;
         _logger = logger;
     }
 
@@ -29,7 +32,7 @@ public sealed class CreateCalendarEventCommandHandler : IRequestHandler<CreateCa
         var calendarEvent = CalendarEvent.Create(request.UserId, request.Details);
         await _calendarEventRepository.AddAsync(calendarEvent, cancellationToken);
 
-        if (calendarEvent.Details.NotifyOnCreation)
+        if (calendarEvent.Details.CreationNotificationChannel != NotificationChannel.None)
         {
             await SendCreationNotificationAsync(calendarEvent, cancellationToken);
         }
@@ -38,11 +41,25 @@ public sealed class CreateCalendarEventCommandHandler : IRequestHandler<CreateCa
     }
 
     /// <summary>
-    /// Best-effort: the event is already persisted by the time this runs, so a transient SMTP failure
-    /// must not turn an otherwise successful creation into a failed request - it's only logged.
+    /// Best-effort: the event is already persisted by the time this runs, so a transient failure to
+    /// notify must not turn an otherwise successful creation into a failed request - it's only logged
+    /// (push failures are already best-effort inside PushNotificationDispatcher itself).
     /// </summary>
     private async Task SendCreationNotificationAsync(CalendarEvent calendarEvent, CancellationToken cancellationToken)
     {
+        var channel = calendarEvent.Details.CreationNotificationChannel;
+
+        if (channel.HasFlag(NotificationChannel.Push))
+        {
+            var payload = EventCreationPushContent.Build(calendarEvent.Details, calendarEvent.Id);
+            await _pushNotificationDispatcher.NotifyUserAsync(calendarEvent.UserId, payload, cancellationToken);
+        }
+
+        if (!channel.HasFlag(NotificationChannel.Email))
+        {
+            return;
+        }
+
         try
         {
             var owner = await _userRepository.GetByIdAsync(calendarEvent.UserId, cancellationToken);

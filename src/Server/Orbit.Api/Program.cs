@@ -89,6 +89,7 @@ try
     builder.Services.AddSingleton<WebPush.WebPushClient>();
     builder.Services.AddSingleton<IPushNotificationSender, VapidPushNotificationSender>();
     builder.Services.AddHostedService<OverdueTaskNotificationBackgroundService>();
+    builder.Services.AddHostedService<DailyTaskReminderBackgroundService>();
 
     builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
     builder.Services.AddSingleton<TokenService>();

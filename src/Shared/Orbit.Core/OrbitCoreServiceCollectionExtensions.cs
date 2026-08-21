@@ -30,6 +30,7 @@ using Orbit.Core.PushNotifications.SubscribeToPush;
 using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.CreateTaskList;
+using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskLists;
@@ -74,6 +75,10 @@ public static class OrbitCoreServiceCollectionExtensions
         // IDispatcher, since it's a system-level poll rather than a per-user command or query (mirrors
         // EventReminderScheduler below).
         services.AddScoped<OverdueTaskNotificationScheduler>();
+        // Depends on IDailyTaskReminderRepository (scoped, backed by the DbContext), so it must be scoped
+        // too - used by Orbit.Api's DailyTaskReminderBackgroundService, not through IDispatcher, for the
+        // same reason as OverdueTaskNotificationScheduler above.
+        services.AddScoped<DailyTaskReminderScheduler>();
 
         services.AddScoped<IRequestHandler<CreateCalendarEventCommand, Guid>, CreateCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, bool>, UpdateCalendarEventCommandHandler>();

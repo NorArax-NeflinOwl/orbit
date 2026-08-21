@@ -1,6 +1,7 @@
 using Orbit.Api.HealthChecks;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks.OverdueNotifications;
+using Orbit.Core.Users;
 
 namespace Orbit.Api.Tasks;
 
@@ -62,18 +63,24 @@ public sealed class OverdueTaskNotificationBackgroundService : BackgroundService
         using var scope = _serviceScopeFactory.CreateScope();
         var scheduler = scope.ServiceProvider.GetRequiredService<OverdueTaskNotificationScheduler>();
         var overdueTaskNotificationRepository = scope.ServiceProvider.GetRequiredService<IOverdueTaskNotificationRepository>();
+        var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+        var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
         var pushNotificationDispatcher = scope.ServiceProvider.GetRequiredService<PushNotificationDispatcher>();
 
         var newlyOverdueItems = await scheduler.FindNewlyOverdueAsync(DateTimeOffset.UtcNow, cancellationToken, MaxNotificationsPerPoll);
         foreach (var overdueTaskItem in newlyOverdueItems)
         {
-            await NotifyOwnerAsync(overdueTaskItem, overdueTaskNotificationRepository, pushNotificationDispatcher, cancellationToken);
+            await NotifyOwnerAsync(
+                overdueTaskItem, overdueTaskNotificationRepository, userRepository, emailSender, pushNotificationDispatcher,
+                cancellationToken);
         }
     }
 
     private async Task NotifyOwnerAsync(
         OverdueTaskItem overdueTaskItem,
         IOverdueTaskNotificationRepository overdueTaskNotificationRepository,
+        IUserRepository userRepository,
+        IEmailSender emailSender,
         PushNotificationDispatcher pushNotificationDispatcher,
         CancellationToken cancellationToken)
     {
@@ -88,18 +95,43 @@ public sealed class OverdueTaskNotificationBackgroundService : BackgroundService
             return;
         }
 
-        try
+        // Sent best-effort per channel, mirroring CalendarEventReminderBackgroundService: the claim above
+        // guards the whole item, not each channel individually, so once at least one notification has
+        // gone out the claim must stay in place - releasing it would make a later poll resend it.
+        var sentOnAnyChannel = false;
+        var channel = overdueTaskItem.NotificationChannel;
+
+        if (channel.HasFlag(NotificationChannel.Push))
         {
             var payload = OverdueTaskPushContent.Build(overdueTaskItem);
             await pushNotificationDispatcher.NotifyUserAsync(overdueTaskItem.UserId, payload, cancellationToken);
+            sentOnAnyChannel = true;
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+
+        if (channel.HasFlag(NotificationChannel.Email))
         {
-            // PushNotificationDispatcher itself never throws (see its class comment) - reaching here
-            // means something failed before it, e.g. building the payload. Releasing the claim lets this
-            // item be retried on the next poll instead of silently never being notified about.
-            _logger.LogError(
-                exception, "Failed to send an overdue task notification for task item {TaskItemId}", overdueTaskItem.TaskItemId);
+            try
+            {
+                var owner = await userRepository.GetByIdAsync(overdueTaskItem.UserId, cancellationToken);
+                if (owner is not null)
+                {
+                    var (subject, body) = OverdueTaskEmailContent.Build(overdueTaskItem);
+                    await emailSender.SendAsync(owner.Email, subject, body, cancellationToken);
+                    sentOnAnyChannel = true;
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogError(
+                    exception, "Failed to send an overdue task e-mail for task item {TaskItemId}", overdueTaskItem.TaskItemId);
+            }
+        }
+
+        if (!sentOnAnyChannel)
+        {
+            // Nothing actually went out (a build failure, a missing owner, or the channel had no legs to
+            // begin with) - release the claim so this item is retried on the next poll instead of
+            // silently never being notified about.
             await overdueTaskNotificationRepository.ReleaseClaimAsync(overdueTaskItem.TaskItemId, cancellationToken);
         }
     }

@@ -11,6 +11,7 @@ using Orbit.Core.Calendar.GetCalendarEvents;
 using Orbit.Core.Calendar.GetCalendarEventShareStatus;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
+using Orbit.Core.Notifications;
 
 namespace Orbit.Api.Calendar;
 
@@ -110,8 +111,8 @@ public static class CalendarEndpoints
             ToDomainRecurrence(request.Recurrence),
             request.Guests,
             request.ReminderMinutesBeforeStart,
-            request.NotifyOnCreation,
-            request.NotifyBeforeStart);
+            Enum.Parse<NotificationChannel>(request.CreationNotificationChannel, ignoreCase: true),
+            Enum.Parse<NotificationChannel>(request.ReminderNotificationChannel, ignoreCase: true));
 
     private static EventLocation? ToDomainLocation(EventLocationRequest? request)
         => request is null ? null : new EventLocation(request.Address, request.Latitude, request.Longitude);
@@ -135,8 +136,8 @@ public static class CalendarEndpoints
             ToRecurrenceDto(details.Recurrence),
             details.Guests,
             details.ReminderMinutesBeforeStart,
-            details.NotifyOnCreation,
-            details.NotifyBeforeStart);
+            details.CreationNotificationChannel.ToString(),
+            details.ReminderNotificationChannel.ToString());
 
         return new CalendarEventDto(
             calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,

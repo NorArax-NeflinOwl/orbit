@@ -1,5 +1,6 @@
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.Reminders;
+using Orbit.Core.Notifications;
 
 namespace Orbit.Api.Tests.TestDoubles;
 
@@ -19,7 +20,8 @@ internal sealed class InMemoryEventReminderRepository : IEventReminderRepository
 
     public Task<IReadOnlyList<CalendarEvent>> GetAllWithRemindersConfiguredAsync(CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<CalendarEvent>>(_calendarEvents
-            .Where(calendarEvent => calendarEvent.Details.ReminderMinutesBeforeStart.Count > 0 && calendarEvent.Details.NotifyBeforeStart)
+            .Where(calendarEvent => calendarEvent.Details.ReminderMinutesBeforeStart.Count > 0
+                && calendarEvent.Details.ReminderNotificationChannel != NotificationChannel.None)
             .ToList());
 
     public Task<bool> HasBeenSentAsync(

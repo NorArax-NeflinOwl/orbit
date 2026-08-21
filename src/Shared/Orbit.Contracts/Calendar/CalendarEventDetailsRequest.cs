@@ -1,6 +1,8 @@
 namespace Orbit.Contracts.Calendar;
 
 /// <param name="Guests">User ids of the invited guests - see CalendarEventDetails.Guests.</param>
+/// <param name="CreationNotificationChannel">One of "None", "Email", "Push", "Both".</param>
+/// <param name="ReminderNotificationChannel">One of "None", "Email", "Push", "Both".</param>
 public sealed record CalendarEventDetailsRequest(
     string Title,
     string? Description,
@@ -12,5 +14,5 @@ public sealed record CalendarEventDetailsRequest(
     RecurrenceRequest? Recurrence,
     IReadOnlyList<Guid> Guests,
     IReadOnlyList<int> ReminderMinutesBeforeStart,
-    bool NotifyOnCreation,
-    bool NotifyBeforeStart);
+    string CreationNotificationChannel,
+    string ReminderNotificationChannel);

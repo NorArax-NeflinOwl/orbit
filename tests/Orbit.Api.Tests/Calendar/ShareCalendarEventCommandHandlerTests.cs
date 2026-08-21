@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.ShareCalendarEvent;
+using Orbit.Core.Notifications;
 using Xunit;
 
 namespace Orbit.Api.Tests.Calendar;
@@ -9,7 +10,7 @@ public sealed class ShareCalendarEventCommandHandlerTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
         "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [],
-        NotifyOnCreation: false, NotifyBeforeStart: false);
+        CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.None);
 
     [Fact]
     public async Task HandleAsync_creates_a_share_for_an_event_owned_by_the_requesting_user()

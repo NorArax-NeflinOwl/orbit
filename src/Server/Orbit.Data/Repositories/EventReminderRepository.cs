@@ -17,11 +17,11 @@ public sealed class EventReminderRepository : IEventReminderRepository
     public async Task<IReadOnlyList<CalendarEvent>> GetAllWithRemindersConfiguredAsync(CancellationToken cancellationToken)
     {
         // Cheap SQL-side prefilter (RemindersJson is either "[]" or a JSON array with entries) so events
-        // with no reminders configured, or with "approaching event" notifications turned off, are never
-        // even loaded into memory.
+        // with no reminders configured, or with "approaching event" notifications turned off for every
+        // channel, are never even loaded into memory.
         var entities = await _dbContext.CalendarEvents
             .AsNoTracking()
-            .Where(entity => entity.RemindersJson != "[]" && entity.NotifyBeforeStart)
+            .Where(entity => entity.RemindersJson != "[]" && entity.ReminderNotificationChannel != "None")
             .ToListAsync(cancellationToken);
 
         return entities.Select(CalendarEventEntityMapper.ToDomain).ToList();
