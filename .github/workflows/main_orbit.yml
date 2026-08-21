@@ -38,17 +38,6 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_94E34BA93C604CA382EDE479DD7DF344 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4D66E98B9B334790B251FF8C8748B1B1 }}
 
-      - name: Check Azure subscription
-        run: |
-          az account show \
-            --query "{name:name, id:id, tenantId:tenantId}" \
-            -o table
-      
-          az acr show \
-            --name OrbitContainerRegistry \
-            --resource-group Orbit \
-            -o table
-
       # az containerapp commands need this CLI extension; installing it explicitly avoids relying on
       # dynamic-install being enabled on the runner.
       - name: Install the Container Apps CLI extension
