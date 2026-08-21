@@ -38,34 +38,32 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_94E34BA93C604CA382EDE479DD7DF344 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4D66E98B9B334790B251FF8C8748B1B1 }}
 
-      # az containerapp commands need this CLI extension; installing it explicitly avoids relying on
-      # dynamic-install being enabled on the runner.
-      - name: Install the Container Apps CLI extension
-        run: az extension add --name containerapp --upgrade
+      # az acr build (ACR Tasks) is blocked on Azure Free Trial subscriptions regardless of role
+      # assignments, so images are built here on the runner instead and pushed with plain docker push.
+      - name: Log in to Azure Container Registry
+        run: az acr login --name ${{ env.registryName }}
 
-      # Builds happen inside ACR itself, so the runner never needs Docker installed - identity-orbit's
-      # AcrPush role is all the permission this step needs.
       - name: Build and push orbit-api image
         run: |
-          az acr build \
-            --registry ${{ env.registryName }} \
-            --resource-group ${{ env.resourceGroupName }} \
+          docker build \
             --file src/Server/Orbit.Api/Dockerfile \
-            --image orbit-api:${{ github.sha }} \
-            --image orbit-api:latest \
+            --tag ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }} \
+            --tag ${{ env.registryLoginServer }}/orbit-api:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
             .
+          docker push ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }}
+          docker push ${{ env.registryLoginServer }}/orbit-api:latest
 
       - name: Build and push orbit-web image
         run: |
-          az acr build \
-            --registry ${{ env.registryName }} \
-            --resource-group ${{ env.resourceGroupName }} \
+          docker build \
             --file src/Clients/Orbit.Web/Dockerfile \
-            --image orbit-web:${{ github.sha }} \
-            --image orbit-web:latest \
+            --tag ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }} \
+            --tag ${{ env.registryLoginServer }}/orbit-web:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
             .
+          docker push ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }}
+          docker push ${{ env.registryLoginServer }}/orbit-web:latest
 
       # Points each Container App at the image just built, tagged by commit SHA so the deployed
       # version is traceable back to this run. (":latest" is also pushed above for convenience, e.g.
