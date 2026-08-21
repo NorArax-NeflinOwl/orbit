@@ -1,0 +1,83 @@
+@using System.Globalization
+@using Orbit.Contracts.Calendar
+@using Orbit.Web.Services
+
+<div class="calendar-day-grid">
+    @if (Grid.AllDayEvents.Count > 0)
+    {
+        <div class="calendar-day-grid-all-day">
+            <span class="calendar-day-grid-all-day-label">Całodniowe</span>
+            @foreach (var calendarEvent in Grid.AllDayEvents)
+            {
+                <button type="button" class="calendar-event-chip" style="border-left-color:@EventColor(calendarEvent);"
+                        @onclick="() => EventSelectedAsync(calendarEvent.Id)">
+                    <span class="calendar-event-chip-title">@calendarEvent.Details.Title</span>
+                </button>
+            }
+        </div>
+    }
+
+    <div class="calendar-day-grid-timeline">
+        <div class="calendar-day-grid-hours">
+            @foreach (var hour in Hours)
+            {
+                <div class="calendar-day-grid-hour-label" style="top:@HourPercent(hour).ToString(CultureInfo.InvariantCulture)%;">@hour.ToString("00"):00</div>
+            }
+        </div>
+        <div class="calendar-day-grid-hour-lines">
+            @foreach (var hour in Hours)
+            {
+                <div class="calendar-day-grid-hour-line" style="top:@HourPercent(hour).ToString(CultureInfo.InvariantCulture)%;"></div>
+            }
+
+            @foreach (var placedEvent in Grid.TimedEvents)
+            {
+                <button type="button" class="calendar-event-block" style="@PositionStyle(placedEvent) border-left-color:@EventColor(placedEvent.Event);"
+                        @onclick="() => EventSelectedAsync(placedEvent.Event.Id)">
+                    <span class="calendar-event-block-time">@FormatTimeRange(placedEvent.Event.Details)</span>
+                    <span class="calendar-event-block-title">@placedEvent.Event.Details.Title</span>
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>An event block is never rendered shorter than this many minutes, so very short events stay clickable/readable.</summary>
+    private const int MinimumVisibleMinutes = 15;
+
+    private static readonly int[] Hours = Enumerable.Range(0, 24).ToArray();
+
+    [Parameter, EditorRequired]
+    public DayGrid Grid { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<Guid> OnEventSelected { get; set; }
+
+    private Task EventSelectedAsync(Guid eventId) => OnEventSelected.InvokeAsync(eventId);
+
+    private static double HourPercent(int hour) => hour * 100.0 / 24;
+
+    private static string EventColor(CalendarEventDto calendarEvent)
+        => string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "#4a90d9" : calendarEvent.Details.Color;
+
+    private static string FormatTimeRange(CalendarEventDetailsDto details)
+        => $"{details.StartUtc.LocalDateTime:HH:mm}–{details.EndUtc.LocalDateTime:HH:mm}";
+
+    /// <summary>
+    /// Positions and sizes one event's block as percentages of the 24-hour timeline's height/width, using
+    /// placedEvent's minute-precision start/end (see CalendarGridBuilder.BuildDayGrid) rather than
+    /// rounding to the nearest hour, and splitting the width evenly among any events it overlaps in time.
+    /// </summary>
+    private static string PositionStyle(DayGridPlacedEvent placedEvent)
+    {
+        var top = placedEvent.StartMinute * 100.0 / CalendarGridBuilder.MinutesPerDay;
+        var visibleEndMinute = Math.Max(placedEvent.EndMinute, placedEvent.StartMinute + MinimumVisibleMinutes);
+        var height = (visibleEndMinute - placedEvent.StartMinute) * 100.0 / CalendarGridBuilder.MinutesPerDay;
+        var width = 100.0 / placedEvent.ColumnCount;
+        var left = placedEvent.ColumnIndex * width;
+
+        return string.Create(CultureInfo.InvariantCulture,
+            $"top:{top}%;height:{height}%;left:{left}%;width:{width}%;");
+    }
+}

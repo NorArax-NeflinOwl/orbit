@@ -1,0 +1,102 @@
+@using Orbit.Contracts.Calendar
+@using Orbit.Web.Services
+
+<div class="calendar-month-grid @(IsCompact ? "calendar-month-grid-compact" : "")">
+    <div class="calendar-month-grid-weekday-row">
+        @foreach (var weekdayName in WeekdayNames)
+        {
+            <div class="calendar-month-grid-weekday">@weekdayName</div>
+        }
+    </div>
+    @foreach (var week in Weeks)
+    {
+        <div class="calendar-month-grid-week">
+            @foreach (var day in week.Days)
+            {
+                <div class="calendar-month-grid-day @DayCssClass(day)" @onclick="() => DaySelectedAsync(day.Date)">
+                    <span class="calendar-month-grid-day-number">@day.Date.Day</span>
+
+                    @if (IsCompact)
+                    {
+                        @if (day.Events.Count > 0)
+                        {
+                            <div class="calendar-month-grid-day-dots">
+                                @foreach (var calendarEvent in day.Events.Take(MaxCompactDots))
+                                {
+                                    <span class="calendar-month-grid-day-dot" style="background-color:@EventColor(calendarEvent);"></span>
+                                }
+                                @if (day.Events.Count > MaxCompactDots)
+                                {
+                                    <span class="calendar-month-grid-day-dot-overflow">+@(day.Events.Count - MaxCompactDots)</span>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="calendar-month-grid-day-events">
+                            @foreach (var calendarEvent in day.Events.Take(MaxVisibleEvents))
+                            {
+                                <button type="button" class="calendar-event-chip" style="border-left-color:@EventColor(calendarEvent);"
+                                        @onclick="() => EventSelectedAsync(calendarEvent.Id)" @onclick:stopPropagation="true">
+                                    @if (!calendarEvent.Details.IsAllDay)
+                                    {
+                                        <span class="calendar-event-chip-time">@calendarEvent.Details.StartUtc.LocalDateTime.ToString("HH:mm")</span>
+                                    }
+                                    <span class="calendar-event-chip-title">@calendarEvent.Details.Title</span>
+                                </button>
+                            }
+                            @if (day.Events.Count > MaxVisibleEvents)
+                            {
+                                <span class="calendar-month-grid-day-overflow">+@(day.Events.Count - MaxVisibleEvents) więcej</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const int MaxVisibleEvents = 4;
+    private const int MaxCompactDots = 3;
+
+    private static readonly string[] WeekdayNames = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<MonthGridWeek> Weeks { get; set; } = [];
+
+    /// <summary>Renders a dot per event instead of a full time/title chip - used for the 12-months-at-once year view.</summary>
+    [Parameter]
+    public bool IsCompact { get; set; }
+
+    [Parameter]
+    public EventCallback<DateOnly> OnDaySelected { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnEventSelected { get; set; }
+
+    private static string DayCssClass(MonthGridDay day)
+    {
+        var classes = new List<string>();
+        if (!day.IsInDisplayedMonth)
+        {
+            classes.Add("calendar-month-grid-day-outside");
+        }
+
+        if (day.Date == DateOnly.FromDateTime(DateTime.Today))
+        {
+            classes.Add("calendar-month-grid-day-today");
+        }
+
+        return string.Join(' ', classes);
+    }
+
+    private static string EventColor(CalendarEventDto calendarEvent)
+        => string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "#4a90d9" : calendarEvent.Details.Color;
+
+    private Task DaySelectedAsync(DateOnly date) => OnDaySelected.InvokeAsync(date);
+
+    private Task EventSelectedAsync(Guid eventId) => OnEventSelected.InvokeAsync(eventId);
+}

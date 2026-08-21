@@ -87,3 +87,243 @@
     margin-left: 0.5rem;
     padding: 0.1rem 0.5rem;
 }
+
+/* Calendar.razor: the "Ukryj/Pokaż listę" toolbar sitting above the two-column layout below it. */
+.calendar-toolbar {
+    align-items: center;
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Calendar.razor: the event list (left) and calendar visualization (right) side by side, wrapping onto
+   separate rows on narrow viewports instead of forcing a horizontal scrollbar. */
+.calendar-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.calendar-event-list-panel {
+    flex: 0 1 22rem;
+    min-width: 16rem;
+}
+
+.calendar-visualization-panel {
+    flex: 1 1 32rem;
+    min-width: 0;
+}
+
+/* Calendar.razor: the visualization panel's own toolbar - period navigation on the left, the
+   day/month/year view switch on the right. */
+.calendar-visualization-toolbar {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.calendar-visualization-toolbar-navigation {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.calendar-period-label {
+    margin: 0;
+    min-width: 10rem;
+    text-transform: capitalize;
+}
+
+.calendar-view-switch button[aria-pressed="true"] {
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+/* CalendarMonthGrid.razor: the weekday header row and the 7-column week rows below it. */
+.calendar-month-grid-weekday-row,
+.calendar-month-grid-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+
+.calendar-month-grid-weekday {
+    font-size: 0.8em;
+    font-weight: bold;
+    padding: 0.25rem;
+    text-align: center;
+}
+
+.calendar-month-grid-day {
+    border: 1px solid #ddd;
+    cursor: pointer;
+    min-height: 5.5rem;
+    padding: 0.25rem;
+    vertical-align: top;
+}
+
+.calendar-month-grid-day-outside {
+    background: #fafafa;
+    color: #aaa;
+}
+
+.calendar-month-grid-day-today {
+    background: #eef6ff;
+}
+
+.calendar-month-grid-day-number {
+    font-size: 0.85em;
+}
+
+.calendar-month-grid-day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-top: 0.2rem;
+}
+
+.calendar-month-grid-day-overflow {
+    color: #777;
+    font-size: 0.75em;
+}
+
+/* CalendarMonthGrid.razor (IsCompact, used by CalendarYearGrid.razor): a per-day dot per event instead of
+   a full title/time chip - a whole year's worth of day cells has no room for more than that. */
+.calendar-month-grid-compact .calendar-month-grid-day {
+    min-height: 2rem;
+    padding: 0.1rem;
+}
+
+.calendar-month-grid-day-dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem;
+}
+
+.calendar-month-grid-day-dot {
+    border-radius: 50%;
+    display: inline-block;
+    height: 0.4rem;
+    width: 0.4rem;
+}
+
+.calendar-month-grid-day-dot-overflow {
+    font-size: 0.65em;
+}
+
+/* Calendar.razor / CalendarMonthGrid.razor / CalendarDayGrid.razor: a single event's chip or timeline
+   block, colored by the event's own Color (see CalendarEventDetailsDto.Color) via the border rather than
+   the background, so the title text stays legible regardless of the chosen color. */
+.calendar-event-chip {
+    background: #f5f5f5;
+    border: none;
+    border-left: 3px solid;
+    border-radius: 0.2rem;
+    cursor: pointer;
+    display: block;
+    font-size: 0.75em;
+    overflow: hidden;
+    padding: 0.1rem 0.3rem;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.calendar-event-chip-time {
+    font-weight: bold;
+    margin-right: 0.25rem;
+}
+
+/* CalendarYearGrid.razor: the 12 compact month grids, wrapping to fit the visualization panel's width. */
+.calendar-year-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.calendar-year-grid-month {
+    flex: 0 1 14rem;
+}
+
+.calendar-year-grid-month-name {
+    font-size: 0.9em;
+    margin: 0 0 0.25rem 0;
+}
+
+/* CalendarDayGrid.razor: the "Całodniowe" strip above the hour timeline. */
+.calendar-day-grid-all-day {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.calendar-day-grid-all-day-label {
+    color: #777;
+    font-size: 0.8em;
+}
+
+/* CalendarDayGrid.razor: a 24-hour timeline, hour labels on the left and a relatively positioned track on
+   the right that events are placed into by absolute top/height/left/width percentages (see
+   CalendarGridBuilder.BuildDayGrid and CalendarDayGrid's PositionStyle) - this is what gives the day view
+   its minute-level precision instead of only ever aligning events to the hour. */
+.calendar-day-grid-timeline {
+    display: flex;
+    height: 60rem;
+    position: relative;
+}
+
+.calendar-day-grid-hours {
+    flex: 0 0 3.5rem;
+    position: relative;
+}
+
+.calendar-day-grid-hour-label {
+    color: #777;
+    font-size: 0.75em;
+    position: absolute;
+    transform: translateY(-50%);
+}
+
+.calendar-day-grid-hour-lines {
+    border-left: 1px solid #ddd;
+    flex: 1;
+    position: relative;
+}
+
+.calendar-day-grid-hour-line {
+    border-top: 1px solid #eee;
+    left: 0;
+    position: absolute;
+    right: 0;
+}
+
+.calendar-event-block {
+    background: #f5f5f5;
+    border: none;
+    border-left: 3px solid;
+    border-radius: 0.2rem;
+    cursor: pointer;
+    overflow: hidden;
+    padding: 0.15rem 0.3rem;
+    position: absolute;
+    text-align: left;
+}
+
+.calendar-event-block-time {
+    display: block;
+    font-size: 0.7em;
+    font-weight: bold;
+}
+
+.calendar-event-block-title {
+    display: block;
+    font-size: 0.75em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

@@ -17,54 +17,95 @@
 
 <p><button @onclick="GoToAddEvent">Dodaj wydarzenie</button></p>
 
-@if (_events is null)
-{
-    <p>Ładowanie…</p>
-}
-else if (_events.Count == 0)
-{
-    <p>Brak wydarzeń.</p>
-}
-else
-{
-    <ul>
-        @foreach (var calendarEvent in _events)
+<div class="calendar-toolbar">
+    <button @onclick="ToggleEventListVisibility">@(_viewState.IsEventListVisible ? "Ukryj listę" : "Pokaż listę")</button>
+</div>
+
+<div class="calendar-layout">
+    @if (_viewState.IsEventListVisible)
+    {
+        <div class="calendar-event-list-panel">
+            @if (_events is null)
+            {
+                <p>Ładowanie…</p>
+            }
+            else if (_events.Count == 0)
+            {
+                <p>Brak wydarzeń.</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var calendarEvent in _events)
+                    {
+                        <li>
+                            <strong>@calendarEvent.Details.Title</strong>
+                            @if (!string.IsNullOrWhiteSpace(calendarEvent.Details.Color))
+                            {
+                                <span style="display:inline-block;width:0.75em;height:0.75em;background-color:@calendarEvent.Details.Color;border-radius:50%;"></span>
+                            }
+                            @if (calendarEvent.IsShared)
+                            {
+                                <span class="shared-event-badge">Udostępnione przez @calendarEvent.SharedByUserName</span>
+                            }
+                            <br>
+                            <small>@FormatTimeRange(calendarEvent.Details)</small>
+                            @if (calendarEvent.Details.Location is { } location)
+                            {
+                                <br><small>Lokalizacja: @FormatLocation(location)</small>
+                            }
+                            @if (calendarEvent.Details.Recurrence is { } recurrence)
+                            {
+                                <br><small>Powtarza się: @FormatRecurrence(recurrence)</small>
+                            }
+                            @if (calendarEvent.Details.Guests.Count > 0)
+                            {
+                                <br><small>Goście: @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</small>
+                            }
+                            <br>
+                            <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "Podgląd" : "Edytuj")</button>
+                            <button @onclick="() => DeleteEventAsync(calendarEvent)">Usuń</button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+
+    <div class="calendar-visualization-panel">
+        <div class="calendar-visualization-toolbar">
+            <div class="calendar-visualization-toolbar-navigation">
+                <button @onclick="GoToPreviousPeriod">‹</button>
+                <button @onclick="GoToToday">Dzisiaj</button>
+                <button @onclick="GoToNextPeriod">›</button>
+                <h2 class="calendar-period-label">@_viewState.PeriodLabel</h2>
+            </div>
+            <div class="calendar-view-switch">
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">Dzień</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">Miesiąc</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">Rok</button>
+            </div>
+        </div>
+
+        @switch (_viewState.ViewMode)
         {
-            <li>
-                <strong>@calendarEvent.Details.Title</strong>
-                @if (!string.IsNullOrWhiteSpace(calendarEvent.Details.Color))
-                {
-                    <span style="display:inline-block;width:0.75em;height:0.75em;background-color:@calendarEvent.Details.Color;border-radius:50%;"></span>
-                }
-                @if (calendarEvent.IsShared)
-                {
-                    <span class="shared-event-badge">Udostępnione przez @calendarEvent.SharedByUserName</span>
-                }
-                <br>
-                <small>@FormatTimeRange(calendarEvent.Details)</small>
-                @if (calendarEvent.Details.Location is { } location)
-                {
-                    <br><small>Lokalizacja: @FormatLocation(location)</small>
-                }
-                @if (calendarEvent.Details.Recurrence is { } recurrence)
-                {
-                    <br><small>Powtarza się: @FormatRecurrence(recurrence)</small>
-                }
-                @if (calendarEvent.Details.Guests.Count > 0)
-                {
-                    <br><small>Goście: @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</small>
-                }
-                <br>
-                <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "Podgląd" : "Edytuj")</button>
-                <button @onclick="() => DeleteEventAsync(calendarEvent)">Usuń</button>
-            </li>
+            case CalendarViewMode.Day:
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [])" OnEventSelected="GoToEditEvent" />
+                break;
+            case CalendarViewMode.Year:
+                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [])" OnDaySelected="GoToDay" />
+                break;
+            default:
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" />
+                break;
         }
-    </ul>
-}
+    </div>
+</div>
 
 @code {
     private IReadOnlyList<CalendarEventDto>? _events;
     private IReadOnlyList<ContactDto> _contacts = [];
+    private readonly CalendarViewState _viewState = new();
 
     /// <summary>
     /// Login of every guest not found among <see cref="_contacts"/>, resolved once via UsersApiClient
@@ -170,6 +211,34 @@ else
         Logger.LogInformation("Calendar event {EventId} deleted", calendarEvent.Id);
     }
 
+    private void ToggleEventListVisibility() => _viewState.IsEventListVisible = !_viewState.IsEventListVisible;
+
+    private void SwitchView(CalendarViewMode viewMode)
+    {
+        Logger.LogInformation("User switched the calendar visualization to {ViewMode} view", viewMode);
+        _viewState.SwitchView(viewMode);
+    }
+
+    private void GoToPreviousPeriod() => _viewState.StepBackward();
+
+    private void GoToNextPeriod() => _viewState.StepForward();
+
+    private void GoToToday() => _viewState.GoToToday();
+
+    /// <summary>
+    /// aria-pressed needs a lowercase "true"/"false" string - Blazor's bool-attribute shorthand (which
+    /// would render "True"/"False") only applies to recognized HTML boolean attributes like disabled,
+    /// not to arbitrary ARIA ones.
+    /// </summary>
+    private string AriaPressed(CalendarViewMode viewMode) => (_viewState.ViewMode == viewMode).ToString(CultureInfo.InvariantCulture).ToLowerInvariant();
+
+    /// <summary>Jumps the visualization into Day view for date - used when a day is clicked in the month or year grid.</summary>
+    private void GoToDay(DateOnly date)
+    {
+        _viewState.ReferenceDate = date;
+        _viewState.SwitchView(CalendarViewMode.Day);
+    }
+
     private static string FormatTimeRange(CalendarEventDetailsDto details)
         => details.IsAllDay
             ? $"{details.StartUtc.LocalDateTime:dd.MM.yyyy} (cały dzień)"
@@ -194,5 +263,51 @@ else
         };
         var intervalLabel = recurrence.IntervalCount > 1 ? $"{frequencyLabel} (co {recurrence.IntervalCount})" : frequencyLabel;
         return recurrence.UntilUtc is { } until ? $"{intervalLabel}, do {until.LocalDateTime:dd.MM.yyyy}" : intervalLabel;
+    }
+
+    private enum CalendarViewMode
+    {
+        Day,
+        Month,
+        Year
+    }
+
+    /// <summary>
+    /// The calendar visualization's own state - which period is showing, at what zoom level, and whether
+    /// the event list panel is open. Kept as one mutable object, distinct from the read-only _events data,
+    /// since SwitchView/StepBackward/StepForward/GoToToday all read and update it together (see the
+    /// "grouping variables" project convention).
+    /// </summary>
+    private sealed class CalendarViewState
+    {
+        private static readonly CultureInfo PolishCulture = CultureInfo.GetCultureInfo("pl-PL");
+
+        public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
+        public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+        public bool IsEventListVisible { get; set; } = true;
+
+        public string PeriodLabel => ViewMode switch
+        {
+            CalendarViewMode.Day => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("d MMMM yyyy", PolishCulture),
+            CalendarViewMode.Month => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", PolishCulture),
+            CalendarViewMode.Year => ReferenceDate.Year.ToString(CultureInfo.InvariantCulture),
+            _ => string.Empty
+        };
+
+        public void SwitchView(CalendarViewMode viewMode) => ViewMode = viewMode;
+
+        public void GoToToday() => ReferenceDate = DateOnly.FromDateTime(DateTime.Today);
+
+        public void StepBackward() => ReferenceDate = Step(-1);
+
+        public void StepForward() => ReferenceDate = Step(1);
+
+        private DateOnly Step(int direction) => ViewMode switch
+        {
+            CalendarViewMode.Day => ReferenceDate.AddDays(direction),
+            CalendarViewMode.Month => ReferenceDate.AddMonths(direction),
+            CalendarViewMode.Year => ReferenceDate.AddYears(direction),
+            _ => ReferenceDate
+        };
     }
 }

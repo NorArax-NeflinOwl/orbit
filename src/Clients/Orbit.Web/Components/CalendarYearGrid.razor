@@ -1,0 +1,26 @@
+@using System.Globalization
+@using Orbit.Web.Services
+
+<div class="calendar-year-grid">
+    @foreach (var month in Months)
+    {
+        <div class="calendar-year-grid-month">
+            <h3 class="calendar-year-grid-month-name">@MonthName(month.Month)</h3>
+            <CalendarMonthGrid Weeks="month.Weeks" IsCompact="true" OnDaySelected="OnDaySelected" />
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly CultureInfo PolishCulture = CultureInfo.GetCultureInfo("pl-PL");
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<YearGridMonth> Months { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<DateOnly> OnDaySelected { get; set; }
+
+    private static string MonthName(int month) => Capitalize(PolishCulture.DateTimeFormat.GetMonthName(month));
+
+    private static string Capitalize(string text) => text.Length == 0 ? text : char.ToUpper(text[0], PolishCulture) + text[1..];
+}
