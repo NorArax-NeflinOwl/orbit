@@ -5,5 +5,5 @@ namespace Orbit.Contracts.Notes;
 /// "CanEdit" (see Orbit.Core.Abstractions.ShareAccessLevel) and is only meaningful when IsShared is true.
 /// </summary>
 public sealed record NoteDto(
-    Guid Id, string Title, string Content, DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
+    Guid Id, string Title, IReadOnlyList<NoteContentLineDto> Content, DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
     bool IsShared, string? SharedByUserName, string AccessLevel);

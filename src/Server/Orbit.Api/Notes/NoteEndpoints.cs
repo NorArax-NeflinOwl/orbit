@@ -38,7 +38,7 @@ public static class NoteEndpoints
             CreateNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var id = await dispatcher.SendAsync(
-                new CreateNoteCommand(GetUserId(user), request.Title, request.Content), cancellationToken);
+                new CreateNoteCommand(GetUserId(user), request.Title, ToDomainContent(request.Content)), cancellationToken);
             return Results.Created($"/api/notes/{id}", id);
         });
 
@@ -46,7 +46,7 @@ public static class NoteEndpoints
             Guid id, UpdateNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var updated = await dispatcher.SendAsync(
-                new UpdateNoteCommand(GetUserId(user), id, request.Title, request.Content), cancellationToken);
+                new UpdateNoteCommand(GetUserId(user), id, request.Title, ToDomainContent(request.Content)), cancellationToken);
             return updated ? Results.NoContent() : Results.NotFound();
         });
 
@@ -99,7 +99,13 @@ public static class NoteEndpoints
         return Guid.Parse(subject);
     }
 
+    private static IReadOnlyList<NoteContentLine> ToDomainContent(IReadOnlyList<NoteContentLineDto> content)
+        => content.Select(line => new NoteContentLine(line.Text, line.IsChecklistItem, line.IsChecked)).ToList();
+
+    private static NoteContentLineDto ToDto(NoteContentLine line)
+        => new(line.Text, line.IsChecklistItem, line.IsChecked);
+
     private static NoteDto ToDto(Note note)
-        => new(note.Id, note.Title, note.Content, note.CreatedAtUtc, note.UpdatedAtUtc,
+        => new(note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.CreatedAtUtc, note.UpdatedAtUtc,
             note.IsShared, note.SharedByUserName, note.AccessLevel.ToString());
 }

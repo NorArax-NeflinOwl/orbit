@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
@@ -65,7 +66,9 @@ public sealed class NoteRepository : INoteRepository
 
     private static Note ToDomain(NoteEntity entity)
         => Note.FromPersistence(
-            entity.Id, entity.UserId, entity.Title, entity.Content, entity.CreatedAtUtc, entity.UpdatedAtUtc,
+            entity.Id, entity.UserId, entity.Title,
+            JsonSerializer.Deserialize<List<NoteContentLine>>(entity.ContentJson) ?? [],
+            entity.CreatedAtUtc, entity.UpdatedAtUtc,
             entity.IsShared, entity.SharedByUserName, Enum.Parse<ShareAccessLevel>(entity.AccessLevel));
 
     private static NoteEntity ToEntity(Note note)
@@ -74,7 +77,7 @@ public sealed class NoteRepository : INoteRepository
             Id = note.Id,
             UserId = note.UserId,
             Title = note.Title,
-            Content = note.Content,
+            ContentJson = JsonSerializer.Serialize(note.Content),
             IsShared = note.IsShared,
             SharedByUserName = note.SharedByUserName,
             AccessLevel = note.AccessLevel.ToString(),

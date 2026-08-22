@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Notes;
 using Orbit.Core.Notes.CreateNote;
 using Xunit;
 
@@ -13,11 +14,11 @@ public sealed class CreateNoteCommandHandlerTests
         var handler = new CreateNoteCommandHandler(repository);
         var userId = Guid.NewGuid();
 
-        var noteId = await handler.HandleAsync(new CreateNoteCommand(userId, "Title", "Content"), CancellationToken.None);
+        var noteId = await handler.HandleAsync(new CreateNoteCommand(userId, "Title", [NoteContentLine.PlainText("Content")]), CancellationToken.None);
 
         var stored = await repository.GetByIdAsync(userId, noteId, CancellationToken.None);
         Assert.NotNull(stored);
         Assert.Equal("Title", stored!.Title);
-        Assert.Equal("Content", stored.Content);
+        Assert.Equal("Content", Assert.Single(stored.Content).Text);
     }
 }

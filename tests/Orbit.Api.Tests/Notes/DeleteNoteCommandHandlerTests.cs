@@ -13,7 +13,7 @@ public sealed class DeleteNoteCommandHandlerTests
         var repository = new InMemoryNoteRepository();
         var handler = new DeleteNoteCommandHandler(repository);
         var userId = Guid.NewGuid();
-        var note = Note.Create(userId, "Title", "Content");
+        var note = Note.Create(userId, "Title", [NoteContentLine.PlainText("Content")]);
         await repository.AddAsync(note, CancellationToken.None);
 
         var wasDeleted = await handler.HandleAsync(new DeleteNoteCommand(userId, note.Id), CancellationToken.None);
@@ -29,7 +29,7 @@ public sealed class DeleteNoteCommandHandlerTests
         var handler = new DeleteNoteCommandHandler(repository);
         var ownerId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
-        var note = Note.Create(ownerId, "Title", "Content");
+        var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
         await repository.AddAsync(note, CancellationToken.None);
 
         var wasDeleted = await handler.HandleAsync(new DeleteNoteCommand(otherUserId, note.Id), CancellationToken.None);

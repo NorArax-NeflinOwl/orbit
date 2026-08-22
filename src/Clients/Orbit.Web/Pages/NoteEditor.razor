@@ -41,8 +41,15 @@ else
             </div>
             <div class="field">
                 <label>Content</label>
-                <InputTextArea @bind-Value="_formModel.Content" class="note-editor-content" />
+                <div class="note-editor-toolbar">
+                    <button type="button" class="btn-secondary" @onclick="InsertChecklistItemAsync">
+                        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
+                        Checklist item
+                    </button>
+                </div>
+                <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content" @bind-Lines="_formModel.Content" />
             </div>
+
             @if (_saveErrorMessage is not null)
             {
                 <p class="error">@_saveErrorMessage</p>
@@ -102,6 +109,7 @@ else
     private string? _shareErrorMessage;
     private string? _saveErrorMessage;
     private Guid _ownUserId;
+    private ChecklistTextEditor? _checklistEditorRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -231,9 +239,18 @@ else
         NavigationManager.NavigateTo("/notes");
     }
 
+    /// <summary>Starts a new checklist line in the editor - the actual line-splitting/marker logic lives in checklistTextEditor.js.</summary>
+    private async Task InsertChecklistItemAsync()
+    {
+        if (_checklistEditorRef is not null)
+        {
+            await _checklistEditorRef.InsertChecklistItemAsync();
+        }
+    }
+
     private sealed class NoteFormModel
     {
         public string Title { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
+        public IReadOnlyList<NoteContentLineDto> Content { get; set; } = [];
     }
 }

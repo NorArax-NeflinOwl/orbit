@@ -1,3 +1,3 @@
 namespace Orbit.Contracts.Notes;
 
-public sealed record CreateNoteRequest(string Title, string Content);
+public sealed record CreateNoteRequest(string Title, IReadOnlyList<NoteContentLineDto> Content);

@@ -269,11 +269,62 @@ input.note-editor-title {
     padding: 12px 14px;
 }
 
-textarea.note-editor-content {
+/* ChecklistTextEditor.razor - a contenteditable surface styled to look exactly like the plain
+   textarea it replaces (same box/font/spacing as every other .field control), so the only visible
+   difference from a normal text field is that some lines carry a real checkbox - see
+   wwwroot/js/checklistTextEditor.js for why this needs contenteditable rather than <textarea>. */
+.note-editor-content {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
     font-size: 14.5px;
     line-height: 1.6;
     min-height: 420px;
     padding: 14px;
+    width: 100%;
+    display: block;
+    overflow-y: auto;
+    cursor: text;
+}
+
+.note-editor-content:focus {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent-subtle);
+    outline-offset: -1px;
+}
+
+.note-editor-toolbar {
+    display: flex;
+    margin-bottom: 8px;
+}
+
+.note-line {
+    min-height: 1.6em;
+}
+
+.note-line-checklist {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.note-line-checkbox {
+    flex: 0 0 auto;
+    margin-top: 0.35em;
+    accent-color: var(--accent);
+}
+
+.note-line-text {
+    flex: 1;
+    min-width: 0;
+    outline: none;
+    overflow-wrap: break-word;
+}
+
+.note-line-done .note-line-text {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
 }
 
 /* ============================================================================================

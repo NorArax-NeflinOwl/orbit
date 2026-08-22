@@ -20,7 +20,7 @@ public sealed class AcceptNoteShareCommandHandlerTests
         var owner = User.Create("owner@example.com", "owner", "Owner", "hash");
         await userRepository.AddAsync(owner, CancellationToken.None);
         var recipientId = Guid.NewGuid();
-        var sourceNote = Note.Create(owner.Id, "Shopping list", "Milk, eggs");
+        var sourceNote = Note.Create(owner.Id, "Shopping list", [NoteContentLine.PlainText("Milk, eggs")]);
         await noteRepository.AddAsync(sourceNote, CancellationToken.None);
         var share = NoteShare.Create(sourceNote.Id, owner.Id, recipientId, ShareAccessLevel.CanEdit);
         await shareRepository.AddAsync(share, CancellationToken.None);
@@ -46,7 +46,7 @@ public sealed class AcceptNoteShareCommandHandlerTests
 
         var owner = User.Create("owner@example.com", "owner", "Owner", "hash");
         await userRepository.AddAsync(owner, CancellationToken.None);
-        var sourceNote = Note.Create(owner.Id, "Title", "Content");
+        var sourceNote = Note.Create(owner.Id, "Title", [NoteContentLine.PlainText("Content")]);
         await noteRepository.AddAsync(sourceNote, CancellationToken.None);
         var share = NoteShare.Create(sourceNote.Id, owner.Id, Guid.NewGuid());
         await shareRepository.AddAsync(share, CancellationToken.None);
@@ -80,7 +80,7 @@ public sealed class AcceptNoteShareCommandHandlerTests
         var owner = User.Create("owner@example.com", "owner", "Owner", "hash");
         await userRepository.AddAsync(owner, CancellationToken.None);
         var recipientId = Guid.NewGuid();
-        var sourceNote = Note.Create(owner.Id, "Title", "Content");
+        var sourceNote = Note.Create(owner.Id, "Title", [NoteContentLine.PlainText("Content")]);
         await noteRepository.AddAsync(sourceNote, CancellationToken.None);
         var share = NoteShare.Create(sourceNote.Id, owner.Id, recipientId);
         await shareRepository.AddAsync(share, CancellationToken.None);

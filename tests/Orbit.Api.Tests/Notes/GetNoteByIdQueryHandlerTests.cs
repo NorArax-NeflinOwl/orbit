@@ -13,7 +13,7 @@ public sealed class GetNoteByIdQueryHandlerTests
         var repository = new InMemoryNoteRepository();
         var handler = new GetNoteByIdQueryHandler(repository);
         var userId = Guid.NewGuid();
-        var note = Note.Create(userId, "Title", "Content");
+        var note = Note.Create(userId, "Title", [NoteContentLine.PlainText("Content")]);
         await repository.AddAsync(note, CancellationToken.None);
 
         var result = await handler.HandleAsync(new GetNoteByIdQuery(userId, note.Id), CancellationToken.None);
@@ -29,7 +29,7 @@ public sealed class GetNoteByIdQueryHandlerTests
         var handler = new GetNoteByIdQueryHandler(repository);
         var ownerId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
-        var note = Note.Create(ownerId, "Title", "Content");
+        var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
         await repository.AddAsync(note, CancellationToken.None);
 
         var result = await handler.HandleAsync(new GetNoteByIdQuery(otherUserId, note.Id), CancellationToken.None);

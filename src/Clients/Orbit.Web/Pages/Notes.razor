@@ -32,7 +32,7 @@ else
         {
             <li>
                 <strong>@note.Title</strong>
-                <p>@note.Content</p>
+                <p>@ContentPreview(note)</p>
                 <small>Created: @note.CreatedAtUtc.LocalDateTime</small><br>
                 <small>Last updated: @note.UpdatedAtUtc.LocalDateTime</small><br>
                 <button @onclick="() => GoToEditNote(note.Id)">Edit</button>
@@ -44,6 +44,10 @@ else
 
 @code {
     private IReadOnlyList<NoteDto>? _notes;
+
+    /// <summary>Joins a note's lines back into a single line of text for the list preview, since Content is now structured rather than a flat string.</summary>
+    private static string ContentPreview(NoteDto note)
+        => string.Join(' ', note.Content.Select(line => line.Text)).Trim();
 
     protected override async Task OnInitializedAsync()
     {

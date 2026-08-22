@@ -16,7 +16,7 @@ public sealed class ShareNoteCommandHandlerTests
         var handler = new ShareNoteCommandHandler(noteRepository, shareRepository);
         var ownerId = Guid.NewGuid();
         var recipientId = Guid.NewGuid();
-        var note = Note.Create(ownerId, "Shopping list", "Milk, eggs");
+        var note = Note.Create(ownerId, "Shopping list", [NoteContentLine.PlainText("Milk, eggs")]);
         await noteRepository.AddAsync(note, CancellationToken.None);
 
         var shareId = await handler.HandleAsync(
@@ -38,7 +38,7 @@ public sealed class ShareNoteCommandHandlerTests
         var noteRepository = new InMemoryNoteRepository();
         var handler = new ShareNoteCommandHandler(noteRepository, new InMemoryNoteShareRepository());
         var ownerId = Guid.NewGuid();
-        var note = Note.Create(ownerId, "Title", "Content");
+        var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
         await noteRepository.AddAsync(note, CancellationToken.None);
 
         var shareId = await handler.HandleAsync(

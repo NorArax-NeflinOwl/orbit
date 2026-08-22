@@ -31,7 +31,6 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(note => note.Id);
             entity.Property(note => note.Title).IsRequired().HasMaxLength(200);
-            entity.Property(note => note.Content).IsRequired();
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(note => note.SharedByUserName).HasMaxLength(64);
             // Every note query is scoped to a single user's notes; this is the index that makes those

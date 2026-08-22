@@ -9,7 +9,9 @@ public sealed class NoteEntity
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
+
+    /// <summary>JSON-encoded list of NoteContentLine (text + checklist state per line) - SQLite has no native array/object column type. See CalendarEventEntity.GuestsJson for the same convention.</summary>
+    public string ContentJson { get; set; } = "[]";
 
     /// <summary>True for a copy created by accepting a share offered by another user.</summary>
     public bool IsShared { get; set; }

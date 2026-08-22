@@ -14,8 +14,8 @@ public sealed class GetNotesQueryHandlerTests
         var handler = new GetNotesQueryHandler(repository);
         var userId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
-        await repository.AddAsync(Note.Create(userId, "Mine", "Content"), CancellationToken.None);
-        await repository.AddAsync(Note.Create(otherUserId, "Not mine", "Content"), CancellationToken.None);
+        await repository.AddAsync(Note.Create(userId, "Mine", [NoteContentLine.PlainText("Content")]), CancellationToken.None);
+        await repository.AddAsync(Note.Create(otherUserId, "Not mine", [NoteContentLine.PlainText("Content")]), CancellationToken.None);
 
         var notes = await handler.HandleAsync(new GetNotesQuery(userId), CancellationToken.None);
 

@@ -3,14 +3,15 @@ using Orbit.Core.Abstractions;
 namespace Orbit.Core.Notes;
 
 /// <summary>
-/// A single note owned by a user: a title and free-form content.
+/// A single note owned by a user: a title and content, ordered lines of either plain text or checklist
+/// items (see NoteContentLine).
 /// </summary>
 public sealed class Note
 {
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
     public string Title { get; private set; }
-    public string Content { get; private set; }
+    public IReadOnlyList<NoteContentLine> Content { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -28,7 +29,7 @@ public sealed class Note
     public ShareAccessLevel AccessLevel { get; private set; }
 
     private Note(
-        Guid id, Guid userId, string title, string content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
     {
         Id = id;
@@ -42,7 +43,7 @@ public sealed class Note
         AccessLevel = accessLevel;
     }
 
-    public static Note Create(Guid userId, string title, string content)
+    public static Note Create(Guid userId, string title, IReadOnlyList<NoteContentLine> content)
     {
         var now = DateTimeOffset.UtcNow;
         return new Note(Guid.NewGuid(), userId, title, content, now, now, isShared: false, sharedByUserName: null, ShareAccessLevel.ReadOnly);
@@ -52,7 +53,8 @@ public sealed class Note
     /// Creates recipientUserId's own copy of title/content once they accept a share - see
     /// AcceptNoteShareCommandHandler.
     /// </summary>
-    public static Note CreateShared(Guid recipientUserId, string title, string content, string sharedByUserName, ShareAccessLevel accessLevel)
+    public static Note CreateShared(
+        Guid recipientUserId, string title, IReadOnlyList<NoteContentLine> content, string sharedByUserName, ShareAccessLevel accessLevel)
     {
         var now = DateTimeOffset.UtcNow;
         return new Note(Guid.NewGuid(), recipientUserId, title, content, now, now, isShared: true, sharedByUserName, accessLevel);
@@ -62,11 +64,11 @@ public sealed class Note
     /// Rebuilds a note from already-persisted values, bypassing creation rules.
     /// </summary>
     public static Note FromPersistence(
-        Guid id, Guid userId, string title, string content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
         => new(id, userId, title, content, createdAtUtc, updatedAtUtc, isShared, sharedByUserName, accessLevel);
 
-    public void Update(string title, string content)
+    public void Update(string title, IReadOnlyList<NoteContentLine> content)
     {
         if (IsShared && AccessLevel == ShareAccessLevel.ReadOnly)
         {
