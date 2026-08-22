@@ -46,8 +46,10 @@ Windows machine, which needs administrator rights.
 
    If there was some problems like: "The term 'choco' is not recognized as the name of a cmdlet..."
    then try this:
-   > Set-ExecutionPolicy AllSigned
-   > Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+   ```
+   Set-ExecutionPolicy AllSigned
+   Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+   ```
    All from https://chocolatey.org/install.
 
 2. Install the local CA into Windows' and Chrome's trust stores (run once per machine, needs an
