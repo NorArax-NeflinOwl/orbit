@@ -57,7 +57,7 @@ export async function requestPermissionAndSubscribe(vapidPublicKeyBase64Url) {
     // pointing this browser at a different environment) can't just be replaced: subscribing again
     // while it's still active throws "InvalidStateError: ... a subscription with a different
     // applicationServerKey already exists" - and getExistingSubscriptionEndpoint doesn't distinguish
-    // that from a healthy subscription, so the "Włącz" button silently fails every time instead of
+    // that from a healthy subscription, so the "Enable" button silently fails every time instead of
     // just recovering. Clearing it first avoids the conflict outright, whatever caused it.
     const existingSubscription = await registration.pushManager.getSubscription();
     if (existingSubscription) {

@@ -67,7 +67,7 @@ public sealed class RegisterTests : TestContext
     }
 
     [Fact]
-    public void Submitting_an_email_or_username_that_is_already_taken_shows_a_polish_error_message()
+    public void Submitting_an_email_or_username_that_is_already_taken_shows_an_error_message()
     {
         RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict));
 
@@ -78,7 +78,7 @@ public sealed class RegisterTests : TestContext
         cut.Find("#password").Change("password");
         cut.Find("form").Submit();
 
-        Assert.Contains("Ten adres e-mail lub login jest już zajęty.", cut.Markup);
+        Assert.Contains("That email or username is already taken.", cut.Markup);
     }
 
     private void RegisterAuthApiClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

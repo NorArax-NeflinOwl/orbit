@@ -64,7 +64,8 @@ public static class CalendarEndpoints
             Guid id, ShareCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var shareId = await dispatcher.SendAsync(
-                new ShareCalendarEventCommand(GetUserId(user), id, request.RecipientUserId), cancellationToken);
+                new ShareCalendarEventCommand(GetUserId(user), id, request.RecipientUserId, Enum.Parse<ShareAccessLevel>(request.AccessLevel, ignoreCase: true)),
+                cancellationToken);
             return shareId is null ? Results.NotFound() : Results.Ok(shareId);
         });
 
@@ -141,7 +142,7 @@ public static class CalendarEndpoints
 
         return new CalendarEventDto(
             calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,
-            calendarEvent.IsShared, calendarEvent.SharedByUserName);
+            calendarEvent.IsShared, calendarEvent.SharedByUserName, calendarEvent.AccessLevel.ToString());
     }
 
     private static EventLocationDto? ToLocationDto(EventLocation? location)

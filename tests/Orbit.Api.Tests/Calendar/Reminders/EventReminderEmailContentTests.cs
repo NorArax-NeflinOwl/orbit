@@ -34,7 +34,7 @@ public sealed class EventReminderEmailContentTests
     {
         var (_, body) = EventReminderEmailContent.Build(DefaultDetails, 10);
 
-        Assert.DoesNotContain("Opis:", body);
+        Assert.DoesNotContain("Description:", body);
     }
 
     [Fact]

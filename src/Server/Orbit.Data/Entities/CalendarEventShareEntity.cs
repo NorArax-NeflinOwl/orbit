@@ -10,6 +10,7 @@ public sealed class CalendarEventShareEntity
     public Guid SourceCalendarEventId { get; set; }
     public Guid OwnerUserId { get; set; }
     public Guid RecipientUserId { get; set; }
+    public string AccessLevel { get; set; } = "ReadOnly";
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? AcceptedAtUtc { get; set; }
 

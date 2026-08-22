@@ -30,9 +30,9 @@ public sealed class EventReminderPushContentTests
     }
 
     [Theory]
-    [InlineData(0, "teraz")]
-    [InlineData(10, "za 10 min")]
-    [InlineData(60, "za 1 godz.")]
+    [InlineData(0, "now")]
+    [InlineData(10, "in 10 min")]
+    [InlineData(60, "in 1 hr")]
     public void Build_formats_the_lead_time_in_the_body(int minutesBeforeStart, string expectedLeadTimeText)
     {
         var payload = EventReminderPushContent.Build(DefaultDetails, Guid.NewGuid(), minutesBeforeStart);

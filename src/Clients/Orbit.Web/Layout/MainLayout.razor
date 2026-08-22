@@ -15,21 +15,21 @@
         <AuthorizeView>
             <Authorized>
                 <nav class="main-nav">
-                    <NavLink href="/" Match="NavLinkMatch.All">Pulpit</NavLink>
-                    <NavLink href="/notes">Notatki</NavLink>
-                    <NavLink href="/tasks">Zadania</NavLink>
-                    <NavLink href="/calendar">Kalendarz</NavLink>
-                    <NavLink href="/contacts">Kontakty</NavLink>
+                    <NavLink href="/" Match="NavLinkMatch.All">Dashboard</NavLink>
+                    <NavLink href="/notes">Notes</NavLink>
+                    <NavLink href="/tasks">Tasks</NavLink>
+                    <NavLink href="/calendar">Calendar</NavLink>
+                    <NavLink href="/contacts">Contacts</NavLink>
                 </nav>
                 <div class="user-bar">
                     <span>@context.User.Identity?.Name</span>
                     @if (_pushNotificationsSupported == true)
                     {
                         <button @onclick="TogglePushNotificationsAsync" disabled="@_pushNotificationActionInProgress">
-                            @(_pushNotificationsEnabled ? "Wyłącz powiadomienia push" : "Włącz powiadomienia push")
+                            @(_pushNotificationsEnabled ? "Disable push notifications" : "Enable push notifications")
                         </button>
                     }
-                    <button @onclick="LogoutAsync">Wyloguj</button>
+                    <button @onclick="LogoutAsync">Log out</button>
                 </div>
                 @if (_pushNotificationErrorMessage is not null)
                 {
@@ -121,7 +121,7 @@
     /// <summary>
     /// Determines whether the "enable/disable push notifications" button should be shown at all (the
     /// browser must support push - see PushNotificationManager.IsSupportedAsync), and, if so, whether
-    /// this browser already has an active subscription - so a page reload doesn't show "Włącz..." for a
+    /// this browser already has an active subscription - so a page reload doesn't show "Enable..." for a
     /// browser that already enabled push notifications in an earlier session.
     /// </summary>
     private async Task RefreshPushNotificationStateIfAuthenticatedAsync()
@@ -171,7 +171,7 @@
                     // permission or Orbit.Api has no VAPID key configured - both silent by design up to
                     // this point, so without this the button would otherwise just do nothing visible.
                     _pushNotificationErrorMessage =
-                        "Nie udało się włączyć powiadomień push. Sprawdź uprawnienia przeglądarki i spróbuj ponownie.";
+                        "Failed to enable push notifications. Check your browser permissions and try again.";
                 }
             }
         }
@@ -181,7 +181,7 @@
             // session, ...) - logged rather than surfaced as a crash, same reasoning as
             // EnsureEncryptionKeyIfAuthenticatedAsync's HttpRequestException catch.
             Logger.LogActionFailed(ClientActionCategory.PushNotificationToggle, "Push notification toggle", exception);
-            _pushNotificationErrorMessage = "Nie udało się zaktualizować subskrypcji powiadomień. Spróbuj ponownie.";
+            _pushNotificationErrorMessage = "Failed to update the push notification subscription. Try again.";
         }
         catch (JSException exception)
         {
@@ -193,7 +193,7 @@
             // subscription outright (e.g. Brave with Google's push service disabled - see
             // info/instructions.md).
             Logger.LogActionFailed(ClientActionCategory.PushNotificationToggle, "Push notification toggle", exception);
-            _pushNotificationErrorMessage = "Nie udało się zaktualizować subskrypcji powiadomień. Spróbuj ponownie.";
+            _pushNotificationErrorMessage = "Failed to update the push notification subscription. Try again.";
         }
         finally
         {

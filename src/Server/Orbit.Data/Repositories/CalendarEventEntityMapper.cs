@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
@@ -41,7 +42,8 @@ internal static class CalendarEventEntityMapper
             Enum.Parse<NotificationChannel>(entity.ReminderNotificationChannel));
 
         return CalendarEvent.FromPersistence(
-            entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc, entity.IsShared, entity.SharedByUserName);
+            entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc, entity.IsShared, entity.SharedByUserName,
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel));
     }
 
     public static CalendarEventEntity ToEntity(CalendarEvent calendarEvent)
@@ -69,6 +71,7 @@ internal static class CalendarEventEntityMapper
             ReminderNotificationChannel = details.ReminderNotificationChannel.ToString(),
             IsShared = calendarEvent.IsShared,
             SharedByUserName = calendarEvent.SharedByUserName,
+            AccessLevel = calendarEvent.AccessLevel.ToString(),
             CreatedAtUtc = calendarEvent.CreatedAtUtc,
             UpdatedAtUtc = calendarEvent.UpdatedAtUtc
         };

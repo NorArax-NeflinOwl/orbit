@@ -56,7 +56,7 @@
                             }
                             @if (day.Events.Count > MaxVisibleEvents)
                             {
-                                <span class="calendar-month-grid-day-overflow">+@(day.Events.Count - MaxVisibleEvents) więcej</span>
+                                <span class="calendar-month-grid-day-overflow">+@(day.Events.Count - MaxVisibleEvents) more</span>
                             }
                             @foreach (var dueTask in day.DueTasks.Take(MaxVisibleDueTasks))
                             {
@@ -68,7 +68,7 @@
                             }
                             @if (day.DueTasks.Count > MaxVisibleDueTasks)
                             {
-                                <span class="calendar-month-grid-day-overflow">+@(day.DueTasks.Count - MaxVisibleDueTasks) więcej</span>
+                                <span class="calendar-month-grid-day-overflow">+@(day.DueTasks.Count - MaxVisibleDueTasks) more</span>
                             }
                         </div>
                     }
@@ -83,7 +83,7 @@
     private const int MaxVisibleDueTasks = 4;
     private const int MaxCompactDots = 3;
 
-    private static readonly string[] WeekdayNames = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
+    private static readonly string[] WeekdayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
     [Parameter, EditorRequired]
     public IReadOnlyList<MonthGridWeek> Weeks { get; set; } = [];

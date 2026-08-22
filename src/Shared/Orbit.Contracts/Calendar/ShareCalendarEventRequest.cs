@@ -1,3 +1,4 @@
 namespace Orbit.Contracts.Calendar;
 
-public sealed record ShareCalendarEventRequest(Guid RecipientUserId);
+/// <summary>AccessLevel is "ReadOnly" or "CanEdit" (see Orbit.Core.Abstractions.ShareAccessLevel).</summary>
+public sealed record ShareCalendarEventRequest(Guid RecipientUserId, string AccessLevel = "ReadOnly");

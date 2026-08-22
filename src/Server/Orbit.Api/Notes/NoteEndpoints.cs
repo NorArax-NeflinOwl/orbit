@@ -3,10 +3,13 @@ using System.Security.Claims;
 using Orbit.Contracts.Notes;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
+using Orbit.Core.Notes.AcceptNoteShare;
 using Orbit.Core.Notes.CreateNote;
 using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
+using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
+using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
 
 namespace Orbit.Api.Notes;
@@ -52,6 +55,36 @@ public static class NoteEndpoints
             var deleted = await dispatcher.SendAsync(new DeleteNoteCommand(GetUserId(user), id), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
         });
+
+        // Offers a copy of an owned note to another user - see ShareNoteCommand. The client is
+        // responsible for notifying the recipient (a chat message carrying the returned share id),
+        // since only the browser holds the key material to encrypt that message - mirrors
+        // CalendarEndpoints' equivalent share endpoint.
+        notes.MapPost("/{id:guid}/shares", async (
+            Guid id, ShareNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var shareId = await dispatcher.SendAsync(
+                new ShareNoteCommand(GetUserId(user), id, request.RecipientUserId, Enum.Parse<ShareAccessLevel>(request.AccessLevel, ignoreCase: true)),
+                cancellationToken);
+            return shareId is null ? Results.NotFound() : Results.Ok(shareId);
+        });
+
+        // Resolves a share offered to the caller into a copy in their own notes - see AcceptNoteShareCommand.
+        notes.MapPost("/shares/{shareId:guid}/accept", async (
+            Guid shareId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var accepted = await dispatcher.SendAsync(new AcceptNoteShareCommand(GetUserId(user), shareId), cancellationToken);
+            return accepted ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Lets Chat.razor show an accurate "Accept" vs. "already accepted" state for a note-share message
+        // even after a page reload, instead of only remembering what was clicked this session.
+        notes.MapGet("/shares/{shareId:guid}/status", async (
+            Guid shareId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var isAccepted = await dispatcher.SendAsync(new GetNoteShareStatusQuery(GetUserId(user), shareId), cancellationToken);
+            return isAccepted is null ? Results.NotFound() : Results.Ok(isAccepted);
+        });
     }
 
     /// <summary>
@@ -67,5 +100,6 @@ public static class NoteEndpoints
     }
 
     private static NoteDto ToDto(Note note)
-        => new(note.Id, note.Title, note.Content, note.CreatedAtUtc, note.UpdatedAtUtc);
+        => new(note.Id, note.Title, note.Content, note.CreatedAtUtc, note.UpdatedAtUtc,
+            note.IsShared, note.SharedByUserName, note.AccessLevel.ToString());
 }

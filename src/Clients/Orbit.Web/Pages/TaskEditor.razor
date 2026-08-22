@@ -1,39 +1,52 @@
 @page "/tasks/new"
 @page "/tasks/{Id:guid}"
 @attribute [Authorize]
+@using System.Text.Json
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject ChatApiClient ChatApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<TaskEditor> Logger
 
-<PageTitle>@(IsNewTaskList ? "Nowa lista zadań" : "Edytuj listę zadań")</PageTitle>
+<PageTitle>@(IsNewTaskList ? "New task list" : "Edit task list")</PageTitle>
 
-<h1>@(IsNewTaskList ? "Nowa lista zadań" : "Edytuj listę zadań")</h1>
+<h1>@(IsNewTaskList ? "New task list" : "Edit task list")</h1>
 
 @if (_isLoading)
 {
-    <p>Ładowanie…</p>
+    <p>Loading…</p>
 }
 else
 {
+    @if (_isSharedReadOnly)
+    {
+        <p class="shared-task-list-banner">
+            This task list was shared by <strong>@_sharedByUserName</strong> - read-only.
+        </p>
+    }
+
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
+    <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
         <div>
-            <label>Tytuł</label>
+            <label>Title</label>
             <InputText @bind-Value="_formModel.Title" />
         </div>
 
-        <h2>Zadania</h2>
+        <h2>Items</h2>
         @foreach (var item in _formModel.Items)
         {
             <div @key="item">
-                <InputText @bind-Value="item.Description" placeholder="Opis zadania" />
+                <InputText @bind-Value="item.Description" placeholder="Item description" />
                 <InputDate @bind-Value="item.DueDate" />
                 <input type="time" @bind="item.DueTime" />
                 <label>
-                    Powiązanie z listą
+                    Link to list
                     <select @bind="item.LinkedTaskListId">
-                        <option value="">Brak</option>
+                        <option value="">None</option>
                         @foreach (var linkableTaskList in _linkableTaskLists)
                         {
                             <option value="@linkableTaskList.Id">@linkableTaskList.Title</option>
@@ -44,18 +57,18 @@ else
                 {
                     <label>
                         <InputCheckbox @bind-Value="item.IsCompleted" />
-                        Ukończone
+                        Completed
                     </label>
                 }
                 else
                 {
                     <label>
                         <input type="checkbox" checked="@item.IsCompleted" disabled />
-                        Ukończone (zależne od powiązanej listy, nie do ustawienia ręcznie)
+                        Completed (determined by the linked list, can't be set manually)
                     </label>
                 }
                 <label>
-                    Powiadomienie o zaległym zadaniu
+                    Overdue notification
                     <select @bind="item.OverdueNotificationChannel">
                         @foreach (var option in NotificationChannelOption.All)
                         {
@@ -65,12 +78,12 @@ else
                 </label>
                 <label>
                     <InputCheckbox @bind-Value="item.RemindDaily" />
-                    Przypominaj codziennie
+                    Remind daily
                 </label>
                 @if (item.RemindDaily)
                 {
                     <label>
-                        Kanał codziennego przypomnienia
+                        Daily reminder channel
                         <select @bind="item.DailyReminderNotificationChannel">
                             @foreach (var option in NotificationChannelOption.All)
                             {
@@ -79,20 +92,49 @@ else
                         </select>
                     </label>
                     <label>
-                        Godzina codziennego przypomnienia
+                        Daily reminder time
                         <input type="time" @bind="item.DailyReminderTimeOfDay" />
                     </label>
                 }
-                <button type="button" @onclick="() => RemoveItem(item)">Usuń</button>
+                <button type="button" @onclick="() => RemoveItem(item)">Remove</button>
             </div>
         }
-        <button type="button" @onclick="AddItem">Dodaj zadanie</button>
+        <button type="button" @onclick="AddItem">Add item</button>
 
         <div>
-            <button type="submit" disabled="@_isSaving">Zapisz</button>
-            <button type="button" @onclick="Cancel">Anuluj</button>
+            <button type="submit">Save</button>
+            <button type="button" @onclick="Cancel">Cancel</button>
         </div>
+    </fieldset>
     </EditForm>
+
+    @if (!IsNewTaskList)
+    {
+        <h2>Sharing</h2>
+        @if (_contacts.Count == 0)
+        {
+            <p>No contacts. A contact will appear here once you start a chat with someone.</p>
+        }
+        else
+        {
+            <select id="shareContactSelect" @bind="_selectedContactUserId">
+                <option value="">-- select a contact --</option>
+                @foreach (var contact in _contacts)
+                {
+                    <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                }
+            </select>
+            <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
+                <option value="ReadOnly">Read-only</option>
+                <option value="CanEdit">Can edit</option>
+            </select>
+            <button type="button" id="shareTaskListButton" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
+        }
+        @if (_shareErrorMessage is not null)
+        {
+            <p class="error">@_shareErrorMessage</p>
+        }
+    }
 }
 
 @code {
@@ -102,11 +144,22 @@ else
     private bool IsNewTaskList => Id is null;
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isSharing;
     private TaskListFormModel _formModel = new();
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
+    private bool _isSharedReadOnly;
+    private string? _sharedByUserName;
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private string _selectedContactUserId = string.Empty;
+    private string _selectedAccessLevel = "ReadOnly";
+    private string? _shareErrorMessage;
+    private Guid _ownUserId;
 
     protected override async Task OnInitializedAsync()
     {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _ownUserId = Guid.Parse(authenticationState.User.FindFirst("sub")!.Value);
+
         try
         {
             // Populates the "link to another list" dropdown - excludes the list being edited itself, since
@@ -140,7 +193,11 @@ else
                             })
                             .ToList()
                     };
+                    _isSharedReadOnly = taskList.IsShared && taskList.AccessLevel == "ReadOnly";
+                    _sharedByUserName = taskList.SharedByUserName;
                 }
+
+                _contacts = await ChatApiClient.GetContactsAsync();
             }
             else
             {
@@ -172,7 +229,7 @@ else
     private async Task SaveAsync()
     {
         Logger.LogInformation(
-            "User clicked 'Zapisz' ({Mode}, TaskListId={TaskListId})", IsNewTaskList ? "create" : "update", Id);
+            "User clicked 'Save' ({Mode}, TaskListId={TaskListId})", IsNewTaskList ? "create" : "update", Id);
 
         var items = _formModel.Items
             .Select(item => new TaskItemRequest(
@@ -223,8 +280,50 @@ else
 
     private void Cancel()
     {
-        Logger.LogInformation("User clicked 'Anuluj'");
+        Logger.LogInformation("User clicked 'Cancel'");
         NavigationManager.NavigateTo("/tasks");
+    }
+
+    /// <summary>
+    /// Shares the already-saved task list with the selected contact and notifies them with an encrypted
+    /// chat message carrying an "Accept" action (see TaskListShareMessagePayload) - mirrors
+    /// NoteEditor.ShareAsync.
+    /// </summary>
+    private async Task ShareAsync()
+    {
+        if (!Guid.TryParse(_selectedContactUserId, out var recipientUserId) || Id is not { } taskListId)
+        {
+            return;
+        }
+
+        _shareErrorMessage = null;
+        _isSharing = true;
+        try
+        {
+            var shareId = await TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, _selectedAccessLevel);
+            if (shareId is null)
+            {
+                _shareErrorMessage = "Failed to share the task list.";
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(new TaskListShareMessagePayload(shareId.Value, _formModel.Title));
+            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+            _selectedContactUserId = string.Empty;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to share task list {TaskListId} with user {RecipientUserId}", taskListId, recipientUserId);
+            _shareErrorMessage = "Failed to share the task list.";
+        }
+        finally
+        {
+            _isSharing = false;
+        }
     }
 
     /// <summary>

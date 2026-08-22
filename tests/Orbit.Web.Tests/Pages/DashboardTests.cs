@@ -41,8 +41,8 @@ public sealed class DashboardTests : TestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        var chatsColumnText = FindColumn(cut, "Czaty").TextContent;
-        var contactsColumnText = FindColumn(cut, "Kontakty").TextContent;
+        var chatsColumnText = FindColumn(cut, "Chats").TextContent;
+        var contactsColumnText = FindColumn(cut, "Contacts").TextContent;
         Assert.Contains("Anna Kowalska", chatsColumnText);
         Assert.Contains("Bartek Nowak", chatsColumnText);
         Assert.Contains("Anna Kowalska", contactsColumnText);

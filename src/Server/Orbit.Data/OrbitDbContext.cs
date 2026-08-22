@@ -10,7 +10,9 @@ public sealed class OrbitDbContext : DbContext
     }
 
     public DbSet<NoteEntity> Notes => Set<NoteEntity>();
+    public DbSet<NoteShareEntity> NoteShares => Set<NoteShareEntity>();
     public DbSet<TaskEntity> Tasks => Set<TaskEntity>();
+    public DbSet<TaskShareEntity> TaskShares => Set<TaskShareEntity>();
     public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<RefreshTokenEntity> RefreshTokens => Set<RefreshTokenEntity>();
@@ -30,15 +32,24 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(note => note.Id);
             entity.Property(note => note.Title).IsRequired().HasMaxLength(200);
             entity.Property(note => note.Content).IsRequired();
+            // Matches UserEntity.UserName's max length, since this is always copied from there.
+            entity.Property(note => note.SharedByUserName).HasMaxLength(64);
             // Every note query is scoped to a single user's notes; this is the index that makes those
             // lookups fast instead of scanning the whole table.
             entity.HasIndex(note => note.UserId);
+        });
+
+        modelBuilder.Entity<NoteShareEntity>(entity =>
+        {
+            entity.HasKey(share => share.Id);
         });
 
         modelBuilder.Entity<TaskEntity>(entity =>
         {
             entity.HasKey(task => task.Id);
             entity.Property(task => task.Title).IsRequired().HasMaxLength(200);
+            // Matches UserEntity.UserName's max length, since this is always copied from there.
+            entity.Property(task => task.SharedByUserName).HasMaxLength(64);
             // Every task list query is scoped to a single user's task lists; this is the index that
             // makes those lookups fast instead of scanning the whole table.
             entity.HasIndex(task => task.UserId);
@@ -78,6 +89,11 @@ public sealed class OrbitDbContext : DbContext
         });
 
         modelBuilder.Entity<CalendarEventShareEntity>(entity =>
+        {
+            entity.HasKey(share => share.Id);
+        });
+
+        modelBuilder.Entity<TaskShareEntity>(entity =>
         {
             entity.HasKey(share => share.Id);
         });

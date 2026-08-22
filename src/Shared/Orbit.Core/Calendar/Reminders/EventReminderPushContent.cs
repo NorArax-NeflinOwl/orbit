@@ -11,15 +11,15 @@ public static class EventReminderPushContent
 {
     public static PushNotificationPayload Build(CalendarEventDetails details, Guid calendarEventId, int minutesBeforeStart)
     {
-        var body = $"Wydarzenie \"{details.Title}\" zaczyna się {FormatLeadTime(minutesBeforeStart)}.";
-        return new PushNotificationPayload("Zbliżające się wydarzenie", body, $"/calendar/{calendarEventId}");
+        var body = $"The event \"{details.Title}\" starts {FormatLeadTime(minutesBeforeStart)}.";
+        return new PushNotificationPayload("Upcoming event", body, $"/calendar/{calendarEventId}");
     }
 
     private static string FormatLeadTime(int minutesBeforeStart)
         => minutesBeforeStart switch
         {
-            0 => "teraz",
-            _ when minutesBeforeStart % 60 == 0 => $"za {minutesBeforeStart / 60} godz.",
-            _ => $"za {minutesBeforeStart} min"
+            0 => "now",
+            _ when minutesBeforeStart % 60 == 0 => $"in {minutesBeforeStart / 60} hr",
+            _ => $"in {minutesBeforeStart} min"
         };
 }

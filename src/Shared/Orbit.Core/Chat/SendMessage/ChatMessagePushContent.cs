@@ -10,5 +10,5 @@ namespace Orbit.Core.Chat.SendMessage;
 public static class ChatMessagePushContent
 {
     public static PushNotificationPayload Build(Guid senderUserId, string senderDisplayName)
-        => new("Nowa wiadomość", $"Nowa wiadomość od {senderDisplayName}", $"/chat/{senderUserId}");
+        => new("New message", $"New message from {senderDisplayName}", $"/chat/{senderUserId}");
 }

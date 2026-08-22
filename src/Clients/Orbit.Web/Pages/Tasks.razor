@@ -7,19 +7,19 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<Tasks> Logger
 
-<PageTitle>Orbit — Zadania</PageTitle>
+<PageTitle>Orbit — Tasks</PageTitle>
 
-<h1>Zadania</h1>
+<h1>Tasks</h1>
 
-<p><button @onclick="GoToAddTaskList">Dodaj listę zadań</button></p>
+<p><button @onclick="GoToAddTaskList">Add task list</button></p>
 
 @if (_taskLists is null)
 {
-    <p>Ładowanie…</p>
+    <p>Loading…</p>
 }
 else if (_taskLists.Count == 0)
 {
-    <p>Brak list zadań.</p>
+    <p>No task lists.</p>
 }
 else
 {
@@ -35,17 +35,17 @@ else
                             @(item.IsCompleted ? "☑" : "☐") @item.Description
                             @if (item.LinkedTaskListId is not null)
                             {
-                                <small> (zależne od innej listy)</small>
+                                <small> (depends on another list)</small>
                             }
                             @if (item.DueDateUtc is { } dueDate)
                             {
-                                <small> — termin: @dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
+                                <small> — due: @dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
                             }
                         </li>
                     }
                 </ul>
-                <button @onclick="() => GoToEditTaskList(taskList.Id)">Edytuj</button>
-                <button @onclick="() => DeleteTaskListAsync(taskList)">Usuń</button>
+                <button @onclick="() => GoToEditTaskList(taskList.Id)">Edit</button>
+                <button @onclick="() => DeleteTaskListAsync(taskList)">Delete</button>
             </li>
         }
     </ul>
@@ -74,20 +74,20 @@ else
 
     private void GoToAddTaskList()
     {
-        Logger.LogInformation("User clicked 'Dodaj listę zadań'");
+        Logger.LogInformation("User clicked 'Add task list'");
         NavigationManager.NavigateTo("/tasks/new");
     }
 
     private void GoToEditTaskList(Guid taskListId)
     {
-        Logger.LogInformation("User clicked 'Edytuj' for task list {TaskListId}", taskListId);
+        Logger.LogInformation("User clicked 'Edit' for task list {TaskListId}", taskListId);
         NavigationManager.NavigateTo($"/tasks/{taskListId}");
     }
 
     private async Task DeleteTaskListAsync(TaskDto taskList)
     {
-        Logger.LogInformation("User clicked 'Usuń' for task list {TaskListId}", taskList.Id);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Usunąć listę zadań „{taskList.Title}”?");
+        Logger.LogInformation("User clicked 'Delete' for task list {TaskListId}", taskList.Id);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete task list \"{taskList.Title}\"?");
         if (!confirmed)
         {
             return;

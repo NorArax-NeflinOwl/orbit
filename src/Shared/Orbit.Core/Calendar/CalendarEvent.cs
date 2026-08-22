@@ -1,3 +1,5 @@
+using Orbit.Core.Abstractions;
+
 namespace Orbit.Core.Calendar;
 
 /// <summary>
@@ -12,18 +14,26 @@ public sealed class CalendarEvent
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
     /// <summary>
-    /// True for a read-only copy created by accepting another user's share offer (see
-    /// CalendarEventShare and AcceptCalendarEventShareCommand) - false for an event the owner created
-    /// themselves. <see cref="Update"/> refuses to change a shared copy's details.
+    /// True for a copy created by accepting another user's share offer (see CalendarEventShare and
+    /// AcceptCalendarEventShareCommand) - false for an event the owner created themselves.
+    /// <see cref="Update"/> refuses to change a shared copy whose <see cref="AccessLevel"/> is
+    /// <see cref="ShareAccessLevel.ReadOnly"/>.
     /// </summary>
     public bool IsShared { get; private set; }
 
     /// <summary>The sharing user's login, captured once at share-acceptance time. Null when IsShared is false.</summary>
     public string? SharedByUserName { get; private set; }
 
+    /// <summary>
+    /// The access level the share was accepted under - meaningless when IsShared is false, where it's
+    /// always ReadOnly. Captured once at acceptance time rather than looked up from the originating
+    /// CalendarEventShare on every read, since the owner revoking access isn't a feature this app has.
+    /// </summary>
+    public ShareAccessLevel AccessLevel { get; private set; }
+
     private CalendarEvent(
         Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName)
+        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
     {
         Id = id;
         UserId = userId;
@@ -32,6 +42,7 @@ public sealed class CalendarEvent
         UpdatedAtUtc = updatedAtUtc;
         IsShared = isShared;
         SharedByUserName = sharedByUserName;
+        AccessLevel = accessLevel;
     }
 
     public static CalendarEvent Create(Guid userId, CalendarEventDetails details)
@@ -39,20 +50,22 @@ public sealed class CalendarEvent
         ValidateTimeRange(details);
         ValidateLocation(details);
         var now = DateTimeOffset.UtcNow;
-        return new CalendarEvent(Guid.NewGuid(), userId, details, now, now, isShared: false, sharedByUserName: null);
+        return new CalendarEvent(
+            Guid.NewGuid(), userId, details, now, now, isShared: false, sharedByUserName: null, ShareAccessLevel.ReadOnly);
     }
 
     /// <summary>
-    /// Creates recipientUserId's own read-only copy of details once they accept a share - see
-    /// AcceptCalendarEventShareCommandHandler. Nothing calls <see cref="Update"/> on the result, since it
-    /// refuses to change a shared event's details anyway.
+    /// Creates recipientUserId's own copy of details once they accept a share - see
+    /// AcceptCalendarEventShareCommandHandler. Nothing calls <see cref="Update"/> on the result when
+    /// accessLevel is ReadOnly, since it refuses to change such a copy's details anyway.
     /// </summary>
-    public static CalendarEvent CreateShared(Guid recipientUserId, CalendarEventDetails details, string sharedByUserName)
+    public static CalendarEvent CreateShared(
+        Guid recipientUserId, CalendarEventDetails details, string sharedByUserName, ShareAccessLevel accessLevel)
     {
         ValidateTimeRange(details);
         ValidateLocation(details);
         var now = DateTimeOffset.UtcNow;
-        return new CalendarEvent(Guid.NewGuid(), recipientUserId, details, now, now, isShared: true, sharedByUserName);
+        return new CalendarEvent(Guid.NewGuid(), recipientUserId, details, now, now, isShared: true, sharedByUserName, accessLevel);
     }
 
     /// <summary>
@@ -60,12 +73,12 @@ public sealed class CalendarEvent
     /// </summary>
     public static CalendarEvent FromPersistence(
         Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName)
-        => new(id, userId, details, createdAtUtc, updatedAtUtc, isShared, sharedByUserName);
+        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
+        => new(id, userId, details, createdAtUtc, updatedAtUtc, isShared, sharedByUserName, accessLevel);
 
     public void Update(CalendarEventDetails details)
     {
-        if (IsShared)
+        if (IsShared && AccessLevel == ShareAccessLevel.ReadOnly)
         {
             throw new InvalidOperationException("A shared, read-only calendar event can't be edited.");
         }

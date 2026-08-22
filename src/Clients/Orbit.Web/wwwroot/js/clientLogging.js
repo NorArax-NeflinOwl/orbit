@@ -1,6 +1,6 @@
 // On-device diagnostics: keeps the last MAX_ENTRIES warning/error log lines in localStorage so a person
 // without access to devtools (most notably on a phone) can still retrieve what went wrong - see the
-// "Kopiuj szczegóły błędu" link on #blazor-error-ui in index.html, and PersistentLoggerProvider.cs which
+// "Copy error details" link on #blazor-error-ui in index.html, and PersistentLoggerProvider.cs which
 // mirrors .NET ILogger output in here via appendLog. The window.onerror/unhandledrejection listeners
 // below are registered independently of Blazor and .NET, so this still captures plain JS/interop failures
 // (e.g. a rejected pushManager.subscribe() promise) even if the Blazor app itself never gets involved.
@@ -46,7 +46,7 @@
     function getLogsAsText() {
         const entries = readEntries();
         if (entries.length === 0) {
-            return "Brak zapisanych logów.";
+            return "No logs recorded.";
         }
 
         return entries
@@ -61,7 +61,7 @@
     }
 
     // linkElement is optional - passed by the onclick handler in index.html so this can show brief
-    // inline feedback ("Skopiowano ✓") without needing a separate toast/alert mechanism.
+    // inline feedback ("Copied ✓") without needing a separate toast/alert mechanism.
     async function copyLogsToClipboard(linkElement) {
         const text = getLogsAsText();
         const originalLabel = linkElement ? linkElement.textContent : null;
@@ -78,10 +78,10 @@
 
         try {
             await navigator.clipboard.writeText(text);
-            showFeedback("Skopiowano ✓");
+            showFeedback("Copied ✓");
         } catch (error) {
             appendLog("Error", "ClientLogging", "Failed to copy logs to clipboard", String(error));
-            showFeedback("Nie udało się skopiować");
+            showFeedback("Failed to copy");
         }
     }
 

@@ -6,7 +6,7 @@
     @if (Grid.AllDayEvents.Count > 0)
     {
         <div class="calendar-day-grid-all-day">
-            <span class="calendar-day-grid-all-day-label">Całodniowe</span>
+            <span class="calendar-day-grid-all-day-label">All day</span>
             @foreach (var calendarEvent in Grid.AllDayEvents)
             {
                 <button type="button" class="calendar-event-chip" style="border-left-color:@EventColor(calendarEvent);"

@@ -13,14 +13,14 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<Calendar> Logger
 
-<PageTitle>Orbit — Kalendarz</PageTitle>
+<PageTitle>Orbit — Calendar</PageTitle>
 
-<h1>Kalendarz</h1>
+<h1>Calendar</h1>
 
-<p><button @onclick="GoToAddEvent">Dodaj wydarzenie</button></p>
+<p><button @onclick="GoToAddEvent">Add event</button></p>
 
 <div class="calendar-toolbar">
-    <button @onclick="ToggleEventListVisibility">@(_viewState.IsEventListVisible ? "Ukryj listę" : "Pokaż listę")</button>
+    <button @onclick="ToggleEventListVisibility">@(_viewState.IsEventListVisible ? "Hide list" : "Show list")</button>
 </div>
 
 <div class="calendar-layout">
@@ -29,11 +29,11 @@
         <div class="calendar-event-list-panel">
             @if (_events is null)
             {
-                <p>Ładowanie…</p>
+                <p>Loading…</p>
             }
             else if (_events.Count == 0)
             {
-                <p>Brak wydarzeń.</p>
+                <p>No events.</p>
             }
             else
             {
@@ -48,38 +48,38 @@
                             }
                             @if (calendarEvent.IsShared)
                             {
-                                <span class="shared-event-badge">Udostępnione przez @calendarEvent.SharedByUserName</span>
+                                <span class="shared-event-badge">Shared by @calendarEvent.SharedByUserName</span>
                             }
                             <br>
                             <small>@FormatTimeRange(calendarEvent.Details)</small>
                             @if (calendarEvent.Details.Location is { } location)
                             {
-                                <br><small>Lokalizacja: @FormatLocation(location)</small>
+                                <br><small>Location: @FormatLocation(location)</small>
                             }
                             @if (calendarEvent.Details.Recurrence is { } recurrence)
                             {
-                                <br><small>Powtarza się: @FormatRecurrence(recurrence)</small>
+                                <br><small>Repeats: @FormatRecurrence(recurrence)</small>
                             }
                             @if (calendarEvent.Details.Guests.Count > 0)
                             {
-                                <br><small>Goście: @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</small>
+                                <br><small>Guests: @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</small>
                             }
                             <br>
-                            <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "Podgląd" : "Edytuj")</button>
-                            <button @onclick="() => DeleteEventAsync(calendarEvent)">Usuń</button>
+                            <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "View" : "Edit")</button>
+                            <button @onclick="() => DeleteEventAsync(calendarEvent)">Delete</button>
                         </li>
                     }
                 </ul>
             }
 
-            <h3>Zadania z terminem</h3>
+            <h3>Tasks with a due date</h3>
             @if (_dueTasks is null)
             {
-                <p>Ładowanie…</p>
+                <p>Loading…</p>
             }
             else if (_dueTasks.Count == 0)
             {
-                <p>Brak zadań z terminem.</p>
+                <p>No tasks with a due date.</p>
             }
             else
             {
@@ -89,9 +89,9 @@
                         <li>
                             @(dueTask.IsCompleted ? "☑" : "☐") @dueTask.Description
                             <br>
-                            <small>Termin: @dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
+                            <small>Due: @dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
                             <br>
-                            <button @onclick="() => GoToEditTaskList(dueTask.TaskListId)">Otwórz</button>
+                            <button @onclick="() => GoToEditTaskList(dueTask.TaskListId)">Open</button>
                         </li>
                     }
                 </ul>
@@ -103,14 +103,14 @@
         <div class="calendar-visualization-toolbar">
             <div class="calendar-visualization-toolbar-navigation">
                 <button @onclick="GoToPreviousPeriod">‹</button>
-                <button @onclick="GoToToday">Dzisiaj</button>
+                <button @onclick="GoToToday">Today</button>
                 <button @onclick="GoToNextPeriod">›</button>
                 <h2 class="calendar-period-label">@_viewState.PeriodLabel</h2>
             </div>
             <div class="calendar-view-switch">
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">Dzień</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">Miesiąc</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">Rok</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">Day</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">Month</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">Year</button>
             </div>
         </div>
 
@@ -134,7 +134,7 @@
     <div class="calendar-year-view-options">
         <label>
             <input id="showDueTasksInYearView" type="checkbox" checked="@_viewState.ShowDueTasksInYearView" @onchange="ToggleShowDueTasksInYearView" />
-            Pokaż zadania w widoku rocznym
+            Show tasks in year view
         </label>
     </div>
 }
@@ -228,13 +228,13 @@
 
     private void GoToAddEvent()
     {
-        Logger.LogInformation("User clicked 'Dodaj wydarzenie'");
+        Logger.LogInformation("User clicked 'Add event'");
         NavigationManager.NavigateTo("/calendar/new");
     }
 
     private void GoToEditEvent(Guid eventId)
     {
-        Logger.LogInformation("User clicked 'Edytuj' for calendar event {EventId}", eventId);
+        Logger.LogInformation("User clicked 'Edit' for calendar event {EventId}", eventId);
         NavigationManager.NavigateTo($"/calendar/{eventId}");
     }
 
@@ -246,8 +246,8 @@
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
     {
-        Logger.LogInformation("User clicked 'Usuń' for calendar event {EventId}", calendarEvent.Id);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Usunąć wydarzenie „{calendarEvent.Details.Title}”?");
+        Logger.LogInformation("User clicked 'Delete' for calendar event {EventId}", calendarEvent.Id);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete event \"{calendarEvent.Details.Title}\"?");
         if (!confirmed)
         {
             return;
@@ -277,7 +277,7 @@
     private void ToggleShowDueTasksInYearView()
     {
         _viewState.ShowDueTasksInYearView = !_viewState.ShowDueTasksInYearView;
-        Logger.LogInformation("User set 'Pokaż zadania w widoku rocznym' to {ShowDueTasksInYearView}", _viewState.ShowDueTasksInYearView);
+        Logger.LogInformation("User set 'Show tasks in year view' to {ShowDueTasksInYearView}", _viewState.ShowDueTasksInYearView);
     }
 
     private void SwitchView(CalendarViewMode viewMode)
@@ -308,7 +308,7 @@
 
     private static string FormatTimeRange(CalendarEventDetailsDto details)
         => details.IsAllDay
-            ? $"{details.StartUtc.LocalDateTime:dd.MM.yyyy} (cały dzień)"
+            ? $"{details.StartUtc.LocalDateTime:dd.MM.yyyy} (all day)"
             : $"{details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm} – {details.EndUtc.LocalDateTime:dd.MM.yyyy HH:mm}";
 
     private static string FormatLocation(EventLocationDto location)
@@ -323,13 +323,13 @@
     {
         var frequencyLabel = recurrence.Frequency switch
         {
-            "Daily" => "co dzień",
-            "Weekly" => "co tydzień",
-            "Monthly" => "co miesiąc",
+            "Daily" => "daily",
+            "Weekly" => "weekly",
+            "Monthly" => "monthly",
             _ => recurrence.Frequency
         };
-        var intervalLabel = recurrence.IntervalCount > 1 ? $"{frequencyLabel} (co {recurrence.IntervalCount})" : frequencyLabel;
-        return recurrence.UntilUtc is { } until ? $"{intervalLabel}, do {until.LocalDateTime:dd.MM.yyyy}" : intervalLabel;
+        var intervalLabel = recurrence.IntervalCount > 1 ? $"{frequencyLabel} (every {recurrence.IntervalCount})" : frequencyLabel;
+        return recurrence.UntilUtc is { } until ? $"{intervalLabel}, until {until.LocalDateTime:dd.MM.yyyy}" : intervalLabel;
     }
 
     private enum CalendarViewMode
@@ -347,7 +347,7 @@
     /// </summary>
     private sealed class CalendarViewState
     {
-        private static readonly CultureInfo PolishCulture = CultureInfo.GetCultureInfo("pl-PL");
+        private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
 
         public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
         public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
@@ -361,8 +361,8 @@
 
         public string PeriodLabel => ViewMode switch
         {
-            CalendarViewMode.Day => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("d MMMM yyyy", PolishCulture),
-            CalendarViewMode.Month => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", PolishCulture),
+            CalendarViewMode.Day => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("d MMMM yyyy", DisplayCulture),
+            CalendarViewMode.Month => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", DisplayCulture),
             CalendarViewMode.Year => ReferenceDate.Year.ToString(CultureInfo.InvariantCulture),
             _ => string.Empty
         };

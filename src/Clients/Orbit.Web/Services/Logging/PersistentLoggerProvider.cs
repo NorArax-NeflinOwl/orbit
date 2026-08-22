@@ -5,8 +5,8 @@ namespace Orbit.Web.Services.Logging;
 /// <summary>
 /// Mirrors every Warning-or-above log line into a small ring buffer kept in the browser's localStorage
 /// (see wwwroot/js/clientLogging.js), so a person without access to devtools - most notably on a phone -
-/// can retrieve the last few errors via the "Kopiuj szczegóły błędu" link on #blazor-error-ui in
-/// index.html, instead of just the generic "Wystąpił nieoczekiwany błąd" banner telling them nothing.
+/// can retrieve the last few errors via the "Copy error details" link on #blazor-error-ui in
+/// index.html, instead of just the generic "An unexpected error occurred" banner telling them nothing.
 /// Registered as ILoggerProvider in Program.cs, so the standard logging pipeline picks it up alongside
 /// the default browser-console provider - callers keep using plain ILogger&lt;T&gt;, nothing extra to opt into.
 /// </summary>

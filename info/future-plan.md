@@ -46,16 +46,6 @@ picture of what's left.
   distributed lock or message queue once it's needed — see
   [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders). No second
   instance runs today; this is forward-looking groundwork already in place.
-- **Sharing for notes and task lists, and editable shares.** Only calendar events can be shared today
-  (`CalendarApiClient.ShareCalendarEventAsync`, see
-  [Functionality — Calendar](functionality.md#calendar)); notes and task lists have no sharing at
-  all, and every existing calendar share is a read-only copy with no way to grant edit rights.
-  **Proposed approach:** generalize the existing `CalendarEventShare` shape (owner, recipient,
-  accepted-or-not) into a shared `Share<TElement>` concept carrying an `AccessLevel` (`ReadOnly` /
-  `CanEdit`), reused by new `NoteShare`/`TaskListShare` tables instead of three independent
-  copy-pasted implementations - the notification/chat-message plumbing
-  (`EncryptedChatMessageSender`) that announces a new share already generalizes cleanly since it just
-  carries an opaque share id.
 - **Checklist items inside a note.** Today a note is a single title/body pair - no way to attach a
   list of `{ checkbox, text }` items to it. **Proposed approach:** a `NoteChecklistItem` child table
   (`NoteId`, `Text`, `IsChecked`, `SortOrder`) rather than cramming it into the note's existing body

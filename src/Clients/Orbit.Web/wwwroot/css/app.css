@@ -78,7 +78,7 @@
     margin: 0;
 }
 
-/* Calendar.razor: the inline "Udostępnione przez ..." tag next to a shared, read-only event's title -
+/* Calendar.razor: the inline "Shared by ..." tag next to a shared, read-only event's title -
    same idea as .shared-event-banner, just compact enough to sit inline in a list item. */
 .shared-event-badge {
     background: #fff8db;
@@ -88,7 +88,7 @@
     padding: 0.1rem 0.5rem;
 }
 
-/* Calendar.razor: the "Ukryj/Pokaż listę" toolbar sitting above the two-column layout below it. */
+/* Calendar.razor: the "Hide/Show list" toolbar sitting above the two-column layout below it. */
 .calendar-toolbar {
     align-items: center;
     display: flex;
@@ -284,7 +284,7 @@
     margin: 0 0 0.25rem 0;
 }
 
-/* CalendarDayGrid.razor: the "Całodniowe" strip above the hour timeline. */
+/* CalendarDayGrid.razor: the "All day" strip above the hour timeline. */
 .calendar-day-grid-all-day {
     align-items: center;
     display: flex;
@@ -374,7 +374,7 @@
     text-align: left;
 }
 
-/* Calendar.razor: the "Pokaż zadania w widoku rocznym" checkbox shown below the calendar layout while the
+/* Calendar.razor: the "Show tasks in year view" checkbox shown below the calendar layout while the
    year view is active. */
 .calendar-year-view-options {
     margin-top: 0.75rem;

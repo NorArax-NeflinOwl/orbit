@@ -12,7 +12,7 @@
 </div>
 
 @code {
-    private static readonly CultureInfo PolishCulture = CultureInfo.GetCultureInfo("pl-PL");
+    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
 
     [Parameter, EditorRequired]
     public IReadOnlyList<YearGridMonth> Months { get; set; } = [];
@@ -20,7 +20,7 @@
     [Parameter]
     public EventCallback<DateOnly> OnDaySelected { get; set; }
 
-    private static string MonthName(int month) => Capitalize(PolishCulture.DateTimeFormat.GetMonthName(month));
+    private static string MonthName(int month) => Capitalize(DisplayCulture.DateTimeFormat.GetMonthName(month));
 
-    private static string Capitalize(string text) => text.Length == 0 ? text : char.ToUpper(text[0], PolishCulture) + text[1..];
+    private static string Capitalize(string text) => text.Length == 0 ? text : char.ToUpper(text[0], DisplayCulture) + text[1..];
 }

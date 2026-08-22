@@ -79,16 +79,18 @@ public sealed class CalendarApiClient
     }
 
     /// <summary>
-    /// Offers a read-only copy of calendarEventId to recipientUserId, returning the new share's id, or
-    /// null if calendarEventId doesn't exist or isn't owned by the caller. Notifying the recipient (an
+    /// Offers a copy of calendarEventId to recipientUserId under the given access level ("ReadOnly" or
+    /// "CanEdit" - see Orbit.Core.Abstractions.ShareAccessLevel), returning the new share's id, or null
+    /// if calendarEventId doesn't exist or isn't owned by the caller. Notifying the recipient (an
     /// encrypted chat message carrying that id) is a separate step - see EncryptedChatMessageSender.
     /// </summary>
-    public async Task<Guid?> ShareCalendarEventAsync(Guid calendarEventId, Guid recipientUserId, CancellationToken cancellationToken = default)
+    public async Task<Guid?> ShareCalendarEventAsync(
+        Guid calendarEventId, Guid recipientUserId, string accessLevel = "ReadOnly", CancellationToken cancellationToken = default)
     {
         try
         {
             var response = await _httpClient.PostAsJsonAsync(
-                $"api/calendar-events/{calendarEventId}/shares", new ShareCalendarEventRequest(recipientUserId), cancellationToken);
+                $"api/calendar-events/{calendarEventId}/shares", new ShareCalendarEventRequest(recipientUserId, accessLevel), cancellationToken);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;

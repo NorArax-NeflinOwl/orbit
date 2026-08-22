@@ -7,7 +7,7 @@ public static class OverdueTaskPushContent
 {
     public static PushNotificationPayload Build(OverdueTaskItem overdueTaskItem)
     {
-        var body = $"Zadanie \"{overdueTaskItem.Description}\" z listy \"{overdueTaskItem.TaskListTitle}\" jest zaległe.";
-        return new PushNotificationPayload("Zaległe zadanie", body, $"/tasks/{overdueTaskItem.TaskListId}");
+        var body = $"Task \"{overdueTaskItem.Description}\" from list \"{overdueTaskItem.TaskListTitle}\" is overdue.";
+        return new PushNotificationPayload("Overdue task", body, $"/tasks/{overdueTaskItem.TaskListId}");
     }
 }

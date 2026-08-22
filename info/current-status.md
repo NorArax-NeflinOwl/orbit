@@ -9,9 +9,9 @@ client. Location sharing and the .NET MAUI client are not implemented yet.
 | Area | Status | Where to read more |
 | --- | --- | --- |
 | Accounts (register / login / refresh / logout) | Implemented | [Functionality — Authentication](functionality.md#authentication) |
-| Notes | Implemented | `/notes` |
-| Tasks | Implemented | [Functionality — Tasks](functionality.md#tasks) |
-| Calendar (basic) | Implemented | [Functionality — Calendar](functionality.md#calendar) |
+| Notes (including sharing with another user) | Implemented | [Functionality — Notes](functionality.md#notes) |
+| Tasks (including sharing with another user) | Implemented | [Functionality — Tasks](functionality.md#tasks) |
+| Calendar (basic, including event sharing) | Implemented | [Functionality — Calendar](functionality.md#calendar) |
 | End-to-end-encrypted 1:1 chat | Implemented | [Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat) |
 | Push notifications | Implemented | [Functionality — Push notifications](functionality.md#push-notifications) |
 | Blazor WebAssembly web client | Implemented (only client so far) | [Architecture](architecture.md#orbitweb) |

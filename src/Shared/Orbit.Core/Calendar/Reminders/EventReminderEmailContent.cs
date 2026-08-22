@@ -7,22 +7,22 @@ public static class EventReminderEmailContent
 {
     public static (string Subject, string Body) Build(CalendarEventDetails details, int minutesBeforeStart)
     {
-        var subject = $"Przypomnienie: {details.Title}";
+        var subject = $"Reminder: {details.Title}";
 
         var bodyLines = new List<string>
         {
-            $"Wydarzenie \"{details.Title}\" zaczyna się {FormatLeadTime(minutesBeforeStart)}.",
-            $"Początek: {details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm}"
+            $"The event \"{details.Title}\" starts {FormatLeadTime(minutesBeforeStart)}.",
+            $"Start: {details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm}"
         };
 
         if (!string.IsNullOrWhiteSpace(details.Description))
         {
-            bodyLines.Add($"Opis: {details.Description}");
+            bodyLines.Add($"Description: {details.Description}");
         }
 
         if (details.Location is { } location)
         {
-            bodyLines.Add($"Lokalizacja: {FormatLocation(location)}");
+            bodyLines.Add($"Location: {FormatLocation(location)}");
         }
 
         return (subject, string.Join(Environment.NewLine, bodyLines));
@@ -31,9 +31,9 @@ public static class EventReminderEmailContent
     private static string FormatLeadTime(int minutesBeforeStart)
         => minutesBeforeStart switch
         {
-            0 => "teraz",
-            _ when minutesBeforeStart % 60 == 0 => $"za {minutesBeforeStart / 60} godz.",
-            _ => $"za {minutesBeforeStart} min"
+            0 => "now",
+            _ when minutesBeforeStart % 60 == 0 => $"in {minutesBeforeStart / 60} hr",
+            _ => $"in {minutesBeforeStart} min"
         };
 
     private static string FormatLocation(EventLocation location)

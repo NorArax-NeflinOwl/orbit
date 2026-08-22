@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Data.Entities;
 
@@ -43,8 +44,8 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
 
     private static CalendarEventShare ToDomain(CalendarEventShareEntity entity)
         => CalendarEventShare.FromPersistence(
-            entity.Id, entity.SourceCalendarEventId, entity.OwnerUserId, entity.RecipientUserId, entity.CreatedAtUtc,
-            entity.AcceptedAtUtc, entity.SharedCalendarEventId);
+            entity.Id, entity.SourceCalendarEventId, entity.OwnerUserId, entity.RecipientUserId,
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedCalendarEventId);
 
     private static CalendarEventShareEntity ToEntity(CalendarEventShare share)
         => new()
@@ -53,6 +54,7 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
             SourceCalendarEventId = share.SourceCalendarEventId,
             OwnerUserId = share.OwnerUserId,
             RecipientUserId = share.RecipientUserId,
+            AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc,
             SharedCalendarEventId = share.SharedCalendarEventId

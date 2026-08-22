@@ -12,13 +12,14 @@ public sealed class UpdateNoteCommandHandler : IRequestHandler<UpdateNoteCommand
     }
 
     /// <summary>
-    /// Returns false instead of throwing when the note is missing or not owned by the requesting user,
-    /// so the API can turn that into a 404 either way, without leaking which is the case.
+    /// Returns false instead of throwing when the note is missing, not owned by the requesting user, or
+    /// is a read-only shared copy, so the API can turn any of those into a 404, without leaking which
+    /// one applies.
     /// </summary>
     public async Task<bool> HandleAsync(UpdateNoteCommand request, CancellationToken cancellationToken)
     {
         var note = await _noteRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
-        if (note is null)
+        if (note is null || (note.IsShared && note.AccessLevel == ShareAccessLevel.ReadOnly))
         {
             return false;
         }

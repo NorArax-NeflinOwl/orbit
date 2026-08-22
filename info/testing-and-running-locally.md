@@ -21,6 +21,9 @@ including the checklist-completion rule, the task-list-linking rules (see
 including the start-before-end validation rule and deletion, the calendar event reminder scheduling
 logic (see
 [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders));
+sharing a note, task list, or calendar event and accepting the offered copy, including the
+read-only-vs-can-edit access level rule (see
+[Functionality — Sharing notes and task lists](functionality.md#sharing-notes-and-task-lists));
 exact-match user search including self-exclusion; setting a user's public key; the chat
 message/contact handlers including the first-message-creates-a-contact-in-both-directions rule and the
 push notification it sends the recipient; subscribing/unsubscribing a push endpoint;
@@ -32,8 +35,9 @@ notification scheduling logic (see
 
 Covers the Blazor client's auth wiring: the token store; the handler that attaches the access token to
 outgoing requests and transparently refreshes it after a 401; `AuthApiClient`;
-`OrbitAuthenticationStateProvider`; `PushNotificationApiClient`; and the `Login`/`Register` pages
-themselves, rendered with [bUnit](https://bunit.dev).
+`OrbitAuthenticationStateProvider`; `PushNotificationApiClient`; and the `Login`, `Register`, `Calendar`
+(including `CalendarEventEditor`), and `Dashboard` pages themselves, rendered with
+[bUnit](https://bunit.dev).
 
 ### What is not covered by an automated test today
 
@@ -44,8 +48,8 @@ and what closing them would take:
 - The client-side retry-after-refresh path end-to-end through a real `HttpClientHandler` pipeline.
 - Actually sending an email through `SmtpEmailSender` or a push notification through
   `VapidPushNotificationSender`.
-- The `Notes`/`Tasks`/`Calendar`/`Dashboard` pages themselves (only their command-handler logic is
-  tested, not a bUnit test against the actual pages, unlike `Login`/`Register`).
+- The `Notes`/`NoteEditor`/`Tasks`/`TaskEditor` pages themselves (only their command-handler logic is
+  tested, not a bUnit test against the actual pages, unlike `Login`/`Register`/`Calendar`/`Dashboard`).
 - The `Contacts`/`Chat` pages, `PushNotificationManager`, and
   `wwwroot/js/e2eeChat.js`/`wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — the
   encryption/decryption round trip, key generation and persistence in IndexedDB, the polling UI,

@@ -8,22 +8,22 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<Login> Logger
 
-<PageTitle>Orbit — Logowanie</PageTitle>
+<PageTitle>Orbit — Log in</PageTitle>
 
-<h1>Logowanie</h1>
+<h1>Log in</h1>
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync">
     <div>
-        <label>E-mail lub login</label>
+        <label>Email or username</label>
         <InputText id="emailOrUserName" @bind-Value="_formModel.EmailOrUserName" />
     </div>
     <div>
-        <label>Hasło</label>
+        <label>Password</label>
         <!-- InputText always renders type="text" regardless of splatted attributes, so a real masked
              password field needs a plain <input> with a manual two-way binding instead. -->
         <input type="password" id="password" @bind="_formModel.Password" />
     </div>
-    <button type="submit" disabled="@_isSubmitting">Zaloguj się</button>
+    <button type="submit" disabled="@_isSubmitting">Log in</button>
 </EditForm>
 
 @if (_errorMessage is not null)
@@ -31,7 +31,7 @@
     <p class="error">@_errorMessage</p>
 }
 
-<p>Nie masz konta? <a href="/register">Zarejestruj się</a></p>
+<p>Don't have an account? <a href="/register">Register</a></p>
 
 @code {
     private readonly LoginFormModel _formModel = new();
@@ -55,7 +55,7 @@
             // client-side timeout, for instance - so a failure here always shows the same inline error
             // message instead of crashing the whole page.
             Logger.LogActionFailed(ClientActionCategory.Login, "Login", exception);
-            _errorMessage = "Nie udało się połączyć z serwerem. Sprawdź połączenie i spróbuj ponownie.";
+            _errorMessage = "Failed to connect to the server. Check your connection and try again.";
             _isSubmitting = false;
             return;
         }
@@ -75,8 +75,8 @@
 
         _errorMessage = result.Outcome switch
         {
-            AuthOutcome.InvalidCredentials => "Nieprawidłowy e-mail, login lub hasło.",
-            _ => "Wystąpił błąd podczas logowania. Spróbuj ponownie."
+            AuthOutcome.InvalidCredentials => "Invalid email, username, or password.",
+            _ => "An error occurred while logging in. Try again."
         };
         _isSubmitting = false;
     }

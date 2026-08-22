@@ -28,37 +28,37 @@ public sealed class CalendarTests : TestContext
     }
 
     [Fact]
-    public void The_calendar_opens_in_month_view_with_the_Miesiac_button_marked_active()
+    public void The_calendar_opens_in_month_view_with_the_Month_button_marked_active()
     {
         RegisterCalendarApiClient([]);
 
         var cut = RenderComponent<Calendar>();
 
         Assert.NotEmpty(cut.FindAll(".calendar-month-grid"));
-        Assert.Equal("true", FindViewSwitchButton(cut, "Miesiąc").GetAttribute("aria-pressed"));
-        Assert.Equal("false", FindViewSwitchButton(cut, "Dzień").GetAttribute("aria-pressed"));
+        Assert.Equal("true", FindViewSwitchButton(cut, "Month").GetAttribute("aria-pressed"));
+        Assert.Equal("false", FindViewSwitchButton(cut, "Day").GetAttribute("aria-pressed"));
     }
 
     [Fact]
-    public void Clicking_Dzien_switches_the_visualization_to_the_day_grid()
+    public void Clicking_Day_switches_the_visualization_to_the_day_grid()
     {
         RegisterCalendarApiClient([]);
         var cut = RenderComponent<Calendar>();
 
-        FindViewSwitchButton(cut, "Dzień").Click();
+        FindViewSwitchButton(cut, "Day").Click();
 
         Assert.NotEmpty(cut.FindAll(".calendar-day-grid"));
         Assert.Empty(cut.FindAll(".calendar-month-grid"));
-        Assert.Equal("true", FindViewSwitchButton(cut, "Dzień").GetAttribute("aria-pressed"));
+        Assert.Equal("true", FindViewSwitchButton(cut, "Day").GetAttribute("aria-pressed"));
     }
 
     [Fact]
-    public void Clicking_Rok_switches_the_visualization_to_a_year_grid_with_all_12_months()
+    public void Clicking_Year_switches_the_visualization_to_a_year_grid_with_all_12_months()
     {
         RegisterCalendarApiClient([]);
         var cut = RenderComponent<Calendar>();
 
-        FindViewSwitchButton(cut, "Rok").Click();
+        FindViewSwitchButton(cut, "Year").Click();
 
         Assert.Equal(12, cut.FindAll(".calendar-year-grid-month").Count);
     }
@@ -70,10 +70,10 @@ public sealed class CalendarTests : TestContext
         var cut = RenderComponent<Calendar>();
         Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
 
-        FindButtonByText(cut, "Ukryj listę").Click();
+        FindButtonByText(cut, "Hide list").Click();
 
         Assert.Empty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.Contains(cut.FindAll("button"), button => button.TextContent == "Pokaż listę");
+        Assert.Contains(cut.FindAll("button"), button => button.TextContent == "Show list");
         // The visualization panel keeps rendering full-width once the list is hidden.
         Assert.NotEmpty(cut.FindAll(".calendar-visualization-panel"));
     }
@@ -116,7 +116,7 @@ public sealed class CalendarTests : TestContext
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<Calendar>();
 
-        FindViewSwitchButton(cut, "Dzień").Click();
+        FindViewSwitchButton(cut, "Day").Click();
 
         var block = cut.Find(".calendar-task-block");
         Assert.Contains("09:45", block.TextContent);
@@ -134,7 +134,7 @@ public sealed class CalendarTests : TestContext
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<Calendar>();
 
-        FindViewSwitchButton(cut, "Rok").Click();
+        FindViewSwitchButton(cut, "Year").Click();
         Assert.NotEmpty(cut.FindAll(".calendar-month-grid-day-dot-task"));
 
         cut.Find("#showDueTasksInYearView").Change(false);
@@ -156,7 +156,7 @@ public sealed class CalendarTests : TestContext
                 new DateTimeOffset(DateTime.SpecifyKind(localStart, DateTimeKind.Local)),
                 new DateTimeOffset(DateTime.SpecifyKind(localEnd, DateTimeKind.Local)),
                 IsAllDay: false, null, [], [], "None", "None"),
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null);
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly");
 
     private static TaskDto CreateTaskListWithDueItem(DateTime localDueDate, string description)
     {
@@ -164,7 +164,9 @@ public sealed class CalendarTests : TestContext
             Guid.NewGuid(), description, new DateTimeOffset(DateTime.SpecifyKind(localDueDate, DateTimeKind.Local)), IsCompleted: false,
             LinkedTaskListId: null, OverdueNotificationChannel: "None", RemindDaily: false, DailyReminderNotificationChannel: "None",
             DailyReminderTimeOfDay: default);
-        return new TaskDto(Guid.NewGuid(), "Lista zadań", [item], IsCompleted: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        return new TaskDto(
+            Guid.NewGuid(), "Lista zadań", [item], IsCompleted: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly");
     }
 
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)

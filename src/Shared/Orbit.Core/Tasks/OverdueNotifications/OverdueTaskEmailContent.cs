@@ -5,10 +5,10 @@ public static class OverdueTaskEmailContent
 {
     public static (string Subject, string Body) Build(OverdueTaskItem overdueTaskItem)
     {
-        var subject = $"Zaległe zadanie: {overdueTaskItem.Description}";
+        var subject = $"Overdue task: {overdueTaskItem.Description}";
         var body =
-            $"Zadanie \"{overdueTaskItem.Description}\" z listy \"{overdueTaskItem.TaskListTitle}\" jest zaległe." +
-            $"{Environment.NewLine}Termin: {overdueTaskItem.DueDateUtc.LocalDateTime:dd.MM.yyyy HH:mm}";
+            $"Task \"{overdueTaskItem.Description}\" from list \"{overdueTaskItem.TaskListTitle}\" is overdue." +
+            $"{Environment.NewLine}Due: {overdueTaskItem.DueDateUtc.LocalDateTime:dd.MM.yyyy HH:mm}";
 
         return (subject, body);
     }

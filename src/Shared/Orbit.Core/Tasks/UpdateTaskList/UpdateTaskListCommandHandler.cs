@@ -14,13 +14,14 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     }
 
     /// <summary>
-    /// Returns false instead of throwing when the task list is missing or not owned by the requesting
-    /// user, so the API can turn that into a 404 either way, without leaking which is the case.
+    /// Returns false instead of throwing when the task list is missing, not owned by the requesting
+    /// user, or is a read-only shared copy, so the API can turn any of those into a 404, without
+    /// leaking which one applies.
     /// </summary>
     public async Task<bool> HandleAsync(UpdateTaskListCommand request, CancellationToken cancellationToken)
     {
         var taskList = await _taskRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
-        if (taskList is null)
+        if (taskList is null || (taskList.IsShared && taskList.AccessLevel == ShareAccessLevel.ReadOnly))
         {
             return false;
         }

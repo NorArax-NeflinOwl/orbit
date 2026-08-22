@@ -7,7 +7,7 @@ public static class DailyTaskReminderPushContent
 {
     public static PushNotificationPayload Build(DueDailyTaskReminder reminder)
     {
-        var body = $"Zadanie \"{reminder.Description}\" z listy \"{reminder.TaskListTitle}\" wciąż czeka na wykonanie.";
-        return new PushNotificationPayload("Przypomnienie o zadaniu", body, $"/tasks/{reminder.TaskListId}");
+        var body = $"Task \"{reminder.Description}\" from list \"{reminder.TaskListTitle}\" is still waiting to be done.";
+        return new PushNotificationPayload("Task reminder", body, $"/tasks/{reminder.TaskListId}");
     }
 }

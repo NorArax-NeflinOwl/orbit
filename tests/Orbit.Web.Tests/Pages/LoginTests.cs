@@ -79,7 +79,7 @@ public sealed class LoginTests : TestContext
     }
 
     [Fact]
-    public void Submitting_invalid_credentials_shows_a_polish_error_message()
+    public void Submitting_invalid_credentials_shows_an_error_message()
     {
         RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
 
@@ -88,7 +88,7 @@ public sealed class LoginTests : TestContext
         cut.Find("#password").Change("wrong-password");
         cut.Find("form").Submit();
 
-        Assert.Contains("Nieprawidłowy e-mail, login lub hasło.", cut.Markup);
+        Assert.Contains("Invalid email, username, or password.", cut.Markup);
     }
 
     private void RegisterAuthApiClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

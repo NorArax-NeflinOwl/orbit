@@ -7,19 +7,19 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<Notes> Logger
 
-<PageTitle>Orbit — Notatki</PageTitle>
+<PageTitle>Orbit — Notes</PageTitle>
 
-<h1>Notatki</h1>
+<h1>Notes</h1>
 
-<p><button @onclick="GoToAddNote">Dodaj notatkę</button></p>
+<p><button @onclick="GoToAddNote">Add note</button></p>
 
 @if (_notes is null)
 {
-    <p>Ładowanie…</p>
+    <p>Loading…</p>
 }
 else if (_notes.Count == 0)
 {
-    <p>Brak notatek.</p>
+    <p>No notes.</p>
 }
 else
 {
@@ -29,10 +29,10 @@ else
             <li>
                 <strong>@note.Title</strong>
                 <p>@note.Content</p>
-                <small>Utworzono: @note.CreatedAtUtc.LocalDateTime</small><br>
-                <small>Ostatnia zmiana: @note.UpdatedAtUtc.LocalDateTime</small><br>
-                <button @onclick="() => GoToEditNote(note.Id)">Edytuj</button>
-                <button @onclick="() => DeleteNoteAsync(note)">Usuń</button>
+                <small>Created: @note.CreatedAtUtc.LocalDateTime</small><br>
+                <small>Last updated: @note.UpdatedAtUtc.LocalDateTime</small><br>
+                <button @onclick="() => GoToEditNote(note.Id)">Edit</button>
+                <button @onclick="() => DeleteNoteAsync(note)">Delete</button>
             </li>
         }
     </ul>
@@ -61,20 +61,20 @@ else
 
     private void GoToAddNote()
     {
-        Logger.LogInformation("User clicked 'Dodaj notatkę'");
+        Logger.LogInformation("User clicked 'Add note'");
         NavigationManager.NavigateTo("/notes/new");
     }
 
     private void GoToEditNote(Guid noteId)
     {
-        Logger.LogInformation("User clicked 'Edytuj' for note {NoteId}", noteId);
+        Logger.LogInformation("User clicked 'Edit' for note {NoteId}", noteId);
         NavigationManager.NavigateTo($"/notes/{noteId}");
     }
 
     private async Task DeleteNoteAsync(NoteDto note)
     {
-        Logger.LogInformation("User clicked 'Usuń' for note {NoteId}", note.Id);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Usunąć notatkę „{note.Title}”?");
+        Logger.LogInformation("User clicked 'Delete' for note {NoteId}", note.Id);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete note \"{note.Title}\"?");
         if (!confirmed)
         {
             return;

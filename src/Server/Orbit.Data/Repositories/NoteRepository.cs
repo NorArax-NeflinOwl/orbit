@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Data.Entities;
 
@@ -63,7 +64,9 @@ public sealed class NoteRepository : INoteRepository
     }
 
     private static Note ToDomain(NoteEntity entity)
-        => Note.FromPersistence(entity.Id, entity.UserId, entity.Title, entity.Content, entity.CreatedAtUtc, entity.UpdatedAtUtc);
+        => Note.FromPersistence(
+            entity.Id, entity.UserId, entity.Title, entity.Content, entity.CreatedAtUtc, entity.UpdatedAtUtc,
+            entity.IsShared, entity.SharedByUserName, Enum.Parse<ShareAccessLevel>(entity.AccessLevel));
 
     private static NoteEntity ToEntity(Note note)
         => new()
@@ -72,6 +75,9 @@ public sealed class NoteRepository : INoteRepository
             UserId = note.UserId,
             Title = note.Title,
             Content = note.Content,
+            IsShared = note.IsShared,
+            SharedByUserName = note.SharedByUserName,
+            AccessLevel = note.AccessLevel.ToString(),
             CreatedAtUtc = note.CreatedAtUtc,
             UpdatedAtUtc = note.UpdatedAtUtc
         };

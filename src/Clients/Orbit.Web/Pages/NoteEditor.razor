@@ -1,34 +1,76 @@
 @page "/notes/new"
 @page "/notes/{Id:guid}"
 @attribute [Authorize]
+@using System.Text.Json
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject ChatApiClient ChatApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<NoteEditor> Logger
 
-<PageTitle>@(IsNewNote ? "Nowa notatka" : "Edytuj notatkę")</PageTitle>
+<PageTitle>@(IsNewNote ? "New note" : "Edit note")</PageTitle>
 
-<h1>@(IsNewNote ? "Nowa notatka" : "Edytuj notatkę")</h1>
+<h1>@(IsNewNote ? "New note" : "Edit note")</h1>
 
 @if (_isLoading)
 {
-    <p>Ładowanie…</p>
+    <p>Loading…</p>
 }
 else
 {
+    @if (_isSharedReadOnly)
+    {
+        <p class="shared-note-banner">
+            This note was shared by <strong>@_sharedByUserName</strong> - read-only.
+        </p>
+    }
+
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
-        <div>
-            <label>Tytuł</label>
-            <InputText @bind-Value="_formModel.Title" />
-        </div>
-        <div>
-            <label>Treść</label>
-            <InputTextArea @bind-Value="_formModel.Content" />
-        </div>
-        <button type="submit" disabled="@_isSaving">Zapisz</button>
-        <button type="button" @onclick="Cancel">Anuluj</button>
+        <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
+            <div>
+                <label>Title</label>
+                <InputText @bind-Value="_formModel.Title" />
+            </div>
+            <div>
+                <label>Content</label>
+                <InputTextArea @bind-Value="_formModel.Content" />
+            </div>
+            <button type="submit">Save</button>
+            <button type="button" @onclick="Cancel">Cancel</button>
+        </fieldset>
     </EditForm>
+
+    @if (!IsNewNote)
+    {
+        <h2>Sharing</h2>
+        @if (_contacts.Count == 0)
+        {
+            <p>No contacts. A contact will appear here once you start a chat with someone.</p>
+        }
+        else
+        {
+            <select id="shareContactSelect" @bind="_selectedContactUserId">
+                <option value="">-- select a contact --</option>
+                @foreach (var contact in _contacts)
+                {
+                    <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                }
+            </select>
+            <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
+                <option value="ReadOnly">Read-only</option>
+                <option value="CanEdit">Can edit</option>
+            </select>
+            <button type="button" id="shareNoteButton" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
+        }
+        @if (_shareErrorMessage is not null)
+        {
+            <p class="error">@_shareErrorMessage</p>
+        }
+    }
 }
 
 @code {
@@ -38,10 +80,21 @@ else
     private bool IsNewNote => Id is null;
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isSharing;
     private NoteFormModel _formModel = new();
+    private bool _isSharedReadOnly;
+    private string? _sharedByUserName;
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private string _selectedContactUserId = string.Empty;
+    private string _selectedAccessLevel = "ReadOnly";
+    private string? _shareErrorMessage;
+    private Guid _ownUserId;
 
     protected override async Task OnInitializedAsync()
     {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _ownUserId = Guid.Parse(authenticationState.User.FindFirst("sub")!.Value);
+
         if (Id is { } noteId)
         {
             Logger.LogInformation("Note editor opened for note {NoteId}", noteId);
@@ -51,7 +104,11 @@ else
                 if (note is not null)
                 {
                     _formModel = new NoteFormModel { Title = note.Title, Content = note.Content };
+                    _isSharedReadOnly = note.IsShared && note.AccessLevel == "ReadOnly";
+                    _sharedByUserName = note.SharedByUserName;
                 }
+
+                _contacts = await ChatApiClient.GetContactsAsync();
             }
             catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
             {
@@ -73,7 +130,7 @@ else
     private async Task SaveAsync()
     {
         Logger.LogInformation(
-            "User clicked 'Zapisz' ({Mode}, NoteId={NoteId})", IsNewNote ? "create" : "update", Id);
+            "User clicked 'Save' ({Mode}, NoteId={NoteId})", IsNewNote ? "create" : "update", Id);
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
         // double Enter-press can't fire this again while the first request is still in flight and create
@@ -110,9 +167,52 @@ else
         NavigationManager.NavigateTo("/notes");
     }
 
+    /// <summary>
+    /// Shares the already-saved note with the selected contact and notifies them with an encrypted chat
+    /// message carrying an "Accept" action (see NoteShareMessagePayload) - mirrors
+    /// CalendarEventEditor.ShareWithNewlyAddedContactsAsync, minus the "defer until Save" batching, since
+    /// notes have no "guests" field to piggyback the share list on.
+    /// </summary>
+    private async Task ShareAsync()
+    {
+        if (!Guid.TryParse(_selectedContactUserId, out var recipientUserId) || Id is not { } noteId)
+        {
+            return;
+        }
+
+        _shareErrorMessage = null;
+        _isSharing = true;
+        try
+        {
+            var shareId = await NotesApiClient.ShareNoteAsync(noteId, recipientUserId, _selectedAccessLevel);
+            if (shareId is null)
+            {
+                _shareErrorMessage = "Failed to share the note.";
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(new NoteShareMessagePayload(shareId.Value, _formModel.Title));
+            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+            _selectedContactUserId = string.Empty;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to share note {NoteId} with user {RecipientUserId}", noteId, recipientUserId);
+            _shareErrorMessage = "Failed to share the note.";
+        }
+        finally
+        {
+            _isSharing = false;
+        }
+    }
+
     private void Cancel()
     {
-        Logger.LogInformation("User clicked 'Anuluj'");
+        Logger.LogInformation("User clicked 'Cancel'");
         NavigationManager.NavigateTo("/notes");
     }
 

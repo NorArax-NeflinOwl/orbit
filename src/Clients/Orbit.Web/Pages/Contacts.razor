@@ -8,13 +8,13 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<Contacts> Logger
 
-<PageTitle>Orbit — Kontakty</PageTitle>
+<PageTitle>Orbit — Contacts</PageTitle>
 
-<h1>Kontakty</h1>
+<h1>Contacts</h1>
 
 <div>
-    <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="Adres e-mail lub login" />
-    <button @onclick="SearchAsync" disabled="@_isSearching">Szukaj</button>
+    <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="Email address or username" />
+    <button @onclick="SearchAsync" disabled="@_isSearching">Search</button>
 </div>
 
 @if (_searchError is not null)
@@ -26,33 +26,33 @@
 {
     <div>
         <strong>@_searchResult.DisplayName</strong> (@_searchResult.UserName)
-        <button @onclick="() => OpenChat(_searchResult.Id)">Otwórz czat</button>
+        <button @onclick="() => OpenChat(_searchResult.Id)">Open chat</button>
     </div>
 }
 
 @if (_contacts is not null && _pendingRequests.Any())
 {
-    <h2>Nowe prośby</h2>
+    <h2>New requests</h2>
     <ul>
         @foreach (var contact in _pendingRequests)
         {
             <li>
                 <button @onclick="() => OpenChat(contact.UserId)">@contact.DisplayName (@contact.UserName)</button>
-                <span class="chat-request-badge">nowa prośba</span>
+                <span class="chat-request-badge">new request</span>
             </li>
         }
     </ul>
 }
 
-<h2>Czaty</h2>
+<h2>Chats</h2>
 
 @if (_contacts is null)
 {
-    <p>Ładowanie…</p>
+    <p>Loading…</p>
 }
 else if (!_establishedChats.Any())
 {
-    <p>Brak czatów. Wyszukaj użytkownika po adresie e-mail lub loginie, aby rozpocząć rozmowę.</p>
+    <p>No chats. Search for a user by email address or username to start a conversation.</p>
 }
 else
 {
@@ -75,7 +75,7 @@ else
 
     /// <summary>
     /// Chat requests someone else sent that the current user hasn't approved yet - see
-    /// ChatConversationAccess. Shown separately from established chats, with a "nowa prośba" badge,
+    /// ChatConversationAccess. Shown separately from established chats, with a "new request" badge,
     /// instead of mixed into the regular chat list.
     /// </summary>
     private IEnumerable<ContactDto> _pendingRequests
@@ -116,7 +116,7 @@ else
             _searchResult = await UsersApiClient.SearchUserAsync(identifier);
             if (_searchResult is null)
             {
-                _searchError = "Nie znaleziono użytkownika o podanym adresie e-mail lub loginie.";
+                _searchError = "No user found with that email address or username.";
             }
         }
         finally

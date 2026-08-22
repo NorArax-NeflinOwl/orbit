@@ -8,30 +8,30 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<Register> Logger
 
-<PageTitle>Orbit — Rejestracja</PageTitle>
+<PageTitle>Orbit — Register</PageTitle>
 
-<h1>Rejestracja</h1>
+<h1>Register</h1>
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync">
     <div>
-        <label>E-mail</label>
+        <label>Email</label>
         <InputText id="email" @bind-Value="_formModel.Email" />
     </div>
     <div>
-        <label>Login</label>
+        <label>Username</label>
         <InputText id="userName" @bind-Value="_formModel.UserName" />
     </div>
     <div>
-        <label>Wyświetlana nazwa</label>
+        <label>Display name</label>
         <InputText id="displayName" @bind-Value="_formModel.DisplayName" />
     </div>
     <div>
-        <label>Hasło</label>
+        <label>Password</label>
         <!-- InputText always renders type="text" regardless of splatted attributes, so a real masked
              password field needs a plain <input> with a manual two-way binding instead. -->
         <input type="password" id="password" @bind="_formModel.Password" />
     </div>
-    <button type="submit" disabled="@_isSubmitting">Zarejestruj się</button>
+    <button type="submit" disabled="@_isSubmitting">Register</button>
 </EditForm>
 
 @if (_errorMessage is not null)
@@ -39,7 +39,7 @@
     <p class="error">@_errorMessage</p>
 }
 
-<p>Masz już konto? <a href="/login">Zaloguj się</a></p>
+<p>Already have an account? <a href="/login">Log in</a></p>
 
 @code {
     private readonly RegisterFormModel _formModel = new();
@@ -64,7 +64,7 @@
             // client-side timeout, for instance - so a failure here always shows the same inline error
             // message instead of crashing the whole page.
             Logger.LogActionFailed(ClientActionCategory.Registration, "Registration", exception);
-            _errorMessage = "Nie udało się połączyć z serwerem. Sprawdź połączenie i spróbuj ponownie.";
+            _errorMessage = "Failed to connect to the server. Check your connection and try again.";
             _isSubmitting = false;
             return;
         }
@@ -84,8 +84,8 @@
 
         _errorMessage = result.Outcome switch
         {
-            AuthOutcome.EmailOrUserNameAlreadyTaken => "Ten adres e-mail lub login jest już zajęty.",
-            _ => "Wystąpił błąd podczas rejestracji. Spróbuj ponownie."
+            AuthOutcome.EmailOrUserNameAlreadyTaken => "That email or username is already taken.",
+            _ => "An error occurred while registering. Try again."
         };
         _isSubmitting = false;
     }

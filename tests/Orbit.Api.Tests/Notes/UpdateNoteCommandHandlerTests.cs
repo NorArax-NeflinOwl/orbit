@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.UpdateNote;
 using Xunit;
@@ -41,6 +42,40 @@ public sealed class UpdateNoteCommandHandlerTests
         Assert.False(wasUpdated);
         var stored = await repository.GetByIdAsync(ownerId, note.Id, CancellationToken.None);
         Assert.Equal("Original title", stored!.Title);
+    }
+
+    [Fact]
+    public async Task HandleAsync_returns_false_and_does_not_update_a_shared_read_only_note()
+    {
+        var repository = new InMemoryNoteRepository();
+        var handler = new UpdateNoteCommandHandler(repository);
+        var recipientId = Guid.NewGuid();
+        var sharedNote = Note.CreateShared(recipientId, "Original title", "Original content", "owner", ShareAccessLevel.ReadOnly);
+        await repository.AddAsync(sharedNote, CancellationToken.None);
+
+        var wasUpdated = await handler.HandleAsync(
+            new UpdateNoteCommand(recipientId, sharedNote.Id, "Edited title", "Edited content"), CancellationToken.None);
+
+        Assert.False(wasUpdated);
+        var stored = await repository.GetByIdAsync(recipientId, sharedNote.Id, CancellationToken.None);
+        Assert.Equal("Original title", stored!.Title);
+    }
+
+    [Fact]
+    public async Task HandleAsync_updates_a_shared_note_with_edit_access()
+    {
+        var repository = new InMemoryNoteRepository();
+        var handler = new UpdateNoteCommandHandler(repository);
+        var recipientId = Guid.NewGuid();
+        var sharedNote = Note.CreateShared(recipientId, "Original title", "Original content", "owner", ShareAccessLevel.CanEdit);
+        await repository.AddAsync(sharedNote, CancellationToken.None);
+
+        var wasUpdated = await handler.HandleAsync(
+            new UpdateNoteCommand(recipientId, sharedNote.Id, "New title", "New content"), CancellationToken.None);
+
+        Assert.True(wasUpdated);
+        var stored = await repository.GetByIdAsync(recipientId, sharedNote.Id, CancellationToken.None);
+        Assert.Equal("New title", stored!.Title);
     }
 
     [Fact]

@@ -19,7 +19,7 @@ public sealed class UpdateCalendarEventCommandHandler : IRequestHandler<UpdateCa
     public async Task<bool> HandleAsync(UpdateCalendarEventCommand request, CancellationToken cancellationToken)
     {
         var calendarEvent = await _calendarEventRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
-        if (calendarEvent is null || calendarEvent.IsShared)
+        if (calendarEvent is null || (calendarEvent.IsShared && calendarEvent.AccessLevel == ShareAccessLevel.ReadOnly))
         {
             return false;
         }

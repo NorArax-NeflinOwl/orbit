@@ -22,7 +22,7 @@ public sealed class ShareCalendarEventCommandHandler : IRequestHandler<ShareCale
             return null;
         }
 
-        var share = CalendarEventShare.Create(sourceEvent.Id, request.OwnerUserId, request.RecipientUserId);
+        var share = CalendarEventShare.Create(sourceEvent.Id, request.OwnerUserId, request.RecipientUserId, request.AccessLevel);
         await _calendarEventShareRepository.AddAsync(share, cancellationToken);
         return share.Id;
     }

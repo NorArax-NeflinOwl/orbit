@@ -37,7 +37,9 @@ public static class OrbitDataServiceCollectionExtensions
 
         services.AddDbContext<OrbitDbContext>(options => options.UseSqlite(connectionStringBuilder.ToString()));
         services.AddScoped<INoteRepository, NoteRepository>();
+        services.AddScoped<INoteShareRepository, NoteShareRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
+        services.AddScoped<ITaskListShareRepository, TaskListShareRepository>();
         services.AddScoped<ICalendarEventRepository, CalendarEventRepository>();
         services.AddScoped<ICalendarEventShareRepository, CalendarEventShareRepository>();
         services.AddScoped<IUserRepository, UserRepository>();

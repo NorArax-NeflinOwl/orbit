@@ -76,4 +76,61 @@ public sealed class TasksApiClient
         var response = await _httpClient.DeleteAsync($"api/tasks/{id}", cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    /// <summary>
+    /// Offers a copy of taskListId to recipientUserId under the given access level ("ReadOnly" or
+    /// "CanEdit" - see Orbit.Core.Abstractions.ShareAccessLevel), returning the new share's id, or null
+    /// if taskListId doesn't exist or isn't owned by the caller. Notifying the recipient (an encrypted
+    /// chat message carrying that id) is a separate step - see EncryptedChatMessageSender. Mirrors
+    /// CalendarApiClient.ShareCalendarEventAsync.
+    /// </summary>
+    public async Task<Guid?> ShareTaskListAsync(
+        Guid taskListId, Guid recipientUserId, string accessLevel = "ReadOnly", CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                $"api/tasks/{taskListId}/shares", new ShareTaskListRequest(recipientUserId, accessLevel), cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+
+            response.EnsureSuccessStatusCode();
+            var shareId = await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+            _logger.LogActionCompleted(ClientActionCategory.ShareElement, "Share task list");
+            return shareId;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.ShareElement, "Share task list", exception);
+            throw;
+        }
+    }
+
+    /// <summary>Returns false instead of throwing when shareId doesn't exist or wasn't offered to the caller.</summary>
+    public async Task<bool> AcceptTaskListShareAsync(Guid shareId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/tasks/shares/{shareId}/accept", content: null, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>Whether shareId has already been accepted, or null if it doesn't exist or wasn't offered to the caller.</summary>
+    public async Task<bool?> GetTaskListShareStatusAsync(Guid shareId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync($"api/tasks/shares/{shareId}/status", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<bool>(cancellationToken: cancellationToken);
+    }
 }

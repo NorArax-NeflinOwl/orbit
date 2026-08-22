@@ -110,7 +110,7 @@ public sealed class CalendarEventEditorTests : TestContext
         cut.Find("#guestList button").Click();
 
         Assert.Empty(cut.FindAll("#guestList"));
-        Assert.Contains("Brak gości", cut.Markup);
+        Assert.Contains("No guests", cut.Markup);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public sealed class CalendarEventEditorTests : TestContext
 
         var cut = RenderComponent<CalendarEventEditor>();
 
-        Assert.Contains("Brak kontaktów", cut.Markup);
+        Assert.Contains("No contacts", cut.Markup);
         Assert.Empty(cut.FindAll("#guestContactSelect"));
     }
 

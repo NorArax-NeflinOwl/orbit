@@ -16,41 +16,41 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<CalendarEventEditor> Logger
 
-<PageTitle>@(IsNewEvent ? "Nowe wydarzenie" : "Edytuj wydarzenie")</PageTitle>
+<PageTitle>@(IsNewEvent ? "New event" : "Edit event")</PageTitle>
 
-<h1>@(IsNewEvent ? "Nowe wydarzenie" : "Edytuj wydarzenie")</h1>
+<h1>@(IsNewEvent ? "New event" : "Edit event")</h1>
 
 @if (_isLoading)
 {
-    <p>Ładowanie…</p>
+    <p>Loading…</p>
 }
 else
 {
     @if (_isSharedReadOnly)
     {
         <p class="shared-event-banner">
-            To wydarzenie zostało udostępnione przez użytkownika <strong>@_sharedByUserName</strong> - tylko do odczytu.
+            This event was shared by <strong>@_sharedByUserName</strong> - read-only.
         </p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
     <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
         <div>
-            <label>Tytuł</label>
+            <label>Title</label>
             <InputText @bind-Value="_formModel.Title" />
         </div>
         <div>
-            <label>Opis</label>
+            <label>Description</label>
             <InputTextArea @bind-Value="_formModel.Description" />
         </div>
         <div>
-            <label>Lokalizacja</label>
-            <InputText @bind-Value="_formModel.LocationAddress" placeholder="Wybierz punkt na mapie, aby ustawić adres" />
-            <button type="button" @onclick="ToggleMapAsync">@(_isMapVisible ? "Ukryj mapę" : "Wybierz na mapie")</button>
+            <label>Location</label>
+            <InputText @bind-Value="_formModel.LocationAddress" placeholder="Pick a point on the map to set an address" />
+            <button type="button" @onclick="ToggleMapAsync">@(_isMapVisible ? "Hide map" : "Pick on map")</button>
             @if (_formModel.LocationLatitude is { } latitude && _formModel.LocationLongitude is { } longitude)
             {
-                <span> Współrzędne: @latitude.ToString("F5") , @longitude.ToString("F5")</span>
-                <button type="button" @onclick="ClearLocation">Usuń lokalizację</button>
+                <span> Coordinates: @latitude.ToString("F5") , @longitude.ToString("F5")</span>
+                <button type="button" @onclick="ClearLocation">Remove location</button>
             }
             @if (_isMapVisible)
             {
@@ -58,17 +58,17 @@ else
             }
         </div>
         <div>
-            <label>Kolor</label>
+            <label>Color</label>
             <input type="color" @bind="_formModel.Color" />
         </div>
         <div>
             <label>
                 <InputCheckbox @bind-Value="_formModel.IsAllDay" />
-                Wydarzenie całodniowe
+                All-day event
             </label>
         </div>
         <div>
-            <label>Początek</label>
+            <label>Start</label>
             <InputDate @bind-Value="_formModel.StartDate" />
             @if (!_formModel.IsAllDay)
             {
@@ -76,7 +76,7 @@ else
             }
         </div>
         <div>
-            <label>Koniec</label>
+            <label>End</label>
             <InputDate @bind-Value="_formModel.EndDate" />
             @if (!_formModel.IsAllDay)
             {
@@ -86,33 +86,33 @@ else
         <div>
             <label>
                 <InputCheckbox @bind-Value="_formModel.IsRecurring" />
-                Wydarzenie cykliczne
+                Recurring event
             </label>
         </div>
         @if (_formModel.IsRecurring)
         {
             <div>
-                <label>Częstotliwość</label>
+                <label>Frequency</label>
                 <InputSelect @bind-Value="_formModel.RecurrenceFrequency">
-                    <option value="Daily">Co dzień</option>
-                    <option value="Weekly">Co tydzień</option>
-                    <option value="Monthly">Co miesiąc</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
                 </InputSelect>
             </div>
             <div>
-                <label>Co ile</label>
+                <label>Every</label>
                 <InputNumber @bind-Value="_formModel.RecurrenceIntervalCount" />
             </div>
             <div>
-                <label>Powtarzaj do (opcjonalnie)</label>
+                <label>Repeat until (optional)</label>
                 <InputDate @bind-Value="_formModel.RecurrenceUntil" />
             </div>
         }
         <div>
-            <label>Goście</label>
+            <label>Guests</label>
             @if (_formModel.GuestUserIds.Count == 0)
             {
-                <p>Brak gości.</p>
+                <p>No guests.</p>
             }
             else
             {
@@ -121,37 +121,41 @@ else
                     {
                         <li>
                             @GetGuestDisplayName(guestUserId)
-                            <button type="button" @onclick="() => RemoveGuest(guestUserId)">Usuń</button>
+                            <button type="button" @onclick="() => RemoveGuest(guestUserId)">Remove</button>
                         </li>
                     }
                 </ul>
             }
         </div>
         <div>
-            <label>Dodaj gościa z kontaktów</label>
+            <label>Add a guest from contacts</label>
             @if (_contacts.Count == 0)
             {
-                <p>Brak kontaktów. Kontakt pojawi się tutaj, gdy rozpoczniesz z kimś czat.</p>
+                <p>No contacts. A contact will appear here once you start a chat with someone.</p>
             }
             else
             {
                 <select id="guestContactSelect" @bind="_selectedContactUserId">
-                    <option value="">-- wybierz kontakt --</option>
+                    <option value="">-- select a contact --</option>
                     @foreach (var contact in _contacts)
                     {
                         <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
                     }
                 </select>
-                <button type="button" id="addGuestFromContactButton" @onclick="AddSelectedContactAsGuest">Dodaj</button>
+                <select id="guestAccessLevelSelect" @bind="_selectedAccessLevel">
+                    <option value="ReadOnly">Read-only</option>
+                    <option value="CanEdit">Can edit</option>
+                </select>
+                <button type="button" id="addGuestFromContactButton" @onclick="AddSelectedContactAsGuest">Add</button>
             }
         </div>
         <div>
-            <label>Przypomnienia (minuty przed wydarzeniem, oddzielone przecinkami)</label>
+            <label>Reminders (minutes before the event, comma-separated)</label>
             <InputText @bind-Value="_formModel.RemindersText" />
         </div>
         <div>
             <label>
-                Powiadomienie o utworzeniu wydarzenia
+                Notification when the event is created
                 <select @bind="_formModel.CreationNotificationChannel">
                     @foreach (var option in NotificationChannelOption.All)
                     {
@@ -162,7 +166,7 @@ else
         </div>
         <div>
             <label>
-                Powiadomienie o zbliżającym się wydarzeniu
+                Notification as the event approaches
                 <select @bind="_formModel.ReminderNotificationChannel">
                     @foreach (var option in NotificationChannelOption.All)
                     {
@@ -173,8 +177,8 @@ else
         </div>
 
         <div>
-            <button type="submit">Zapisz</button>
-            <button type="button" @onclick="Cancel">Anuluj</button>
+            <button type="submit">Save</button>
+            <button type="button" @onclick="Cancel">Cancel</button>
         </div>
     </fieldset>
     </EditForm>
@@ -200,6 +204,7 @@ else
     private DotNetObjectReference<CalendarEventEditor>? _dotNetHelper;
     private IReadOnlyList<ContactDto> _contacts = [];
     private string _selectedContactUserId = string.Empty;
+    private string _selectedAccessLevel = "ReadOnly";
     private Guid _ownUserId;
     private bool _isSharedReadOnly;
     private string? _sharedByUserName;
@@ -209,9 +214,10 @@ else
     /// Contacts added as a guest via the picker during this editing session (not guests already present
     /// when an existing event was loaded, and not free-typed e-mail addresses, which aren't linked to a
     /// user id) - each one gets a share offer and a chat invite once the event is saved, see
-    /// ShareWithNewlyAddedContactsAsync.
+    /// ShareWithNewlyAddedContactsAsync. The access level chosen in the picker at the time each contact
+    /// was added travels alongside its user id.
     /// </summary>
-    private readonly List<Guid> _shareRecipientUserIds = [];
+    private readonly List<(Guid RecipientUserId, string AccessLevel)> _shareRecipients = [];
 
     /// <summary>
     /// Login of every guest not found among <see cref="_contacts"/> (e.g. a guest added in an earlier
@@ -234,7 +240,7 @@ else
                 if (calendarEvent is not null)
                 {
                     _formModel = CalendarEventFormModel.FromDto(calendarEvent.Details);
-                    _isSharedReadOnly = calendarEvent.IsShared;
+                    _isSharedReadOnly = calendarEvent.IsShared && calendarEvent.AccessLevel == "ReadOnly";
                     _sharedByUserName = calendarEvent.SharedByUserName;
                 }
             }
@@ -272,7 +278,7 @@ else
         if (_contacts.Any(candidate => candidate.UserId == contactUserId) && !_formModel.GuestUserIds.Contains(contactUserId))
         {
             _formModel.GuestUserIds.Add(contactUserId);
-            _shareRecipientUserIds.Add(contactUserId);
+            _shareRecipients.Add((contactUserId, _selectedAccessLevel));
         }
 
         _selectedContactUserId = string.Empty;
@@ -281,7 +287,7 @@ else
     private void RemoveGuest(Guid guestUserId)
     {
         _formModel.GuestUserIds.Remove(guestUserId);
-        _shareRecipientUserIds.Remove(guestUserId);
+        _shareRecipients.RemoveAll(recipient => recipient.RecipientUserId == guestUserId);
     }
 
     /// <summary>
@@ -364,14 +370,14 @@ else
     private async Task SaveAsync()
     {
         Logger.LogInformation(
-            "User clicked 'Zapisz' ({Mode}, EventId={EventId})", IsNewEvent ? "create" : "update", Id);
+            "User clicked 'Save' ({Mode}, EventId={EventId})", IsNewEvent ? "create" : "update", Id);
 
         var details = _formModel.ToRequest();
         if (details.EndUtc < details.StartUtc)
         {
             // Also enforced server-side (CalendarEvent.ValidateTimeRange) - this just gives the user an
             // inline message instead of letting the request fail with an unhandled 500.
-            _errorMessage = "Koniec wydarzenia nie może być wcześniej niż jego początek.";
+            _errorMessage = "The event's end can't be before its start.";
             return;
         }
         _errorMessage = null;
@@ -408,7 +414,7 @@ else
                 return;
             }
 
-            if (_shareRecipientUserIds.Count > 0)
+            if (_shareRecipients.Count > 0)
             {
                 _errorMessage = await ShareWithNewlyAddedContactsAsync(eventId, details.Title);
                 if (_errorMessage is not null)
@@ -429,9 +435,9 @@ else
     }
 
     /// <summary>
-    /// Offers a read-only copy of the just-saved event to every contact added as a guest via the picker
-    /// during this editing session (see AddSelectedContactAsGuest), and notifies each of them with an
-    /// encrypted chat message carrying an "Akceptuj" action (see EventShareMessagePayload). A recipient
+    /// Offers a copy of the just-saved event to every contact added as a guest via the picker during
+    /// this editing session (see AddSelectedContactAsGuest), and notifies each of them with an
+    /// encrypted chat message carrying an "Accept" action (see EventShareMessagePayload). A recipient
     /// without encryption configured yet, or any other per-recipient failure, is logged and skipped
     /// rather than aborting the remaining invites - mirrors CreateCalendarEventCommandHandler's
     /// best-effort treatment of the creation e-mail. Returns a message describing who could not be
@@ -440,13 +446,13 @@ else
     private async Task<string?> ShareWithNewlyAddedContactsAsync(Guid eventId, string eventTitle)
     {
         var recipientsNotNotified = new List<string>();
-        foreach (var recipientUserId in _shareRecipientUserIds)
+        foreach (var (recipientUserId, accessLevel) in _shareRecipients)
         {
             var contactDisplayName = _contacts.FirstOrDefault(contact => contact.UserId == recipientUserId)?.DisplayName
                 ?? recipientUserId.ToString();
             try
             {
-                var shareId = await CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId);
+                var shareId = await CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId, accessLevel);
                 if (shareId is null)
                 {
                     recipientsNotNotified.Add(contactDisplayName);
@@ -466,12 +472,12 @@ else
 
         return recipientsNotNotified.Count == 0
             ? null
-            : $"Wydarzenie zostało zapisane, ale nie udało się wysłać zaproszenia do: {string.Join(", ", recipientsNotNotified)}.";
+            : $"The event was saved, but the invite couldn't be sent to: {string.Join(", ", recipientsNotNotified)}.";
     }
 
     private void Cancel()
     {
-        Logger.LogInformation("User clicked 'Anuluj'");
+        Logger.LogInformation("User clicked 'Cancel'");
         NavigationManager.NavigateTo("/calendar");
     }
 

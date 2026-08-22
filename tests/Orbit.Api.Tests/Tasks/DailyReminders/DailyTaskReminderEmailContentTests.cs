@@ -29,6 +29,6 @@ public sealed class DailyTaskReminderEmailContentTests
 
         var (_, body) = DailyTaskReminderEmailContent.Build(reminder);
 
-        Assert.DoesNotContain("Termin:", body);
+        Assert.DoesNotContain("Due:", body);
     }
 }

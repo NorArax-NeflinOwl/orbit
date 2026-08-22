@@ -20,21 +20,27 @@ using Orbit.Core.Chat.GetReadReceipt;
 using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Notes;
+using Orbit.Core.Notes.AcceptNoteShare;
 using Orbit.Core.Notes.CreateNote;
 using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
+using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
+using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
 using Orbit.Core.Notifications;
 using Orbit.Core.PushNotifications.SubscribeToPush;
 using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 using Orbit.Core.Tasks;
+using Orbit.Core.Tasks.AcceptTaskListShare;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
+using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.OverdueNotifications;
+using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Users;
 using Orbit.Core.Users.GetUserById;
@@ -60,12 +66,18 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<DeleteNoteCommand, bool>, DeleteNoteCommandHandler>();
         services.AddScoped<IRequestHandler<GetNotesQuery, IReadOnlyList<Note>>, GetNotesQueryHandler>();
         services.AddScoped<IRequestHandler<GetNoteByIdQuery, Note?>, GetNoteByIdQueryHandler>();
+        services.AddScoped<IRequestHandler<ShareNoteCommand, Guid?>, ShareNoteCommandHandler>();
+        services.AddScoped<IRequestHandler<AcceptNoteShareCommand, bool>, AcceptNoteShareCommandHandler>();
+        services.AddScoped<IRequestHandler<GetNoteShareStatusQuery, bool?>, GetNoteShareStatusQueryHandler>();
 
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, bool>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteTaskListCommand, bool>, DeleteTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
+        services.AddScoped<IRequestHandler<ShareTaskListCommand, Guid?>, ShareTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<AcceptTaskListShareCommand, bool>, AcceptTaskListShareCommandHandler>();
+        services.AddScoped<IRequestHandler<GetTaskListShareStatusQuery, bool?>, GetTaskListShareStatusQueryHandler>();
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
         services.AddScoped<TaskListLinkValidator>();
         // Stateless per call - safe to share a single instance for the app's lifetime.

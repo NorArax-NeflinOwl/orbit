@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Xunit;
@@ -70,6 +71,40 @@ public sealed class UpdateTaskListCommandHandlerTests
             new UpdateTaskListCommand(Guid.NewGuid(), Guid.NewGuid(), "Title", []), CancellationToken.None);
 
         Assert.False(wasUpdated);
+    }
+
+    [Fact]
+    public async Task HandleAsync_returns_false_and_does_not_update_a_shared_read_only_task_list()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var recipientId = Guid.NewGuid();
+        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.ReadOnly);
+        await repository.AddAsync(sharedTaskList, CancellationToken.None);
+
+        var wasUpdated = await handler.HandleAsync(
+            new UpdateTaskListCommand(recipientId, sharedTaskList.Id, "Edited title", []), CancellationToken.None);
+
+        Assert.False(wasUpdated);
+        var stored = await repository.GetByIdAsync(recipientId, sharedTaskList.Id, CancellationToken.None);
+        Assert.Equal("Original title", stored!.Title);
+    }
+
+    [Fact]
+    public async Task HandleAsync_updates_a_shared_task_list_with_edit_access()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var recipientId = Guid.NewGuid();
+        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.CanEdit);
+        await repository.AddAsync(sharedTaskList, CancellationToken.None);
+
+        var wasUpdated = await handler.HandleAsync(
+            new UpdateTaskListCommand(recipientId, sharedTaskList.Id, "New title", []), CancellationToken.None);
+
+        Assert.True(wasUpdated);
+        var stored = await repository.GetByIdAsync(recipientId, sharedTaskList.Id, CancellationToken.None);
+        Assert.Equal("New title", stored!.Title);
     }
 
     [Fact]

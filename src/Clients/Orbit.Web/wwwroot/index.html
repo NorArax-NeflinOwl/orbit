@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -18,16 +18,16 @@
          Blazor app itself crashes. -->
     <script src="js/clientLogging.js"></script>
 
-    <div id="app">Ładowanie…</div>
+    <div id="app">Loading…</div>
 
     <div id="blazor-error-ui">
-        Wystąpił nieoczekiwany błąd.
-        <a href="" class="reload">Odśwież</a>
+        An unexpected error occurred.
+        <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
         <!-- Plain onclick, not a Blazor event handler: this banner is exactly what shows up when the
              Blazor app itself may be in a broken state, so retrieving the diagnostic log must not depend
              on Blazor/JS interop still working. -->
-        <a href="#" onclick="OrbitClientLogging.copyLogsToClipboard(this); return false;">Kopiuj szczegóły błędu</a>
+        <a href="#" onclick="OrbitClientLogging.copyLogsToClipboard(this); return false;">Copy error details</a>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>

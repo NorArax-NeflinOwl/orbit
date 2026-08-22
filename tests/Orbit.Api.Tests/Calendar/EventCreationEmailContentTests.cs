@@ -33,7 +33,7 @@ public sealed class EventCreationEmailContentTests
     {
         var (_, body) = EventCreationEmailContent.Build(DefaultDetails);
 
-        Assert.DoesNotContain("Opis:", body);
+        Assert.DoesNotContain("Description:", body);
     }
 
     [Fact]
@@ -43,6 +43,6 @@ public sealed class EventCreationEmailContentTests
 
         var (_, body) = EventCreationEmailContent.Build(details);
 
-        Assert.Contains("cały dzień", body);
+        Assert.Contains("all day", body);
     }
 }

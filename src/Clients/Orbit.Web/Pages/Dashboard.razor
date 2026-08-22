@@ -13,17 +13,17 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<Dashboard> Logger
 
-<PageTitle>Orbit — Pulpit</PageTitle>
+<PageTitle>Orbit — Dashboard</PageTitle>
 
-<h1>Pulpit</h1>
+<h1>Dashboard</h1>
 
 @if (_notes is null || _taskLists is null || _events is null || _contacts is null)
 {
-    <p>Ładowanie…</p>
+    <p>Loading…</p>
 }
 else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _contacts.Count == 0)
 {
-    <p>Brak elementów do wyświetlenia.</p>
+    <p>Nothing to show.</p>
 }
 else
 {
@@ -31,7 +31,7 @@ else
         @if (_notes.Count > 0)
         {
             <div class="dashboard-column">
-                <h2>Notatki</h2>
+                <h2>Notes</h2>
                 <ul>
                     @foreach (var note in _notes)
                     {
@@ -44,7 +44,7 @@ else
         @if (_taskLists.Count > 0)
         {
             <div class="dashboard-column">
-                <h2>Zadania</h2>
+                <h2>Tasks</h2>
                 <ul>
                     @foreach (var taskList in _taskLists)
                     {
@@ -61,13 +61,13 @@ else
         @if (_events.Count > 0)
         {
             <div class="dashboard-column">
-                <h2>Wydarzenia</h2>
+                <h2>Events</h2>
                 <ul>
                     @foreach (var calendarEvent in _events)
                     {
                         <li>
                             <button @onclick="() => GoToEditEvent(calendarEvent.Id)">
-                                @calendarEvent.Details.Title @(calendarEvent.IsShared ? "(udostępnione)" : "")
+                                @calendarEvent.Details.Title @(calendarEvent.IsShared ? "(shared)" : "")
                             </button>
                         </li>
                     }
@@ -78,7 +78,7 @@ else
         @if (_contacts.Count > 0)
         {
             <div class="dashboard-column">
-                <h2>Czaty</h2>
+                <h2>Chats</h2>
                 <ul>
                     @foreach (var contact in _recentContacts)
                     {
@@ -88,7 +88,7 @@ else
             </div>
 
             <div class="dashboard-column">
-                <h2>Kontakty</h2>
+                <h2>Contacts</h2>
                 <ul>
                     @foreach (var contact in _contactsAlphabetically)
                     {
@@ -106,14 +106,14 @@ else
     private IReadOnlyList<CalendarEventDto>? _events;
     private IReadOnlyList<ContactDto>? _contacts;
 
-    /// <summary>The "Czaty" column's ordering - most recently active conversation first.</summary>
+    /// <summary>The "Chats" column's ordering - most recently active conversation first.</summary>
     private IEnumerable<ContactDto> _recentContacts
         => (_contacts ?? []).OrderByDescending(contact => contact.LastMessageAtUtc);
 
     /// <summary>
-    /// The "Kontakty" column's ordering - a plain directory rather than a recency-based list. Excludes
+    /// The "Contacts" column's ordering - a plain directory rather than a recency-based list. Excludes
     /// any conversation that isn't fully established yet (a request either party still needs to approve),
-    /// so an unanswered chat only shows up once, in the "Czaty" column, instead of in both.
+    /// so an unanswered chat only shows up once, in the "Chats" column, instead of in both.
     /// </summary>
     private IEnumerable<ContactDto> _contactsAlphabetically
         => (_contacts ?? [])

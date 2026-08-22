@@ -41,6 +41,36 @@ The JWT signing key is a secret and is never checked into source control:
 `requests.http` at the repo root has ready-to-run register/login/notes requests (works with Visual
 Studio's built-in HTTP file support or VS Code's "REST Client" extension).
 
+## Notes
+
+`POST /api/notes` and `PUT /api/notes/{id}` both take `{ title, content }`, where `content` is
+free-form text. `GET /api/notes` and `GET /api/notes/{id}` return the same shape back, plus `id`,
+`createdAtUtc`, and `updatedAtUtc`. `DELETE /api/notes/{id}` deletes a note, 404ing under the same
+ownership rule as every other endpoint; the Blazor client's notes page asks for confirmation before
+calling it.
+
+### Sharing notes and task lists
+
+Notes and task lists can be shared with another user, on the same offer/accept mechanism as calendar
+events (see [Calendar](#calendar) below for the fuller explanation of that mechanism): `POST
+/api/notes/{id}/shares` (or `/api/tasks/{id}/shares`) offers a copy to `recipientUserId` and returns a
+share id; the owner's client notifies the recipient with an encrypted chat message carrying that id
+(`NoteShareMessagePayload`/`TaskListShareMessagePayload`); `Chat.razor` renders an "Accept" action for
+it, which calls `POST /api/notes/shares/{shareId}/accept` (or the task-list equivalent) to create the
+recipient's own copy. A shared task list's items are copied as a snapshot, with each item's
+`linkedTaskListId` stripped — a link into the *owner's* other task lists would be meaningless, or worse,
+would point at a list the recipient can't see, once copied into the recipient's own task lists.
+
+Every share — calendar event, note, or task list — carries an **access level**, chosen when the share is
+offered: `ReadOnly` (the default) or `CanEdit` (`Orbit.Core.Abstractions.ShareAccessLevel`). A `ReadOnly`
+copy can be viewed but not edited — `UpdateNoteCommandHandler`/`UpdateTaskListCommandHandler`/
+`UpdateCalendarEventCommandHandler` all return "not found" for an update attempt on a shared copy whose
+access level is `ReadOnly`, and the Blazor editor pages disable their form (via a `<fieldset disabled>`)
+and show a banner naming who shared it, for the same copies. A `CanEdit` copy has none of those
+restrictions — the recipient can change it exactly like something they created themselves. Either way,
+a share is a one-time copy, not a live link: once accepted, editing the recipient's copy never changes
+the owner's original, and vice versa.
+
 ## Tasks
 
 `POST /api/tasks` and `PUT /api/tasks/{id}` both take `{ title, items }`, where each item is
@@ -104,7 +134,7 @@ fail.
 `location`, when present, is `{ address, latitude, longitude }` — `address` is optional (reverse
 geocoding can fail to resolve one), `latitude` and `longitude` are always required and validated to be
 within their valid ranges (±90/±180 degrees). Unlike the rest of the form, this isn't free text: the
-Blazor client's event editor has a "Wybierz na mapie" button that opens an embedded
+Blazor client's event editor has a "Pick on map" button that opens an embedded
 [Leaflet](https://leafletjs.com) map (OpenStreetMap tiles, loaded from a CDN — no API key needed, see
 `wwwroot/index.html` and `wwwroot/js/mapPicker.js`). Clicking a point on the map stores its coordinates
 and resolves an address for them via OpenStreetMap's free Nominatim reverse-geocoding endpoint
@@ -127,6 +157,23 @@ does its own, independent occurrence expansion for a narrow due-or-soon window �
 Guests and reminders (`reminderMinutesBeforeStart`, minutes before the event starts) are edited in the
 Blazor client as comma-separated text rather than as an add/remove list like task items are, since
 neither needed per-item editing for a first pass.
+
+### Sharing
+
+Adding a contact as a guest in the event editor (see the picker under "Add a guest from contacts") does
+two things once the event is saved: it adds them to `guests`, and it offers them a share of the event at
+the access level chosen alongside them in the picker (`ReadOnly` by default, or `CanEdit`) —
+`ShareCalendarEventCommand` creates the offer, and `CalendarEventEditor.razor` notifies the recipient
+with an encrypted chat message carrying the share id (`EventShareMessagePayload`). The recipient sees an
+"Accept" action on that message in `Chat.razor`; accepting (`AcceptCalendarEventShareCommand`) creates a
+copy of the event in their own calendar (`CalendarEvent.IsShared = true`, `SharedByUserName` set to the
+sharer's login) rather than a live reference — editing the original afterwards never changes the
+recipient's copy, or vice versa. `UpdateCalendarEventCommandHandler` refuses to update a shared copy
+whose access level is `ReadOnly` (returning "not found" the same way it does for an event owned by
+someone else), and `CalendarEventEditor.razor` disables its whole form and shows a banner for such a
+copy; a `CanEdit` copy has neither restriction. Notes and task lists can be shared the same way — see
+[Notes — Sharing notes and task lists](#sharing-notes-and-task-lists) above, which also covers the
+shared `ShareAccessLevel` concept in full.
 
 `DELETE /api/calendar-events/{id}` deletes an event, 404ing under the same ownership rule as the other
 endpoints. Any reminder claims already recorded for it in `EventReminderDeliveries` (see
@@ -236,17 +283,17 @@ silently failing.
 everything the signed-in user owns, loading notes, task lists, and calendar events concurrently rather
 than one after another so the page's load time is the slowest of the three calls rather than their sum.
 Each item type gets its own column, but only if it actually has items in it — an empty column (e.g. no
-task lists yet) is left out entirely rather than shown with a "brak..." placeholder, since the point of
-this page is a quick glance at what exists, not a third copy of each list page's empty state. Clicking
-any item navigates straight to its editor (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`), the same
-page `Notes`/`Tasks`/`Calendar`'s own "Edytuj" button opens — the dashboard has no editing of its own.
+task lists yet) is left out entirely rather than shown with a "nothing here yet" placeholder, since the
+point of this page is a quick glance at what exists, not a third copy of each list page's empty state.
+Clicking any item navigates straight to its editor (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`),
+the same page `Notes`/`Tasks`/`Calendar`'s own "Edit" button opens — the dashboard has no editing of its own.
 
 ## Push notifications
 
 Orbit.Web can show real browser push notifications — delivered via a service worker, so they still
 arrive while no Orbit.Web tab is open — for three activities: an approaching calendar event, a new chat
 message, and a task item becoming overdue. Nothing is sent until the signed-in user explicitly turns
-this on with the "Włącz powiadomienia push" button in the top bar (`MainLayout.razor`), which asks the
+this on with the "Enable push notifications" button in the top bar (`MainLayout.razor`), which asks the
 browser for notification permission and, once granted, registers a subscription with Orbit.Api.
 
 **Client side.** `wwwroot/js/pushNotifications.js` wraps the browser's Notification and Push APIs;

@@ -7,6 +7,8 @@
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
 @inject CalendarApiClient CalendarApiClient
+@inject NotesApiClient NotesApiClient
+@inject TasksApiClient TasksApiClient
 @inject UsersApiClient UsersApiClient
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject AuthApiClient AuthApiClient
@@ -15,7 +17,7 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<Chat> Logger
 
-<PageTitle>Orbit — Czat</PageTitle>
+<PageTitle>Orbit — Chat</PageTitle>
 
 <style>
     /* Make the chat stretch across the full browser width */
@@ -67,32 +69,32 @@
 @if (_encryptionUnavailable)
 {
     <p>
-        Czat wymaga bezpiecznego połączenia (adres zaczynający się od "https://", albo "http://localhost").
-        Otwórz Orbit pod takim adresem i spróbuj ponownie.
+        Chat requires a secure connection (an address starting with "https://", or "http://localhost").
+        Open Orbit at such an address and try again.
     </p>
 }
 else if (_encryptionKeyLocked)
 {
     <p>
-        Ta przeglądarka nie ma lokalnej kopii Twojego klucza szyfrowania - najprawdopodobniej dlatego, że
-        klucz został wygenerowany w innej przeglądarce albo lokalne dane zostały wyczyszczone. Zaloguj się
-        ponownie, aby odzyskać go z zaszyfrowanej hasłem kopii zapasowej.
-        <button type="button" @onclick="ReauthenticateAsync">Wyloguj i zaloguj ponownie</button>
+        This browser doesn't have a local copy of your encryption key - most likely because the key was
+        generated in a different browser, or local data was cleared. Log in again to recover it from your
+        password-encrypted backup.
+        <button type="button" @onclick="ReauthenticateAsync">Log out and log back in</button>
     </p>
 }
 else if (_otherUser is null)
 {
-    <p>Ładowanie…</p>
+    <p>Loading…</p>
 }
 else
 {
-    <h1>Czat z @_otherUser.DisplayName</h1>
+    <h1>Chat with @_otherUser.DisplayName</h1>
 
     @if (_otherUser.PublicKeyBase64 is null)
     {
         <p>
-            @_otherUser.DisplayName nie ma jeszcze skonfigurowanego szyfrowania - musi się najpierw
-            zalogować we własnej przeglądarce, zanim będzie można do niego pisać.
+            @_otherUser.DisplayName hasn't set up encryption yet - they need to log in in their own
+            browser first before you can message them.
         </p>
     }
     else
@@ -100,15 +102,15 @@ else
         @if (RequiresApprovalFromMe)
         {
             <p class="chat-request-banner">
-                @_otherUser.DisplayName chce z Tobą porozmawiać.
+                @_otherUser.DisplayName wants to chat with you.
                 <button type="button" disabled="@_isApprovingConversation" @onclick="ApproveConversationAsync">
-                    Zezwól na czatowanie
+                    Allow chatting
                 </button>
             </p>
         }
         else if (IsPendingApprovalFromOtherParty)
         {
-            <p class="chat-request-banner">Wiadomość czeka na zaakceptowanie przez @_otherUser.DisplayName.</p>
+            <p class="chat-request-banner">Message is waiting for @_otherUser.DisplayName to approve.</p>
         }
 
         <div class="chat-messages">
@@ -116,23 +118,23 @@ else
             {
                 <p class="@(message.SenderUserId == _ownUserId ? "chat-message-own" : "chat-message-theirs")">
                     <span class="chat-message-time">@message.SentAtUtc.ToLocalTime().ToString("HH:mm ")</span>
-                    @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[nie można odszyfrować]")
+                    @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[couldn't decrypt]")
                     @if (message.SenderUserId == _ownUserId)
                     {
                         <span class="chat-message-status">@(IsReadByOtherParty(message) ? " ✓✓" : " ✓")</span>
                     }
                 </p>
-                @if (message.SenderUserId != _ownUserId && _eventShareByMessageId.TryGetValue(message.Id, out var eventShare))
+                @if (message.SenderUserId != _ownUserId && _shareNoticeByMessageId.TryGetValue(message.Id, out var shareNotice))
                 {
-                    @if (_acceptedEventShareIds.Contains(eventShare.ShareId))
+                    @if (_acceptedShareIds.Contains(shareNotice.ShareId))
                     {
-                        <p class="event-share-status">Zaakceptowano - wydarzenie dodano do kalendarza (tylko do odczytu).</p>
+                        <p class="event-share-status">Accepted - added to your account.</p>
                     }
                     else
                     {
-                        <button type="button" disabled="@_acceptingEventShareIds.Contains(eventShare.ShareId)"
-                                @onclick="() => AcceptEventShareAsync(eventShare.ShareId)">
-                            Akceptuj
+                        <button type="button" disabled="@_acceptingShareIds.Contains(shareNotice.ShareId)"
+                                @onclick="() => AcceptShareAsync(shareNotice)">
+                            Accept
                         </button>
                     }
                 }
@@ -140,9 +142,9 @@ else
         </div>
 
         <div class="chat-controls">
-            <input class="chat-input" @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Wiadomość"
+            <input class="chat-input" @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Message"
                    disabled="@RequiresApprovalFromMe" />
-            <button @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">Wyślij</button>
+            <button @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">Send</button>
         </div>
     }
 }
@@ -156,16 +158,26 @@ else
     private UserSearchResultDto? _otherUser;
     private readonly List<ChatMessageDto> _messages = [];
     private readonly Dictionary<Guid, string> _decryptedContentByMessageId = [];
-    private readonly Dictionary<Guid, EventShareMessagePayload> _eventShareByMessageId = [];
 
     /// <summary>
-    /// Shares known to be accepted - seeded from CalendarApiClient.GetCalendarEventShareStatusAsync when
-    /// an event-share message is first decrypted (see DecryptAndCacheAsync), and updated immediately
-    /// when the user clicks "Akceptuj" (see AcceptEventShareAsync) rather than waiting on a re-fetch.
-    /// Keeping this cache is what lets the message list avoid a status round-trip on every render.
+    /// Populated for a message that decrypts to one of the three share payload shapes (calendar event,
+    /// note, or task list - see EventShareMessagePayload/NoteShareMessagePayload/TaskListShareMessagePayload),
+    /// with whichever ApiClient call accepting that particular kind of share already bound in - see
+    /// DecryptAndCacheAsync. This is what lets the single AcceptShareAsync/rendering block below handle
+    /// all three kinds without three near-identical copies of the accept/status-tracking logic.
     /// </summary>
-    private readonly HashSet<Guid> _acceptedEventShareIds = [];
-    private readonly HashSet<Guid> _acceptingEventShareIds = [];
+    private readonly Dictionary<Guid, ShareNotice> _shareNoticeByMessageId = [];
+
+    /// <summary>
+    /// Shares known to be accepted - seeded from the matching ApiClient's GetXShareStatusAsync when a
+    /// share message is first decrypted (see DecryptAndCacheAsync), and updated immediately when the user
+    /// clicks "Akceptuj" (see AcceptShareAsync) rather than waiting on a re-fetch. Keeping this cache is
+    /// what lets the message list avoid a status round-trip on every render. Shared across all three share
+    /// kinds since each share id is an independently generated Guid - collisions across domains are not a
+    /// realistic concern (see Guid.NewGuid()'s collision probability).
+    /// </summary>
+    private readonly HashSet<Guid> _acceptedShareIds = [];
+    private readonly HashSet<Guid> _acceptingShareIds = [];
     private DateTimeOffset? _otherPartyReadUpToUtc;
     private ChatConversationAccessDto? _conversationAccess;
     private string _draftMessage = string.Empty;
@@ -177,7 +189,7 @@ else
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
 
-    /// <summary>True when the other party started this conversation and it's still waiting on this user's "Zezwól" click.</summary>
+    /// <summary>True when the other party started this conversation and it's still waiting on this user's "Allow" click.</summary>
     private bool RequiresApprovalFromMe
         => _conversationAccess is { IsApproved: false } access && access.InitiatedByUserId != _ownUserId;
 
@@ -368,17 +380,17 @@ else
             return;
         }
 
-        if (TryParseEventShare(plainText) is { } eventShare)
+        if (TryParseShare(plainText) is { } shareNotice)
         {
-            _eventShareByMessageId[message.Id] = eventShare;
-            _decryptedContentByMessageId[message.Id] = $"Udostępniono wydarzenie: {eventShare.EventTitle}";
+            _shareNoticeByMessageId[message.Id] = shareNotice;
+            _decryptedContentByMessageId[message.Id] = shareNotice.Description;
             // Reflects an acceptance that may have happened in an earlier session (or after a reload),
-            // so the button doesn't misleadingly offer "Akceptuj" again for something already accepted.
+            // so the button doesn't misleadingly offer "Accept" again for something already accepted.
             // Skipped for a share this user sent themselves - the status endpoint is scoped to the
             // recipient, so it would just be a guaranteed-404 lookup for those.
-            if (message.SenderUserId != _ownUserId && await CalendarApiClient.GetCalendarEventShareStatusAsync(eventShare.ShareId) == true)
+            if (message.SenderUserId != _ownUserId && await shareNotice.GetStatusAsync() == true)
             {
-                _acceptedEventShareIds.Add(eventShare.ShareId);
+                _acceptedShareIds.Add(shareNotice.ShareId);
             }
 
             return;
@@ -388,16 +400,45 @@ else
     }
 
     /// <summary>
-    /// A decrypted message's plaintext is ordinary user-typed text unless it happens to parse as this
-    /// exact structured shape (see EventShareMessagePayload) - anything else, including JSON that just
-    /// doesn't match, is treated as plain text rather than surfacing a parse error.
+    /// A decrypted message's plaintext is ordinary user-typed text unless it happens to parse as one of
+    /// the three structured share shapes (see EventShareMessagePayload/NoteShareMessagePayload/
+    /// TaskListShareMessagePayload) - anything else, including JSON that just doesn't match any of them,
+    /// is treated as plain text rather than surfacing a parse error.
     /// </summary>
-    private static EventShareMessagePayload? TryParseEventShare(string plainText)
+    private ShareNotice? TryParseShare(string plainText)
+    {
+        if (TryDeserialize<EventShareMessagePayload>(plainText) is { Type: EventShareMessagePayload.MessageType } eventShare)
+        {
+            return new ShareNotice(
+                eventShare.ShareId, $"Shared an event: {eventShare.EventTitle}",
+                () => CalendarApiClient.GetCalendarEventShareStatusAsync(eventShare.ShareId),
+                () => CalendarApiClient.AcceptCalendarEventShareAsync(eventShare.ShareId));
+        }
+
+        if (TryDeserialize<NoteShareMessagePayload>(plainText) is { Type: NoteShareMessagePayload.MessageType } noteShare)
+        {
+            return new ShareNotice(
+                noteShare.ShareId, $"Shared a note: {noteShare.NoteTitle}",
+                () => NotesApiClient.GetNoteShareStatusAsync(noteShare.ShareId),
+                () => NotesApiClient.AcceptNoteShareAsync(noteShare.ShareId));
+        }
+
+        if (TryDeserialize<TaskListShareMessagePayload>(plainText) is { Type: TaskListShareMessagePayload.MessageType } taskListShare)
+        {
+            return new ShareNotice(
+                taskListShare.ShareId, $"Shared a task list: {taskListShare.TaskListTitle}",
+                () => TasksApiClient.GetTaskListShareStatusAsync(taskListShare.ShareId),
+                () => TasksApiClient.AcceptTaskListShareAsync(taskListShare.ShareId));
+        }
+
+        return null;
+    }
+
+    private static T? TryDeserialize<T>(string plainText) where T : class
     {
         try
         {
-            var payload = JsonSerializer.Deserialize<EventShareMessagePayload>(plainText);
-            return payload?.Type == EventShareMessagePayload.MessageType ? payload : null;
+            return JsonSerializer.Deserialize<T>(plainText);
         }
         catch (JsonException)
         {
@@ -405,14 +446,14 @@ else
         }
     }
 
-    private async Task AcceptEventShareAsync(Guid shareId)
+    private async Task AcceptShareAsync(ShareNotice shareNotice)
     {
-        _acceptingEventShareIds.Add(shareId);
+        _acceptingShareIds.Add(shareNotice.ShareId);
         try
         {
-            if (await CalendarApiClient.AcceptCalendarEventShareAsync(shareId))
+            if (await shareNotice.AcceptAsync())
             {
-                _acceptedEventShareIds.Add(shareId);
+                _acceptedShareIds.Add(shareNotice.ShareId);
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -421,16 +462,24 @@ else
         }
         catch (HttpRequestException exception)
         {
-            // Left off _acceptedEventShareIds, so the "Akceptuj" button just reappears - that absence is
-            // the only feedback the user gets that this didn't go through (see the class-level note on
-            // why this mechanism logs rather than showing a dedicated failure message).
-            Logger.LogError(exception, "Failed to accept calendar event share {ShareId}", shareId);
+            // Left off _acceptedShareIds, so the "Accept" button just reappears - that absence is the
+            // only feedback the user gets that this didn't go through (see the class-level note on why
+            // this mechanism logs rather than showing a dedicated failure message).
+            Logger.LogError(exception, "Failed to accept share {ShareId}", shareNotice.ShareId);
         }
         finally
         {
-            _acceptingEventShareIds.Remove(shareId);
+            _acceptingShareIds.Remove(shareNotice.ShareId);
         }
     }
+
+    /// <summary>
+    /// One of the three kinds of share a chat message can carry, normalized to a single shape so the
+    /// message-rendering loop and AcceptShareAsync don't need to know which kind they're looking at - see
+    /// TryParseShare.
+    /// </summary>
+    private sealed record ShareNotice(
+        Guid ShareId, string Description, Func<Task<bool?>> GetStatusAsync, Func<Task<bool>> AcceptAsync);
 
     private async Task OnDraftKeyDownAsync(KeyboardEventArgs args)
     {

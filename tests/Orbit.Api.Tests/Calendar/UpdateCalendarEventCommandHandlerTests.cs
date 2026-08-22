@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Notifications;
@@ -54,7 +55,7 @@ public sealed class UpdateCalendarEventCommandHandlerTests
         var repository = new InMemoryCalendarEventRepository();
         var handler = new UpdateCalendarEventCommandHandler(repository);
         var recipientId = Guid.NewGuid();
-        var sharedEvent = CalendarEvent.CreateShared(recipientId, DefaultDetails with { Title = "Original title" }, "owner");
+        var sharedEvent = CalendarEvent.CreateShared(recipientId, DefaultDetails with { Title = "Original title" }, "owner", ShareAccessLevel.ReadOnly);
         await repository.AddAsync(sharedEvent, CancellationToken.None);
 
         var wasUpdated = await handler.HandleAsync(
