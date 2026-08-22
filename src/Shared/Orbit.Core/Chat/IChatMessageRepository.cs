@@ -12,6 +12,12 @@ public interface IChatMessageRepository
 
     Task AddAsync(ChatMessage message, CancellationToken cancellationToken);
 
+    /// <summary>Looks up a single message by id, or null if it doesn't exist - used by EditMessageCommandHandler to check who sent it before allowing an edit.</summary>
+    Task<ChatMessage?> GetByIdAsync(Guid messageId, CancellationToken cancellationToken);
+
+    /// <summary>Overwrites an existing message's ciphertext/nonce and marks it edited. Caller (EditMessageCommandHandler) is responsible for the sender-owns-this-message check.</summary>
+    Task UpdateContentAsync(Guid messageId, string ciphertextBase64, string nonceBase64, DateTimeOffset editedAtUtc, CancellationToken cancellationToken);
+
     /// <summary>
     /// Marks every not-yet-read message that otherUserId sent to readerUserId as read as of readAtUtc.
     /// A no-op for messages already marked read, so it's safe to call on every poll tick rather than

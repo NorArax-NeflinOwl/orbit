@@ -41,7 +41,7 @@ public sealed class DashboardTests : TestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        var chatsColumnText = FindColumn(cut, "Chats").TextContent;
+        var chatsColumnText = FindColumn(cut, "Recent chats").TextContent;
         var contactsColumnText = FindColumn(cut, "Contacts").TextContent;
         Assert.Contains("Anna Kowalska", chatsColumnText);
         Assert.Contains("Bartek Nowak", chatsColumnText);
@@ -50,7 +50,7 @@ public sealed class DashboardTests : TestContext
     }
 
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
-        => cut.FindAll("div.dashboard-column").Single(column => column.QuerySelector("h2")!.TextContent == heading);
+        => cut.FindAll("div.card").Single(column => column.QuerySelector(".card-title")!.TextContent == heading);
 
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)
     {

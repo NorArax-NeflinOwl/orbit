@@ -15,12 +15,29 @@
 
 <PageTitle>Orbit — Calendar</PageTitle>
 
+@* TODO(Orbit.Web.UI): still the pre-redesign markup/CSS (the old .calendar-* classes further down in
+   app.css - .calendar-month-grid-day, .calendar-event-chip, etc). The approved concept mockup restyled
+   this as a flat-card month grid with filled tinted event chips + dashed task chips, a left "Upcoming"
+   panel, and a pill view-switch (Day/Month/Year) - see wwwroot/css/app.css's .card/.btn-primary/.today-strip
+   vocabulary from Dashboard.razor for the pattern. CalendarMonthGrid.razor/CalendarDayGrid.razor/
+   CalendarYearGrid.razor would need the same treatment since they render into this page's grid classes. *@
 <h1>Calendar</h1>
 
-<p><button @onclick="GoToAddEvent">Add event</button></p>
+<p><button class="btn-primary" @onclick="GoToAddEvent">Add event</button></p>
 
 <div class="calendar-toolbar">
-    <button @onclick="ToggleEventListVisibility">@(_viewState.IsEventListVisible ? "Hide list" : "Show list")</button>
+    <button type="button" class="icon-btn @(_viewState.IsEventListVisible ? "active" : "")"
+            title="@(_viewState.IsEventListVisible ? "Hide list" : "Show list")"
+            aria-pressed="@AriaBool(_viewState.IsEventListVisible)" @onclick="ToggleEventListVisibility">
+        @if (_viewState.IsEventListVisible)
+        {
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.3" /></svg>
+        }
+        else
+        {
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.3" /><path d="M3 17L17 3" /></svg>
+        }
+    </button>
 </div>
 
 <div class="calendar-layout">
@@ -297,7 +314,10 @@
     /// would render "True"/"False") only applies to recognized HTML boolean attributes like disabled,
     /// not to arbitrary ARIA ones.
     /// </summary>
-    private string AriaPressed(CalendarViewMode viewMode) => (_viewState.ViewMode == viewMode).ToString(CultureInfo.InvariantCulture).ToLowerInvariant();
+    private string AriaPressed(CalendarViewMode viewMode) => AriaBool(_viewState.ViewMode == viewMode);
+
+    /// <summary>aria-* boolean attributes need a lowercase "true"/"false" string - see AriaPressed's own comment above.</summary>
+    private static string AriaBool(bool value) => value.ToString(CultureInfo.InvariantCulture).ToLowerInvariant();
 
     /// <summary>Jumps the visualization into Day view for date - used when a day is clicked in the month or year grid.</summary>
     private void GoToDay(DateOnly date)

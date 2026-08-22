@@ -1,8 +1,11 @@
 /.vs
 /.vscode
+_to_delete/
+/data
+/.claude
+
 **/bin/
 **/obj/
-**_to_delete/
 
 # Orbit.Api prototype runtime artifacts (SQLite database, Serilog file sink)
 **/orbit*.db
@@ -27,6 +30,5 @@ credentials/
 # tracked so new clones know which variables to set.
 !.env.example
 
-/data
 *.DS_Store
 *.Development.json

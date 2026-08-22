@@ -17,4 +17,9 @@ public sealed class ChatMessageEntity
 
     /// <summary>Null until the recipient's chat window has polled this conversation at least once.</summary>
     public DateTimeOffset? ReadAtUtc { get; set; }
+
+    public bool IsEdited { get; set; }
+
+    /// <summary>Null until the sender edits this message at least once - see EditMessageCommandHandler.</summary>
+    public DateTimeOffset? EditedAtUtc { get; set; }
 }

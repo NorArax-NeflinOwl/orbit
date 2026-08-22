@@ -14,6 +14,10 @@
 
 <PageTitle>@(IsNewNote ? "New note" : "Edit note")</PageTitle>
 
+@* TODO(Orbit.Web.UI): still plain unstyled form markup. Restyle onto app.css's .page-header/.card/
+   .btn-primary/.btn-secondary once Notes.razor (the list page) gets the same treatment - do them
+   together, since this editor's "Back"/"Save"/"Delete" affordances should match whatever button/card
+   pattern the list ends up using. *@
 <h1>@(IsNewNote ? "New note" : "Edit note")</h1>
 
 @if (_isLoading)
@@ -29,18 +33,24 @@ else
         </p>
     }
 
-    <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
+    <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
         <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
-            <div>
+            <div class="field">
                 <label>Title</label>
-                <InputText @bind-Value="_formModel.Title" />
+                <InputText @bind-Value="_formModel.Title" class="note-editor-title" />
             </div>
-            <div>
+            <div class="field">
                 <label>Content</label>
-                <InputTextArea @bind-Value="_formModel.Content" />
+                <InputTextArea @bind-Value="_formModel.Content" class="note-editor-content" />
             </div>
-            <button type="submit">Save</button>
-            <button type="button" @onclick="Cancel">Cancel</button>
+            @if (_saveErrorMessage is not null)
+            {
+                <p class="error">@_saveErrorMessage</p>
+            }
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
+            </div>
         </fieldset>
     </EditForm>
 
@@ -53,18 +63,20 @@ else
         }
         else
         {
-            <select id="shareContactSelect" @bind="_selectedContactUserId">
-                <option value="">-- select a contact --</option>
-                @foreach (var contact in _contacts)
-                {
-                    <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
-                }
-            </select>
-            <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
-                <option value="ReadOnly">Read-only</option>
-                <option value="CanEdit">Can edit</option>
-            </select>
-            <button type="button" id="shareNoteButton" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
+            <div class="field-row">
+                <select id="shareContactSelect" @bind="_selectedContactUserId">
+                    <option value="">-- select a contact --</option>
+                    @foreach (var contact in _contacts)
+                    {
+                        <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                    }
+                </select>
+                <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
+                    <option value="ReadOnly">Read-only</option>
+                    <option value="CanEdit">Can edit</option>
+                </select>
+                <button type="button" id="shareNoteButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
+            </div>
         }
         @if (_shareErrorMessage is not null)
         {
@@ -88,6 +100,7 @@ else
     private string _selectedContactUserId = string.Empty;
     private string _selectedAccessLevel = "ReadOnly";
     private string? _shareErrorMessage;
+    private string? _saveErrorMessage;
     private Guid _ownUserId;
 
     protected override async Task OnInitializedAsync()
@@ -131,6 +144,7 @@ else
     {
         Logger.LogInformation(
             "User clicked 'Save' ({Mode}, NoteId={NoteId})", IsNewNote ? "create" : "update", Id);
+        _saveErrorMessage = null;
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
         // double Enter-press can't fire this again while the first request is still in flight and create
@@ -157,6 +171,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to {Mode} note {NoteId}", IsNewNote ? "create" : "update", Id);
+            _saveErrorMessage = "Failed to save the note. Try again.";
             return;
         }
         finally

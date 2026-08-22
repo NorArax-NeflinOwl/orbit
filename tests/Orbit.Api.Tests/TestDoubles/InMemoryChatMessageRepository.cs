@@ -38,6 +38,16 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         return Task.CompletedTask;
     }
 
+    public Task<ChatMessage?> GetByIdAsync(Guid messageId, CancellationToken cancellationToken)
+        => Task.FromResult(_messages.FirstOrDefault(message => message.Id == messageId));
+
+    public Task UpdateContentAsync(
+        Guid messageId, string ciphertextBase64, string nonceBase64, DateTimeOffset editedAtUtc, CancellationToken cancellationToken)
+    {
+        _messages.FirstOrDefault(message => message.Id == messageId)?.ApplyEdit(ciphertextBase64, nonceBase64, editedAtUtc);
+        return Task.CompletedTask;
+    }
+
     public Task MarkConversationAsReadAsync(
         Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
     {

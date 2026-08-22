@@ -70,10 +70,10 @@ public sealed class CalendarTests : TestContext
         var cut = RenderComponent<Calendar>();
         Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
 
-        FindButtonByText(cut, "Hide list").Click();
+        FindButtonByTitle(cut, "Hide list").Click();
 
         Assert.Empty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.Contains(cut.FindAll("button"), button => button.TextContent == "Show list");
+        Assert.Contains(cut.FindAll("button"), button => button.GetAttribute("title") == "Show list");
         // The visualization panel keeps rendering full-width once the list is hidden.
         Assert.NotEmpty(cut.FindAll(".calendar-visualization-panel"));
     }
@@ -145,8 +145,8 @@ public sealed class CalendarTests : TestContext
     private static IElement FindViewSwitchButton(IRenderedComponent<Calendar> cut, string label)
         => cut.Find(".calendar-view-switch").QuerySelectorAll("button").Single(button => button.TextContent == label);
 
-    private static IElement FindButtonByText(IRenderedComponent<Calendar> cut, string text)
-        => cut.FindAll("button").Single(button => button.TextContent == text);
+    private static IElement FindButtonByTitle(IRenderedComponent<Calendar> cut, string title)
+        => cut.FindAll("button").Single(button => button.GetAttribute("title") == title);
 
     private static CalendarEventDto CreateTimedEvent(DateTime localStart, DateTime localEnd, string title)
         => new(

@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Orbit</title>
     <base href="/" />
+    <!-- Resolves and applies the light/dark theme before any CSS paints, so the page never flashes the
+         wrong theme on load. Mirrors theme.js's own logic (kept in sync manually - this one must run as a
+         plain classic script, before app.css, since ES module imports and Blazor itself aren't available
+         yet this early). See ThemeService for the interactive (post-load) equivalent. -->
+    <script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('orbit-theme');
+                var dark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <!-- Space Grotesk (headings) + IBM Plex Sans (body/UI) - see app.css's --font-display/--font-body. -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
     <link href="css/app.css" rel="stylesheet" />
     <!-- Leaflet: renders the map CalendarEventEditor.razor opens to pick an event's location (see
          wwwroot/js/mapPicker.js). Loaded from a CDN rather than as a NuGet/npm package - it's plain

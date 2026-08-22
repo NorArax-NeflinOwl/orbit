@@ -13,9 +13,12 @@ public sealed class ChatMessage
     public string CiphertextBase64 { get; private set; }
     public string NonceBase64 { get; private set; }
     public DateTimeOffset SentAtUtc { get; private set; }
+    public bool IsEdited { get; private set; }
+    public DateTimeOffset? EditedAtUtc { get; private set; }
 
     private ChatMessage(
-        Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc)
+        Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
+        bool isEdited, DateTimeOffset? editedAtUtc)
     {
         Id = id;
         SenderUserId = senderUserId;
@@ -23,15 +26,30 @@ public sealed class ChatMessage
         CiphertextBase64 = ciphertextBase64;
         NonceBase64 = nonceBase64;
         SentAtUtc = sentAtUtc;
+        IsEdited = isEdited;
+        EditedAtUtc = editedAtUtc;
     }
 
     public static ChatMessage Create(Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
-        => new(Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, DateTimeOffset.UtcNow);
+        => new(Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, DateTimeOffset.UtcNow, isEdited: false, editedAtUtc: null);
 
     /// <summary>
     /// Rebuilds a message from already-persisted values, bypassing creation rules.
     /// </summary>
     public static ChatMessage FromPersistence(
-        Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc)
-        => new(id, senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc);
+        Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
+        bool isEdited, DateTimeOffset? editedAtUtc)
+        => new(id, senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc, isEdited, editedAtUtc);
+
+    /// <summary>
+    /// Replaces this message's ciphertext with a re-encrypted edit - only the sender is ever allowed to
+    /// do this (see EditMessageCommandHandler's authorization check, which runs before this is called).
+    /// </summary>
+    public void ApplyEdit(string ciphertextBase64, string nonceBase64, DateTimeOffset editedAtUtc)
+    {
+        CiphertextBase64 = ciphertextBase64;
+        NonceBase64 = nonceBase64;
+        IsEdited = true;
+        EditedAtUtc = editedAtUtc;
+    }
 }

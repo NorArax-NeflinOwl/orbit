@@ -19,53 +19,13 @@
 
 <PageTitle>Orbit — Chat</PageTitle>
 
-<style>
-    /* Make the chat stretch across the full browser width */
-    .chat-container {
-        width: 100vw;
-        max-width: 100%;
-        margin: 0;
-        padding: 1rem;
-        box-sizing: border-box;
-    }
+<div class="page-header">
+    <div>
+        <h1>Messages</h1>
+        <p class="page-subtitle">End-to-end encrypted conversations.</p>
+    </div>
+</div>
 
-    /* Ensure messages and controls use the available width */
-    .chat-container .chat-messages {
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .chat-container .chat-message-own,
-    .chat-container .chat-message-theirs {
-        max-width: 100%;
-        word-break: break-word;
-    }
-
-    .chat-controls {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        width: 100%;
-        box-sizing: border-box;
-        margin-top: 0.5rem;
-    }
-
-    .chat-controls .chat-input {
-        flex: 1 1 auto;
-        min-width: 0;
-        padding: 0.5rem;
-        box-sizing: border-box;
-    }
-
-    .chat-controls button {
-        flex: 0 0 auto;
-    }
-
-    /* Optional: keep some max-width for very wide displays if desired */
-    /* .chat-container { max-width: 1600px; margin: 0 auto; } */
-</style>
-
-<div class="chat-container">
 @if (_encryptionUnavailable)
 {
     <p>
@@ -79,7 +39,7 @@ else if (_encryptionKeyLocked)
         This browser doesn't have a local copy of your encryption key - most likely because the key was
         generated in a different browser, or local data was cleared. Log in again to recover it from your
         password-encrypted backup.
-        <button type="button" @onclick="ReauthenticateAsync">Log out and log back in</button>
+        <button type="button" class="btn-secondary" @onclick="ReauthenticateAsync">Log out and log back in</button>
     </p>
 }
 else if (_otherUser is null)
@@ -88,76 +48,172 @@ else if (_otherUser is null)
 }
 else
 {
-    <h1>Chat with @_otherUser.DisplayName</h1>
-
-    @if (_otherUser.PublicKeyBase64 is null)
-    {
-        <p>
-            @_otherUser.DisplayName hasn't set up encryption yet - they need to log in in their own
-            browser first before you can message them.
-        </p>
-    }
-    else
-    {
-        @if (RequiresApprovalFromMe)
-        {
-            <p class="chat-request-banner">
-                @_otherUser.DisplayName wants to chat with you.
-                <button type="button" disabled="@_isApprovingConversation" @onclick="ApproveConversationAsync">
-                    Allow chatting
-                </button>
-            </p>
-        }
-        else if (IsPendingApprovalFromOtherParty)
-        {
-            <p class="chat-request-banner">Message is waiting for @_otherUser.DisplayName to approve.</p>
-        }
-
-        <div class="chat-messages">
-            @foreach (var message in _messages)
-            {
-                <p class="@(message.SenderUserId == _ownUserId ? "chat-message-own" : "chat-message-theirs")">
-                    <span class="chat-message-time">@message.SentAtUtc.ToLocalTime().ToString("HH:mm ")</span>
-                    @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[couldn't decrypt]")
-                    @if (message.SenderUserId == _ownUserId)
+    <div class="chat-layout">
+        <div class="chat-list-backdrop @(_isDrawerOpen ? "open" : "")" @onclick="CloseDrawer"></div>
+        <div class="chat-list @(_isDrawerOpen ? "open" : "") @(_isContactListCollapsed ? "collapsed" : "")">
+            <div class="chat-list-header">
+                <button type="button" class="icon-btn" title="@(_isContactListCollapsed ? "Show names" : "Hide names")" @onclick="ToggleContactListCollapsed">
+                    @if (_isContactListCollapsed)
                     {
-                        <span class="chat-message-status">@(IsReadByOtherParty(message) ? " ✓✓" : " ✓")</span>
-                    }
-                </p>
-                @if (message.SenderUserId != _ownUserId && _shareNoticeByMessageId.TryGetValue(message.Id, out var shareNotice))
-                {
-                    @if (_acceptedShareIds.Contains(shareNotice.ShareId))
-                    {
-                        <p class="event-share-status">Accepted - added to your account.</p>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
                     }
                     else
                     {
-                        <button type="button" disabled="@_acceptingShareIds.Contains(shareNotice.ShareId)"
-                                @onclick="() => AcceptShareAsync(shareNotice)">
-                            Accept
-                        </button>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
                     }
-                }
+                </button>
+            </div>
+            @foreach (var contact in _establishedChats)
+            {
+                <button type="button" class="chat-list-item @(contact.UserId == UserId ? "active" : "")" title="@contact.DisplayName" @onclick="() => SwitchContact(contact.UserId)">
+                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
+                    <span class="chat-list-meta">
+                        <span class="chat-list-name">@contact.DisplayName</span>
+                    </span>
+                </button>
             }
         </div>
 
-        <div class="chat-controls">
-            <input class="chat-input" @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Message"
-                   disabled="@RequiresApprovalFromMe" />
-            <button @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">Send</button>
+        <div class="chat-thread">
+            <div class="chat-thread-header">
+                <button type="button" class="icon-btn chat-list-toggle" title="Conversations" @onclick="ToggleDrawer">
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
+                </button>
+                <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(_otherUser.Id);width:34px;height:34px;font-size:12.5px;">@AvatarHelper.GetInitials(_otherUser.DisplayName)</span>
+                <div>
+                    <div class="chat-thread-name">@_otherUser.DisplayName</div>
+                </div>
+            </div>
+
+            @if (_otherUser.PublicKeyBase64 is null)
+            {
+                <p>
+                    @_otherUser.DisplayName hasn't set up encryption yet - they need to log in in their own
+                    browser first before you can message them.
+                </p>
+            }
+            else
+            {
+                @if (RequiresApprovalFromMe)
+                {
+                    <p class="chat-request-banner">
+                        @_otherUser.DisplayName wants to chat with you.
+                        <button type="button" class="btn-primary" disabled="@_isApprovingConversation" @onclick="ApproveConversationAsync">
+                            Allow chatting
+                        </button>
+                    </p>
+                }
+                else if (IsPendingApprovalFromOtherParty)
+                {
+                    <p class="chat-request-banner">Message is waiting for @_otherUser.DisplayName to approve.</p>
+                }
+
+                <div class="chat-messages" @onclick="CloseMessageMenu">
+                    @foreach (var message in _messages)
+                    {
+                        var canEdit = message.SenderUserId == _ownUserId && !_shareNoticeByMessageId.ContainsKey(message.Id)
+                            && _decryptedContentByMessageId.ContainsKey(message.Id);
+
+                        <div class="chat-bubble-row @(message.SenderUserId == _ownUserId ? "own" : "theirs")">
+                            @if (_editingMessageId == message.Id)
+                            {
+                                <div class="chat-bubble-edit" @onclick:stopPropagation="true">
+                                    <input class="chat-input" @bind="_editDraftText" @bind:event="oninput" />
+                                    <div class="chat-bubble-edit-actions">
+                                        <button type="button" class="btn-secondary" @onclick="CancelEdit">Cancel</button>
+                                        <button type="button" class="btn-primary" disabled="@(_isSavingEdit || _editDraftText.Trim().Length == 0)"
+                                                @onclick="() => SaveEditAsync(message)">
+                                            Save
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="chat-bubble-wrap">
+                                    <p class="chat-bubble">@(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[couldn't decrypt]")</p>
+                                    @if (canEdit)
+                                    {
+                                        <div class="chat-bubble-menu">
+                                            <button type="button" class="icon-btn chat-bubble-menu-trigger" title="Message options"
+                                                    @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
+                                                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
+                                            </button>
+                                            @if (_openMessageMenuId == message.Id)
+                                            {
+                                                <div class="chat-bubble-menu-dropdown" @onclick:stopPropagation="true">
+                                                    <button type="button" class="avatar-dropdown-item" @onclick="() => StartEdit(message)">Edit</button>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <span class="chat-bubble-meta">
+                                    @message.SentAtUtc.ToLocalTime().ToString("HH:mm")
+                                    @if (message.IsEdited)
+                                    {
+                                        <text> · Edited</text>
+                                    }
+                                    @if (message.SenderUserId == _ownUserId)
+                                    {
+                                        @(IsReadByOtherParty(message) ? " · Read" : " · Sent")
+                                    }
+                                </span>
+                            }
+                        </div>
+                        @if (message.SenderUserId != _ownUserId && _shareNoticeByMessageId.TryGetValue(message.Id, out var shareNotice))
+                        {
+                            @if (_acceptedShareIds.Contains(shareNotice.ShareId))
+                            {
+                                <p class="event-share-status">Accepted - added to your account.</p>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn-secondary" disabled="@_acceptingShareIds.Contains(shareNotice.ShareId)"
+                                        @onclick="() => AcceptShareAsync(shareNotice)">
+                                    Accept
+                                </button>
+                            }
+                        }
+                    }
+                </div>
+
+                <div class="chat-input-bar">
+                    <input class="chat-input" @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Write a message…"
+                           disabled="@RequiresApprovalFromMe" />
+                    <button type="button" class="btn-primary" @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">Send</button>
+                </div>
+            }
         </div>
-    }
+    </div>
 }
-</div>
 
 @code {
     [Parameter]
     public Guid UserId { get; set; }
 
     private Guid _ownUserId;
+    private Guid _loadedUserId;
     private UserSearchResultDto? _otherUser;
     private readonly List<ChatMessageDto> _messages = [];
     private readonly Dictionary<Guid, string> _decryptedContentByMessageId = [];
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private bool _isDrawerOpen;
+
+    /// <summary>Desktop-only: collapses the contact list to just avatars (see .chat-list.collapsed in app.css) - independent of _isDrawerOpen, which is the mobile off-canvas open/closed state.</summary>
+    private bool _isContactListCollapsed;
+
+    /// <summary>Which own message's "..." dropdown (currently just "Edit") is open, if any.</summary>
+    private Guid? _openMessageMenuId;
+
+    /// <summary>Which own message is currently showing its inline edit box instead of its normal bubble, if any.</summary>
+    private Guid? _editingMessageId;
+    private string _editDraftText = string.Empty;
+    private bool _isSavingEdit;
+
+    /// <summary>The drawer's contact list - already-established conversations only, most recently active first (matches Contacts.razor's own "Chats" filter).</summary>
+    private IEnumerable<ContactDto> _establishedChats
+        => _contacts.Where(contact => !contact.RequiresApprovalFromCurrentUser).OrderByDescending(contact => contact.LastMessageAtUtc);
 
     /// <summary>
     /// Populated for a message that decrypts to one of the three share payload shapes (calendar event,
@@ -171,10 +227,9 @@ else
     /// <summary>
     /// Shares known to be accepted - seeded from the matching ApiClient's GetXShareStatusAsync when a
     /// share message is first decrypted (see DecryptAndCacheAsync), and updated immediately when the user
-    /// clicks "Akceptuj" (see AcceptShareAsync) rather than waiting on a re-fetch. Keeping this cache is
-    /// what lets the message list avoid a status round-trip on every render. Shared across all three share
-    /// kinds since each share id is an independently generated Guid - collisions across domains are not a
-    /// realistic concern (see Guid.NewGuid()'s collision probability).
+    /// clicks "Accept" rather than waiting on a re-fetch. Keeping this cache is what lets the message list
+    /// avoid a status round-trip on every render. Shared across all three share kinds since each share id
+    /// is an independently generated Guid - collisions across domains are not a realistic concern.
     /// </summary>
     private readonly HashSet<Guid> _acceptedShareIds = [];
     private readonly HashSet<Guid> _acceptingShareIds = [];
@@ -206,23 +261,10 @@ else
         {
             await OwnEncryptionKeyProvider.EnsurePublicKeyAsync();
             _cryptoModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
-
-            _otherUser = await UsersApiClient.GetUserAsync(UserId);
-            if (_otherUser is null)
-            {
-                NavigationManager.NavigateTo("/contacts");
-                return;
-            }
-
-            await LoadConversationAccessAsync();
-            await LoadNewMessagesAsync();
-            await SyncReadStateAsync();
+            _contacts = await ChatApiClient.GetContactsAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
-            // The access token expired and AuthorizationMessageHandler's automatic refresh-and-retry
-            // also failed (e.g. the refresh token itself expired or was revoked) - the session is no
-            // longer valid, so send the user back to sign in instead of leaving the page stuck loading.
             NavigationManager.NavigateTo("/login");
             return;
         }
@@ -248,6 +290,59 @@ else
             return;
         }
 
+        await LoadConversationForCurrentUserAsync();
+    }
+
+    /// <summary>
+    /// The drawer (see the markup above) lets the user switch contacts without leaving this page, which
+    /// Blazor's router treats as a parameter change on the same component instance rather than a fresh
+    /// page load - so unlike a normal navigation-in from Dashboard/Contacts, OnInitializedAsync does NOT
+    /// run again. This re-runs the same per-contact setup whenever UserId actually changes.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_encryptionUnavailable || _encryptionKeyLocked || UserId == _loadedUserId)
+        {
+            return;
+        }
+
+        await LoadConversationForCurrentUserAsync();
+    }
+
+    private async Task LoadConversationForCurrentUserAsync()
+    {
+        StopPolling();
+        _loadedUserId = UserId;
+        _isDrawerOpen = false;
+        _otherUser = null;
+        _messages.Clear();
+        _decryptedContentByMessageId.Clear();
+        _shareNoticeByMessageId.Clear();
+        _acceptedShareIds.Clear();
+        _acceptingShareIds.Clear();
+        _otherPartyReadUpToUtc = null;
+        _conversationAccess = null;
+        _draftMessage = string.Empty;
+
+        try
+        {
+            _otherUser = await UsersApiClient.GetUserAsync(UserId);
+            if (_otherUser is null)
+            {
+                NavigationManager.NavigateTo("/contacts");
+                return;
+            }
+
+            await LoadConversationAccessAsync();
+            await LoadNewMessagesAsync();
+            await SyncReadStateAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
         StartPolling();
     }
 
@@ -262,11 +357,101 @@ else
         NavigationManager.NavigateTo("/login");
     }
 
+    private void ToggleDrawer() => _isDrawerOpen = !_isDrawerOpen;
+
+    private void ToggleContactListCollapsed() => _isContactListCollapsed = !_isContactListCollapsed;
+
+    private void ToggleMessageMenu(Guid messageId) => _openMessageMenuId = _openMessageMenuId == messageId ? null : messageId;
+
+    /// <summary>Bound to a click anywhere in the message list, so opening one message's menu closes any other and clicking elsewhere closes it - same outside-click pattern as MainLayout's avatar dropdown.</summary>
+    private void CloseMessageMenu()
+    {
+        if (_openMessageMenuId is not null)
+        {
+            _openMessageMenuId = null;
+        }
+    }
+
+    private void StartEdit(ChatMessageDto message)
+    {
+        _openMessageMenuId = null;
+        _editingMessageId = message.Id;
+        _editDraftText = _decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? string.Empty;
+    }
+
+    private void CancelEdit()
+    {
+        _editingMessageId = null;
+        _editDraftText = string.Empty;
+    }
+
+    private async Task SaveEditAsync(ChatMessageDto message)
+    {
+        var newText = _editDraftText.Trim();
+        if (newText.Length == 0 || _otherUser?.PublicKeyBase64 is null || _cryptoModule is null)
+        {
+            return;
+        }
+
+        _isSavingEdit = true;
+        try
+        {
+            var payload = await _cryptoModule.InvokeAsync<EncryptedPayload>(
+                "encryptMessage", _ownUserId, _otherUser.PublicKeyBase64, newText);
+            var updated = await ChatApiClient.EditMessageAsync(message.Id, new EditMessageRequest(payload.CiphertextBase64, payload.NonceBase64));
+
+            var index = _messages.FindIndex(existing => existing.Id == message.Id);
+            if (index >= 0)
+            {
+                _messages[index] = updated;
+            }
+            _decryptedContentByMessageId[message.Id] = newText;
+            _editingMessageId = null;
+            _editDraftText = string.Empty;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            // Left in edit mode (not cleared) so the user's edit isn't lost and they can just retry -
+            // mirrors SendMessageAsync's handling of the same failure.
+            Logger.LogError(exception, "Failed to edit chat message {MessageId}", message.Id);
+        }
+        finally
+        {
+            _isSavingEdit = false;
+        }
+    }
+
+    private void CloseDrawer() => _isDrawerOpen = false;
+
+    private void SwitchContact(Guid userId)
+    {
+        _isDrawerOpen = false;
+        if (userId != UserId)
+        {
+            Logger.LogInformation("User switched conversations from the drawer ({ContactUserId})", userId);
+            NavigationManager.NavigateTo($"/chat/{userId}");
+        }
+    }
+
+
     private void StartPolling()
     {
         _pollCancellation = new CancellationTokenSource();
         _pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         _ = PollAsync(_pollCancellation.Token);
+    }
+
+    private void StopPolling()
+    {
+        _pollCancellation?.Cancel();
+        _pollCancellation?.Dispose();
+        _pollCancellation = null;
+        _pollTimer?.Dispose();
+        _pollTimer = null;
     }
 
     private async Task PollAsync(CancellationToken cancellationToken)
@@ -281,7 +466,12 @@ else
         }
         catch (OperationCanceledException)
         {
-            // Expected when the page navigates away and DisposeAsync cancels polling.
+            // Expected when the page navigates away, the user switches contacts, or DisposeAsync cancels polling.
+        }
+        catch (ObjectDisposedException)
+        {
+            // The timer was disposed by StopPolling (contact switch) between a tick starting and this
+            // loop checking again - same "stop quietly" handling as the cancellation above.
         }
     }
 
@@ -299,6 +489,10 @@ else
             await LoadConversationAccessAsync();
             await LoadNewMessagesAsync();
             await SyncReadStateAsync();
+            // Keeps the drawer's contact list current - most relevantly, this is what makes a
+            // conversation started just now (the contact only exists server-side after its first
+            // message - see ChatMessageHandler) show up in the drawer without a full page reload.
+            _contacts = await ChatApiClient.GetContactsAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -318,6 +512,14 @@ else
         var newMessages = await ChatApiClient.GetConversationAsync(UserId, sinceUtc);
         foreach (var message in newMessages)
         {
+            // GetConversationAsync's "since" filter can re-return the very message that was just added
+            // optimistically by SendMessageAsync (same SentAtUtc as the "since" cursor) - skipping an
+            // id already present keeps a poll tick from duplicating it in the list.
+            if (_messages.Any(existing => existing.Id == message.Id))
+            {
+                continue;
+            }
+
             _messages.Add(message);
             await DecryptAndCacheAsync(message);
         }
@@ -527,8 +729,7 @@ else
 
     public async ValueTask DisposeAsync()
     {
-        _pollCancellation?.Cancel();
-        _pollTimer?.Dispose();
+        StopPolling();
         if (_cryptoModule is not null)
         {
             await _cryptoModule.DisposeAsync();

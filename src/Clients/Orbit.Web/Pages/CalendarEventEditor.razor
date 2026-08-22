@@ -18,6 +18,11 @@
 
 <PageTitle>@(IsNewEvent ? "New event" : "Edit event")</PageTitle>
 
+@* TODO(Orbit.Web.UI): still plain unstyled form markup (this is the biggest of the three editors -
+   recurrence, reminders, location/map picker, guests). Restyle together with Calendar.razor (see its own
+   TODO) onto app.css's .card/.btn-primary vocabulary; the map picker (wwwroot/js/mapPicker.js/Leaflet)
+   and the color swatch picker will need their own component-specific styling on top of that, not just
+   class renames. *@
 <h1>@(IsNewEvent ? "New event" : "Edit event")</h1>
 
 @if (_isLoading)
@@ -33,57 +38,63 @@ else
         </p>
     }
 
-    <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
+    <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
     <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
-        <div>
+        <div class="field">
             <label>Title</label>
             <InputText @bind-Value="_formModel.Title" />
         </div>
-        <div>
+        <div class="field">
             <label>Description</label>
             <InputTextArea @bind-Value="_formModel.Description" />
         </div>
-        <div>
+        <div class="field">
             <label>Location</label>
             <InputText @bind-Value="_formModel.LocationAddress" placeholder="Pick a point on the map to set an address" />
-            <button type="button" @onclick="ToggleMapAsync">@(_isMapVisible ? "Hide map" : "Pick on map")</button>
-            @if (_formModel.LocationLatitude is { } latitude && _formModel.LocationLongitude is { } longitude)
-            {
-                <span> Coordinates: @latitude.ToString("F5") , @longitude.ToString("F5")</span>
-                <button type="button" @onclick="ClearLocation">Remove location</button>
-            }
+            <div class="field-row">
+                <button type="button" class="btn-secondary" @onclick="ToggleMapAsync">@(_isMapVisible ? "Hide map" : "Pick on map")</button>
+                @if (_formModel.LocationLatitude is { } latitude && _formModel.LocationLongitude is { } longitude)
+                {
+                    <span>Coordinates: @latitude.ToString("F5") , @longitude.ToString("F5")</span>
+                    <button type="button" class="btn-secondary" @onclick="ClearLocation">Remove location</button>
+                }
+            </div>
             @if (_isMapVisible)
             {
-                <div id="@MapElementId" style="height: 300px; margin-top: 0.5rem;"></div>
+                <div id="@MapElementId" class="map-picker"></div>
             }
         </div>
-        <div>
+        <div class="field">
             <label>Color</label>
             <input type="color" @bind="_formModel.Color" />
         </div>
-        <div>
+        <div class="field field-checkbox">
             <label>
                 <InputCheckbox @bind-Value="_formModel.IsAllDay" />
                 All-day event
             </label>
         </div>
-        <div>
+        <div class="field">
             <label>Start</label>
-            <InputDate @bind-Value="_formModel.StartDate" />
-            @if (!_formModel.IsAllDay)
-            {
-                <input type="time" @bind="_formModel.StartTime" />
-            }
+            <div class="field-row">
+                <InputDate @bind-Value="_formModel.StartDate" />
+                @if (!_formModel.IsAllDay)
+                {
+                    <input type="time" @bind="_formModel.StartTime" />
+                }
+            </div>
         </div>
-        <div>
+        <div class="field">
             <label>End</label>
-            <InputDate @bind-Value="_formModel.EndDate" />
-            @if (!_formModel.IsAllDay)
-            {
-                <input type="time" @bind="_formModel.EndTime" />
-            }
+            <div class="field-row">
+                <InputDate @bind-Value="_formModel.EndDate" />
+                @if (!_formModel.IsAllDay)
+                {
+                    <input type="time" @bind="_formModel.EndTime" />
+                }
+            </div>
         </div>
-        <div>
+        <div class="field field-checkbox">
             <label>
                 <InputCheckbox @bind-Value="_formModel.IsRecurring" />
                 Recurring event
@@ -91,7 +102,7 @@ else
         </div>
         @if (_formModel.IsRecurring)
         {
-            <div>
+            <div class="field">
                 <label>Frequency</label>
                 <InputSelect @bind-Value="_formModel.RecurrenceFrequency">
                     <option value="Daily">Daily</option>
@@ -99,16 +110,16 @@ else
                     <option value="Monthly">Monthly</option>
                 </InputSelect>
             </div>
-            <div>
+            <div class="field">
                 <label>Every</label>
                 <InputNumber @bind-Value="_formModel.RecurrenceIntervalCount" />
             </div>
-            <div>
+            <div class="field">
                 <label>Repeat until (optional)</label>
                 <InputDate @bind-Value="_formModel.RecurrenceUntil" />
             </div>
         }
-        <div>
+        <div class="field">
             <label>Guests</label>
             @if (_formModel.GuestUserIds.Count == 0)
             {
@@ -121,13 +132,13 @@ else
                     {
                         <li>
                             @GetGuestDisplayName(guestUserId)
-                            <button type="button" @onclick="() => RemoveGuest(guestUserId)">Remove</button>
+                            <button type="button" class="btn-secondary" @onclick="() => RemoveGuest(guestUserId)">Remove</button>
                         </li>
                     }
                 </ul>
             }
         </div>
-        <div>
+        <div class="field">
             <label>Add a guest from contacts</label>
             @if (_contacts.Count == 0)
             {
@@ -135,25 +146,27 @@ else
             }
             else
             {
-                <select id="guestContactSelect" @bind="_selectedContactUserId">
-                    <option value="">-- select a contact --</option>
-                    @foreach (var contact in _contacts)
-                    {
-                        <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
-                    }
-                </select>
-                <select id="guestAccessLevelSelect" @bind="_selectedAccessLevel">
-                    <option value="ReadOnly">Read-only</option>
-                    <option value="CanEdit">Can edit</option>
-                </select>
-                <button type="button" id="addGuestFromContactButton" @onclick="AddSelectedContactAsGuest">Add</button>
+                <div class="field-row">
+                    <select id="guestContactSelect" @bind="_selectedContactUserId">
+                        <option value="">-- select a contact --</option>
+                        @foreach (var contact in _contacts)
+                        {
+                            <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                        }
+                    </select>
+                    <select id="guestAccessLevelSelect" @bind="_selectedAccessLevel">
+                        <option value="ReadOnly">Read-only</option>
+                        <option value="CanEdit">Can edit</option>
+                    </select>
+                    <button type="button" id="addGuestFromContactButton" class="btn-secondary" @onclick="AddSelectedContactAsGuest">Add</button>
+                </div>
             }
         </div>
-        <div>
+        <div class="field">
             <label>Reminders (minutes before the event, comma-separated)</label>
             <InputText @bind-Value="_formModel.RemindersText" />
         </div>
-        <div>
+        <div class="field">
             <label>
                 Notification when the event is created
                 <select @bind="_formModel.CreationNotificationChannel">
@@ -164,7 +177,7 @@ else
                 </select>
             </label>
         </div>
-        <div>
+        <div class="field">
             <label>
                 Notification as the event approaches
                 <select @bind="_formModel.ReminderNotificationChannel">
@@ -176,9 +189,9 @@ else
             </label>
         </div>
 
-        <div>
-            <button type="submit">Save</button>
-            <button type="button" @onclick="Cancel">Cancel</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Save</button>
+            <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
         </div>
     </fieldset>
     </EditForm>
@@ -411,6 +424,7 @@ else
             catch (HttpRequestException exception)
             {
                 Logger.LogError(exception, "Failed to {Mode} calendar event {EventId}", IsNewEvent ? "create" : "update", Id);
+                _errorMessage = "Failed to save the event. Try again.";
                 return;
             }
 
