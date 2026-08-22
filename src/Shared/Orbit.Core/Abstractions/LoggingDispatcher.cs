@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reflection;
 using Microsoft.Extensions.Logging;
 
 namespace Orbit.Core.Abstractions;
@@ -7,10 +9,15 @@ namespace Orbit.Core.Abstractions;
 /// Decorator pattern: wraps the real <see cref="Dispatcher"/> so every command and query dispatched
 /// through the application is logged and timed in exactly one place. New handlers get tracing and
 /// timing automatically, without remembering to add it themselves.
+///
+/// Requests decorated with <see cref="ClientActionAttribute"/> additionally get an "[ACTION:{Category}]"
+/// prefix on their log lines, so a client-triggered action (save, login, share, ...) stands out from
+/// routine/background dispatches when scanning or grepping the log stream.
 /// </summary>
 public sealed class LoggingDispatcher : IDispatcher
 {
     private static readonly ActivitySource ActivitySource = new("Orbit.Core");
+    private static readonly ConcurrentDictionary<Type, ClientActionCategory?> ClientActionCategoriesByRequestType = new();
 
     private readonly IDispatcher _inner;
     private readonly ILogger<LoggingDispatcher> _logger;
@@ -23,27 +30,70 @@ public sealed class LoggingDispatcher : IDispatcher
 
     public async Task<TResponse> SendAsync<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
     {
-        var requestName = request.GetType().Name;
+        var requestType = request.GetType();
+        var requestName = requestType.Name;
+        var actionCategory = GetClientActionCategory(requestType);
         using var activity = ActivitySource.StartActivity(requestName, ActivityKind.Internal);
         var stopwatch = Stopwatch.StartNew();
 
-        _logger.LogInformation("{RequestName} started", requestName);
+        LogStarted(requestName, actionCategory);
 
         try
         {
             var response = await _inner.SendAsync(request, cancellationToken);
             stopwatch.Stop();
-            _logger.LogInformation(
-                "{RequestName} completed in {ElapsedMilliseconds} ms", requestName, stopwatch.ElapsedMilliseconds);
+            LogCompleted(requestName, actionCategory, stopwatch.ElapsedMilliseconds);
             return response;
         }
         catch (Exception exception)
         {
             stopwatch.Stop();
             activity?.SetStatus(ActivityStatusCode.Error, exception.Message);
-            _logger.LogError(
-                exception, "{RequestName} failed after {ElapsedMilliseconds} ms", requestName, stopwatch.ElapsedMilliseconds);
+            LogFailed(requestName, actionCategory, stopwatch.ElapsedMilliseconds, exception);
             throw;
         }
+    }
+
+    /// <summary>Reflection result is cached per request type, since it never changes at runtime and
+    /// SendAsync runs on every dispatch.</summary>
+    private static ClientActionCategory? GetClientActionCategory(Type requestType)
+        => ClientActionCategoriesByRequestType.GetOrAdd(
+            requestType, static type => type.GetCustomAttribute<ClientActionAttribute>()?.Category);
+
+    private void LogStarted(string requestName, ClientActionCategory? actionCategory)
+    {
+        if (actionCategory is null)
+        {
+            _logger.LogInformation("{RequestName} started", requestName);
+            return;
+        }
+
+        _logger.LogInformation("[ACTION:{ActionCategory}] {RequestName} started", actionCategory, requestName);
+    }
+
+    private void LogCompleted(string requestName, ClientActionCategory? actionCategory, long elapsedMilliseconds)
+    {
+        if (actionCategory is null)
+        {
+            _logger.LogInformation("{RequestName} completed in {ElapsedMilliseconds} ms", requestName, elapsedMilliseconds);
+            return;
+        }
+
+        _logger.LogInformation(
+            "[ACTION:{ActionCategory}] {RequestName} completed in {ElapsedMilliseconds} ms",
+            actionCategory, requestName, elapsedMilliseconds);
+    }
+
+    private void LogFailed(string requestName, ClientActionCategory? actionCategory, long elapsedMilliseconds, Exception exception)
+    {
+        if (actionCategory is null)
+        {
+            _logger.LogError(exception, "{RequestName} failed after {ElapsedMilliseconds} ms", requestName, elapsedMilliseconds);
+            return;
+        }
+
+        _logger.LogError(
+            exception, "[ACTION:{ActionCategory}] {RequestName} failed after {ElapsedMilliseconds} ms",
+            actionCategory, requestName, elapsedMilliseconds);
     }
 }
