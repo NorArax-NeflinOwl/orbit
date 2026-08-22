@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @implements IDisposable
+@using Orbit.Core.Abstractions
 @using Orbit.Web.Services
+@using Orbit.Web.Services.Logging
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
@@ -178,7 +180,7 @@
             // Registering/removing the subscription with Orbit.Api failed (API unreachable, expired
             // session, ...) - logged rather than surfaced as a crash, same reasoning as
             // EnsureEncryptionKeyIfAuthenticatedAsync's HttpRequestException catch.
-            Logger.LogWarning(exception, "Failed to update the push notification subscription");
+            Logger.LogActionFailed(ClientActionCategory.PushNotificationToggle, "Push notification toggle", exception);
             _pushNotificationErrorMessage = "Nie udało się zaktualizować subskrypcji powiadomień. Spróbuj ponownie.";
         }
         catch (JSException exception)
@@ -187,8 +189,10 @@
             // IsSupportedAsync can pass (the browser APIs exist) while actually subscribing still fails
             // outside a secure context. Also covers a stale browser-level subscription conflict that
             // pushNotifications.js's requestPermissionAndSubscribe can no longer avoid on its own (e.g.
-            // an unusual failure clearing the old subscription first).
-            Logger.LogWarning(exception, "Failed to update the push notification subscription");
+            // an unusual failure clearing the old subscription first), and a push service rejecting the
+            // subscription outright (e.g. Brave with Google's push service disabled - see
+            // info/instructions.md).
+            Logger.LogActionFailed(ClientActionCategory.PushNotificationToggle, "Push notification toggle", exception);
             _pushNotificationErrorMessage = "Nie udało się zaktualizować subskrypcji powiadomień. Spróbuj ponownie.";
         }
         finally

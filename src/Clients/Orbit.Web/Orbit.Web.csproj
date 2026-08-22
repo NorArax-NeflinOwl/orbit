@@ -19,6 +19,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\Orbit.Contracts\Orbit.Contracts.csproj" />
+    <!-- Only for ClientActionCategory (see Services/Logging/ClientActionLoggerExtensions.cs) - reuses
+         the same enum LoggingDispatcher tags server-side "[ACTION:{Category}]" log lines with, so
+         client and server logs read the same way when scanned together. Orbit.Core itself only depends
+         on the logging/DI abstraction packages, both already used by this WASM app, so this stays
+         build-compatible with Blazor WebAssembly. -->
+    <ProjectReference Include="..\..\Shared\Orbit.Core\Orbit.Core.csproj" />
   </ItemGroup>
 
 </Project>

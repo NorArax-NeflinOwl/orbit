@@ -1,16 +1,18 @@
 # syntax=docker/dockerfile:1
 #
 # Build context is the repository root (see docker-compose.yml), so this can reach the sibling
-# Orbit.Contracts project.
+# Orbit.Contracts and Orbit.Core projects.
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
 COPY src/Shared/Orbit.Contracts/Orbit.Contracts.csproj src/Shared/Orbit.Contracts/
+COPY src/Shared/Orbit.Core/Orbit.Core.csproj src/Shared/Orbit.Core/
 COPY src/Clients/Orbit.Web/Orbit.Web.csproj src/Clients/Orbit.Web/
 RUN dotnet restore src/Clients/Orbit.Web/Orbit.Web.csproj
 
 COPY src/Shared/Orbit.Contracts/ src/Shared/Orbit.Contracts/
+COPY src/Shared/Orbit.Core/ src/Shared/Orbit.Core/
 COPY src/Clients/Orbit.Web/ src/Clients/Orbit.Web/
 
 RUN dotnet publish src/Clients/Orbit.Web/Orbit.Web.csproj \

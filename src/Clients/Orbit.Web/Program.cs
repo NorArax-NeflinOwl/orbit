@@ -5,12 +5,16 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
 using Orbit.Web;
 using Orbit.Web.Services;
+using Orbit.Web.Services.Logging;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Logging.SetMinimumLevel(LogLevel.Trace);
+// Mirrors Warning-and-above log lines into localStorage (see wwwroot/js/clientLogging.js) so they can be
+// retrieved on-device without devtools - see PersistentLoggerProvider's class comment.
+builder.Services.AddSingleton<ILoggerProvider, PersistentLoggerProvider>();
 
 // Read from wwwroot/appsettings.json (or appsettings.Development.json under `dotnet run`/`dotnet
 // watch`, which the Blazor dev server selects automatically).

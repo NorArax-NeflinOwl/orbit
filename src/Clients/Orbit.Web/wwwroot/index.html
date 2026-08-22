@@ -12,12 +12,22 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
+    <!-- Loaded first, and as a plain classic script rather than a Blazor-managed one, so its
+         window.onerror/unhandledrejection listeners (see clientLogging.js) are registered before
+         anything else can fail - including during Blazor's own startup - and keep working even if the
+         Blazor app itself crashes. -->
+    <script src="js/clientLogging.js"></script>
+
     <div id="app">Ładowanie…</div>
 
     <div id="blazor-error-ui">
         Wystąpił nieoczekiwany błąd.
         <a href="" class="reload">Odśwież</a>
         <a class="dismiss">🗙</a>
+        <!-- Plain onclick, not a Blazor event handler: this banner is exactly what shows up when the
+             Blazor app itself may be in a broken state, so retrieving the diagnostic log must not depend
+             on Blazor/JS interop still working. -->
+        <a href="#" onclick="OrbitClientLogging.copyLogsToClipboard(this); return false;">Kopiuj szczegóły błędu</a>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>

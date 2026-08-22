@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Chat;
+using Orbit.Core.Abstractions;
+using Orbit.Web.Services.Logging;
 
 namespace Orbit.Web.Services;
 
@@ -12,10 +15,15 @@ namespace Orbit.Web.Services;
 public sealed class ChatApiClient
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger _logger;
 
-    public ChatApiClient(HttpClient httpClient)
+    // logger defaults to a no-op instance rather than being required, so existing call sites (including
+    // every test that constructs this with just an HttpClient) keep compiling unchanged; only the
+    // DI-resolved instance registered in Program.cs actually logs anywhere.
+    public ChatApiClient(HttpClient httpClient, ILogger<ChatApiClient>? logger = null)
     {
         _httpClient = httpClient;
+        _logger = logger ?? NullLogger<ChatApiClient>.Instance;
     }
 
     public async Task<IReadOnlyList<ContactDto>> GetContactsAsync(CancellationToken cancellationToken = default)
@@ -37,9 +45,19 @@ public sealed class ChatApiClient
 
     public async Task<ChatMessageDto> SendMessageAsync(SendMessageRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/chat/messages", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ChatMessageDto>(cancellationToken: cancellationToken))!;
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/chat/messages", request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var message = (await response.Content.ReadFromJsonAsync<ChatMessageDto>(cancellationToken: cancellationToken))!;
+            _logger.LogActionCompleted(ClientActionCategory.SendMessage, "Send chat message");
+            return message;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.SendMessage, "Send chat message", exception);
+            throw;
+        }
     }
 
     /// <summary>Marks every message otherUserId sent to the caller as read as of now.</summary>

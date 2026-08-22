@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
+using Orbit.Core.Abstractions;
+using Orbit.Web.Services.Logging;
 
 namespace Orbit.Web.Services;
 
@@ -11,10 +14,15 @@ namespace Orbit.Web.Services;
 public sealed class CalendarApiClient
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger _logger;
 
-    public CalendarApiClient(HttpClient httpClient)
+    // logger defaults to a no-op instance rather than being required, so existing call sites (including
+    // every test that constructs this with just an HttpClient) keep compiling unchanged; only the
+    // DI-resolved instance registered in Program.cs actually logs anywhere.
+    public CalendarApiClient(HttpClient httpClient, ILogger<CalendarApiClient>? logger = null)
     {
         _httpClient = httpClient;
+        _logger = logger ?? NullLogger<CalendarApiClient>.Instance;
     }
 
     public async Task<IReadOnlyList<CalendarEventDto>> GetCalendarEventsAsync(CancellationToken cancellationToken = default)
@@ -34,15 +42,34 @@ public sealed class CalendarApiClient
 
     public async Task<Guid> CreateCalendarEventAsync(CreateCalendarEventRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/calendar-events", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/calendar-events", request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var id = await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+            _logger.LogActionCompleted(ClientActionCategory.Save, "Create calendar event");
+            return id;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.Save, "Create calendar event", exception);
+            throw;
+        }
     }
 
     public async Task UpdateCalendarEventAsync(Guid id, UpdateCalendarEventRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PutAsJsonAsync($"api/calendar-events/{id}", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync($"api/calendar-events/{id}", request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            _logger.LogActionCompleted(ClientActionCategory.Edit, "Update calendar event");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.Edit, "Update calendar event", exception);
+            throw;
+        }
     }
 
     public async Task DeleteCalendarEventAsync(Guid id, CancellationToken cancellationToken = default)
@@ -58,15 +85,25 @@ public sealed class CalendarApiClient
     /// </summary>
     public async Task<Guid?> ShareCalendarEventAsync(Guid calendarEventId, Guid recipientUserId, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync(
-            $"api/calendar-events/{calendarEventId}/shares", new ShareCalendarEventRequest(recipientUserId), cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        try
         {
-            return null;
-        }
+            var response = await _httpClient.PostAsJsonAsync(
+                $"api/calendar-events/{calendarEventId}/shares", new ShareCalendarEventRequest(recipientUserId), cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
 
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var shareId = await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+            _logger.LogActionCompleted(ClientActionCategory.ShareElement, "Share calendar event");
+            return shareId;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.ShareElement, "Share calendar event", exception);
+            throw;
+        }
     }
 
     /// <summary>Returns false instead of throwing when shareId doesn't exist or wasn't offered to the caller.</summary>
