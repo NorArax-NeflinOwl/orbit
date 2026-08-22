@@ -111,6 +111,10 @@ else
             <button type="button" class="btn-secondary" @onclick="AddItem">Add item</button>
         </div>
 
+        @if (_saveErrorMessage is not null)
+        {
+            <p class="error">@_saveErrorMessage</p>
+        }
         <div class="form-actions">
             <button type="submit" class="btn-primary">Save</button>
             <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
@@ -165,6 +169,7 @@ else
     private string _selectedContactUserId = string.Empty;
     private string _selectedAccessLevel = "ReadOnly";
     private string? _shareErrorMessage;
+    private string? _saveErrorMessage;
     private Guid _ownUserId;
 
     protected override async Task OnInitializedAsync()
@@ -242,6 +247,7 @@ else
     {
         Logger.LogInformation(
             "User clicked 'Save' ({Mode}, TaskListId={TaskListId})", IsNewTaskList ? "create" : "update", Id);
+        _saveErrorMessage = null;
 
         var items = _formModel.Items
             .Select(item => new TaskItemRequest(
@@ -280,6 +286,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to {Mode} task list {TaskListId}", IsNewTaskList ? "create" : "update", Id);
+            _saveErrorMessage = "Failed to save the task list. Try again.";
             return;
         }
         finally

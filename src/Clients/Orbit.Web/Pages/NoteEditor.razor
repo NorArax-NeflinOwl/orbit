@@ -43,6 +43,10 @@ else
                 <label>Content</label>
                 <InputTextArea @bind-Value="_formModel.Content" class="note-editor-content" />
             </div>
+            @if (_saveErrorMessage is not null)
+            {
+                <p class="error">@_saveErrorMessage</p>
+            }
             <div class="form-actions">
                 <button type="submit" class="btn-primary">Save</button>
                 <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
@@ -96,6 +100,7 @@ else
     private string _selectedContactUserId = string.Empty;
     private string _selectedAccessLevel = "ReadOnly";
     private string? _shareErrorMessage;
+    private string? _saveErrorMessage;
     private Guid _ownUserId;
 
     protected override async Task OnInitializedAsync()
@@ -139,6 +144,7 @@ else
     {
         Logger.LogInformation(
             "User clicked 'Save' ({Mode}, NoteId={NoteId})", IsNewNote ? "create" : "update", Id);
+        _saveErrorMessage = null;
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
         // double Enter-press can't fire this again while the first request is still in flight and create
@@ -165,6 +171,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to {Mode} note {NoteId}", IsNewNote ? "create" : "update", Id);
+            _saveErrorMessage = "Failed to save the note. Try again.";
             return;
         }
         finally

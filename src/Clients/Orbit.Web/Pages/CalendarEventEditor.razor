@@ -424,6 +424,7 @@ else
             catch (HttpRequestException exception)
             {
                 Logger.LogError(exception, "Failed to {Mode} calendar event {EventId}", IsNewEvent ? "create" : "update", Id);
+                _errorMessage = "Failed to save the event. Try again.";
                 return;
             }
 
