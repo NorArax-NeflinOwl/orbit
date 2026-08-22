@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -39,15 +41,19 @@ public sealed class RegisterTests : TestContext
         // Simulates the same "crypto.subtle unavailable" condition e2eeChat.js hits outside a secure
         // context, rather than leaving the unconfigured call return null (bUnit's default "Loose" JS
         // interop mode) and crash with a NullReferenceException instead of hitting Register's own
-        // best-effort catch (JSException) path.
-        JSInterop.Setup<IJSObjectReference>("import", _ => true)
+        // best-effort catch (JSException) path. bUnit requires module loads themselves ("import") to
+        // succeed - SetupModule sets up a working module handle, and the exception is raised on the
+        // first call made through it instead (hasOwnPrivateKey, the first thing UnlockOrCreateAsync
+        // calls on the module).
+        JSInterop.SetupModule("./js/e2eeChat.js")
+            .Setup<bool>("hasOwnPrivateKey", _ => true)
             .SetException(new JSException("crypto.subtle is not available in this test environment."));
     }
 
     [Fact]
     public void Submitting_a_new_account_navigates_to_the_dashboard()
     {
-        RegisterAuthApiClient(_ => JsonResponse(new AuthResponse("a-token", "a-refresh-token", Guid.NewGuid(), "new@example.com", "New User")));
+        RegisterAuthApiClient(_ => JsonResponse(CreateAuthResponse("new@example.com", "New User")));
         var navigationManager = Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderComponent<Register>();
@@ -80,6 +86,34 @@ public sealed class RegisterTests : TestContext
         var httpClient = new HttpClient(new StubHttpMessageHandler(respond)) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new AuthApiClient(httpClient, _tokenStore));
     }
+
+    /// <summary>
+    /// The access token has to be a real JWT with a "sub" claim, not just any string - Register now reads
+    /// it right back out via OwnEncryptionKeyProvider.UnlockOrCreateAsync (see the constructor above) to
+    /// know which user's key to unlock, and OrbitAuthenticationStateProvider.ParseClaimsFromJwt throws on
+    /// anything that isn't dot-separated the way a real token is.
+    /// </summary>
+    private static AuthResponse CreateAuthResponse(string email, string displayName)
+    {
+        var userId = Guid.NewGuid();
+        var token = CreateUnsignedJwt(new Dictionary<string, string> { ["sub"] = userId.ToString() });
+        return new AuthResponse(token, "a-refresh-token", userId, email, displayName);
+    }
+
+    /// <summary>
+    /// Builds a JWT with a real header and payload but a dummy signature - enough to exercise the
+    /// client's own claim-parsing logic, which never checks the signature (the server already did, on
+    /// every API call that carries this token).
+    /// </summary>
+    private static string CreateUnsignedJwt(Dictionary<string, string> claims)
+    {
+        var header = Base64UrlEncode(Encoding.UTF8.GetBytes("""{"alg":"none","typ":"JWT"}"""));
+        var payload = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(claims));
+        return $"{header}.{payload}.";
+    }
+
+    private static string Base64UrlEncode(byte[] bytes)
+        => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     private static HttpResponseMessage JsonResponse(AuthResponse body)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(body) };

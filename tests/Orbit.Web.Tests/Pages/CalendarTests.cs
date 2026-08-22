@@ -71,7 +71,7 @@ public sealed class CalendarTests : TestContext
         FindButtonByText(cut, "Ukryj listę").Click();
 
         Assert.Empty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.NotEmpty(cut.FindAll("button").Where(button => button.TextContent == "Pokaż listę"));
+        Assert.Contains(cut.FindAll("button"), button => button.TextContent == "Pokaż listę");
         // The visualization panel keeps rendering full-width once the list is hidden.
         Assert.NotEmpty(cut.FindAll(".calendar-visualization-panel"));
     }
