@@ -213,9 +213,11 @@
     font-size: 0.65em;
 }
 
-/* A due task's dot is square rather than round, so it stays visually distinct from an event's dot even
-   though it shares the same size/spacing (see .calendar-month-grid-day-dot). */
+/* A due task's dot is square rather than round and uses the fixed task accent color (matching
+   .calendar-task-chip) instead of an event's own Color, since it's rendered without an inline
+   background-color style - without this rule the dot has no background at all and never shows up. */
 .calendar-month-grid-day-dot-task {
+    background-color: #d9822b;
     border-radius: 0;
 }
 
@@ -355,4 +357,25 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* CalendarDayGrid.razor: a due task's marker on the minute-precision timeline, laid out like
+   .calendar-event-block but with a fixed dashed accent color instead of an event's own Color, matching
+   .calendar-task-chip's styling. */
+.calendar-task-block {
+    background: #f5f5f5;
+    border: none;
+    border-left: 3px dashed #d9822b;
+    border-radius: 0.2rem;
+    cursor: pointer;
+    overflow: hidden;
+    padding: 0.15rem 0.3rem;
+    position: absolute;
+    text-align: left;
+}
+
+/* Calendar.razor: the "Pokaż zadania w widoku rocznym" checkbox shown below the calendar layout while the
+   year view is active. */
+.calendar-year-view-options {
+    margin-top: 0.75rem;
 }

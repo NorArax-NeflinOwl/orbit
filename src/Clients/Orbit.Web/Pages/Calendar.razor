@@ -120,7 +120,7 @@
                 <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToEditTaskList" />
                 break;
             case CalendarViewMode.Year:
-                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" />
+                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
                 break;
             default:
                 <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToEditTaskList" />
@@ -128,6 +128,16 @@
         }
     </div>
 </div>
+
+@if (_viewState.ViewMode == CalendarViewMode.Year)
+{
+    <div class="calendar-year-view-options">
+        <label>
+            <input id="showDueTasksInYearView" type="checkbox" checked="@_viewState.ShowDueTasksInYearView" @onchange="ToggleShowDueTasksInYearView" />
+            Pokaż zadania w widoku rocznym
+        </label>
+    </div>
+}
 
 @code {
     private IReadOnlyList<CalendarEventDto>? _events;
@@ -264,6 +274,12 @@
 
     private void ToggleEventListVisibility() => _viewState.IsEventListVisible = !_viewState.IsEventListVisible;
 
+    private void ToggleShowDueTasksInYearView()
+    {
+        _viewState.ShowDueTasksInYearView = !_viewState.ShowDueTasksInYearView;
+        Logger.LogInformation("User set 'Pokaż zadania w widoku rocznym' to {ShowDueTasksInYearView}", _viewState.ShowDueTasksInYearView);
+    }
+
     private void SwitchView(CalendarViewMode viewMode)
     {
         Logger.LogInformation("User switched the calendar visualization to {ViewMode} view", viewMode);
@@ -336,6 +352,12 @@
         public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
         public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
         public bool IsEventListVisible { get; set; } = true;
+
+        /// <summary>
+        /// Whether due-task dots are mixed in with event dots on the compact year view - each day cell
+        /// there is tiny, so this lets the user opt back out if the combined dots feel too cluttered.
+        /// </summary>
+        public bool ShowDueTasksInYearView { get; set; } = true;
 
         public string PeriodLabel => ViewMode switch
         {

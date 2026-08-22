@@ -17,21 +17,6 @@
         </div>
     }
 
-    @if (Grid.DueTasks.Count > 0)
-    {
-        <div class="calendar-day-grid-all-day">
-            <span class="calendar-day-grid-all-day-label">Zadania z terminem</span>
-            @foreach (var dueTask in Grid.DueTasks)
-            {
-                <button type="button" class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-task-chip-completed" : "")"
-                        @onclick="() => TaskSelectedAsync(dueTask.TaskListId)">
-                    <span class="calendar-event-chip-time">@dueTask.DueDateUtc.LocalDateTime.ToString("HH:mm")</span>
-                    <span class="calendar-event-chip-title">@dueTask.Description</span>
-                </button>
-            }
-        </div>
-    }
-
     <div class="calendar-day-grid-timeline">
         <div class="calendar-day-grid-hours">
             @foreach (var hour in Hours)
@@ -51,6 +36,15 @@
                         @onclick="() => EventSelectedAsync(placedEvent.Event.Id)">
                     <span class="calendar-event-block-time">@FormatTimeRange(placedEvent.Event.Details)</span>
                     <span class="calendar-event-block-title">@RecurringPrefix(placedEvent.Event)@placedEvent.Event.Details.Title</span>
+                </button>
+            }
+
+            @foreach (var placedDueTask in Grid.DueTasks)
+            {
+                <button type="button" class="calendar-task-block @(placedDueTask.Task.IsCompleted ? "calendar-task-chip-completed" : "")"
+                        style="@DueTaskPositionStyle(placedDueTask)" @onclick="() => TaskSelectedAsync(placedDueTask.Task.TaskListId)">
+                    <span class="calendar-event-block-time">@FormatDueTime(placedDueTask.Task)</span>
+                    <span class="calendar-event-block-title">@placedDueTask.Task.Description</span>
                 </button>
             }
         </div>
@@ -87,6 +81,8 @@
     private static string FormatTimeRange(CalendarEventDetailsDto details)
         => $"{details.StartUtc.LocalDateTime:HH:mm}–{details.EndUtc.LocalDateTime:HH:mm}";
 
+    private static string FormatDueTime(DueTaskDto dueTask) => dueTask.DueDateUtc.LocalDateTime.ToString("HH:mm");
+
     /// <summary>
     /// Positions and sizes one event's block as percentages of the 24-hour timeline's height/width, using
     /// placedEvent's minute-precision start/end (see CalendarGridBuilder.BuildDayGrid) rather than
@@ -99,6 +95,21 @@
         var height = (visibleEndMinute - placedEvent.StartMinute) * 100.0 / CalendarGridBuilder.MinutesPerDay;
         var width = 100.0 / placedEvent.ColumnCount;
         var left = placedEvent.ColumnIndex * width;
+
+        return string.Create(CultureInfo.InvariantCulture,
+            $"top:{top}%;height:{height}%;left:{left}%;width:{width}%;");
+    }
+
+    /// <summary>
+    /// Same layout as PositionStyle above, except a due task has no end minute of its own - its block is
+    /// always drawn at the fixed MinimumVisibleMinutes height, anchored at its exact due minute.
+    /// </summary>
+    private static string DueTaskPositionStyle(DayGridPlacedDueTask placedDueTask)
+    {
+        var top = placedDueTask.DueMinute * 100.0 / CalendarGridBuilder.MinutesPerDay;
+        var height = MinimumVisibleMinutes * 100.0 / CalendarGridBuilder.MinutesPerDay;
+        var width = 100.0 / placedDueTask.ColumnCount;
+        var left = placedDueTask.ColumnIndex * width;
 
         return string.Create(CultureInfo.InvariantCulture,
             $"top:{top}%;height:{height}%;left:{left}%;width:{width}%;");

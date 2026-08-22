@@ -103,7 +103,46 @@ public sealed class CalendarGridBuilderTests
 
         var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [], [dueTodayTask, dueTomorrowTask]);
 
-        Assert.Same(dueTodayTask, Assert.Single(grid.DueTasks));
+        Assert.Same(dueTodayTask, Assert.Single(grid.DueTasks).Task);
+    }
+
+    [Fact]
+    public void Day_grid_places_a_due_task_at_its_exact_due_minute_since_local_midnight()
+    {
+        var dueTask = CreateDueTask(new DateTime(2026, 8, 21, 9, 45, 0));
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [], [dueTask]);
+
+        var placedTask = Assert.Single(grid.DueTasks);
+        Assert.Equal(9 * 60 + 45, placedTask.DueMinute);
+    }
+
+    [Fact]
+    public void Two_due_tasks_close_in_time_are_placed_in_separate_columns_sharing_the_width()
+    {
+        var firstTask = CreateDueTask(new DateTime(2026, 8, 21, 9, 0, 0));
+        var secondTaskDueMinutesLater = CreateDueTask(new DateTime(2026, 8, 21, 9, 5, 0));
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [], [firstTask, secondTaskDueMinutesLater]);
+
+        Assert.Equal(2, grid.DueTasks.Count);
+        Assert.All(grid.DueTasks, placedTask => Assert.Equal(2, placedTask.ColumnCount));
+        Assert.Equal([0, 1], grid.DueTasks.Select(placedTask => placedTask.ColumnIndex).OrderBy(index => index));
+    }
+
+    [Fact]
+    public void Two_due_tasks_far_apart_in_time_each_get_the_full_width_column()
+    {
+        var morningTask = CreateDueTask(new DateTime(2026, 8, 21, 9, 0, 0));
+        var afternoonTask = CreateDueTask(new DateTime(2026, 8, 21, 14, 0, 0));
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [], [morningTask, afternoonTask]);
+
+        Assert.All(grid.DueTasks, placedTask =>
+        {
+            Assert.Equal(0, placedTask.ColumnIndex);
+            Assert.Equal(1, placedTask.ColumnCount);
+        });
     }
 
     [Fact]

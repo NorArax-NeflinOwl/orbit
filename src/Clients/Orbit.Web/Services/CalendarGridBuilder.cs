@@ -63,7 +63,7 @@ public static class CalendarGridBuilder
             .ThenBy(slot => slot.EndMinute)
             .ToList();
 
-        return new DayGrid(day, allDayEvents, AssignColumns(timedSlots), DueTasksOnDate(dueTasks, day));
+        return new DayGrid(day, allDayEvents, AssignColumns(timedSlots), PlaceDueTasksOnTimeline(DueTasksOnDate(dueTasks, day)));
     }
 
     /// <summary>
@@ -109,6 +109,29 @@ public static class CalendarGridBuilder
             .Where(dueTask => DateOnly.FromDateTime(dueTask.DueDateUtc.LocalDateTime) == date)
             .OrderBy(dueTask => dueTask.DueDateUtc.LocalDateTime.TimeOfDay)
             .ToList();
+
+    /// <summary>
+    /// Places dueTasksSortedByTime onto the day's minute-precision timeline, the same one timed events are
+    /// placed on (see BuildTimedSlot/AssignColumns), so a task with a deadline shows up at its exact due
+    /// time instead of in an all-day-like strip at the top of the day.
+    /// </summary>
+    private static IReadOnlyList<DayGridPlacedDueTask> PlaceDueTasksOnTimeline(IReadOnlyList<DueTaskDto> dueTasksSortedByTime)
+    {
+        var slots = dueTasksSortedByTime.Select(BuildDueTaskSlot).ToList();
+        return AssignDueTaskColumns(slots);
+    }
+
+    /// <summary>
+    /// A due task has no duration of its own, so its slot is given a fixed marker width (DueTaskMarkerMinutes,
+    /// matching the minimum visible size CalendarDayGrid.razor renders any timeline entry at) purely so two
+    /// tasks due within a few minutes of each other are still recognized as overlapping and placed in
+    /// separate columns instead of being drawn on top of one another.
+    /// </summary>
+    private static DueTaskTimelineSlot BuildDueTaskSlot(DueTaskDto dueTask)
+    {
+        var dueMinute = (int)dueTask.DueDateUtc.LocalDateTime.TimeOfDay.TotalMinutes;
+        return new DueTaskTimelineSlot(dueTask, dueMinute, dueMinute + DueTaskMarkerMinutes);
+    }
 
     private static int DaysSinceMonday(DayOfWeek dayOfWeek) => ((int)dayOfWeek + 6) % 7;
 
@@ -197,6 +220,69 @@ public static class CalendarGridBuilder
     }
 
     private sealed record DayGridTimedSlot(CalendarEventDto Event, int StartMinute, int EndMinute);
+
+    /// <summary>Minutes a due task's marker is treated as occupying on the timeline purely for overlap detection - see BuildDueTaskSlot.</summary>
+    private const int DueTaskMarkerMinutes = 15;
+
+    /// <summary>
+    /// The due-task equivalent of AssignColumns/AssignColumnsWithinCluster above, kept separate rather than
+    /// shared since due tasks are placed by DueTaskTimelineSlot (a point in time plus a synthetic marker
+    /// width) rather than by an event's own real start/end range.
+    /// </summary>
+    private static IReadOnlyList<DayGridPlacedDueTask> AssignDueTaskColumns(IReadOnlyList<DueTaskTimelineSlot> slotsSortedByStart)
+    {
+        var placedTasks = new List<DayGridPlacedDueTask>();
+        var clusterSlots = new List<DueTaskTimelineSlot>();
+        var clusterEndMinute = 0;
+
+        foreach (var slot in slotsSortedByStart)
+        {
+            if (clusterSlots.Count > 0 && slot.DueMinute >= clusterEndMinute)
+            {
+                placedTasks.AddRange(AssignDueTaskColumnsWithinCluster(clusterSlots));
+                clusterSlots.Clear();
+            }
+
+            clusterSlots.Add(slot);
+            clusterEndMinute = Math.Max(clusterEndMinute, slot.MarkerEndMinute);
+        }
+
+        if (clusterSlots.Count > 0)
+        {
+            placedTasks.AddRange(AssignDueTaskColumnsWithinCluster(clusterSlots));
+        }
+
+        return placedTasks;
+    }
+
+    private static IEnumerable<DayGridPlacedDueTask> AssignDueTaskColumnsWithinCluster(IReadOnlyList<DueTaskTimelineSlot> clusterSlots)
+    {
+        var columnEndMinutes = new List<int>();
+        var columnIndexBySlotPosition = new int[clusterSlots.Count];
+
+        for (var slotPosition = 0; slotPosition < clusterSlots.Count; slotPosition++)
+        {
+            var slot = clusterSlots[slotPosition];
+            var columnIndex = columnEndMinutes.FindIndex(columnEndMinute => columnEndMinute <= slot.DueMinute);
+            if (columnIndex == -1)
+            {
+                columnIndex = columnEndMinutes.Count;
+                columnEndMinutes.Add(slot.MarkerEndMinute);
+            }
+            else
+            {
+                columnEndMinutes[columnIndex] = slot.MarkerEndMinute;
+            }
+
+            columnIndexBySlotPosition[slotPosition] = columnIndex;
+        }
+
+        var columnCount = columnEndMinutes.Count;
+        return clusterSlots.Select((slot, slotPosition) =>
+            new DayGridPlacedDueTask(slot.Task, slot.DueMinute, columnIndexBySlotPosition[slotPosition], columnCount));
+    }
+
+    private sealed record DueTaskTimelineSlot(DueTaskDto Task, int DueMinute, int MarkerEndMinute);
 }
 
 /// <summary>One Monday-to-Sunday row of a month grid.</summary>
@@ -211,10 +297,13 @@ public sealed record MonthGridDay(DateOnly Date, bool IsInDisplayedMonth, IReadO
 /// <summary>One month within a year grid, alongside its own month number (1-12) for the month name heading.</summary>
 public sealed record YearGridMonth(int Month, IReadOnlyList<MonthGridWeek> Weeks);
 
-/// <summary>A single day's events, split into the all-day strip and the minute-precision timed timeline.</summary>
+/// <summary>
+/// A single day's events, split into the all-day strip and the minute-precision timed timeline, plus that
+/// same day's due tasks placed onto the timeline alongside the timed events (see DayGridPlacedDueTask).
+/// </summary>
 public sealed record DayGrid(
     DateOnly Date, IReadOnlyList<CalendarEventDto> AllDayEvents, IReadOnlyList<DayGridPlacedEvent> TimedEvents,
-    IReadOnlyList<DueTaskDto> DueTasks);
+    IReadOnlyList<DayGridPlacedDueTask> DueTasks);
 
 /// <summary>
 /// A task item with a due date, placed onto the calendar grid alongside CalendarEventDto entries - see
@@ -229,3 +318,11 @@ public sealed record DueTaskDto(Guid TaskListId, Guid TaskItemId, string Descrip
 /// any events it overlaps in time - ColumnCount is the same for every event in the same overlap cluster.
 /// </summary>
 public sealed record DayGridPlacedEvent(CalendarEventDto Event, int StartMinute, int EndMinute, int ColumnIndex, int ColumnCount);
+
+/// <summary>
+/// One due task's position on a day's minute-precision timeline: DueMinute is minutes since local midnight
+/// (see CalendarGridBuilder.MinutesPerDay), rendered as a small fixed-size marker rather than a start/end
+/// block since a task has no duration of its own - ColumnIndex/ColumnCount describe its horizontal slot
+/// among any other due tasks it overlaps in time, mirroring DayGridPlacedEvent.
+/// </summary>
+public sealed record DayGridPlacedDueTask(DueTaskDto Task, int DueMinute, int ColumnIndex, int ColumnCount);

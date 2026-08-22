@@ -107,6 +107,41 @@ public sealed class CalendarTests : TestContext
         Assert.Contains("Wyślij raport", chipText);
     }
 
+    [Fact]
+    public void Todays_task_with_a_due_date_shows_up_on_the_day_grids_timeline_at_its_exact_due_time()
+    {
+        var todayMorning = DateTime.SpecifyKind(DateTime.Today.AddHours(9).AddMinutes(45), DateTimeKind.Local);
+        var taskList = CreateTaskListWithDueItem(todayMorning, "Wyślij raport");
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Dzień").Click();
+
+        var block = cut.Find(".calendar-task-block");
+        Assert.Contains("09:45", block.TextContent);
+        Assert.Contains("Wyślij raport", block.TextContent);
+        // 9h45m since midnight is 585 of the day's 1440 minutes - see CalendarDayGrid's DueTaskPositionStyle.
+        Assert.Contains("top:40.625", block.GetAttribute("style"));
+    }
+
+    [Fact]
+    public void Year_view_shows_task_dots_by_default_and_hides_them_once_the_checkbox_is_unchecked()
+    {
+        var todayMorning = DateTime.SpecifyKind(DateTime.Today.AddHours(9), DateTimeKind.Local);
+        var taskList = CreateTaskListWithDueItem(todayMorning, "Wyślij raport");
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Rok").Click();
+        Assert.NotEmpty(cut.FindAll(".calendar-month-grid-day-dot-task"));
+
+        cut.Find("#showDueTasksInYearView").Change(false);
+
+        Assert.Empty(cut.FindAll(".calendar-month-grid-day-dot-task"));
+    }
+
     private static IElement FindViewSwitchButton(IRenderedComponent<Calendar> cut, string label)
         => cut.Find(".calendar-view-switch").QuerySelectorAll("button").Single(button => button.TextContent == label);
 
