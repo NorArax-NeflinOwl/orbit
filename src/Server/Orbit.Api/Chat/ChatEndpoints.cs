@@ -4,6 +4,7 @@ using Orbit.Contracts.Chat;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
+using Orbit.Core.Chat.EditMessage;
 using Orbit.Core.Chat.GetContacts;
 using Orbit.Core.Chat.GetConversation;
 using Orbit.Core.Chat.GetConversationAccess;
@@ -96,6 +97,25 @@ public static class ChatEndpoints
             var readUpToUtc = await dispatcher.SendAsync(new GetReadReceiptQuery(GetUserId(user), otherUserId), cancellationToken);
             return Results.Ok(new ReadReceiptDto(readUpToUtc));
         });
+
+        // Re-encrypts and overwrites an already-sent message's content - only its original sender may do
+        // this (see EditMessageCommandHandler). Never offered for a share-notice message (an event/note/
+        // task-list invite) - Chat.razor only shows the "Edit" option on the sender's own plain-text
+        // bubbles.
+        chat.MapPut("/messages/{messageId:guid}", async (
+            Guid messageId, EditMessageRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var result = await dispatcher.SendAsync(
+                new EditMessageCommand(messageId, GetUserId(user), request.CiphertextBase64, request.NonceBase64), cancellationToken);
+
+            return result.Outcome switch
+            {
+                EditMessageOutcome.Success => Results.Ok(ToDto(result.Message!)),
+                EditMessageOutcome.MessageNotFound => Results.NotFound(),
+                EditMessageOutcome.Forbidden => Results.StatusCode(StatusCodes.Status403Forbidden),
+                _ => throw new InvalidOperationException($"Unhandled {nameof(EditMessageOutcome)}: {result.Outcome}")
+            };
+        });
     }
 
     /// <summary>
@@ -116,7 +136,9 @@ public static class ChatEndpoints
             contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty);
 
     private static ChatMessageDto ToDto(ChatMessage message)
-        => new(message.Id, message.SenderUserId, message.RecipientUserId, message.CiphertextBase64, message.NonceBase64, message.SentAtUtc);
+        => new(
+            message.Id, message.SenderUserId, message.RecipientUserId, message.CiphertextBase64, message.NonceBase64, message.SentAtUtc,
+            message.IsEdited, message.EditedAtUtc);
 
     private static ChatConversationAccessDto ToDto(ChatConversationAccess access)
         => new(access.InitiatedByUserId, access.IsApproved);

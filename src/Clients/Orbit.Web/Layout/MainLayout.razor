@@ -2,56 +2,133 @@
 @implements IDisposable
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
-@using Orbit.Web.Services.Logging
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
-@inject PushNotificationManager PushNotificationManager
+@inject ThemeService ThemeService
 @inject NavigationManager NavigationManager
 @inject ILogger<MainLayout> Logger
 
-<div class="page">
-    <main>
-        <AuthorizeView>
-            <Authorized>
-                <nav class="main-nav">
-                    <NavLink href="/" Match="NavLinkMatch.All">Dashboard</NavLink>
-                    <NavLink href="/notes">Notes</NavLink>
-                    <NavLink href="/tasks">Tasks</NavLink>
-                    <NavLink href="/calendar">Calendar</NavLink>
-                    <NavLink href="/contacts">Contacts</NavLink>
-                </nav>
-                <div class="user-bar">
-                    <span>@context.User.Identity?.Name</span>
-                    @if (_pushNotificationsSupported == true)
-                    {
-                        <button @onclick="TogglePushNotificationsAsync" disabled="@_pushNotificationActionInProgress">
-                            @(_pushNotificationsEnabled ? "Disable push notifications" : "Enable push notifications")
-                        </button>
-                    }
-                    <button @onclick="LogoutAsync">Log out</button>
+<div class="app-shell">
+    <AuthorizeView>
+        <Authorized>
+            <aside class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
+                <div class="sidebar-logo" role="button" tabindex="0" title="Collapse sidebar"
+                     @onclick="ToggleSidebarCollapsed" @onkeydown="OnLogoKeyDown">
+                    <svg width="26" height="26" viewBox="0 0 26 26">
+                        <circle cx="13" cy="13" r="3" fill="var(--accent)" />
+                        <ellipse cx="13" cy="13" rx="11" ry="5.5" fill="none" stroke="var(--accent)" stroke-width="1.6" transform="rotate(-28 13 13)" />
+                    </svg>
+                    <span class="sidebar-logo-text">Orbit</span>
                 </div>
-                @if (_pushNotificationErrorMessage is not null)
-                {
-                    <p class="error">@_pushNotificationErrorMessage</p>
-                }
-            </Authorized>
-        </AuthorizeView>
+
+                <nav class="sidebar-nav">
+                    <NavLink class="nav-item" href="/" Match="NavLinkMatch.All" title="Dashboard">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="2.5" y="11.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="11.5" width="6" height="6" rx="1.5" /></svg>
+                        <span class="label">Dashboard</span>
+                    </NavLink>
+                    <NavLink class="nav-item" href="/notes" title="Notes">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h7l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z" /><path d="M12 2.5v3h3" /><path d="M6.5 11h7M6.5 14h7M6.5 8h3" /></svg>
+                        <span class="label">Notes</span>
+                    </NavLink>
+                    <NavLink class="nav-item" href="/tasks" title="Tasks">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
+                        <span class="label">Tasks</span>
+                    </NavLink>
+                    <NavLink class="nav-item" href="/calendar" title="Calendar">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="13.5" rx="2.5" /><path d="M2.5 8h15M6.5 2v3.5M13.5 2v3.5" /></svg>
+                        <span class="label">Calendar</span>
+                    </NavLink>
+                    <NavLink class="nav-item" href="/contacts" title="Contacts">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="6.5" r="3" /><path d="M1.5 17c0-3 2.5-5 5.5-5s5.5 2 5.5 5" /><circle cx="15" cy="7.5" r="2.3" /><path d="M13.7 12.2c2.4.3 4.1 2 4.1 4.6" /></svg>
+                        <span class="label">Contacts</span>
+                    </NavLink>
+
+                    <div class="nav-divider"></div>
+
+                    <NavLink class="nav-item options-nav-item" href="/options" title="Options">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="10" cy="10" r="3.4" />
+                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" />
+                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(60 10 10)" />
+                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(120 10 10)" />
+                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(180 10 10)" />
+                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(240 10 10)" />
+                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(300 10 10)" />
+                        </svg>
+                        <span class="label">Options</span>
+                    </NavLink>
+                </nav>
+
+                <div class="sidebar-footer">
+                    @* TODO(Orbit.Web.UI): the design called for a small unread-count badge on this avatar
+                       (e.g. top-right corner of .avatar, styled like .notif-badge in an earlier iteration
+                       of app.css), toggled open on click same as the dropdown below. Left out because there
+                       is no real data source for it yet - no notifications-feed endpoint exists server-side,
+                       only fire-and-forget push notifications (see PushNotificationManager/VapidPushNotificationSender)
+                       that never get logged anywhere retrievable. Cheapest real number available today would
+                       be pending chat requests (ChatApiClient.GetContactsAsync().Count(c => c.RequiresApprovalFromCurrentUser))
+                       plus tasks due today, computed client-side the way Dashboard.razor already does it - but
+                       that means an extra poll loop here too. A proper fix is a real notifications concept
+                       server-side. *@
+                    <button type="button" class="avatar-trigger" @onclick="ToggleAvatarMenu" @onclick:stopPropagation="true">
+                        <span class="avatar">@GetInitials(context.User.Identity?.Name)</span>
+                        <span class="user-meta">
+                            <span class="user-name">@context.User.Identity?.Name</span>
+                        </span>
+                    </button>
+
+                    @if (_avatarMenuOpen)
+                    {
+                        <div class="avatar-dropdown" @onclick:stopPropagation="true">
+                            <div class="avatar-dropdown-header">
+                                <span class="avatar">@GetInitials(context.User.Identity?.Name)</span>
+                                <span class="user-meta">
+                                    <span class="user-name">@context.User.Identity?.Name</span>
+                                </span>
+                            </div>
+                            <div class="avatar-dropdown-divider"></div>
+                            <a class="avatar-dropdown-item options-only" href="/options">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="10" cy="10" r="3.4" />
+                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" />
+                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(60 10 10)" />
+                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(120 10 10)" />
+                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(180 10 10)" />
+                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(240 10 10)" />
+                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(300 10 10)" />
+                                </svg>
+                                Options
+                            </a>
+                            <button type="button" class="avatar-dropdown-item" @onclick="LogoutAsync">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.5a1.5 1.5 0 0 1-1.5-1.5v-11A1.5 1.5 0 0 1 4.5 3H8" /><path d="M13 14l4-4-4-4" /><path d="M17 10H8" /></svg>
+                                Log out
+                            </button>
+                        </div>
+                    }
+                </div>
+            </aside>
+        </Authorized>
+    </AuthorizeView>
+
+    <main class="main-content" @onclick="CloseAvatarMenu">
         @Body
     </main>
 </div>
 
 @code {
-    private bool? _pushNotificationsSupported;
-    private bool _pushNotificationsEnabled;
-    private bool _pushNotificationActionInProgress;
-    private string? _pushNotificationErrorMessage;
+    private bool _sidebarCollapsed;
+    private bool _avatarMenuOpen;
 
     protected override async Task OnInitializedAsync()
     {
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        NavigationManager.LocationChanged += OnLocationChanged;
+        // Syncs ThemeService.Current to whatever index.html's inline anti-flash script already applied
+        // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
+        // theme applies to the login/register pages too.
+        await ThemeService.InitializeAsync();
         await EnsureEncryptionKeyIfAuthenticatedAsync();
-        await RefreshPushNotificationStateIfAuthenticatedAsync();
     }
 
     /// <summary>
@@ -115,101 +192,71 @@
     private void OnAuthenticationStateChanged(Task<AuthenticationState> newState)
     {
         _ = EnsureEncryptionKeyIfAuthenticatedAsync();
-        _ = RefreshPushNotificationStateIfAuthenticatedAsync();
     }
+
+    /// <summary>Closes the avatar menu on navigation, so it doesn't stay open across an unrelated route change.</summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (_avatarMenuOpen)
+        {
+            _avatarMenuOpen = false;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ToggleSidebarCollapsed() => _sidebarCollapsed = !_sidebarCollapsed;
+
+    private void OnLogoKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            ToggleSidebarCollapsed();
+        }
+    }
+
+    private void ToggleAvatarMenu() => _avatarMenuOpen = !_avatarMenuOpen;
 
     /// <summary>
-    /// Determines whether the "enable/disable push notifications" button should be shown at all (the
-    /// browser must support push - see PushNotificationManager.IsSupportedAsync), and, if so, whether
-    /// this browser already has an active subscription - so a page reload doesn't show "Enable..." for a
-    /// browser that already enabled push notifications in an earlier session.
+    /// Bound to a click anywhere in the main content area, so clicking outside the dropdown closes it
+    /// without needing JS interop for outside-click detection - the trigger and dropdown itself both
+    /// stop propagation (see the markup above) so this only ever fires for genuine outside clicks.
     /// </summary>
-    private async Task RefreshPushNotificationStateIfAuthenticatedAsync()
+    private void CloseAvatarMenu()
     {
-        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        if (authenticationState.User.Identity?.IsAuthenticated != true)
+        if (_avatarMenuOpen)
         {
-            return;
-        }
-
-        try
-        {
-            _pushNotificationsSupported = await PushNotificationManager.IsSupportedAsync();
-            _pushNotificationsEnabled = _pushNotificationsSupported == true && await PushNotificationManager.IsEnabledAsync();
-        }
-        catch (JSException exception)
-        {
-            // Same secure-context restriction as e2eeChat.js's crypto.subtle - see
-            // EnsureEncryptionKeyIfAuthenticatedAsync's matching catch. Best-effort: simply hides the
-            // button rather than breaking navigation.
-            _pushNotificationsSupported = false;
-            Logger.LogWarning(exception, "Push notifications are unavailable in this browsing context");
-        }
-
-        StateHasChanged();
-    }
-
-    private async Task TogglePushNotificationsAsync()
-    {
-        _pushNotificationActionInProgress = true;
-        _pushNotificationErrorMessage = null;
-        StateHasChanged();
-
-        try
-        {
-            if (_pushNotificationsEnabled)
-            {
-                await PushNotificationManager.DisableAsync();
-                _pushNotificationsEnabled = false;
-            }
-            else
-            {
-                _pushNotificationsEnabled = await PushNotificationManager.EnableAsync();
-                if (!_pushNotificationsEnabled)
-                {
-                    // EnableAsync returns false, rather than throwing, when the user denies browser
-                    // permission or Orbit.Api has no VAPID key configured - both silent by design up to
-                    // this point, so without this the button would otherwise just do nothing visible.
-                    _pushNotificationErrorMessage =
-                        "Failed to enable push notifications. Check your browser permissions and try again.";
-                }
-            }
-        }
-        catch (HttpRequestException exception)
-        {
-            // Registering/removing the subscription with Orbit.Api failed (API unreachable, expired
-            // session, ...) - logged rather than surfaced as a crash, same reasoning as
-            // EnsureEncryptionKeyIfAuthenticatedAsync's HttpRequestException catch.
-            Logger.LogActionFailed(ClientActionCategory.PushNotificationToggle, "Push notification toggle", exception);
-            _pushNotificationErrorMessage = "Failed to update the push notification subscription. Try again.";
-        }
-        catch (JSException exception)
-        {
-            // Same secure-context restriction as RefreshPushNotificationStateIfAuthenticatedAsync -
-            // IsSupportedAsync can pass (the browser APIs exist) while actually subscribing still fails
-            // outside a secure context. Also covers a stale browser-level subscription conflict that
-            // pushNotifications.js's requestPermissionAndSubscribe can no longer avoid on its own (e.g.
-            // an unusual failure clearing the old subscription first), and a push service rejecting the
-            // subscription outright (e.g. Brave with Google's push service disabled - see
-            // info/instructions.md).
-            Logger.LogActionFailed(ClientActionCategory.PushNotificationToggle, "Push notification toggle", exception);
-            _pushNotificationErrorMessage = "Failed to update the push notification subscription. Try again.";
-        }
-        finally
-        {
-            _pushNotificationActionInProgress = false;
+            _avatarMenuOpen = false;
         }
     }
 
     private async Task LogoutAsync()
     {
+        _avatarMenuOpen = false;
         await AuthApiClient.LogoutAsync();
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
         NavigationManager.NavigateTo("/login");
     }
 
+    /// <summary>Two-letter initials for the avatar badge - "Alex Kowalski" to "AK", a single-word name to its first two letters.</summary>
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "?";
+        }
+
+        var parts = name.Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0].Length >= 2 ? parts[0][..2].ToUpperInvariant() : parts[0][..1].ToUpperInvariant(),
+            _ => (parts[0][..1] + parts[1][..1]).ToUpperInvariant()
+        };
+    }
+
     public void Dispose()
     {
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }

@@ -9,6 +9,12 @@
 
 <PageTitle>Orbit — Tasks</PageTitle>
 
+@* TODO(Orbit.Web.UI): still the pre-redesign markup - plain <ul>/<li>/<button>, no design-system
+   classes. The concept mockup for this page (task-list-card with a progress ring, a checklist that
+   expands per list, priority dots, a "Shared" badge) was approved but never implemented - see the
+   Options.razor/Dashboard.razor/Chat.razor already-restyled pages for the .card/.btn-primary/.switch
+   vocabulary to build it with, plus TaskDto.Items completion counts (already used in Dashboard.razor's
+   "Tasks" card progress bar) for the ring. *@
 <h1>Tasks</h1>
 
 <p><button @onclick="GoToAddTaskList">Add task list</button></p>

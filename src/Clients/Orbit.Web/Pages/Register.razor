@@ -10,28 +10,32 @@
 
 <PageTitle>Orbit — Register</PageTitle>
 
+@* TODO(Orbit.Web.UI): still plain unstyled <div>/<label>/<input> - see Login.razor's matching TODO,
+   same dedicated auth-card layout should cover both pages together rather than being built twice. *@
 <h1>Register</h1>
 
-<EditForm Model="_formModel" OnValidSubmit="SubmitAsync">
-    <div>
+<EditForm Model="_formModel" OnValidSubmit="SubmitAsync" class="editor-form">
+    <div class="field">
         <label>Email</label>
         <InputText id="email" @bind-Value="_formModel.Email" />
     </div>
-    <div>
+    <div class="field">
         <label>Username</label>
         <InputText id="userName" @bind-Value="_formModel.UserName" />
     </div>
-    <div>
+    <div class="field">
         <label>Display name</label>
         <InputText id="displayName" @bind-Value="_formModel.DisplayName" />
     </div>
-    <div>
+    <div class="field">
         <label>Password</label>
         <!-- InputText always renders type="text" regardless of splatted attributes, so a real masked
              password field needs a plain <input> with a manual two-way binding instead. -->
         <input type="password" id="password" @bind="_formModel.Password" />
     </div>
-    <button type="submit" disabled="@_isSubmitting">Register</button>
+    <div class="form-actions">
+        <button type="submit" class="btn-primary" disabled="@_isSubmitting">Register</button>
+    </div>
 </EditForm>
 
 @if (_errorMessage is not null)

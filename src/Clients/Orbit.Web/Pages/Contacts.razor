@@ -10,38 +10,53 @@
 
 <PageTitle>Orbit — Contacts</PageTitle>
 
-<h1>Contacts</h1>
+<div class="page-header">
+    <div>
+        <h1>Contacts</h1>
+        <p class="page-subtitle">Search for someone and start a conversation.</p>
+    </div>
+</div>
 
-<div>
+<div class="field-row" style="margin-bottom:24px;">
     <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="Email address or username" />
-    <button @onclick="SearchAsync" disabled="@_isSearching">Search</button>
+    <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">Search</button>
 </div>
 
 @if (_searchError is not null)
 {
-    <p>@_searchError</p>
+    <p class="error">@_searchError</p>
 }
 
 @if (_searchResult is not null)
 {
-    <div>
-        <strong>@_searchResult.DisplayName</strong> (@_searchResult.UserName)
-        <button @onclick="() => OpenChat(_searchResult.Id)">Open chat</button>
+    <div class="card" style="margin-bottom:24px;">
+        <div class="chat-list-item" style="cursor:default;">
+            <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(_searchResult.Id)">@AvatarHelper.GetInitials(_searchResult.DisplayName)</span>
+            <span class="chat-list-meta">
+                <span class="chat-list-name">@_searchResult.DisplayName</span>
+                <span class="chat-list-preview">@_searchResult.UserName</span>
+            </span>
+            <button type="button" class="btn-secondary" @onclick="() => OpenChat(_searchResult.Id)">Open chat</button>
+        </div>
     </div>
 }
 
 @if (_contacts is not null && _pendingRequests.Any())
 {
     <h2>New requests</h2>
-    <ul>
+    <div class="card" style="margin-bottom:24px;">
         @foreach (var contact in _pendingRequests)
         {
-            <li>
-                <button @onclick="() => OpenChat(contact.UserId)">@contact.DisplayName (@contact.UserName)</button>
-                <span class="chat-request-badge">new request</span>
-            </li>
+            <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
+                <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
+                <span class="chat-list-meta">
+                    <span class="chat-list-name">@contact.DisplayName</span>
+                    <span class="chat-list-preview">@contact.UserName</span>
+                </span>
+                <span class="chat-request-badge">New request</span>
+            </button>
         }
-    </ul>
+    </div>
 }
 
 <h2>Chats</h2>
@@ -56,14 +71,18 @@ else if (!_establishedChats.Any())
 }
 else
 {
-    <ul>
+    <div class="card">
         @foreach (var contact in _establishedChats)
         {
-            <li>
-                <button @onclick="() => OpenChat(contact.UserId)">@contact.DisplayName (@contact.UserName)</button>
-            </li>
+            <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
+                <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
+                <span class="chat-list-meta">
+                    <span class="chat-list-name">@contact.DisplayName</span>
+                    <span class="chat-list-preview">@contact.UserName</span>
+                </span>
+            </button>
         }
-    </ul>
+    </div>
 }
 
 @code {

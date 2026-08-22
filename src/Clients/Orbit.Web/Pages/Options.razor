@@ -1,0 +1,175 @@
+@page "/options"
+@attribute [Authorize]
+@implements IDisposable
+@using Orbit.Web.Services
+@inject ThemeService ThemeService
+@inject PushNotificationManager PushNotificationManager
+@inject ILogger<Options> Logger
+
+<PageTitle>Orbit — Options</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Options</h1>
+        <p class="page-subtitle">Appearance and notification preferences.</p>
+    </div>
+</div>
+
+<div class="options-page">
+    <div class="options-section">
+        <h2 class="options-heading">Appearance</h2>
+        <p class="options-subtext">Choose how Orbit looks on this device.</p>
+        <div class="theme-picker">
+            <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Light ? "active" : "")"
+                    @onclick="() => SetThemeAsync(ThemePreference.Light)">
+                <span class="theme-preview theme-preview-light"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
+                <span class="theme-option-label">Light</span>
+            </button>
+            <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Dark ? "active" : "")"
+                    @onclick="() => SetThemeAsync(ThemePreference.Dark)">
+                <span class="theme-preview theme-preview-dark"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
+                <span class="theme-option-label">Dark</span>
+            </button>
+            <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.System ? "active" : "")"
+                    @onclick="() => SetThemeAsync(ThemePreference.System)">
+                <span class="theme-preview theme-preview-system"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
+                <span class="theme-option-label">System</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="options-section">
+        <h2 class="options-heading">Notifications</h2>
+        <div class="options-card">
+            <div class="options-row">
+                <div>
+                    <div class="options-row-title">Push notifications</div>
+                    <div class="options-row-desc">Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open.</div>
+                </div>
+                @if (_pushNotificationsSupported == false)
+                {
+                    <span class="options-row-desc">Not supported in this browser</span>
+                }
+                else
+                {
+                    <button type="button" class="switch @(_pushNotificationsEnabled ? "on" : "")" role="switch"
+                            aria-checked="@_pushNotificationsEnabled" disabled="@(_pushNotificationsSupported is null || _pushNotificationActionInProgress)"
+                            @onclick="TogglePushNotificationsAsync">
+                        <span class="switch-knob"></span>
+                    </button>
+                }
+            </div>
+            @* TODO(Orbit.Web.UI): two more rows belong here - "Email reminders" and "Daily task summary" -
+               but they're deliberately left out, not just forgotten. Today NotificationChannel (Email/Push/Both,
+               see Orbit.Core.Notifications.NotificationChannel) is a flag stored PER calendar event / task item
+               (CalendarEventDetailsDto.ReminderNotificationChannel, TaskItemDto's daily-reminder/overdue channel
+               fields - see CalendarEventReminderBackgroundService, DailyTaskReminderBackgroundService,
+               OverdueTaskNotificationBackgroundService), chosen when creating/editing that item. There is no
+               account-wide on/off switch anywhere - UserEntity has no settings columns and /api/users has no
+               /preferences endpoint. A real switch here would need: a new per-user settings entity + migration,
+               a GET/PUT endpoint (e.g. /api/users/me/notification-settings), a client-side ApiClient method, and
+               each of the three background services above gated on it in addition to the per-item flag they
+               already check. Don't just add a switch that flips local/UI-only state - it would look like it
+               does something and silently not. *@
+        </div>
+        @if (_pushNotificationErrorMessage is not null)
+        {
+            <p class="error">@_pushNotificationErrorMessage</p>
+        }
+    </div>
+</div>
+
+@code {
+    private bool? _pushNotificationsSupported;
+    private bool _pushNotificationsEnabled;
+    private bool _pushNotificationActionInProgress;
+    private string? _pushNotificationErrorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ThemeService.Changed += OnThemeChanged;
+        await RefreshPushNotificationStateAsync();
+    }
+
+    private async Task SetThemeAsync(ThemePreference preference)
+    {
+        Logger.LogInformation("User set theme preference to {ThemePreference}", preference);
+        await ThemeService.SetAsync(preference);
+    }
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// Determines whether the "push notifications" switch should be enabled at all (the browser must
+    /// support push - see PushNotificationManager.IsSupportedAsync), and, if so, whether this browser
+    /// already has an active subscription - so a page reload doesn't show it off for a browser that
+    /// already enabled push notifications in an earlier session.
+    /// </summary>
+    private async Task RefreshPushNotificationStateAsync()
+    {
+        try
+        {
+            _pushNotificationsSupported = await PushNotificationManager.IsSupportedAsync();
+            _pushNotificationsEnabled = _pushNotificationsSupported == true && await PushNotificationManager.IsEnabledAsync();
+        }
+        catch (JSException exception)
+        {
+            // crypto/push APIs are only exposed by browsers in a secure context - see MainLayout's
+            // matching comment on the E2EE key setup for the same restriction. Best-effort: simply
+            // treats push as unsupported rather than breaking the page.
+            _pushNotificationsSupported = false;
+            Logger.LogWarning(exception, "Push notifications are unavailable in this browsing context");
+        }
+    }
+
+    private async Task TogglePushNotificationsAsync()
+    {
+        _pushNotificationActionInProgress = true;
+        _pushNotificationErrorMessage = null;
+
+        try
+        {
+            if (_pushNotificationsEnabled)
+            {
+                await PushNotificationManager.DisableAsync();
+                _pushNotificationsEnabled = false;
+            }
+            else
+            {
+                _pushNotificationsEnabled = await PushNotificationManager.EnableAsync();
+                if (!_pushNotificationsEnabled)
+                {
+                    // EnableAsync returns false, rather than throwing, when the user denies browser
+                    // permission or Orbit.Api has no VAPID key configured - both silent by design up to
+                    // this point, so without this the switch would otherwise just do nothing visible.
+                    _pushNotificationErrorMessage =
+                        "Failed to enable push notifications. Check your browser permissions and try again.";
+                }
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            // Registering/removing the subscription with Orbit.Api failed (API unreachable, expired
+            // session, ...) - logged rather than surfaced as a crash.
+            Logger.LogError(exception, "Failed to update the push notification subscription");
+            _pushNotificationErrorMessage = "Failed to update the push notification subscription. Try again.";
+        }
+        catch (JSException exception)
+        {
+            // Same secure-context restriction as RefreshPushNotificationStateAsync - IsSupportedAsync
+            // can pass (the browser APIs exist) while actually subscribing still fails outside a secure
+            // context, or a push service rejects the subscription outright.
+            Logger.LogError(exception, "Failed to update the push notification subscription");
+            _pushNotificationErrorMessage = "Failed to update the push notification subscription. Try again.";
+        }
+        finally
+        {
+            _pushNotificationActionInProgress = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        ThemeService.Changed -= OnThemeChanged;
+    }
+}

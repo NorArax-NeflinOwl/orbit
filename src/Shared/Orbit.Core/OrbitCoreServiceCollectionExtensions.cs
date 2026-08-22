@@ -13,6 +13,7 @@ using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
+using Orbit.Core.Chat.EditMessage;
 using Orbit.Core.Chat.GetContacts;
 using Orbit.Core.Chat.GetConversation;
 using Orbit.Core.Chat.GetConversationAccess;
@@ -114,6 +115,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetWrappedPrivateKeyQuery, WrappedPrivateKey?>, GetWrappedPrivateKeyQueryHandler>();
 
         services.AddScoped<IRequestHandler<SendMessageCommand, SendMessageResult>, SendMessageCommandHandler>();
+        services.AddScoped<IRequestHandler<EditMessageCommand, EditMessageResult>, EditMessageCommandHandler>();
         services.AddScoped<IRequestHandler<GetConversationQuery, IReadOnlyList<ChatMessage>>, GetConversationQueryHandler>();
         services.AddScoped<IRequestHandler<GetContactsQuery, IReadOnlyList<ContactSummary>>, GetContactsQueryHandler>();
         services.AddScoped<IRequestHandler<MarkConversationAsReadCommand, bool>, MarkConversationAsReadCommandHandler>();

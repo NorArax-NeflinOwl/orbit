@@ -15,7 +15,12 @@
 
 <PageTitle>Orbit — Dashboard</PageTitle>
 
-<h1>Dashboard</h1>
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">Everything on your plate, in one place.</p>
+    </div>
+</div>
 
 @if (_notes is null || _taskLists is null || _events is null || _contacts is null)
 {
@@ -27,74 +32,90 @@ else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _co
 }
 else
 {
-    <div class="dashboard-columns">
+    <div class="today-strip">
+        <span class="today-strip-date">@DateTime.Today.ToString("dddd, MMMM d")</span>
+        <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong> tasks due today</span>
+        <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong> events today</span>
+        <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong> new chat requests</span>
+    </div>
+
+    <div class="card-grid">
         @if (_notes.Count > 0)
         {
-            <div class="dashboard-column">
-                <h2>Notes</h2>
-                <ul>
-                    @foreach (var note in _notes)
-                    {
-                        <li><button @onclick="() => GoToEditNote(note.Id)">@note.Title</button></li>
-                    }
-                </ul>
+            <div class="card">
+                <div class="card-header"><span class="card-title">Notes</span><span class="card-count">@_notes.Count</span></div>
+                @foreach (var note in _notes)
+                {
+                    <div class="list-row">
+                        <button class="row-title" @onclick="() => GoToEditNote(note.Id)">@note.Title</button>
+                        <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
+                    </div>
+                }
             </div>
         }
 
         @if (_taskLists.Count > 0)
         {
-            <div class="dashboard-column">
-                <h2>Tasks</h2>
-                <ul>
-                    @foreach (var taskList in _taskLists)
-                    {
-                        <li>
-                            <button @onclick="() => GoToEditTaskList(taskList.Id)">
-                                @taskList.Title @(taskList.IsCompleted ? "✓" : "")
-                            </button>
-                        </li>
-                    }
-                </ul>
+            <div class="card">
+                <div class="card-header"><span class="card-title">Tasks</span><span class="card-count">@_taskLists.Count lists</span></div>
+                @foreach (var taskList in _taskLists)
+                {
+                    <div class="list-row">
+                        <button class="row-title" @onclick="() => GoToEditTaskList(taskList.Id)">@taskList.Title</button>
+                        @if (taskList.Items.Count > 0)
+                        {
+                            <div class="progress-track"><div class="progress-fill" style="width:@(CompletionPercent(taskList))%"></div></div>
+                            <span class="row-meta">@taskList.Items.Count(item => item.IsCompleted)/@taskList.Items.Count</span>
+                        }
+                        else if (taskList.IsCompleted)
+                        {
+                            <span class="row-meta">Done</span>
+                        }
+                    </div>
+                }
             </div>
         }
 
         @if (_events.Count > 0)
         {
-            <div class="dashboard-column">
-                <h2>Events</h2>
-                <ul>
-                    @foreach (var calendarEvent in _events)
-                    {
-                        <li>
-                            <button @onclick="() => GoToEditEvent(calendarEvent.Id)">
-                                @calendarEvent.Details.Title @(calendarEvent.IsShared ? "(shared)" : "")
-                            </button>
-                        </li>
-                    }
-                </ul>
+            <div class="card">
+                <div class="card-header"><span class="card-title">Upcoming</span><span class="card-count">@_events.Count</span></div>
+                @foreach (var calendarEvent in _events.OrderBy(e => e.Details.StartUtc).Take(6))
+                {
+                    <div class="list-row">
+                        <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
+                        <button class="row-title" @onclick="() => GoToEditEvent(calendarEvent.Id)">
+                            @calendarEvent.Details.Title @(calendarEvent.IsShared ? "(shared)" : "")
+                        </button>
+                        <span class="row-meta">@FormatEventMeta(calendarEvent.Details)</span>
+                    </div>
+                }
             </div>
         }
 
         @if (_contacts.Count > 0)
         {
-            <div class="dashboard-column">
-                <h2>Chats</h2>
-                <ul>
-                    @foreach (var contact in _recentContacts)
-                    {
-                        <li><button @onclick="() => GoToChat(contact.UserId)">@contact.DisplayName</button></li>
-                    }
-                </ul>
+            <div class="card">
+                <div class="card-header"><span class="card-title">Recent chats</span></div>
+                @foreach (var contact in _recentContacts.Take(6))
+                {
+                    <div class="list-row">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
+                        <button class="row-title" @onclick="() => GoToChat(contact.UserId)">@contact.DisplayName</button>
+                        <span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span>
+                    </div>
+                }
             </div>
 
-            <div class="dashboard-column">
-                <h2>Contacts</h2>
-                <ul>
-                    @foreach (var contact in _contactsAlphabetically)
-                    {
-                        <li><button @onclick="() => GoToChat(contact.UserId)">@contact.DisplayName</button></li>
-                    }
-                </ul>
+            <div class="card">
+                <div class="card-header"><span class="card-title">Contacts</span><span class="card-count">@_contactsAlphabetically.Count()</span></div>
+                @foreach (var contact in _contactsAlphabetically)
+                {
+                    <div class="list-row">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
+                        <button class="row-title" @onclick="() => GoToChat(contact.UserId)">@contact.DisplayName</button>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -119,6 +140,15 @@ else
         => (_contacts ?? [])
         .Where(contact => contact is { RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false })
         .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase);
+
+    private int TasksDueTodayCount => (_taskLists ?? [])
+        .SelectMany(taskList => taskList.Items)
+        .Count(item => !item.IsCompleted && item.DueDateUtc is { } due && due.ToLocalTime().Date == DateTime.Today);
+
+    private int EventsTodayCount => (_events ?? [])
+        .Count(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date == DateTime.Today);
+
+    private int PendingChatRequestCount => (_contacts ?? []).Count(contact => contact.RequiresApprovalFromCurrentUser);
 
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
@@ -200,6 +230,48 @@ else
     private async Task LoadEventsAsync() => _events = await CalendarApiClient.GetCalendarEventsAsync();
 
     private async Task LoadContactsAsync() => _contacts = await ChatApiClient.GetContactsAsync();
+
+    private static int CompletionPercent(TaskDto taskList)
+        => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);
+
+    /// <summary>A short, human "when" label for a card row - "2h ago" / "Yesterday" / "Wed" / "Aug 12".</summary>
+    private static string FormatRelative(DateTimeOffset valueUtc)
+    {
+        var value = valueUtc.ToLocalTime();
+        var now = DateTimeOffset.Now;
+        var diff = now - value;
+
+        if (diff < TimeSpan.FromMinutes(1))
+        {
+            return "just now";
+        }
+        if (diff < TimeSpan.FromHours(1))
+        {
+            return $"{(int)diff.TotalMinutes}m ago";
+        }
+        if (value.Date == now.Date)
+        {
+            return $"{(int)diff.TotalHours}h ago";
+        }
+        if (value.Date == now.Date.AddDays(-1))
+        {
+            return "Yesterday";
+        }
+        if (diff < TimeSpan.FromDays(7))
+        {
+            return value.ToString("ddd");
+        }
+        return value.ToString("MMM d");
+    }
+
+    /// <summary>A compact "when" label for an upcoming event row - "Today 10:00" / "Tomorrow 15:30" / "Fri 19:00".</summary>
+    private static string FormatEventMeta(CalendarEventDetailsDto details)
+    {
+        var start = details.StartUtc.ToLocalTime();
+        var today = DateTime.Today;
+        var dayLabel = start.Date == today ? "Today" : start.Date == today.AddDays(1) ? "Tomorrow" : start.ToString("ddd d");
+        return details.IsAllDay ? dayLabel : $"{dayLabel} {start:HH:mm}";
+    }
 
     public void Dispose()
     {

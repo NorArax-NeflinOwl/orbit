@@ -60,6 +60,28 @@ public sealed class ChatApiClient
         }
     }
 
+    /// <summary>
+    /// Re-encrypts and overwrites an already-sent message's content - only its original sender may do
+    /// this (Orbit.Api returns 403 otherwise; Chat.razor only ever offers "Edit" on the sender's own
+    /// bubbles, so that should never actually happen from the UI).
+    /// </summary>
+    public async Task<ChatMessageDto> EditMessageAsync(Guid messageId, EditMessageRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync($"api/chat/messages/{messageId}", request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var message = (await response.Content.ReadFromJsonAsync<ChatMessageDto>(cancellationToken: cancellationToken))!;
+            _logger.LogActionCompleted(ClientActionCategory.Edit, "Edit chat message");
+            return message;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.Edit, "Edit chat message", exception);
+            throw;
+        }
+    }
+
     /// <summary>Marks every message otherUserId sent to the caller as read as of now.</summary>
     public async Task MarkConversationAsReadAsync(Guid otherUserId, CancellationToken cancellationToken = default)
     {

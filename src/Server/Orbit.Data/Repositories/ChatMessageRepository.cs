@@ -43,6 +43,28 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<ChatMessage?> GetByIdAsync(Guid messageId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.ChatMessages.AsNoTracking().FirstOrDefaultAsync(message => message.Id == messageId, cancellationToken);
+        return entity is null ? null : ToDomain(entity);
+    }
+
+    public async Task UpdateContentAsync(
+        Guid messageId, string ciphertextBase64, string nonceBase64, DateTimeOffset editedAtUtc, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.ChatMessages.FirstOrDefaultAsync(message => message.Id == messageId, cancellationToken);
+        if (entity is null)
+        {
+            return;
+        }
+
+        entity.CiphertextBase64 = ciphertextBase64;
+        entity.NonceBase64 = nonceBase64;
+        entity.IsEdited = true;
+        entity.EditedAtUtc = editedAtUtc;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task MarkConversationAsReadAsync(
         Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
     {
@@ -81,7 +103,8 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
     private static ChatMessage ToDomain(ChatMessageEntity entity)
         => ChatMessage.FromPersistence(
-            entity.Id, entity.SenderUserId, entity.RecipientUserId, entity.CiphertextBase64, entity.NonceBase64, entity.SentAtUtc);
+            entity.Id, entity.SenderUserId, entity.RecipientUserId, entity.CiphertextBase64, entity.NonceBase64, entity.SentAtUtc,
+            entity.IsEdited, entity.EditedAtUtc);
 
     private static ChatMessageEntity ToEntity(ChatMessage message)
         => new()
@@ -91,6 +114,8 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             RecipientUserId = message.RecipientUserId,
             CiphertextBase64 = message.CiphertextBase64,
             NonceBase64 = message.NonceBase64,
-            SentAtUtc = message.SentAtUtc
+            SentAtUtc = message.SentAtUtc,
+            IsEdited = message.IsEdited,
+            EditedAtUtc = message.EditedAtUtc
         };
 }

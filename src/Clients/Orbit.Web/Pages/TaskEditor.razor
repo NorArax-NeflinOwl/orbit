@@ -14,6 +14,10 @@
 
 <PageTitle>@(IsNewTaskList ? "New task list" : "Edit task list")</PageTitle>
 
+@* TODO(Orbit.Web.UI): still plain unstyled form markup. Restyle together with Tasks.razor (see its own
+   TODO) onto the .task-list-card/.checklist/.check-row pattern from the approved concept mockup - the
+   checkbox/priority-dot/due-date row layout there was designed to double as this editor's item list,
+   not just the summary view. *@
 <h1>@(IsNewTaskList ? "New task list" : "Edit task list")</h1>
 
 @if (_isLoading)
@@ -29,9 +33,9 @@ else
         </p>
     }
 
-    <EditForm Model="_formModel" OnValidSubmit="SaveAsync">
+    <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
     <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
-        <div>
+        <div class="field">
             <label>Title</label>
             <InputText @bind-Value="_formModel.Title" />
         </div>
@@ -39,10 +43,12 @@ else
         <h2>Items</h2>
         @foreach (var item in _formModel.Items)
         {
-            <div @key="item">
-                <InputText @bind-Value="item.Description" placeholder="Item description" />
-                <InputDate @bind-Value="item.DueDate" />
-                <input type="time" @bind="item.DueTime" />
+            <div class="editor-item-card" @key="item">
+                <div class="field-row">
+                    <InputText @bind-Value="item.Description" placeholder="Item description" />
+                    <InputDate @bind-Value="item.DueDate" />
+                    <input type="time" @bind="item.DueTime" />
+                </div>
                 <label>
                     Link to list
                     <select @bind="item.LinkedTaskListId">
@@ -96,14 +102,18 @@ else
                         <input type="time" @bind="item.DailyReminderTimeOfDay" />
                     </label>
                 }
-                <button type="button" @onclick="() => RemoveItem(item)">Remove</button>
+                <div>
+                    <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
+                </div>
             </div>
         }
-        <button type="button" @onclick="AddItem">Add item</button>
-
         <div>
-            <button type="submit">Save</button>
-            <button type="button" @onclick="Cancel">Cancel</button>
+            <button type="button" class="btn-secondary" @onclick="AddItem">Add item</button>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Save</button>
+            <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
         </div>
     </fieldset>
     </EditForm>
@@ -117,18 +127,20 @@ else
         }
         else
         {
-            <select id="shareContactSelect" @bind="_selectedContactUserId">
-                <option value="">-- select a contact --</option>
-                @foreach (var contact in _contacts)
-                {
-                    <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
-                }
-            </select>
-            <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
-                <option value="ReadOnly">Read-only</option>
-                <option value="CanEdit">Can edit</option>
-            </select>
-            <button type="button" id="shareTaskListButton" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
+            <div class="field-row">
+                <select id="shareContactSelect" @bind="_selectedContactUserId">
+                    <option value="">-- select a contact --</option>
+                    @foreach (var contact in _contacts)
+                    {
+                        <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                    }
+                </select>
+                <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
+                    <option value="ReadOnly">Read-only</option>
+                    <option value="CanEdit">Can edit</option>
+                </select>
+                <button type="button" id="shareTaskListButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
+            </div>
         }
         @if (_shareErrorMessage is not null)
         {
