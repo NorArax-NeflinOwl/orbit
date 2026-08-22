@@ -17,6 +17,21 @@
         </div>
     }
 
+    @if (Grid.DueTasks.Count > 0)
+    {
+        <div class="calendar-day-grid-all-day">
+            <span class="calendar-day-grid-all-day-label">Zadania z terminem</span>
+            @foreach (var dueTask in Grid.DueTasks)
+            {
+                <button type="button" class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-task-chip-completed" : "")"
+                        @onclick="() => TaskSelectedAsync(dueTask.TaskListId)">
+                    <span class="calendar-event-chip-time">@dueTask.DueDateUtc.LocalDateTime.ToString("HH:mm")</span>
+                    <span class="calendar-event-chip-title">@dueTask.Description</span>
+                </button>
+            }
+        </div>
+    }
+
     <div class="calendar-day-grid-timeline">
         <div class="calendar-day-grid-hours">
             @foreach (var hour in Hours)
@@ -54,7 +69,12 @@
     [Parameter]
     public EventCallback<Guid> OnEventSelected { get; set; }
 
+    [Parameter]
+    public EventCallback<Guid> OnTaskSelected { get; set; }
+
     private Task EventSelectedAsync(Guid eventId) => OnEventSelected.InvokeAsync(eventId);
+
+    private Task TaskSelectedAsync(Guid taskListId) => OnTaskSelected.InvokeAsync(taskListId);
 
     private static double HourPercent(int hour) => hour * 100.0 / 24;
 

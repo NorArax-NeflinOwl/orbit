@@ -18,7 +18,7 @@
 
                     @if (IsCompact)
                     {
-                        @if (day.Events.Count > 0)
+                        @if (day.Events.Count > 0 || day.DueTasks.Count > 0)
                         {
                             <div class="calendar-month-grid-day-dots">
                                 @foreach (var calendarEvent in day.Events.Take(MaxCompactDots))
@@ -28,6 +28,14 @@
                                 @if (day.Events.Count > MaxCompactDots)
                                 {
                                     <span class="calendar-month-grid-day-dot-overflow">+@(day.Events.Count - MaxCompactDots)</span>
+                                }
+                                @foreach (var dueTask in day.DueTasks.Take(MaxCompactDots))
+                                {
+                                    <span class="calendar-month-grid-day-dot calendar-month-grid-day-dot-task"></span>
+                                }
+                                @if (day.DueTasks.Count > MaxCompactDots)
+                                {
+                                    <span class="calendar-month-grid-day-dot-overflow">+@(day.DueTasks.Count - MaxCompactDots)</span>
                                 }
                             </div>
                         }
@@ -50,6 +58,18 @@
                             {
                                 <span class="calendar-month-grid-day-overflow">+@(day.Events.Count - MaxVisibleEvents) więcej</span>
                             }
+                            @foreach (var dueTask in day.DueTasks.Take(MaxVisibleDueTasks))
+                            {
+                                <button type="button" class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-task-chip-completed" : "")"
+                                        @onclick="() => TaskSelectedAsync(dueTask.TaskListId)" @onclick:stopPropagation="true">
+                                    <span class="calendar-event-chip-time">@dueTask.DueDateUtc.LocalDateTime.ToString("HH:mm")</span>
+                                    <span class="calendar-event-chip-title">@dueTask.Description</span>
+                                </button>
+                            }
+                            @if (day.DueTasks.Count > MaxVisibleDueTasks)
+                            {
+                                <span class="calendar-month-grid-day-overflow">+@(day.DueTasks.Count - MaxVisibleDueTasks) więcej</span>
+                            }
                         </div>
                     }
                 </div>
@@ -60,6 +80,7 @@
 
 @code {
     private const int MaxVisibleEvents = 4;
+    private const int MaxVisibleDueTasks = 4;
     private const int MaxCompactDots = 3;
 
     private static readonly string[] WeekdayNames = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
@@ -76,6 +97,9 @@
 
     [Parameter]
     public EventCallback<Guid> OnEventSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnTaskSelected { get; set; }
 
     private static string DayCssClass(MonthGridDay day)
     {
@@ -102,4 +126,6 @@
     private Task DaySelectedAsync(DateOnly date) => OnDaySelected.InvokeAsync(date);
 
     private Task EventSelectedAsync(Guid eventId) => OnEventSelected.InvokeAsync(eventId);
+
+    private Task TaskSelectedAsync(Guid taskListId) => OnTaskSelected.InvokeAsync(taskListId);
 }

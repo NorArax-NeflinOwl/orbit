@@ -9,7 +9,7 @@ public sealed class CalendarGridBuilderTests
     [Fact]
     public void Month_grid_is_made_of_complete_Monday_to_Sunday_weeks()
     {
-        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), []);
+        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), [], []);
 
         Assert.All(weeks, week => Assert.Equal(7, week.Days.Count));
         Assert.All(weeks, week => Assert.Equal(DayOfWeek.Monday, week.Days[0].Date.DayOfWeek));
@@ -19,7 +19,7 @@ public sealed class CalendarGridBuilderTests
     [Fact]
     public void Month_grid_marks_the_requested_month_days_and_dims_the_borrowed_leading_and_trailing_days()
     {
-        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), []);
+        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), [], []);
         var allDays = weeks.SelectMany(week => week.Days).ToList();
 
         var daysInAugust = allDays.Where(day => day.Date.Month == 8 && day.Date.Year == 2026).ToList();
@@ -36,7 +36,7 @@ public sealed class CalendarGridBuilderTests
     {
         var calendarEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 10, 0, 0), new DateTime(2026, 8, 21, 11, 0, 0));
 
-        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), [calendarEvent]);
+        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), [calendarEvent], []);
         var allDays = weeks.SelectMany(week => week.Days).ToList();
 
         var dayWithEvent = allDays.Single(day => day.Events.Count > 0);
@@ -49,21 +49,34 @@ public sealed class CalendarGridBuilderTests
     {
         var calendarEvent = CreateAllDayEvent(new DateOnly(2026, 8, 20), new DateOnly(2026, 8, 22));
 
-        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), [calendarEvent]);
+        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), [calendarEvent], []);
         var datesWithEvent = weeks.SelectMany(week => week.Days).Where(day => day.Events.Count > 0).Select(day => day.Date).ToList();
 
         Assert.Equal([new DateOnly(2026, 8, 20), new DateOnly(2026, 8, 21), new DateOnly(2026, 8, 22)], datesWithEvent);
     }
 
     [Fact]
+    public void A_due_task_is_placed_only_on_its_own_day_cell()
+    {
+        var dueTask = CreateDueTask(new DateTime(2026, 8, 21, 10, 0, 0));
+
+        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), [], [dueTask]);
+        var allDays = weeks.SelectMany(week => week.Days).ToList();
+
+        var dayWithTask = allDays.Single(day => day.DueTasks.Count > 0);
+        Assert.Equal(new DateOnly(2026, 8, 21), dayWithTask.Date);
+        Assert.Same(dueTask, dayWithTask.DueTasks.Single());
+    }
+
+    [Fact]
     public void Year_grid_contains_all_12_months_in_order_each_matching_BuildMonthGrid()
     {
-        var months = CalendarGridBuilder.BuildYearGrid(2026, []);
+        var months = CalendarGridBuilder.BuildYearGrid(2026, [], []);
 
         Assert.Equal(Enumerable.Range(1, 12), months.Select(month => month.Month));
         foreach (var month in months)
         {
-            var expectedDates = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, month.Month, 1), [])
+            var expectedDates = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, month.Month, 1), [], [])
                 .SelectMany(week => week.Days).Select(day => day.Date);
             var actualDates = month.Weeks.SelectMany(week => week.Days).Select(day => day.Date);
             Assert.Equal(expectedDates, actualDates);
@@ -76,10 +89,21 @@ public sealed class CalendarGridBuilderTests
         var allDayEvent = CreateAllDayEvent(new DateOnly(2026, 8, 21), new DateOnly(2026, 8, 21));
         var timedEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 0, 0), new DateTime(2026, 8, 21, 10, 0, 0));
 
-        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [allDayEvent, timedEvent]);
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [allDayEvent, timedEvent], []);
 
         Assert.Same(allDayEvent, Assert.Single(grid.AllDayEvents));
         Assert.Same(timedEvent, Assert.Single(grid.TimedEvents).Event);
+    }
+
+    [Fact]
+    public void Day_grid_includes_due_tasks_due_on_that_day_and_excludes_ones_due_on_other_days()
+    {
+        var dueTodayTask = CreateDueTask(new DateTime(2026, 8, 21, 18, 0, 0));
+        var dueTomorrowTask = CreateDueTask(new DateTime(2026, 8, 22, 9, 0, 0));
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [], [dueTodayTask, dueTomorrowTask]);
+
+        Assert.Same(dueTodayTask, Assert.Single(grid.DueTasks));
     }
 
     [Fact]
@@ -87,7 +111,7 @@ public sealed class CalendarGridBuilderTests
     {
         var calendarEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 30, 0), new DateTime(2026, 8, 21, 11, 15, 0));
 
-        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [calendarEvent]);
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [calendarEvent], []);
 
         var placedEvent = Assert.Single(grid.TimedEvents);
         Assert.Equal(9 * 60 + 30, placedEvent.StartMinute);
@@ -99,8 +123,8 @@ public sealed class CalendarGridBuilderTests
     {
         var calendarEvent = CreateTimedEvent(new DateTime(2026, 8, 20, 22, 0, 0), new DateTime(2026, 8, 21, 2, 0, 0));
 
-        var gridForFirstDay = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 20), [calendarEvent]);
-        var gridForSecondDay = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [calendarEvent]);
+        var gridForFirstDay = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 20), [calendarEvent], []);
+        var gridForSecondDay = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [calendarEvent], []);
 
         var placedOnFirstDay = Assert.Single(gridForFirstDay.TimedEvents);
         Assert.Equal(22 * 60, placedOnFirstDay.StartMinute);
@@ -117,7 +141,7 @@ public sealed class CalendarGridBuilderTests
         var morningEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 0, 0), new DateTime(2026, 8, 21, 10, 0, 0));
         var afternoonEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 14, 0, 0), new DateTime(2026, 8, 21, 15, 0, 0));
 
-        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [morningEvent, afternoonEvent]);
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [morningEvent, afternoonEvent], []);
 
         Assert.All(grid.TimedEvents, placedEvent =>
         {
@@ -132,7 +156,7 @@ public sealed class CalendarGridBuilderTests
         var firstEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 0, 0), new DateTime(2026, 8, 21, 10, 0, 0));
         var overlappingEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 30, 0), new DateTime(2026, 8, 21, 10, 30, 0));
 
-        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [firstEvent, overlappingEvent]);
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [firstEvent, overlappingEvent], []);
 
         Assert.Equal(2, grid.TimedEvents.Count);
         Assert.All(grid.TimedEvents, placedEvent => Assert.Equal(2, placedEvent.ColumnCount));
@@ -148,7 +172,7 @@ public sealed class CalendarGridBuilderTests
         var secondEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 30, 0), new DateTime(2026, 8, 21, 10, 30, 0));
         var thirdEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 10, 0, 0), new DateTime(2026, 8, 21, 11, 0, 0));
 
-        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [firstEvent, secondEvent, thirdEvent]);
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [firstEvent, secondEvent, thirdEvent], []);
 
         Assert.All(grid.TimedEvents, placedEvent => Assert.Equal(2, placedEvent.ColumnCount));
         var thirdPlaced = grid.TimedEvents.Single(placedEvent => placedEvent.Event == thirdEvent);
@@ -170,6 +194,9 @@ public sealed class CalendarGridBuilderTests
                 ToLocalOffset(startDate.ToDateTime(TimeOnly.MinValue)), ToLocalOffset(endDate.ToDateTime(TimeOnly.MinValue)),
                 IsAllDay: true, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null);
+
+    private static DueTaskDto CreateDueTask(DateTime localDueDate, string description = "Task")
+        => new(Guid.NewGuid(), Guid.NewGuid(), description, ToLocalOffset(localDueDate), IsCompleted: false);
 
     /// <summary>
     /// Attaches the test machine's own local UTC offset to localDateTime, mirroring how

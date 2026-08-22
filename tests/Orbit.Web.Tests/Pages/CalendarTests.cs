@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -20,6 +21,7 @@ public sealed class CalendarTests : TestContext
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         RegisterChatApiClient([]);
+        RegisterTasksApiClient([]);
         // Only reached if an event carries a guest id missing from the (empty) contact list above - none
         // of these tests add guests, so this just needs to satisfy Calendar.razor's @inject.
         Services.AddSingleton(new UsersApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
@@ -90,6 +92,21 @@ public sealed class CalendarTests : TestContext
         Assert.Contains("Spotkanie zespołu", chipText);
     }
 
+    [Fact]
+    public void Todays_task_with_a_due_date_shows_up_as_a_task_chip_in_the_month_view()
+    {
+        var todayMorning = DateTime.SpecifyKind(DateTime.Today.AddHours(9), DateTimeKind.Local);
+        var taskList = CreateTaskListWithDueItem(todayMorning, "Wyślij raport");
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<Calendar>();
+
+        var chipText = cut.Find(".calendar-task-chip").TextContent;
+        Assert.Contains("09:00", chipText);
+        Assert.Contains("Wyślij raport", chipText);
+    }
+
     private static IElement FindViewSwitchButton(IRenderedComponent<Calendar> cut, string label)
         => cut.Find(".calendar-view-switch").QuerySelectorAll("button").Single(button => button.TextContent == label);
 
@@ -106,6 +123,15 @@ public sealed class CalendarTests : TestContext
                 IsAllDay: false, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null);
 
+    private static TaskDto CreateTaskListWithDueItem(DateTime localDueDate, string description)
+    {
+        var item = new TaskItemDto(
+            Guid.NewGuid(), description, new DateTimeOffset(DateTime.SpecifyKind(localDueDate, DateTimeKind.Local)), IsCompleted: false,
+            LinkedTaskListId: null, OverdueNotificationChannel: "None", RemindDaily: false, DailyReminderNotificationChannel: "None",
+            DailyReminderTimeOfDay: default);
+        return new TaskDto(Guid.NewGuid(), "Lista zadań", [item], IsCompleted: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+    }
+
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(contacts))) { BaseAddress = new Uri("https://example.test/") };
@@ -116,6 +142,12 @@ public sealed class CalendarTests : TestContext
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(events))) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new CalendarApiClient(httpClient));
+    }
+
+    private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(taskLists))) { BaseAddress = new Uri("https://example.test/") };
+        Services.AddSingleton(new TasksApiClient(httpClient));
     }
 
     private static HttpResponseMessage JsonResponse<TItem>(IReadOnlyList<TItem> items)

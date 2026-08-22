@@ -213,6 +213,12 @@
     font-size: 0.65em;
 }
 
+/* A due task's dot is square rather than round, so it stays visually distinct from an event's dot even
+   though it shares the same size/spacing (see .calendar-month-grid-day-dot). */
+.calendar-month-grid-day-dot-task {
+    border-radius: 0;
+}
+
 /* Calendar.razor / CalendarMonthGrid.razor / CalendarDayGrid.razor: a single event's chip or timeline
    block, colored by the event's own Color (see CalendarEventDetailsDto.Color) via the border rather than
    the background, so the title text stays legible regardless of the chosen color. */
@@ -235,6 +241,29 @@
 .calendar-event-chip-time {
     font-weight: bold;
     margin-right: 0.25rem;
+}
+
+/* Calendar.razor / CalendarMonthGrid.razor / CalendarDayGrid.razor: a due task's chip, laid out like
+   .calendar-event-chip but with a fixed dashed accent color instead of the event's own Color, so a task
+   with a deadline reads as a different kind of entry even though it's placed on the calendar the same way. */
+.calendar-task-chip {
+    background: #f5f5f5;
+    border: none;
+    border-left: 3px dashed #d9822b;
+    border-radius: 0.2rem;
+    cursor: pointer;
+    display: block;
+    font-size: 0.75em;
+    overflow: hidden;
+    padding: 0.1rem 0.3rem;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.calendar-task-chip-completed {
+    text-decoration: line-through;
 }
 
 /* CalendarYearGrid.razor: the 12 compact month grids, wrapping to fit the visualization panel's width. */

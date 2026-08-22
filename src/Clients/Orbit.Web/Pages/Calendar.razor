@@ -3,9 +3,11 @@
 @using System.Globalization
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Tasks
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
+@inject TasksApiClient TasksApiClient
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -69,6 +71,31 @@
                     }
                 </ul>
             }
+
+            <h3>Zadania z terminem</h3>
+            @if (_dueTasks is null)
+            {
+                <p>Ładowanie…</p>
+            }
+            else if (_dueTasks.Count == 0)
+            {
+                <p>Brak zadań z terminem.</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var dueTask in _dueTasks)
+                    {
+                        <li>
+                            @(dueTask.IsCompleted ? "☑" : "☐") @dueTask.Description
+                            <br>
+                            <small>Termin: @dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
+                            <br>
+                            <button @onclick="() => GoToEditTaskList(dueTask.TaskListId)">Otwórz</button>
+                        </li>
+                    }
+                </ul>
+            }
         </div>
     }
 
@@ -90,13 +117,13 @@
         @switch (_viewState.ViewMode)
         {
             case CalendarViewMode.Day:
-                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [])" OnEventSelected="GoToEditEvent" />
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToEditTaskList" />
                 break;
             case CalendarViewMode.Year:
-                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [])" OnDaySelected="GoToDay" />
+                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" />
                 break;
             default:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" />
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToEditTaskList" />
                 break;
         }
     </div>
@@ -104,6 +131,7 @@
 
 @code {
     private IReadOnlyList<CalendarEventDto>? _events;
+    private IReadOnlyList<DueTaskDto>? _dueTasks;
     private IReadOnlyList<ContactDto> _contacts = [];
     private readonly CalendarViewState _viewState = new();
 
@@ -121,6 +149,7 @@
         {
             _events = await CalendarApiClient.GetCalendarEventsAsync();
             _contacts = await ChatApiClient.GetContactsAsync();
+            _dueTasks = await LoadDueTasksAsync();
             await ResolveMissingGuestDisplayNamesAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -132,6 +161,22 @@
             return;
         }
         Logger.LogInformation("Loaded {EventCount} calendar events", _events.Count);
+        Logger.LogInformation("Loaded {DueTaskCount} tasks with a due date", _dueTasks.Count);
+    }
+
+    /// <summary>
+    /// Flattens every task list's items down to just the ones with a due date, so they can be placed onto
+    /// the calendar grids and event list alongside CalendarEventDto entries - see CalendarGridBuilder.DueTaskDto.
+    /// </summary>
+    private async Task<IReadOnlyList<DueTaskDto>> LoadDueTasksAsync()
+    {
+        var taskLists = await TasksApiClient.GetTaskListsAsync();
+        return taskLists
+            .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
+            .Where(pair => pair.item.DueDateUtc is not null)
+            .Select(pair => new DueTaskDto(pair.taskList.Id, pair.item.Id, pair.item.Description, pair.item.DueDateUtc!.Value, pair.item.IsCompleted))
+            .OrderBy(dueTask => dueTask.DueDateUtc)
+            .ToList();
     }
 
     /// <summary>
@@ -181,6 +226,12 @@
     {
         Logger.LogInformation("User clicked 'Edytuj' for calendar event {EventId}", eventId);
         NavigationManager.NavigateTo($"/calendar/{eventId}");
+    }
+
+    private void GoToEditTaskList(Guid taskListId)
+    {
+        Logger.LogInformation("User clicked a due-task entry on the calendar for task list {TaskListId}", taskListId);
+        NavigationManager.NavigateTo($"/tasks/{taskListId}");
     }
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
