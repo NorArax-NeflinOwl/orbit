@@ -13,12 +13,32 @@ picture of what's left.
   only client, and MAUI work has not started — see
   [Architecture — Orbit.Web](architecture.md#orbitweb).
 - **Location sharing.** Part of the product's stated scope, not implemented at all yet — no server
-  endpoints, data model, or client UI exist for it.
+  endpoints, data model, or client UI exist for it. The fuller intended shape, as captured on the
+  backlog:
+  - Capture and store the user's own device location.
+  - Share it with another user through chat, either as a one-off snapshot or a "live" share that
+    keeps refreshing — a client polling for the target's last known location, with the sharer's own
+    client pushing an updated position roughly once a minute while online.
+  - **Proposed approach:** a `UserLocations` table (`UserId`, `Latitude`, `Longitude`, `RecordedAtUtc`)
+    updated via an upsert endpoint the client calls on an interval (mirroring the chat page's existing
+    3-second polling loop — see
+    [Known scope cuts — Chat delivery is polling-based](#known-scope-cuts-and-rough-edges) — a
+    once-a-minute interval for location is far cheaper). A share would work like calendar event
+    sharing already does (`CalendarApiClient.ShareCalendarEventAsync` /
+    `EncryptedChatMessageSender`): an encrypted chat message carrying a reference the recipient's
+    client resolves by polling `UserLocations` for as long as the share is marked active, with an
+    explicit "stop sharing" action to end the live share.
 - **Google Calendar / Contacts sync.** `Orbit.GoogleIntegration` (`src/Server`) exists today only as
   an empty placeholder project reserved for this — see
   [Architecture — Orbit.GoogleIntegration](architecture.md#orbitgoogleintegration) and
   [Functionality — Calendar](functionality.md#calendar) for what the calendar feature does without
-  it.
+  it. The backlog frames this as two separate integrations, not one:
+  - Sharing a calendar event or task and writing a copy of it onto the recipient's actual Google
+    Calendar, on top of Orbit's own sharing model.
+  - Turning a saved location into driving/walking directions via Google Maps (sending the address
+    onward to pick a route to it) — a client-side deep link (`https://www.google.com/maps/dir/?api=1&destination=...`)
+    covers this without any Google API credentials or server work, unlike the Calendar-writing half
+    above, which does need OAuth and the Google Calendar API.
 - **Running more than one instance of the reminder background services.** The claim-before-send
   design of `CalendarEventReminderBackgroundService` and `OverdueTaskNotificationBackgroundService`
   (a unique-indexed "claim" row inserted before sending, so a losing insert means another instance
@@ -26,6 +46,66 @@ picture of what's left.
   distributed lock or message queue once it's needed — see
   [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders). No second
   instance runs today; this is forward-looking groundwork already in place.
+- **Sharing for notes and task lists, and editable shares.** Only calendar events can be shared today
+  (`CalendarApiClient.ShareCalendarEventAsync`, see
+  [Functionality — Calendar](functionality.md#calendar)); notes and task lists have no sharing at
+  all, and every existing calendar share is a read-only copy with no way to grant edit rights.
+  **Proposed approach:** generalize the existing `CalendarEventShare` shape (owner, recipient,
+  accepted-or-not) into a shared `Share<TElement>` concept carrying an `AccessLevel` (`ReadOnly` /
+  `CanEdit`), reused by new `NoteShare`/`TaskListShare` tables instead of three independent
+  copy-pasted implementations - the notification/chat-message plumbing
+  (`EncryptedChatMessageSender`) that announces a new share already generalizes cleanly since it just
+  carries an opaque share id.
+- **Checklist items inside a note.** Today a note is a single title/body pair - no way to attach a
+  list of `{ checkbox, text }` items to it. **Proposed approach:** a `NoteChecklistItem` child table
+  (`NoteId`, `Text`, `IsChecked`, `SortOrder`) rather than cramming it into the note's existing body
+  text, so items can be toggled with their own small PATCH endpoint instead of re-saving the whole
+  note body on every checkbox click.
+- **Chat groups, with per-role permissions.** Chat is explicitly 1:1 only today - see
+  [Known scope cuts — Chat is 1:1 only](#known-scope-cuts-and-rough-edges). The backlog wants real
+  group conversations, with two roles: an admin who can remove any message or any member, and a
+  regular member who can only remove their own messages. **Proposed approach:** a `ChatGroup` +
+  `ChatGroupMember` (with a `Role` column) pair sitting alongside the existing 1:1 `ChatMessage` table
+  - group messages would need their own encryption story, though, since the current design derives one
+    AES-GCM key per *pair* of users (see
+  [Known scope cuts — Chat has no per-message forward secrecy](#known-scope-cuts-and-rough-edges));
+  a group needs a key every member can decrypt, which is a materially bigger design change than the
+  schema addition, and should be scoped as its own follow-up before implementation starts.
+- **Editing an already-sent chat message.** No edit path exists today - see
+  `SendMessageCommand`/`ChatApiClient.SendMessageAsync`. **Proposed approach:** an
+  `EditMessageCommand` mirroring the existing send path (re-encrypt the new text client-side, PUT the
+  ciphertext to `/api/chat/messages/{id}`), plus an `EditedAtUtc` column so the UI can show an "edited"
+  marker the way most chat apps do.
+- **Forwarding a message from one chat into another.** Not implemented - `ChatApiClient` has no such
+  operation. Per the backlog, a forwarded message that isn't the forwarder's own needs to carry along
+  who actually authored it, not just who forwarded it. **Proposed approach:** a `ForwardedFromMessageId`
+  (and denormalized `OriginalAuthorId`) column on `ChatMessage`, so the UI can render "Forwarded from
+  {original author}" even though the copy now physically lives in a different conversation, re-encrypted
+  under that conversation's own key.
+- **Shopping/inventory planner.** A stock-management feature: products with a name, type, category, an
+  on-hand quantity, an optional minimum quantity, and an expiry date. When a product's quantity drops to
+  or below its minimum, the system should create a task for the user; a recurring reminder task should
+  separately prompt the user to keep the recorded quantity up to date, and the expiry date should
+  surface its own approaching-expiry warning. **Proposed approach:** this reuses more of the existing
+  Tasks feature than it first looks like it needs - a background service in the same family as
+  `CalendarEventReminderBackgroundService`/`OverdueTaskNotificationBackgroundService` (see
+  [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders)) can create a
+  regular `TaskList` item automatically when a new `Product`'s quantity crosses its minimum, rather than
+  inventory needing its own separate notification pipeline.
+- **Password manager and strong-password generator.** Not scoped in detail yet on the backlog beyond
+  the idea itself. **Proposed approach:** worth treating as an extension of the existing E2EE chat
+  design rather than a new subsystem - encrypted credential entries could reuse the same per-user key
+  material `OwnEncryptionKeyProvider` already manages, so the server only ever stores ciphertext it
+  can't read, matching the chat's own trust model (see
+  [Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat)). The
+  generator itself is a pure client-side algorithm (length/character-set rules), no server involvement
+  needed at all.
+- **A local AI model on the server, as groundwork for a future chat bot.** No work started; explicitly
+  scoped on the backlog as infrastructure to land before the chat bot feature itself. **Proposed
+  approach:** self-hosting something like Ollama alongside `orbit-api` in `docker-compose.yml` (a new
+  service, similar in shape to the existing `aspire-dashboard` one) keeps this from depending on a
+  paid third-party LLM API, at the cost of needing real CPU/GPU/RAM sized for whatever model is chosen
+  - worth prototyping with a small model before committing to it as the target architecture.
 
 ## Known scope cuts and rough edges
 
@@ -69,6 +149,19 @@ as not covered by an automated test today, together with why:
   push subscription/service worker lifecycle have no automated coverage at all. bUnit doesn't
   execute real browser crypto/IndexedDB/Push/Notification APIs, and this project has no
   browser-driven test infrastructure (e.g. Playwright) yet.
+
+## Deployment
+
+- **A public, reachable address to test against, instead of only local Docker.** Partially done
+  already, not just an open idea: [`.github/workflows/main_orbit.yml`](../.github/workflows/main_orbit.yml)
+  builds both `orbit-api` and `orbit-web` images on every push to `main` and deploys them to two Azure
+  Container Apps via OIDC login (no stored client secret) - this is real, working infrastructure, not
+  a stub. What's still open is verifying and documenting that the deployed result is actually reachable
+  and functional end-to-end (health checks, the LAN-IP-style TLS/certificate concerns from
+  [`info/instructions.md`](instructions.md) don't apply the same way behind Azure's own ingress
+  TLS termination - see `nginx.azure.conf` vs `nginx.conf`), and writing down the public URL and any
+  first-time setup (e.g. seeding `JWT_SIGNING_KEY`/VAPID keys as Container App secrets rather than a
+  local `.env`) somewhere a person can follow without archaeology through the workflow file.
 
 ## Smaller identified follow-ups
 
