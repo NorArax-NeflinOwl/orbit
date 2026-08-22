@@ -159,7 +159,7 @@ public sealed class CalendarGridBuilderTests
         => new(
             Guid.NewGuid(),
             new CalendarEventDetailsDto(
-                title, null, null, null, ToLocalOffset(localStart), ToLocalOffset(localEnd), IsAllDay: false, null, [], [], false, false),
+                title, null, null, null, ToLocalOffset(localStart), ToLocalOffset(localEnd), IsAllDay: false, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null);
 
     private static CalendarEventDto CreateAllDayEvent(DateOnly startDate, DateOnly endDate, string title = "All-day event")
@@ -168,7 +168,7 @@ public sealed class CalendarGridBuilderTests
             new CalendarEventDetailsDto(
                 title, null, null, null,
                 ToLocalOffset(startDate.ToDateTime(TimeOnly.MinValue)), ToLocalOffset(endDate.ToDateTime(TimeOnly.MinValue)),
-                IsAllDay: true, null, [], [], false, false),
+                IsAllDay: true, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null);
 
     /// <summary>

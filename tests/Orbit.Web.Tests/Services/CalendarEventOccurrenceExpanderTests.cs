@@ -108,7 +108,7 @@ public sealed class CalendarEventOccurrenceExpanderTests
     private static CalendarEventDto CreateEvent(DateTime localStart, DateTime localEnd, RecurrenceDto? recurrence, string title = "Event")
         => new(
             Guid.NewGuid(),
-            new CalendarEventDetailsDto(title, null, null, null, ToLocal(localStart), ToLocal(localEnd), false, recurrence, [], [], false, false),
+            new CalendarEventDetailsDto(title, null, null, null, ToLocal(localStart), ToLocal(localEnd), false, recurrence, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null);
 
     private static DateTimeOffset ToLocal(DateTime localDateTime) => new(DateTime.SpecifyKind(localDateTime, DateTimeKind.Local));

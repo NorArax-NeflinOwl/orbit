@@ -103,7 +103,7 @@ public sealed class CalendarTests : TestContext
                 title, null, null, null,
                 new DateTimeOffset(DateTime.SpecifyKind(localStart, DateTimeKind.Local)),
                 new DateTimeOffset(DateTime.SpecifyKind(localEnd, DateTimeKind.Local)),
-                IsAllDay: false, null, [], [], false, false),
+                IsAllDay: false, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null);
 
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)
