@@ -21,7 +21,7 @@ Detailed, up-to-date information about the project lives in [`info/`](info/):
 
 Two additional setup guides also live in `info/`:
 [`build.md`](info/build.md) (full machine setup and first build) and
-[`instructions.md`](info/instructions.md) (trusting the local TLS certificate in Chrome on Windows).
+[`instructions.md`](info/instructions.md) (trusting the local TLS certificate in Chrome on Windows and MacOS).
 
 ## License
 
