@@ -35,6 +35,15 @@ public static class OrbitDataServiceCollectionExtensions
             DefaultTimeout = 5
         };
 
+        // SQLite won't create missing intermediate directories itself - it just fails to open the
+        // file - so a fresh clone (whose gitignored /data folder doesn't exist yet) needs this before
+        // the first connection is opened.
+        var databaseDirectory = Path.GetDirectoryName(Path.GetFullPath(connectionStringBuilder.DataSource));
+        if (!string.IsNullOrEmpty(databaseDirectory))
+        {
+            Directory.CreateDirectory(databaseDirectory);
+        }
+
         services.AddDbContext<OrbitDbContext>(options => options.UseSqlite(connectionStringBuilder.ToString()));
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
