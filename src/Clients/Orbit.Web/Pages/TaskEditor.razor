@@ -1,9 +1,11 @@
 @page "/tasks/new"
 @page "/tasks/{Id:guid}"
 @attribute [Authorize]
+@implements IAsyncDisposable
 @using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
@@ -26,15 +28,22 @@
 }
 else
 {
-    @if (_isSharedReadOnly)
+    @if (_isShared)
     {
         <p class="shared-task-list-banner">
-            This task list was shared by <strong>@_sharedByUserName</strong> - read-only.
+            This task list was shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.
+        </p>
+    }
+
+    @if (_lockedByUserName is not null)
+    {
+        <p class="lock-banner">
+            <strong>@_lockedByUserName</strong> is currently editing this task list - you can't edit it right now.
         </p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
-    <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
+    <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
         <div class="field">
             <label>Title</label>
             <InputText @bind-Value="_formModel.Title" />
@@ -117,7 +126,7 @@ else
         }
         <div class="form-actions">
             <button type="submit" class="btn-primary">Save</button>
-            <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
+            <button type="button" class="btn-secondary" @onclick="CancelAsync">Cancel</button>
         </div>
     </fieldset>
     </EditForm>
@@ -171,9 +180,11 @@ else
     private bool _isSharing;
     private TaskListFormModel _formModel = new();
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
+    private bool _isShared;
     private bool _isSharedReadOnly;
     private bool _canShare;
     private bool _canGrantCanEdit;
+    private string _accessLevel = "ReadOnly";
     private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private IReadOnlyList<ContactDto> _contacts = [];
@@ -184,11 +195,25 @@ else
     private string? _saveErrorMessage;
     private Guid _ownUserId;
 
+    /// <summary>Mirrors NoteEditor's field of the same name - see its comment.</summary>
+    private string? _lockedByUserName;
+    private PeriodicTimer? _lockHeartbeatTimer;
+    private CancellationTokenSource? _lockHeartbeatCancellation;
+    private static readonly TimeSpan LockHeartbeatInterval = TimeSpan.FromSeconds(20);
+
     /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
     private IReadOnlyList<ContactDto> _shareableContacts
         => _originalOwnerUserId is { } originalOwnerUserId
             ? _contacts.Where(contact => contact.UserId != originalOwnerUserId).ToList()
             : _contacts;
+
+    /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
+    private string SharedAccessDescription => _accessLevel switch
+    {
+        "CanEdit" => "you can edit it",
+        "Share" => "you can share it further, but not edit it",
+        _ => "read-only"
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -228,11 +253,22 @@ else
                             })
                             .ToList()
                     };
+                    _isShared = taskList.IsShared;
                     _isSharedReadOnly = taskList.IsShared && taskList.AccessLevel != "CanEdit";
                     _canShare = !taskList.IsShared || taskList.AccessLevel is "CanEdit" or "Share";
                     _canGrantCanEdit = !taskList.IsShared || taskList.AccessLevel == "CanEdit";
+                    _accessLevel = taskList.AccessLevel;
                     _originalOwnerUserId = taskList.OriginalOwnerUserId;
                     _sharedByUserName = taskList.SharedByUserName;
+
+                    if (!_isSharedReadOnly)
+                    {
+                        await AcquireLockAsync(taskListId);
+                        if (_lockedByUserName is null)
+                        {
+                            StartLockHeartbeat(taskListId);
+                        }
+                    }
                 }
 
                 _contacts = await ChatApiClient.GetContactsAsync();
@@ -295,8 +331,23 @@ else
             }
             else
             {
-                await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items));
+                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items));
+                if (outcome.Kind == EditOutcomeKind.Locked)
+                {
+                    _lockedByUserName = outcome.LockedByUserName;
+                    StopLockHeartbeat();
+                    _saveErrorMessage = $"{outcome.LockedByUserName} is currently editing this task list - try again in a moment.";
+                    return;
+                }
+
+                if (outcome.Kind == EditOutcomeKind.NotFound)
+                {
+                    _saveErrorMessage = "Failed to save the task list. Try again.";
+                    return;
+                }
+
                 Logger.LogInformation("Task list {TaskListId} updated", Id);
+                await ReleaseLockAsync(Id.Value);
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -318,10 +369,97 @@ else
         NavigationManager.NavigateTo("/tasks");
     }
 
-    private void Cancel()
+    private async Task CancelAsync()
     {
         Logger.LogInformation("User clicked 'Cancel'");
+        if (Id is { } taskListId)
+        {
+            await ReleaseLockAsync(taskListId);
+        }
+
         NavigationManager.NavigateTo("/tasks");
+    }
+
+    /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>
+    private async Task AcquireLockAsync(Guid taskListId)
+    {
+        try
+        {
+            var outcome = await TasksApiClient.AcquireTaskListLockAsync(taskListId);
+            _lockedByUserName = outcome.Kind == EditOutcomeKind.Locked ? outcome.LockedByUserName : null;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+
+    /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>
+    private async Task ReleaseLockAsync(Guid taskListId)
+    {
+        StopLockHeartbeat();
+        if (_isSharedReadOnly)
+        {
+            return;
+        }
+
+        try
+        {
+            await TasksApiClient.ReleaseTaskListLockAsync(taskListId);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private void StartLockHeartbeat(Guid taskListId)
+    {
+        _lockHeartbeatCancellation = new CancellationTokenSource();
+        _lockHeartbeatTimer = new PeriodicTimer(LockHeartbeatInterval);
+        _ = LockHeartbeatLoopAsync(taskListId, _lockHeartbeatCancellation.Token);
+    }
+
+    private void StopLockHeartbeat()
+    {
+        _lockHeartbeatCancellation?.Cancel();
+        _lockHeartbeatCancellation?.Dispose();
+        _lockHeartbeatCancellation = null;
+        _lockHeartbeatTimer?.Dispose();
+        _lockHeartbeatTimer = null;
+    }
+
+    private async Task LockHeartbeatLoopAsync(Guid taskListId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _lockHeartbeatTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                await AcquireLockAsync(taskListId);
+                StateHasChanged();
+                if (_lockedByUserName is not null)
+                {
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (Id is { } taskListId)
+        {
+            await ReleaseLockAsync(taskListId);
+        }
+        else
+        {
+            StopLockHeartbeat();
+        }
     }
 
     /// <summary>

@@ -53,38 +53,52 @@ calling it.
 
 Notes and task lists can be shared with another user, on the same offer/accept mechanism as calendar
 events (see [Calendar](#calendar) below for the fuller explanation of that mechanism): `POST
-/api/notes/{id}/shares` (or `/api/tasks/{id}/shares`) offers a copy to `recipientUserId` and returns a
+/api/notes/{id}/shares` (or `/api/tasks/{id}/shares`) offers access to `recipientUserId` and returns a
 share id; the owner's client notifies the recipient with an encrypted chat message carrying that id
 (`NoteShareMessagePayload`/`TaskListShareMessagePayload`); `Chat.razor` renders an "Accept" action for
-it, which calls `POST /api/notes/shares/{shareId}/accept` (or the task-list equivalent) to create the
-recipient's own copy. A shared task list's items are copied as a snapshot, with each item's
-`linkedTaskListId` stripped — a link into the *owner's* other task lists would be meaningless, or worse,
-would point at a list the recipient can't see, once copied into the recipient's own task lists.
+it, which calls `POST /api/notes/shares/{shareId}/accept` (or the task-list equivalent) to record the
+grant as accepted.
 
-Every share — calendar event, note, or task list — carries an **access level**, chosen when the share is
-offered: `ReadOnly` (the default), `Share`, or `CanEdit` (`Orbit.Core.Abstractions.ShareAccessLevel`,
-declared in that order since the underlying int value doubles as a rank: `ReadOnly < Share < CanEdit`).
-Only `CanEdit` unlocks actually editing the copy — `UpdateNoteCommandHandler`/`UpdateTaskListCommandHandler`/
-`UpdateCalendarEventCommandHandler` all return "not found" for an update attempt on a shared copy whose
-access level is `ReadOnly` *or* `Share`, and the Blazor editor pages disable their form (via a `<fieldset
-disabled>`) and show a banner naming who shared it, for the same copies. Either way, a share is a
-one-time copy, not a live link: once accepted, editing the recipient's copy never changes the owner's
-original, and vice versa.
+**Sharing is live, not a copy.** There is exactly one row per note/task list/calendar event — accepting a
+share does not create a second copy of it. `NoteShare`/`TaskListShare`/`CalendarEventShare` are
+persistent access grants: a row that stays around for as long as access should, recording who owns the
+item, who it was offered to, and at what level. Every read of a shared item (`GetNoteByIdQuery`,
+`GetNotesQuery`, and the task-list/calendar-event equivalents) is resolved through a domain-specific
+access resolver (`NoteAccessResolver`/`TaskListAccessResolver`/`CalendarEventAccessResolver`), which
+loads the *one* underlying row — whether the caller owns it or only holds an accepted grant — and stamps
+it with caller-relative context (`IsShared`, `SharedByUserName`, `AccessLevel`) via
+`Note.SetAccessContext` before returning it. That context is never persisted; it's recomputed fresh for
+whoever is asking, so the same note reads as "yours" for the owner and "shared by {owner}" for a
+grantee, from the same row. Because everyone with access reads and writes the same row, an edit by one
+party is immediately visible to every other party with access — there's no separate copy to fall out of
+sync, which is also why an edit lock is needed (see below).
 
-**Re-sharing a received copy.** `Share` sits strictly between the other two levels for one purpose: a
-recipient needs at least `Share` to re-share their copy with someone else at all (a `ReadOnly` recipient
-can't share it further), and can never grant a level higher than their own — a `Share`-level recipient
-can only offer `ReadOnly` or `Share` onward, never `CanEdit`, while a `CanEdit` recipient can offer any of
-the three, same as the true owner. `ShareNoteCommandHandler`/`ShareTaskListCommandHandler`/
-`ShareCalendarEventCommandHandler` enforce this identically, and additionally refuse to let *anyone* —
-owner included — share back to the item's original owner (tracked as `OriginalOwnerUserId`, threaded
-through every re-share so it still points at the very first owner even after several hops, the same way
-a forwarded chat message's original author survives being forwarded again — see
-[Message forwarding](#message-forwarding) below). All of these are "not found" responses rather than a
-distinct "forbidden," so a caller can't tell "doesn't exist" apart from "exists but you can't share it"
-by probing ids. The Blazor editor pages mirror this: the sharing section is hidden entirely on a copy
-whose access level is `ReadOnly`, the access-level dropdown only offers levels the current user is
-allowed to grant, and the contact picker excludes the original owner.
+Every share carries an **access level**, chosen when the share is offered: `ReadOnly` (the default),
+`Share`, or `CanEdit` (`Orbit.Core.Abstractions.ShareAccessLevel`, declared in that order since the
+underlying int value doubles as a rank: `ReadOnly < Share < CanEdit`). Only `CanEdit` unlocks actually
+editing the item — `UpdateNoteCommandHandler`/`UpdateTaskListCommandHandler`/`UpdateCalendarEventCommandHandler`
+all return "not found" for an update attempt by a grantee whose access level is `ReadOnly` *or* `Share`,
+and the Blazor editor pages disable their form (via a `<fieldset disabled>`) for the same grantees.
+
+Every editor page shows a "shared by {name}" banner on any item the current user doesn't own, regardless
+of access level — not just the restricted ones — with the wording adapting to what the current access
+level actually allows ("read-only", "you can share it further, but not edit it", or "you can edit it").
+This banner is the *only* indication a `CanEdit` grantee is looking at someone else's item at all, since
+its form is otherwise fully editable and looks identical to something the user created themselves.
+
+**Re-sharing.** `Share` sits strictly between the other two levels for one purpose: a grantee needs at
+least `Share` to re-share the item with someone else at all (a `ReadOnly` grantee can't share it
+further), and can never grant a level higher than their own — a `Share`-level grantee can only offer
+`ReadOnly` or `Share` onward, never `CanEdit`, while a `CanEdit` grantee can offer any of the three, same
+as the true owner. `ShareNoteCommandHandler`/`ShareTaskListCommandHandler`/`ShareCalendarEventCommandHandler`
+enforce this identically, and additionally refuse to let *anyone* — owner included — share back to the
+item's actual owner (`Note.UserId`/`TaskList.UserId`/`CalendarEvent.UserId`): since there's only ever one
+underlying row now, its owner already has full access, so offering it back to them would be meaningless
+at best and a way to bypass the level cap above at worst. All of these are "not found" responses rather
+than a distinct "forbidden," so a caller can't tell "doesn't exist" apart from "exists but you can't
+share it" by probing ids. The Blazor editor pages mirror this: the sharing section is hidden entirely for
+a `ReadOnly` grantee, the access-level dropdown only offers levels the current user is allowed to grant,
+and the contact picker excludes the owner.
 
 **Duplicate offers.** Sharing something that was already offered to the same recipient — accepted or
 still pending — doesn't create a second `NoteShare`/`TaskListShare`/`CalendarEventShare` row.
@@ -95,6 +109,38 @@ way, but reuses the *existing* share's id rather than minting a new one, so it l
 pointing at the original offer instead of a confusing duplicate invite — the note/task-list editor pages
 show "Already shared with that contact - sent a reminder" in that case instead of implying a fresh share
 was created.
+
+### Edit locking
+
+Because a shared note, task list, or calendar event is a single live row rather than a per-user copy, two
+people with `CanEdit` access could otherwise open the same item at the same time and silently overwrite
+each other's changes. To prevent that, opening an editable item acquires a short-lived, per-item edit
+lock (`Note.LockedByUserId`/`LockedByUserName`/`LockExpiresAtUtc`, mirrored on `TaskList` and
+`CalendarEvent`): `NoteEditor.razor`/`TaskEditor.razor`/`CalendarEventEditor.razor` call `POST
+/api/notes/{id}/lock` (or the task-list/calendar-event equivalent) in `OnInitializedAsync` whenever the
+current user has `CanEdit` access, then re-send the same call every 20 seconds for as long as the editor
+stays open (a `PeriodicTimer` heartbeat, the same pattern `Chat.razor` uses for polling). Each successful
+acquire extends the lock 60 seconds into the future (`AcquireNoteLockCommandHandler.LockDuration`), so a
+lock outlives any single heartbeat gap but expires on its own — no explicit release needed — if the
+holder's browser closes, crashes, or goes to sleep before it can release.
+
+Acquiring a lock already held by someone else, or saving into one, returns HTTP 409 with a
+`LockConflictDto { lockedByUserName }` body (`Orbit.Core.Abstractions.EditOutcome`/`EditOutcomeKind`,
+mapped onto HTTP responses by each domain's `ToApiResult` helper: `Success` → 204, `Locked` → 409,
+anything else → 404). The editor pages surface this as a banner — "**{name}** is currently editing this
+note - you can't edit it right now." — and disable the form's `<fieldset>` for as long as someone else
+holds the lock, on top of (and independent from) the `ReadOnly`/`Share` access-level gating described
+above. Re-acquiring a lock you already hold is not a conflict — it's how the heartbeat refreshes your own
+TTL — and saving successfully releases your lock immediately afterward (`DELETE /api/notes/{id}/lock`)
+rather than waiting for it to expire, so the next editor can pick it up right away. Navigating away or
+closing the editor (`CancelAsync`, or `DisposeAsync` on any unmount) releases the lock the same way.
+
+Locking only ever applies to `CanEdit` access — a `ReadOnly` or `Share` grantee's form is already
+disabled by the access-level check above, so there's nothing for them to conflict over and no lock is
+acquired on their behalf. On `CalendarEventEditor.razor` specifically, the lock gates only the event's
+own content fieldset (`_canEditContent`), not the separately-gated Guests section (`_canShare`) — a
+`Share`-tier recipient can still add guests while someone else holds the content lock, mirroring how
+those two sections are already independent for access-level purposes.
 
 ## Tasks
 
@@ -190,16 +236,18 @@ two things once the event is saved: it adds them to `guests`, and it offers them
 the access level chosen alongside them in the picker (`ReadOnly` by default, `Share`, or `CanEdit`) —
 `ShareCalendarEventCommand` creates the offer, and `CalendarEventEditor.razor` notifies the recipient
 with an encrypted chat message carrying the share id (`EventShareMessagePayload`). The recipient sees an
-"Accept" action on that message in `Chat.razor`; accepting (`AcceptCalendarEventShareCommand`) creates a
-copy of the event in their own calendar (`CalendarEvent.IsShared = true`, `SharedByUserName` set to the
-sharer's login) rather than a live reference — editing the original afterwards never changes the
-recipient's copy, or vice versa. The event editor's content fields and its Guests section are gated
-independently (`_canEditContent` vs. `_canShare`): a `Share`-tier recipient can't touch the event's own
-details but can still add and invite guests, so the "Save" button only sends a `PUT` for the event's
-content when the current user actually has `CanEdit`. See
+"Accept" action on that message in `Chat.razor`; accepting (`AcceptCalendarEventShareCommand`) records
+the grant as accepted rather than creating a copy — the recipient reads and, with `CanEdit`, writes the
+very same event row as the owner (see
+[Notes — Sharing notes and task lists](#sharing-notes-and-task-lists) above for why sharing works this
+way). The event editor's content fields and its Guests section are gated independently
+(`_canEditContent` vs. `_canShare`): a `Share`-tier recipient can't touch the event's own details but can
+still add and invite guests, so the "Save" button only sends a `PUT` for the event's content when the
+current user actually has `CanEdit`. See
 [Notes — Sharing notes and task lists](#sharing-notes-and-task-lists) above for the full `ShareAccessLevel`
-model (the `Share`-tier re-sharing rules, the original-owner exclusion, and duplicate-offer handling all
-apply to calendar events exactly as described there).
+model (the `Share`-tier re-sharing rules, the owner exclusion, and duplicate-offer handling all apply to
+calendar events exactly as described there) and [Edit locking](#edit-locking) for how simultaneous
+`CanEdit` access to the same event is arbitrated.
 
 `DELETE /api/calendar-events/{id}` deletes an event, 404ing under the same ownership rule as the other
 endpoints. Any reminder claims already recorded for it in `EventReminderDeliveries` (see
@@ -306,8 +354,9 @@ needs to know a message is a forward at all. The recipient's `Chat.razor` decryp
 payload's `Type`, and renders a "Forwarded from {original author}" label above the message content
 instead of attributing it to whoever actually forwarded it. Forwarding an already-forwarded message
 preserves the *original* author through any number of hops, not the most recent forwarder — `Chat.razor`
-tracks each decrypted message's original author locally and carries it forward the same way
-`OriginalOwnerUserId` survives multiple re-shares of a note, task list, or calendar event (see
+tracks each decrypted message's original author locally and carries it forward the same way a note,
+task list, or calendar event's re-share chain always resolves back to its one true owner rather than
+whoever most recently re-shared it (see
 [Notes — Sharing notes and task lists](#sharing-notes-and-task-lists) above). The "Forward to…" picker
 excludes the conversation the message is already in, since forwarding a message back into the same chat
 it came from is meaningless.

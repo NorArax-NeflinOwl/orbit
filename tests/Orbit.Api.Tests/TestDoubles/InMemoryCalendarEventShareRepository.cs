@@ -38,4 +38,14 @@ internal sealed class InMemoryCalendarEventShareRepository : ICalendarEventShare
     public Task<CalendarEventShare?> FindExistingAsync(Guid sourceCalendarEventId, Guid recipientUserId, CancellationToken cancellationToken)
         => Task.FromResult(_shares.FirstOrDefault(
             share => share.SourceCalendarEventId == sourceCalendarEventId && share.RecipientUserId == recipientUserId));
+
+    public Task<CalendarEventShare?> FindAcceptedGrantAsync(Guid sourceCalendarEventId, Guid recipientUserId, CancellationToken cancellationToken)
+        => Task.FromResult(_shares.FirstOrDefault(
+            share => share.SourceCalendarEventId == sourceCalendarEventId && share.RecipientUserId == recipientUserId && share.IsAccepted));
+
+    public Task<IReadOnlyList<CalendarEventShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<CalendarEventShare> grants = _shares.Where(share => share.RecipientUserId == recipientUserId && share.IsAccepted).ToList();
+        return Task.FromResult(grants);
+    }
 }

@@ -8,12 +8,15 @@ namespace Orbit.Api.Tests.Notes;
 
 public sealed class ShareNoteCommandHandlerTests
 {
+    private static ShareNoteCommandHandler CreateHandler(InMemoryNoteRepository noteRepository, InMemoryNoteShareRepository noteShareRepository)
+        => new(new NoteAccessResolver(noteRepository, noteShareRepository, new InMemoryUserRepository()), noteShareRepository);
+
     [Fact]
     public async Task HandleAsync_creates_a_share_for_a_note_owned_by_the_requesting_user()
     {
         var noteRepository = new InMemoryNoteRepository();
         var shareRepository = new InMemoryNoteShareRepository();
-        var handler = new ShareNoteCommandHandler(noteRepository, shareRepository);
+        var handler = CreateHandler(noteRepository, shareRepository);
         var ownerId = Guid.NewGuid();
         var recipientId = Guid.NewGuid();
         var note = Note.Create(ownerId, "Shopping list", [NoteContentLine.PlainText("Milk, eggs")]);
@@ -30,7 +33,6 @@ public sealed class ShareNoteCommandHandlerTests
         Assert.Equal(ownerId, share.OwnerUserId);
         Assert.Equal(recipientId, share.RecipientUserId);
         Assert.Equal(ShareAccessLevel.CanEdit, share.AccessLevel);
-        Assert.Equal(ownerId, share.OriginalOwnerUserId);
         Assert.False(share.IsAccepted);
     }
 
@@ -38,7 +40,7 @@ public sealed class ShareNoteCommandHandlerTests
     public async Task HandleAsync_returns_null_for_a_note_not_owned_by_the_requesting_user()
     {
         var noteRepository = new InMemoryNoteRepository();
-        var handler = new ShareNoteCommandHandler(noteRepository, new InMemoryNoteShareRepository());
+        var handler = CreateHandler(noteRepository, new InMemoryNoteShareRepository());
         var ownerId = Guid.NewGuid();
         var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
         await noteRepository.AddAsync(note, CancellationToken.None);
@@ -52,7 +54,7 @@ public sealed class ShareNoteCommandHandlerTests
     [Fact]
     public async Task HandleAsync_returns_null_for_an_unknown_note_id()
     {
-        var handler = new ShareNoteCommandHandler(new InMemoryNoteRepository(), new InMemoryNoteShareRepository());
+        var handler = CreateHandler(new InMemoryNoteRepository(), new InMemoryNoteShareRepository());
 
         var outcome = await handler.HandleAsync(
             new ShareNoteCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
@@ -61,33 +63,43 @@ public sealed class ShareNoteCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_returns_null_when_sharing_back_to_the_original_owner()
+    public async Task HandleAsync_returns_null_when_sharing_back_to_the_owner()
     {
         var noteRepository = new InMemoryNoteRepository();
-        var handler = new ShareNoteCommandHandler(noteRepository, new InMemoryNoteShareRepository());
+        var handler = CreateHandler(noteRepository, new InMemoryNoteShareRepository());
         var ownerId = Guid.NewGuid();
         var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
         await noteRepository.AddAsync(note, CancellationToken.None);
 
-        var outcome = await handler.HandleAsync(
-            new ShareNoteCommand(ownerId, note.Id, ownerId), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new ShareNoteCommand(ownerId, note.Id, ownerId), CancellationToken.None);
 
         Assert.Null(outcome);
     }
 
+    /// <summary>Sets up noteRepository/noteShareRepository so recipientId has an accepted grant of accessLevel on a note owned by a fresh owner id.</summary>
+    private static async Task<(Guid OwnerId, Guid RecipientId, Note Note)> ShareNoteWithAcceptedGrantAsync(
+        InMemoryNoteRepository noteRepository, InMemoryNoteShareRepository noteShareRepository, ShareAccessLevel accessLevel)
+    {
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
+        await noteRepository.AddAsync(note, CancellationToken.None);
+        var grant = NoteShare.Create(note.Id, ownerId, recipientId, accessLevel);
+        grant.MarkAccepted();
+        await noteShareRepository.AddAsync(grant, CancellationToken.None);
+        return (ownerId, recipientId, note);
+    }
+
     [Fact]
-    public async Task HandleAsync_lets_a_CanEdit_recipient_re_share_at_any_level_except_back_to_the_original_owner()
+    public async Task HandleAsync_lets_a_CanEdit_recipient_re_share_at_any_level_except_back_to_the_owner()
     {
         var noteRepository = new InMemoryNoteRepository();
-        var handler = new ShareNoteCommandHandler(noteRepository, new InMemoryNoteShareRepository());
-        var originalOwnerId = Guid.NewGuid();
-        var recipientId = Guid.NewGuid();
-        var thirdPartyId = Guid.NewGuid();
-        var sharedCopy = Note.CreateShared(recipientId, "Title", [], "owner", ShareAccessLevel.CanEdit, originalOwnerId);
-        await noteRepository.AddAsync(sharedCopy, CancellationToken.None);
+        var noteShareRepository = new InMemoryNoteShareRepository();
+        var (_, recipientId, note) = await ShareNoteWithAcceptedGrantAsync(noteRepository, noteShareRepository, ShareAccessLevel.CanEdit);
+        var handler = CreateHandler(noteRepository, noteShareRepository);
 
         var outcome = await handler.HandleAsync(
-            new ShareNoteCommand(recipientId, sharedCopy.Id, thirdPartyId, ShareAccessLevel.CanEdit), CancellationToken.None);
+            new ShareNoteCommand(recipientId, note.Id, Guid.NewGuid(), ShareAccessLevel.CanEdit), CancellationToken.None);
 
         Assert.NotNull(outcome);
     }
@@ -96,14 +108,11 @@ public sealed class ShareNoteCommandHandlerTests
     public async Task HandleAsync_returns_null_when_a_ReadOnly_recipient_tries_to_re_share()
     {
         var noteRepository = new InMemoryNoteRepository();
-        var handler = new ShareNoteCommandHandler(noteRepository, new InMemoryNoteShareRepository());
-        var originalOwnerId = Guid.NewGuid();
-        var recipientId = Guid.NewGuid();
-        var sharedCopy = Note.CreateShared(recipientId, "Title", [], "owner", ShareAccessLevel.ReadOnly, originalOwnerId);
-        await noteRepository.AddAsync(sharedCopy, CancellationToken.None);
+        var noteShareRepository = new InMemoryNoteShareRepository();
+        var (_, recipientId, note) = await ShareNoteWithAcceptedGrantAsync(noteRepository, noteShareRepository, ShareAccessLevel.ReadOnly);
+        var handler = CreateHandler(noteRepository, noteShareRepository);
 
-        var outcome = await handler.HandleAsync(
-            new ShareNoteCommand(recipientId, sharedCopy.Id, Guid.NewGuid()), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new ShareNoteCommand(recipientId, note.Id, Guid.NewGuid()), CancellationToken.None);
 
         Assert.Null(outcome);
     }
@@ -112,18 +121,16 @@ public sealed class ShareNoteCommandHandlerTests
     public async Task HandleAsync_lets_a_Share_tier_recipient_re_share_at_ReadOnly_or_Share_but_not_CanEdit()
     {
         var noteRepository = new InMemoryNoteRepository();
-        var handler = new ShareNoteCommandHandler(noteRepository, new InMemoryNoteShareRepository());
-        var originalOwnerId = Guid.NewGuid();
-        var recipientId = Guid.NewGuid();
-        var sharedCopy = Note.CreateShared(recipientId, "Title", [], "owner", ShareAccessLevel.Share, originalOwnerId);
-        await noteRepository.AddAsync(sharedCopy, CancellationToken.None);
+        var noteShareRepository = new InMemoryNoteShareRepository();
+        var (_, recipientId, note) = await ShareNoteWithAcceptedGrantAsync(noteRepository, noteShareRepository, ShareAccessLevel.Share);
+        var handler = CreateHandler(noteRepository, noteShareRepository);
 
         var readOnlyOutcome = await handler.HandleAsync(
-            new ShareNoteCommand(recipientId, sharedCopy.Id, Guid.NewGuid(), ShareAccessLevel.ReadOnly), CancellationToken.None);
+            new ShareNoteCommand(recipientId, note.Id, Guid.NewGuid(), ShareAccessLevel.ReadOnly), CancellationToken.None);
         var shareOutcome = await handler.HandleAsync(
-            new ShareNoteCommand(recipientId, sharedCopy.Id, Guid.NewGuid(), ShareAccessLevel.Share), CancellationToken.None);
+            new ShareNoteCommand(recipientId, note.Id, Guid.NewGuid(), ShareAccessLevel.Share), CancellationToken.None);
         var canEditOutcome = await handler.HandleAsync(
-            new ShareNoteCommand(recipientId, sharedCopy.Id, Guid.NewGuid(), ShareAccessLevel.CanEdit), CancellationToken.None);
+            new ShareNoteCommand(recipientId, note.Id, Guid.NewGuid(), ShareAccessLevel.CanEdit), CancellationToken.None);
 
         Assert.NotNull(readOnlyOutcome);
         Assert.NotNull(shareOutcome);
@@ -135,16 +142,14 @@ public sealed class ShareNoteCommandHandlerTests
     {
         var noteRepository = new InMemoryNoteRepository();
         var shareRepository = new InMemoryNoteShareRepository();
-        var handler = new ShareNoteCommandHandler(noteRepository, shareRepository);
+        var handler = CreateHandler(noteRepository, shareRepository);
         var ownerId = Guid.NewGuid();
         var recipientId = Guid.NewGuid();
         var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
         await noteRepository.AddAsync(note, CancellationToken.None);
 
-        var firstOutcome = await handler.HandleAsync(
-            new ShareNoteCommand(ownerId, note.Id, recipientId), CancellationToken.None);
-        var secondOutcome = await handler.HandleAsync(
-            new ShareNoteCommand(ownerId, note.Id, recipientId), CancellationToken.None);
+        var firstOutcome = await handler.HandleAsync(new ShareNoteCommand(ownerId, note.Id, recipientId), CancellationToken.None);
+        var secondOutcome = await handler.HandleAsync(new ShareNoteCommand(ownerId, note.Id, recipientId), CancellationToken.None);
 
         Assert.NotNull(firstOutcome);
         Assert.False(firstOutcome!.AlreadyShared);

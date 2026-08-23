@@ -1486,6 +1486,18 @@ input.note-editor-title {
     padding: 0.5rem 0.75rem;
 }
 
+/* NoteEditor.razor/TaskEditor.razor/CalendarEventEditor.razor: shown instead of (or alongside) the
+   shared-by banner when someone else currently holds the edit lock (see Note/TaskList/CalendarEvent's
+   LockedByUserId) - --danger rather than --bg-subtle since, unlike the shared-by banner, this is an
+   active reason the form is disabled right now, not just background provenance. */
+.lock-banner {
+    background: color-mix(in oklch, var(--danger) 12%, var(--bg-elevated));
+    border: 1px solid var(--danger);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    padding: 0.5rem 0.75rem;
+}
+
 /* Chat.razor: the confirmation line shown in place of the "Akceptuj" button once an event-share message
    has been accepted. */
 .event-share-status {

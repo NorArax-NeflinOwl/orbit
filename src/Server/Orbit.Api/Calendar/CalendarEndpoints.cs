@@ -5,11 +5,13 @@ using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.AcceptCalendarEventShare;
+using Orbit.Core.Calendar.AcquireCalendarEventLock;
 using Orbit.Core.Calendar.CreateCalendarEvent;
 using Orbit.Core.Calendar.DeleteCalendarEvent;
 using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
 using Orbit.Core.Calendar.GetCalendarEventShareStatus;
+using Orbit.Core.Calendar.ReleaseCalendarEventLock;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Notifications;
@@ -47,15 +49,28 @@ public static class CalendarEndpoints
         calendarEvents.MapPut("/{id:guid}", async (
             Guid id, UpdateCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var updated = await dispatcher.SendAsync(
+            var outcome = await dispatcher.SendAsync(
                 new UpdateCalendarEventCommand(GetUserId(user), id, ToDomainDetails(request.Details)), cancellationToken);
-            return updated ? Results.NoContent() : Results.NotFound();
+            return ToApiResult(outcome);
         });
 
         calendarEvents.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var deleted = await dispatcher.SendAsync(new DeleteCalendarEventCommand(GetUserId(user), id), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Mirrors NoteEndpoints' equivalent lock endpoints - see AcquireCalendarEventLockCommand's comment.
+        calendarEvents.MapPost("/{id:guid}/lock", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(new AcquireCalendarEventLockCommand(GetUserId(user), id), cancellationToken);
+            return ToApiResult(outcome);
+        });
+
+        calendarEvents.MapDelete("/{id:guid}/lock", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(new ReleaseCalendarEventLockCommand(GetUserId(user), id), cancellationToken);
+            return Results.NoContent();
         });
 
         // Offers a read-only copy of an owned event to another user - see ShareCalendarEventCommand.
@@ -143,7 +158,8 @@ public static class CalendarEndpoints
 
         return new CalendarEventDto(
             calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,
-            calendarEvent.IsShared, calendarEvent.SharedByUserName, calendarEvent.AccessLevel.ToString(), calendarEvent.OriginalOwnerUserId);
+            calendarEvent.IsShared, calendarEvent.SharedByUserName, calendarEvent.AccessLevel.ToString(),
+            calendarEvent.IsShared ? calendarEvent.UserId : null);
     }
 
     private static EventLocationDto? ToLocationDto(EventLocation? location)
@@ -151,4 +167,12 @@ public static class CalendarEndpoints
 
     private static RecurrenceDto? ToRecurrenceDto(EventRecurrence? recurrence)
         => recurrence is null ? null : new RecurrenceDto(recurrence.Frequency.ToString(), recurrence.IntervalCount, recurrence.UntilUtc);
+
+    /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
+    private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch
+    {
+        EditOutcomeKind.Success => Results.NoContent(),
+        EditOutcomeKind.Locked => Results.Json(new LockConflictDto(outcome.LockedByUserName!), statusCode: StatusCodes.Status409Conflict),
+        _ => Results.NotFound()
+    };
 }

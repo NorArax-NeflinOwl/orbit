@@ -298,7 +298,7 @@ namespace Orbit.Data.Migrations
                     b.Property<Guid?>("OriginalOwnerUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("SharedByUserName")
+                    b.Property<string>("LockedByUserName")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
@@ -470,7 +470,7 @@ namespace Orbit.Data.Migrations
                     b.Property<Guid?>("OriginalOwnerUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("SharedByUserName")
+                    b.Property<string>("LockedByUserName")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 

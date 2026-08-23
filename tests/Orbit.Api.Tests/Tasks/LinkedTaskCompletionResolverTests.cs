@@ -1,4 +1,3 @@
-using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Xunit;
 
@@ -74,9 +73,9 @@ public sealed class LinkedTaskCompletionResolverTests
         // TaskListLinkValidator is what normally prevents this from ever being saved - this constructs
         // the scenario directly to confirm the resolver itself has a defensive backstop.
         var listX = TaskList.FromPersistence(
-            listXId, userId, "X", [TaskItem.Create("Depends on Y", null, false, listYId)], now, now, false, null, ShareAccessLevel.ReadOnly, null);
+            listXId, userId, "X", [TaskItem.Create("Depends on Y", null, false, listYId)], now, now, null, null, null);
         var listY = TaskList.FromPersistence(
-            listYId, userId, "Y", [TaskItem.Create("Depends on X", null, false, listXId)], now, now, false, null, ShareAccessLevel.ReadOnly, null);
+            listYId, userId, "Y", [TaskItem.Create("Depends on X", null, false, listXId)], now, now, null, null, null);
 
         var resolved = _resolver.ResolveAll([listX, listY]);
 

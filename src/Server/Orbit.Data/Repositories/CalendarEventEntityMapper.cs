@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
@@ -42,8 +41,8 @@ internal static class CalendarEventEntityMapper
             Enum.Parse<NotificationChannel>(entity.ReminderNotificationChannel));
 
         return CalendarEvent.FromPersistence(
-            entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc, entity.IsShared, entity.SharedByUserName,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.OriginalOwnerUserId);
+            entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc,
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc);
     }
 
     public static CalendarEventEntity ToEntity(CalendarEvent calendarEvent)
@@ -69,10 +68,9 @@ internal static class CalendarEventEntityMapper
             RemindersJson = JsonSerializer.Serialize(details.ReminderMinutesBeforeStart),
             CreationNotificationChannel = details.CreationNotificationChannel.ToString(),
             ReminderNotificationChannel = details.ReminderNotificationChannel.ToString(),
-            IsShared = calendarEvent.IsShared,
-            SharedByUserName = calendarEvent.SharedByUserName,
-            AccessLevel = calendarEvent.AccessLevel.ToString(),
-            OriginalOwnerUserId = calendarEvent.OriginalOwnerUserId,
+            LockedByUserId = calendarEvent.LockedByUserId,
+            LockedByUserName = calendarEvent.LockedByUserName,
+            LockExpiresAtUtc = calendarEvent.LockExpiresAtUtc,
             CreatedAtUtc = calendarEvent.CreatedAtUtc,
             UpdatedAtUtc = calendarEvent.UpdatedAtUtc
         };

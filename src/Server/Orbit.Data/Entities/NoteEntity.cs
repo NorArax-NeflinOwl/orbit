@@ -2,7 +2,11 @@ namespace Orbit.Data.Entities;
 
 /// <summary>
 /// Persistence shape of a note, mapped separately from <see cref="Orbit.Core.Notes.Note"/> so schema
-/// changes don't force changes onto domain logic, and vice versa.
+/// changes don't force changes onto domain logic, and vice versa. UserId is always the note's one true,
+/// permanent owner - sharing (see NoteShareEntity) grants other users access to this same row rather
+/// than copying it, so unlike an earlier version of this table there is no IsShared/SharedByUserName/
+/// AccessLevel here: those describe how a given caller relates to the note, computed fresh on every
+/// read by NoteAccessResolver, never stored.
 /// </summary>
 public sealed class NoteEntity
 {
@@ -13,17 +17,14 @@ public sealed class NoteEntity
     /// <summary>JSON-encoded list of NoteContentLine (text + checklist state per line) - SQLite has no native array/object column type. See CalendarEventEntity.GuestsJson for the same convention.</summary>
     public string ContentJson { get; set; } = "[]";
 
-    /// <summary>True for a copy created by accepting a share offered by another user.</summary>
-    public bool IsShared { get; set; }
+    /// <summary>The user id currently holding the edit lock, if any - see Orbit.Core.Notes.Note.LockedByUserId.</summary>
+    public Guid? LockedByUserId { get; set; }
 
-    /// <summary>The sharing user's login, captured once at share-acceptance time. Null when IsShared is false.</summary>
-    public string? SharedByUserName { get; set; }
+    /// <summary>The locking user's login, captured at lock-acquisition time. Null when LockedByUserId is null.</summary>
+    public string? LockedByUserName { get; set; }
 
-    /// <summary>"ReadOnly", "Share", or "CanEdit", captured once at share-acceptance time. Meaningless when IsShared is false.</summary>
-    public string AccessLevel { get; set; } = "ReadOnly";
-
-    /// <summary>The user id of whoever first created this note, before any sharing. Null when IsShared is false.</summary>
-    public Guid? OriginalOwnerUserId { get; set; }
+    /// <summary>Once past, the lock is treated as abandoned - see Orbit.Core.Notes.Note.LockExpiresAtUtc.</summary>
+    public DateTimeOffset? LockExpiresAtUtc { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }

@@ -57,13 +57,25 @@ public sealed class NotesApiClient
         }
     }
 
-    public async Task UpdateNoteAsync(Guid id, UpdateNoteRequest request, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// NotFound covers the note being missing, not accessible, or accessible only at ReadOnly/Share (no
+    /// edit rights) - the API 404s for all three, without telling the client which one applies. Locked
+    /// means someone else currently holds the edit lock - see AcquireNoteLockAsync, which
+    /// NoteEditor.razor is expected to have already called successfully before ever reaching this point,
+    /// so getting Locked back here means the lock was taken or expired out from under it mid-edit.
+    /// </summary>
+    public async Task<EditOutcome> UpdateNoteAsync(Guid id, UpdateNoteRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
             var response = await _httpClient.PutAsJsonAsync($"api/notes/{id}", request, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            _logger.LogActionCompleted(ClientActionCategory.Edit, "Update note");
+            var outcome = await ToEditOutcomeAsync(response, cancellationToken);
+            if (outcome.Kind == EditOutcomeKind.Success)
+            {
+                _logger.LogActionCompleted(ClientActionCategory.Edit, "Update note");
+            }
+
+            return outcome;
         }
         catch (Exception exception)
         {
@@ -76,6 +88,41 @@ public sealed class NotesApiClient
     {
         var response = await _httpClient.DeleteAsync($"api/notes/{id}", cancellationToken);
         response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Acquires (or refreshes, if this browser already holds it) the edit lock on noteId - see
+    /// AcquireNoteLockCommand. NoteEditor.razor calls this once when opening a note it has CanEdit
+    /// access to, then again on a heartbeat while the editor stays open.
+    /// </summary>
+    public async Task<EditOutcome> AcquireNoteLockAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/notes/{id}/lock", content: null, cancellationToken);
+        return await ToEditOutcomeAsync(response, cancellationToken);
+    }
+
+    /// <summary>Releases this browser's own edit lock on noteId, if it holds one - a no-op otherwise.</summary>
+    public async Task ReleaseNoteLockAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/notes/{id}/lock", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return EditOutcome.NotFound;
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
+            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? "another user");
+        }
+
+        response.EnsureSuccessStatusCode();
+        return EditOutcome.Success;
     }
 
     /// <summary>

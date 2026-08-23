@@ -44,11 +44,31 @@ public sealed class TaskListShareRepository : ITaskListShareRepository
         return entity is null ? null : ToDomain(entity);
     }
 
+    public async Task<TaskListShare?> FindAcceptedGrantAsync(Guid sourceTaskListId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.TaskShares
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                share => share.SourceTaskListId == sourceTaskListId && share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null,
+                cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
+    public async Task<IReadOnlyList<TaskListShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.TaskShares
+            .AsNoTracking()
+            .Where(share => share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
     private static TaskListShare ToDomain(TaskShareEntity entity)
         => TaskListShare.FromPersistence(
             entity.Id, entity.SourceTaskListId, entity.OwnerUserId, entity.RecipientUserId,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedTaskListId,
-            entity.OriginalOwnerUserId);
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc);
 
     private static TaskShareEntity ToEntity(TaskListShare share)
         => new()
@@ -59,8 +79,6 @@ public sealed class TaskListShareRepository : ITaskListShareRepository
             RecipientUserId = share.RecipientUserId,
             AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
-            AcceptedAtUtc = share.AcceptedAtUtc,
-            SharedTaskListId = share.SharedTaskListId,
-            OriginalOwnerUserId = share.OriginalOwnerUserId
+            AcceptedAtUtc = share.AcceptedAtUtc
         };
 }

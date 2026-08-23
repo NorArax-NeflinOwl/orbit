@@ -2,34 +2,42 @@ using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Tasks.UpdateTaskList;
 
-public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskListCommand, bool>
+public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskListCommand, EditOutcome>
 {
+    private readonly TaskListAccessResolver _taskListAccessResolver;
     private readonly ITaskRepository _taskRepository;
     private readonly TaskListLinkValidator _taskListLinkValidator;
 
-    public UpdateTaskListCommandHandler(ITaskRepository taskRepository, TaskListLinkValidator taskListLinkValidator)
+    public UpdateTaskListCommandHandler(
+        TaskListAccessResolver taskListAccessResolver, ITaskRepository taskRepository, TaskListLinkValidator taskListLinkValidator)
     {
+        _taskListAccessResolver = taskListAccessResolver;
         _taskRepository = taskRepository;
         _taskListLinkValidator = taskListLinkValidator;
     }
 
-    /// <summary>
-    /// Returns false instead of throwing when the task list is missing, not owned by the requesting
-    /// user, or is a shared copy without CanEdit access (ReadOnly or Share - see ShareAccessLevel), so
-    /// the API can turn any of those into a 404, without leaking which one applies.
-    /// </summary>
-    public async Task<bool> HandleAsync(UpdateTaskListCommand request, CancellationToken cancellationToken)
+    /// <summary>Mirrors Orbit.Core.Notes.UpdateNote.UpdateNoteCommandHandler - see its class comment for what NotFound/Locked mean here.</summary>
+    public async Task<EditOutcome> HandleAsync(UpdateTaskListCommand request, CancellationToken cancellationToken)
     {
-        var taskList = await _taskRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
-        if (taskList is null || (taskList.IsShared && taskList.AccessLevel != ShareAccessLevel.CanEdit))
+        var taskList = await _taskListAccessResolver.ResolveAsync(request.UserId, request.Id, cancellationToken);
+        if (taskList is null || taskList.AccessLevel != ShareAccessLevel.CanEdit)
         {
-            return false;
+            return EditOutcome.NotFound;
         }
 
-        await _taskListLinkValidator.ValidateAsync(request.UserId, request.Id, request.Items, cancellationToken);
+        var nowUtc = DateTimeOffset.UtcNow;
+        if (taskList.IsLockedByAnotherUser(request.UserId, nowUtc))
+        {
+            return EditOutcome.LockedBy(taskList.LockedByUserName!);
+        }
+
+        // Scoped to the list's actual owner, not the caller (who may be editing via a share) - a linked
+        // item only makes sense pointing at one of the *owner's* other task lists, the same universe
+        // TaskListLinkValidator has always validated against.
+        await _taskListLinkValidator.ValidateAsync(taskList.UserId, request.Id, request.Items, cancellationToken);
 
         taskList.Update(request.Title, request.Items);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
-        return true;
+        return EditOutcome.Success;
     }
 }
