@@ -2,7 +2,8 @@ using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Tasks.ShareTaskList;
 
-public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListCommand, Guid?>
+/// <summary>Mirrors Orbit.Core.Notes.ShareNote.ShareNoteCommandHandler - see its class comment for the permission rules enforced here.</summary>
+public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListCommand, ShareOutcome?>
 {
     private readonly ITaskRepository _taskRepository;
     private readonly ITaskListShareRepository _taskListShareRepository;
@@ -13,7 +14,7 @@ public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListC
         _taskListShareRepository = taskListShareRepository;
     }
 
-    public async Task<Guid?> HandleAsync(ShareTaskListCommand request, CancellationToken cancellationToken)
+    public async Task<ShareOutcome?> HandleAsync(ShareTaskListCommand request, CancellationToken cancellationToken)
     {
         var sourceTaskList = await _taskRepository.GetByIdAsync(request.OwnerUserId, request.TaskListId, cancellationToken);
         if (sourceTaskList is null)
@@ -21,8 +22,26 @@ public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListC
             return null;
         }
 
-        var share = TaskListShare.Create(sourceTaskList.Id, request.OwnerUserId, request.RecipientUserId, request.AccessLevel);
+        var originalOwnerUserId = sourceTaskList.EffectiveOwnerUserId;
+        if (request.RecipientUserId == originalOwnerUserId)
+        {
+            return null;
+        }
+
+        if (sourceTaskList.IsShared
+            && (sourceTaskList.AccessLevel < ShareAccessLevel.Share || request.AccessLevel > sourceTaskList.AccessLevel))
+        {
+            return null;
+        }
+
+        var existingShare = await _taskListShareRepository.FindExistingAsync(sourceTaskList.Id, request.RecipientUserId, cancellationToken);
+        if (existingShare is not null)
+        {
+            return new ShareOutcome(existingShare.Id, AlreadyShared: true);
+        }
+
+        var share = TaskListShare.Create(sourceTaskList.Id, request.OwnerUserId, request.RecipientUserId, originalOwnerUserId, request.AccessLevel);
         await _taskListShareRepository.AddAsync(share, cancellationToken);
-        return share.Id;
+        return new ShareOutcome(share.Id, AlreadyShared: false);
     }
 }

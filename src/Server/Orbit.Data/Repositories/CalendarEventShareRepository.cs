@@ -42,10 +42,21 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
             .Select(share => share.RecipientUserId)
             .ToListAsync(cancellationToken);
 
+    public async Task<CalendarEventShare?> FindExistingAsync(Guid sourceCalendarEventId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.CalendarEventShares
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                share => share.SourceCalendarEventId == sourceCalendarEventId && share.RecipientUserId == recipientUserId, cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
     private static CalendarEventShare ToDomain(CalendarEventShareEntity entity)
         => CalendarEventShare.FromPersistence(
             entity.Id, entity.SourceCalendarEventId, entity.OwnerUserId, entity.RecipientUserId,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedCalendarEventId);
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedCalendarEventId,
+            entity.OriginalOwnerUserId);
 
     private static CalendarEventShareEntity ToEntity(CalendarEventShare share)
         => new()
@@ -57,6 +68,7 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
             AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc,
-            SharedCalendarEventId = share.SharedCalendarEventId
+            SharedCalendarEventId = share.SharedCalendarEventId,
+            OriginalOwnerUserId = share.OriginalOwnerUserId
         };
 }

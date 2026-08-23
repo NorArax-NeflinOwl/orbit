@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Notes;
+using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Web.Services.Logging;
 
@@ -78,13 +79,16 @@ public sealed class NotesApiClient
     }
 
     /// <summary>
-    /// Offers a copy of noteId to recipientUserId under the given access level ("ReadOnly" or
-    /// "CanEdit" - see Orbit.Core.Abstractions.ShareAccessLevel), returning the new share's id, or null
-    /// if noteId doesn't exist or isn't owned by the caller. Notifying the recipient (an encrypted chat
-    /// message carrying that id) is a separate step - see EncryptedChatMessageSender. Mirrors
-    /// CalendarApiClient.ShareCalendarEventAsync.
+    /// Offers a copy of noteId to recipientUserId under the given access level ("ReadOnly", "Share", or
+    /// "CanEdit" - see Orbit.Core.Abstractions.ShareAccessLevel), or null if noteId doesn't exist, isn't
+    /// accessible to the caller, or the caller isn't allowed to share it (see ShareNoteCommandHandler).
+    /// <see cref="ShareResultDto.AlreadyShared"/> is true when noteId was already offered to
+    /// recipientUserId - the returned ShareId is the existing offer's, not a new one, so the caller can
+    /// send it again as a reminder instead of creating a duplicate. Notifying the recipient (an
+    /// encrypted chat message carrying that id) is a separate step - see EncryptedChatMessageSender.
+    /// Mirrors CalendarApiClient.ShareCalendarEventAsync.
     /// </summary>
-    public async Task<Guid?> ShareNoteAsync(
+    public async Task<ShareResultDto?> ShareNoteAsync(
         Guid noteId, Guid recipientUserId, string accessLevel = "ReadOnly", CancellationToken cancellationToken = default)
     {
         try
@@ -97,9 +101,9 @@ public sealed class NotesApiClient
             }
 
             response.EnsureSuccessStatusCode();
-            var shareId = await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+            var result = await response.Content.ReadFromJsonAsync<ShareResultDto>(cancellationToken: cancellationToken);
             _logger.LogActionCompleted(ClientActionCategory.ShareElement, "Share note");
-            return shareId;
+            return result;
         }
         catch (Exception exception)
         {

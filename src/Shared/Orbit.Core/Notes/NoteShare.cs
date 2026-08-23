@@ -21,11 +21,19 @@ public sealed class NoteShare
     /// <summary>The copy created in the recipient's own notes - set once accepted, null until then.</summary>
     public Guid? SharedNoteId { get; private set; }
 
+    /// <summary>
+    /// The id of the user who first created the note being offered, before any sharing - computed once
+    /// by ShareNoteCommandHandler at offer time (from the source note's own
+    /// <see cref="Note.EffectiveOwnerUserId"/>) and carried onto the recipient's copy once accepted, see
+    /// <see cref="Note.OriginalOwnerUserId"/>.
+    /// </summary>
+    public Guid OriginalOwnerUserId { get; private set; }
+
     public bool IsAccepted => AcceptedAtUtc is not null;
 
     private NoteShare(
         Guid id, Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedNoteId)
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedNoteId, Guid originalOwnerUserId)
     {
         Id = id;
         SourceNoteId = sourceNoteId;
@@ -35,20 +43,21 @@ public sealed class NoteShare
         CreatedAtUtc = createdAtUtc;
         AcceptedAtUtc = acceptedAtUtc;
         SharedNoteId = sharedNoteId;
+        OriginalOwnerUserId = originalOwnerUserId;
     }
 
     public static NoteShare Create(
-        Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
+        Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, Guid originalOwnerUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
         => new(Guid.NewGuid(), sourceNoteId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow,
-            acceptedAtUtc: null, sharedNoteId: null);
+            acceptedAtUtc: null, sharedNoteId: null, originalOwnerUserId);
 
     /// <summary>
     /// Rebuilds a share from already-persisted values, bypassing creation rules.
     /// </summary>
     public static NoteShare FromPersistence(
         Guid id, Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedNoteId)
-        => new(id, sourceNoteId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc, sharedNoteId);
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedNoteId, Guid originalOwnerUserId)
+        => new(id, sourceNoteId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc, sharedNoteId, originalOwnerUserId);
 
     /// <summary>
     /// No-op if already accepted, so accepting the same share twice (e.g. a duplicate click) never

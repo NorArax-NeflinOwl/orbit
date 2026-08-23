@@ -16,4 +16,7 @@ public sealed class NoteShareEntity
 
     /// <summary>The copy created in the recipient's own notes - set once accepted, null until then.</summary>
     public Guid? SharedNoteId { get; set; }
+
+    /// <summary>The user id of whoever first created the note being offered, before any sharing.</summary>
+    public Guid OriginalOwnerUserId { get; set; }
 }

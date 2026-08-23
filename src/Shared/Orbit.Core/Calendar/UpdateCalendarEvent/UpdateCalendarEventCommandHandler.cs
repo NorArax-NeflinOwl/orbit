@@ -13,13 +13,13 @@ public sealed class UpdateCalendarEventCommandHandler : IRequestHandler<UpdateCa
 
     /// <summary>
     /// Returns false instead of throwing when the event is missing, not owned by the requesting user, or
-    /// is a read-only shared copy, so the API can turn any of those into a 404, without leaking which
-    /// one applies.
+    /// is a shared copy without CanEdit access (ReadOnly or Share - see ShareAccessLevel), so the API
+    /// can turn any of those into a 404, without leaking which one applies.
     /// </summary>
     public async Task<bool> HandleAsync(UpdateCalendarEventCommand request, CancellationToken cancellationToken)
     {
         var calendarEvent = await _calendarEventRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
-        if (calendarEvent is null || (calendarEvent.IsShared && calendarEvent.AccessLevel == ShareAccessLevel.ReadOnly))
+        if (calendarEvent is null || (calendarEvent.IsShared && calendarEvent.AccessLevel != ShareAccessLevel.CanEdit))
         {
             return false;
         }

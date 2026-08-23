@@ -50,7 +50,24 @@ public sealed class UpdateNoteCommandHandlerTests
         var repository = new InMemoryNoteRepository();
         var handler = new UpdateNoteCommandHandler(repository);
         var recipientId = Guid.NewGuid();
-        var sharedNote = Note.CreateShared(recipientId, "Original title", [NoteContentLine.PlainText("Original content")], "owner", ShareAccessLevel.ReadOnly);
+        var sharedNote = Note.CreateShared(recipientId, "Original title", [NoteContentLine.PlainText("Original content")], "owner", ShareAccessLevel.ReadOnly, Guid.NewGuid());
+        await repository.AddAsync(sharedNote, CancellationToken.None);
+
+        var wasUpdated = await handler.HandleAsync(
+            new UpdateNoteCommand(recipientId, sharedNote.Id, "Edited title", [NoteContentLine.PlainText("Edited content")]), CancellationToken.None);
+
+        Assert.False(wasUpdated);
+        var stored = await repository.GetByIdAsync(recipientId, sharedNote.Id, CancellationToken.None);
+        Assert.Equal("Original title", stored!.Title);
+    }
+
+    [Fact]
+    public async Task HandleAsync_returns_false_and_does_not_update_a_note_shared_at_the_Share_tier()
+    {
+        var repository = new InMemoryNoteRepository();
+        var handler = new UpdateNoteCommandHandler(repository);
+        var recipientId = Guid.NewGuid();
+        var sharedNote = Note.CreateShared(recipientId, "Original title", [NoteContentLine.PlainText("Original content")], "owner", ShareAccessLevel.Share, Guid.NewGuid());
         await repository.AddAsync(sharedNote, CancellationToken.None);
 
         var wasUpdated = await handler.HandleAsync(
@@ -67,7 +84,7 @@ public sealed class UpdateNoteCommandHandlerTests
         var repository = new InMemoryNoteRepository();
         var handler = new UpdateNoteCommandHandler(repository);
         var recipientId = Guid.NewGuid();
-        var sharedNote = Note.CreateShared(recipientId, "Original title", [NoteContentLine.PlainText("Original content")], "owner", ShareAccessLevel.CanEdit);
+        var sharedNote = Note.CreateShared(recipientId, "Original title", [NoteContentLine.PlainText("Original content")], "owner", ShareAccessLevel.CanEdit, Guid.NewGuid());
         await repository.AddAsync(sharedNote, CancellationToken.None);
 
         var wasUpdated = await handler.HandleAsync(

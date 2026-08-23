@@ -13,7 +13,7 @@ public sealed class GetTaskListShareStatusQueryHandlerTests
         var repository = new InMemoryTaskListShareRepository();
         var handler = new GetTaskListShareStatusQueryHandler(repository);
         var recipientId = Guid.NewGuid();
-        var share = TaskListShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId);
+        var share = TaskListShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId, Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
         var isAccepted = await handler.HandleAsync(new GetTaskListShareStatusQuery(recipientId, share.Id), CancellationToken.None);
@@ -27,7 +27,7 @@ public sealed class GetTaskListShareStatusQueryHandlerTests
         var repository = new InMemoryTaskListShareRepository();
         var handler = new GetTaskListShareStatusQueryHandler(repository);
         var recipientId = Guid.NewGuid();
-        var share = TaskListShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId);
+        var share = TaskListShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId, Guid.NewGuid());
         share.MarkAccepted(Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
@@ -41,7 +41,7 @@ public sealed class GetTaskListShareStatusQueryHandlerTests
     {
         var repository = new InMemoryTaskListShareRepository();
         var handler = new GetTaskListShareStatusQueryHandler(repository);
-        var share = TaskListShare.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var share = TaskListShare.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
         var isAccepted = await handler.HandleAsync(new GetTaskListShareStatusQuery(Guid.NewGuid(), share.Id), CancellationToken.None);

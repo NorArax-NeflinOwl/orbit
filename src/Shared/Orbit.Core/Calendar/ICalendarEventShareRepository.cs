@@ -20,4 +20,11 @@ public interface ICalendarEventShareRepository
     /// not included.
     /// </summary>
     Task<IReadOnlyList<Guid>> GetAcceptedRecipientUserIdsAsync(Guid sourceCalendarEventId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The share already offered for sourceCalendarEventId to recipientUserId, if one exists - accepted
+    /// or still pending, either way counts as "already shared" for ShareCalendarEventCommandHandler's
+    /// duplicate check, so it re-sends the existing offer as a reminder instead of creating a second one.
+    /// </summary>
+    Task<CalendarEventShare?> FindExistingAsync(Guid sourceCalendarEventId, Guid recipientUserId, CancellationToken cancellationToken);
 }

@@ -55,7 +55,24 @@ public sealed class UpdateCalendarEventCommandHandlerTests
         var repository = new InMemoryCalendarEventRepository();
         var handler = new UpdateCalendarEventCommandHandler(repository);
         var recipientId = Guid.NewGuid();
-        var sharedEvent = CalendarEvent.CreateShared(recipientId, DefaultDetails with { Title = "Original title" }, "owner", ShareAccessLevel.ReadOnly);
+        var sharedEvent = CalendarEvent.CreateShared(recipientId, DefaultDetails with { Title = "Original title" }, "owner", ShareAccessLevel.ReadOnly, Guid.NewGuid());
+        await repository.AddAsync(sharedEvent, CancellationToken.None);
+
+        var wasUpdated = await handler.HandleAsync(
+            new UpdateCalendarEventCommand(recipientId, sharedEvent.Id, DefaultDetails with { Title = "Edited title" }), CancellationToken.None);
+
+        Assert.False(wasUpdated);
+        var stored = await repository.GetByIdAsync(recipientId, sharedEvent.Id, CancellationToken.None);
+        Assert.Equal("Original title", stored!.Details.Title);
+    }
+
+    [Fact]
+    public async Task HandleAsync_returns_false_and_does_not_update_an_event_shared_at_the_Share_tier()
+    {
+        var repository = new InMemoryCalendarEventRepository();
+        var handler = new UpdateCalendarEventCommandHandler(repository);
+        var recipientId = Guid.NewGuid();
+        var sharedEvent = CalendarEvent.CreateShared(recipientId, DefaultDetails with { Title = "Original title" }, "owner", ShareAccessLevel.Share, Guid.NewGuid());
         await repository.AddAsync(sharedEvent, CancellationToken.None);
 
         var wasUpdated = await handler.HandleAsync(

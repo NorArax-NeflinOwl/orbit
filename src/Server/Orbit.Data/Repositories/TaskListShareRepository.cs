@@ -35,10 +35,20 @@ public sealed class TaskListShareRepository : ITaskListShareRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<TaskListShare?> FindExistingAsync(Guid sourceTaskListId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.TaskShares
+            .AsNoTracking()
+            .FirstOrDefaultAsync(share => share.SourceTaskListId == sourceTaskListId && share.RecipientUserId == recipientUserId, cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
     private static TaskListShare ToDomain(TaskShareEntity entity)
         => TaskListShare.FromPersistence(
             entity.Id, entity.SourceTaskListId, entity.OwnerUserId, entity.RecipientUserId,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedTaskListId);
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedTaskListId,
+            entity.OriginalOwnerUserId);
 
     private static TaskShareEntity ToEntity(TaskListShare share)
         => new()
@@ -50,6 +60,7 @@ public sealed class TaskListShareRepository : ITaskListShareRepository
             AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc,
-            SharedTaskListId = share.SharedTaskListId
+            SharedTaskListId = share.SharedTaskListId,
+            OriginalOwnerUserId = share.OriginalOwnerUserId
         };
 }

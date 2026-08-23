@@ -22,7 +22,7 @@ public sealed class AcceptTaskListShareCommandHandlerTests
         var recipientId = Guid.NewGuid();
         var sourceTaskList = TaskList.Create(owner.Id, "Errands", [TaskItem.Create("Buy milk", null, true)]);
         await taskRepository.AddAsync(sourceTaskList, CancellationToken.None);
-        var share = TaskListShare.Create(sourceTaskList.Id, owner.Id, recipientId, ShareAccessLevel.CanEdit);
+        var share = TaskListShare.Create(sourceTaskList.Id, owner.Id, recipientId, owner.Id, ShareAccessLevel.CanEdit);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var accepted = await handler.HandleAsync(new AcceptTaskListShareCommand(recipientId, share.Id), CancellationToken.None);
@@ -33,6 +33,7 @@ public sealed class AcceptTaskListShareCommandHandlerTests
         Assert.True(sharedCopy.IsShared);
         Assert.Equal("owner", sharedCopy.SharedByUserName);
         Assert.Equal(ShareAccessLevel.CanEdit, sharedCopy.AccessLevel);
+        Assert.Equal(owner.Id, sharedCopy.OriginalOwnerUserId);
         Assert.Equal("Errands", sharedCopy.Title);
         var copiedItem = Assert.Single(sharedCopy.Items);
         Assert.Equal("Buy milk", copiedItem.Description);
@@ -59,7 +60,7 @@ public sealed class AcceptTaskListShareCommandHandlerTests
         var sourceTaskList = TaskList.Create(
             owner.Id, "Main list", [TaskItem.Create("Linked item", null, false, otherOwnedList.Id)]);
         await taskRepository.AddAsync(sourceTaskList, CancellationToken.None);
-        var share = TaskListShare.Create(sourceTaskList.Id, owner.Id, recipientId);
+        var share = TaskListShare.Create(sourceTaskList.Id, owner.Id, recipientId, owner.Id);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         await handler.HandleAsync(new AcceptTaskListShareCommand(recipientId, share.Id), CancellationToken.None);
@@ -82,7 +83,7 @@ public sealed class AcceptTaskListShareCommandHandlerTests
         await userRepository.AddAsync(owner, CancellationToken.None);
         var sourceTaskList = TaskList.Create(owner.Id, "Errands", []);
         await taskRepository.AddAsync(sourceTaskList, CancellationToken.None);
-        var share = TaskListShare.Create(sourceTaskList.Id, owner.Id, Guid.NewGuid());
+        var share = TaskListShare.Create(sourceTaskList.Id, owner.Id, Guid.NewGuid(), owner.Id);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var accepted = await handler.HandleAsync(
@@ -116,7 +117,7 @@ public sealed class AcceptTaskListShareCommandHandlerTests
         var recipientId = Guid.NewGuid();
         var sourceTaskList = TaskList.Create(owner.Id, "Errands", []);
         await taskRepository.AddAsync(sourceTaskList, CancellationToken.None);
-        var share = TaskListShare.Create(sourceTaskList.Id, owner.Id, recipientId);
+        var share = TaskListShare.Create(sourceTaskList.Id, owner.Id, recipientId, owner.Id);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var command = new AcceptTaskListShareCommand(recipientId, share.Id);

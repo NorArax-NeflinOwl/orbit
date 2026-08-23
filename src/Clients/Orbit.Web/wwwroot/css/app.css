@@ -169,6 +169,13 @@ textarea {
     font-size: 13px;
 }
 
+/* *Editor.razor's "already shared" notice - a re-share that turned into a reminder isn't a failure, so
+   it gets --success instead of .error's --danger. */
+.info {
+    color: var(--success);
+    font-size: 13px;
+}
+
 /* *Editor.razor / Login.razor / Register.razor: wraps the <EditForm>'s direct field <div>s in a
    readable column instead of everything running together at full page width. */
 .editor-form {
@@ -1075,12 +1082,24 @@ input.note-editor-title {
     padding: 0 3px;
 }
 
-/* Wraps a bubble together with its "..." trigger (own messages only - see Chat.razor's canEdit check),
-   the trigger sitting just outside the bubble rather than overlapping its text. */
+/* Wraps a bubble together with its "..." trigger (shown for an editable and/or forwardable message -
+   see Chat.razor's canEdit/canForward checks), the trigger sitting just outside the bubble rather than
+   overlapping its text. */
 .chat-bubble-wrap {
     display: flex;
     align-items: flex-end;
     gap: 4px;
+}
+
+/* Chat.razor: the "Forwarded from X" line inside a forwarded message's bubble, sitting above the
+   forwarded text itself. Muted relative to the bubble's own text color (on both the accent-colored
+   "own" bubble and the neutral "theirs" one) so it reads as metadata, not part of the message. */
+.chat-bubble-forwarded-label {
+    display: block;
+    font-size: 11px;
+    font-style: italic;
+    opacity: .75;
+    margin-bottom: 2px;
 }
 
 .chat-bubble-menu {
@@ -1110,6 +1129,35 @@ input.note-editor-title {
     box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.15);
     padding: 6px;
     z-index: 25;
+}
+
+/* Chat.razor: the "Forward to…" contact picker - a wider variant of .chat-bubble-menu-dropdown (a
+   display name needs more room than "Edit"/"Forward" do) that also scrolls instead of growing
+   unbounded when there are many other chats to pick from. */
+.chat-forward-picker {
+    width: 200px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.chat-forward-picker-title {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    padding: 4px 10px 6px;
+}
+
+.chat-forward-picker-empty {
+    color: var(--text-tertiary);
+    display: block;
+    font-size: 12.5px;
+    padding: 4px 10px 8px;
+}
+
+.chat-forward-error {
+    color: var(--danger);
 }
 
 .chat-bubble-edit {

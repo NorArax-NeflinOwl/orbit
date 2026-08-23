@@ -22,7 +22,7 @@ public sealed class AcceptNoteShareCommandHandlerTests
         var recipientId = Guid.NewGuid();
         var sourceNote = Note.Create(owner.Id, "Shopping list", [NoteContentLine.PlainText("Milk, eggs")]);
         await noteRepository.AddAsync(sourceNote, CancellationToken.None);
-        var share = NoteShare.Create(sourceNote.Id, owner.Id, recipientId, ShareAccessLevel.CanEdit);
+        var share = NoteShare.Create(sourceNote.Id, owner.Id, recipientId, owner.Id, ShareAccessLevel.CanEdit);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var accepted = await handler.HandleAsync(new AcceptNoteShareCommand(recipientId, share.Id), CancellationToken.None);
@@ -33,6 +33,7 @@ public sealed class AcceptNoteShareCommandHandlerTests
         Assert.True(sharedCopy.IsShared);
         Assert.Equal("owner", sharedCopy.SharedByUserName);
         Assert.Equal(ShareAccessLevel.CanEdit, sharedCopy.AccessLevel);
+        Assert.Equal(owner.Id, sharedCopy.OriginalOwnerUserId);
         Assert.Equal("Shopping list", sharedCopy.Title);
     }
 
@@ -48,7 +49,7 @@ public sealed class AcceptNoteShareCommandHandlerTests
         await userRepository.AddAsync(owner, CancellationToken.None);
         var sourceNote = Note.Create(owner.Id, "Title", [NoteContentLine.PlainText("Content")]);
         await noteRepository.AddAsync(sourceNote, CancellationToken.None);
-        var share = NoteShare.Create(sourceNote.Id, owner.Id, Guid.NewGuid());
+        var share = NoteShare.Create(sourceNote.Id, owner.Id, Guid.NewGuid(), owner.Id);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var accepted = await handler.HandleAsync(
@@ -82,7 +83,7 @@ public sealed class AcceptNoteShareCommandHandlerTests
         var recipientId = Guid.NewGuid();
         var sourceNote = Note.Create(owner.Id, "Title", [NoteContentLine.PlainText("Content")]);
         await noteRepository.AddAsync(sourceNote, CancellationToken.None);
-        var share = NoteShare.Create(sourceNote.Id, owner.Id, recipientId);
+        var share = NoteShare.Create(sourceNote.Id, owner.Id, recipientId, owner.Id);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var command = new AcceptNoteShareCommand(recipientId, share.Id);

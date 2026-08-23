@@ -35,10 +35,20 @@ public sealed class NoteShareRepository : INoteShareRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<NoteShare?> FindExistingAsync(Guid sourceNoteId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.NoteShares
+            .AsNoTracking()
+            .FirstOrDefaultAsync(share => share.SourceNoteId == sourceNoteId && share.RecipientUserId == recipientUserId, cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
     private static NoteShare ToDomain(NoteShareEntity entity)
         => NoteShare.FromPersistence(
             entity.Id, entity.SourceNoteId, entity.OwnerUserId, entity.RecipientUserId,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedNoteId);
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedNoteId,
+            entity.OriginalOwnerUserId);
 
     private static NoteShareEntity ToEntity(NoteShare share)
         => new()
@@ -50,6 +60,7 @@ public sealed class NoteShareRepository : INoteShareRepository
             AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc,
-            SharedNoteId = share.SharedNoteId
+            SharedNoteId = share.SharedNoteId,
+            OriginalOwnerUserId = share.OriginalOwnerUserId
         };
 }

@@ -43,7 +43,7 @@ internal static class CalendarEventEntityMapper
 
         return CalendarEvent.FromPersistence(
             entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc, entity.IsShared, entity.SharedByUserName,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel));
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.OriginalOwnerUserId);
     }
 
     public static CalendarEventEntity ToEntity(CalendarEvent calendarEvent)
@@ -72,6 +72,7 @@ internal static class CalendarEventEntityMapper
             IsShared = calendarEvent.IsShared,
             SharedByUserName = calendarEvent.SharedByUserName,
             AccessLevel = calendarEvent.AccessLevel.ToString(),
+            OriginalOwnerUserId = calendarEvent.OriginalOwnerUserId,
             CreatedAtUtc = calendarEvent.CreatedAtUtc,
             UpdatedAtUtc = calendarEvent.UpdatedAtUtc
         };

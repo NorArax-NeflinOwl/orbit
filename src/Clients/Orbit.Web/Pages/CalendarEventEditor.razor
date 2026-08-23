@@ -39,7 +39,7 @@ else
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
-    <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
+    <fieldset disabled="@(!_canEditContent || _isSaving)">
         <div class="field">
             <label>Title</label>
             <InputText @bind-Value="_formModel.Title" />
@@ -120,49 +120,6 @@ else
             </div>
         }
         <div class="field">
-            <label>Guests</label>
-            @if (_formModel.GuestUserIds.Count == 0)
-            {
-                <p>No guests.</p>
-            }
-            else
-            {
-                <ul id="guestList">
-                    @foreach (var guestUserId in _formModel.GuestUserIds)
-                    {
-                        <li>
-                            @GetGuestDisplayName(guestUserId)
-                            <button type="button" class="btn-secondary" @onclick="() => RemoveGuest(guestUserId)">Remove</button>
-                        </li>
-                    }
-                </ul>
-            }
-        </div>
-        <div class="field">
-            <label>Add a guest from contacts</label>
-            @if (_contacts.Count == 0)
-            {
-                <p>No contacts. A contact will appear here once you start a chat with someone.</p>
-            }
-            else
-            {
-                <div class="field-row">
-                    <select id="guestContactSelect" @bind="_selectedContactUserId">
-                        <option value="">-- select a contact --</option>
-                        @foreach (var contact in _contacts)
-                        {
-                            <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
-                        }
-                    </select>
-                    <select id="guestAccessLevelSelect" @bind="_selectedAccessLevel">
-                        <option value="ReadOnly">Read-only</option>
-                        <option value="CanEdit">Can edit</option>
-                    </select>
-                    <button type="button" id="addGuestFromContactButton" class="btn-secondary" @onclick="AddSelectedContactAsGuest">Add</button>
-                </div>
-            }
-        </div>
-        <div class="field">
             <label>Reminders (minutes before the event, comma-separated)</label>
             <InputText @bind-Value="_formModel.RemindersText" />
         </div>
@@ -189,11 +146,65 @@ else
             </label>
         </div>
 
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Save</button>
-            <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
-        </div>
     </fieldset>
+
+    @if (_canShare)
+    {
+        <fieldset disabled="@_isSaving">
+            <div class="field">
+                <label>Guests</label>
+                @if (_formModel.GuestUserIds.Count == 0)
+                {
+                    <p>No guests.</p>
+                }
+                else
+                {
+                    <ul id="guestList">
+                        @foreach (var guestUserId in _formModel.GuestUserIds)
+                        {
+                            <li>
+                                @GetGuestDisplayName(guestUserId)
+                                <button type="button" class="btn-secondary" @onclick="() => RemoveGuest(guestUserId)">Remove</button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+            <div class="field">
+                <label>Add a guest from contacts</label>
+                @if (_shareableContacts.Count == 0)
+                {
+                    <p>No contacts. A contact will appear here once you start a chat with someone.</p>
+                }
+                else
+                {
+                    <div class="field-row">
+                        <select id="guestContactSelect" @bind="_selectedContactUserId">
+                            <option value="">-- select a contact --</option>
+                            @foreach (var contact in _shareableContacts)
+                            {
+                                <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                            }
+                        </select>
+                        <select id="guestAccessLevelSelect" @bind="_selectedAccessLevel">
+                            <option value="ReadOnly">Read-only</option>
+                            <option value="Share">Can share</option>
+                            @if (_canGrantCanEdit)
+                            {
+                                <option value="CanEdit">Can edit</option>
+                            }
+                        </select>
+                        <button type="button" id="addGuestFromContactButton" class="btn-secondary" @onclick="AddSelectedContactAsGuest">Add</button>
+                    </div>
+                }
+            </div>
+        </fieldset>
+    }
+
+    <div class="form-actions">
+        <button type="submit" class="btn-primary" disabled="@_isSaving">Save</button>
+        <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
+    </div>
     </EditForm>
 
     @if (_errorMessage is not null)
@@ -220,8 +231,22 @@ else
     private string _selectedAccessLevel = "ReadOnly";
     private Guid _ownUserId;
     private bool _isSharedReadOnly;
+
+    // Default to "fully allowed" - correct as-is for a brand new event (never overwritten below, since
+    // OnInitializedAsync only recomputes these when loading an *existing* event) and overwritten to the
+    // real, possibly-restricted values once an existing event's IsShared/AccessLevel are known.
+    private bool _canEditContent = true;
+    private bool _canShare = true;
+    private bool _canGrantCanEdit = true;
+    private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private bool _isSaving;
+
+    /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
+    private IReadOnlyList<ContactDto> _shareableContacts
+        => _originalOwnerUserId is { } originalOwnerUserId
+            ? _contacts.Where(contact => contact.UserId != originalOwnerUserId).ToList()
+            : _contacts;
 
     /// <summary>
     /// Contacts added as a guest via the picker during this editing session (not guests already present
@@ -253,7 +278,11 @@ else
                 if (calendarEvent is not null)
                 {
                     _formModel = CalendarEventFormModel.FromDto(calendarEvent.Details);
-                    _isSharedReadOnly = calendarEvent.IsShared && calendarEvent.AccessLevel == "ReadOnly";
+                    _isSharedReadOnly = calendarEvent.IsShared && calendarEvent.AccessLevel != "CanEdit";
+                    _canEditContent = !calendarEvent.IsShared || calendarEvent.AccessLevel == "CanEdit";
+                    _canShare = !calendarEvent.IsShared || calendarEvent.AccessLevel is "CanEdit" or "Share";
+                    _canGrantCanEdit = !calendarEvent.IsShared || calendarEvent.AccessLevel == "CanEdit";
+                    _originalOwnerUserId = calendarEvent.OriginalOwnerUserId;
                     _sharedByUserName = calendarEvent.SharedByUserName;
                 }
             }
@@ -412,8 +441,17 @@ else
                 else
                 {
                     eventId = Id!.Value;
-                    await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
-                    Logger.LogInformation("Calendar event {EventId} updated", eventId);
+
+                    // A Share-tier recipient's content fieldset is disabled (see _canEditContent), so
+                    // there is nothing to update - only skip the PUT itself, since the code below still
+                    // needs to run to send any guests they just added via the (separately gated) Guests
+                    // fieldset. Sending the PUT anyway would fail: CalendarEvent.Update rejects it for
+                    // anything short of CanEdit access.
+                    if (_canEditContent)
+                    {
+                        await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
+                        Logger.LogInformation("Calendar event {EventId} updated", eventId);
+                    }
                 }
             }
             catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -466,14 +504,17 @@ else
                 ?? recipientUserId.ToString();
             try
             {
-                var shareId = await CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId, accessLevel);
-                if (shareId is null)
+                var result = await CalendarApiClient.ShareCalendarEventAsync(eventId, recipientUserId, accessLevel);
+                if (result is null)
                 {
                     recipientsNotNotified.Add(contactDisplayName);
                     continue;
                 }
 
-                var payloadJson = JsonSerializer.Serialize(new EventShareMessagePayload(shareId.Value, eventTitle));
+                // result.AlreadyShared means this contact already had a pending or accepted share of
+                // this event - result.ShareId is that existing offer's id rather than a new one, so this
+                // resends it as a reminder instead of creating a duplicate (see ShareCalendarEventCommandHandler).
+                var payloadJson = JsonSerializer.Serialize(new EventShareMessagePayload(result.ShareId, eventTitle));
                 await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)

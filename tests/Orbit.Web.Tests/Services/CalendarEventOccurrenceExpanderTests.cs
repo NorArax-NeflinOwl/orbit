@@ -109,7 +109,7 @@ public sealed class CalendarEventOccurrenceExpanderTests
         => new(
             Guid.NewGuid(),
             new CalendarEventDetailsDto(title, null, null, null, ToLocal(localStart), ToLocal(localEnd), false, recurrence, [], [], "None", "None"),
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly");
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
 
     private static DateTimeOffset ToLocal(DateTime localDateTime) => new(DateTime.SpecifyKind(localDateTime, DateTimeKind.Local));
 }

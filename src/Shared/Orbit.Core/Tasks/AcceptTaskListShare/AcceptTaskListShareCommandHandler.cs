@@ -42,7 +42,7 @@ public sealed class AcceptTaskListShareCommandHandler : IRequestHandler<AcceptTa
         // snapshot of the owner's list at share-acceptance time, same as a shared calendar event's
         // details are a snapshot rather than a live reference.
         var sharedTaskList = TaskList.CreateShared(
-            request.RecipientUserId, sourceTaskList.Title, sourceTaskList.Items, owner.UserName, share.AccessLevel);
+            request.RecipientUserId, sourceTaskList.Title, sourceTaskList.Items, owner.UserName, share.AccessLevel, share.OriginalOwnerUserId);
         await _taskRepository.AddAsync(sharedTaskList, cancellationToken);
 
         share.MarkAccepted(sharedTaskList.Id);

@@ -13,7 +13,7 @@ public sealed class GetCalendarEventShareStatusQueryHandlerTests
         var repository = new InMemoryCalendarEventShareRepository();
         var handler = new GetCalendarEventShareStatusQueryHandler(repository);
         var recipientId = Guid.NewGuid();
-        var share = CalendarEventShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId);
+        var share = CalendarEventShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId, Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
         var isAccepted = await handler.HandleAsync(new GetCalendarEventShareStatusQuery(recipientId, share.Id), CancellationToken.None);
@@ -27,7 +27,7 @@ public sealed class GetCalendarEventShareStatusQueryHandlerTests
         var repository = new InMemoryCalendarEventShareRepository();
         var handler = new GetCalendarEventShareStatusQueryHandler(repository);
         var recipientId = Guid.NewGuid();
-        var share = CalendarEventShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId);
+        var share = CalendarEventShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId, Guid.NewGuid());
         share.MarkAccepted(Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
@@ -41,7 +41,7 @@ public sealed class GetCalendarEventShareStatusQueryHandlerTests
     {
         var repository = new InMemoryCalendarEventShareRepository();
         var handler = new GetCalendarEventShareStatusQueryHandler(repository);
-        var share = CalendarEventShare.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var share = CalendarEventShare.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
         var isAccepted = await handler.HandleAsync(new GetCalendarEventShareStatusQuery(Guid.NewGuid(), share.Id), CancellationToken.None);

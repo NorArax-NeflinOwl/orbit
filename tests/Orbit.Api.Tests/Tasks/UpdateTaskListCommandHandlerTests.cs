@@ -79,7 +79,24 @@ public sealed class UpdateTaskListCommandHandlerTests
         var repository = new InMemoryTaskRepository();
         var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
         var recipientId = Guid.NewGuid();
-        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.ReadOnly);
+        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.ReadOnly, Guid.NewGuid());
+        await repository.AddAsync(sharedTaskList, CancellationToken.None);
+
+        var wasUpdated = await handler.HandleAsync(
+            new UpdateTaskListCommand(recipientId, sharedTaskList.Id, "Edited title", []), CancellationToken.None);
+
+        Assert.False(wasUpdated);
+        var stored = await repository.GetByIdAsync(recipientId, sharedTaskList.Id, CancellationToken.None);
+        Assert.Equal("Original title", stored!.Title);
+    }
+
+    [Fact]
+    public async Task HandleAsync_returns_false_and_does_not_update_a_task_list_shared_at_the_Share_tier()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var recipientId = Guid.NewGuid();
+        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.Share, Guid.NewGuid());
         await repository.AddAsync(sharedTaskList, CancellationToken.None);
 
         var wasUpdated = await handler.HandleAsync(
@@ -96,7 +113,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var repository = new InMemoryTaskRepository();
         var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
         var recipientId = Guid.NewGuid();
-        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.CanEdit);
+        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.CanEdit, Guid.NewGuid());
         await repository.AddAsync(sharedTaskList, CancellationToken.None);
 
         var wasUpdated = await handler.HandleAsync(

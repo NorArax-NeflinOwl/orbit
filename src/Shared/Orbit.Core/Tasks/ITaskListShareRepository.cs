@@ -12,4 +12,11 @@ public interface ITaskListShareRepository
     Task<TaskListShare?> GetByIdAsync(Guid recipientUserId, Guid id, CancellationToken cancellationToken);
 
     Task UpdateAsync(TaskListShare share, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The share already offered for sourceTaskListId to recipientUserId, if one exists - accepted or
+    /// still pending, either way counts as "already shared" for ShareTaskListCommandHandler's duplicate
+    /// check, so it re-sends the existing offer as a reminder instead of creating a second one.
+    /// </summary>
+    Task<TaskListShare?> FindExistingAsync(Guid sourceTaskListId, Guid recipientUserId, CancellationToken cancellationToken);
 }

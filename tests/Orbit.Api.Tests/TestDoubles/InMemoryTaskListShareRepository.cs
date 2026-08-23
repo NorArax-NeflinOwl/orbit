@@ -19,6 +19,9 @@ internal sealed class InMemoryTaskListShareRepository : ITaskListShareRepository
     public Task<TaskListShare?> GetByIdAsync(Guid recipientUserId, Guid id, CancellationToken cancellationToken)
         => Task.FromResult(_shares.FirstOrDefault(share => share.Id == id && share.RecipientUserId == recipientUserId));
 
+    public Task<TaskListShare?> FindExistingAsync(Guid sourceTaskListId, Guid recipientUserId, CancellationToken cancellationToken)
+        => Task.FromResult(_shares.FirstOrDefault(share => share.SourceTaskListId == sourceTaskListId && share.RecipientUserId == recipientUserId));
+
     public Task UpdateAsync(TaskListShare share, CancellationToken cancellationToken)
     {
         // Handlers mutate the same TaskListShare instance this repository already holds a reference to,

@@ -41,6 +41,9 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<NoteShareEntity>(entity =>
         {
             entity.HasKey(share => share.Id);
+            // ShareNoteCommandHandler's duplicate check (NoteShareRepository.FindExistingAsync) looks up
+            // by this pair on every share attempt.
+            entity.HasIndex(share => new { share.SourceNoteId, share.RecipientUserId });
         });
 
         modelBuilder.Entity<TaskEntity>(entity =>
@@ -90,11 +93,17 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<CalendarEventShareEntity>(entity =>
         {
             entity.HasKey(share => share.Id);
+            // ShareCalendarEventCommandHandler's duplicate check (CalendarEventShareRepository.FindExistingAsync)
+            // looks up by this pair on every share attempt.
+            entity.HasIndex(share => new { share.SourceCalendarEventId, share.RecipientUserId });
         });
 
         modelBuilder.Entity<TaskShareEntity>(entity =>
         {
             entity.HasKey(share => share.Id);
+            // ShareTaskListCommandHandler's duplicate check (TaskListShareRepository.FindExistingAsync)
+            // looks up by this pair on every share attempt.
+            entity.HasIndex(share => new { share.SourceTaskListId, share.RecipientUserId });
         });
 
         modelBuilder.Entity<UserEntity>(entity =>

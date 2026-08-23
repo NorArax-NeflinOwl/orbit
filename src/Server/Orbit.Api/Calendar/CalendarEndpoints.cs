@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.AcceptCalendarEventShare;
@@ -63,10 +64,10 @@ public static class CalendarEndpoints
         calendarEvents.MapPost("/{id:guid}/shares", async (
             Guid id, ShareCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var shareId = await dispatcher.SendAsync(
+            var outcome = await dispatcher.SendAsync(
                 new ShareCalendarEventCommand(GetUserId(user), id, request.RecipientUserId, Enum.Parse<ShareAccessLevel>(request.AccessLevel, ignoreCase: true)),
                 cancellationToken);
-            return shareId is null ? Results.NotFound() : Results.Ok(shareId);
+            return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared));
         });
 
         // Resolves a share offered to the caller into a read-only copy in their own calendar - see
@@ -142,7 +143,7 @@ public static class CalendarEndpoints
 
         return new CalendarEventDto(
             calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,
-            calendarEvent.IsShared, calendarEvent.SharedByUserName, calendarEvent.AccessLevel.ToString());
+            calendarEvent.IsShared, calendarEvent.SharedByUserName, calendarEvent.AccessLevel.ToString(), calendarEvent.OriginalOwnerUserId);
     }
 
     private static EventLocationDto? ToLocationDto(EventLocation? location)

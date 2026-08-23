@@ -21,11 +21,17 @@ public sealed class TaskListShare
     /// <summary>The copy created in the recipient's own task lists - set once accepted, null until then.</summary>
     public Guid? SharedTaskListId { get; private set; }
 
+    /// <summary>
+    /// The id of the user who first created the task list being offered, before any sharing - mirrors
+    /// <see cref="Orbit.Core.Notes.NoteShare.OriginalOwnerUserId"/>, see its comment.
+    /// </summary>
+    public Guid OriginalOwnerUserId { get; private set; }
+
     public bool IsAccepted => AcceptedAtUtc is not null;
 
     private TaskListShare(
         Guid id, Guid sourceTaskListId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedTaskListId)
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedTaskListId, Guid originalOwnerUserId)
     {
         Id = id;
         SourceTaskListId = sourceTaskListId;
@@ -35,20 +41,21 @@ public sealed class TaskListShare
         CreatedAtUtc = createdAtUtc;
         AcceptedAtUtc = acceptedAtUtc;
         SharedTaskListId = sharedTaskListId;
+        OriginalOwnerUserId = originalOwnerUserId;
     }
 
     public static TaskListShare Create(
-        Guid sourceTaskListId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
+        Guid sourceTaskListId, Guid ownerUserId, Guid recipientUserId, Guid originalOwnerUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
         => new(Guid.NewGuid(), sourceTaskListId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow,
-            acceptedAtUtc: null, sharedTaskListId: null);
+            acceptedAtUtc: null, sharedTaskListId: null, originalOwnerUserId);
 
     /// <summary>
     /// Rebuilds a share from already-persisted values, bypassing creation rules.
     /// </summary>
     public static TaskListShare FromPersistence(
         Guid id, Guid sourceTaskListId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedTaskListId)
-        => new(id, sourceTaskListId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc, sharedTaskListId);
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedTaskListId, Guid originalOwnerUserId)
+        => new(id, sourceTaskListId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc, sharedTaskListId, originalOwnerUserId);
 
     /// <summary>
     /// No-op if already accepted, so accepting the same share twice (e.g. a duplicate click) never

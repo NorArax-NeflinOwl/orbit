@@ -50,7 +50,7 @@ public sealed class LinkedTaskCompletionResolver
 
         var resolvedTaskList = TaskList.FromPersistence(
             taskList.Id, taskList.UserId, taskList.Title, resolvedItems, taskList.CreatedAtUtc, taskList.UpdatedAtUtc,
-            taskList.IsShared, taskList.SharedByUserName, taskList.AccessLevel);
+            taskList.IsShared, taskList.SharedByUserName, taskList.AccessLevel, taskList.OriginalOwnerUserId);
         context.Resolved[taskListId] = resolvedTaskList;
         context.Visiting.Remove(taskListId);
         return resolvedTaskList;

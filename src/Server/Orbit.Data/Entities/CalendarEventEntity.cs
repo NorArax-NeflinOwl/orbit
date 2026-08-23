@@ -58,8 +58,11 @@ public sealed class CalendarEventEntity
     /// <summary>The sharing user's login, captured once at share-acceptance time. Null when IsShared is false.</summary>
     public string? SharedByUserName { get; set; }
 
-    /// <summary>"ReadOnly" or "CanEdit", captured once at share-acceptance time. Meaningless when IsShared is false.</summary>
+    /// <summary>"ReadOnly", "Share", or "CanEdit", captured once at share-acceptance time. Meaningless when IsShared is false.</summary>
     public string AccessLevel { get; set; } = "ReadOnly";
+
+    /// <summary>The user id of whoever first created this event, before any sharing. Null when IsShared is false.</summary>
+    public Guid? OriginalOwnerUserId { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }

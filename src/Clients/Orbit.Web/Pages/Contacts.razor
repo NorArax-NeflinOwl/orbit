@@ -22,6 +22,14 @@
     <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">Search</button>
 </div>
 
+@if (_loadError is not null)
+{
+    <p class="error">
+        @_loadError
+        <button type="button" class="btn-secondary" @onclick="LoadContactsAsync">Retry</button>
+    </p>
+}
+
 @if (_searchError is not null)
 {
     <p class="error">@_searchError</p>
@@ -89,6 +97,7 @@ else
     private string _searchIdentifier = string.Empty;
     private bool _isSearching;
     private string? _searchError;
+    private string? _loadError;
     private UserSearchResultDto? _searchResult;
     private IReadOnlyList<ContactDto>? _contacts;
 
@@ -105,6 +114,19 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadContactsAsync();
+    }
+
+    /// <summary>
+    /// Loads the contact list, also used as a "Retry" action after a failed load. A plain
+    /// HttpRequestException here (e.g. "Failed to fetch" - a DNS lookup, TLS handshake, or dropped
+    /// connection failing before a response ever comes back, so there's no status code to catch on) used
+    /// to propagate out of OnInitializedAsync unhandled, crashing the whole component instead of leaving
+    /// the page usable - this keeps that failure local to the page with a retry instead.
+    /// </summary>
+    private async Task LoadContactsAsync()
+    {
+        _loadError = null;
         try
         {
             _contacts = await ChatApiClient.GetContactsAsync();
@@ -115,6 +137,11 @@ else
             // also failed (e.g. the refresh token itself expired or was revoked) - the session is no
             // longer valid, so send the user back to sign in instead of leaving the page stuck loading.
             NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to load contacts");
+            _loadError = "Failed to load contacts. Check your connection and try again.";
         }
     }
 

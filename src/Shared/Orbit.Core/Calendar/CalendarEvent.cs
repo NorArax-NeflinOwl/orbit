@@ -31,9 +31,19 @@ public sealed class CalendarEvent
     /// </summary>
     public ShareAccessLevel AccessLevel { get; private set; }
 
+    /// <summary>
+    /// The id of the user who first created this event, before any sharing - mirrors
+    /// <see cref="Orbit.Core.Notes.Note.OriginalOwnerUserId"/>, see its comment for why this is needed
+    /// and how it's threaded through re-shares.
+    /// </summary>
+    public Guid? OriginalOwnerUserId { get; private set; }
+
+    /// <summary>The original owner regardless of how many times this event has been re-shared since.</summary>
+    public Guid EffectiveOwnerUserId => IsShared ? OriginalOwnerUserId!.Value : UserId;
+
     private CalendarEvent(
         Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
+        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel, Guid? originalOwnerUserId)
     {
         Id = id;
         UserId = userId;
@@ -43,6 +53,7 @@ public sealed class CalendarEvent
         IsShared = isShared;
         SharedByUserName = sharedByUserName;
         AccessLevel = accessLevel;
+        OriginalOwnerUserId = originalOwnerUserId;
     }
 
     public static CalendarEvent Create(Guid userId, CalendarEventDetails details)
@@ -51,21 +62,22 @@ public sealed class CalendarEvent
         ValidateLocation(details);
         var now = DateTimeOffset.UtcNow;
         return new CalendarEvent(
-            Guid.NewGuid(), userId, details, now, now, isShared: false, sharedByUserName: null, ShareAccessLevel.ReadOnly);
+            Guid.NewGuid(), userId, details, now, now,
+            isShared: false, sharedByUserName: null, ShareAccessLevel.ReadOnly, originalOwnerUserId: null);
     }
 
     /// <summary>
     /// Creates recipientUserId's own copy of details once they accept a share - see
     /// AcceptCalendarEventShareCommandHandler. Nothing calls <see cref="Update"/> on the result when
-    /// accessLevel is ReadOnly, since it refuses to change such a copy's details anyway.
+    /// accessLevel isn't CanEdit, since it refuses to change such a copy's details anyway.
     /// </summary>
     public static CalendarEvent CreateShared(
-        Guid recipientUserId, CalendarEventDetails details, string sharedByUserName, ShareAccessLevel accessLevel)
+        Guid recipientUserId, CalendarEventDetails details, string sharedByUserName, ShareAccessLevel accessLevel, Guid originalOwnerUserId)
     {
         ValidateTimeRange(details);
         ValidateLocation(details);
         var now = DateTimeOffset.UtcNow;
-        return new CalendarEvent(Guid.NewGuid(), recipientUserId, details, now, now, isShared: true, sharedByUserName, accessLevel);
+        return new CalendarEvent(Guid.NewGuid(), recipientUserId, details, now, now, isShared: true, sharedByUserName, accessLevel, originalOwnerUserId);
     }
 
     /// <summary>
@@ -73,14 +85,14 @@ public sealed class CalendarEvent
     /// </summary>
     public static CalendarEvent FromPersistence(
         Guid id, Guid userId, CalendarEventDetails details, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
-        => new(id, userId, details, createdAtUtc, updatedAtUtc, isShared, sharedByUserName, accessLevel);
+        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel, Guid? originalOwnerUserId)
+        => new(id, userId, details, createdAtUtc, updatedAtUtc, isShared, sharedByUserName, accessLevel, originalOwnerUserId);
 
     public void Update(CalendarEventDetails details)
     {
-        if (IsShared && AccessLevel == ShareAccessLevel.ReadOnly)
+        if (IsShared && AccessLevel != ShareAccessLevel.CanEdit)
         {
-            throw new InvalidOperationException("A shared, read-only calendar event can't be edited.");
+            throw new InvalidOperationException("A shared calendar event without CanEdit access can't be edited.");
         }
 
         ValidateTimeRange(details);

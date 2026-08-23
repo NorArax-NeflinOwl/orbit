@@ -61,10 +61,10 @@ else
         </fieldset>
     </EditForm>
 
-    @if (!IsNewNote)
+    @if (!IsNewNote && _canShare)
     {
         <h2>Sharing</h2>
-        @if (_contacts.Count == 0)
+        @if (_shareableContacts.Count == 0)
         {
             <p>No contacts. A contact will appear here once you start a chat with someone.</p>
         }
@@ -73,14 +73,18 @@ else
             <div class="field-row">
                 <select id="shareContactSelect" @bind="_selectedContactUserId">
                     <option value="">-- select a contact --</option>
-                    @foreach (var contact in _contacts)
+                    @foreach (var contact in _shareableContacts)
                     {
                         <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
                     }
                 </select>
                 <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
                     <option value="ReadOnly">Read-only</option>
-                    <option value="CanEdit">Can edit</option>
+                    <option value="Share">Can share</option>
+                    @if (_canGrantCanEdit)
+                    {
+                        <option value="CanEdit">Can edit</option>
+                    }
                 </select>
                 <button type="button" id="shareNoteButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
             </div>
@@ -88,6 +92,10 @@ else
         @if (_shareErrorMessage is not null)
         {
             <p class="error">@_shareErrorMessage</p>
+        }
+        @if (_shareInfoMessage is not null)
+        {
+            <p class="info">@_shareInfoMessage</p>
         }
     }
 }
@@ -102,14 +110,29 @@ else
     private bool _isSharing;
     private NoteFormModel _formModel = new();
     private bool _isSharedReadOnly;
+    private bool _canShare;
+    private bool _canGrantCanEdit;
+    private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private IReadOnlyList<ContactDto> _contacts = [];
     private string _selectedContactUserId = string.Empty;
     private string _selectedAccessLevel = "ReadOnly";
     private string? _shareErrorMessage;
+    private string? _shareInfoMessage;
     private string? _saveErrorMessage;
     private Guid _ownUserId;
     private ChecklistTextEditor? _checklistEditorRef;
+
+    /// <summary>
+    /// Contacts eligible as a share target: everyone except the note's original owner when re-sharing a
+    /// received copy - see ShareNoteCommandHandler's class comment for why sharing back to them is
+    /// blocked server-side too. Not filtered at all when the current user is the true owner (no
+    /// OriginalOwnerUserId to exclude).
+    /// </summary>
+    private IReadOnlyList<ContactDto> _shareableContacts
+        => _originalOwnerUserId is { } originalOwnerUserId
+            ? _contacts.Where(contact => contact.UserId != originalOwnerUserId).ToList()
+            : _contacts;
 
     protected override async Task OnInitializedAsync()
     {
@@ -125,7 +148,10 @@ else
                 if (note is not null)
                 {
                     _formModel = new NoteFormModel { Title = note.Title, Content = note.Content };
-                    _isSharedReadOnly = note.IsShared && note.AccessLevel == "ReadOnly";
+                    _isSharedReadOnly = note.IsShared && note.AccessLevel != "CanEdit";
+                    _canShare = !note.IsShared || note.AccessLevel is "CanEdit" or "Share";
+                    _canGrantCanEdit = !note.IsShared || note.AccessLevel == "CanEdit";
+                    _originalOwnerUserId = note.OriginalOwnerUserId;
                     _sharedByUserName = note.SharedByUserName;
                 }
 
@@ -204,18 +230,20 @@ else
         }
 
         _shareErrorMessage = null;
+        _shareInfoMessage = null;
         _isSharing = true;
         try
         {
-            var shareId = await NotesApiClient.ShareNoteAsync(noteId, recipientUserId, _selectedAccessLevel);
-            if (shareId is null)
+            var result = await NotesApiClient.ShareNoteAsync(noteId, recipientUserId, _selectedAccessLevel);
+            if (result is null)
             {
                 _shareErrorMessage = "Failed to share the note.";
                 return;
             }
 
-            var payloadJson = JsonSerializer.Serialize(new NoteShareMessagePayload(shareId.Value, _formModel.Title));
+            var payloadJson = JsonSerializer.Serialize(new NoteShareMessagePayload(result.ShareId, _formModel.Title));
             await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+            _shareInfoMessage = result.AlreadyShared ? "Already shared with that contact - sent a reminder." : null;
             _selectedContactUserId = string.Empty;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)

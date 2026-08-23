@@ -66,12 +66,26 @@ picture of what's left.
   `EditMessageCommand` mirroring the existing send path (re-encrypt the new text client-side, PUT the
   ciphertext to `/api/chat/messages/{id}`), plus an `EditedAtUtc` column so the UI can show an "edited"
   marker the way most chat apps do.
-- **Forwarding a message from one chat into another.** Not implemented - `ChatApiClient` has no such
-  operation. Per the backlog, a forwarded message that isn't the forwarder's own needs to carry along
-  who actually authored it, not just who forwarded it. **Proposed approach:** a `ForwardedFromMessageId`
-  (and denormalized `OriginalAuthorId`) column on `ChatMessage`, so the UI can render "Forwarded from
-  {original author}" even though the copy now physically lives in a different conversation, re-encrypted
-  under that conversation's own key.
+- **Default-collapse the chat list on the Chats page.** Today `/chat/{userId}` always opens with the
+  left-hand conversation list expanded next to the message pane. The backlog wants the list collapsed by
+  default (mirroring the "Hide list"/"Show list" toggle the calendar page already has - see
+  [Functionality — Calendar](functionality.md#calendar)), so the message pane gets full width immediately
+  on a typical visit. **Proposed approach:** a `_isContactListVisible` field on `Chat.razor` defaulting to
+  `false` instead of `true`, plus the same toggle button the calendar page already uses for the analogous
+  panel.
+- **Auto-hide the side panels below a minimum window width.** Neither the left navigation panel
+  (`MainLayout.razor`) nor the chat conversation list collapses automatically on a narrow viewport today -
+  a user has to hide them manually. **Proposed approach:** a CSS media query breakpoint (a reasonable
+  starting point is 768px, the conventional tablet/phone boundary already used elsewhere for responsive
+  layouts) that collapses both panels by default under that width, reusing the existing show/hide toggle
+  state rather than a separate mobile-only code path - still needs a concrete minimum-width decision
+  before implementation, since "auto-hide" only has one behavior to build once that number is picked.
+- **Show the signed-in user's name in the account menu.** The menu that holds the "Log out" button
+  currently has unused space above it - the backlog wants the current user's display name shown there,
+  so the account menu identifies whose session it is without having to check the browser tab or guess.
+  **Proposed approach:** `MainLayout.razor` already resolves the current user's claims for authorization;
+  surfacing `DisplayName` from that same `ClaimsPrincipal` next to the existing logout button needs no
+  new API call.
 - **Shopping/inventory planner.** A stock-management feature: products with a name, type, category, an
   on-hand quantity, an optional minimum quantity, and an expiry date. When a product's quantity drops to
   or below its minimum, the system should create a task for the user; a recurring reminder task should

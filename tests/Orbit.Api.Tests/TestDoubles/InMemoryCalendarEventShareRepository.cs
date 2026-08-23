@@ -34,4 +34,8 @@ internal sealed class InMemoryCalendarEventShareRepository : ICalendarEventShare
             .ToList();
         return Task.FromResult(recipientUserIds);
     }
+
+    public Task<CalendarEventShare?> FindExistingAsync(Guid sourceCalendarEventId, Guid recipientUserId, CancellationToken cancellationToken)
+        => Task.FromResult(_shares.FirstOrDefault(
+            share => share.SourceCalendarEventId == sourceCalendarEventId && share.RecipientUserId == recipientUserId));
 }

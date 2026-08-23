@@ -28,9 +28,22 @@ public sealed class Note
     /// <summary>The access level the share was accepted under - meaningless when IsShared is false.</summary>
     public ShareAccessLevel AccessLevel { get; private set; }
 
+    /// <summary>
+    /// The id of the user who first created this note, before any sharing - captured once at
+    /// share-acceptance time from the source note's own <see cref="OriginalOwnerUserId"/> (or, if that
+    /// source note wasn't itself shared, from its <see cref="UserId"/>), so it survives being re-shared
+    /// through any number of hops. Null when IsShared is false, where <see cref="UserId"/> already is
+    /// the original owner. ShareNoteCommandHandler uses this to stop a share ending up back with the
+    /// person who originally owns it - see its class comment.
+    /// </summary>
+    public Guid? OriginalOwnerUserId { get; private set; }
+
+    /// <summary>The original owner regardless of how many times this note has been re-shared since.</summary>
+    public Guid EffectiveOwnerUserId => IsShared ? OriginalOwnerUserId!.Value : UserId;
+
     private Note(
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
+        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel, Guid? originalOwnerUserId)
     {
         Id = id;
         UserId = userId;
@@ -41,12 +54,15 @@ public sealed class Note
         IsShared = isShared;
         SharedByUserName = sharedByUserName;
         AccessLevel = accessLevel;
+        OriginalOwnerUserId = originalOwnerUserId;
     }
 
     public static Note Create(Guid userId, string title, IReadOnlyList<NoteContentLine> content)
     {
         var now = DateTimeOffset.UtcNow;
-        return new Note(Guid.NewGuid(), userId, title, content, now, now, isShared: false, sharedByUserName: null, ShareAccessLevel.ReadOnly);
+        return new Note(
+            Guid.NewGuid(), userId, title, content, now, now,
+            isShared: false, sharedByUserName: null, ShareAccessLevel.ReadOnly, originalOwnerUserId: null);
     }
 
     /// <summary>
@@ -54,10 +70,11 @@ public sealed class Note
     /// AcceptNoteShareCommandHandler.
     /// </summary>
     public static Note CreateShared(
-        Guid recipientUserId, string title, IReadOnlyList<NoteContentLine> content, string sharedByUserName, ShareAccessLevel accessLevel)
+        Guid recipientUserId, string title, IReadOnlyList<NoteContentLine> content, string sharedByUserName, ShareAccessLevel accessLevel,
+        Guid originalOwnerUserId)
     {
         var now = DateTimeOffset.UtcNow;
-        return new Note(Guid.NewGuid(), recipientUserId, title, content, now, now, isShared: true, sharedByUserName, accessLevel);
+        return new Note(Guid.NewGuid(), recipientUserId, title, content, now, now, isShared: true, sharedByUserName, accessLevel, originalOwnerUserId);
     }
 
     /// <summary>
@@ -65,14 +82,14 @@ public sealed class Note
     /// </summary>
     public static Note FromPersistence(
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
-        => new(id, userId, title, content, createdAtUtc, updatedAtUtc, isShared, sharedByUserName, accessLevel);
+        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel, Guid? originalOwnerUserId)
+        => new(id, userId, title, content, createdAtUtc, updatedAtUtc, isShared, sharedByUserName, accessLevel, originalOwnerUserId);
 
     public void Update(string title, IReadOnlyList<NoteContentLine> content)
     {
-        if (IsShared && AccessLevel == ShareAccessLevel.ReadOnly)
+        if (IsShared && AccessLevel != ShareAccessLevel.CanEdit)
         {
-            throw new InvalidOperationException("A shared, read-only note can't be edited.");
+            throw new InvalidOperationException("A shared note without CanEdit access can't be edited.");
         }
 
         Title = title;

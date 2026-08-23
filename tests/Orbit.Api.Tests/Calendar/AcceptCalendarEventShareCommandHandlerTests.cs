@@ -26,7 +26,7 @@ public sealed class AcceptCalendarEventShareCommandHandlerTests
         var recipientId = Guid.NewGuid();
         var sourceEvent = CalendarEvent.Create(owner.Id, DefaultDetails);
         await calendarEventRepository.AddAsync(sourceEvent, CancellationToken.None);
-        var share = CalendarEventShare.Create(sourceEvent.Id, owner.Id, recipientId);
+        var share = CalendarEventShare.Create(sourceEvent.Id, owner.Id, recipientId, owner.Id);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var accepted = await handler.HandleAsync(new AcceptCalendarEventShareCommand(recipientId, share.Id), CancellationToken.None);
@@ -36,6 +36,7 @@ public sealed class AcceptCalendarEventShareCommandHandlerTests
         var sharedCopy = Assert.Single(recipientEvents);
         Assert.True(sharedCopy.IsShared);
         Assert.Equal("owner", sharedCopy.SharedByUserName);
+        Assert.Equal(owner.Id, sharedCopy.OriginalOwnerUserId);
         Assert.Equal("Team sync", sharedCopy.Details.Title);
     }
 
@@ -51,7 +52,7 @@ public sealed class AcceptCalendarEventShareCommandHandlerTests
         await userRepository.AddAsync(owner, CancellationToken.None);
         var sourceEvent = CalendarEvent.Create(owner.Id, DefaultDetails);
         await calendarEventRepository.AddAsync(sourceEvent, CancellationToken.None);
-        var share = CalendarEventShare.Create(sourceEvent.Id, owner.Id, Guid.NewGuid());
+        var share = CalendarEventShare.Create(sourceEvent.Id, owner.Id, Guid.NewGuid(), owner.Id);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var accepted = await handler.HandleAsync(
@@ -85,7 +86,7 @@ public sealed class AcceptCalendarEventShareCommandHandlerTests
         var recipientId = Guid.NewGuid();
         var sourceEvent = CalendarEvent.Create(owner.Id, DefaultDetails);
         await calendarEventRepository.AddAsync(sourceEvent, CancellationToken.None);
-        var share = CalendarEventShare.Create(sourceEvent.Id, owner.Id, recipientId);
+        var share = CalendarEventShare.Create(sourceEvent.Id, owner.Id, recipientId, owner.Id);
         await shareRepository.AddAsync(share, CancellationToken.None);
 
         var command = new AcceptCalendarEventShareCommand(recipientId, share.Id);

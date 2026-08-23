@@ -56,6 +56,7 @@ public sealed class TaskRepository : ITaskRepository
         entity.IsShared = taskList.IsShared;
         entity.SharedByUserName = taskList.SharedByUserName;
         entity.AccessLevel = taskList.AccessLevel.ToString();
+        entity.OriginalOwnerUserId = taskList.OriginalOwnerUserId;
         entity.UpdatedAtUtc = taskList.UpdatedAtUtc;
 
         // The domain always replaces the whole checklist on update rather than diffing individual
@@ -98,7 +99,8 @@ public sealed class TaskRepository : ITaskRepository
             entity.UpdatedAtUtc,
             entity.IsShared,
             entity.SharedByUserName,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel));
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel),
+            entity.OriginalOwnerUserId);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -122,6 +124,7 @@ public sealed class TaskRepository : ITaskRepository
             IsShared = taskList.IsShared,
             SharedByUserName = taskList.SharedByUserName,
             AccessLevel = taskList.AccessLevel.ToString(),
+            OriginalOwnerUserId = taskList.OriginalOwnerUserId,
             CreatedAtUtc = taskList.CreatedAtUtc,
             UpdatedAtUtc = taskList.UpdatedAtUtc,
             Items = taskList.Items.Select(item => ToItemEntity(item, taskList.Id)).ToList()

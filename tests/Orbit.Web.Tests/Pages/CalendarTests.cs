@@ -156,7 +156,7 @@ public sealed class CalendarTests : TestContext
                 new DateTimeOffset(DateTime.SpecifyKind(localStart, DateTimeKind.Local)),
                 new DateTimeOffset(DateTime.SpecifyKind(localEnd, DateTimeKind.Local)),
                 IsAllDay: false, null, [], [], "None", "None"),
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly");
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
 
     private static TaskDto CreateTaskListWithDueItem(DateTime localDueDate, string description)
     {
@@ -166,7 +166,7 @@ public sealed class CalendarTests : TestContext
             DailyReminderTimeOfDay: default);
         return new TaskDto(
             Guid.NewGuid(), "Lista zadań", [item], IsCompleted: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly");
+            IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
     }
 
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)

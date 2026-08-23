@@ -223,7 +223,7 @@ public sealed class CalendarGridBuilderTests
             Guid.NewGuid(),
             new CalendarEventDetailsDto(
                 title, null, null, null, ToLocalOffset(localStart), ToLocalOffset(localEnd), IsAllDay: false, null, [], [], "None", "None"),
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly");
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
 
     private static CalendarEventDto CreateAllDayEvent(DateOnly startDate, DateOnly endDate, string title = "All-day event")
         => new(
@@ -232,7 +232,7 @@ public sealed class CalendarGridBuilderTests
                 title, null, null, null,
                 ToLocalOffset(startDate.ToDateTime(TimeOnly.MinValue)), ToLocalOffset(endDate.ToDateTime(TimeOnly.MinValue)),
                 IsAllDay: true, null, [], [], "None", "None"),
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly");
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
 
     private static DueTaskDto CreateDueTask(DateTime localDueDate, string description = "Task")
         => new(Guid.NewGuid(), Guid.NewGuid(), description, ToLocalOffset(localDueDate), IsCompleted: false);

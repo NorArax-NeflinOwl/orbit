@@ -21,11 +21,17 @@ public sealed class CalendarEventShare
     /// <summary>The copy created in the recipient's own calendar - set once accepted, null until then.</summary>
     public Guid? SharedCalendarEventId { get; private set; }
 
+    /// <summary>
+    /// The id of the user who first created the event being offered, before any sharing - mirrors
+    /// <see cref="Orbit.Core.Notes.NoteShare.OriginalOwnerUserId"/>, see its comment.
+    /// </summary>
+    public Guid OriginalOwnerUserId { get; private set; }
+
     public bool IsAccepted => AcceptedAtUtc is not null;
 
     private CalendarEventShare(
         Guid id, Guid sourceCalendarEventId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedCalendarEventId)
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedCalendarEventId, Guid originalOwnerUserId)
     {
         Id = id;
         SourceCalendarEventId = sourceCalendarEventId;
@@ -35,21 +41,22 @@ public sealed class CalendarEventShare
         CreatedAtUtc = createdAtUtc;
         AcceptedAtUtc = acceptedAtUtc;
         SharedCalendarEventId = sharedCalendarEventId;
+        OriginalOwnerUserId = originalOwnerUserId;
     }
 
     public static CalendarEventShare Create(
-        Guid sourceCalendarEventId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
+        Guid sourceCalendarEventId, Guid ownerUserId, Guid recipientUserId, Guid originalOwnerUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
         => new(
             Guid.NewGuid(), sourceCalendarEventId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow,
-            acceptedAtUtc: null, sharedCalendarEventId: null);
+            acceptedAtUtc: null, sharedCalendarEventId: null, originalOwnerUserId);
 
     /// <summary>
     /// Rebuilds a share from already-persisted values, bypassing creation rules.
     /// </summary>
     public static CalendarEventShare FromPersistence(
         Guid id, Guid sourceCalendarEventId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedCalendarEventId)
-        => new(id, sourceCalendarEventId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc, sharedCalendarEventId);
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedCalendarEventId, Guid originalOwnerUserId)
+        => new(id, sourceCalendarEventId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc, sharedCalendarEventId, originalOwnerUserId);
 
     /// <summary>
     /// No-op if already accepted, so accepting the same share twice (e.g. a duplicate click) never

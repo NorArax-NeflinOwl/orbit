@@ -41,7 +41,8 @@ public sealed class AcceptCalendarEventShareCommandHandler : IRequestHandler<Acc
             return false;
         }
 
-        var sharedEvent = CalendarEvent.CreateShared(request.RecipientUserId, sourceEvent.Details, owner.UserName, share.AccessLevel);
+        var sharedEvent = CalendarEvent.CreateShared(
+            request.RecipientUserId, sourceEvent.Details, owner.UserName, share.AccessLevel, share.OriginalOwnerUserId);
         await _calendarEventRepository.AddAsync(sharedEvent, cancellationToken);
 
         share.MarkAccepted(sharedEvent.Id);

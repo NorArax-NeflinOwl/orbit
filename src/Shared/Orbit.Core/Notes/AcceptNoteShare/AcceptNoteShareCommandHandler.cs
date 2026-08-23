@@ -38,7 +38,8 @@ public sealed class AcceptNoteShareCommandHandler : IRequestHandler<AcceptNoteSh
             return false;
         }
 
-        var sharedNote = Note.CreateShared(request.RecipientUserId, sourceNote.Title, sourceNote.Content, owner.UserName, share.AccessLevel);
+        var sharedNote = Note.CreateShared(
+            request.RecipientUserId, sourceNote.Title, sourceNote.Content, owner.UserName, share.AccessLevel, share.OriginalOwnerUserId);
         await _noteRepository.AddAsync(sharedNote, cancellationToken);
 
         share.MarkAccepted(sharedNote.Id);

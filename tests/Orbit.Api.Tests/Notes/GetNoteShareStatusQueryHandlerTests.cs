@@ -13,7 +13,7 @@ public sealed class GetNoteShareStatusQueryHandlerTests
         var repository = new InMemoryNoteShareRepository();
         var handler = new GetNoteShareStatusQueryHandler(repository);
         var recipientId = Guid.NewGuid();
-        var share = NoteShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId);
+        var share = NoteShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId, Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
         var isAccepted = await handler.HandleAsync(new GetNoteShareStatusQuery(recipientId, share.Id), CancellationToken.None);
@@ -27,7 +27,7 @@ public sealed class GetNoteShareStatusQueryHandlerTests
         var repository = new InMemoryNoteShareRepository();
         var handler = new GetNoteShareStatusQueryHandler(repository);
         var recipientId = Guid.NewGuid();
-        var share = NoteShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId);
+        var share = NoteShare.Create(Guid.NewGuid(), Guid.NewGuid(), recipientId, Guid.NewGuid());
         share.MarkAccepted(Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
@@ -41,7 +41,7 @@ public sealed class GetNoteShareStatusQueryHandlerTests
     {
         var repository = new InMemoryNoteShareRepository();
         var handler = new GetNoteShareStatusQueryHandler(repository);
-        var share = NoteShare.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var share = NoteShare.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         await repository.AddAsync(share, CancellationToken.None);
 
         var isAccepted = await handler.HandleAsync(new GetNoteShareStatusQuery(Guid.NewGuid(), share.Id), CancellationToken.None);

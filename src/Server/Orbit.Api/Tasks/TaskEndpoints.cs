@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
@@ -64,10 +65,10 @@ public static class TaskEndpoints
         tasks.MapPost("/{id:guid}/shares", async (
             Guid id, ShareTaskListRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var shareId = await dispatcher.SendAsync(
+            var outcome = await dispatcher.SendAsync(
                 new ShareTaskListCommand(GetUserId(user), id, request.RecipientUserId, Enum.Parse<ShareAccessLevel>(request.AccessLevel, ignoreCase: true)),
                 cancellationToken);
-            return shareId is null ? Results.NotFound() : Results.Ok(shareId);
+            return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared));
         });
 
         // Resolves a share offered to the caller into a copy in their own task lists - see AcceptTaskListShareCommand.
@@ -134,5 +135,6 @@ public static class TaskEndpoints
             taskList.UpdatedAtUtc,
             taskList.IsShared,
             taskList.SharedByUserName,
-            taskList.AccessLevel.ToString());
+            taskList.AccessLevel.ToString(),
+            taskList.OriginalOwnerUserId);
 }

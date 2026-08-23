@@ -62,14 +62,39 @@ recipient's own copy. A shared task list's items are copied as a snapshot, with 
 would point at a list the recipient can't see, once copied into the recipient's own task lists.
 
 Every share — calendar event, note, or task list — carries an **access level**, chosen when the share is
-offered: `ReadOnly` (the default) or `CanEdit` (`Orbit.Core.Abstractions.ShareAccessLevel`). A `ReadOnly`
-copy can be viewed but not edited — `UpdateNoteCommandHandler`/`UpdateTaskListCommandHandler`/
+offered: `ReadOnly` (the default), `Share`, or `CanEdit` (`Orbit.Core.Abstractions.ShareAccessLevel`,
+declared in that order since the underlying int value doubles as a rank: `ReadOnly < Share < CanEdit`).
+Only `CanEdit` unlocks actually editing the copy — `UpdateNoteCommandHandler`/`UpdateTaskListCommandHandler`/
 `UpdateCalendarEventCommandHandler` all return "not found" for an update attempt on a shared copy whose
-access level is `ReadOnly`, and the Blazor editor pages disable their form (via a `<fieldset disabled>`)
-and show a banner naming who shared it, for the same copies. A `CanEdit` copy has none of those
-restrictions — the recipient can change it exactly like something they created themselves. Either way,
-a share is a one-time copy, not a live link: once accepted, editing the recipient's copy never changes
-the owner's original, and vice versa.
+access level is `ReadOnly` *or* `Share`, and the Blazor editor pages disable their form (via a `<fieldset
+disabled>`) and show a banner naming who shared it, for the same copies. Either way, a share is a
+one-time copy, not a live link: once accepted, editing the recipient's copy never changes the owner's
+original, and vice versa.
+
+**Re-sharing a received copy.** `Share` sits strictly between the other two levels for one purpose: a
+recipient needs at least `Share` to re-share their copy with someone else at all (a `ReadOnly` recipient
+can't share it further), and can never grant a level higher than their own — a `Share`-level recipient
+can only offer `ReadOnly` or `Share` onward, never `CanEdit`, while a `CanEdit` recipient can offer any of
+the three, same as the true owner. `ShareNoteCommandHandler`/`ShareTaskListCommandHandler`/
+`ShareCalendarEventCommandHandler` enforce this identically, and additionally refuse to let *anyone* —
+owner included — share back to the item's original owner (tracked as `OriginalOwnerUserId`, threaded
+through every re-share so it still points at the very first owner even after several hops, the same way
+a forwarded chat message's original author survives being forwarded again — see
+[Message forwarding](#message-forwarding) below). All of these are "not found" responses rather than a
+distinct "forbidden," so a caller can't tell "doesn't exist" apart from "exists but you can't share it"
+by probing ids. The Blazor editor pages mirror this: the sharing section is hidden entirely on a copy
+whose access level is `ReadOnly`, the access-level dropdown only offers levels the current user is
+allowed to grant, and the contact picker excludes the original owner.
+
+**Duplicate offers.** Sharing something that was already offered to the same recipient — accepted or
+still pending — doesn't create a second `NoteShare`/`TaskListShare`/`CalendarEventShare` row.
+`INoteShareRepository.FindExistingAsync` (and its task-list/calendar-event equivalents) looks up an
+existing offer for the same (item, recipient) pair first; if one exists, the handler returns it instead
+of creating a new one (`ShareOutcome.AlreadyShared = true`). The client still sends a chat notice either
+way, but reuses the *existing* share's id rather than minting a new one, so it lands as a reminder
+pointing at the original offer instead of a confusing duplicate invite — the note/task-list editor pages
+show "Already shared with that contact - sent a reminder" in that case instead of implying a fresh share
+was created.
 
 ## Tasks
 
@@ -162,18 +187,19 @@ neither needed per-item editing for a first pass.
 
 Adding a contact as a guest in the event editor (see the picker under "Add a guest from contacts") does
 two things once the event is saved: it adds them to `guests`, and it offers them a share of the event at
-the access level chosen alongside them in the picker (`ReadOnly` by default, or `CanEdit`) —
+the access level chosen alongside them in the picker (`ReadOnly` by default, `Share`, or `CanEdit`) —
 `ShareCalendarEventCommand` creates the offer, and `CalendarEventEditor.razor` notifies the recipient
 with an encrypted chat message carrying the share id (`EventShareMessagePayload`). The recipient sees an
 "Accept" action on that message in `Chat.razor`; accepting (`AcceptCalendarEventShareCommand`) creates a
 copy of the event in their own calendar (`CalendarEvent.IsShared = true`, `SharedByUserName` set to the
 sharer's login) rather than a live reference — editing the original afterwards never changes the
-recipient's copy, or vice versa. `UpdateCalendarEventCommandHandler` refuses to update a shared copy
-whose access level is `ReadOnly` (returning "not found" the same way it does for an event owned by
-someone else), and `CalendarEventEditor.razor` disables its whole form and shows a banner for such a
-copy; a `CanEdit` copy has neither restriction. Notes and task lists can be shared the same way — see
-[Notes — Sharing notes and task lists](#sharing-notes-and-task-lists) above, which also covers the
-shared `ShareAccessLevel` concept in full.
+recipient's copy, or vice versa. The event editor's content fields and its Guests section are gated
+independently (`_canEditContent` vs. `_canShare`): a `Share`-tier recipient can't touch the event's own
+details but can still add and invite guests, so the "Save" button only sends a `PUT` for the event's
+content when the current user actually has `CanEdit`. See
+[Notes — Sharing notes and task lists](#sharing-notes-and-task-lists) above for the full `ShareAccessLevel`
+model (the `Share`-tier re-sharing rules, the original-owner exclusion, and duplicate-offer handling all
+apply to calendar events exactly as described there).
 
 `DELETE /api/calendar-events/{id}` deletes an event, 404ing under the same ownership rule as the other
 endpoints. Any reminder claims already recorded for it in `EventReminderDeliveries` (see
@@ -249,7 +275,11 @@ matching, so it can't be used to enumerate the user base) and lists existing con
 (`GET /api/chat/contacts`), ordered most-recently-active first. Selecting a search result or an existing
 contact opens `/chat/{userId}` (`Chat.razor`). There is deliberately no separate "add contact" step: a
 `Contact` row is only created (in both directions at once, via `SendMessageCommandHandler`) the moment
-either side sends the first message between them — see `SendMessageCommand`.
+either side sends the first message between them — see `SendMessageCommand`. A network failure while
+loading the contact list (e.g. `HttpRequestException` with no status code — a DNS lookup, TLS handshake,
+or dropped connection failing before any response comes back) shows an inline error with a "Retry"
+button instead of crashing the whole page; only an expired session (a 401 after the automatic
+refresh-and-retry also failed) redirects to `/login`.
 
 Messages are genuinely end-to-end encrypted, not just transport-encrypted: encryption and decryption
 happen entirely in the browser via the Web Crypto API (`wwwroot/js/e2eeChat.js`), and Orbit.Api only
@@ -262,6 +292,25 @@ reading a message derives a shared AES-GCM key from the local private key and th
 key (`deriveSharedKey`), and that key encrypts/decrypts the message text with a fresh random nonce per
 message. `OwnEncryptionKeyProvider` (Blazor) makes sure this key pair exists and is published before
 `Chat.razor` tries to send or receive anything.
+
+### Message forwarding
+
+Any message in a conversation can be forwarded into a different conversation via the "..." menu next to
+it in `Chat.razor` (alongside "Edit" for the sender's own messages). Forwarding one of the current user's
+own messages just sends its text as an ordinary new message in the target conversation — indistinguishable
+from typing the same text again, so there's nothing extra to encode. Forwarding someone *else's* message
+wraps the text in `ForwardedMessagePayload` (`OriginalAuthorUserId`, `OriginalAuthorDisplayName`,
+`Content`) before encrypting and sending it, the same "structured payload riding as ordinary encrypted
+plaintext" trick the three share-notice payloads use — the server only ever sees ciphertext, so it never
+needs to know a message is a forward at all. The recipient's `Chat.razor` decrypts it, recognizes the
+payload's `Type`, and renders a "Forwarded from {original author}" label above the message content
+instead of attributing it to whoever actually forwarded it. Forwarding an already-forwarded message
+preserves the *original* author through any number of hops, not the most recent forwarder — `Chat.razor`
+tracks each decrypted message's original author locally and carries it forward the same way
+`OriginalOwnerUserId` survives multiple re-shares of a note, task list, or calendar event (see
+[Notes — Sharing notes and task lists](#sharing-notes-and-task-lists) above). The "Forward to…" picker
+excludes the conversation the message is already in, since forwarding a message back into the same chat
+it came from is meaningless.
 
 Explicit scope limits for this first version, so they aren't mistaken for oversights (see
 [Future Plan](future-plan.md#known-scope-cuts-and-rough-edges) for the fuller list): a single shared key

@@ -67,7 +67,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<DeleteNoteCommand, bool>, DeleteNoteCommandHandler>();
         services.AddScoped<IRequestHandler<GetNotesQuery, IReadOnlyList<Note>>, GetNotesQueryHandler>();
         services.AddScoped<IRequestHandler<GetNoteByIdQuery, Note?>, GetNoteByIdQueryHandler>();
-        services.AddScoped<IRequestHandler<ShareNoteCommand, Guid?>, ShareNoteCommandHandler>();
+        services.AddScoped<IRequestHandler<ShareNoteCommand, ShareOutcome?>, ShareNoteCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptNoteShareCommand, bool>, AcceptNoteShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetNoteShareStatusQuery, bool?>, GetNoteShareStatusQueryHandler>();
 
@@ -76,7 +76,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<DeleteTaskListCommand, bool>, DeleteTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
-        services.AddScoped<IRequestHandler<ShareTaskListCommand, Guid?>, ShareTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<ShareTaskListCommand, ShareOutcome?>, ShareTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptTaskListShareCommand, bool>, AcceptTaskListShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListShareStatusQuery, bool?>, GetTaskListShareStatusQueryHandler>();
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
@@ -98,7 +98,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<DeleteCalendarEventCommand, bool>, DeleteCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventsQuery, IReadOnlyList<CalendarEvent>>, GetCalendarEventsQueryHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventByIdQuery, CalendarEvent?>, GetCalendarEventByIdQueryHandler>();
-        services.AddScoped<IRequestHandler<ShareCalendarEventCommand, Guid?>, ShareCalendarEventCommandHandler>();
+        services.AddScoped<IRequestHandler<ShareCalendarEventCommand, ShareOutcome?>, ShareCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptCalendarEventShareCommand, bool>, AcceptCalendarEventShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventShareStatusQuery, bool?>, GetCalendarEventShareStatusQueryHandler>();
         // Depends on IEventReminderRepository (scoped, backed by the DbContext), so it must be scoped

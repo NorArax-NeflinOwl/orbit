@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Contracts.Notes;
+using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.AcceptNoteShare;
@@ -63,10 +64,10 @@ public static class NoteEndpoints
         notes.MapPost("/{id:guid}/shares", async (
             Guid id, ShareNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var shareId = await dispatcher.SendAsync(
+            var outcome = await dispatcher.SendAsync(
                 new ShareNoteCommand(GetUserId(user), id, request.RecipientUserId, Enum.Parse<ShareAccessLevel>(request.AccessLevel, ignoreCase: true)),
                 cancellationToken);
-            return shareId is null ? Results.NotFound() : Results.Ok(shareId);
+            return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared));
         });
 
         // Resolves a share offered to the caller into a copy in their own notes - see AcceptNoteShareCommand.
@@ -107,5 +108,5 @@ public static class NoteEndpoints
 
     private static NoteDto ToDto(Note note)
         => new(note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.CreatedAtUtc, note.UpdatedAtUtc,
-            note.IsShared, note.SharedByUserName, note.AccessLevel.ToString());
+            note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.OriginalOwnerUserId);
 }

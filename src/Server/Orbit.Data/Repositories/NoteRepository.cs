@@ -69,7 +69,7 @@ public sealed class NoteRepository : INoteRepository
             entity.Id, entity.UserId, entity.Title,
             JsonSerializer.Deserialize<List<NoteContentLine>>(entity.ContentJson) ?? [],
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.IsShared, entity.SharedByUserName, Enum.Parse<ShareAccessLevel>(entity.AccessLevel));
+            entity.IsShared, entity.SharedByUserName, Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.OriginalOwnerUserId);
 
     private static NoteEntity ToEntity(Note note)
         => new()
@@ -81,6 +81,7 @@ public sealed class NoteRepository : INoteRepository
             IsShared = note.IsShared,
             SharedByUserName = note.SharedByUserName,
             AccessLevel = note.AccessLevel.ToString(),
+            OriginalOwnerUserId = note.OriginalOwnerUserId,
             CreatedAtUtc = note.CreatedAtUtc,
             UpdatedAtUtc = note.UpdatedAtUtc
         };
