@@ -73,32 +73,54 @@ server instead - no shared file, no network-filesystem locking semantics, ordina
 connections. The old Azure Files share and volume mount, if still present from before, can be deleted
 once this is live (`az containerapp env storage remove`).
 
-1. Provision an Azure Database for PostgreSQL Flexible Server (Burstable tier - cheapest that still
-   gives dedicated compute; adjust `--sku-name`/`--storage-size` to taste):
+1. If this Azure subscription has never had a PostgreSQL Flexible Server before, register the resource
+   provider first (one-time per subscription; safe to skip if already registered - the next step's
+   error message will say `MissingSubscriptionRegistration` if this was needed and wasn't done):
    ```bash
+   az provider register --namespace Microsoft.DBforPostgreSQL
+   # Takes a minute or two - poll until this prints "Registered":
+   az provider show --namespace Microsoft.DBforPostgreSQL --query registrationState -o tsv
+   ```
+2. Provision an Azure Database for PostgreSQL Flexible Server (Burstable tier - cheapest that still
+   gives dedicated compute; adjust `--sku-name`/`--storage-size` to taste), then create the `orbit`
+   database on it as a separate step:
+   - `--database-name` on `flexible-server create` is rejected by newer `az cli` versions unless
+     `--node-count` (elastic clusters) is also given, which doesn't apply to a plain single-server
+     instance like this one - hence the separate `db create` call below.
+   - The server name is a global DNS label (`<name>.postgres.database.azure.com`) shared across every
+     Azure customer, not just this resource group - a plain name like `orbit-postgres` can collide with
+     someone else's server and fail with "Specified server name is already used" even though
+     `az postgres flexible-server list -g Orbit` shows nothing. Append a random suffix if that happens.
+   ```bash
+   PG_PASSWORD="$(openssl rand -base64 24)"
+   echo "SAVE THIS PASSWORD: $PG_PASSWORD"   # az does not print it back out anywhere else
+   PG_SERVER_NAME="orbit-postgres-$(openssl rand -hex 3)"   # random suffix - see the note above
+   echo "SERVER NAME: $PG_SERVER_NAME"
+
    az postgres flexible-server create \
      --resource-group Orbit \
-     --name orbit-postgres \
+     --name "$PG_SERVER_NAME" \
      --location polandcentral \
      --admin-user orbitadmin \
-     --admin-password "$(openssl rand -base64 24)" \
+     --admin-password "$PG_PASSWORD" \
      --sku-name Standard_B1ms \
      --tier Burstable \
      --storage-size 32 \
      --version 16 \
-     --database-name orbit \
      --public-access 0.0.0.0
+
+   az postgres flexible-server db create \
+     --resource-group Orbit --server-name "$PG_SERVER_NAME" --name orbit
    ```
    `--public-access 0.0.0.0` is an Azure CLI special case, not "open to the entire internet" - it adds a
    firewall rule allowing traffic from any Azure-internal IP, which is what lets `orbit-api` (running in
    a Container Apps environment with no VNet integration to this database) reach it at all without
-   private networking set up. The server still requires the admin password to authenticate. **Save the
-   generated password somewhere - `az postgres flexible-server create` does not print it back out.**
-2. Build the connection string and store it as a secret:
+   private networking set up. The server still requires the admin password to authenticate.
+3. Build the connection string and store it as a secret (substitute the actual `$PG_SERVER_NAME` and
+   `$PG_PASSWORD` from step 2 if running this in a new shell session):
    ```bash
-   PG_PASSWORD="<the password from step 1>"
    az containerapp secret set -n orbit-api -g Orbit \
-     --secrets orbit-db-connection-string="Host=orbit-postgres.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=Require;Trust Server Certificate=true"
+     --secrets orbit-db-connection-string="Host=$PG_SERVER_NAME.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=Require;Trust Server Certificate=true"
    az containerapp update -n orbit-api -g Orbit --set-env-vars \
      "ConnectionStrings__Orbit=secretref:orbit-db-connection-string"
    ```
@@ -106,7 +128,7 @@ once this is live (`az containerapp env storage remove`).
    `Trust Server Certificate=true` skips validating the server's certificate against a local CA bundle;
    fine for this setup, but validating against Azure's actual CA chain would be the more rigorous option
    if this ever needs hardening.
-3. `orbit-api` can go back to its normal scaling (`--min-replicas` doesn't need to stay pinned at `1`
+4. `orbit-api` can go back to its normal scaling (`--min-replicas` doesn't need to stay pinned at `1`
    for database-safety reasons anymore - PostgreSQL handles concurrent connections normally. Whether to
    actually run more than one replica is a separate question, unrelated to this incident).
 
