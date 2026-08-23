@@ -92,19 +92,19 @@ namespace Orbit.Data.Migrations
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "LockExpiresAtUtc",
                 table: "Tasks",
-                type: "TEXT",
+                type: "timestamp with time zone",
                 nullable: true);
 
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "LockExpiresAtUtc",
                 table: "Notes",
-                type: "TEXT",
+                type: "timestamp with time zone",
                 nullable: true);
 
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "LockExpiresAtUtc",
                 table: "CalendarEvents",
-                type: "TEXT",
+                type: "timestamp with time zone",
                 nullable: true);
         }
 
@@ -156,81 +156,81 @@ namespace Orbit.Data.Migrations
             migrationBuilder.AddColumn<Guid>(
                 name: "OriginalOwnerUserId",
                 table: "TaskShares",
-                type: "TEXT",
+                type: "uuid",
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
             migrationBuilder.AddColumn<Guid>(
                 name: "SharedTaskListId",
                 table: "TaskShares",
-                type: "TEXT",
+                type: "uuid",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "AccessLevel",
                 table: "Tasks",
-                type: "TEXT",
+                type: "text",
                 nullable: false,
                 defaultValue: "");
 
             migrationBuilder.AddColumn<bool>(
                 name: "IsShared",
                 table: "Tasks",
-                type: "INTEGER",
+                type: "boolean",
                 nullable: false,
                 defaultValue: false);
 
             migrationBuilder.AddColumn<Guid>(
                 name: "OriginalOwnerUserId",
                 table: "NoteShares",
-                type: "TEXT",
+                type: "uuid",
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
             migrationBuilder.AddColumn<Guid>(
                 name: "SharedNoteId",
                 table: "NoteShares",
-                type: "TEXT",
+                type: "uuid",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "AccessLevel",
                 table: "Notes",
-                type: "TEXT",
+                type: "text",
                 nullable: false,
                 defaultValue: "");
 
             migrationBuilder.AddColumn<bool>(
                 name: "IsShared",
                 table: "Notes",
-                type: "INTEGER",
+                type: "boolean",
                 nullable: false,
                 defaultValue: false);
 
             migrationBuilder.AddColumn<Guid>(
                 name: "OriginalOwnerUserId",
                 table: "CalendarEventShares",
-                type: "TEXT",
+                type: "uuid",
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
             migrationBuilder.AddColumn<Guid>(
                 name: "SharedCalendarEventId",
                 table: "CalendarEventShares",
-                type: "TEXT",
+                type: "uuid",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "AccessLevel",
                 table: "CalendarEvents",
-                type: "TEXT",
+                type: "text",
                 nullable: false,
                 defaultValue: "");
 
             migrationBuilder.AddColumn<bool>(
                 name: "IsShared",
                 table: "CalendarEvents",
-                type: "INTEGER",
+                type: "boolean",
                 nullable: false,
                 defaultValue: false);
         }

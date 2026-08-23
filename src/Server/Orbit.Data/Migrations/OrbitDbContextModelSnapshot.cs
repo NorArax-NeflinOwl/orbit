@@ -28,10 +28,6 @@ namespace Orbit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccessLevel")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("Color")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -58,9 +54,6 @@ namespace Orbit.Data.Migrations
                     b.Property<bool>("IsAllDay")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsShared")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("LocationAddress")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
@@ -71,8 +64,15 @@ namespace Orbit.Data.Migrations
                     b.Property<double?>("LocationLongitude")
                         .HasColumnType("double precision");
 
-                    b.Property<Guid?>("OriginalOwnerUserId")
+                    b.Property<DateTimeOffset?>("LockExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LockedByUserId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("LockedByUserName")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("RecurrenceFrequency")
                         .HasMaxLength(20)
@@ -92,10 +92,6 @@ namespace Orbit.Data.Migrations
                     b.Property<string>("RemindersJson")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<string>("SharedByUserName")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset>("StartUtc")
                         .HasColumnType("timestamp with time zone");
@@ -134,16 +130,10 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("OriginalOwnerUserId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("SharedCalendarEventId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("SourceCalendarEventId")
@@ -281,10 +271,6 @@ namespace Orbit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccessLevel")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("ContentJson")
                         .IsRequired()
                         .HasColumnType("text");
@@ -292,10 +278,10 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("IsShared")
-                        .HasColumnType("boolean");
+                    b.Property<DateTimeOffset?>("LockExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("OriginalOwnerUserId")
+                    b.Property<Guid?>("LockedByUserId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("LockedByUserName")
@@ -336,16 +322,10 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("OriginalOwnerUserId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("SharedNoteId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("SourceNoteId")
@@ -454,20 +434,16 @@ namespace Orbit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccessLevel")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsShared")
-                        .HasColumnType("boolean");
+                    b.Property<DateTimeOffset?>("LockExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("OriginalOwnerUserId")
+                    b.Property<Guid?>("LockedByUserId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("LockedByUserName")
@@ -574,16 +550,10 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("OriginalOwnerUserId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("SharedTaskListId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("SourceTaskListId")
