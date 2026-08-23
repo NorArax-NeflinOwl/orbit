@@ -23,11 +23,14 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # Referencing this environment is what lets a manual approval gate be configured for it - by
-    # itself this line does nothing. To actually require a human to click "approve" before every push
-    # to main goes live, add a required reviewer under Settings > Environments > production in the
-    # GitHub repo (this cannot be done from a workflow file - it's a repo-level setting).
-    environment: production
+    # Deliberately NOT targeting a GitHub Environment here (e.g. `environment: production`), tempting
+    # as that is for gating deploys behind a manual approval - doing so changes the OIDC token's
+    # subject claim from "repo:<org>/<repo>:ref:refs/heads/main" to
+    # "repo:<org>/<repo>:environment:<name>", which the federated identity credential configured on
+    # the `identity-orbit` Azure AD app registration does not trust, breaking `azure/login` outright
+    # for every deploy. Adding that gate back requires updating (or adding a second) federated
+    # credential subject on that app registration in Entra ID first - a security-setting change that
+    # has to be made deliberately, not as a side effect of editing this file.
 
     steps:
       - name: Checkout repository
