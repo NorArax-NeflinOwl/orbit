@@ -22,6 +22,7 @@ using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using Serilog.Events;
 using Serilog.Sinks.OpenTelemetry;
 using Azure.Monitor.OpenTelemetry.Exporter;
 
@@ -32,8 +33,16 @@ var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOI
 var applicationInsightsConnectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
 const string serviceName = "Orbit.Api";
 
+// Read directly rather than waiting for WebApplicationBuilder (built below), since this logger needs
+// to exist before that - matches the env var ASPNETCORE_ENVIRONMENT itself sets. Verbose is invaluable
+// for local development (every EF Core query, every connection open/close) but far too noisy for a
+// production log stream - it drowns out the handful of lines that actually matter (e.g. a failed
+// login) under a constant flood from background services and health probes.
+var isDevelopment = string.Equals(
+    Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Verbose() // lowest level: log everything until there's a reason to narrow it down
+    .MinimumLevel.Is(isDevelopment ? LogEventLevel.Verbose : LogEventLevel.Information)
     .Enrich.FromLogContext()
     .WriteTo.Console()
     .WriteTo.File("logs/orbit-api-.log", rollingInterval: RollingInterval.Day)
@@ -52,7 +61,7 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
     builder.Host.UseSerilog();
-    builder.Logging.SetMinimumLevel(LogLevel.Trace);
+    builder.Logging.SetMinimumLevel(builder.Environment.IsDevelopment() ? LogLevel.Trace : LogLevel.Information);
 
     // Comma-separated list, configurable via the WebClientOrigins environment variable, since the
     // Blazor client's origin is different for `dotnet run` (fixed dev ports) vs. its nginx container
