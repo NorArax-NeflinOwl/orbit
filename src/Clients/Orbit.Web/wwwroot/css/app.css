@@ -581,6 +581,36 @@ input.note-editor-title {
     justify-content: center;
 }
 
+/* Auto-collapses the sidebar to its icon rail below 1024px (a conventional tablet/small-laptop
+   breakpoint) even without the user ever clicking .sidebar-logo to toggle .collapsed manually - a
+   narrower window shouldn't need a click to stop the full labeled sidebar from crowding out page
+   content. Stops at 681px rather than overlapping the full mobile top-bar layout below that (see the
+   680px media query further down), which needs a structurally different treatment (horizontal icon bar,
+   not a narrow vertical rail) rather than just narrower text. Duplicates .sidebar.collapsed's rules
+   above onto the bare .sidebar selector instead of sharing them, since CSS has no clean way to make one
+   media query apply an existing class's rules without either JS or repeating the declarations. */
+@media (max-width: 1024px) and (min-width: 681px) {
+    .sidebar {
+        width: 76px;
+        flex-basis: 76px;
+    }
+
+    .sidebar-logo {
+        justify-content: center;
+    }
+
+    .sidebar-logo-text,
+    .nav-item .label,
+    .user-meta {
+        display: none;
+    }
+
+    .nav-item,
+    .avatar-trigger {
+        justify-content: center;
+    }
+}
+
 .main-content {
     flex: 1;
     min-width: 0;
@@ -1254,6 +1284,28 @@ input.note-editor-title {
         inset: 0;
         background: oklch(20% 0.02 60 / 0.35);
         z-index: 15;
+    }
+
+    /* The off-canvas drawer above always shows full names, never the desktop icon rail - .collapsed
+       (see above, and its default-on state in Chat.razor) is a desktop space-saving affordance for the
+       inline list that doesn't apply once .chat-list is already a slide-out drawer instead. Repeats
+       .chat-list.collapsed's selector at the same specificity so source order (this comes later) decides
+       instead of needing !important. */
+    .chat-list.collapsed {
+        width: 78%;
+        max-width: 300px;
+    }
+
+    .chat-list.collapsed .chat-list-header {
+        justify-content: flex-end;
+    }
+
+    .chat-list.collapsed .chat-list-item {
+        justify-content: flex-start;
+    }
+
+    .chat-list.collapsed .chat-list-meta {
+        display: block;
     }
 }
 

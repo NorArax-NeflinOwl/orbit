@@ -239,8 +239,13 @@ else
     private IReadOnlyList<ContactDto> _contacts = [];
     private bool _isDrawerOpen;
 
-    /// <summary>Desktop-only: collapses the contact list to just avatars (see .chat-list.collapsed in app.css) - independent of _isDrawerOpen, which is the mobile off-canvas open/closed state.</summary>
-    private bool _isContactListCollapsed;
+    /// <summary>
+    /// Desktop-only: collapses the contact list to just avatars (see .chat-list.collapsed in app.css) -
+    /// independent of _isDrawerOpen, which is the mobile off-canvas open/closed state. Defaults to
+    /// collapsed so the message thread gets the extra width by default on a typical visit; the toggle
+    /// button in .chat-list-header lets the user expand it back to full names.
+    /// </summary>
+    private bool _isContactListCollapsed = true;
 
     /// <summary>Which message's "..." dropdown ("Edit" and/or "Forward") is open, if any.</summary>
     private Guid? _openMessageMenuId;

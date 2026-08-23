@@ -326,6 +326,26 @@ message sent to a user who has never opened `/chat` (and so has no `PublicKeyBas
 encrypted — `Chat.razor` shows an explanatory message and disables sending in that case instead of
 silently failing.
 
+### Responsive layout
+
+The conversation list next to the message thread (`.chat-list`) defaults to its collapsed, avatar-only
+width (`_isContactListCollapsed = true`) rather than showing full names, so the message thread gets the
+extra width by default on a typical visit; the toggle button at the top of the list (the chevron in
+`.chat-list-header`) still expands it back to full names on demand, same as before. Below 680px this
+list stops being an inline column at all and becomes an off-canvas drawer instead (opened via the
+hamburger button in the thread header, closed by tapping the backdrop or picking a contact) — the
+drawer always shows full names regardless of the collapsed state, since an icon-only slide-out drawer
+would defeat the point of it.
+
+The left navigation sidebar (`MainLayout.razor`) auto-collapses to its icon rail — the same visual state
+`ToggleSidebarCollapsed` toggles manually by clicking the logo — once the window narrows past 1024px,
+without needing a click: a pure CSS media query (`@media (max-width: 1024px) and (min-width: 681px)`)
+applies the icon-rail rules directly, independent of the manual toggle's own state. Below 681px it
+instead switches to the fully different mobile layout described above (a horizontal icon bar across the
+top, sidebar labels and the nav divider/Options row hidden) rather than staying a narrow vertical rail —
+680px is also the calendar's page (`app.css`) and chat's own drawer breakpoint, kept consistent across
+the app rather than each surface picking its own.
+
 ## Dashboard
 
 `/` (`Dashboard.razor`) is the landing page after signing in, giving a single-page overview of
