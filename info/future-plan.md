@@ -145,7 +145,22 @@ as not covered by an automated test today, together with why:
   [`info/instructions.md`](instructions.md) don't apply the same way behind Azure's own ingress
   TLS termination - see `nginx.azure.conf` vs `nginx.conf`), and writing down the public URL and any
   first-time setup (e.g. seeding `JWT_SIGNING_KEY`/VAPID keys as Container App secrets rather than a
-  local `.env`) somewhere a person can follow without archaeology through the workflow file.
+  local `.env`) somewhere a person can follow without archaeology through the workflow file. Now
+  mostly written down in [Azure Container Apps setup](azure-setup.md).
+- **Move `orbit-api` off SQLite onto a managed database (Azure SQL or PostgreSQL Flexible Server).**
+  Deliberately deferred, not started. In production, `orbit-api`'s SQLite file
+  (`ConnectionStrings__Orbit`, see [Azure setup](azure-setup.md#orbit-api-persistent-storage)) has to
+  live on an Azure Files share mounted into the container, since the container's own local disk is
+  wiped on every restart/redeploy/scale-to-zero - but SQLite over an SMB-backed volume doesn't safely
+  support concurrent writers, which is why `orbit-api` is pinned to exactly one replica
+  (`--min-replicas 1 --max-replicas 1`) as a hard requirement, not just a cost-saving default. A
+  managed database removes that single-replica ceiling and the SMB-reliability question entirely, at
+  the cost of a real (billed) Azure resource plus an EF Core provider swap
+  (`UseSqlite` → `UseSqlServer`/`UseNpgsql` in
+  [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs)),
+  the SQLite-specific `PRAGMA journal_mode=WAL` startup step in
+  [Program.cs](../src/Server/Orbit.Api/Program.cs), and `docker-compose.yml`'s local dev setup. Kept as
+  SQLite-on-Azure-Files for now as a working, zero-additional-cost interim state.
 
 ## Smaller identified follow-ups
 
