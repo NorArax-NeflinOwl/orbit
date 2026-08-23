@@ -8,10 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
-    <!-- Transitive override: EF Core 10.0.10 still pulls SQLitePCLRaw 2.1.11, which bundles a native
-         SQLite build affected by CVE-2025-6965 (NU1903). 3.50.3 bundles a patched SQLite build. -->
-    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <!-- Design-time only: powers `dotnet ef migrations add`/`dotnet ef database update` against this
          project. Not needed at runtime - Program.cs calls Database.Migrate() directly. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" PrivateAssets="all" />

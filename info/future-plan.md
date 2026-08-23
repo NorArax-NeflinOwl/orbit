@@ -147,27 +147,6 @@ as not covered by an automated test today, together with why:
   first-time setup (e.g. seeding `JWT_SIGNING_KEY`/VAPID keys as Container App secrets rather than a
   local `.env`) somewhere a person can follow without archaeology through the workflow file. Now
   mostly written down in [Azure Container Apps setup](azure-setup.md).
-- **Move `orbit-api` off SQLite onto a managed database (Azure SQL or PostgreSQL Flexible Server).**
-  Deliberately deferred, not started. In production, `orbit-api`'s SQLite file
-  (`ConnectionStrings__Orbit`, see [Azure setup](azure-setup.md#orbit-api-persistent-storage)) has to
-  live on an Azure Files share mounted into the container, since the container's own local disk is
-  wiped on every restart/redeploy/scale-to-zero - but SQLite over an SMB-backed volume doesn't safely
-  support concurrent writers, which is why `orbit-api` is pinned to exactly one replica
-  (`--min-replicas 1 --max-replicas 1`) as a hard requirement, not just a cost-saving default. A
-  managed database removes that single-replica ceiling and the SMB-reliability question entirely, at
-  the cost of a real (billed) Azure resource plus an EF Core provider swap
-  (`UseSqlite` → `UseSqlServer`/`UseNpgsql` in
-  [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs)),
-  the SQLite-specific `PRAGMA journal_mode=WAL` startup step in
-  [Program.cs](../src/Server/Orbit.Api/Program.cs), and `docker-compose.yml`'s local dev setup. Kept as
-  SQLite-on-Azure-Files for now as a working, zero-additional-cost interim state - though "working" now
-  comes with a real scar: enabling the Azure Files mount once already caused a production outage, where
-  WAL's memory-mapped coordination file was left corrupted after two replicas briefly had it open at
-  once, hanging every future connection attempt until the mount was reverted (see
-  [Azure setup](azure-setup.md#orbit-api-persistent-storage) for the full story and the
-  `Database:UseWriteAheadLog` setting added because of it). That setting makes the interim state usable
-  again, but it's now demonstrated infrastructure risk, not just a theoretical one - worth weighing
-  when deciding how long to keep deferring this.
 
 ## Smaller identified follow-ups
 

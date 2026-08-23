@@ -14,6 +14,31 @@ services:
       # Never set this in a non-local environment.
       DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
 
+  # Real Postgres instead of SQLite: a single shared file is what caused a production incident (SQLite's
+  # WAL journal mode hanging over a network-mounted volume - see info/azure-setup.md), and running the
+  # same engine locally as in production catches provider-specific issues before they ship.
+  postgres:
+    image: postgres:18-alpine
+    container_name: orbit-postgres
+    ports:
+      - "5432:5432" # published so `dotnet run`/`dotnet watch` outside Docker can reach it too
+    environment:
+      POSTGRES_DB: orbit
+      POSTGRES_USER: orbit
+      # Local-only default; nothing else on the host network can reach this container's port except
+      # localhost, so this isn't a real secret the way the production connection string is.
+      POSTGRES_PASSWORD: orbit
+    volumes:
+      # Postgres 18+'s official image expects a single mount at /var/lib/postgresql (not the
+      # .../data subdirectory older major versions used) and manages its own versioned subdirectory
+      # underneath it - mounting at .../data directly makes the entrypoint refuse to start.
+      - orbit-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbit -d orbit"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   orbit-api:
     build:
       context: .
@@ -22,8 +47,8 @@ services:
     ports:
       - "8081:8080"
     environment:
-      # "aspire-dashboard" resolves via Docker's internal DNS; "localhost" here would mean this
-      # container itself, not the dashboard container.
+      # "aspire-dashboard"/"postgres" resolve via Docker's internal DNS; "localhost" here would mean
+      # this container itself, not the sibling container.
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
       # Origin the Blazor client is actually served from in this compose stack (see orbit-web below).
       # Requests through orbit-web's own nginx (see its nginx.conf) are same-origin and never hit this
@@ -32,7 +57,7 @@ services:
       # origin (e.g. the `dotnet run`/`dotnet watch` dev server). Set WEB_CLIENT_LAN_ORIGIN in .env for
       # that case if needed.
       WebClientOrigins: "http://localhost:8080,${WEB_CLIENT_LAN_ORIGIN:-}"
-      ConnectionStrings__Orbit: "Data Source=/app/data/orbit.db"
+      ConnectionStrings__Orbit: "Host=postgres;Port=5432;Database=orbit;Username=orbit;Password=orbit"
       # Secret - read from the .env file at the repo root (see .env.example), never hardcoded here.
       Jwt__SigningKey: "${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in a .env file - see .env.example}"
       # Optional - calendar event reminder emails (see README.md's "Calendar event reminders"
@@ -51,13 +76,12 @@ services:
       Vapid__PrivateKeyBase64Url: "${VAPID_PRIVATE_KEY:-}"
       Vapid__Subject: "${VAPID_SUBJECT:-}"
     volumes:
-      # Bind mount instead of a named volume so orbit.db lives at a real path on disk (./data) -
-      # point a SQLite client (e.g. Visual Studio's SQLite/SQL Server Compact Toolbox extension) at
-      # ./data/orbit.db to browse tables and run queries while the container is running.
-      - ./data:/app/data
       - orbit-api-logs:/app/logs
     depends_on:
-      - aspire-dashboard
+      aspire-dashboard:
+        condition: service_started
+      postgres:
+        condition: service_healthy
 
   orbit-web:
     build:
@@ -86,5 +110,6 @@ services:
         condition: service_healthy
 
 volumes:
+  orbit-postgres-data:
   orbit-api-logs:
   orbit-web-certs:

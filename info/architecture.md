@@ -22,7 +22,7 @@ Logs through Serilog and emits OpenTelemetry traces, both at the lowest level (s
 
 ### Orbit.Data
 
-EF Core persistence on SQLite, isolated behind repository interfaces
+EF Core persistence on PostgreSQL, isolated behind repository interfaces
 (`INoteRepository`, `ITaskRepository`, `ICalendarEventRepository`, `IUserRepository`,
 `IRefreshTokenRepository`, `IContactRepository`, `IChatMessageRepository`,
 `IPushSubscriptionRepository`, `IOverdueTaskNotificationRepository`) so the domain layer in
@@ -64,7 +64,7 @@ what each one covers.
 
 ## Deployment topology (Docker Compose, local)
 
-`docker-compose.yml` at the repository root wires three containers together for local development:
+`docker-compose.yml` at the repository root wires four containers together for local development:
 
 - **`orbit-aspire-dashboard`** (`mcr.microsoft.com/dotnet/aspire-dashboard`) — a local, visual view of
   everything Orbit.Api logs and traces, at `http://localhost:18888`. Orbit.Api sends both structured
@@ -72,12 +72,13 @@ what each one covers.
   single user action shows up as one connected timeline. Dashboard authentication is disabled for this
   local prototype setup only (`DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS`) — this must never be set
   in a non-local environment.
+- **`postgres`** (`postgres:18-alpine`) — the same engine used in production (see below), published on
+  `localhost:5432` so `dotnet run` outside Docker can reach it too. Data lives in the named volume
+  `orbit-postgres-data`.
 - **`orbit-api`** — built from `src/Server/Orbit.Api/Dockerfile`, published on `http://localhost:8081`.
   Configuration (JWT signing key, SMTP, VAPID keys, connection strings) is injected entirely through
   environment variables sourced from `.env` — see
-  [Testing and Running Locally](testing-and-running-locally.md). The SQLite database file is bind-mounted
-  from `./data` on the host rather than a named volume, so it can be inspected with an external SQLite
-  client while the container runs.
+  [Testing and Running Locally](testing-and-running-locally.md).
 - **`orbit-web`** — built from `src/Clients/Orbit.Web/Dockerfile`, serving the Blazor client through
   nginx on `https://localhost:8443` (its one real entry point) and `http://localhost:8080` (redirects
   to the HTTPS port). Depends on `orbit-api`'s `/health/live` check reporting healthy before starting,

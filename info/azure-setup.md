@@ -17,15 +17,14 @@ a perpetual crash loop and surfaces to every caller as a `502` - including throu
 | Setting | Where it comes from | Notes |
 |---|---|---|
 | `Jwt__SigningKey` | Container App secret, e.g. `openssl rand -base64 48` | **Required.** At least 32 characters - see [Program.cs](../src/Server/Orbit.Api/Program.cs)'s startup check. |
-| `ConnectionStrings__Orbit` | Literal value `Data Source=/app/data/orbit.db` | Falls back to a relative path under `/app` if unset, which isn't writable by the non-root container user - see [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs). |
+| `ConnectionStrings__Orbit` | Container App secret - PostgreSQL connection string | **Required**, throws on startup if unset - see [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs). Provisioning steps below. |
 
 ```bash
 az containerapp secret set -n orbit-api -g Orbit \
   --secrets jwt-signing-key="$(openssl rand -base64 48)"
 
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
-  "Jwt__SigningKey=secretref:jwt-signing-key" \
-  "ConnectionStrings__Orbit=Data Source=/app/data/orbit.db"
+  "Jwt__SigningKey=secretref:jwt-signing-key"
 ```
 
 ## orbit-api: optional configuration
@@ -61,71 +60,55 @@ az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "Smtp__FromAddress=<address>" "Smtp__Password=secretref:smtp-password"
 ```
 
-## orbit-api: persistent storage
+## orbit-api: database (PostgreSQL)
 
-**Currently disabled as of this writing** - the SQLite database lives on the container's ephemeral
-local disk again and is wiped on every restart, redeploy, or scale-to-zero. It was briefly enabled via
-an Azure Files mount and caused a real production outage (see below); re-enabling it needs the code
-fix described here to already be deployed first.
+Orbit.Api used to run on a SQLite file, made persistent across restarts/redeploys by mounting an Azure
+Files share into the container. **That approach caused a real production outage** - the mounted volume
+briefly had two container replicas writing to it at once during a routine deploy (normal Container Apps
+rollover behavior), and SQLite's WAL journal mode, which coordinates readers/writers through a
+memory-mapped file, doesn't work reliably over a network filesystem (SMB/NFS/CIFS - this is called out
+in SQLite's own documentation). It left the database in a state where every subsequent connection
+attempt hung indefinitely, even back down to a single replica. Orbit.Api now runs on a real PostgreSQL
+server instead - no shared file, no network-filesystem locking semantics, ordinary concurrent
+connections. The old Azure Files share and volume mount, if still present from before, can be deleted
+once this is live (`az containerapp env storage remove`).
 
-### What went wrong the first time
-
-1. Created a file share on the existing `orbitb722` storage account, registered it with the
-   environment as `orbit-data`, and mounted it into `orbit-api` at `/app/data`.
-2. A routine deploy briefly ran the old and new revisions side by side (normal Container Apps rollover
-   behavior) - which meant two separate containers had the same SQLite file, over the same Azure Files
-   share, open at once.
-3. SQLite's WAL journal mode (enabled unconditionally in [Program.cs](../src/Server/Orbit.Api/Program.cs)
-   at the time) coordinates readers/writers through a memory-mapped `-shm` file - which SQLite's own
-   documentation says is unreliable over a network filesystem (NFS/SMB/CIFS). The two-writer moment
-   left the `-wal`/`-shm` files in a state that made *every subsequent connection attempt hang
-   indefinitely* trying to recover them - even back down to a single replica, even after a full
-   scale-to-zero-and-back restart. The fix had to be reverting the volume mount entirely to restore
-   service, since nothing short of that unstuck it.
-
-**Program.cs now reads a `Database:UseWriteAheadLog` setting** (default `true`) and only runs
-`PRAGMA journal_mode=WAL` when it's true - otherwise it explicitly sets `PRAGMA journal_mode=DELETE`
-(SQLite's traditional rollback journal, which uses ordinary file locks rather than shared memory, and
-is what actually works over SMB). **This must be set to `false` before ever re-mounting Azure Files**:
-
-```bash
-az containerapp update -n orbit-api -g Orbit --set-env-vars "Database__UseWriteAheadLog=false"
-```
-
-Leave it at its default (`true`, i.e. don't set the env var) for local development, which uses a real
-local disk and has no reason to avoid WAL.
-
-### Re-enabling the mount
-
-1. Confirm `Database__UseWriteAheadLog=false` is set (above) and deployed *before* doing anything else
-   here - mounting the volume first and fixing this after is exactly what caused the outage.
-2. Create a file share on `orbitb722` and register it with the environment (skip if `orbit-data` already
-   exists from the earlier attempt):
+1. Provision an Azure Database for PostgreSQL Flexible Server (Burstable tier - cheapest that still
+   gives dedicated compute; adjust `--sku-name`/`--storage-size` to taste):
    ```bash
-   az storage share-rm create --storage-account orbitb722 -g Orbit --name orbit-api-data --quota 5
-   STORAGE_KEY=$(az storage account keys list --account-name orbitb722 -g Orbit --query "[0].value" -o tsv)
-   az containerapp env storage set \
-     --name orbit-environment -g Orbit \
-     --storage-name orbit-data \
-     --azure-file-account-name orbitb722 \
-     --azure-file-account-key "$STORAGE_KEY" \
-     --azure-file-share-name orbit-api-data \
-     --access-mode ReadWrite
+   az postgres flexible-server create \
+     --resource-group Orbit \
+     --name orbit-postgres \
+     --location polandcentral \
+     --admin-user orbitadmin \
+     --admin-password "$(openssl rand -base64 24)" \
+     --sku-name Standard_B1ms \
+     --tier Burstable \
+     --storage-size 32 \
+     --version 16 \
+     --database-name orbit \
+     --public-access 0.0.0.0
    ```
-3. Mount it into the `orbit-api` container at `/app/data`. There's no simple CLI flag for this - do it
-   in the Portal (`orbit-api` > Containers > Volumes, then Volume mounts) or via
-   `az containerapp update --yaml` with a `volumes` + `volumeMounts` block referencing `orbit-data`.
-4. Keep `--min-replicas 1 --max-replicas 1` on `orbit-api` (already set) - even with WAL disabled,
-   SQLite still does not support multiple processes writing to the same file at once, and Container
-   Apps' own deploy rollover can still momentarily run two replicas regardless of this setting.
-5. If it's ever stuck again despite the above: `az storage file list-handles` /
-   `az storage share close-handle --close-all` on the `orbit-api-data` share can force-clear a stale
-   SMB handle left by a client that didn't shut down cleanly - this is what a next occurrence would
-   most likely need, now that WAL itself is no longer the culprit.
-
-If Azure Files' default mount permissions block the non-root container user from writing to
-`/app/data`, that's a known SMB/Container-Apps interaction to look into next, not a new bug - check
-`az containerapp env storage` mount-option support for uid/gid at that point.
+   `--public-access 0.0.0.0` is an Azure CLI special case, not "open to the entire internet" - it adds a
+   firewall rule allowing traffic from any Azure-internal IP, which is what lets `orbit-api` (running in
+   a Container Apps environment with no VNet integration to this database) reach it at all without
+   private networking set up. The server still requires the admin password to authenticate. **Save the
+   generated password somewhere - `az postgres flexible-server create` does not print it back out.**
+2. Build the connection string and store it as a secret:
+   ```bash
+   PG_PASSWORD="<the password from step 1>"
+   az containerapp secret set -n orbit-api -g Orbit \
+     --secrets orbit-db-connection-string="Host=orbit-postgres.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=Require;Trust Server Certificate=true"
+   az containerapp update -n orbit-api -g Orbit --set-env-vars \
+     "ConnectionStrings__Orbit=secretref:orbit-db-connection-string"
+   ```
+   `Ssl Mode=Require` is mandatory - Flexible Server rejects unencrypted connections by default.
+   `Trust Server Certificate=true` skips validating the server's certificate against a local CA bundle;
+   fine for this setup, but validating against Azure's actual CA chain would be the more rigorous option
+   if this ever needs hardening.
+3. `orbit-api` can go back to its normal scaling (`--min-replicas` doesn't need to stay pinned at `1`
+   for database-safety reasons anymore - PostgreSQL handles concurrent connections normally. Whether to
+   actually run more than one replica is a separate question, unrelated to this incident).
 
 ## orbit-api: ingress
 

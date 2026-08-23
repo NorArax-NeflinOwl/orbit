@@ -193,25 +193,6 @@ try
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<OrbitDbContext>();
         dbContext.Database.Migrate();
-
-        // WAL lets readers and writers proceed concurrently instead of the default rollback journal,
-        // which locks the entire database file for any write - the other half (with the connection
-        // string's busy timeout) of avoiding "database is locked" errors under concurrent load. This
-        // is a one-time, persistent change to the database file itself, so re-running it on every
-        // startup is a cheap no-op once already set.
-        //
-        // BUT: WAL coordinates readers/writers through a memory-mapped -shm file, which SQLite's own
-        // documentation calls out as unreliable over a network filesystem (NFS/SMB/CIFS) - exactly
-        // what backs /app/data when Orbit.Api's SQLite file lives on an Azure Files share mounted into
-        // the container for persistence across restarts/redeploys. This caused a real production
-        // incident: after two replicas briefly had the file open at once during a deploy, the -wal/-shm
-        // files were left in a state that made every subsequent connection attempt hang indefinitely
-        // trying to recover them, even down to a single replica. Set Database:UseWriteAheadLog=false
-        // (e.g. via the Database__UseWriteAheadLog environment variable) whenever ConnectionStrings:Orbit
-        // points at a network-mounted path - see info/azure-setup.md. Left at its default of true, this
-        // is unchanged from before for local development, which uses a real local disk.
-        var useWriteAheadLog = builder.Configuration.GetValue("Database:UseWriteAheadLog", defaultValue: true);
-        dbContext.Database.ExecuteSqlRaw(useWriteAheadLog ? "PRAGMA journal_mode=WAL;" : "PRAGMA journal_mode=DELETE;");
     }
 
     app.UseSerilogRequestLogging();
