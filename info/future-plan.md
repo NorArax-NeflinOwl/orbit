@@ -160,7 +160,14 @@ as not covered by an automated test today, together with why:
   [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs)),
   the SQLite-specific `PRAGMA journal_mode=WAL` startup step in
   [Program.cs](../src/Server/Orbit.Api/Program.cs), and `docker-compose.yml`'s local dev setup. Kept as
-  SQLite-on-Azure-Files for now as a working, zero-additional-cost interim state.
+  SQLite-on-Azure-Files for now as a working, zero-additional-cost interim state - though "working" now
+  comes with a real scar: enabling the Azure Files mount once already caused a production outage, where
+  WAL's memory-mapped coordination file was left corrupted after two replicas briefly had it open at
+  once, hanging every future connection attempt until the mount was reverted (see
+  [Azure setup](azure-setup.md#orbit-api-persistent-storage) for the full story and the
+  `Database:UseWriteAheadLog` setting added because of it). That setting makes the interim state usable
+  again, but it's now demonstrated infrastructure risk, not just a theoretical one - worth weighing
+  when deciding how long to keep deferring this.
 
 ## Smaller identified follow-ups
 
