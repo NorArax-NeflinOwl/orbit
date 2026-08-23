@@ -52,17 +52,14 @@ public sealed class CalendarEventEntity
     /// </summary>
     public string ReminderNotificationChannel { get; set; } = "None";
 
-    /// <summary>True for a copy created by accepting a share offered by another user.</summary>
-    public bool IsShared { get; set; }
+    /// <summary>The user id currently holding the edit lock, if any - see Orbit.Core.Calendar.CalendarEvent.LockedByUserId.</summary>
+    public Guid? LockedByUserId { get; set; }
 
-    /// <summary>The sharing user's login, captured once at share-acceptance time. Null when IsShared is false.</summary>
-    public string? SharedByUserName { get; set; }
+    /// <summary>The locking user's login, captured at lock-acquisition time. Null when LockedByUserId is null.</summary>
+    public string? LockedByUserName { get; set; }
 
-    /// <summary>"ReadOnly", "Share", or "CanEdit", captured once at share-acceptance time. Meaningless when IsShared is false.</summary>
-    public string AccessLevel { get; set; } = "ReadOnly";
-
-    /// <summary>The user id of whoever first created this event, before any sharing. Null when IsShared is false.</summary>
-    public Guid? OriginalOwnerUserId { get; set; }
+    /// <summary>Once past, the lock is treated as abandoned - see Orbit.Core.Calendar.CalendarEvent.LockExpiresAtUtc.</summary>
+    public DateTimeOffset? LockExpiresAtUtc { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }

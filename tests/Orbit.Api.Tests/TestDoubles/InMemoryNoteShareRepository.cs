@@ -22,6 +22,16 @@ internal sealed class InMemoryNoteShareRepository : INoteShareRepository
     public Task<NoteShare?> FindExistingAsync(Guid sourceNoteId, Guid recipientUserId, CancellationToken cancellationToken)
         => Task.FromResult(_shares.FirstOrDefault(share => share.SourceNoteId == sourceNoteId && share.RecipientUserId == recipientUserId));
 
+    public Task<NoteShare?> FindAcceptedGrantAsync(Guid sourceNoteId, Guid recipientUserId, CancellationToken cancellationToken)
+        => Task.FromResult(_shares.FirstOrDefault(
+            share => share.SourceNoteId == sourceNoteId && share.RecipientUserId == recipientUserId && share.IsAccepted));
+
+    public Task<IReadOnlyList<NoteShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<NoteShare> grants = _shares.Where(share => share.RecipientUserId == recipientUserId && share.IsAccepted).ToList();
+        return Task.FromResult(grants);
+    }
+
     public Task UpdateAsync(NoteShare share, CancellationToken cancellationToken)
     {
         // Handlers mutate the same NoteShare instance this repository already holds a reference to, so

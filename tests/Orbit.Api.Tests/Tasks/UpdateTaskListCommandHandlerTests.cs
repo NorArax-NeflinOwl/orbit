@@ -8,20 +8,25 @@ namespace Orbit.Api.Tests.Tasks;
 
 public sealed class UpdateTaskListCommandHandlerTests
 {
+    private static UpdateTaskListCommandHandler CreateHandler(InMemoryTaskRepository taskRepository, InMemoryTaskListShareRepository? taskListShareRepository = null)
+        => new(
+            new TaskListAccessResolver(taskRepository, taskListShareRepository ?? new InMemoryTaskListShareRepository(), new InMemoryUserRepository()),
+            taskRepository,
+            new TaskListLinkValidator(taskRepository));
+
     [Fact]
     public async Task HandleAsync_updates_a_task_list_owned_by_the_requesting_user()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var handler = CreateHandler(repository);
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Original title", [TaskItem.Create("Original item", null, false)]);
         await repository.AddAsync(taskList, CancellationToken.None);
         var newItems = new[] { TaskItem.Create("New item", null, false) };
 
-        var wasUpdated = await handler.HandleAsync(
-            new UpdateTaskListCommand(userId, taskList.Id, "New title", newItems), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(userId, taskList.Id, "New title", newItems), CancellationToken.None);
 
-        Assert.True(wasUpdated);
+        Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
         var stored = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
         Assert.Equal("New title", stored!.Title);
         Assert.Equal("New item", Assert.Single(stored.Items).Description);
@@ -31,7 +36,7 @@ public sealed class UpdateTaskListCommandHandlerTests
     public async Task HandleAsync_recomputes_completion_after_replacing_the_items()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var handler = CreateHandler(repository);
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Errands", [TaskItem.Create("Buy milk", null, false)]);
         await repository.AddAsync(taskList, CancellationToken.None);
@@ -44,91 +49,107 @@ public sealed class UpdateTaskListCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_returns_false_and_does_not_update_a_task_list_owned_by_a_different_user()
+    public async Task HandleAsync_returns_NotFound_and_does_not_update_a_task_list_owned_by_a_different_user()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var handler = CreateHandler(repository);
         var ownerId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
         var taskList = TaskList.Create(ownerId, "Original title", []);
         await repository.AddAsync(taskList, CancellationToken.None);
 
-        var wasUpdated = await handler.HandleAsync(
-            new UpdateTaskListCommand(otherUserId, taskList.Id, "Hijacked title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(otherUserId, taskList.Id, "Hijacked title", []), CancellationToken.None);
 
-        Assert.False(wasUpdated);
+        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
         var stored = await repository.GetByIdAsync(ownerId, taskList.Id, CancellationToken.None);
         Assert.Equal("Original title", stored!.Title);
     }
 
     [Fact]
-    public async Task HandleAsync_returns_false_for_an_unknown_task_list_id()
+    public async Task HandleAsync_returns_NotFound_for_an_unknown_task_list_id()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var handler = CreateHandler(repository);
 
-        var wasUpdated = await handler.HandleAsync(
-            new UpdateTaskListCommand(Guid.NewGuid(), Guid.NewGuid(), "Title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(Guid.NewGuid(), Guid.NewGuid(), "Title", []), CancellationToken.None);
 
-        Assert.False(wasUpdated);
+        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
+    }
+
+    private static async Task<(InMemoryTaskRepository TaskRepository, Guid OwnerId, Guid RecipientId, TaskList TaskList)> CreateSharedTaskListAsync(
+        InMemoryTaskListShareRepository taskListShareRepository, ShareAccessLevel accessLevel)
+    {
+        var taskRepository = new InMemoryTaskRepository();
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var taskList = TaskList.Create(ownerId, "Original title", []);
+        await taskRepository.AddAsync(taskList, CancellationToken.None);
+        var share = TaskListShare.Create(taskList.Id, ownerId, recipientId, accessLevel);
+        share.MarkAccepted();
+        await taskListShareRepository.AddAsync(share, CancellationToken.None);
+        return (taskRepository, ownerId, recipientId, taskList);
     }
 
     [Fact]
-    public async Task HandleAsync_returns_false_and_does_not_update_a_shared_read_only_task_list()
+    public async Task HandleAsync_returns_NotFound_and_does_not_update_a_shared_read_only_task_list()
     {
-        var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
-        var recipientId = Guid.NewGuid();
-        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.ReadOnly, Guid.NewGuid());
-        await repository.AddAsync(sharedTaskList, CancellationToken.None);
+        var taskListShareRepository = new InMemoryTaskListShareRepository();
+        var (taskRepository, _, recipientId, taskList) = await CreateSharedTaskListAsync(taskListShareRepository, ShareAccessLevel.ReadOnly);
+        var handler = CreateHandler(taskRepository, taskListShareRepository);
 
-        var wasUpdated = await handler.HandleAsync(
-            new UpdateTaskListCommand(recipientId, sharedTaskList.Id, "Edited title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "Edited title", []), CancellationToken.None);
 
-        Assert.False(wasUpdated);
-        var stored = await repository.GetByIdAsync(recipientId, sharedTaskList.Id, CancellationToken.None);
-        Assert.Equal("Original title", stored!.Title);
+        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }
 
     [Fact]
-    public async Task HandleAsync_returns_false_and_does_not_update_a_task_list_shared_at_the_Share_tier()
+    public async Task HandleAsync_returns_NotFound_and_does_not_update_a_task_list_shared_at_the_Share_tier()
     {
-        var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
-        var recipientId = Guid.NewGuid();
-        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.Share, Guid.NewGuid());
-        await repository.AddAsync(sharedTaskList, CancellationToken.None);
+        var taskListShareRepository = new InMemoryTaskListShareRepository();
+        var (taskRepository, _, recipientId, taskList) = await CreateSharedTaskListAsync(taskListShareRepository, ShareAccessLevel.Share);
+        var handler = CreateHandler(taskRepository, taskListShareRepository);
 
-        var wasUpdated = await handler.HandleAsync(
-            new UpdateTaskListCommand(recipientId, sharedTaskList.Id, "Edited title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "Edited title", []), CancellationToken.None);
 
-        Assert.False(wasUpdated);
-        var stored = await repository.GetByIdAsync(recipientId, sharedTaskList.Id, CancellationToken.None);
-        Assert.Equal("Original title", stored!.Title);
+        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }
 
     [Fact]
     public async Task HandleAsync_updates_a_shared_task_list_with_edit_access()
     {
-        var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
-        var recipientId = Guid.NewGuid();
-        var sharedTaskList = TaskList.CreateShared(recipientId, "Original title", [], "owner", ShareAccessLevel.CanEdit, Guid.NewGuid());
-        await repository.AddAsync(sharedTaskList, CancellationToken.None);
+        var taskListShareRepository = new InMemoryTaskListShareRepository();
+        var (taskRepository, ownerId, recipientId, taskList) = await CreateSharedTaskListAsync(taskListShareRepository, ShareAccessLevel.CanEdit);
+        var handler = CreateHandler(taskRepository, taskListShareRepository);
 
-        var wasUpdated = await handler.HandleAsync(
-            new UpdateTaskListCommand(recipientId, sharedTaskList.Id, "New title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "New title", []), CancellationToken.None);
 
-        Assert.True(wasUpdated);
-        var stored = await repository.GetByIdAsync(recipientId, sharedTaskList.Id, CancellationToken.None);
+        Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
+        var stored = await taskRepository.GetByIdAsync(ownerId, taskList.Id, CancellationToken.None);
         Assert.Equal("New title", stored!.Title);
+    }
+
+    [Fact]
+    public async Task HandleAsync_returns_Locked_when_someone_else_holds_the_edit_lock()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        var taskList = TaskList.Create(userId, "Original title", []);
+        taskList.AcquireLock(otherUserId, "otherUser", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1));
+        await repository.AddAsync(taskList, CancellationToken.None);
+
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(userId, taskList.Id, "Edited title", []), CancellationToken.None);
+
+        Assert.Equal(EditOutcomeKind.Locked, outcome.Kind);
+        Assert.Equal("otherUser", outcome.LockedByUserName);
     }
 
     [Fact]
     public async Task HandleAsync_rejects_an_update_that_links_an_item_to_the_list_itself()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new UpdateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
+        var handler = CreateHandler(repository);
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Errands", []);
         await repository.AddAsync(taskList, CancellationToken.None);

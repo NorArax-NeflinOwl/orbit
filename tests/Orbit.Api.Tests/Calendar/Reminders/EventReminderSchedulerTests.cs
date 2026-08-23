@@ -123,7 +123,7 @@ public sealed class EventReminderSchedulerTests
         // FromPersistence (rather than Create) is the only way to control CreatedAtUtc directly, which
         // this suppression rule depends on.
         var calendarEvent = CalendarEvent.FromPersistence(
-            Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, isShared: false, sharedByUserName: null, accessLevel: ShareAccessLevel.ReadOnly, originalOwnerUserId: null);
+            Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
 
@@ -141,7 +141,7 @@ public sealed class EventReminderSchedulerTests
             "Holiday", null, null, null, startUtc, startUtc.AddDays(1), true, null, [], [0],
             CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.FromPersistence(
-            Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, isShared: false, sharedByUserName: null, accessLevel: ShareAccessLevel.ReadOnly, originalOwnerUserId: null);
+            Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
 
@@ -209,7 +209,7 @@ public sealed class EventReminderSchedulerTests
             "Daily holiday", null, null, null, firstOccurrenceStartUtc, firstOccurrenceStartUtc.AddDays(1), true, recurrence, [], [0],
             CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.FromPersistence(
-            Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, isShared: false, sharedByUserName: null, accessLevel: ShareAccessLevel.ReadOnly, originalOwnerUserId: null);
+            Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
 

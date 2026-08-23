@@ -1,9 +1,11 @@
 @page "/notes/new"
 @page "/notes/{Id:guid}"
 @attribute [Authorize]
+@implements IAsyncDisposable
 @using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
+@using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject ChatApiClient ChatApiClient
@@ -26,15 +28,22 @@
 }
 else
 {
-    @if (_isSharedReadOnly)
+    @if (_isShared)
     {
         <p class="shared-note-banner">
-            This note was shared by <strong>@_sharedByUserName</strong> - read-only.
+            This note was shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.
+        </p>
+    }
+
+    @if (_lockedByUserName is not null)
+    {
+        <p class="lock-banner">
+            <strong>@_lockedByUserName</strong> is currently editing this note - you can't edit it right now.
         </p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
-        <fieldset disabled="@(_isSharedReadOnly || _isSaving)">
+        <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
             <div class="field">
                 <label>Title</label>
                 <InputText @bind-Value="_formModel.Title" class="note-editor-title" />
@@ -56,7 +65,7 @@ else
             }
             <div class="form-actions">
                 <button type="submit" class="btn-primary">Save</button>
-                <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
+                <button type="button" class="btn-secondary" @onclick="CancelAsync">Cancel</button>
             </div>
         </fieldset>
     </EditForm>
@@ -109,9 +118,11 @@ else
     private bool _isSaving;
     private bool _isSharing;
     private NoteFormModel _formModel = new();
+    private bool _isShared;
     private bool _isSharedReadOnly;
     private bool _canShare;
     private bool _canGrantCanEdit;
+    private string _accessLevel = "ReadOnly";
     private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private IReadOnlyList<ContactDto> _contacts = [];
@@ -123,6 +134,18 @@ else
     private Guid _ownUserId;
     private ChecklistTextEditor? _checklistEditorRef;
 
+    /// <summary>Who else currently holds the edit lock, if anyone - see AcquireLockAsync. Null means this browser holds it (or the note isn't editable at all, so no lock was ever sought).</summary>
+    private string? _lockedByUserName;
+    private PeriodicTimer? _lockHeartbeatTimer;
+    private CancellationTokenSource? _lockHeartbeatCancellation;
+
+    /// <summary>
+    /// How often this browser re-acquires its own edit lock while the editor stays open - well under
+    /// AcquireNoteLockCommandHandler's LockDuration (60s) so the lock never lapses under normal network
+    /// conditions.
+    /// </summary>
+    private static readonly TimeSpan LockHeartbeatInterval = TimeSpan.FromSeconds(20);
+
     /// <summary>
     /// Contacts eligible as a share target: everyone except the note's original owner when re-sharing a
     /// received copy - see ShareNoteCommandHandler's class comment for why sharing back to them is
@@ -133,6 +156,14 @@ else
         => _originalOwnerUserId is { } originalOwnerUserId
             ? _contacts.Where(contact => contact.UserId != originalOwnerUserId).ToList()
             : _contacts;
+
+    /// <summary>Explains what the current user can do with this shared copy, for the "shared by X" banner.</summary>
+    private string SharedAccessDescription => _accessLevel switch
+    {
+        "CanEdit" => "you can edit it",
+        "Share" => "you can share it further, but not edit it",
+        _ => "read-only"
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -148,11 +179,22 @@ else
                 if (note is not null)
                 {
                     _formModel = new NoteFormModel { Title = note.Title, Content = note.Content };
+                    _isShared = note.IsShared;
                     _isSharedReadOnly = note.IsShared && note.AccessLevel != "CanEdit";
                     _canShare = !note.IsShared || note.AccessLevel is "CanEdit" or "Share";
                     _canGrantCanEdit = !note.IsShared || note.AccessLevel == "CanEdit";
+                    _accessLevel = note.AccessLevel;
                     _originalOwnerUserId = note.OriginalOwnerUserId;
                     _sharedByUserName = note.SharedByUserName;
+
+                    if (!_isSharedReadOnly)
+                    {
+                        await AcquireLockAsync(noteId);
+                        if (_lockedByUserName is null)
+                        {
+                            StartLockHeartbeat(noteId);
+                        }
+                    }
                 }
 
                 _contacts = await ChatApiClient.GetContactsAsync();
@@ -193,8 +235,23 @@ else
             }
             else
             {
-                await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content));
+                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content));
+                if (outcome.Kind == EditOutcomeKind.Locked)
+                {
+                    _lockedByUserName = outcome.LockedByUserName;
+                    StopLockHeartbeat();
+                    _saveErrorMessage = $"{outcome.LockedByUserName} is currently editing this note - try again in a moment.";
+                    return;
+                }
+
+                if (outcome.Kind == EditOutcomeKind.NotFound)
+                {
+                    _saveErrorMessage = "Failed to save the note. Try again.";
+                    return;
+                }
+
                 Logger.LogInformation("Note {NoteId} updated", Id);
+                await ReleaseLockAsync(Id.Value);
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -261,9 +318,14 @@ else
         }
     }
 
-    private void Cancel()
+    private async Task CancelAsync()
     {
         Logger.LogInformation("User clicked 'Cancel'");
+        if (Id is { } noteId)
+        {
+            await ReleaseLockAsync(noteId);
+        }
+
         NavigationManager.NavigateTo("/notes");
     }
 
@@ -273,6 +335,98 @@ else
         if (_checklistEditorRef is not null)
         {
             await _checklistEditorRef.InsertChecklistItemAsync();
+        }
+    }
+
+    /// <summary>
+    /// Acquires (or refreshes) this browser's edit lock on noteId - a no-op call otherwise, since the
+    /// server only bothers checking/granting a lock for a note the caller could edit anyway (see
+    /// AcquireNoteLockCommandHandler). Sets _lockedByUserName to whoever holds it if someone else does,
+    /// or null if this browser now holds it (or the note has become inaccessible - see NotFound).
+    /// </summary>
+    private async Task AcquireLockAsync(Guid noteId)
+    {
+        try
+        {
+            var outcome = await NotesApiClient.AcquireNoteLockAsync(noteId);
+            _lockedByUserName = outcome.Kind == EditOutcomeKind.Locked ? outcome.LockedByUserName : null;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+
+    /// <summary>Best-effort - if this fails, the lock's own TTL (Note.LockExpiresAtUtc) expires it within a few LockHeartbeatInterval multiples anyway.</summary>
+    private async Task ReleaseLockAsync(Guid noteId)
+    {
+        StopLockHeartbeat();
+        if (_isSharedReadOnly)
+        {
+            return;
+        }
+
+        try
+        {
+            await NotesApiClient.ReleaseNoteLockAsync(noteId);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private void StartLockHeartbeat(Guid noteId)
+    {
+        _lockHeartbeatCancellation = new CancellationTokenSource();
+        _lockHeartbeatTimer = new PeriodicTimer(LockHeartbeatInterval);
+        _ = LockHeartbeatLoopAsync(noteId, _lockHeartbeatCancellation.Token);
+    }
+
+    private void StopLockHeartbeat()
+    {
+        _lockHeartbeatCancellation?.Cancel();
+        _lockHeartbeatCancellation?.Dispose();
+        _lockHeartbeatCancellation = null;
+        _lockHeartbeatTimer?.Dispose();
+        _lockHeartbeatTimer = null;
+    }
+
+    private async Task LockHeartbeatLoopAsync(Guid noteId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _lockHeartbeatTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                await AcquireLockAsync(noteId);
+                StateHasChanged();
+                if (_lockedByUserName is not null)
+                {
+                    // Our own lock lapsed (e.g. a suspended background tab) and someone else grabbed it -
+                    // nothing left to refresh, so stop polling instead of repeatedly re-checking a lock
+                    // we no longer hold.
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the page navigates away or DisposeAsync cancels the heartbeat.
+        }
+        catch (ObjectDisposedException)
+        {
+            // The timer was disposed by StopLockHeartbeat between a tick starting and this loop checking again.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (Id is { } noteId)
+        {
+            await ReleaseLockAsync(noteId);
+        }
+        else
+        {
+            StopLockHeartbeat();
         }
     }
 

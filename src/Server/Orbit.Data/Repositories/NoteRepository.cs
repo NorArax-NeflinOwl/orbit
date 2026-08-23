@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Data.Entities;
 
@@ -69,7 +68,7 @@ public sealed class NoteRepository : INoteRepository
             entity.Id, entity.UserId, entity.Title,
             JsonSerializer.Deserialize<List<NoteContentLine>>(entity.ContentJson) ?? [],
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.IsShared, entity.SharedByUserName, Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.OriginalOwnerUserId);
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc);
 
     private static NoteEntity ToEntity(Note note)
         => new()
@@ -78,10 +77,9 @@ public sealed class NoteRepository : INoteRepository
             UserId = note.UserId,
             Title = note.Title,
             ContentJson = JsonSerializer.Serialize(note.Content),
-            IsShared = note.IsShared,
-            SharedByUserName = note.SharedByUserName,
-            AccessLevel = note.AccessLevel.ToString(),
-            OriginalOwnerUserId = note.OriginalOwnerUserId,
+            LockedByUserId = note.LockedByUserId,
+            LockedByUserName = note.LockedByUserName,
+            LockExpiresAtUtc = note.LockExpiresAtUtc,
             CreatedAtUtc = note.CreatedAtUtc,
             UpdatedAtUtc = note.UpdatedAtUtc
         };

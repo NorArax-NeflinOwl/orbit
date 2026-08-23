@@ -3,8 +3,12 @@ using Orbit.Core.Abstractions;
 namespace Orbit.Core.Notes;
 
 /// <summary>
-/// A single note owned by a user: a title and content, ordered lines of either plain text or checklist
-/// items (see NoteContentLine).
+/// A single note, owned by exactly one user (<see cref="UserId"/>) for its entire lifetime - sharing
+/// (see NoteShare) grants other users access to this same row, it never creates a copy. Because of that,
+/// <see cref="IsShared"/>/<see cref="SharedByUserName"/>/<see cref="AccessLevel"/> are not persisted at
+/// all: they describe how the *current caller* relates to this note, recomputed fresh on every read by
+/// NoteAccessResolver via <see cref="SetAccessContext"/> - the same underlying row reads differently for
+/// its owner (IsShared false, AccessLevel CanEdit) than for someone it's been shared with.
 /// </summary>
 public sealed class Note
 {
@@ -15,35 +19,27 @@ public sealed class Note
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
-    /// <summary>
-    /// True for a copy created by accepting another user's share offer (see NoteShare and
-    /// AcceptNoteShareCommand) - false for a note the owner created themselves. <see cref="Update"/>
-    /// refuses to change a shared copy whose <see cref="AccessLevel"/> is <see cref="ShareAccessLevel.ReadOnly"/>.
-    /// </summary>
+    /// <summary>The user id holding the current edit lock, if any - see AcquireLock/ReleaseLock.</summary>
+    public Guid? LockedByUserId { get; private set; }
+
+    /// <summary>The locking user's login, captured at lock-acquisition time for display - meaningless when LockedByUserId is null.</summary>
+    public string? LockedByUserName { get; private set; }
+
+    /// <summary>Once past, the lock is treated as abandoned (e.g. a crashed tab) and anyone can acquire a fresh one.</summary>
+    public DateTimeOffset? LockExpiresAtUtc { get; private set; }
+
+    /// <summary>False for the owner, true for anyone viewing/editing this note through a share - see NoteAccessResolver.</summary>
     public bool IsShared { get; private set; }
 
-    /// <summary>The sharing user's login, captured once at share-acceptance time. Null when IsShared is false.</summary>
+    /// <summary>The owner's login, whenever IsShared is true. Null otherwise.</summary>
     public string? SharedByUserName { get; private set; }
 
-    /// <summary>The access level the share was accepted under - meaningless when IsShared is false.</summary>
-    public ShareAccessLevel AccessLevel { get; private set; }
-
-    /// <summary>
-    /// The id of the user who first created this note, before any sharing - captured once at
-    /// share-acceptance time from the source note's own <see cref="OriginalOwnerUserId"/> (or, if that
-    /// source note wasn't itself shared, from its <see cref="UserId"/>), so it survives being re-shared
-    /// through any number of hops. Null when IsShared is false, where <see cref="UserId"/> already is
-    /// the original owner. ShareNoteCommandHandler uses this to stop a share ending up back with the
-    /// person who originally owns it - see its class comment.
-    /// </summary>
-    public Guid? OriginalOwnerUserId { get; private set; }
-
-    /// <summary>The original owner regardless of how many times this note has been re-shared since.</summary>
-    public Guid EffectiveOwnerUserId => IsShared ? OriginalOwnerUserId!.Value : UserId;
+    /// <summary>The current caller's access level - always CanEdit for the owner, and whatever their share grants otherwise.</summary>
+    public ShareAccessLevel AccessLevel { get; private set; } = ShareAccessLevel.CanEdit;
 
     private Note(
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel, Guid? originalOwnerUserId)
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
         UserId = userId;
@@ -51,49 +47,72 @@ public sealed class Note
         Content = content;
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
-        IsShared = isShared;
-        SharedByUserName = sharedByUserName;
-        AccessLevel = accessLevel;
-        OriginalOwnerUserId = originalOwnerUserId;
+        LockedByUserId = lockedByUserId;
+        LockedByUserName = lockedByUserName;
+        LockExpiresAtUtc = lockExpiresAtUtc;
     }
 
     public static Note Create(Guid userId, string title, IReadOnlyList<NoteContentLine> content)
     {
         var now = DateTimeOffset.UtcNow;
-        return new Note(
-            Guid.NewGuid(), userId, title, content, now, now,
-            isShared: false, sharedByUserName: null, ShareAccessLevel.ReadOnly, originalOwnerUserId: null);
+        return new Note(Guid.NewGuid(), userId, title, content, now, now, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
     }
 
-    /// <summary>
-    /// Creates recipientUserId's own copy of title/content once they accept a share - see
-    /// AcceptNoteShareCommandHandler.
-    /// </summary>
-    public static Note CreateShared(
-        Guid recipientUserId, string title, IReadOnlyList<NoteContentLine> content, string sharedByUserName, ShareAccessLevel accessLevel,
-        Guid originalOwnerUserId)
-    {
-        var now = DateTimeOffset.UtcNow;
-        return new Note(Guid.NewGuid(), recipientUserId, title, content, now, now, isShared: true, sharedByUserName, accessLevel, originalOwnerUserId);
-    }
-
-    /// <summary>
-    /// Rebuilds a note from already-persisted values, bypassing creation rules.
-    /// </summary>
+    /// <summary>Rebuilds a note from already-persisted values, bypassing creation rules.</summary>
     public static Note FromPersistence(
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel, Guid? originalOwnerUserId)
-        => new(id, userId, title, content, createdAtUtc, updatedAtUtc, isShared, sharedByUserName, accessLevel, originalOwnerUserId);
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
+        => new(id, userId, title, content, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
 
+    /// <summary>
+    /// Stamps how the current caller relates to this note - see the class comment. Called exactly once,
+    /// by NoteAccessResolver, right after loading the row; never persisted.
+    /// </summary>
+    public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
+    {
+        IsShared = isShared;
+        SharedByUserName = sharedByUserName;
+        AccessLevel = accessLevel;
+    }
+
+    /// <summary>
+    /// Callers are expected to have already checked <see cref="AccessLevel"/> is CanEdit and that
+    /// <see cref="IsLockedByAnotherUser"/> is false before calling this - see UpdateNoteCommandHandler.
+    /// Kept out of this method itself so a locked/read-only note fails with a specific EditOutcome
+    /// instead of a generic exception.
+    /// </summary>
     public void Update(string title, IReadOnlyList<NoteContentLine> content)
     {
-        if (IsShared && AccessLevel != ShareAccessLevel.CanEdit)
-        {
-            throw new InvalidOperationException("A shared note without CanEdit access can't be edited.");
-        }
-
         Title = title;
         Content = content;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public bool IsLockedByAnotherUser(Guid callerId, DateTimeOffset nowUtc)
+        => LockedByUserId is { } lockedByUserId && lockedByUserId != callerId && LockExpiresAtUtc > nowUtc;
+
+    /// <summary>
+    /// Grants userId the edit lock for lockDuration from nowUtc - safe to call again to refresh a lock
+    /// this same user already holds (a heartbeat), and callers are expected to have already rejected the
+    /// attempt via <see cref="IsLockedByAnotherUser"/> when someone else holds an unexpired one.
+    /// </summary>
+    public void AcquireLock(Guid userId, string userName, DateTimeOffset nowUtc, TimeSpan lockDuration)
+    {
+        LockedByUserId = userId;
+        LockedByUserName = userName;
+        LockExpiresAtUtc = nowUtc + lockDuration;
+    }
+
+    /// <summary>No-op if userId isn't the current lock holder, so releasing an already-expired-and-reassigned lock can't steal it back.</summary>
+    public void ReleaseLock(Guid userId)
+    {
+        if (LockedByUserId != userId)
+        {
+            return;
+        }
+
+        LockedByUserId = null;
+        LockedByUserName = null;
+        LockExpiresAtUtc = null;
     }
 }

@@ -5,6 +5,7 @@
 @using System.Text.Json
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
@@ -31,15 +32,22 @@
 }
 else
 {
-    @if (_isSharedReadOnly)
+    @if (_isShared)
     {
         <p class="shared-event-banner">
-            This event was shared by <strong>@_sharedByUserName</strong> - read-only.
+            This event was shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.
+        </p>
+    }
+
+    @if (_lockedByUserName is not null)
+    {
+        <p class="lock-banner">
+            <strong>@_lockedByUserName</strong> is currently editing this event - you can't edit it right now.
         </p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
-    <fieldset disabled="@(!_canEditContent || _isSaving)">
+    <fieldset disabled="@(!_canEditContent || _lockedByUserName is not null || _isSaving)">
         <div class="field">
             <label>Title</label>
             <InputText @bind-Value="_formModel.Title" />
@@ -203,7 +211,7 @@ else
 
     <div class="form-actions">
         <button type="submit" class="btn-primary" disabled="@_isSaving">Save</button>
-        <button type="button" class="btn-secondary" @onclick="Cancel">Cancel</button>
+        <button type="button" class="btn-secondary" @onclick="CancelAsync">Cancel</button>
     </div>
     </EditForm>
 
@@ -230,6 +238,7 @@ else
     private string _selectedContactUserId = string.Empty;
     private string _selectedAccessLevel = "ReadOnly";
     private Guid _ownUserId;
+    private bool _isShared;
     private bool _isSharedReadOnly;
 
     // Default to "fully allowed" - correct as-is for a brand new event (never overwritten below, since
@@ -238,15 +247,30 @@ else
     private bool _canEditContent = true;
     private bool _canShare = true;
     private bool _canGrantCanEdit = true;
+    private string _accessLevel = "ReadOnly";
     private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private bool _isSaving;
+
+    /// <summary>Mirrors NoteEditor's field of the same name - see its comment.</summary>
+    private string? _lockedByUserName;
+    private PeriodicTimer? _lockHeartbeatTimer;
+    private CancellationTokenSource? _lockHeartbeatCancellation;
+    private static readonly TimeSpan LockHeartbeatInterval = TimeSpan.FromSeconds(20);
 
     /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
     private IReadOnlyList<ContactDto> _shareableContacts
         => _originalOwnerUserId is { } originalOwnerUserId
             ? _contacts.Where(contact => contact.UserId != originalOwnerUserId).ToList()
             : _contacts;
+
+    /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
+    private string SharedAccessDescription => _accessLevel switch
+    {
+        "CanEdit" => "you can edit it",
+        "Share" => "you can share it further, but not edit it",
+        _ => "read-only"
+    };
 
     /// <summary>
     /// Contacts added as a guest via the picker during this editing session (not guests already present
@@ -278,12 +302,23 @@ else
                 if (calendarEvent is not null)
                 {
                     _formModel = CalendarEventFormModel.FromDto(calendarEvent.Details);
+                    _isShared = calendarEvent.IsShared;
                     _isSharedReadOnly = calendarEvent.IsShared && calendarEvent.AccessLevel != "CanEdit";
                     _canEditContent = !calendarEvent.IsShared || calendarEvent.AccessLevel == "CanEdit";
                     _canShare = !calendarEvent.IsShared || calendarEvent.AccessLevel is "CanEdit" or "Share";
                     _canGrantCanEdit = !calendarEvent.IsShared || calendarEvent.AccessLevel == "CanEdit";
+                    _accessLevel = calendarEvent.AccessLevel;
                     _originalOwnerUserId = calendarEvent.OriginalOwnerUserId;
                     _sharedByUserName = calendarEvent.SharedByUserName;
+
+                    if (_canEditContent)
+                    {
+                        await AcquireLockAsync(eventId);
+                        if (_lockedByUserName is null)
+                        {
+                            StartLockHeartbeat(eventId);
+                        }
+                    }
                 }
             }
             else
@@ -449,8 +484,23 @@ else
                     // anything short of CanEdit access.
                     if (_canEditContent)
                     {
-                        await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
+                        var outcome = await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
+                        if (outcome.Kind == EditOutcomeKind.Locked)
+                        {
+                            _lockedByUserName = outcome.LockedByUserName;
+                            StopLockHeartbeat();
+                            _errorMessage = $"{outcome.LockedByUserName} is currently editing this event - try again in a moment.";
+                            return;
+                        }
+
+                        if (outcome.Kind == EditOutcomeKind.NotFound)
+                        {
+                            _errorMessage = "Failed to save the event. Try again.";
+                            return;
+                        }
+
                         Logger.LogInformation("Calendar event {EventId} updated", eventId);
+                        await ReleaseLockAsync(eventId);
                     }
                 }
             }
@@ -530,10 +580,85 @@ else
             : $"The event was saved, but the invite couldn't be sent to: {string.Join(", ", recipientsNotNotified)}.";
     }
 
-    private void Cancel()
+    private async Task CancelAsync()
     {
         Logger.LogInformation("User clicked 'Cancel'");
+        if (Id is { } eventId)
+        {
+            await ReleaseLockAsync(eventId);
+        }
+
         NavigationManager.NavigateTo("/calendar");
+    }
+
+    /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>
+    private async Task AcquireLockAsync(Guid eventId)
+    {
+        try
+        {
+            var outcome = await CalendarApiClient.AcquireCalendarEventLockAsync(eventId);
+            _lockedByUserName = outcome.Kind == EditOutcomeKind.Locked ? outcome.LockedByUserName : null;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+
+    /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>
+    private async Task ReleaseLockAsync(Guid eventId)
+    {
+        StopLockHeartbeat();
+        if (!_canEditContent)
+        {
+            return;
+        }
+
+        try
+        {
+            await CalendarApiClient.ReleaseCalendarEventLockAsync(eventId);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private void StartLockHeartbeat(Guid eventId)
+    {
+        _lockHeartbeatCancellation = new CancellationTokenSource();
+        _lockHeartbeatTimer = new PeriodicTimer(LockHeartbeatInterval);
+        _ = LockHeartbeatLoopAsync(eventId, _lockHeartbeatCancellation.Token);
+    }
+
+    private void StopLockHeartbeat()
+    {
+        _lockHeartbeatCancellation?.Cancel();
+        _lockHeartbeatCancellation?.Dispose();
+        _lockHeartbeatCancellation = null;
+        _lockHeartbeatTimer?.Dispose();
+        _lockHeartbeatTimer = null;
+    }
+
+    private async Task LockHeartbeatLoopAsync(Guid eventId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _lockHeartbeatTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                await AcquireLockAsync(eventId);
+                StateHasChanged();
+                if (_lockedByUserName is not null)
+                {
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private async Task DisposeMapAsync()
@@ -552,6 +677,14 @@ else
     public async ValueTask DisposeAsync()
     {
         await DisposeMapAsync();
+        if (Id is { } eventId)
+        {
+            await ReleaseLockAsync(eventId);
+        }
+        else
+        {
+            StopLockHeartbeat();
+        }
     }
 
     private sealed class CalendarEventFormModel

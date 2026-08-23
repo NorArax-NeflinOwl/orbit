@@ -58,19 +58,56 @@ public sealed class CalendarApiClient
         }
     }
 
-    public async Task UpdateCalendarEventAsync(Guid id, UpdateCalendarEventRequest request, CancellationToken cancellationToken = default)
+    /// <summary>Mirrors NotesApiClient.UpdateNoteAsync - see its comment for what NotFound/Locked mean here.</summary>
+    public async Task<EditOutcome> UpdateCalendarEventAsync(Guid id, UpdateCalendarEventRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
             var response = await _httpClient.PutAsJsonAsync($"api/calendar-events/{id}", request, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            _logger.LogActionCompleted(ClientActionCategory.Edit, "Update calendar event");
+            var outcome = await ToEditOutcomeAsync(response, cancellationToken);
+            if (outcome.Kind == EditOutcomeKind.Success)
+            {
+                _logger.LogActionCompleted(ClientActionCategory.Edit, "Update calendar event");
+            }
+
+            return outcome;
         }
         catch (Exception exception)
         {
             _logger.LogActionFailed(ClientActionCategory.Edit, "Update calendar event", exception);
             throw;
         }
+    }
+
+    /// <summary>Mirrors NotesApiClient.AcquireNoteLockAsync - see its comment.</summary>
+    public async Task<EditOutcome> AcquireCalendarEventLockAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/calendar-events/{id}/lock", content: null, cancellationToken);
+        return await ToEditOutcomeAsync(response, cancellationToken);
+    }
+
+    /// <summary>Mirrors NotesApiClient.ReleaseNoteLockAsync - see its comment.</summary>
+    public async Task ReleaseCalendarEventLockAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/calendar-events/{id}/lock", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return EditOutcome.NotFound;
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
+            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? "another user");
+        }
+
+        response.EnsureSuccessStatusCode();
+        return EditOutcome.Success;
     }
 
     public async Task DeleteCalendarEventAsync(Guid id, CancellationToken cancellationToken = default)

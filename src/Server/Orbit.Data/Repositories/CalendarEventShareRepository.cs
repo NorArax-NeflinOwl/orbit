@@ -52,11 +52,31 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
         return entity is null ? null : ToDomain(entity);
     }
 
+    public async Task<CalendarEventShare?> FindAcceptedGrantAsync(Guid sourceCalendarEventId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.CalendarEventShares
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                share => share.SourceCalendarEventId == sourceCalendarEventId && share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null,
+                cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
+    public async Task<IReadOnlyList<CalendarEventShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.CalendarEventShares
+            .AsNoTracking()
+            .Where(share => share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
     private static CalendarEventShare ToDomain(CalendarEventShareEntity entity)
         => CalendarEventShare.FromPersistence(
             entity.Id, entity.SourceCalendarEventId, entity.OwnerUserId, entity.RecipientUserId,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedCalendarEventId,
-            entity.OriginalOwnerUserId);
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc);
 
     private static CalendarEventShareEntity ToEntity(CalendarEventShare share)
         => new()
@@ -67,8 +87,6 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
             RecipientUserId = share.RecipientUserId,
             AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
-            AcceptedAtUtc = share.AcceptedAtUtc,
-            SharedCalendarEventId = share.SharedCalendarEventId,
-            OriginalOwnerUserId = share.OriginalOwnerUserId
+            AcceptedAtUtc = share.AcceptedAtUtc
         };
 }

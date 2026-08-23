@@ -4,13 +4,13 @@ namespace Orbit.Core.Calendar.GetCalendarEventById;
 
 public sealed class GetCalendarEventByIdQueryHandler : IRequestHandler<GetCalendarEventByIdQuery, CalendarEvent?>
 {
-    private readonly ICalendarEventRepository _calendarEventRepository;
+    private readonly CalendarEventAccessResolver _calendarEventAccessResolver;
 
-    public GetCalendarEventByIdQueryHandler(ICalendarEventRepository calendarEventRepository)
+    public GetCalendarEventByIdQueryHandler(CalendarEventAccessResolver calendarEventAccessResolver)
     {
-        _calendarEventRepository = calendarEventRepository;
+        _calendarEventAccessResolver = calendarEventAccessResolver;
     }
 
     public Task<CalendarEvent?> HandleAsync(GetCalendarEventByIdQuery request, CancellationToken cancellationToken)
-        => _calendarEventRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
+        => _calendarEventAccessResolver.ResolveAsync(request.UserId, request.Id, cancellationToken);
 }
