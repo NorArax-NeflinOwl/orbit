@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  registryName: orbitcontainerregistry   
+  registryName: orbitcontainerregistry
   registryLoginServer: orbitcontainerregistry.azurecr.io
   resourceGroupName: Orbit
 
@@ -31,6 +31,25 @@ jobs:
     # for every deploy. Adding that gate back requires updating (or adding a second) federated
     # credential subject on that app registration in Entra ID first - a security-setting change that
     # has to be made deliberately, not as a side effect of editing this file.
+
+    # Gives the smoke-test step below something real to talk to - the same engine production uses
+    # (see docker-compose.yml's "postgres" service), not a mock. GitHub Actions waits for this
+    # container's own health check before running any step, so the smoke test never races a
+    # still-starting database.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: orbit
+          POSTGRES_USER: orbit
+          POSTGRES_PASSWORD: orbit
+        options: >-
+          --health-cmd "pg_isready -U orbit -d orbit"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
 
     steps:
       - name: Checkout repository
@@ -51,7 +70,7 @@ jobs:
       - name: Log in to Azure Container Registry
         run: az acr login --name ${{ env.registryName }}
 
-      - name: Build and push orbit-api image
+      - name: Build orbit-api image
         run: |
           docker build \
             --file src/Server/Orbit.Api/Dockerfile \
@@ -59,10 +78,8 @@ jobs:
             --tag ${{ env.registryLoginServer }}/orbit-api:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
             .
-          docker push ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }}
-          docker push ${{ env.registryLoginServer }}/orbit-api:latest
 
-      - name: Build and push orbit-web image
+      - name: Build orbit-web image
         run: |
           docker build \
             --file src/Clients/Orbit.Web/Dockerfile \
@@ -70,12 +87,115 @@ jobs:
             --tag ${{ env.registryLoginServer }}/orbit-web:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
             .
+
+      # Runs the freshly built orbit-api image for real, against a real PostgreSQL, before it ever
+      # gets pushed to the registry or deployed - this is what a production incident on 2026-08-23
+      # (a migration file that hadn't actually been generated against the Postgres provider) would
+      # have been caught by. --network host makes "localhost" inside the container resolve to the
+      # runner itself, so it can reach the "postgres" service above the same way the runner's own
+      # curl calls do.
+      #
+      # This validates that the image boots and applies migrations against *a* PostgreSQL - it does
+      # NOT validate connectivity to the real Azure Database for PostgreSQL, firewall rules, or the
+      # nginx nginx.azure.conf proxy path between orbit-web and orbit-api's real Azure hostname; those
+      # are environment-specific and can't be reproduced in this runner. See info/future-plan.md for
+      # what a fuller pre-production check of those would take.
+      - name: Smoke test orbit-api image against PostgreSQL
+        run: |
+          docker run -d --name orbit-api-smoke-test \
+            --network host \
+            -e Jwt__SigningKey="ci-smoke-test-signing-key-do-not-use-elsewhere" \
+            -e ConnectionStrings__Orbit="Host=localhost;Port=5432;Database=orbit;Username=orbit;Password=orbit" \
+            ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }}
+
+          echo "Waiting for orbit-api to report healthy..."
+          healthy=false
+          for i in $(seq 1 45); do
+            if curl -sf http://localhost:8080/health/ready > /dev/null; then
+              healthy=true
+              break
+            fi
+            sleep 2
+          done
+
+          echo "--- orbit-api smoke test container logs ---"
+          docker logs orbit-api-smoke-test
+          docker rm -f orbit-api-smoke-test > /dev/null
+
+          if [ "$healthy" != "true" ]; then
+            echo "::error::orbit-api did not report healthy within 90s against a real PostgreSQL - aborting before push/deploy. See the container logs above."
+            exit 1
+          fi
+          echo "orbit-api smoke test passed."
+
+      # Basic sanity check that the built image actually serves something - orbit-web has no database
+      # dependency, so this is deliberately lighter than orbit-api's smoke test above. It cannot
+      # validate the /api/ proxy path in nginx.azure.conf (that requires orbit-api's real Azure
+      # internal FQDN, which doesn't exist outside the deployed environment).
+      - name: Smoke test orbit-web image
+        run: |
+          docker run -d --name orbit-web-smoke-test -p 18080:80 \
+            ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }}
+
+          echo "Waiting for orbit-web to serve requests..."
+          healthy=false
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:18080/ > /dev/null; then
+              healthy=true
+              break
+            fi
+            sleep 2
+          done
+
+          echo "--- orbit-web smoke test container logs ---"
+          docker logs orbit-web-smoke-test
+          docker rm -f orbit-web-smoke-test > /dev/null
+
+          if [ "$healthy" != "true" ]; then
+            echo "::error::orbit-web did not serve a successful response within 30s - aborting before push/deploy. See the container logs above."
+            exit 1
+          fi
+          echo "orbit-web smoke test passed."
+
+      - name: Push orbit-api image
+        run: |
+          docker push ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }}
+          docker push ${{ env.registryLoginServer }}/orbit-api:latest
+
+      - name: Push orbit-web image
+        run: |
           docker push ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }}
           docker push ${{ env.registryLoginServer }}/orbit-web:latest
 
+      # Captured before updating, so a failed health check below can redeploy exactly what was
+      # running a moment ago. orbit-api runs in Container Apps' "Single" revision mode, where the
+      # newest revision always gets 100% of traffic regardless of its health (see
+      # info/azure-setup.md) - re-deploying the previous image is what "rolling back" means here,
+      # not a traffic-weight change, which Single mode ignores.
+      - name: Capture current orbit-api image (for rollback)
+        id: current_api_image
+        run: |
+          CURRENT_IMAGE=$(az containerapp show \
+            --name orbit-api \
+            --resource-group ${{ env.resourceGroupName }} \
+            --query "properties.template.containers[0].image" -o tsv)
+          echo "Current orbit-api image: $CURRENT_IMAGE"
+          echo "image=$CURRENT_IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Capture current orbit-web image (for rollback)
+        id: current_web_image
+        run: |
+          CURRENT_IMAGE=$(az containerapp show \
+            --name orbit-web \
+            --resource-group ${{ env.resourceGroupName }} \
+            --query "properties.template.containers[0].image" -o tsv)
+          echo "Current orbit-web image: $CURRENT_IMAGE"
+          echo "image=$CURRENT_IMAGE" >> "$GITHUB_OUTPUT"
+
       # Points each Container App at the image just built, tagged by commit SHA so the deployed
-      # version is traceable back to this run. (":latest" is also pushed above for convenience, e.g.
-      # manual `az containerapp up` testing, but isn't what gets deployed here.)
+      # version is always traceable back to the workflow run that produced it. (":latest" is also
+      # pushed above for convenience, e.g. manual `az containerapp up` testing, but isn't what gets
+      # deployed here.)
       - name: Deploy orbit-api
         run: |
           az containerapp update \
@@ -89,3 +209,76 @@ jobs:
             --name orbit-web \
             --resource-group ${{ env.resourceGroupName }} \
             --image ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }}
+
+      # Container Apps reports a revision's HealthState based on its own probes independently of
+      # whether the deploy command itself succeeded - `az containerapp update` returning 0 only means
+      # Azure accepted the new revision, not that it's actually serving traffic correctly (see the
+      # incidents documented in info/azure-setup.md, several of which were exactly this: a revision
+      # that "deployed successfully" and then never became healthy). Polling here and rolling back
+      # automatically is what turns "silently broken in production until a user reports it" into "this
+      # workflow run failed, and production is back on the last known-good image."
+      - name: Verify orbit-api is healthy, roll back otherwise
+        run: |
+          NEW_REVISION=$(az containerapp show \
+            --name orbit-api \
+            --resource-group ${{ env.resourceGroupName }} \
+            --query "properties.latestRevisionName" -o tsv)
+          echo "Watching orbit-api revision $NEW_REVISION..."
+
+          healthy=false
+          for i in $(seq 1 18); do
+            STATE=$(az containerapp revision show \
+              --name orbit-api \
+              --resource-group ${{ env.resourceGroupName }} \
+              --revision "$NEW_REVISION" \
+              --query "properties.healthState" -o tsv)
+            echo "Attempt $i/18: healthState=$STATE"
+            if [ "$STATE" = "Healthy" ]; then
+              healthy=true
+              break
+            fi
+            sleep 10
+          done
+
+          if [ "$healthy" != "true" ]; then
+            echo "::error::orbit-api revision $NEW_REVISION did not become healthy within 3 minutes. Rolling back to ${{ steps.current_api_image.outputs.image }}."
+            az containerapp update \
+              --name orbit-api \
+              --resource-group ${{ env.resourceGroupName }} \
+              --image "${{ steps.current_api_image.outputs.image }}"
+            exit 1
+          fi
+          echo "orbit-api revision $NEW_REVISION is healthy."
+
+      - name: Verify orbit-web is healthy, roll back otherwise
+        run: |
+          NEW_REVISION=$(az containerapp show \
+            --name orbit-web \
+            --resource-group ${{ env.resourceGroupName }} \
+            --query "properties.latestRevisionName" -o tsv)
+          echo "Watching orbit-web revision $NEW_REVISION..."
+
+          healthy=false
+          for i in $(seq 1 18); do
+            STATE=$(az containerapp revision show \
+              --name orbit-web \
+              --resource-group ${{ env.resourceGroupName }} \
+              --revision "$NEW_REVISION" \
+              --query "properties.healthState" -o tsv)
+            echo "Attempt $i/18: healthState=$STATE"
+            if [ "$STATE" = "Healthy" ]; then
+              healthy=true
+              break
+            fi
+            sleep 10
+          done
+
+          if [ "$healthy" != "true" ]; then
+            echo "::error::orbit-web revision $NEW_REVISION did not become healthy within 3 minutes. Rolling back to ${{ steps.current_web_image.outputs.image }}."
+            az containerapp update \
+              --name orbit-web \
+              --resource-group ${{ env.resourceGroupName }} \
+              --image "${{ steps.current_web_image.outputs.image }}"
+            exit 1
+          fi
+          echo "orbit-web revision $NEW_REVISION is healthy."

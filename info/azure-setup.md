@@ -132,6 +132,35 @@ once this is live (`az containerapp env storage remove`).
    for database-safety reasons anymore - PostgreSQL handles concurrent connections normally. Whether to
    actually run more than one replica is a separate question, unrelated to this incident).
 
+### orbit-api: database backups
+
+Flexible Server enables automated backups by default (7-day retention, locally redundant), but this
+is worth confirming rather than assuming - especially soon after standing up a new server, and
+especially given today's SQLite incident already cost this project one round of lost data. Check the
+current settings:
+
+```bash
+az postgres flexible-server show -g Orbit -n "$PG_SERVER_NAME" \
+  --query "{backupRetentionDays: backup.backupRetentionDays, geoRedundantBackup: backup.geoRedundantBackup}" -o json
+```
+
+To extend retention (up to 35 days, still within the Burstable tier):
+
+```bash
+az postgres flexible-server update -g Orbit -n "$PG_SERVER_NAME" --backup-retention 35
+```
+
+**Geo-redundant backup can only be set at server creation time**, not changed afterward - if that's
+wanted, it means recreating the server with `--geo-redundant-backup Enabled` added to the
+`flexible-server create` command above (a bigger step, since it also means a fresh database and
+re-pointing `ConnectionStrings__Orbit`). Not done as part of this initial setup; worth revisiting if
+this deployment moves from "personal project" to "something people depend on."
+
+To restore from a backup (point-in-time restore, within the retention window), see
+[`az postgres flexible-server restore`](https://learn.microsoft.com/cli/azure/postgres/flexible-server#az-postgres-flexible-server-restore)
+- it creates a new server from the backup rather than restoring in place, so restoring is itself an
+exercise in re-pointing `ConnectionStrings__Orbit` at the new server once it's ready.
+
 ## orbit-api: ingress
 
 - Target port: `8080` (matches `ASPNETCORE_URLS` in the [Dockerfile](../src/Server/Orbit.Api/Dockerfile)).
