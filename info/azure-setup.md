@@ -63,12 +63,46 @@ az containerapp update -n orbit-api -g Orbit --set-env-vars \
 
 ## orbit-api: persistent storage
 
-**This is not yet done as of this writing - the SQLite database currently lives on the container's
-ephemeral local disk and is wiped on every restart, redeploy, or scale-to-zero.**
+**Currently disabled as of this writing** - the SQLite database lives on the container's ephemeral
+local disk again and is wiped on every restart, redeploy, or scale-to-zero. It was briefly enabled via
+an Azure Files mount and caused a real production outage (see below); re-enabling it needs the code
+fix described here to already be deployed first.
 
-1. Create a file share on the existing `orbitb722` storage account and register it with the environment:
+### What went wrong the first time
+
+1. Created a file share on the existing `orbitb722` storage account, registered it with the
+   environment as `orbit-data`, and mounted it into `orbit-api` at `/app/data`.
+2. A routine deploy briefly ran the old and new revisions side by side (normal Container Apps rollover
+   behavior) - which meant two separate containers had the same SQLite file, over the same Azure Files
+   share, open at once.
+3. SQLite's WAL journal mode (enabled unconditionally in [Program.cs](../src/Server/Orbit.Api/Program.cs)
+   at the time) coordinates readers/writers through a memory-mapped `-shm` file - which SQLite's own
+   documentation says is unreliable over a network filesystem (NFS/SMB/CIFS). The two-writer moment
+   left the `-wal`/`-shm` files in a state that made *every subsequent connection attempt hang
+   indefinitely* trying to recover them - even back down to a single replica, even after a full
+   scale-to-zero-and-back restart. The fix had to be reverting the volume mount entirely to restore
+   service, since nothing short of that unstuck it.
+
+**Program.cs now reads a `Database:UseWriteAheadLog` setting** (default `true`) and only runs
+`PRAGMA journal_mode=WAL` when it's true - otherwise it explicitly sets `PRAGMA journal_mode=DELETE`
+(SQLite's traditional rollback journal, which uses ordinary file locks rather than shared memory, and
+is what actually works over SMB). **This must be set to `false` before ever re-mounting Azure Files**:
+
+```bash
+az containerapp update -n orbit-api -g Orbit --set-env-vars "Database__UseWriteAheadLog=false"
+```
+
+Leave it at its default (`true`, i.e. don't set the env var) for local development, which uses a real
+local disk and has no reason to avoid WAL.
+
+### Re-enabling the mount
+
+1. Confirm `Database__UseWriteAheadLog=false` is set (above) and deployed *before* doing anything else
+   here - mounting the volume first and fixing this after is exactly what caused the outage.
+2. Create a file share on `orbitb722` and register it with the environment (skip if `orbit-data` already
+   exists from the earlier attempt):
    ```bash
-   az storage share-rm create --storage-account orbitb722 --name orbit-api-data --quota 5
+   az storage share-rm create --storage-account orbitb722 -g Orbit --name orbit-api-data --quota 5
    STORAGE_KEY=$(az storage account keys list --account-name orbitb722 -g Orbit --query "[0].value" -o tsv)
    az containerapp env storage set \
      --name orbit-environment -g Orbit \
@@ -78,12 +112,16 @@ ephemeral local disk and is wiped on every restart, redeploy, or scale-to-zero.*
      --azure-file-share-name orbit-api-data \
      --access-mode ReadWrite
    ```
-2. Mount it into the `orbit-api` container at `/app/data`. There's no simple CLI flag for this - do it
-   in the Portal (`orbit-api` > Containers > Volume mounts) or via `az containerapp update --yaml`
-   with a `volumes` + `volumeMounts` block referencing the `orbit-data` storage from step 1.
-3. Set `--min-replicas 1 --max-replicas 1` on `orbit-api` (already done) - SQLite over an SMB-backed
-   volume does not safely support concurrent writers, so this must stay at exactly one replica even
-   after the volume is mounted.
+3. Mount it into the `orbit-api` container at `/app/data`. There's no simple CLI flag for this - do it
+   in the Portal (`orbit-api` > Containers > Volumes, then Volume mounts) or via
+   `az containerapp update --yaml` with a `volumes` + `volumeMounts` block referencing `orbit-data`.
+4. Keep `--min-replicas 1 --max-replicas 1` on `orbit-api` (already set) - even with WAL disabled,
+   SQLite still does not support multiple processes writing to the same file at once, and Container
+   Apps' own deploy rollover can still momentarily run two replicas regardless of this setting.
+5. If it's ever stuck again despite the above: `az storage file list-handles` /
+   `az storage share close-handle --close-all` on the `orbit-api-data` share can force-clear a stale
+   SMB handle left by a client that didn't shut down cleanly - this is what a next occurrence would
+   most likely need, now that WAL itself is no longer the culprit.
 
 If Azure Files' default mount permissions block the non-root container user from writing to
 `/app/data`, that's a known SMB/Container-Apps interaction to look into next, not a new bug - check
