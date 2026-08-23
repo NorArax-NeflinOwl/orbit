@@ -3,7 +3,9 @@ using Orbit.Core.Abstractions;
 namespace Orbit.Core.Tasks;
 
 /// <summary>
-/// A titled checklist owned by a user. Named "TaskList" rather than "Task" to avoid colliding with
+/// A titled checklist, owned by exactly one user (<see cref="UserId"/>) for its entire lifetime - mirrors
+/// Orbit.Core.Notes.Note, see its class comment for why IsShared/SharedByUserName/AccessLevel aren't
+/// persisted. Named "TaskList" rather than "Task" to avoid colliding with
 /// <see cref="System.Threading.Tasks.Task"/>, which every async method in this codebase returns.
 /// </summary>
 public sealed class TaskList
@@ -19,46 +21,39 @@ public sealed class TaskList
     /// </summary>
     public bool IsCompleted { get; private set; }
 
-    /// <summary>
-    /// True for a copy created by accepting another user's share offer (see TaskListShare and
-    /// AcceptTaskListShareCommand) - false for a task list the owner created themselves.
-    /// <see cref="Update"/> refuses to change a shared copy whose <see cref="AccessLevel"/> is
-    /// <see cref="ShareAccessLevel.ReadOnly"/>.
-    /// </summary>
+    /// <summary>The user id currently holding the edit lock, if any - see AcquireLock/ReleaseLock.</summary>
+    public Guid? LockedByUserId { get; private set; }
+
+    /// <summary>The locking user's login, captured at lock-acquisition time for display - meaningless when LockedByUserId is null.</summary>
+    public string? LockedByUserName { get; private set; }
+
+    /// <summary>Once past, the lock is treated as abandoned (e.g. a crashed tab) and anyone can acquire a fresh one.</summary>
+    public DateTimeOffset? LockExpiresAtUtc { get; private set; }
+
+    /// <summary>False for the owner, true for anyone viewing/editing this task list through a share - see TaskListAccessResolver.</summary>
     public bool IsShared { get; private set; }
 
-    /// <summary>The sharing user's login, captured once at share-acceptance time. Null when IsShared is false.</summary>
+    /// <summary>The owner's login, whenever IsShared is true. Null otherwise.</summary>
     public string? SharedByUserName { get; private set; }
 
-    /// <summary>The access level the share was accepted under - meaningless when IsShared is false.</summary>
-    public ShareAccessLevel AccessLevel { get; private set; }
-
-    /// <summary>
-    /// The id of the user who first created this task list, before any sharing - mirrors
-    /// <see cref="Orbit.Core.Notes.Note.OriginalOwnerUserId"/>, see its comment for why this is needed
-    /// and how it's threaded through re-shares.
-    /// </summary>
-    public Guid? OriginalOwnerUserId { get; private set; }
-
-    /// <summary>The original owner regardless of how many times this task list has been re-shared since.</summary>
-    public Guid EffectiveOwnerUserId => IsShared ? OriginalOwnerUserId!.Value : UserId;
+    /// <summary>The current caller's access level - always CanEdit for the owner, and whatever their share grants otherwise.</summary>
+    public ShareAccessLevel AccessLevel { get; private set; } = ShareAccessLevel.CanEdit;
 
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
     private TaskList(
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel, Guid? originalOwnerUserId)
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
         UserId = userId;
         Title = title;
         Items = items;
         IsCompleted = ComputeIsCompleted(items);
-        IsShared = isShared;
-        SharedByUserName = sharedByUserName;
-        AccessLevel = accessLevel;
-        OriginalOwnerUserId = originalOwnerUserId;
+        LockedByUserId = lockedByUserId;
+        LockedByUserName = lockedByUserName;
+        LockExpiresAtUtc = lockExpiresAtUtc;
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
     }
@@ -66,54 +61,58 @@ public sealed class TaskList
     public static TaskList Create(Guid userId, string title, IReadOnlyList<TaskItem> items)
     {
         var now = DateTimeOffset.UtcNow;
-        return new TaskList(
-            Guid.NewGuid(), userId, title, items, now, now,
-            isShared: false, sharedByUserName: null, ShareAccessLevel.ReadOnly, originalOwnerUserId: null);
+        return new TaskList(Guid.NewGuid(), userId, title, items, now, now, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
     }
 
-    /// <summary>
-    /// Creates recipientUserId's own copy of a task list once they accept a share - see
-    /// AcceptTaskListShareCommandHandler. Each item is recreated with a fresh id and no
-    /// <see cref="TaskItem.LinkedTaskListId"/> - a link into the owner's other task lists would be
-    /// meaningless (or point at a list the recipient can't even see) once copied into the recipient's
-    /// own task lists.
-    /// </summary>
-    public static TaskList CreateShared(
-        Guid recipientUserId, string title, IReadOnlyList<TaskItem> sourceItems, string sharedByUserName, ShareAccessLevel accessLevel,
-        Guid originalOwnerUserId)
-    {
-        var copiedItems = sourceItems
-            .Select(item => TaskItem.Create(
-                item.Description, item.DueDateUtc, item.IsCompleted, linkedTaskListId: null,
-                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay))
-            .ToList();
-        var now = DateTimeOffset.UtcNow;
-        return new TaskList(Guid.NewGuid(), recipientUserId, title, copiedItems, now, now, isShared: true, sharedByUserName, accessLevel, originalOwnerUserId);
-    }
-
-    /// <summary>
-    /// Rebuilds a task list from already-persisted values, bypassing creation rules.
-    /// </summary>
+    /// <summary>Rebuilds a task list from already-persisted values, bypassing creation rules.</summary>
     public static TaskList FromPersistence(
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel, Guid? originalOwnerUserId)
-        => new(id, userId, title, items, createdAtUtc, updatedAtUtc, isShared, sharedByUserName, accessLevel, originalOwnerUserId);
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
+        => new(id, userId, title, items, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+
+    /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
+    public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
+    {
+        IsShared = isShared;
+        SharedByUserName = sharedByUserName;
+        AccessLevel = accessLevel;
+    }
 
     /// <summary>
     /// Replaces the title and the whole checklist, then recomputes <see cref="IsCompleted"/> from the
-    /// new items.
+    /// new items. Callers are expected to have already checked AccessLevel is CanEdit and the list isn't
+    /// locked by someone else - see UpdateTaskListCommandHandler.
     /// </summary>
     public void Update(string title, IReadOnlyList<TaskItem> items)
     {
-        if (IsShared && AccessLevel != ShareAccessLevel.CanEdit)
-        {
-            throw new InvalidOperationException("A shared task list without CanEdit access can't be edited.");
-        }
-
         Title = title;
         Items = items;
         IsCompleted = ComputeIsCompleted(items);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public bool IsLockedByAnotherUser(Guid callerId, DateTimeOffset nowUtc)
+        => LockedByUserId is { } lockedByUserId && lockedByUserId != callerId && LockExpiresAtUtc > nowUtc;
+
+    /// <summary>Mirrors Note.AcquireLock - see its comment.</summary>
+    public void AcquireLock(Guid userId, string userName, DateTimeOffset nowUtc, TimeSpan lockDuration)
+    {
+        LockedByUserId = userId;
+        LockedByUserName = userName;
+        LockExpiresAtUtc = nowUtc + lockDuration;
+    }
+
+    /// <summary>No-op if userId isn't the current lock holder, so releasing an already-expired-and-reassigned lock can't steal it back.</summary>
+    public void ReleaseLock(Guid userId)
+    {
+        if (LockedByUserId != userId)
+        {
+            return;
+        }
+
+        LockedByUserId = null;
+        LockedByUserName = null;
+        LockExpiresAtUtc = null;
     }
 
     private static bool ComputeIsCompleted(IReadOnlyList<TaskItem> items)

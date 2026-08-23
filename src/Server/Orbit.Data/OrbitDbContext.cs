@@ -32,7 +32,7 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(note => note.Id);
             entity.Property(note => note.Title).IsRequired().HasMaxLength(200);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
-            entity.Property(note => note.SharedByUserName).HasMaxLength(64);
+            entity.Property(note => note.LockedByUserName).HasMaxLength(64);
             // Every note query is scoped to a single user's notes; this is the index that makes those
             // lookups fast instead of scanning the whole table.
             entity.HasIndex(note => note.UserId);
@@ -51,7 +51,7 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(task => task.Id);
             entity.Property(task => task.Title).IsRequired().HasMaxLength(200);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
-            entity.Property(task => task.SharedByUserName).HasMaxLength(64);
+            entity.Property(task => task.LockedByUserName).HasMaxLength(64);
             // Every task list query is scoped to a single user's task lists; this is the index that
             // makes those lookups fast instead of scanning the whole table.
             entity.HasIndex(task => task.UserId);
@@ -84,7 +84,7 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(calendarEvent => calendarEvent.CreationNotificationChannel).HasMaxLength(20);
             entity.Property(calendarEvent => calendarEvent.ReminderNotificationChannel).HasMaxLength(20);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
-            entity.Property(calendarEvent => calendarEvent.SharedByUserName).HasMaxLength(64);
+            entity.Property(calendarEvent => calendarEvent.LockedByUserName).HasMaxLength(64);
             // Every calendar event query is scoped to a single user's events; this is the index that
             // makes those lookups fast instead of scanning the whole table.
             entity.HasIndex(calendarEvent => calendarEvent.UserId);

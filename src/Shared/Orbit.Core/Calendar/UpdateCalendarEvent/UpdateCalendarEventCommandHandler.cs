@@ -2,30 +2,34 @@ using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Calendar.UpdateCalendarEvent;
 
-public sealed class UpdateCalendarEventCommandHandler : IRequestHandler<UpdateCalendarEventCommand, bool>
+public sealed class UpdateCalendarEventCommandHandler : IRequestHandler<UpdateCalendarEventCommand, EditOutcome>
 {
+    private readonly CalendarEventAccessResolver _calendarEventAccessResolver;
     private readonly ICalendarEventRepository _calendarEventRepository;
 
-    public UpdateCalendarEventCommandHandler(ICalendarEventRepository calendarEventRepository)
+    public UpdateCalendarEventCommandHandler(CalendarEventAccessResolver calendarEventAccessResolver, ICalendarEventRepository calendarEventRepository)
     {
+        _calendarEventAccessResolver = calendarEventAccessResolver;
         _calendarEventRepository = calendarEventRepository;
     }
 
-    /// <summary>
-    /// Returns false instead of throwing when the event is missing, not owned by the requesting user, or
-    /// is a shared copy without CanEdit access (ReadOnly or Share - see ShareAccessLevel), so the API
-    /// can turn any of those into a 404, without leaking which one applies.
-    /// </summary>
-    public async Task<bool> HandleAsync(UpdateCalendarEventCommand request, CancellationToken cancellationToken)
+    /// <summary>Mirrors Orbit.Core.Notes.UpdateNote.UpdateNoteCommandHandler - see its class comment for what NotFound/Locked mean here.</summary>
+    public async Task<EditOutcome> HandleAsync(UpdateCalendarEventCommand request, CancellationToken cancellationToken)
     {
-        var calendarEvent = await _calendarEventRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
-        if (calendarEvent is null || (calendarEvent.IsShared && calendarEvent.AccessLevel != ShareAccessLevel.CanEdit))
+        var calendarEvent = await _calendarEventAccessResolver.ResolveAsync(request.UserId, request.Id, cancellationToken);
+        if (calendarEvent is null || calendarEvent.AccessLevel != ShareAccessLevel.CanEdit)
         {
-            return false;
+            return EditOutcome.NotFound;
+        }
+
+        var nowUtc = DateTimeOffset.UtcNow;
+        if (calendarEvent.IsLockedByAnotherUser(request.UserId, nowUtc))
+        {
+            return EditOutcome.LockedBy(calendarEvent.LockedByUserName!);
         }
 
         calendarEvent.Update(request.Details);
         await _calendarEventRepository.UpdateAsync(calendarEvent, cancellationToken);
-        return true;
+        return EditOutcome.Success;
     }
 }

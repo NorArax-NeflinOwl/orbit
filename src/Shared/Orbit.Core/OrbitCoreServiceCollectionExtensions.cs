@@ -3,11 +3,13 @@ using Microsoft.Extensions.Logging;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.AcceptCalendarEventShare;
+using Orbit.Core.Calendar.AcquireCalendarEventLock;
 using Orbit.Core.Calendar.CreateCalendarEvent;
 using Orbit.Core.Calendar.DeleteCalendarEvent;
 using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
 using Orbit.Core.Calendar.GetCalendarEventShareStatus;
+using Orbit.Core.Calendar.ReleaseCalendarEventLock;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
@@ -22,11 +24,13 @@ using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.AcceptNoteShare;
+using Orbit.Core.Notes.AcquireNoteLock;
 using Orbit.Core.Notes.CreateNote;
 using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
+using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
 using Orbit.Core.Notifications;
@@ -34,6 +38,7 @@ using Orbit.Core.PushNotifications.SubscribeToPush;
 using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.AcceptTaskListShare;
+using Orbit.Core.Tasks.AcquireTaskListLock;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.DeleteTaskList;
@@ -41,6 +46,7 @@ using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.OverdueNotifications;
+using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Users;
@@ -62,23 +68,34 @@ public static class OrbitCoreServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddOrbitCore(this IServiceCollection services)
     {
+        // Depends on INoteRepository/INoteShareRepository/IUserRepository (all scoped, backed by the
+        // DbContext), so it must be scoped too - shared by every Notes handler below that needs to know
+        // how the calling user relates to a note (owner vs. shared-with, and at what access level).
+        services.AddScoped<NoteAccessResolver>();
         services.AddScoped<IRequestHandler<CreateNoteCommand, Guid>, CreateNoteCommandHandler>();
-        services.AddScoped<IRequestHandler<UpdateNoteCommand, bool>, UpdateNoteCommandHandler>();
+        services.AddScoped<IRequestHandler<UpdateNoteCommand, EditOutcome>, UpdateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteNoteCommand, bool>, DeleteNoteCommandHandler>();
         services.AddScoped<IRequestHandler<GetNotesQuery, IReadOnlyList<Note>>, GetNotesQueryHandler>();
         services.AddScoped<IRequestHandler<GetNoteByIdQuery, Note?>, GetNoteByIdQueryHandler>();
         services.AddScoped<IRequestHandler<ShareNoteCommand, ShareOutcome?>, ShareNoteCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptNoteShareCommand, bool>, AcceptNoteShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetNoteShareStatusQuery, bool?>, GetNoteShareStatusQueryHandler>();
+        services.AddScoped<IRequestHandler<AcquireNoteLockCommand, EditOutcome>, AcquireNoteLockCommandHandler>();
+        services.AddScoped<IRequestHandler<ReleaseNoteLockCommand, bool>, ReleaseNoteLockCommandHandler>();
 
+        // Depends on ITaskRepository/ITaskListShareRepository/IUserRepository (all scoped), so it must
+        // be scoped too - mirrors NoteAccessResolver's registration above.
+        services.AddScoped<TaskListAccessResolver>();
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
-        services.AddScoped<IRequestHandler<UpdateTaskListCommand, bool>, UpdateTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteTaskListCommand, bool>, DeleteTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
         services.AddScoped<IRequestHandler<ShareTaskListCommand, ShareOutcome?>, ShareTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptTaskListShareCommand, bool>, AcceptTaskListShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListShareStatusQuery, bool?>, GetTaskListShareStatusQueryHandler>();
+        services.AddScoped<IRequestHandler<AcquireTaskListLockCommand, EditOutcome>, AcquireTaskListLockCommandHandler>();
+        services.AddScoped<IRequestHandler<ReleaseTaskListLockCommand, bool>, ReleaseTaskListLockCommandHandler>();
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
         services.AddScoped<TaskListLinkValidator>();
         // Stateless per call - safe to share a single instance for the app's lifetime.
@@ -93,14 +110,19 @@ public static class OrbitCoreServiceCollectionExtensions
         // same reason as OverdueTaskNotificationScheduler above.
         services.AddScoped<DailyTaskReminderScheduler>();
 
+        // Depends on ICalendarEventRepository/ICalendarEventShareRepository/IUserRepository (all
+        // scoped), so it must be scoped too - mirrors NoteAccessResolver's registration above.
+        services.AddScoped<CalendarEventAccessResolver>();
         services.AddScoped<IRequestHandler<CreateCalendarEventCommand, Guid>, CreateCalendarEventCommandHandler>();
-        services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, bool>, UpdateCalendarEventCommandHandler>();
+        services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, EditOutcome>, UpdateCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteCalendarEventCommand, bool>, DeleteCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventsQuery, IReadOnlyList<CalendarEvent>>, GetCalendarEventsQueryHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventByIdQuery, CalendarEvent?>, GetCalendarEventByIdQueryHandler>();
         services.AddScoped<IRequestHandler<ShareCalendarEventCommand, ShareOutcome?>, ShareCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptCalendarEventShareCommand, bool>, AcceptCalendarEventShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventShareStatusQuery, bool?>, GetCalendarEventShareStatusQueryHandler>();
+        services.AddScoped<IRequestHandler<AcquireCalendarEventLockCommand, EditOutcome>, AcquireCalendarEventLockCommandHandler>();
+        services.AddScoped<IRequestHandler<ReleaseCalendarEventLockCommand, bool>, ReleaseCalendarEventLockCommandHandler>();
         // Depends on IEventReminderRepository (scoped, backed by the DbContext), so it must be scoped
         // too - used by Orbit.Api's CalendarEventReminderBackgroundService, not through IDispatcher,
         // since it's a system-level poll rather than a per-user command or query.

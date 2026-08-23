@@ -6,11 +6,13 @@ using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.AcceptTaskListShare;
+using Orbit.Core.Tasks.AcquireTaskListLock;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
 
@@ -47,15 +49,28 @@ public static class TaskEndpoints
         tasks.MapPut("/{id:guid}", async (
             Guid id, UpdateTaskRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var updated = await dispatcher.SendAsync(
+            var outcome = await dispatcher.SendAsync(
                 new UpdateTaskListCommand(GetUserId(user), id, request.Title, ToDomainItems(request.Items)), cancellationToken);
-            return updated ? Results.NoContent() : Results.NotFound();
+            return ToApiResult(outcome);
         });
 
         tasks.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var deleted = await dispatcher.SendAsync(new DeleteTaskListCommand(GetUserId(user), id), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Mirrors NoteEndpoints' equivalent lock endpoints - see AcquireTaskListLockCommand's comment.
+        tasks.MapPost("/{id:guid}/lock", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(new AcquireTaskListLockCommand(GetUserId(user), id), cancellationToken);
+            return ToApiResult(outcome);
+        });
+
+        tasks.MapDelete("/{id:guid}/lock", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(new ReleaseTaskListLockCommand(GetUserId(user), id), cancellationToken);
+            return Results.NoContent();
         });
 
         // Offers a copy of an owned task list to another user - see ShareTaskListCommand. The client is
@@ -136,5 +151,13 @@ public static class TaskEndpoints
             taskList.IsShared,
             taskList.SharedByUserName,
             taskList.AccessLevel.ToString(),
-            taskList.OriginalOwnerUserId);
+            taskList.IsShared ? taskList.UserId : null);
+
+    /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
+    private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch
+    {
+        EditOutcomeKind.Success => Results.NoContent(),
+        EditOutcomeKind.Locked => Results.Json(new LockConflictDto(outcome.LockedByUserName!), statusCode: StatusCodes.Status409Conflict),
+        _ => Results.NotFound()
+    };
 }

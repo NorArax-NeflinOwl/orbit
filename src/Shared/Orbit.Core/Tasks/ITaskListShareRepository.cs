@@ -19,4 +19,10 @@ public interface ITaskListShareRepository
     /// check, so it re-sends the existing offer as a reminder instead of creating a second one.
     /// </summary>
     Task<TaskListShare?> FindExistingAsync(Guid sourceTaskListId, Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>The *accepted* grant for sourceTaskListId to recipientUserId, if one exists - see TaskListAccessResolver.</summary>
+    Task<TaskListShare?> FindAcceptedGrantAsync(Guid sourceTaskListId, Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>Every task list recipientUserId has accepted access to, regardless of which owner shared it - see TaskListAccessResolver.ResolveAllAsync.</summary>
+    Task<IReadOnlyList<TaskListShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken);
 }

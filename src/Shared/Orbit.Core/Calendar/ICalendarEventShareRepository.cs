@@ -27,4 +27,10 @@ public interface ICalendarEventShareRepository
     /// duplicate check, so it re-sends the existing offer as a reminder instead of creating a second one.
     /// </summary>
     Task<CalendarEventShare?> FindExistingAsync(Guid sourceCalendarEventId, Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>The *accepted* grant for sourceCalendarEventId to recipientUserId, if one exists - see CalendarEventAccessResolver.</summary>
+    Task<CalendarEventShare?> FindAcceptedGrantAsync(Guid sourceCalendarEventId, Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>Every event recipientUserId has accepted access to, regardless of which owner shared it - see CalendarEventAccessResolver.ResolveAllAsync.</summary>
+    Task<IReadOnlyList<CalendarEventShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken);
 }

@@ -3,10 +3,12 @@ using Orbit.Core.Abstractions;
 namespace Orbit.Core.Notes;
 
 /// <summary>
-/// An offer to add a copy of a note to another user's own notes - created via ShareNoteCommand, and
-/// resolved once the recipient accepts it from the chat message that carries this share's id (see
-/// AcceptNoteShareCommand). Mirrors Orbit.Core.Calendar.CalendarEventShare - see its class comment for
-/// the reasoning behind this shape. SourceNoteId always belongs to OwnerUserId.
+/// A grant of access to SourceNoteId - created via ShareNoteCommand as a pending offer, and activated
+/// once the recipient accepts it from the chat message that carries this share's id (see
+/// AcceptNoteShareCommand). Unlike an earlier version of this feature, accepting does not copy the
+/// note: OwnerUserId always names the note's one true, permanent owner, and once AcceptedAtUtc is set
+/// this row itself *is* the recipient's access to that same row - see NoteAccessResolver, which is what
+/// actually reads AccessLevel back out on every load rather than it ever being copied anywhere.
 /// </summary>
 public sealed class NoteShare
 {
@@ -18,22 +20,11 @@ public sealed class NoteShare
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? AcceptedAtUtc { get; private set; }
 
-    /// <summary>The copy created in the recipient's own notes - set once accepted, null until then.</summary>
-    public Guid? SharedNoteId { get; private set; }
-
-    /// <summary>
-    /// The id of the user who first created the note being offered, before any sharing - computed once
-    /// by ShareNoteCommandHandler at offer time (from the source note's own
-    /// <see cref="Note.EffectiveOwnerUserId"/>) and carried onto the recipient's copy once accepted, see
-    /// <see cref="Note.OriginalOwnerUserId"/>.
-    /// </summary>
-    public Guid OriginalOwnerUserId { get; private set; }
-
     public bool IsAccepted => AcceptedAtUtc is not null;
 
     private NoteShare(
         Guid id, Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedNoteId, Guid originalOwnerUserId)
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc)
     {
         Id = id;
         SourceNoteId = sourceNoteId;
@@ -42,35 +33,21 @@ public sealed class NoteShare
         AccessLevel = accessLevel;
         CreatedAtUtc = createdAtUtc;
         AcceptedAtUtc = acceptedAtUtc;
-        SharedNoteId = sharedNoteId;
-        OriginalOwnerUserId = originalOwnerUserId;
     }
 
     public static NoteShare Create(
-        Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, Guid originalOwnerUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
-        => new(Guid.NewGuid(), sourceNoteId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow,
-            acceptedAtUtc: null, sharedNoteId: null, originalOwnerUserId);
+        Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
+        => new(Guid.NewGuid(), sourceNoteId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow, acceptedAtUtc: null);
 
-    /// <summary>
-    /// Rebuilds a share from already-persisted values, bypassing creation rules.
-    /// </summary>
+    /// <summary>Rebuilds a share from already-persisted values, bypassing creation rules.</summary>
     public static NoteShare FromPersistence(
         Guid id, Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, Guid? sharedNoteId, Guid originalOwnerUserId)
-        => new(id, sourceNoteId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc, sharedNoteId, originalOwnerUserId);
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc)
+        => new(id, sourceNoteId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc);
 
-    /// <summary>
-    /// No-op if already accepted, so accepting the same share twice (e.g. a duplicate click) never
-    /// creates a second note copy.
-    /// </summary>
-    public void MarkAccepted(Guid sharedNoteId)
+    /// <summary>No-op if already accepted, so accepting the same share twice (e.g. a duplicate click) is harmless.</summary>
+    public void MarkAccepted()
     {
-        if (IsAccepted)
-        {
-            return;
-        }
-
-        AcceptedAtUtc = DateTimeOffset.UtcNow;
-        SharedNoteId = sharedNoteId;
+        AcceptedAtUtc ??= DateTimeOffset.UtcNow;
     }
 }

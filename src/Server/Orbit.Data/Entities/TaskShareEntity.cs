@@ -15,10 +15,4 @@ public sealed class TaskShareEntity
     public string AccessLevel { get; set; } = "ReadOnly";
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? AcceptedAtUtc { get; set; }
-
-    /// <summary>The copy created in the recipient's own task lists - set once accepted, null until then.</summary>
-    public Guid? SharedTaskListId { get; set; }
-
-    /// <summary>The user id of whoever first created the task list being offered, before any sharing.</summary>
-    public Guid OriginalOwnerUserId { get; set; }
 }

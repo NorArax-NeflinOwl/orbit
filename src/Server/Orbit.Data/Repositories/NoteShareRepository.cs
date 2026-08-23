@@ -44,11 +44,31 @@ public sealed class NoteShareRepository : INoteShareRepository
         return entity is null ? null : ToDomain(entity);
     }
 
+    public async Task<NoteShare?> FindAcceptedGrantAsync(Guid sourceNoteId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.NoteShares
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                share => share.SourceNoteId == sourceNoteId && share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null,
+                cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
+    public async Task<IReadOnlyList<NoteShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.NoteShares
+            .AsNoTracking()
+            .Where(share => share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
     private static NoteShare ToDomain(NoteShareEntity entity)
         => NoteShare.FromPersistence(
             entity.Id, entity.SourceNoteId, entity.OwnerUserId, entity.RecipientUserId,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc, entity.SharedNoteId,
-            entity.OriginalOwnerUserId);
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc);
 
     private static NoteShareEntity ToEntity(NoteShare share)
         => new()
@@ -59,8 +79,6 @@ public sealed class NoteShareRepository : INoteShareRepository
             RecipientUserId = share.RecipientUserId,
             AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
-            AcceptedAtUtc = share.AcceptedAtUtc,
-            SharedNoteId = share.SharedNoteId,
-            OriginalOwnerUserId = share.OriginalOwnerUserId
+            AcceptedAtUtc = share.AcceptedAtUtc
         };
 }

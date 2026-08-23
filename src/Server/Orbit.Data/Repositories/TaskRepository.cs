@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Data.Entities;
@@ -53,10 +52,9 @@ public sealed class TaskRepository : ITaskRepository
         var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
         entity.Title = taskList.Title;
         entity.IsCompleted = taskList.IsCompleted;
-        entity.IsShared = taskList.IsShared;
-        entity.SharedByUserName = taskList.SharedByUserName;
-        entity.AccessLevel = taskList.AccessLevel.ToString();
-        entity.OriginalOwnerUserId = taskList.OriginalOwnerUserId;
+        entity.LockedByUserId = taskList.LockedByUserId;
+        entity.LockedByUserName = taskList.LockedByUserName;
+        entity.LockExpiresAtUtc = taskList.LockExpiresAtUtc;
         entity.UpdatedAtUtc = taskList.UpdatedAtUtc;
 
         // The domain always replaces the whole checklist on update rather than diffing individual
@@ -97,10 +95,9 @@ public sealed class TaskRepository : ITaskRepository
             entity.Items.Select(ToItemDomain).ToList(),
             entity.CreatedAtUtc,
             entity.UpdatedAtUtc,
-            entity.IsShared,
-            entity.SharedByUserName,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel),
-            entity.OriginalOwnerUserId);
+            entity.LockedByUserId,
+            entity.LockedByUserName,
+            entity.LockExpiresAtUtc);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -121,10 +118,9 @@ public sealed class TaskRepository : ITaskRepository
             UserId = taskList.UserId,
             Title = taskList.Title,
             IsCompleted = taskList.IsCompleted,
-            IsShared = taskList.IsShared,
-            SharedByUserName = taskList.SharedByUserName,
-            AccessLevel = taskList.AccessLevel.ToString(),
-            OriginalOwnerUserId = taskList.OriginalOwnerUserId,
+            LockedByUserId = taskList.LockedByUserId,
+            LockedByUserName = taskList.LockedByUserName,
+            LockExpiresAtUtc = taskList.LockExpiresAtUtc,
             CreatedAtUtc = taskList.CreatedAtUtc,
             UpdatedAtUtc = taskList.UpdatedAtUtc,
             Items = taskList.Items.Select(item => ToItemEntity(item, taskList.Id)).ToList()

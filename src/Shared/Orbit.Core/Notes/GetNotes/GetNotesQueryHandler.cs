@@ -4,13 +4,13 @@ namespace Orbit.Core.Notes.GetNotes;
 
 public sealed class GetNotesQueryHandler : IRequestHandler<GetNotesQuery, IReadOnlyList<Note>>
 {
-    private readonly INoteRepository _noteRepository;
+    private readonly NoteAccessResolver _noteAccessResolver;
 
-    public GetNotesQueryHandler(INoteRepository noteRepository)
+    public GetNotesQueryHandler(NoteAccessResolver noteAccessResolver)
     {
-        _noteRepository = noteRepository;
+        _noteAccessResolver = noteAccessResolver;
     }
 
     public Task<IReadOnlyList<Note>> HandleAsync(GetNotesQuery request, CancellationToken cancellationToken)
-        => _noteRepository.GetAllAsync(request.UserId, cancellationToken);
+        => _noteAccessResolver.ResolveAllAsync(request.UserId, cancellationToken);
 }

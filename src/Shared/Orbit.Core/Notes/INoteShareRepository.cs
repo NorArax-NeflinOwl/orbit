@@ -19,4 +19,14 @@ public interface INoteShareRepository
     /// it re-sends the existing offer as a reminder instead of creating a second one.
     /// </summary>
     Task<NoteShare?> FindExistingAsync(Guid sourceNoteId, Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The *accepted* grant for sourceNoteId to recipientUserId, if one exists - this is what
+    /// NoteAccessResolver treats as "recipientUserId currently has access to this note", as opposed to
+    /// FindExistingAsync above, which also matches a still-pending offer nobody has accepted yet.
+    /// </summary>
+    Task<NoteShare?> FindAcceptedGrantAsync(Guid sourceNoteId, Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>Every note recipientUserId has accepted access to, regardless of which owner shared it - see NoteAccessResolver.ResolveAllAsync.</summary>
+    Task<IReadOnlyList<NoteShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken);
 }

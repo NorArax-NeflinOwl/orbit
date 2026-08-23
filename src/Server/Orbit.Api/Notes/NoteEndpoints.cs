@@ -5,11 +5,13 @@ using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.AcceptNoteShare;
+using Orbit.Core.Notes.AcquireNoteLock;
 using Orbit.Core.Notes.CreateNote;
 using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
+using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
 
@@ -46,15 +48,33 @@ public static class NoteEndpoints
         notes.MapPut("/{id:guid}", async (
             Guid id, UpdateNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var updated = await dispatcher.SendAsync(
+            var outcome = await dispatcher.SendAsync(
                 new UpdateNoteCommand(GetUserId(user), id, request.Title, ToDomainContent(request.Content)), cancellationToken);
-            return updated ? Results.NoContent() : Results.NotFound();
+            return ToApiResult(outcome);
         });
 
         notes.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var deleted = await dispatcher.SendAsync(new DeleteNoteCommand(GetUserId(user), id), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Acquires (or refreshes) the edit lock on a note the caller has CanEdit access to - see
+        // AcquireNoteLockCommand. NoteEditor.razor calls this once on opening an editable note, then
+        // again on a heartbeat while the editor stays open.
+        notes.MapPost("/{id:guid}/lock", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(new AcquireNoteLockCommand(GetUserId(user), id), cancellationToken);
+            return ToApiResult(outcome);
+        });
+
+        // Releases the caller's own edit lock, if they hold one - a no-op otherwise. Always 204, since
+        // there's nothing meaningful to distinguish from the caller's point of view (see
+        // ReleaseNoteLockCommand).
+        notes.MapDelete("/{id:guid}/lock", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(new ReleaseNoteLockCommand(GetUserId(user), id), cancellationToken);
+            return Results.NoContent();
         });
 
         // Offers a copy of an owned note to another user - see ShareNoteCommand. The client is
@@ -107,6 +127,15 @@ public static class NoteEndpoints
         => new(line.Text, line.IsChecklistItem, line.IsChecked);
 
     private static NoteDto ToDto(Note note)
-        => new(note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.CreatedAtUtc, note.UpdatedAtUtc,
-            note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.OriginalOwnerUserId);
+        => new(
+            note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.CreatedAtUtc, note.UpdatedAtUtc,
+            note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null);
+
+    /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
+    private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch
+    {
+        EditOutcomeKind.Success => Results.NoContent(),
+        EditOutcomeKind.Locked => Results.Json(new LockConflictDto(outcome.LockedByUserName!), statusCode: StatusCodes.Status409Conflict),
+        _ => Results.NotFound()
+    };
 }
