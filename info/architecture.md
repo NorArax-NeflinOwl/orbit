@@ -91,6 +91,10 @@ topology.
 
 ## Production deployment (Azure Container Apps)
 
+See [Azure Container Apps setup](azure-setup.md) for the full checklist of environment variables,
+secrets, ingress settings, and persistent storage that have to be configured on the Container Apps
+themselves - none of it is set up by the pipeline below.
+
 `.github/workflows/main_orbit.yml` builds and deploys Orbit on every push to `main`, matching the
 local Docker Compose topology of two separate containers (rather than the single combined
 App Service the project started with):
@@ -103,6 +107,11 @@ App Service the project started with):
 3. Updates the `orbit-api` and `orbit-web` Azure Container Apps to run the image tagged with the
    current commit SHA, so the deployed version is always traceable back to the workflow run that
    produced it.
+
+Every push to `main` deploys straight to production - there is no staging slot. The workflow's job
+targets a `production` GitHub Environment, which supports adding a required-reviewer gate (a human
+must approve the run before it deploys) under the repo's Settings > Environments > production; this
+isn't configured by default, since the workflow file alone can't turn it on.
 
 ## Continuous integration
 

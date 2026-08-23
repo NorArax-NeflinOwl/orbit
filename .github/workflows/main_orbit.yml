@@ -23,6 +23,11 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Referencing this environment is what lets a manual approval gate be configured for it - by
+    # itself this line does nothing. To actually require a human to click "approve" before every push
+    # to main goes live, add a required reviewer under Settings > Environments > production in the
+    # GitHub repo (this cannot be done from a workflow file - it's a repo-level setting).
+    environment: production
 
     steps:
       - name: Checkout repository
