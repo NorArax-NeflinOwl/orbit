@@ -108,10 +108,10 @@ App Service the project started with):
    current commit SHA, so the deployed version is always traceable back to the workflow run that
    produced it.
 
-Every push to `main` deploys straight to production - there is no staging slot. The workflow's job
-targets a `production` GitHub Environment, which supports adding a required-reviewer gate (a human
-must approve the run before it deploys) under the repo's Settings > Environments > production; this
-isn't configured by default, since the workflow file alone can't turn it on.
+Every push to `main` deploys straight to production - there is no staging slot, and no manual approval
+gate. A GitHub Environment (`environment: production` on the job) would normally add one, but the
+workflow deliberately does not use it here - see the comment on the `build-and-deploy` job for why
+that broke `azure/login`'s OIDC federation the one time it was tried.
 
 ## Continuous integration
 
