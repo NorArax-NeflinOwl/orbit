@@ -36,9 +36,9 @@ WORKDIR /app
 RUN apk add --no-cache tzdata
 ENV TZ=Europe/Warsaw
 
-# Data and logs are volume-mounted (see docker-compose.yml); owning them before switching off root
-# means the non-root $APP_UID user (built into the base image) can actually write to the volumes.
-RUN mkdir -p /app/data /app/logs && chown -R $APP_UID:$APP_UID /app/data /app/logs
+# Logs are volume-mounted (see docker-compose.yml); owning the directory before switching off root
+# means the non-root $APP_UID user (built into the base image) can actually write to the volume.
+RUN mkdir -p /app/logs && chown -R $APP_UID:$APP_UID /app/logs
 USER $APP_UID
 
 COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .

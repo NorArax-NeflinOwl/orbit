@@ -110,29 +110,32 @@ which needs more than clicking through the browser warning — see
 
 ### Database migrations
 
-Orbit.Api applies EF Core Migrations on startup (`Database.Migrate()`) rather than the prototype
-`EnsureCreated()` approach used previously — it creates the SQLite schema on first run and brings an
-existing database up to date with any migrations added since. **After pulling changes that touch the EF
-Core model in `Orbit.Data`** (entities under `src/Server/Orbit.Data/Entities`, or `OrbitDbContext`),
-generate the corresponding migration once with the [`dotnet-ef` tool](https://learn.microsoft.com/ef/core/cli/dotnet)
+Orbit.Api applies EF Core Migrations on startup (`Database.Migrate()`) — it creates the PostgreSQL
+schema on first run and brings an existing database up to date with any migrations added since. **After
+pulling changes that touch the EF Core model in `Orbit.Data`** (entities under
+`src/Server/Orbit.Data/Entities`, or `OrbitDbContext`), generate the corresponding migration once with
+the [`dotnet-ef` tool](https://learn.microsoft.com/ef/core/cli/dotnet)
 (`dotnet tool install --global dotnet-ef` if it isn't installed yet):
 
 ```
 dotnet ef migrations add <DescriptiveName> --project src/Server/Orbit.Data --startup-project src/Server/Orbit.Api
 ```
 
-If you already had the stack running before EF Core Migrations replaced `EnsureCreated()`, delete
-`data/orbit.db` (and any `orbit.db-shm`/`orbit.db-wal` next to it) once before starting the updated API
-— a database created by `EnsureCreated()` has no migration history table, so `Migrate()` would otherwise
-try to create tables that already exist and fail.
+To reset a local database back to empty (e.g. to replay migrations from scratch), drop the
+`orbit-postgres-data` Docker volume rather than deleting a file: `docker compose down -v` removes it
+along with every other named volume, or `docker volume rm orbit_orbit-postgres-data` (the exact name is
+whatever `docker compose config --volumes` prints) to remove just that one.
 
 ### Running without Docker
 
 Each project can be run directly with `dotnet run` from its own folder (`src/Server/Orbit.Api`,
 `src/Clients/Orbit.Web`) using the `https` launch profile; see `Properties/launchSettings.json` in each
-project for the exact ports. Set the JWT signing key via `dotnet user-secrets` first (see
-[Functionality — Authentication](functionality.md#authentication)); optionally configure SMTP and/or a
-VAPID key pair the same way if you want to actually see reminder emails and push notifications
+project for the exact ports. Orbit.Api still needs a real Postgres to talk to even when run this way -
+either start just that one container (`docker compose up -d postgres`, published on `localhost:5432`
+per `appsettings.json`'s default connection string) or point `ConnectionStrings:Orbit` at any other
+reachable PostgreSQL instance via `dotnet user-secrets`. Set the JWT signing key via `dotnet user-secrets`
+too (see [Functionality — Authentication](functionality.md#authentication)); optionally configure SMTP
+and/or a VAPID key pair the same way if you want to actually see reminder emails and push notifications
 locally — see the two sections right below.
 
 ### Configuring SMTP for local development

@@ -193,13 +193,6 @@ try
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<OrbitDbContext>();
         dbContext.Database.Migrate();
-
-        // WAL lets readers and writers proceed concurrently instead of the default rollback journal,
-        // which locks the entire database file for any write - the other half (with the connection
-        // string's busy timeout) of avoiding "database is locked" errors under concurrent load. This
-        // is a one-time, persistent change to the database file itself, so re-running it on every
-        // startup is a cheap no-op once already set.
-        dbContext.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
     }
 
     app.UseSerilogRequestLogging();

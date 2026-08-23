@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,33 +17,18 @@ namespace Orbit.Data;
 public static class OrbitDataServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the SQLite-backed persistence layer and its repositories. SQLite is a prototype
-    /// choice for zero-setup local development; swapping to another provider only touches this method.
+    /// Registers the PostgreSQL-backed persistence layer and its repositories. The provider lives only
+    /// here - swapping it again only touches this method.
     /// </summary>
     public static IServiceCollection AddOrbitData(this IServiceCollection services, IConfiguration configuration)
     {
-        // SQLite locks the whole database file for the duration of a write, and its own default busy
-        // timeout is 0 - so without this, two writes landing at the same time (e.g. a chat message
-        // being saved while a background service or another request also writes) fail immediately
-        // with "database is locked" instead of one simply waiting for the other. Five seconds is enough
-        // slack for that to resolve itself under normal load without letting a genuinely stuck request
-        // hang.
-        var connectionStringBuilder = new SqliteConnectionStringBuilder(
-            configuration.GetConnectionString("Orbit") ?? "Data Source=orbit.db")
-        {
-            DefaultTimeout = 5
-        };
+        var connectionString = configuration.GetConnectionString("Orbit")
+            ?? throw new InvalidOperationException(
+                "ConnectionStrings:Orbit is not configured. Set the ORBIT_DB_CONNECTION_STRING environment " +
+                "variable (see .env.example) when running via Docker Compose, or run " +
+                "`dotnet user-secrets set \"ConnectionStrings:Orbit\" \"<connection string>\"` for local `dotnet run`.");
 
-        // SQLite won't create missing intermediate directories itself - it just fails to open the
-        // file - so a fresh clone (whose gitignored /data folder doesn't exist yet) needs this before
-        // the first connection is opened.
-        var databaseDirectory = Path.GetDirectoryName(Path.GetFullPath(connectionStringBuilder.DataSource));
-        if (!string.IsNullOrEmpty(databaseDirectory))
-        {
-            Directory.CreateDirectory(databaseDirectory);
-        }
-
-        services.AddDbContext<OrbitDbContext>(options => options.UseSqlite(connectionStringBuilder.ToString()));
+        services.AddDbContext<OrbitDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
