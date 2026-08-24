@@ -26,9 +26,11 @@ public static class OrbitDataServiceCollectionExtensions
     {
         var connectionString = configuration.GetConnectionString("Orbit")
             ?? throw new InvalidOperationException(
-                "ConnectionStrings:Orbit is not configured. Set the ORBIT_DB_CONNECTION_STRING environment " +
-                "variable (see .env.example) when running via Docker Compose, or run " +
-                "`dotnet user-secrets set \"ConnectionStrings:Orbit\" \"<connection string>\"` for local `dotnet run`.");
+                "ConnectionStrings:Orbit is not configured. docker-compose.yml sets this from " +
+                "POSTGRES_PASSWORD (see .env.example) when running via Docker Compose. For local " +
+                "`dotnet run` against that same container, run `dotnet user-secrets set " +
+                "\"ConnectionStrings:Orbit\" \"Host=localhost;Port=5432;Database=orbit;Username=orbit;" +
+                "Password=<the POSTGRES_PASSWORD from your .env>\"`.");
 
         services.AddDbContext<OrbitDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<INoteRepository, NoteRepository>();
