@@ -1,9 +1,11 @@
 @page "/options"
 @attribute [Authorize]
 @implements IDisposable
+@using Orbit.Contracts.Notifications
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
 @inject PushNotificationManager PushNotificationManager
+@inject NotificationsApiClient NotificationsApiClient
 @inject ILogger<Options> Logger
 
 <PageTitle>Orbit — Options</PageTitle>
@@ -59,24 +61,84 @@
                     </button>
                 }
             </div>
-            @* TODO(Orbit.Web.UI): two more rows belong here - "Email reminders" and "Daily task summary" -
-               but they're deliberately left out, not just forgotten. Today NotificationChannel (Email/Push/Both,
-               see Orbit.Core.Notifications.NotificationChannel) is a flag stored PER calendar event / task item
-               (CalendarEventDetailsDto.ReminderNotificationChannel, TaskItemDto's daily-reminder/overdue channel
-               fields - see CalendarEventReminderBackgroundService, DailyTaskReminderBackgroundService,
-               OverdueTaskNotificationBackgroundService), chosen when creating/editing that item. There is no
-               account-wide on/off switch anywhere - UserEntity has no settings columns and /api/users has no
-               /preferences endpoint. A real switch here would need: a new per-user settings entity + migration,
-               a GET/PUT endpoint (e.g. /api/users/me/notification-settings), a client-side ApiClient method, and
-               each of the three background services above gated on it in addition to the per-item flag they
-               already check. Don't just add a switch that flips local/UI-only state - it would look like it
-               does something and silently not. *@
+            <div class="options-row">
+                <div>
+                    <div class="options-row-title">Allow notifications</div>
+                    <div class="options-row-desc">Master switch for the three settings below and for anything showing up in the Notifications panel/badge/banner at all.</div>
+                </div>
+                <button type="button" class="switch @(_notificationSettings.AllowNotifications ? "on" : "")" role="switch"
+                        aria-checked="@_notificationSettings.AllowNotifications" disabled="@_isSavingNotificationSettings"
+                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowNotifications = !_notificationSettings.AllowNotifications })">
+                    <span class="switch-knob"></span>
+                </button>
+            </div>
+            <div class="options-row options-row-child">
+                <div>
+                    <div class="options-row-title">Allow push</div>
+                    <div class="options-row-desc">Lets any calendar event, task, or inventory item's own push setting actually send a push notification.</div>
+                </div>
+                <button type="button" class="switch @(_notificationSettings.AllowPush ? "on" : "")" role="switch"
+                        aria-checked="@_notificationSettings.AllowPush"
+                        disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
+                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowPush = !_notificationSettings.AllowPush })">
+                    <span class="switch-knob"></span>
+                </button>
+            </div>
+            <div class="options-row options-row-child">
+                <div>
+                    <div class="options-row-title">Allow email</div>
+                    <div class="options-row-desc">Lets any calendar event, task, or inventory item's own email setting actually send an email.</div>
+                </div>
+                <button type="button" class="switch @(_notificationSettings.AllowEmail ? "on" : "")" role="switch"
+                        aria-checked="@_notificationSettings.AllowEmail"
+                        disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
+                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowEmail = !_notificationSettings.AllowEmail })">
+                    <span class="switch-knob"></span>
+                </button>
+            </div>
+            <div class="options-row options-row-child">
+                <div>
+                    <div class="options-row-title">Allow mobile notification</div>
+                    <div class="options-row-desc">Shows the 1-second banner at the top of the page when a new notification arrives while Orbit is open.</div>
+                </div>
+                <button type="button" class="switch @(_notificationSettings.AllowMobileBanner ? "on" : "")" role="switch"
+                        aria-checked="@_notificationSettings.AllowMobileBanner"
+                        disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
+                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowMobileBanner = !_notificationSettings.AllowMobileBanner })">
+                    <span class="switch-knob"></span>
+                </button>
+            </div>
         </div>
         @if (_pushNotificationErrorMessage is not null)
         {
             <p class="error">@_pushNotificationErrorMessage</p>
         }
+        @if (_notificationSettingsErrorMessage is not null)
+        {
+            <p class="error">@_notificationSettingsErrorMessage</p>
+        }
     </div>
+
+    @if (_exceptionDetailsAllowedByServer)
+    {
+        <div class="options-section">
+            <h2 class="options-heading">Diagnostics</h2>
+            <p class="options-subtext">Only shown in non-production environments.</p>
+            <div class="options-card">
+                <div class="options-row">
+                    <div>
+                        <div class="options-row-title">Show exceptions</div>
+                        <div class="options-row-desc">Lets the Notifications panel list this browser's own recent errors, each with a "Copy" button for reporting a bug.</div>
+                    </div>
+                    <button type="button" class="switch @(_notificationSettings.ShowExceptionDetails ? "on" : "")" role="switch"
+                            aria-checked="@_notificationSettings.ShowExceptionDetails" disabled="@_isSavingNotificationSettings"
+                            @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { ShowExceptionDetails = !_notificationSettings.ShowExceptionDetails })">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -85,10 +147,53 @@
     private bool _pushNotificationActionInProgress;
     private string? _pushNotificationErrorMessage;
 
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
+    private bool _isSavingNotificationSettings;
+    private string? _notificationSettingsErrorMessage;
+
+    /// <summary>Server-environment gate (see ClientFlagsDto) on top of _notificationSettings.ShowExceptionDetails - the Diagnostics section only ever renders when both agree, so Production never shows it regardless of what an account has stored.</summary>
+    private bool _exceptionDetailsAllowedByServer;
+
     protected override async Task OnInitializedAsync()
     {
         ThemeService.Changed += OnThemeChanged;
         await RefreshPushNotificationStateAsync();
+        await RefreshNotificationSettingsAsync();
+    }
+
+    private async Task RefreshNotificationSettingsAsync()
+    {
+        try
+        {
+            _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
+            _exceptionDetailsAllowedByServer = await NotificationsApiClient.GetExceptionDetailsAllowedAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load notification settings");
+            _notificationSettingsErrorMessage = "Failed to load notification settings. Try reloading the page.";
+        }
+    }
+
+    private async Task UpdateNotificationSettingsAsync(NotificationSettingsDto updated)
+    {
+        _isSavingNotificationSettings = true;
+        _notificationSettingsErrorMessage = null;
+        try
+        {
+            _notificationSettings = await NotificationsApiClient.UpdateSettingsAsync(
+                new UpdateNotificationSettingsRequest(
+                    updated.AllowNotifications, updated.AllowPush, updated.AllowEmail, updated.AllowMobileBanner, updated.ShowExceptionDetails));
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to update notification settings");
+            _notificationSettingsErrorMessage = "Failed to update notification settings. Try again.";
+        }
+        finally
+        {
+            _isSavingNotificationSettings = false;
+        }
     }
 
     private async Task SetThemeAsync(ThemePreference preference)

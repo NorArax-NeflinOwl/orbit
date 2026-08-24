@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Notifications;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -29,6 +30,14 @@ public sealed class CalendarEventEditorTests : TestContext
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         Services.AddSingleton(new CalendarApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
         Services.AddSingleton(new GeocodingApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
+        // CalendarEventEditor.razor fetches notification settings on init - a real (if unreachable)
+        // HttpClient like CalendarApiClient/GeocodingApiClient above use would work too (the call is
+        // caught and logged, not fatal), but the actual DNS/connect attempt takes real wall-clock time
+        // bUnit's synchronous RenderComponent doesn't reliably wait out, unlike a StubHttpMessageHandler's
+        // instant in-memory response.
+        Services.AddSingleton(new NotificationsApiClient(new HttpClient(
+            new StubHttpMessageHandler(_ => JsonResponse(new NotificationSettingsDto(true, true, true, true, true))))
+        { BaseAddress = new Uri("https://example.test/") }));
 
         var tokenStore = new TokenStore(new StubJSRuntime());
         tokenStore.SetTokenAsync(CreateUnsignedJwt(new Dictionary<string, string>
@@ -138,4 +147,7 @@ public sealed class CalendarEventEditorTests : TestContext
 
     private static HttpResponseMessage JsonResponse(IReadOnlyList<ContactDto> contacts)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(contacts) };
+
+    private static HttpResponseMessage JsonResponse<T>(T body)
+        => new(HttpStatusCode.OK) { Content = JsonContent.Create(body) };
 }

@@ -4,11 +4,13 @@
 @implements IAsyncDisposable
 @using System.Text.Json
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Notifications
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
+@inject NotificationsApiClient NotificationsApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
@@ -104,7 +106,7 @@ else
                     <select @bind="item.OverdueNotificationChannel">
                         @foreach (var option in NotificationChannelOption.All)
                         {
-                            <option value="@option.Value">@option.Label</option>
+                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
                         }
                     </select>
                 </label>
@@ -119,7 +121,7 @@ else
                         <select @bind="item.DailyReminderNotificationChannel">
                             @foreach (var option in NotificationChannelOption.All)
                             {
-                                <option value="@option.Value">@option.Label</option>
+                                <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
                             }
                         </select>
                     </label>
@@ -214,6 +216,7 @@ else
     private string? _shareInfoMessage;
     private string? _saveErrorMessage;
     private Guid _ownUserId;
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
 
     /// <summary>Mirrors NoteEditor's field of the same name - see its comment.</summary>
     private string? _lockedByUserName;
@@ -241,6 +244,18 @@ else
         {
             _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
                 ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
+
+            // Best-effort: gates which notification-channel options are selectable (see
+            // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
+            // rather than blocking the rest of the page from loading.
+            try
+            {
+                _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogWarning(exception, "Failed to load notification settings");
+            }
 
             // Populates the "link to another list" dropdown - excludes the list being edited itself, since
             // an item can't link to the list it belongs to (see TaskListLinkValidator on the API side).

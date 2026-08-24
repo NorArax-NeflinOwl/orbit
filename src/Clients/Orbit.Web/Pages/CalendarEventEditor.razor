@@ -5,10 +5,12 @@
 @using System.Text.Json
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
+@inject NotificationsApiClient NotificationsApiClient
 @inject UsersApiClient UsersApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject GeocodingApiClient GeocodingApiClient
@@ -168,7 +170,7 @@ else
                 <select @bind="_formModel.CreationNotificationChannel">
                     @foreach (var option in NotificationChannelOption.All)
                     {
-                        <option value="@option.Value">@option.Label</option>
+                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
                     }
                 </select>
             </label>
@@ -179,7 +181,7 @@ else
                 <select @bind="_formModel.ReminderNotificationChannel">
                     @foreach (var option in NotificationChannelOption.All)
                     {
-                        <option value="@option.Value">@option.Label</option>
+                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
                     }
                 </select>
             </label>
@@ -342,6 +344,7 @@ else
     /// duration or being left invalid. Kept up to date by both OnStartChanged and OnEndChanged.
     /// </summary>
     private TimeSpan _lastKnownDuration = TimeSpan.FromHours(1);
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
 
     protected override async Task OnInitializedAsync()
     {
@@ -349,6 +352,18 @@ else
         {
             _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
                 ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
+
+            // Best-effort: gates which notification-channel options are selectable (see
+            // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
+            // rather than blocking the rest of the page from loading.
+            try
+            {
+                _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogWarning(exception, "Failed to load notification settings");
+            }
 
             if (Id is { } eventId)
             {

@@ -2,9 +2,11 @@
 @page "/inventory/{Id:guid}"
 @attribute [Authorize]
 @using Orbit.Contracts.Inventory
+@using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject InventoryApiClient InventoryApiClient
+@inject NotificationsApiClient NotificationsApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<InventoryEditor> Logger
 
@@ -49,7 +51,7 @@ else
                 <select @bind="_formModel.ExpiryNotificationChannel">
                     @foreach (var option in NotificationChannelOption.All)
                     {
-                        <option value="@option.Value">@option.Label</option>
+                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
                     }
                 </select>
             </div>
@@ -75,9 +77,22 @@ else
     private bool _isSaving;
     private InventoryItemFormModel _formModel = new();
     private string? _saveErrorMessage;
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
 
     protected override async Task OnInitializedAsync()
     {
+        // Best-effort: gates which notification-channel options are selectable (see
+        // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
+        // rather than blocking the rest of the page from loading.
+        try
+        {
+            _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to load notification settings");
+        }
+
         if (Id is { } itemId)
         {
             try
