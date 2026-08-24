@@ -212,6 +212,69 @@ the id doesn't exist or isn't owned by the caller. Deleting a list that another 
 failing, so this is safe, just something to be aware of if a list you expect to still be linkable is
 gone. The Blazor client's task list page asks for confirmation before calling this endpoint.
 
+## Inventory
+
+`POST /api/inventory` and `PUT /api/inventory/{id}` both take `{ name, productType, category, quantity,
+minimumQuantity, expiryDate, expiryNotificationChannel }` — `productType` and `category` are free text
+(no fixed list), `quantity`/`minimumQuantity` are decimal (not integer) so fractional amounts like
+"1.5 kg" are representable, and `minimumQuantity`/`expiryDate` are both optional: not every product
+needs a restock threshold or an expiry date. `GET /api/inventory` and `GET /api/inventory/{id}` return
+the same shape back plus `id`, `isBelowMinimum` and `hasPendingRestockTask` (both derived, computed
+server-side so the client never reimplements the comparison), and `createdAtUtc`/`updatedAtUtc`. Each
+item is owned by exactly one user — unlike Notes/Tasks/Calendar events, there is no sharing or editing
+lock on inventory items, since neither was requested and both would be pure scope creep on top of an
+already large feature.
+
+**Low stock creates a real Task, not a separate notification.** Whenever a saved item's `quantity` is at
+or below its `minimumQuantity`, `InventoryTaskListCoordinator` appends a `TaskItem` ("Uzupełnij:
+{name}") to a single, system-managed `TaskList` titled "Uzupełnij zapasy" — the exact same `TaskList`/
+`TaskItem` domain objects Tasks itself uses, so the item shows up on `/tasks` with the same
+edit/complete/notification UI as anything the user created by hand. This check runs inline inside the
+Create/Update handlers right after saving (`CreateInventoryItemCommandHandler`/
+`UpdateInventoryItemCommandHandler`) rather than via a background poll — a stock level only ever changes
+because the user just edited it, so there's no "time passing" trigger to poll for the way overdue tasks
+or calendar reminders have.
+
+The managed task list is created lazily, once per user, the first time they add *any* inventory item —
+independent of whether that first item happens to be low — and comes pre-seeded with one standing item,
+"Zaktualizuj stan magazynu", with `RemindDaily` turned on. This is the "recurring reminder to keep stock
+updated" the feature calls for: Tasks has no engine for a task that recreates itself after being
+completed, but `RemindDaily` already nags daily until checked off, and unchecking it re-arms the daily
+nag — treated here as close enough to "recurring" without building a second recurrence engine on top of
+Tasks' existing one (Calendar's). Since `TaskList` has no field to mark itself "system-managed", a
+separate one-row-per-user table (`InventoryManagedTaskListEntity`) tracks which `TaskListId` Inventory
+created, entirely outside the Tasks schema.
+
+**Not re-triggering while a restock task is still open.** Each `InventoryItem` remembers the
+`TaskListId`/`TaskItemId` of its own open restock task, if any (`PendingRestockTaskListId`/
+`PendingRestockTaskItemId`). Before creating a new one, `PendingRestockTaskResolver` checks whether the
+tracked task is still genuinely open: if the user completed it, or deleted the list or item out from
+under this tracking, that's treated as "nothing pending" (the fields are cleared, and a low item is free
+to get a fresh task next time it's saved) rather than an error — the same philosophy
+`LinkedTaskCompletionResolver` already applies to a dangling task-list link elsewhere in Tasks. This
+resolution happens lazily on every read and write that touches the item (never a background poll), and
+any correction it makes is persisted immediately so it doesn't need re-resolving on the next read. If
+quantity rises back above minimum, the pending reference is cleared but the already-created `TaskItem`
+itself is left alone — the user checks it off manually — rather than Inventory reaching back into Tasks
+to delete something it doesn't own the lifecycle of.
+
+**Expiry warnings** are the one part of this feature that genuinely needs a background poll, since a
+date becoming "approaching" is a function of time passing, not a user action.
+`InventoryExpiryReminderBackgroundService` mirrors `CalendarEventReminderBackgroundService`/
+`OverdueTaskNotificationBackgroundService` exactly: a 1-minute `PeriodicTimer`, a fresh DI scope per
+tick, a 100-item cap per poll, and a heartbeat reported to `HostedServiceHealthTracker` (so it shows up
+in `/health/ready` as `InventoryExpiryReminders`). A warning goes out on the item's own
+`expiryNotificationChannel` a fixed 3 days before `expiryDate` (not configurable per item in this first
+version). The delivery-tracking table (`InventoryExpiryNotificationDeliveryEntity`) is unique-indexed on
+**`(InventoryItemId, ExpiryDate)`** rather than the item id alone — mirroring `TaskDailyReminderDeliveryEntity`'s
+keyed-by-value shape instead of `TaskOverdueNotificationDeliveryEntity`'s fire-once shape — so restocking
+an item with a new expiry date is automatically eligible for a fresh warning with no explicit reset
+logic anywhere. An item already past its expiry date does not get a second, more urgent background
+notification; instead the Blazor inventory list page (`Inventory.razor`) sorts expiring/expired items to
+the top and shows a passive "Expires soon"/"Expired" badge, computed client-side from `expiryDate` vs.
+today — keeping that half of the feature entirely client-side rather than adding another notification
+path.
+
 ## Calendar
 
 `POST /api/calendar-events` and `PUT /api/calendar-events/{id}` both take `{ details }`, where `details`
