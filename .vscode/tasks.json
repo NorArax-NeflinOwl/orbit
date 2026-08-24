@@ -1,0 +1,36 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "ensure-postgres",
+            // Runs before build-orbit-api (see its dependsOn below) so F5 never launches Orbit.Api
+            // against a database that isn't listening yet - "docker compose up" alone returns as soon
+            // as the container is *created*, not once Postgres is actually ready for connections, so
+            // this uses --wait to block on the container's own healthcheck (pg_isready) instead. Reuses
+            // the already-running container as a no-op if one from a previous session is still up.
+            "type": "shell",
+            "command": "docker",
+            "args": ["compose", "up", "-d", "--wait", "postgres"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "build-orbit-api",
+            // Runs before every Orbit.Api debug launch (see launch.json's preLaunchTask) so the
+            // debugger always attaches to a binary whose PDB matches the current source. Without
+            // this, F5 can silently reuse a stale build and breakpoints never bind.
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Server/Orbit.Api/Orbit.Api.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "dependsOn": ["ensure-postgres"],
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}
