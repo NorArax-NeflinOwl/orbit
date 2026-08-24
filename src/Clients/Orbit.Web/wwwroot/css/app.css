@@ -450,6 +450,7 @@ input.note-editor-title {
 }
 
 .avatar {
+    position: relative;
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -462,6 +463,43 @@ input.note-editor-title {
     font-weight: 600;
     font-size: 13px;
     flex: 0 0 auto;
+}
+
+/* Unread notification count on the sidebar avatar - see MainLayout.razor's FormatUnreadCount (0 hidden, 1-9 as-is, "9+" above that). */
+.notif-badge {
+    position: absolute;
+    bottom: -2px;
+    left: -2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: var(--accent-on);
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border: 2px solid var(--bg-elevated);
+}
+
+.avatar-dropdown-item-badge {
+    margin-left: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: var(--accent-on);
+    font-size: 10.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 
 .user-meta {
@@ -531,6 +569,119 @@ input.note-editor-title {
 .avatar-dropdown-item:hover {
     background: var(--bg-subtle);
     color: var(--text-primary);
+}
+
+.notifications-panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    width: 320px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.15);
+    padding: 6px;
+    z-index: 30;
+}
+
+.sidebar.collapsed .notifications-panel {
+    left: calc(100% + 8px);
+    bottom: 0;
+}
+
+.notifications-panel-header {
+    padding: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.notifications-panel-empty {
+    padding: 8px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+}
+
+.notifications-panel-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.notifications-panel-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+    border-radius: 7px;
+}
+
+.notifications-panel-item:hover {
+    background: var(--bg-subtle);
+}
+
+.notifications-panel-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.notifications-panel-item-body {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.notifications-panel-item-time {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.notifications-panel-item-exception {
+    border-left: 2px solid var(--danger);
+    padding-left: 6px;
+}
+
+.notifications-panel-item-exception .notifications-panel-item-body {
+    font-family: var(--font-mono, monospace);
+    word-break: break-word;
+}
+
+/* Toast shown for exactly 1 second when a new notification arrives while the app is open (see
+   MainLayout.razor's ShowBannerForNewestEntryAsync) - fixed to the top of the viewport, above
+   everything else, gated on NotificationSettings.AllowMobileBanner. */
+.notification-banner {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: min(90vw, 420px);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.2);
+    padding: 8px 16px;
+    font-size: 13px;
+}
+
+.notification-banner strong {
+    color: var(--text-primary);
+    flex: 0 0 auto;
+}
+
+.notification-banner span {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .icon-btn {
@@ -1446,6 +1597,12 @@ input.note-editor-title {
 
 .options-row:last-child {
     border-bottom: none;
+}
+
+/* Visually nests a row under the master switch above it (see Options.razor's "Allow push"/"Allow
+   email"/"Allow mobile notification" rows under "Allow notifications"). */
+.options-row-child {
+    padding-left: 36px;
 }
 
 .options-row-title {

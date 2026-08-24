@@ -103,6 +103,9 @@
     window.OrbitClientLogging = {
         appendLog: appendLog,
         getLogsAsText: getLogsAsText,
-        copyLogsToClipboard: copyLogsToClipboard
+        copyLogsToClipboard: copyLogsToClipboard,
+        // Read-only access to the structured entries, for the Notifications panel's exception list
+        // (see MainLayout.razor) to render and copy them individually rather than only as one big blob.
+        getEntries: readEntries
     };
 })();

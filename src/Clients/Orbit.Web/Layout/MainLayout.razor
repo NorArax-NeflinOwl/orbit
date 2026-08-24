@@ -1,5 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
+@using System.Globalization
+@using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
@@ -7,12 +9,20 @@
 @inject TokenStore TokenStore
 @inject TokenRefreshService TokenRefreshService
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
+@inject NotificationsApiClient NotificationsApiClient
 @inject ThemeService ThemeService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<MainLayout> Logger
 
 <div class="app-shell">
+    @if (_isBannerVisible && _bannerEntry is not null)
+    {
+        <div class="notification-banner" role="status">
+            <strong>@_bannerEntry.Title</strong>
+            <span>@_bannerEntry.Body</span>
+        </div>
+    }
     @if (_isAuthenticated)
     {
             <aside class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
@@ -68,18 +78,14 @@
                 </nav>
 
                 <div class="sidebar-footer">
-                    @* TODO(Orbit.Web.UI): the design called for a small unread-count badge on this avatar
-                       (e.g. top-right corner of .avatar, styled like .notif-badge in an earlier iteration
-                       of app.css), toggled open on click same as the dropdown below. Left out because there
-                       is no real data source for it yet - no notifications-feed endpoint exists server-side,
-                       only fire-and-forget push notifications (see PushNotificationManager/VapidPushNotificationSender)
-                       that never get logged anywhere retrievable. Cheapest real number available today would
-                       be pending chat requests (ChatApiClient.GetContactsAsync().Count(c => c.RequiresApprovalFromCurrentUser))
-                       plus tasks due today, computed client-side the way Dashboard.razor already does it - but
-                       that means an extra poll loop here too. A proper fix is a real notifications concept
-                       server-side. *@
                     <button type="button" class="avatar-trigger" @onclick="ToggleAvatarMenu" @onclick:stopPropagation="true">
-                        <span class="avatar">@GetInitials(_userName)</span>
+                        <span class="avatar">
+                            @GetInitials(_userName)
+                            @if (_unreadCount > 0)
+                            {
+                                <span class="notif-badge">@FormatUnreadCount(_unreadCount)</span>
+                            }
+                        </span>
                         <span class="user-meta">
                             <span class="user-name">@_userName</span>
                         </span>
@@ -107,10 +113,58 @@
                                 </svg>
                                 Options
                             </a>
+                            <button type="button" class="avatar-dropdown-item" @onclick="ToggleNotificationsMenuAsync">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" /><path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" /></svg>
+                                Notifications
+                                @if (_unreadCount > 0)
+                                {
+                                    <span class="avatar-dropdown-item-badge">@FormatUnreadCount(_unreadCount)</span>
+                                }
+                            </button>
                             <button type="button" class="avatar-dropdown-item" @onclick="LogoutAsync">
                                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.5a1.5 1.5 0 0 1-1.5-1.5v-11A1.5 1.5 0 0 1 4.5 3H8" /><path d="M13 14l4-4-4-4" /><path d="M17 10H8" /></svg>
                                 Log out
                             </button>
+                        </div>
+                    }
+
+                    @if (_notificationsMenuOpen)
+                    {
+                        <div class="notifications-panel" @onclick:stopPropagation="true">
+                            <div class="notifications-panel-header">Notifications</div>
+                            @if (_isLoadingNotifications)
+                            {
+                                <p class="notifications-panel-empty">Loading…</p>
+                            }
+                            else if (_recentEntries.Count == 0 && _clientExceptionEntries.Count == 0)
+                            {
+                                <p class="notifications-panel-empty">Nothing yet.</p>
+                            }
+                            else
+                            {
+                                <ul class="notifications-panel-list">
+                                    @foreach (var entry in _recentEntries)
+                                    {
+                                        <li class="notifications-panel-item">
+                                            <span class="notifications-panel-item-title">@entry.Title</span>
+                                            <span class="notifications-panel-item-body">@entry.Body</span>
+                                            <span class="notifications-panel-item-time">@FormatEntryTime(entry.CreatedAtUtc)</span>
+                                        </li>
+                                    }
+                                    @if (_showExceptionsSection)
+                                    {
+                                        @foreach (var exceptionEntry in _clientExceptionEntries)
+                                        {
+                                            <li class="notifications-panel-item notifications-panel-item-exception">
+                                                <span class="notifications-panel-item-title">Frontend error</span>
+                                                <span class="notifications-panel-item-body">@exceptionEntry.Message</span>
+                                                <span class="notifications-panel-item-time">@FormatEntryTime(exceptionEntry.TimestampUtc)</span>
+                                                <button type="button" class="btn-secondary" @onclick="() => CopyExceptionAsync(exceptionEntry)">Copy</button>
+                                            </li>
+                                        }
+                                    }
+                                </ul>
+                            }
                         </div>
                     }
                 </div>
@@ -125,10 +179,45 @@
 @code {
     private const string SidebarCollapsedStorageKey = "orbit.sidebarCollapsed";
 
+    /// <summary>Matches Dashboard.razor/Calendar.razor's own DisplayCulture - keeps notification timestamps English regardless of the browser's locale.</summary>
+    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
     private bool _sidebarCollapsed;
     private bool _avatarMenuOpen;
     private PeriodicTimer? _sessionHeartbeatTimer;
     private CancellationTokenSource? _sessionHeartbeatCancellation;
+
+    private int _unreadCount;
+    private bool _notificationsMenuOpen;
+    private bool _isLoadingNotifications;
+    private IReadOnlyList<NotificationEntryDto> _recentEntries = [];
+    private IReadOnlyList<ClientLogEntry> _clientExceptionEntries = [];
+    private bool _showExceptionsSection;
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
+    private NotificationEntryDto? _bannerEntry;
+    private bool _isBannerVisible;
+    private DateTimeOffset? _lastBannerShownAtUtc;
+    private PeriodicTimer? _notificationPollTimer;
+    private CancellationTokenSource? _notificationPollCancellation;
+
+    /// <summary>
+    /// How often MainLayout checks for new notifications while a tab is open - fast enough that a toast
+    /// banner (see ShowBannerForNewestEntryAsync) feels prompt, and doubles as the minimum gap between
+    /// banners (never more than one every BannerMinimumGap, see CanShowBannerNow) so this cadence alone
+    /// already caps how often a banner can appear.
+    /// </summary>
+    private static readonly TimeSpan NotificationPollInterval = TimeSpan.FromSeconds(10);
+
+    private static readonly TimeSpan BannerMinimumGap = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan BannerVisibleDuration = TimeSpan.FromSeconds(1);
+
+    /// <summary>Mirrors PersistentLoggerProvider's shape as mirrored into localStorage by clientLogging.js's appendLog - see window.OrbitClientLogging.getEntries.</summary>
+    private sealed record ClientLogEntry(
+        [property: System.Text.Json.Serialization.JsonPropertyName("t")] DateTimeOffset TimestampUtc,
+        [property: System.Text.Json.Serialization.JsonPropertyName("lvl")] string Level,
+        [property: System.Text.Json.Serialization.JsonPropertyName("cat")] string Category,
+        [property: System.Text.Json.Serialization.JsonPropertyName("msg")] string Message,
+        [property: System.Text.Json.Serialization.JsonPropertyName("ex")] string? Exception);
 
     /// <summary>
     /// Whether to render the sidebar at all, and <see cref="_userName"/> for its avatar/name. Tracked
@@ -164,6 +253,33 @@
         await ThemeService.InitializeAsync();
         await EnsureEncryptionKeyIfAuthenticatedAsync();
         StartSessionHeartbeat();
+        await RefreshNotificationStateIfAuthenticatedAsync();
+        StartNotificationPoll();
+    }
+
+    /// <summary>
+    /// Fetches this user's notification settings (needed for the banner's AllowMobileBanner gate) and
+    /// current unread count - best-effort, since a transient failure here shouldn't block the rest of
+    /// the page from loading. Called once at startup and, implicitly, by every NotificationPollTickAsync
+    /// tick thereafter.
+    /// </summary>
+    private async Task RefreshNotificationStateIfAuthenticatedAsync()
+    {
+        if (!_isAuthenticated)
+        {
+            return;
+        }
+
+        try
+        {
+            _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
+            _unreadCount = await NotificationsApiClient.GetUnreadCountAsync();
+            StateHasChanged();
+        }
+        catch (HttpRequestException)
+        {
+            // Transient (API unreachable, session lapsed mid-request, ...) - the next poll tick retries.
+        }
     }
 
     /// <summary>
@@ -241,20 +357,34 @@
 
     private void OnAuthenticationStateChanged(Task<AuthenticationState> newState)
     {
-        _ = RefreshAuthenticationDisplayStateAsync();
-        _ = EnsureEncryptionKeyIfAuthenticatedAsync();
+        _ = HandleAuthenticationStateChangedAsync();
+    }
+
+    /// <summary>
+    /// Runs everything that needs to react to a fresh sign-in, logout, or silent-refresh outcome, in
+    /// order - notably RefreshNotificationStateIfAuthenticatedAsync only fetches this user's own
+    /// notification settings/unread count once _isAuthenticated (set by RefreshAuthenticationDisplayStateAsync)
+    /// is up to date, instead of racing it as a separate fire-and-forget call would.
+    /// </summary>
+    private async Task HandleAuthenticationStateChangedAsync()
+    {
+        await RefreshAuthenticationDisplayStateAsync();
+        await EnsureEncryptionKeyIfAuthenticatedAsync();
         // Restarts the heartbeat after a fresh sign-in that follows an explicit logout (StopSessionHeartbeat
         // above) - MainLayout itself is never recreated across that transition, so nothing else would.
         // A no-op while it's already running (StartSessionHeartbeat only starts one if none exists yet).
         StartSessionHeartbeat();
+        await RefreshNotificationStateIfAuthenticatedAsync();
+        StartNotificationPoll();
     }
 
-    /// <summary>Closes the avatar menu on navigation, so it doesn't stay open across an unrelated route change.</summary>
+    /// <summary>Closes the avatar/notifications menus on navigation, so neither stays open across an unrelated route change.</summary>
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        if (_avatarMenuOpen)
+        if (_avatarMenuOpen || _notificationsMenuOpen)
         {
             _avatarMenuOpen = false;
+            _notificationsMenuOpen = false;
             InvokeAsync(StateHasChanged);
         }
     }
@@ -365,6 +495,160 @@
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
     }
 
+    private void StartNotificationPoll()
+    {
+        if (!_isAuthenticated || _notificationPollTimer is not null)
+        {
+            return;
+        }
+
+        _notificationPollCancellation = new CancellationTokenSource();
+        _notificationPollTimer = new PeriodicTimer(NotificationPollInterval);
+        _ = NotificationPollLoopAsync(_notificationPollCancellation.Token);
+    }
+
+    private void StopNotificationPoll()
+    {
+        _notificationPollCancellation?.Cancel();
+        _notificationPollCancellation?.Dispose();
+        _notificationPollCancellation = null;
+        _notificationPollTimer?.Dispose();
+        _notificationPollTimer = null;
+    }
+
+    private async Task NotificationPollLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _notificationPollTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                await NotificationPollTickAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when DisposeAsync/logout cancels the poll.
+        }
+        catch (ObjectDisposedException)
+        {
+            // The timer was disposed by StopNotificationPoll between a tick starting and this loop checking again.
+        }
+    }
+
+    /// <summary>
+    /// Refreshes settings/unread count every tick (so a change made on the Options page - e.g. turning
+    /// the banner off - takes effect within one poll interval) and, if the count just went up, shows a
+    /// toast banner for the newest entry - subject to AllowMobileBanner and the separate
+    /// BannerMinimumGap rate limit (see CanShowBannerNow).
+    /// </summary>
+    private async Task NotificationPollTickAsync()
+    {
+        var previousUnreadCount = _unreadCount;
+        await RefreshNotificationStateIfAuthenticatedAsync();
+
+        if (_unreadCount > previousUnreadCount && _notificationSettings.AllowMobileBanner && CanShowBannerNow())
+        {
+            await ShowBannerForNewestEntryAsync();
+        }
+    }
+
+    private bool CanShowBannerNow() => _lastBannerShownAtUtc is null || DateTimeOffset.UtcNow - _lastBannerShownAtUtc >= BannerMinimumGap;
+
+    private async Task ShowBannerForNewestEntryAsync()
+    {
+        try
+        {
+            var recent = await NotificationsApiClient.GetRecentAsync();
+            if (recent.Count == 0)
+            {
+                return;
+            }
+
+            _bannerEntry = recent[0];
+            _isBannerVisible = true;
+            _lastBannerShownAtUtc = DateTimeOffset.UtcNow;
+            StateHasChanged();
+
+            await Task.Delay(BannerVisibleDuration);
+            _isBannerVisible = false;
+            StateHasChanged();
+        }
+        catch (HttpRequestException)
+        {
+            // Transient - simply no banner shows for this tick's new notification.
+        }
+    }
+
+    /// <summary>
+    /// Opens (or closes) the panel; opening it loads the recent feed and this browser's own client-side
+    /// exception log, marks everything server-side as read, and zeros the badge immediately - matches
+    /// "opening Notifications resets the unread counter" rather than waiting for the next poll tick.
+    /// </summary>
+    private async Task ToggleNotificationsMenuAsync()
+    {
+        _avatarMenuOpen = false;
+        _notificationsMenuOpen = !_notificationsMenuOpen;
+        if (!_notificationsMenuOpen)
+        {
+            return;
+        }
+
+        _isLoadingNotifications = true;
+        StateHasChanged();
+        try
+        {
+            _recentEntries = await NotificationsApiClient.GetRecentAsync();
+            await LoadClientExceptionEntriesAsync();
+            await NotificationsApiClient.MarkAllReadAsync();
+            _unreadCount = 0;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to load notifications");
+        }
+        finally
+        {
+            _isLoadingNotifications = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Reads this browser's own captured Warning+/Error client-side log (see clientLogging.js's
+    /// appendLog, mirrored here by PersistentLoggerProvider) - purely local per-device diagnostics, never
+    /// sent to the server, unlike the push/chat entries in _recentEntries above. Gated on both the
+    /// server's environment flag and this user's own ShowExceptionDetails preference (see
+    /// NotificationSettings' class comment for why both matter), so a Production deployment never shows
+    /// this section regardless of what an individual account has set.
+    /// </summary>
+    private async Task LoadClientExceptionEntriesAsync()
+    {
+        var exceptionDetailsAllowedByServer = await NotificationsApiClient.GetExceptionDetailsAllowedAsync();
+        _showExceptionsSection = exceptionDetailsAllowedByServer && _notificationSettings.ShowExceptionDetails;
+        if (!_showExceptionsSection)
+        {
+            _clientExceptionEntries = [];
+            return;
+        }
+
+        var entries = await JSRuntime.InvokeAsync<List<ClientLogEntry>>("OrbitClientLogging.getEntries");
+        _clientExceptionEntries = entries
+            .Where(entry => string.Equals(entry.Level, "Error", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(entry => entry.TimestampUtc)
+            .Take(20)
+            .ToList();
+    }
+
+    private async Task CopyExceptionAsync(ClientLogEntry entry)
+    {
+        var text = $"[{entry.TimestampUtc:O}] {entry.Level} {entry.Category}: {entry.Message}" + (entry.Exception is null ? "" : $"\n{entry.Exception}");
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private static string FormatUnreadCount(int count) => count > 9 ? "9+" : count.ToString(CultureInfo.InvariantCulture);
+
+    private static string FormatEntryTime(DateTimeOffset timestampUtc) => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", DisplayCulture);
+
     /// <summary>
     /// Bound to a click anywhere in the main content area, so clicking outside the dropdown closes it
     /// without needing JS interop for outside-click detection - the trigger and dropdown itself both
@@ -372,18 +656,19 @@
     /// </summary>
     private void CloseAvatarMenu()
     {
-        if (_avatarMenuOpen)
-        {
-            _avatarMenuOpen = false;
-        }
+        _avatarMenuOpen = false;
+        _notificationsMenuOpen = false;
     }
 
     private async Task LogoutAsync()
     {
         _avatarMenuOpen = false;
+        _notificationsMenuOpen = false;
         _isAuthenticated = false;
         _userName = null;
+        _unreadCount = 0;
         StopSessionHeartbeat();
+        StopNotificationPoll();
         await AuthApiClient.LogoutAsync();
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
         NavigationManager.NavigateTo("/login");
@@ -411,5 +696,6 @@
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
         NavigationManager.LocationChanged -= OnLocationChanged;
         StopSessionHeartbeat();
+        StopNotificationPoll();
     }
 }
