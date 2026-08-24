@@ -158,7 +158,7 @@ as not covered by an automated test today, together with why:
   Terraform) under a new `infra/` folder, covering at minimum the two Container Apps' full
   configuration (env vars referencing Key Vault secrets rather than plain Container App secrets,
   ingress settings, scaling), the Container Apps Environment, and the PostgreSQL Flexible Server
-  (SKU, storage, backup retention - see [Azure setup](azure-setup.md#orbit-api-database-backups)).
+  (SKU, storage, backup retention - see [Azure setup](azure-setup.md#3-confirm-database-backups)).
   `.github/workflows/main_orbit.yml` would gain an `az deployment group create` step using that
   template, so an infrastructure change goes through the same PR review as a code change instead of
   being invisible until someone happens to `az containerapp show` and finds it. This is a genuinely
