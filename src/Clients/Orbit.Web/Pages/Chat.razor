@@ -114,7 +114,7 @@ else
                     <p class="chat-request-banner">Message is waiting for @_otherUser.DisplayName to approve.</p>
                 }
 
-                <div class="chat-messages" @onclick="CloseMessageMenu">
+                <div class="chat-messages" @ref="_messageListElement" @onclick="CloseMessageMenu">
                     @{ DateTime? previousMessageDate = null; }
                     @foreach (var message in _messages)
                     {
@@ -229,6 +229,15 @@ else
                             }
                         }
                     }
+                    @if (_isJumpToNewestVisible)
+                    {
+                        <button type="button" class="chat-jump-to-newest" title="Jump to newest message"
+                                @onclick="ScrollToNewestMessageAsync" @onclick:stopPropagation="true">
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10 4v12M5 11l5 5 5-5" />
+                            </svg>
+                        </button>
+                    }
                 </div>
 
                 <div class="chat-input-bar">
@@ -263,6 +272,23 @@ else
     /// button in .chat-list-header lets the user expand it back to full names.
     /// </summary>
     private bool _isContactListCollapsed = true;
+
+    /// <summary>
+    /// The scrollable message list, needed because scroll position can only be read/set from JS (see
+    /// wwwroot/js/chatScroll.js).
+    /// </summary>
+    private ElementReference _messageListElement;
+
+    /// <summary>Set whenever the next render should land on the newest message - opening a conversation, and receiving a message while already at the bottom.</summary>
+    private bool _scrollToNewestOnNextRender;
+
+    /// <summary>Whether the "jump to newest" button shows, i.e. the user has scrolled up far enough that new messages would arrive off-screen.</summary>
+    private bool _isJumpToNewestVisible;
+
+    /// <summary>Kept alive for as long as chatScroll.js holds the scroll listener that calls back into OnMessageListScrolled.</summary>
+    private DotNetObjectReference<Chat>? _scrollObserverReference;
+
+    private bool _isScrollObserverAttached;
 
     /// <summary>Which message's "..." dropdown ("Edit" and/or "Forward") is open, if any.</summary>
     private Guid? _openMessageMenuId;
@@ -417,6 +443,11 @@ else
         _otherPartyReadUpToUtc = null;
         _conversationAccess = null;
         _draftMessage = string.Empty;
+        _isJumpToNewestVisible = false;
+        // Opening a conversation always lands on its newest message (see OnAfterRenderAsync). Switching
+        // contacts re-creates the message list element, so the scroll listener has to be re-attached.
+        _scrollToNewestOnNextRender = true;
+        await DetachScrollObserverAsync();
 
         try
         {
@@ -457,6 +488,104 @@ else
     {
         await AuthApiClient.LogoutAsync();
         NavigationManager.NavigateTo("/login");
+    }
+
+    /// <summary>
+    /// Scroll position can only be applied once the message list has actually rendered, so both the
+    /// open-a-conversation jump and the follow-along jump after a new message are deferred to here via
+    /// _scrollToNewestOnNextRender rather than being attempted from the loading code itself.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await EnsureScrollObserverAsync();
+
+        // Loading a conversation renders several times before the messages themselves arrive (the awaits
+        // in LoadConversationForCurrentUserAsync each trigger one). Scrolling an empty list would do
+        // nothing while still clearing the flag, so the request is held until there's something to
+        // scroll to. Instant rather than smooth: an animated scroll competing with the poll loop's own
+        // re-renders gets cancelled part-way and leaves the list stranded mid-history.
+        if (!_scrollToNewestOnNextRender || _messages.Count == 0)
+        {
+            return;
+        }
+
+        _scrollToNewestOnNextRender = false;
+        await ScrollMessageListToBottomAsync();
+    }
+
+    /// <summary>
+    /// Registers the JS-side scroll listener once the message list exists (see chatScroll.js's
+    /// observeScroll for why the listener can't just be an @onscroll attribute).
+    /// </summary>
+    private async Task EnsureScrollObserverAsync()
+    {
+        if (_isScrollObserverAttached || _messages.Count == 0)
+        {
+            return;
+        }
+
+        _scrollObserverReference ??= DotNetObjectReference.Create(this);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("OrbitChatScroll.observeScroll", _messageListElement, _scrollObserverReference);
+            _isScrollObserverAttached = true;
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Failed to observe the message list scroll position");
+        }
+    }
+
+    /// <summary>
+    /// Called from chatScroll.js on every scroll of the message list. Public and [JSInvokable] only
+    /// because JS interop requires it - nothing in C# calls this directly.
+    /// </summary>
+    [JSInvokable]
+    public void OnMessageListScrolled(bool isNearBottom)
+    {
+        if (isNearBottom == _isJumpToNewestVisible)
+        {
+            _isJumpToNewestVisible = !isNearBottom;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScrollToNewestMessageAsync()
+    {
+        await ScrollMessageListToBottomAsync();
+        _isJumpToNewestVisible = false;
+    }
+
+    private async Task ScrollMessageListToBottomAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("OrbitChatScroll.scrollToBottom", _messageListElement);
+        }
+        catch (JSException exception)
+        {
+            // Scrolling is a convenience, never worth breaking the conversation over - the message list
+            // itself renders fine whether or not the browser honoured this.
+            Logger.LogWarning(exception, "Failed to scroll the message list");
+        }
+    }
+
+    /// <summary>
+    /// Whether the user is following the live end of the conversation - decides if an incoming message
+    /// auto-scrolls (see LoadNewMessagesAsync), so someone reading history is never yanked away from it.
+    /// Treated as "following" when it can't be determined, matching the pre-scroll-tracking behaviour.
+    /// </summary>
+    private async Task<bool> IsMessageListNearBottomAsync()
+    {
+        try
+        {
+            return await JSRuntime.InvokeAsync<bool>("OrbitChatScroll.isScrolledNearBottom", _messageListElement);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Failed to read the message list scroll position");
+            return true;
+        }
     }
 
     private void ToggleDrawer() => _isDrawerOpen = !_isDrawerOpen;
@@ -670,6 +799,10 @@ else
     {
         var sinceUtc = _messages.Count > 0 ? _messages[^1].SentAtUtc : (DateTimeOffset?)null;
         var newMessages = await ChatApiClient.GetConversationAsync(UserId, sinceUtc);
+        // Checked before the new messages are added, so this reflects where the user was reading rather
+        // than where the list happens to sit after growing.
+        var wasFollowingConversation = _messages.Count == 0 || await IsMessageListNearBottomAsync();
+        var addedAnyMessage = false;
         foreach (var message in newMessages)
         {
             // GetConversationAsync's "since" filter can re-return the very message that was just added
@@ -681,7 +814,13 @@ else
             }
 
             _messages.Add(message);
+            addedAnyMessage = true;
             await DecryptAndCacheAsync(message);
+        }
+
+        if (addedAnyMessage && wasFollowingConversation)
+        {
+            _scrollToNewestOnNextRender = true;
         }
     }
 
@@ -895,6 +1034,8 @@ else
             _messages.Add(sent);
             _decryptedContentByMessageId[sent.Id] = _draftMessage;
             _draftMessage = string.Empty;
+            // Sending always follows your own message down, regardless of where you had scrolled to.
+            _scrollToNewestOnNextRender = true;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -916,9 +1057,29 @@ else
     public async ValueTask DisposeAsync()
     {
         StopPolling();
+        await DetachScrollObserverAsync();
+        _scrollObserverReference?.Dispose();
         if (_cryptoModule is not null)
         {
             await _cryptoModule.DisposeAsync();
+        }
+    }
+
+    private async ValueTask DetachScrollObserverAsync()
+    {
+        if (!_isScrollObserverAttached)
+        {
+            return;
+        }
+
+        _isScrollObserverAttached = false;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("OrbitChatScroll.unobserveScroll", _messageListElement);
+        }
+        catch (JSException)
+        {
+            // The element is already gone (navigating away tears the DOM down first) - nothing to detach.
         }
     }
 

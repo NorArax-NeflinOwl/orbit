@@ -625,6 +625,11 @@ input.note-editor-title {
     background: var(--bg-subtle);
 }
 
+/* MainLayout.razor: feed entries carrying a deep-link Url navigate on click (see OpenNotificationEntry). */
+.notifications-panel-item-link {
+    cursor: pointer;
+}
+
 .notifications-panel-item-title {
     font-size: 13px;
     font-weight: 600;
@@ -1223,6 +1228,31 @@ input.note-editor-title {
     gap: 2px;
 }
 
+/* Chat.razor's "jump to newest message" button. Sticky rather than absolutely positioned so it rides
+   the bottom edge of the scroll viewport without needing a positioned wrapper around the message list;
+   align-self keeps it off to the side instead of stretching across the flex column. */
+.chat-jump-to-newest {
+    position: sticky;
+    bottom: 8px;
+    align-self: flex-end;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--bg-elevated, var(--bg-subtle));
+    color: var(--text-primary);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+}
+
+.chat-jump-to-newest:hover {
+    background: var(--bg-subtle);
+}
+
 .chat-day-separator {
     display: flex;
     align-items: center;
@@ -1603,6 +1633,23 @@ input.note-editor-title {
    email"/"Allow mobile notification" rows under "Allow notifications"). */
 .options-row-child {
     padding-left: 36px;
+}
+
+/* Options.razor: the two banner-timing second fields. */
+.options-number-input {
+    width: 72px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+    font-size: 13px;
+    flex: 0 0 auto;
+}
+
+.options-number-input:disabled {
+    opacity: .5;
+    cursor: not-allowed;
 }
 
 .options-row-title {

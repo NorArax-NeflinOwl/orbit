@@ -31,7 +31,7 @@ public sealed class NotificationHandlerTests
         var userId = Guid.NewGuid();
 
         var updated = await handler.HandleAsync(
-            new UpdateNotificationSettingsCommand(userId, AllowNotifications: true, AllowPush: false, AllowEmail: true, AllowMobileBanner: false, ShowExceptionDetails: false),
+            new UpdateNotificationSettingsCommand(userId, AllowNotifications: true, AllowPush: false, AllowEmail: true, AllowMobileBanner: false, ShowExceptionDetails: false, BannerTiming.Default),
             CancellationToken.None);
 
         Assert.False(updated.AllowPush);

@@ -384,7 +384,8 @@
 
         public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
         public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
-        public bool IsEventListVisible { get; set; } = true;
+        /// <summary>Hidden by default, like <see cref="IsTaskListVisible"/> - the calendar grid is the primary view; both side lists are opt-in per visit.</summary>
+        public bool IsEventListVisible { get; set; }
 
         /// <summary>Hidden by default - the due-task list is a secondary panel most users don't need open every visit.</summary>
         public bool IsTaskListVisible { get; set; }

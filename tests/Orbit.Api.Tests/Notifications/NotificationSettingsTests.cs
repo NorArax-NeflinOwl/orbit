@@ -15,6 +15,29 @@ public sealed class NotificationSettingsTests
         Assert.True(settings.AllowEmail);
         Assert.True(settings.AllowMobileBanner);
         Assert.True(settings.ShowExceptionDetails);
+        Assert.Equal(BannerTiming.Default, settings.BannerTiming);
+    }
+
+    [Fact]
+    public void BannerTiming_clamps_out_of_range_values_instead_of_rejecting_them()
+    {
+        var timing = new BannerTiming(visibleSeconds: 0, minimumGapSeconds: 9999);
+
+        Assert.Equal(BannerTiming.MinimumSeconds, timing.VisibleSeconds);
+        Assert.Equal(BannerTiming.MaximumGapSeconds, timing.MinimumGapSeconds);
+    }
+
+    [Fact]
+    public void Update_stores_the_new_banner_timing()
+    {
+        var settings = NotificationSettings.Default(Guid.NewGuid());
+
+        settings.Update(
+            allowNotifications: true, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true,
+            new BannerTiming(visibleSeconds: 12, minimumGapSeconds: 45));
+
+        Assert.Equal(12, settings.BannerTiming.VisibleSeconds);
+        Assert.Equal(45, settings.BannerTiming.MinimumGapSeconds);
     }
 
     [Fact]
@@ -22,7 +45,7 @@ public sealed class NotificationSettingsTests
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
 
-        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true);
+        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, BannerTiming.Default);
 
         Assert.False(settings.AllowNotifications);
         // Turning the master off must not erase what the user had chosen for each channel - otherwise
@@ -38,7 +61,7 @@ public sealed class NotificationSettingsTests
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
 
-        settings.Update(allowNotifications: true, allowPush: false, allowEmail: true, allowMobileBanner: false, showExceptionDetails: false);
+        settings.Update(allowNotifications: true, allowPush: false, allowEmail: true, allowMobileBanner: false, showExceptionDetails: false, BannerTiming.Default);
 
         Assert.True(settings.AllowNotifications);
         Assert.False(settings.AllowPush);
@@ -51,7 +74,7 @@ public sealed class NotificationSettingsTests
     public void FilterChannel_strips_a_globally_disabled_channel_out_of_the_requested_channel()
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
-        settings.Update(allowNotifications: true, allowPush: false, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true);
+        settings.Update(allowNotifications: true, allowPush: false, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, BannerTiming.Default);
 
         var filtered = settings.FilterChannel(NotificationChannel.Both);
 
@@ -72,7 +95,7 @@ public sealed class NotificationSettingsTests
     public void FilterChannel_strips_everything_when_the_master_switch_is_off_even_if_child_switches_are_on()
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
-        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true);
+        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, BannerTiming.Default);
 
         var filtered = settings.FilterChannel(NotificationChannel.Both);
 

@@ -28,8 +28,12 @@ public sealed class NotificationSettings
     /// </summary>
     public bool ShowExceptionDetails { get; private set; }
 
+    /// <summary>See <see cref="Notifications.BannerTiming"/> - stored per user so the Options page can tune it.</summary>
+    public BannerTiming BannerTiming { get; private set; }
+
     private NotificationSettings(
-        Guid userId, bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails)
+        Guid userId, bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
+        BannerTiming bannerTiming)
     {
         UserId = userId;
         AllowNotifications = allowNotifications;
@@ -37,15 +41,19 @@ public sealed class NotificationSettings
         AllowEmail = allowEmail;
         AllowMobileBanner = allowMobileBanner;
         ShowExceptionDetails = showExceptionDetails;
+        BannerTiming = bannerTiming;
     }
 
     /// <summary>Every switch defaults to on - this is what a user who has never touched the settings page gets.</summary>
     public static NotificationSettings Default(Guid userId)
-        => new(userId, allowNotifications: true, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true);
+        => new(
+            userId, allowNotifications: true, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true,
+            BannerTiming.Default);
 
     public static NotificationSettings FromPersistence(
-        Guid userId, bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails)
-        => new(userId, allowNotifications, allowPush, allowEmail, allowMobileBanner, showExceptionDetails);
+        Guid userId, bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
+        BannerTiming bannerTiming)
+        => new(userId, allowNotifications, allowPush, allowEmail, allowMobileBanner, showExceptionDetails, bannerTiming);
 
     /// <summary>
     /// The three delivery/display switches are stored exactly as the caller set them, independent of the
@@ -54,13 +62,16 @@ public sealed class NotificationSettings
     /// the *effective* value (FilterChannel, NotificationChannelOption.IsDisabledBy) check AllowNotifications
     /// themselves rather than relying on it having been baked into these three flags at save time.
     /// </summary>
-    public void Update(bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails)
+    public void Update(
+        bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
+        BannerTiming bannerTiming)
     {
         AllowNotifications = allowNotifications;
         AllowPush = allowPush;
         AllowEmail = allowEmail;
         AllowMobileBanner = allowMobileBanner;
         ShowExceptionDetails = showExceptionDetails;
+        BannerTiming = bannerTiming;
     }
 
     /// <summary>

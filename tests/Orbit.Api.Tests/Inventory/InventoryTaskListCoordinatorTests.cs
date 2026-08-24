@@ -73,7 +73,7 @@ public sealed class InventoryTaskListCoordinatorTests
         Assert.NotNull(result.PendingRestockTaskListId);
         Assert.NotNull(result.PendingRestockTaskItemId);
         var taskList = await taskRepository.GetByIdAsync(item.UserId, result.PendingRestockTaskListId!.Value, CancellationToken.None);
-        Assert.Contains(taskList!.Items, taskItem => taskItem.Id == result.PendingRestockTaskItemId && taskItem.Description == "Uzupełnij: Milk");
+        Assert.Contains(taskList!.Items, taskItem => taskItem.Id == result.PendingRestockTaskItemId && taskItem.Description == "Restock: Milk");
     }
 
     private static (
