@@ -71,19 +71,34 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
     public void NotifyAuthenticationStateChanged() => NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
 
     /// <summary>
-    /// The signed-in user's id, or null if there genuinely isn't one - GetAuthenticationStateAsync above
-    /// already tries a silent refresh before giving up, so this just reads its result. Every editor/chat
-    /// page that needs "who am I" on its own initial load (rather than through an API call that would go
-    /// through AuthorizationMessageHandler anyway) should call this instead of reading the "sub" claim
-    /// directly, and NotifyAuthenticationStateChanged is called before returning either way, so the
-    /// sidebar and every [Authorize]-gated route react immediately instead of only catching up on
-    /// MainLayout's next 60-second heartbeat tick.
+    /// The signed-in user's id, or null if there genuinely isn't one - tries the stored token locally
+    /// first and, only if that's missing or expired, falls back to GetAuthenticationStateAsync's silent
+    /// refresh. Every editor/chat page that needs "who am I" on its own initial load (rather than through
+    /// an API call that would go through AuthorizationMessageHandler anyway) should call this instead of
+    /// reading the "sub" claim directly.
+    ///
+    /// Callers of this method are themselves the routed content AuthorizeRouteView renders, and Blazor
+    /// remounts (disposes and reinitializes) that content every time the cascading auth state changes -
+    /// i.e. every NotifyAuthenticationStateChanged call. Calling Notify unconditionally here used to mean
+    /// every call re-triggered the very OnInitializedAsync it was called from, forever, with no delay -
+    /// visible as a frozen tab within seconds of opening Chat/NoteEditor/TaskEditor/CalendarEventEditor.
+    /// Only notifying when the local read actually needed a refresh keeps the common case (a still-valid
+    /// token) a no-op remount-wise, while still updating the sidebar/route gating promptly on the two
+    /// paths where something genuinely changed: a recovered session (remounts once more, this time with a
+    /// now-locally-valid token, so it terminates immediately) or a genuinely-dead one (AuthorizeRouteView
+    /// switches to NotAuthorized instead of remounting this component at all).
     /// </summary>
     public async Task<Guid?> TryGetCurrentUserIdAsync()
     {
-        var state = await GetAuthenticationStateAsync();
+        var localState = await GetLocalAuthenticationStateAsync();
+        if (localState.User.FindFirst("sub") is { } localClaim)
+        {
+            return Guid.Parse(localClaim.Value);
+        }
+
+        var refreshedState = await GetAuthenticationStateAsync();
         NotifyAuthenticationStateChanged();
-        return state.User.FindFirst("sub") is { } subjectClaim ? Guid.Parse(subjectClaim.Value) : null;
+        return refreshedState.User.FindFirst("sub") is { } refreshedClaim ? Guid.Parse(refreshedClaim.Value) : null;
     }
 
     private static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
