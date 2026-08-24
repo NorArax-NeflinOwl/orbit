@@ -1,51 +1,141 @@
-# Azure Container Apps setup
+# Azure setup
 
-`.github/workflows/main_orbit.yml` builds and deploys the `orbit-api` and `orbit-web` images on
-every push to `main` - see [Architecture](architecture.md#production-deployment-azure-container-apps).
-That workflow only ever runs `az containerapp update --image ...`; it never sets configuration. This
-page is the checklist for everything that has to be configured on the Container Apps themselves, once,
-outside the pipeline - written up after an incident where most of it turned out to be missing and had
-to be rediscovered live, one container-log grep at a time.
+Everything needed to stand up Orbit's production deployment from zero, and to operate it day to day.
+Resource group `Orbit`, region Poland Central throughout.
 
-Resource group: `Orbit`. Environment: `orbit-environment`. Registry: `orbitcontainerregistry`.
+`.github/workflows/main_orbit.yml` builds and deploys `orbit-api` and `orbit-web` on every push to
+`main` - see [CI/CD pipeline](#cicd-pipeline) below. That workflow only ever updates the running image;
+it never sets configuration. Everything on this page has to be set up once, outside the pipeline, by
+hand or by running the commands below - and reconfirmed if a resource is ever recreated.
 
-## orbit-api: required configuration
+## Resource inventory
 
-Without these, the container crashes on startup (`Log.Fatal` + exit), which Container Apps reports as
-a perpetual crash loop and surfaces to every caller as a `502` - including through orbit-web's proxy.
-
-| Setting | Where it comes from | Notes |
+| Resource | Type | Purpose |
 |---|---|---|
-| `Jwt__SigningKey` | Container App secret, e.g. `openssl rand -base64 48` | **Required.** At least 32 characters - see [Program.cs](../src/Server/Orbit.Api/Program.cs)'s startup check. |
-| `ConnectionStrings__Orbit` | Container App secret - PostgreSQL connection string | **Required**, throws on startup if unset - see [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs). Provisioning steps below. |
+| `orbit-environment` | Container Apps Environment | Hosts both Container Apps below. |
+| `orbit-api` | Container App | The ASP.NET Core API (`src/Server/Orbit.Api`). Internal ingress only. |
+| `orbit-web` | Container App | The Blazor WebAssembly client behind nginx (`src/Clients/Orbit.Web`). External ingress. |
+| `orbitcontainerregistry` | Container Registry | Holds the `orbit-api`/`orbit-web` images the pipeline builds. |
+| `identity-orbit` | Managed Identity | Used for GitHub Actions' OIDC login to Azure (`azure/login`). |
+| `orbit-postgres-<random>` | PostgreSQL Flexible Server | The application database. Name has a random suffix - see [why](#1-provision-postgresql) - check the actual name with `az postgres flexible-server list -g Orbit -o table` rather than assuming. |
+| `appinsights-orbit` | Application Insights | Traces/telemetry from `orbit-api`. |
+| `orbitb722` | Storage account | Left over from an earlier SQLite-on-Azure-Files design that's no longer in use - see [History](#sqlite-and-azure-files). Safe to leave or delete; nothing depends on it now. |
 
-```bash
-az containerapp secret set -n orbit-api -g Orbit \
-  --secrets jwt-signing-key="$(openssl rand -base64 48)"
+Each Container App also has its own **system-assigned managed identity** (separate from
+`identity-orbit`), used to pull images from `orbitcontainerregistry` without a stored registry
+password - visible as `"identity": "system"` under each app's `registries` config.
 
-az containerapp update -n orbit-api -g Orbit --set-env-vars \
-  "Jwt__SigningKey=secretref:jwt-signing-key"
+## How the pieces talk to each other
+
+```
+Browser ──HTTPS──▶ orbit-web (external ingress, :80, TLS terminated by Container Apps)
+                       │
+                       │ nginx proxies /api/* over the environment's internal network
+                       ▼
+                    orbit-api (internal ingress, :8080)
+                       │
+                       │ TCP 5432, TLS required
+                       ▼
+                 PostgreSQL Flexible Server (public endpoint, firewalled to Azure IPs only)
 ```
 
-## orbit-api: optional configuration
+`orbit-api` has no ingress reachable from outside the Container Apps environment - `orbit-web`'s own
+nginx (`src/Clients/Orbit.Web/nginx.azure.conf`) is the only path in, proxying `/api/*` to `orbit-api`'s
+internal FQDN. See [nginx.azure.conf gotchas](#nginxazureconf-gotchas) for three specific ways that
+proxy config breaks if touched carelessly.
 
-The app starts and runs fine without these - each feature just logs a warning and no-ops instead.
+## First-time setup from zero
 
-| Setting | Feature | Notes |
-|---|---|---|
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Traces/telemetry | From the `appinsights-orbit` resource's Overview page. Must be the full connection string (starts with `InstrumentationKey=`) - a malformed value crashes startup the same as a missing JWT key, since `AddAzureMonitorTraceExporter` throws on construction. |
-| `Vapid__PublicKeyBase64Url`, `Vapid__PrivateKeyBase64Url`, `Vapid__Subject` | Push notifications | Generate with `npx web-push generate-vapid-keys`. Without these, `PushNotificationManager.EnableAsync` on the client silently returns `false` - the "enable push notifications" toggle just never turns on, with no visible error. |
-| `Smtp__Host`, `Smtp__Port`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromAddress` | Calendar event reminder emails | `Smtp__Password` should be a secret. |
+Assumes the resource group, `orbit-environment`, `orbitcontainerregistry`, `identity-orbit` (with
+GitHub OIDC federation already configured), and the two empty Container Apps already exist. If
+starting completely from nothing, those need to exist first (out of scope for this page - this covers
+configuring an `orbit-api`/`orbit-web` pair that already exist against a fresh database).
+
+### 1. Provision PostgreSQL
 
 ```bash
-# Application Insights
+# One-time per subscription - skip if already done. If this step is needed and skipped, the next
+# one fails with "MissingSubscriptionRegistration".
+az provider register --namespace Microsoft.DBforPostgreSQL
+az provider show --namespace Microsoft.DBforPostgreSQL --query registrationState -o tsv   # poll for "Registered"
+```
+
+```bash
+PG_PASSWORD="$(openssl rand -base64 24)"
+echo "SAVE THIS PASSWORD NOW, SOMEWHERE PERSISTENT (not just this shell variable): $PG_PASSWORD"
+PG_SERVER_NAME="orbit-postgres-$(openssl rand -hex 3)"
+echo "SERVER NAME: $PG_SERVER_NAME"
+
+az postgres flexible-server create \
+  --resource-group Orbit \
+  --name "$PG_SERVER_NAME" \
+  --location polandcentral \
+  --admin-user orbitadmin \
+  --admin-password "$PG_PASSWORD" \
+  --sku-name Standard_B1ms \
+  --tier Burstable \
+  --storage-size 32 \
+  --version 16 \
+  --public-access 0.0.0.0
+
+az postgres flexible-server db create \
+  --resource-group Orbit --server-name "$PG_SERVER_NAME" --name orbit
+```
+
+Why the random suffix, the separate `db create` call, and `--public-access 0.0.0.0`: see
+[PostgreSQL CLI gotchas](#postgresql-cli-gotchas).
+
+**Verify the firewall rule actually exists before moving on** - it has gone missing at least once in
+this project's history for no confirmed reason (see [History](#a-vanishing-firewall-rule)):
+
+```bash
+az postgres flexible-server firewall-rule list -g Orbit --server-name "$PG_SERVER_NAME" -o table
+```
+
+Expect exactly one row, `AllowAllAzureServicesAndResourcesWithinAzureIps`, `0.0.0.0`-`0.0.0.0`. If the
+list is empty, recreate it:
+
+```bash
+az postgres flexible-server firewall-rule create \
+  -g Orbit --server-name "$PG_SERVER_NAME" \
+  --name AllowAllAzureServicesAndResourcesWithinAzureIps \
+  --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+```
+
+### 2. Configure orbit-api
+
+All required and optional settings in one place. Every `az containerapp secret set` /
+`--set-env-vars` pair below is independent - run only the ones relevant to what's being (re)configured.
+
+| Setting | Required? | Where it comes from |
+|---|---|---|
+| `Jwt__SigningKey` | **Required.** Crashes startup if missing/short - see [Program.cs](../src/Server/Orbit.Api/Program.cs). | Container App secret, ≥32 chars, e.g. `openssl rand -base64 48`. |
+| `ConnectionStrings__Orbit` | **Required.** Throws on startup if unset - see [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs). | Container App secret. PostgreSQL connection string from step 1. |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional - traces. A malformed value (not empty - see [gotcha](#a-malformed-app-insights-string-crashes-startup-same-as-missing-jwt)) crashes startup the same as a missing JWT key. | Container App secret. From the `appinsights-orbit` resource. |
+| `Vapid__PublicKeyBase64Url` / `Vapid__PrivateKeyBase64Url` / `Vapid__Subject` | Optional - push notifications. Missing means the "enable push notifications" toggle silently never turns on, no visible error. | Public key/subject as plain env vars, private key as a secret. `npx web-push generate-vapid-keys`. |
+| `Smtp__Host` / `Smtp__Port` / `Smtp__UserName` / `Smtp__Password` / `Smtp__FromAddress` | Optional - calendar reminder emails. | `Smtp__Password` as a secret, rest as plain env vars. |
+
+```bash
+# Required
+az containerapp secret set -n orbit-api -g Orbit \
+  --secrets jwt-signing-key="$(openssl rand -base64 48)"
+az containerapp update -n orbit-api -g Orbit --set-env-vars \
+  "Jwt__SigningKey=secretref:jwt-signing-key"
+
+az containerapp secret set -n orbit-api -g Orbit \
+  --secrets orbit-db-connection-string="Host=$PG_SERVER_NAME.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=Require;Trust Server Certificate=true"
+az containerapp update -n orbit-api -g Orbit --set-env-vars \
+  "ConnectionStrings__Orbit=secretref:orbit-db-connection-string"
+
+# Optional: Application Insights
 APPINSIGHTS_CS=$(az monitor app-insights component show \
   --app appinsights-orbit -g Orbit --query connectionString -o tsv)
+echo "$APPINSIGHTS_CS"   # sanity-check it starts with "InstrumentationKey=" before using it - see gotcha above
 az containerapp secret set -n orbit-api -g Orbit --secrets appinsights-cs="$APPINSIGHTS_CS"
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appinsights-cs"
 
-# Push notifications
+# Optional: push notifications
 npx web-push generate-vapid-keys
 az containerapp secret set -n orbit-api -g Orbit --secrets vapid-private-key="<private key>"
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
@@ -53,91 +143,28 @@ az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "Vapid__PrivateKeyBase64Url=secretref:vapid-private-key" \
   "Vapid__Subject=mailto:you@example.com"
 
-# Calendar reminder emails
+# Optional: calendar reminder emails
 az containerapp secret set -n orbit-api -g Orbit --secrets smtp-password="<password>"
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "Smtp__Host=<host>" "Smtp__Port=587" "Smtp__UserName=<user>" \
   "Smtp__FromAddress=<address>" "Smtp__Password=secretref:smtp-password"
 ```
 
-## orbit-api: database (PostgreSQL)
+**A secret's *value* can be updated without creating a new revision** - existing running replicas keep
+using whatever value they started with until explicitly restarted:
 
-Orbit.Api used to run on a SQLite file, made persistent across restarts/redeploys by mounting an Azure
-Files share into the container. **That approach caused a real production outage** - the mounted volume
-briefly had two container replicas writing to it at once during a routine deploy (normal Container Apps
-rollover behavior), and SQLite's WAL journal mode, which coordinates readers/writers through a
-memory-mapped file, doesn't work reliably over a network filesystem (SMB/NFS/CIFS - this is called out
-in SQLite's own documentation). It left the database in a state where every subsequent connection
-attempt hung indefinitely, even back down to a single replica. Orbit.Api now runs on a real PostgreSQL
-server instead - no shared file, no network-filesystem locking semantics, ordinary concurrent
-connections. The old Azure Files share and volume mount, if still present from before, can be deleted
-once this is live (`az containerapp env storage remove`).
+```bash
+az containerapp revision restart -n orbit-api -g Orbit --revision <latest-revision-name>
+```
 
-1. If this Azure subscription has never had a PostgreSQL Flexible Server before, register the resource
-   provider first (one-time per subscription; safe to skip if already registered - the next step's
-   error message will say `MissingSubscriptionRegistration` if this was needed and wasn't done):
-   ```bash
-   az provider register --namespace Microsoft.DBforPostgreSQL
-   # Takes a minute or two - poll until this prints "Registered":
-   az provider show --namespace Microsoft.DBforPostgreSQL --query registrationState -o tsv
-   ```
-2. Provision an Azure Database for PostgreSQL Flexible Server (Burstable tier - cheapest that still
-   gives dedicated compute; adjust `--sku-name`/`--storage-size` to taste), then create the `orbit`
-   database on it as a separate step:
-   - `--database-name` on `flexible-server create` is rejected by newer `az cli` versions unless
-     `--node-count` (elastic clusters) is also given, which doesn't apply to a plain single-server
-     instance like this one - hence the separate `db create` call below.
-   - The server name is a global DNS label (`<name>.postgres.database.azure.com`) shared across every
-     Azure customer, not just this resource group - a plain name like `orbit-postgres` can collide with
-     someone else's server and fail with "Specified server name is already used" even though
-     `az postgres flexible-server list -g Orbit` shows nothing. Append a random suffix if that happens.
-   ```bash
-   PG_PASSWORD="$(openssl rand -base64 24)"
-   echo "SAVE THIS PASSWORD: $PG_PASSWORD"   # az does not print it back out anywhere else
-   PG_SERVER_NAME="orbit-postgres-$(openssl rand -hex 3)"   # random suffix - see the note above
-   echo "SERVER NAME: $PG_SERVER_NAME"
+Changing which secret an env var *points to* (or adding/removing an env var) does create a new
+revision automatically, which picks up the current secret value on its own.
 
-   az postgres flexible-server create \
-     --resource-group Orbit \
-     --name "$PG_SERVER_NAME" \
-     --location polandcentral \
-     --admin-user orbitadmin \
-     --admin-password "$PG_PASSWORD" \
-     --sku-name Standard_B1ms \
-     --tier Burstable \
-     --storage-size 32 \
-     --version 16 \
-     --public-access 0.0.0.0
+### 3. Confirm database backups
 
-   az postgres flexible-server db create \
-     --resource-group Orbit --server-name "$PG_SERVER_NAME" --name orbit
-   ```
-   `--public-access 0.0.0.0` is an Azure CLI special case, not "open to the entire internet" - it adds a
-   firewall rule allowing traffic from any Azure-internal IP, which is what lets `orbit-api` (running in
-   a Container Apps environment with no VNet integration to this database) reach it at all without
-   private networking set up. The server still requires the admin password to authenticate.
-3. Build the connection string and store it as a secret (substitute the actual `$PG_SERVER_NAME` and
-   `$PG_PASSWORD` from step 2 if running this in a new shell session):
-   ```bash
-   az containerapp secret set -n orbit-api -g Orbit \
-     --secrets orbit-db-connection-string="Host=$PG_SERVER_NAME.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbitadmin;Password=$PG_PASSWORD;Ssl Mode=Require;Trust Server Certificate=true"
-   az containerapp update -n orbit-api -g Orbit --set-env-vars \
-     "ConnectionStrings__Orbit=secretref:orbit-db-connection-string"
-   ```
-   `Ssl Mode=Require` is mandatory - Flexible Server rejects unencrypted connections by default.
-   `Trust Server Certificate=true` skips validating the server's certificate against a local CA bundle;
-   fine for this setup, but validating against Azure's actual CA chain would be the more rigorous option
-   if this ever needs hardening.
-4. `orbit-api` can go back to its normal scaling (`--min-replicas` doesn't need to stay pinned at `1`
-   for database-safety reasons anymore - PostgreSQL handles concurrent connections normally. Whether to
-   actually run more than one replica is a separate question, unrelated to this incident).
-
-### orbit-api: database backups
-
-Flexible Server enables automated backups by default (7-day retention, locally redundant), but this
-is worth confirming rather than assuming - especially soon after standing up a new server, and
-especially given today's SQLite incident already cost this project one round of lost data. Check the
-current settings:
+Flexible Server enables automated backups by default (7-day retention, locally redundant) - worth
+confirming rather than assuming, especially given the SQLite incident already cost this project one
+round of lost data before PostgreSQL was even in the picture:
 
 ```bash
 az postgres flexible-server show -g Orbit -n "$PG_SERVER_NAME" \
@@ -150,35 +177,29 @@ To extend retention (up to 35 days, still within the Burstable tier):
 az postgres flexible-server update -g Orbit -n "$PG_SERVER_NAME" --backup-retention 35
 ```
 
-**Geo-redundant backup can only be set at server creation time**, not changed afterward - if that's
-wanted, it means recreating the server with `--geo-redundant-backup Enabled` added to the
-`flexible-server create` command above (a bigger step, since it also means a fresh database and
-re-pointing `ConnectionStrings__Orbit`). Not done as part of this initial setup; worth revisiting if
-this deployment moves from "personal project" to "something people depend on."
+**Geo-redundant backup can only be set at server creation time**, not changed afterward - wanting it
+means recreating the server with `--geo-redundant-backup Enabled` added to the `create` command in
+step 1 (a bigger step, since it also means a fresh database and re-pointing `ConnectionStrings__Orbit`).
+Not done as part of the current setup; worth revisiting if this deployment moves from "personal
+project" to "something people depend on."
 
 To restore from a backup (point-in-time restore, within the retention window), see
 [`az postgres flexible-server restore`](https://learn.microsoft.com/cli/azure/postgres/flexible-server#az-postgres-flexible-server-restore)
 - it creates a new server from the backup rather than restoring in place, so restoring is itself an
 exercise in re-pointing `ConnectionStrings__Orbit` at the new server once it's ready.
 
-## orbit-api: ingress
+### 4. Confirm ingress
 
-- Target port: `8080` (matches `ASPNETCORE_URLS` in the [Dockerfile](../src/Server/Orbit.Api/Dockerfile)).
-- Traffic: internal-only (`external: false`) is fine - `orbit-web`'s nginx reaches it over the
-  environment's internal FQDN, and internal ingress still gets one regardless of the external setting.
+| | orbit-api | orbit-web |
+|---|---|---|
+| Target port | `8080` (matches `ASPNETCORE_URLS` in [its Dockerfile](../src/Server/Orbit.Api/Dockerfile)) | `80` (Container Apps terminates TLS itself before forwarding plain HTTP - see [nginx.azure.conf](../src/Clients/Orbit.Web/nginx.azure.conf)'s header comment) |
+| Traffic | Internal only | External |
+| Scale | `min-replicas 1`, `max-replicas 1` (no longer required to stay at exactly 1 for database-safety reasons now that it's PostgreSQL, not SQLite - see [History](#sqlite-and-azure-files) - but hasn't been revisited since) | `min-replicas 0`, `max-replicas 1` - scales to zero when idle, meaning a cold start (a few seconds) on the first request after a quiet period |
 
-## orbit-web: ingress
-
-- Target port: `80` (Azure Container Apps terminates TLS itself before forwarding plain HTTP - see
-  [nginx.azure.conf](../src/Clients/Orbit.Web/nginx.azure.conf)'s header comment).
-- Traffic: external.
-
-`nginx.azure.conf` proxies `/api/*` to orbit-api's internal FQDN. Three things about that proxy are
-easy to get wrong and each one shipped broken at least once during the incident that produced this
-document - see the comments in that file for the specifics (missing TLS SNI, a `Host` header pointing
-at the wrong app, and a `proxy_pass` variable silently truncating the request path). If touching that
-file again, redeploy and check `az containerapp logs show -n orbit-web -g Orbit --follow` against a
-real login attempt before assuming it works.
+```bash
+az containerapp ingress show -n orbit-api -g Orbit
+az containerapp ingress show -n orbit-web -g Orbit
+```
 
 ## Verifying a deploy
 
@@ -187,14 +208,133 @@ real login attempt before assuming it works.
 az containerapp revision list -n orbit-api -g Orbit -o table
 az containerapp revision list -n orbit-web -g Orbit -o table
 
-# What is orbit-api's own log saying right now? (Verbose-by-default local logging does NOT apply here
-# in Production - see Program.cs - so this should be readable without heavy filtering.)
+# What is orbit-api's own log saying right now? (Production logs at Information level, not the
+# Verbose default used locally - see Program.cs - so this should be readable without heavy filtering.)
 az containerapp logs show -n orbit-api -g Orbit --follow
-
-# Same for orbit-web's nginx access/error log.
 az containerapp logs show -n orbit-web -g Orbit --follow
 ```
 
-`latestReadyRevisionName` lagging behind `latestRevisionName` in the revision list means the newest
-revision never became healthy - in `Single` revision mode, Container Apps still routes 100% of traffic
-to it anyway, so a broken deploy is live and serving errors, not silently rolled back.
+`latestReadyRevisionName` lagging behind `latestRevisionName` means the newest revision never became
+healthy - in `Single` revision mode (what both apps use), Container Apps still routes 100% of traffic
+to it regardless, so a broken deploy is live and serving errors, not silently rolled back. The CI/CD
+pipeline now checks for and corrects this automatically on every deploy - see below - but it's worth
+knowing how to check by hand for anything done outside the pipeline (a manual `az containerapp update`,
+a secret rotation, etc.).
+
+## CI/CD pipeline
+
+`.github/workflows/main_orbit.yml`, triggered on every push to `main`:
+
+1. Builds both images.
+2. **Smoke-tests `orbit-api`** against a real `postgres:18-alpine` service container in the runner -
+   applies migrations, checks `/health/ready` - before pushing anything or touching Azure. Also a
+   lighter "does it serve a response" check for `orbit-web`. This validates the image can start and
+   migrate against *a* PostgreSQL; it can't validate connectivity to the real Azure database
+   (firewall, DNS, SSL) or `nginx.azure.conf`'s proxy path, both of which are specific to the deployed
+   environment.
+3. Pushes both images to `orbitcontainerregistry`, tagged with the commit SHA.
+4. Deploys each Container App, capturing the previously-running image first.
+5. **Polls each new revision's `HealthState`** for up to 3 minutes. If it never becomes `Healthy`, the
+   workflow redeploys the previously-captured image and fails the run - turning a bad deploy into a CI
+   failure with production already back on the last known-good image, instead of a silent outage.
+
+This closes the loop on most of what's in [History](#history) below happening again unnoticed - but
+it only catches what's reproducible in a GitHub-hosted runner. It would not have caught, for example,
+the vanishing Postgres firewall rule, since that's a property of the live Azure resource, not the
+application image.
+
+Deliberately **not** using a GitHub Environment / manual approval gate on this workflow - see
+[History](#a-broken-approval-gate-attempt).
+
+## History
+
+Condensed record of what's already gone wrong here and why the current setup looks the way it does -
+kept short on purpose; see git history / PR descriptions around 2026-08-23 and 2026-08-24 for the full
+blow-by-blow if actually needed.
+
+### SQLite and Azure Files
+
+Orbit.Api originally ran on a SQLite file, made "persistent" by mounting an Azure Files share into the
+container. This caused a real outage: a routine deploy briefly ran two replicas with the same file
+open at once (normal Container Apps rollover behavior), and SQLite's WAL journal mode - which
+coordinates readers/writers through a memory-mapped file - doesn't work reliably over a network
+filesystem. Every subsequent connection attempt hung indefinitely, even back down to one replica, until
+the volume was unmounted entirely. Orbit.Api now runs on PostgreSQL instead - no shared file, no
+network-filesystem locking semantics. The volume mount was removed from `orbit-api` on 2026-08-24; the
+underlying Azure Files share/storage account (`orbitb722`) and the environment-level storage
+registration (`orbit-data`, visible via `az containerapp env storage list -n orbit-environment -g
+Orbit`) are inert leftovers, safe to delete whenever convenient.
+
+### A vanishing firewall rule
+
+At some point after being correctly created, the Postgres server's `AllowAllAzureServicesAndResourcesWithinAzureIps`
+firewall rule was found completely absent - `publicNetworkAccess: Enabled` but zero rules, which behaves
+as a total block. Root cause unconfirmed - one plausible theory: the very first provisioning attempt
+partially failed client-side on `MissingSubscriptionRegistration` (the resource provider wasn't
+registered yet) while the server creation continued provisioning in the background regardless, possibly
+without the firewall parameter surviving that path. Not reproduced deliberately, so treat this as "known
+to happen at least once," not "understood." **Verify the firewall rule exists after creation and if
+connectivity ever silently breaks again** - it's the first thing to check, per the command in
+[step 1](#1-provision-postgresql).
+
+### A broken approval gate attempt
+
+Added `environment: production` to `main_orbit.yml`'s job once, to gate deploys behind manual approval.
+It broke `azure/login` outright: targeting a GitHub Environment changes the OIDC token's subject claim
+from `repo:<org>/<repo>:ref:refs/heads/main` to `repo:<org>/<repo>:environment:<name>`, which the
+federated identity credential on `identity-orbit` didn't trust. Reverted. See
+[`info/future-plan.md`](future-plan.md) for exactly what a correct retry needs (a second federated
+credential with an environment-shaped subject, added in Entra ID first).
+
+### A malformed App Insights string crashes startup, same as missing JWT
+
+`AddAzureMonitorTraceExporter` throws during service construction if
+`APPLICATIONINSIGHTS_CONNECTION_STRING` is set but doesn't start with `InstrumentationKey=` - this once
+happened because a shell command's warning output got captured into the variable instead of the actual
+connection string. Always `echo` and eyeball a fetched connection string before feeding it into
+`secret set`.
+
+## PostgreSQL CLI gotchas
+
+Small `az` CLI quirks hit while setting this up, kept here so they don't have to be rediscovered:
+
+- **`--database-name` on `flexible-server create`** is rejected by newer CLI versions unless
+  `--node-count` (elastic clusters) is also given - not applicable to a plain single-server instance.
+  Create the database with a separate `flexible-server db create` call instead.
+- **`flexible-server db create` takes `--name`, not `--database-name`** - despite the sibling `create`
+  command's flag being `--database-name` when it does work. Also takes `--server-name`, not `-n`/`--name`
+  for the server (`-n`/`--name` there means the *database's* name).
+- **`flexible-server firewall-rule create`/`list` also need `--server-name`**, not `-n`/`--name` for
+  the server - same shape of gotcha, different subcommand.
+- **Server names are a global DNS label** (`<name>.postgres.database.azure.com`), shared across every
+  Azure customer, not scoped to this resource group. A plain name like `orbit-postgres` can collide
+  with someone else's server and fail with "Specified server name is already used" even though
+  `az postgres flexible-server list -g Orbit` shows nothing in *this* subscription. Use a random
+  suffix.
+- **A subscription that has never had a PostgreSQL Flexible Server** needs
+  `Microsoft.DBforPostgreSQL` registered first (`MissingSubscriptionRegistration` otherwise) - see
+  [step 1](#1-provision-postgresql).
+
+## nginx.azure.conf gotchas
+
+`orbit-web`'s nginx (`src/Clients/Orbit.Web/nginx.azure.conf`) proxies `/api/*` to `orbit-api`'s
+internal FQDN. Three specific things about that proxy shipped broken at least once each:
+
+1. **Missing TLS SNI.** nginx doesn't send the SNI extension to an HTTPS upstream by default. Container
+   Apps' internal ingress is a shared endpoint that routes by SNI - without it, it can't tell which app
+   the connection is for and resets the handshake. Fix: `proxy_ssl_server_name on;`.
+2. **`Host` header pointing at the wrong app.** `proxy_set_header Host $host;` forwards the *browser's*
+   original host (`orbit-web...`), not orbit-api's. Once SNI got the TLS handshake working, the wrong
+   Host header made Container Apps' internal ingress route the request back to `orbit-web` by that
+   header, which re-entered the same `/api/` location and looped forever. Fix: hardcode the `Host`
+   header to orbit-api's own hostname.
+3. **`proxy_pass` with a variable truncating the path.** Once `proxy_pass`'s target contains a
+   variable (which a `resolver`-based DNS-refresh approach requires), nginx stops doing its usual
+   "replace the matched location prefix" rewrite - the URI part becomes the literal, final path. A
+   trailing `/api/` in that value sent every request upstream as a bare `/api/`, dropping
+   `auth/login` etc. Fix: no path after the host in `proxy_pass` at all, so nginx forwards the original
+   request URI unmodified.
+
+If touching that file again: redeploy and watch `az containerapp logs show -n orbit-web -g Orbit --follow`
+against a real login attempt before assuming it works - none of the three failures above were visible
+from the HTTP status code alone without reading nginx's own error log.
