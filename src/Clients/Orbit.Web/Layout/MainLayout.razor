@@ -17,7 +17,7 @@
     {
             <aside class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
                 <div class="sidebar-logo" role="button" tabindex="0" title="Collapse sidebar"
-                     @onclick="ToggleSidebarCollapsedAsync" @onkeydown="OnLogoKeyDown">
+                     @onclick="OnLogoClickAsync" @onkeydown="OnLogoKeyDown">
                     <svg width="26" height="26" viewBox="0 0 26 26">
                         <circle cx="13" cy="13" r="3" fill="var(--accent)" />
                         <ellipse cx="13" cy="13" rx="11" ry="5.5" fill="none" stroke="var(--accent)" stroke-width="1.6" transform="rotate(-28 13 13)" />
@@ -26,7 +26,7 @@
                 </div>
 
                 <nav class="sidebar-nav">
-                    <NavLink class="nav-item" href="/" Match="NavLinkMatch.All" title="Dashboard">
+                    <NavLink class="nav-item nav-item-dashboard" href="/" Match="NavLinkMatch.All" title="Dashboard">
                         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="2.5" y="11.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="11.5" width="6" height="6" rx="1.5" /></svg>
                         <span class="label">Dashboard</span>
                     </NavLink>
@@ -265,11 +265,28 @@
         await JSRuntime.InvokeVoidAsync("localStorage.setItem", SidebarCollapsedStorageKey, _sidebarCollapsed ? "true" : "false");
     }
 
+    /// <summary>
+    /// On a mobile viewport the sidebar is a horizontal top bar (see app.css's @media (max-width: 680px)
+    /// block) rather than the desktop collapse-to-icon-rail layout, so "collapse sidebar" doesn't apply
+    /// there - the logo instead acts as a shortcut back to the Dashboard, mirroring the now-hidden
+    /// Dashboard nav item (.nav-item-dashboard) it replaces on that breakpoint.
+    /// </summary>
+    private async Task OnLogoClickAsync()
+    {
+        if (await JSRuntime.InvokeAsync<bool>("OrbitViewport.isMobile"))
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        await ToggleSidebarCollapsedAsync();
+    }
+
     private async Task OnLogoKeyDown(KeyboardEventArgs args)
     {
         if (args.Key is "Enter" or " ")
         {
-            await ToggleSidebarCollapsedAsync();
+            await OnLogoClickAsync();
         }
     }
 

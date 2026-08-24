@@ -49,6 +49,28 @@ public sealed class TaskRepository : ITaskRepository
 
     public async Task UpdateAsync(TaskList taskList, CancellationToken cancellationToken)
     {
+        await StageUpdateAsync(taskList, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Stages every list's changes on the same DbContext, then saves them all in one SaveChangesAsync
+    /// call - a single call is already atomic across everything the context is tracking, so this is
+    /// enough to keep e.g. a cross-list item move from partially applying if something fails midway,
+    /// without needing an explicit database transaction.
+    /// </summary>
+    public async Task UpdateManyAsync(IReadOnlyList<TaskList> taskLists, CancellationToken cancellationToken)
+    {
+        foreach (var taskList in taskLists)
+        {
+            await StageUpdateAsync(taskList, cancellationToken);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task StageUpdateAsync(TaskList taskList, CancellationToken cancellationToken)
+    {
         var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
         entity.Title = taskList.Title;
         entity.IsCompleted = taskList.IsCompleted;
@@ -67,8 +89,6 @@ public sealed class TaskRepository : ITaskRepository
             .ToListAsync(cancellationToken);
         _dbContext.RemoveRange(existingItems);
         _dbContext.AddRange(taskList.Items.Select(item => ToItemEntity(item, taskList.Id)));
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)

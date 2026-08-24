@@ -78,6 +78,29 @@ public sealed class TasksApiClient
         }
     }
 
+    /// <summary>Moves one item out of sourceTaskListId and into targetTaskListId - see MoveTaskItemCommandHandler.</summary>
+    public async Task<EditOutcome> MoveTaskItemAsync(
+        Guid sourceTaskListId, Guid itemId, Guid targetTaskListId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                $"api/tasks/{sourceTaskListId}/items/{itemId}/move", new MoveTaskItemRequest(targetTaskListId), cancellationToken);
+            var outcome = await ToEditOutcomeAsync(response, cancellationToken);
+            if (outcome.Kind == EditOutcomeKind.Success)
+            {
+                _logger.LogActionCompleted(ClientActionCategory.Edit, "Move task item");
+            }
+
+            return outcome;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.Edit, "Move task item", exception);
+            throw;
+        }
+    }
+
     /// <summary>Mirrors NotesApiClient.AcquireNoteLockAsync - see its comment.</summary>
     public async Task<EditOutcome> AcquireTaskListLockAsync(Guid id, CancellationToken cancellationToken = default)
     {

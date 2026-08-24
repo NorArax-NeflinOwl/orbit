@@ -30,6 +30,12 @@ internal sealed class InMemoryTaskRepository : ITaskRepository
         return Task.CompletedTask;
     }
 
+    public Task UpdateManyAsync(IReadOnlyList<TaskList> taskLists, CancellationToken cancellationToken)
+    {
+        // Same reasoning as UpdateAsync - every list here is already the same tracked instance.
+        return Task.CompletedTask;
+    }
+
     public Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
         _taskLists.RemoveAll(taskList => taskList.Id == id && taskList.UserId == userId);
