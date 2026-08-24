@@ -13,7 +13,7 @@
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject AuthApiClient AuthApiClient
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ILogger<Chat> Logger
@@ -321,20 +321,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-
         try
         {
-            // The "sub" claim can be missing here if the stored token lapsed (e.g. expired, or cleared
-            // by a failed refresh) between this page loading and this check - most likely on a cold PWA
-            // boot straight into /chat/{userId} from a push notification for a brand-new contact's first
-            // message, since that's exactly when the app hasn't been open recently enough to have a
-            // still-fresh access token. Guarded here instead of a raw Guid.Parse(...!.Value) so that
-            // lands on the same "go sign in again" path as every other failure below, instead of crashing
-            // the whole page with a NullReferenceException.
-            var subjectClaim = authenticationState.User.FindFirst("sub")
+            _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
                 ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
-            _ownUserId = Guid.Parse(subjectClaim.Value);
 
             await OwnEncryptionKeyProvider.EnsurePublicKeyAsync();
             _cryptoModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");

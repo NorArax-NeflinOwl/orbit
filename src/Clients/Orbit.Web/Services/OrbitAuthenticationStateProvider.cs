@@ -15,13 +15,38 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
     private static readonly AuthenticationState AnonymousState = new(new ClaimsPrincipal(new ClaimsIdentity()));
 
     private readonly TokenStore _tokenStore;
+    private readonly TokenRefreshService _tokenRefreshService;
 
-    public OrbitAuthenticationStateProvider(TokenStore tokenStore)
+    public OrbitAuthenticationStateProvider(TokenStore tokenStore, TokenRefreshService tokenRefreshService)
     {
         _tokenStore = tokenStore;
+        _tokenRefreshService = tokenRefreshService;
     }
 
+    /// <summary>
+    /// Tries a silent refresh before settling on anonymous, so a locally-expired (or missing) access
+    /// token never has to mean "signed out" while the refresh token could still keep the session alive.
+    /// This is the single choke point that decides authentication state for the whole app - the cascading
+    /// value AuthorizeRouteView gates every route on (including a cold boot / full page reload, e.g.
+    /// reopening a backgrounded PWA tab past the access token's 15-minute lifetime) and MainLayout's own
+    /// initial "am I signed in" read both come from here, so fixing it here covers those automatically
+    /// instead of needing every caller to know to retry. TokenRefreshService.TryRefreshAsync already
+    /// no-ops cheaply (no network call) when there's no refresh token to redeem, so calling it
+    /// unconditionally here - even for a page that was never signed in at all - costs nothing but one
+    /// local storage read.
+    /// </summary>
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
+    {
+        var localState = await GetLocalAuthenticationStateAsync();
+        if (localState.User.Identity?.IsAuthenticated == true)
+        {
+            return localState;
+        }
+
+        return await _tokenRefreshService.TryRefreshAsync() ? await GetLocalAuthenticationStateAsync() : AnonymousState;
+    }
+
+    private async Task<AuthenticationState> GetLocalAuthenticationStateAsync()
     {
         var token = await _tokenStore.GetTokenAsync();
         if (string.IsNullOrEmpty(token))
@@ -44,6 +69,37 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
     /// instead of waiting for the next navigation.
     /// </summary>
     public void NotifyAuthenticationStateChanged() => NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+
+    /// <summary>
+    /// The signed-in user's id, or null if there genuinely isn't one - tries the stored token locally
+    /// first and, only if that's missing or expired, falls back to GetAuthenticationStateAsync's silent
+    /// refresh. Every editor/chat page that needs "who am I" on its own initial load (rather than through
+    /// an API call that would go through AuthorizationMessageHandler anyway) should call this instead of
+    /// reading the "sub" claim directly.
+    ///
+    /// Callers of this method are themselves the routed content AuthorizeRouteView renders, and Blazor
+    /// remounts (disposes and reinitializes) that content every time the cascading auth state changes -
+    /// i.e. every NotifyAuthenticationStateChanged call. Calling Notify unconditionally here used to mean
+    /// every call re-triggered the very OnInitializedAsync it was called from, forever, with no delay -
+    /// visible as a frozen tab within seconds of opening Chat/NoteEditor/TaskEditor/CalendarEventEditor.
+    /// Only notifying when the local read actually needed a refresh keeps the common case (a still-valid
+    /// token) a no-op remount-wise, while still updating the sidebar/route gating promptly on the two
+    /// paths where something genuinely changed: a recovered session (remounts once more, this time with a
+    /// now-locally-valid token, so it terminates immediately) or a genuinely-dead one (AuthorizeRouteView
+    /// switches to NotAuthorized instead of remounting this component at all).
+    /// </summary>
+    public async Task<Guid?> TryGetCurrentUserIdAsync()
+    {
+        var localState = await GetLocalAuthenticationStateAsync();
+        if (localState.User.FindFirst("sub") is { } localClaim)
+        {
+            return Guid.Parse(localClaim.Value);
+        }
+
+        var refreshedState = await GetAuthenticationStateAsync();
+        NotifyAuthenticationStateChanged();
+        return refreshedState.User.FindFirst("sub") is { } refreshedClaim ? Guid.Parse(refreshedClaim.Value) : null;
+    }
 
     private static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {

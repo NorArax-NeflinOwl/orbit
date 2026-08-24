@@ -25,12 +25,12 @@ public sealed class OwnEncryptionKeyProvider
 {
     private readonly IJSRuntime _jsRuntime;
     private readonly UsersApiClient _usersApiClient;
-    private readonly AuthenticationStateProvider _authenticationStateProvider;
+    private readonly OrbitAuthenticationStateProvider _authenticationStateProvider;
     private Guid? _cachedForUserId;
     private string? _publicKeyBase64;
 
     public OwnEncryptionKeyProvider(
-        IJSRuntime jsRuntime, UsersApiClient usersApiClient, AuthenticationStateProvider authenticationStateProvider)
+        IJSRuntime jsRuntime, UsersApiClient usersApiClient, OrbitAuthenticationStateProvider authenticationStateProvider)
     {
         _jsRuntime = jsRuntime;
         _usersApiClient = usersApiClient;
@@ -152,17 +152,22 @@ public sealed class OwnEncryptionKeyProvider
         => _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
 
     /// <summary>
-    /// Throws the same "session invalid, go sign in again" signal every caller here already handles
-    /// (HttpRequestException/Unauthorized - see EnsurePublicKeyAsync's callers in MainLayout and
-    /// Chat.razor) rather than a raw NullReferenceException, for the same lapsed-token race the "sub"
-    /// claim can go missing under: the token was cleared (e.g. by a failed refresh) between the caller's
-    /// own "am I authenticated" check and this call actually reading it.
+    /// Calls <see cref="OrbitAuthenticationStateProvider.GetAuthenticationStateAsync"/> directly rather
+    /// than <see cref="OrbitAuthenticationStateProvider.TryGetCurrentUserIdAsync"/> - both try a silent
+    /// token refresh before giving up on a locally-expired access token, but the latter also calls
+    /// NotifyAuthenticationStateChanged() before returning, which would recurse back into this method:
+    /// that notification is exactly what makes MainLayout.EnsureEncryptionKeyIfAuthenticatedAsync (one of
+    /// this method's own callers, via EnsurePublicKeyAsync) run in the first place, since it's registered
+    /// as an AuthenticationStateChanged handler - notifying again from in here would just trigger another
+    /// call to itself, forever, with no delay. Only throws the "session invalid, go sign in again" signal
+    /// every caller here already handles (HttpRequestException/Unauthorized - see EnsurePublicKeyAsync's
+    /// callers in MainLayout and Chat.razor) once that refresh genuinely fails.
     /// </summary>
     private async Task<Guid> GetOwnUserIdAsync()
     {
-        var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-        var subjectClaim = authenticationState.User.FindFirst("sub")
-            ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
-        return Guid.Parse(subjectClaim.Value);
+        var state = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        return state.User.FindFirst("sub") is { } subjectClaim
+            ? Guid.Parse(subjectClaim.Value)
+            : throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
     }
 }

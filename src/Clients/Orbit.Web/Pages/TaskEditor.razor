@@ -10,7 +10,7 @@
 @inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<TaskEditor> Logger
 
@@ -217,17 +217,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-
         try
         {
-            // The "sub" claim can be missing if the stored token lapsed (expired, or cleared by a
-            // failed refresh) between page load and this check - guarded here instead of a raw
-            // Guid.Parse(...!.Value) so it lands on the same "go sign in again" path below instead of
-            // crashing with a NullReferenceException.
-            var subjectClaim = authenticationState.User.FindFirst("sub")
+            _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
                 ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
-            _ownUserId = Guid.Parse(subjectClaim.Value);
 
             // Populates the "link to another list" dropdown - excludes the list being edited itself, since
             // an item can't link to the list it belongs to (see TaskListLinkValidator on the API side).

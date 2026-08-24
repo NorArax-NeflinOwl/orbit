@@ -37,7 +37,13 @@ public sealed class CalendarEventEditorTests : TestContext
             ["email"] = "owner@example.com",
             ["name"] = "Test Owner"
         })).GetAwaiter().GetResult();
-        var authenticationStateProvider = new OrbitAuthenticationStateProvider(tokenStore);
+        var refreshHttpClient = new HttpClient(
+            new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        var authenticationStateProvider = new OrbitAuthenticationStateProvider(
+            tokenStore, new TokenRefreshService(tokenStore, refreshHttpClient));
         // Registered under both the concrete type and the base type it derives from, mirroring
         // Program.cs, so components that inject either one resolve to the same instance.
         Services.AddSingleton(authenticationStateProvider);

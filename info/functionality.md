@@ -42,6 +42,22 @@ case:
   idle tab doesn't lose a session that's still well within the refresh token's much longer 30-day
   lifetime.
 
+**A locally-expired token never means "signed out" on its own.** `OrbitAuthenticationStateProvider.GetAuthenticationStateAsync()` —
+the single method every one of the above paths, `AuthorizeRouteView`'s route gate, and `MainLayout`'s own
+initial "am I signed in" read all ultimately call — tries a silent refresh itself before falling back to
+an anonymous state, whenever the locally-stored access token is missing or its `exp` claim has already
+passed. This is what stops a page load that happens to land exactly when the access token has lapsed
+(a cold boot, reopening a backgrounded PWA tab, or a full browser reload) from forcing a real sign-out
+while the refresh token could still have kept the session alive — and since it's the same method the
+cascading authentication state is built from, the sidebar and route gating never end up disagreeing with
+each other the way they would if only some callers knew to retry. `TokenRefreshService.TryRefreshAsync`
+returns quickly without any network call when there's no refresh token stored, so calling it
+unconditionally here costs nothing on a page that was never signed in at all (e.g. `/login` itself).
+Any page that needs the signed-in user's id on its own initial load (rather than through an API call that
+already goes through `AuthorizationMessageHandler`) calls `OrbitAuthenticationStateProvider.TryGetCurrentUserIdAsync()`
+instead of reading the `sub` claim directly, which also calls `NotifyAuthenticationStateChanged()` before
+returning so the sidebar reacts immediately rather than waiting for the next heartbeat tick.
+
 Both mechanisms depend on `TokenStore`, `TokenRefreshService`, and `OrbitAuthenticationStateProvider`
 all being registered as **Singleton** in `Program.cs`, not Scoped: `AddHttpMessageHandler<T>()` builds
 `AuthorizationMessageHandler` from `IHttpClientFactory`'s own internal, periodically-rotating DI scope,

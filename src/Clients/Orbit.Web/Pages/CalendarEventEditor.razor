@@ -12,7 +12,7 @@
 @inject UsersApiClient UsersApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject GeocodingApiClient GeocodingApiClient
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ILogger<CalendarEventEditor> Logger
@@ -345,17 +345,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-
         try
         {
-            // The "sub" claim can be missing if the stored token lapsed (expired, or cleared by a
-            // failed refresh) between page load and this check - guarded here instead of a raw
-            // Guid.Parse(...!.Value) so it lands on the same "go sign in again" path below instead of
-            // crashing with a NullReferenceException.
-            var subjectClaim = authenticationState.User.FindFirst("sub")
+            _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
                 ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
-            _ownUserId = Guid.Parse(subjectClaim.Value);
 
             if (Id is { } eventId)
             {
