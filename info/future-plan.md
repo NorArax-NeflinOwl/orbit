@@ -147,6 +147,44 @@ as not covered by an automated test today, together with why:
   first-time setup (e.g. seeding `JWT_SIGNING_KEY`/VAPID keys as Container App secrets rather than a
   local `.env`) somewhere a person can follow without archaeology through the workflow file. Now
   mostly written down in [Azure Container Apps setup](azure-setup.md).
+- **Manage the Azure infrastructure itself as code (Bicep or Terraform), instead of one-off `az cli`
+  commands typed into Cloud Shell.** Not started. Every Azure resource this project depends on today
+  - `orbit-api`/`orbit-web` Container Apps, `orbit-environment`, the container registry, the
+  PostgreSQL Flexible Server, Application Insights - was created and configured by hand, one `az`
+  command at a time, across several sessions. That's exactly why a whole day of incidents in
+  2026-08-23 consisted of *rediscovering* what was and wasn't configured (missing env vars, an
+  unmounted volume, a firewall rule that may or may not exist) rather than reading it off a file.
+  **Proposed approach:** a Bicep template (native to Azure, no separate state file to manage, unlike
+  Terraform) under a new `infra/` folder, covering at minimum the two Container Apps' full
+  configuration (env vars referencing Key Vault secrets rather than plain Container App secrets,
+  ingress settings, scaling), the Container Apps Environment, and the PostgreSQL Flexible Server
+  (SKU, storage, backup retention - see [Azure setup](azure-setup.md#orbit-api-database-backups)).
+  `.github/workflows/main_orbit.yml` would gain an `az deployment group create` step using that
+  template, so an infrastructure change goes through the same PR review as a code change instead of
+  being invisible until someone happens to `az containerapp show` and finds it. This is a genuinely
+  large undertaking - importing *already-running* resources into a Bicep template without disrupting
+  them takes real care (`az bicep decompile` / `az deployment group what-if` as a starting point, not
+  a one-shot conversion) - and should be scoped as its own project, not bundled into an unrelated
+  feature change.
+- **A deploy-approval gate done correctly.** Attempted once on 2026-08-23 by adding
+  `environment: production` to the `build-and-deploy` job in `main_orbit.yml`, intending to require a
+  human to click "approve" before every push to `main` goes live. It broke `azure/login` outright:
+  targeting a GitHub Environment changes the OIDC token's subject claim from
+  `repo:<org>/<repo>:ref:refs/heads/main` to `repo:<org>/<repo>:environment:<name>`, which the
+  federated identity credential configured on the `identity-orbit` Azure AD app registration didn't
+  trust - every deploy failed at the login step until the change was reverted. **Proposed approach:**
+  before touching the workflow file again, add a *second* federated credential on `identity-orbit` in
+  Entra ID (App registrations > identity-orbit > Certificates & secrets > Federated credentials) with
+  subject `repo:NorArax-NeflinOwl/orbit:environment:production` (or whatever the org/environment name
+  ends up being - the exact string matters), audience `api://AzureADTokenExchange`, issuer
+  `https://token.actions.githubusercontent.com` - the same three values the existing branch-based
+  credential uses, just with an environment-shaped subject instead of a ref-shaped one. Once that
+  credential exists, `environment: production` can be added back to the job and a required reviewer
+  configured under the repo's Settings > Environments > production, this time without breaking OIDC.
+  Worth doing alongside (or after) the CI smoke test and health-gated rollback added in
+  `ci/deploy-safety-gates`, since those two mean a bad deploy self-heals automatically - a manual
+  approval gate is then about *deliberateness* (did a human mean to ship this now) rather than being
+  the only thing standing between a bug and production.
 
 ## Smaller identified follow-ups
 
