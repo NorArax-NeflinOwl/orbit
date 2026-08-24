@@ -344,7 +344,7 @@ else
     /// duration or being left invalid. Kept up to date by both OnStartChanged and OnEndChanged.
     /// </summary>
     private TimeSpan _lastKnownDuration = TimeSpan.FromHours(1);
-    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
 
     protected override async Task OnInitializedAsync()
     {

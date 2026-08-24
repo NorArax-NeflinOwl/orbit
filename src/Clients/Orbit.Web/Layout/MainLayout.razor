@@ -145,7 +145,9 @@
                                 <ul class="notifications-panel-list">
                                     @foreach (var entry in _recentEntries)
                                     {
-                                        <li class="notifications-panel-item">
+                                        <li class="notifications-panel-item @(entry.Url is null ? "" : "notifications-panel-item-link")"
+                                            role="@(entry.Url is null ? null : "link")"
+                                            @onclick="() => OpenNotificationEntry(entry)">
                                             <span class="notifications-panel-item-title">@entry.Title</span>
                                             <span class="notifications-panel-item-body">@entry.Body</span>
                                             <span class="notifications-panel-item-time">@FormatEntryTime(entry.CreatedAtUtc)</span>
@@ -193,7 +195,7 @@
     private IReadOnlyList<NotificationEntryDto> _recentEntries = [];
     private IReadOnlyList<ClientLogEntry> _clientExceptionEntries = [];
     private bool _showExceptionsSection;
-    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
     private NotificationEntryDto? _bannerEntry;
     private bool _isBannerVisible;
     private DateTimeOffset? _lastBannerShownAtUtc;
@@ -202,14 +204,14 @@
 
     /// <summary>
     /// How often MainLayout checks for new notifications while a tab is open - fast enough that a toast
-    /// banner (see ShowBannerForNewestEntryAsync) feels prompt, and doubles as the minimum gap between
-    /// banners (never more than one every BannerMinimumGap, see CanShowBannerNow) so this cadence alone
-    /// already caps how often a banner can appear.
+    /// banner (see ShowBannerForNewestEntryAsync) feels prompt. The banner's own visible duration and
+    /// minimum gap are per-user settings (see BannerMinimumGap/BannerVisibleDuration below), so this
+    /// poll cadence is only a floor on how quickly a new entry can be noticed, not on banner pacing.
     /// </summary>
     private static readonly TimeSpan NotificationPollInterval = TimeSpan.FromSeconds(10);
 
-    private static readonly TimeSpan BannerMinimumGap = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan BannerVisibleDuration = TimeSpan.FromSeconds(5);
+    private TimeSpan BannerMinimumGap => TimeSpan.FromSeconds(_notificationSettings.BannerMinimumGapSeconds);
+    private TimeSpan BannerVisibleDuration => TimeSpan.FromSeconds(_notificationSettings.BannerVisibleSeconds);
 
     /// <summary>Mirrors PersistentLoggerProvider's shape as mirrored into localStorage by clientLogging.js's appendLog - see window.OrbitClientLogging.getEntries.</summary>
     private sealed record ClientLogEntry(
@@ -611,6 +613,22 @@
             _isLoadingNotifications = false;
             StateHasChanged();
         }
+    }
+
+    /// <summary>
+    /// Every feed entry carries the same in-app Url its push notification would deep-link to (see
+    /// PushNotificationPayload) - clicking the panel row navigates there and closes the panel, so the
+    /// panel isn't a dead end compared to the push path. Entries without a Url stay inert.
+    /// </summary>
+    private void OpenNotificationEntry(NotificationEntryDto entry)
+    {
+        if (entry.Url is null)
+        {
+            return;
+        }
+
+        _notificationsMenuOpen = false;
+        NavigationManager.NavigateTo(entry.Url);
     }
 
     /// <summary>

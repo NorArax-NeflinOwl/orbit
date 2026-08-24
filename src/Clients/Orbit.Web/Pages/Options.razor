@@ -99,7 +99,7 @@
             <div class="options-row options-row-child">
                 <div>
                     <div class="options-row-title">Allow mobile notification</div>
-                    <div class="options-row-desc">Shows the 1-second banner at the top of the page when a new notification arrives while Orbit is open.</div>
+                    <div class="options-row-desc">Shows a short banner at the top of the page when a new notification arrives while Orbit is open.</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowMobileBanner ? "on" : "")" role="switch"
                         aria-checked="@_notificationSettings.AllowMobileBanner"
@@ -107,6 +107,26 @@
                         @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowMobileBanner = !_notificationSettings.AllowMobileBanner })">
                     <span class="switch-knob"></span>
                 </button>
+            </div>
+            <div class="options-row options-row-child">
+                <div>
+                    <div class="options-row-title">Banner duration (seconds)</div>
+                    <div class="options-row-desc">How long a notification banner stays on screen (1-30).</div>
+                </div>
+                <input type="number" id="bannerVisibleSecondsInput" class="options-number-input" min="1" max="30"
+                       value="@_notificationSettings.BannerVisibleSeconds"
+                       disabled="@(!_notificationSettings.AllowNotifications || !_notificationSettings.AllowMobileBanner || _isSavingNotificationSettings)"
+                       @onchange="@(args => UpdateBannerTimingAsync(args, seconds => _notificationSettings with { BannerVisibleSeconds = seconds }))" />
+            </div>
+            <div class="options-row options-row-child">
+                <div>
+                    <div class="options-row-title">Banner interval (seconds)</div>
+                    <div class="options-row-desc">Minimum quiet time before the next banner may appear (1-300).</div>
+                </div>
+                <input type="number" id="bannerMinimumGapSecondsInput" class="options-number-input" min="1" max="300"
+                       value="@_notificationSettings.BannerMinimumGapSeconds"
+                       disabled="@(!_notificationSettings.AllowNotifications || !_notificationSettings.AllowMobileBanner || _isSavingNotificationSettings)"
+                       @onchange="@(args => UpdateBannerTimingAsync(args, seconds => _notificationSettings with { BannerMinimumGapSeconds = seconds }))" />
             </div>
         </div>
         @if (_pushNotificationErrorMessage is not null)
@@ -147,7 +167,7 @@
     private bool _pushNotificationActionInProgress;
     private string? _pushNotificationErrorMessage;
 
-    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
     private bool _isSavingNotificationSettings;
     private string? _notificationSettingsErrorMessage;
 
@@ -175,6 +195,21 @@
         }
     }
 
+    /// <summary>
+    /// Parses one of the two banner-timing number inputs and saves the settings with buildUpdated
+    /// applying the parsed value - non-numeric input is ignored (the field just re-renders the stored
+    /// value); the server clamps out-of-range numbers (see BannerTiming) and the response re-syncs the field.
+    /// </summary>
+    private async Task UpdateBannerTimingAsync(ChangeEventArgs args, Func<int, NotificationSettingsDto> buildUpdated)
+    {
+        if (!int.TryParse(args.Value?.ToString(), out var seconds))
+        {
+            return;
+        }
+
+        await UpdateNotificationSettingsAsync(buildUpdated(seconds));
+    }
+
     private async Task UpdateNotificationSettingsAsync(NotificationSettingsDto updated)
     {
         _isSavingNotificationSettings = true;
@@ -183,7 +218,8 @@
         {
             _notificationSettings = await NotificationsApiClient.UpdateSettingsAsync(
                 new UpdateNotificationSettingsRequest(
-                    updated.AllowNotifications, updated.AllowPush, updated.AllowEmail, updated.AllowMobileBanner, updated.ShowExceptionDetails));
+                    updated.AllowNotifications, updated.AllowPush, updated.AllowEmail, updated.AllowMobileBanner, updated.ShowExceptionDetails,
+                    updated.BannerVisibleSeconds, updated.BannerMinimumGapSeconds));
         }
         catch (HttpRequestException exception)
         {

@@ -255,6 +255,10 @@ public sealed class OrbitDbContext : DbContext
             // At most one settings row per user - NotificationSettingsRepository relies on this to
             // decide insert-vs-update.
             entity.HasIndex(row => row.UserId).IsUnique();
+            // Matches BannerTiming.Default, so rows written before these columns existed read back as
+            // the same defaults a brand-new settings row gets rather than a 0-second banner.
+            entity.Property(row => row.BannerVisibleSeconds).HasDefaultValue(5);
+            entity.Property(row => row.BannerMinimumGapSeconds).HasDefaultValue(5);
         });
 
         modelBuilder.Entity<NotificationEntryEntity>(entity =>

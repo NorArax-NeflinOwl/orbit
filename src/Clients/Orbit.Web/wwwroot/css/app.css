@@ -625,6 +625,11 @@ input.note-editor-title {
     background: var(--bg-subtle);
 }
 
+/* MainLayout.razor: feed entries carrying a deep-link Url navigate on click (see OpenNotificationEntry). */
+.notifications-panel-item-link {
+    cursor: pointer;
+}
+
 .notifications-panel-item-title {
     font-size: 13px;
     font-weight: 600;
@@ -1628,6 +1633,23 @@ input.note-editor-title {
    email"/"Allow mobile notification" rows under "Allow notifications"). */
 .options-row-child {
     padding-left: 36px;
+}
+
+/* Options.razor: the two banner-timing second fields. */
+.options-number-input {
+    width: 72px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+    font-size: 13px;
+    flex: 0 0 auto;
+}
+
+.options-number-input:disabled {
+    opacity: .5;
+    cursor: not-allowed;
 }
 
 .options-row-title {

@@ -36,7 +36,7 @@ public sealed class CalendarEventEditorTests : TestContext
         // bUnit's synchronous RenderComponent doesn't reliably wait out, unlike a StubHttpMessageHandler's
         // instant in-memory response.
         Services.AddSingleton(new NotificationsApiClient(new HttpClient(
-            new StubHttpMessageHandler(_ => JsonResponse(new NotificationSettingsDto(true, true, true, true, true))))
+            new StubHttpMessageHandler(_ => JsonResponse(new NotificationSettingsDto(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5))))
         { BaseAddress = new Uri("https://example.test/") }));
 
         var tokenStore = new TokenStore(new StubJSRuntime());

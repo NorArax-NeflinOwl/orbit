@@ -623,12 +623,17 @@ payload already carries.
 at 0, the number at 1–9, "9+" above that) and a new "Notifications" entry next to "Log out" in the
 dropdown, opening a panel anchored the same way the avatar dropdown is. Opening the panel loads the
 recent feed, calls `POST /api/notifications/read`, and zeros the badge immediately rather than waiting
-for the next poll tick. A dedicated 10-second poll (separate from the existing 60-second session
-heartbeat) refreshes the settings/unread count; when the count has just gone up and
-`AllowMobileBanner` is on, it fetches the newest entry and shows it as a toast fixed to the top of the
-viewport for exactly one second — gated by its own `BannerMinimumGap` (10 seconds) independent of the
-poll interval itself, so at most one banner ever appears in any 10-second window even if the poll cadence
-changes later.
+for the next poll tick. Clicking a feed row that carries a `Url` navigates there and closes the panel, so
+the panel reaches the same destination the corresponding push notification would. A dedicated 10-second
+poll (separate from the existing 60-second session heartbeat) refreshes the settings/unread count; when
+the count has just gone up and `AllowMobileBanner` is on, it fetches the newest entry and shows it as a
+toast fixed to the top of the viewport.
+
+How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
+(`BannerTiming`, defaulting to 5 seconds each) editable from Options — the poll interval only bounds how
+quickly a new entry is *noticed*, not banner pacing. `BannerTiming` clamps rather than rejects
+out-of-range input (1–30 seconds visible, 1–300 seconds gap), since a settings form shouldn't hard-fail
+over a typo in a number field.
 
 **Frontend exceptions stay client-local**, extending the existing `PersistentLoggerProvider`/
 `orbit.clientLogs` localStorage mechanism ([Authentication](#authentication) above touches the same

@@ -38,6 +38,8 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
             entity.AllowEmail = settings.AllowEmail;
             entity.AllowMobileBanner = settings.AllowMobileBanner;
             entity.ShowExceptionDetails = settings.ShowExceptionDetails;
+            entity.BannerVisibleSeconds = settings.BannerTiming.VisibleSeconds;
+            entity.BannerMinimumGapSeconds = settings.BannerTiming.MinimumGapSeconds;
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -45,7 +47,8 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
 
     private static NotificationSettings ToDomain(NotificationSettingsEntity entity)
         => NotificationSettings.FromPersistence(
-            entity.UserId, entity.AllowNotifications, entity.AllowPush, entity.AllowEmail, entity.AllowMobileBanner, entity.ShowExceptionDetails);
+            entity.UserId, entity.AllowNotifications, entity.AllowPush, entity.AllowEmail, entity.AllowMobileBanner, entity.ShowExceptionDetails,
+            new BannerTiming(entity.BannerVisibleSeconds, entity.BannerMinimumGapSeconds));
 
     private static NotificationSettingsEntity ToEntity(NotificationSettings settings)
         => new()
@@ -56,6 +59,8 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
             AllowPush = settings.AllowPush,
             AllowEmail = settings.AllowEmail,
             AllowMobileBanner = settings.AllowMobileBanner,
-            ShowExceptionDetails = settings.ShowExceptionDetails
+            ShowExceptionDetails = settings.ShowExceptionDetails,
+            BannerVisibleSeconds = settings.BannerTiming.VisibleSeconds,
+            BannerMinimumGapSeconds = settings.BannerTiming.MinimumGapSeconds
         };
 }

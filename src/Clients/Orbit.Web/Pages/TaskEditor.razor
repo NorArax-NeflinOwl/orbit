@@ -216,7 +216,7 @@ else
     private string? _shareInfoMessage;
     private string? _saveErrorMessage;
     private Guid _ownUserId;
-    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true);
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
 
     /// <summary>Mirrors NoteEditor's field of the same name - see its comment.</summary>
     private string? _lockedByUserName;

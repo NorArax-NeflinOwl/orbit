@@ -32,7 +32,8 @@ public static class NotificationEndpoints
             var settings = await dispatcher.SendAsync(
                 new UpdateNotificationSettingsCommand(
                     GetUserId(user), request.AllowNotifications, request.AllowPush, request.AllowEmail,
-                    request.AllowMobileBanner, request.ShowExceptionDetails),
+                    request.AllowMobileBanner, request.ShowExceptionDetails,
+                    new BannerTiming(request.BannerVisibleSeconds, request.BannerMinimumGapSeconds)),
                 cancellationToken);
             return Results.Ok(ToDto(settings));
         });
@@ -70,7 +71,9 @@ public static class NotificationEndpoints
     }
 
     private static NotificationSettingsDto ToDto(NotificationSettings settings)
-        => new(settings.AllowNotifications, settings.AllowPush, settings.AllowEmail, settings.AllowMobileBanner, settings.ShowExceptionDetails);
+        => new(
+            settings.AllowNotifications, settings.AllowPush, settings.AllowEmail, settings.AllowMobileBanner, settings.ShowExceptionDetails,
+            settings.BannerTiming.VisibleSeconds, settings.BannerTiming.MinimumGapSeconds);
 
     private static NotificationEntryDto ToDto(NotificationEntry entry)
         => new(entry.Id, entry.Kind.ToString(), entry.Title, entry.Body, entry.Url, entry.CreatedAtUtc, entry.IsRead);

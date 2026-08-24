@@ -10,4 +10,6 @@ public sealed class NotificationSettingsEntity
     public bool AllowEmail { get; set; }
     public bool AllowMobileBanner { get; set; }
     public bool ShowExceptionDetails { get; set; }
+    public int BannerVisibleSeconds { get; set; }
+    public int BannerMinimumGapSeconds { get; set; }
 }

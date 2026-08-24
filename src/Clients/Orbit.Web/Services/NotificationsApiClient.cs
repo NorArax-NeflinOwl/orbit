@@ -19,7 +19,7 @@ public sealed class NotificationsApiClient
 
     public async Task<NotificationSettingsDto> GetSettingsAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<NotificationSettingsDto>("api/notifications/settings", cancellationToken)
-            ?? new NotificationSettingsDto(true, true, true, true, true);
+            ?? new NotificationSettingsDto(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
 
     public async Task<NotificationSettingsDto> UpdateSettingsAsync(
         UpdateNotificationSettingsRequest request, CancellationToken cancellationToken = default)
@@ -27,7 +27,7 @@ public sealed class NotificationsApiClient
         var response = await _httpClient.PutAsJsonAsync("api/notifications/settings", request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<NotificationSettingsDto>(cancellationToken: cancellationToken)
-            ?? new NotificationSettingsDto(true, true, true, true, true);
+            ?? new NotificationSettingsDto(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
     }
 
     public async Task<IReadOnlyList<NotificationEntryDto>> GetRecentAsync(CancellationToken cancellationToken = default)

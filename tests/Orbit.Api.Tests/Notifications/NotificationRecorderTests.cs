@@ -38,7 +38,7 @@ public sealed class NotificationRecorderTests
         var recorder = CreateRecorder(settingsRepository, entryRepository);
         var userId = Guid.NewGuid();
         var settings = NotificationSettings.Default(userId);
-        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true);
+        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, BannerTiming.Default);
         await settingsRepository.UpsertAsync(settings, CancellationToken.None);
 
         var result = await recorder.RecordAndFilterAsync(
@@ -57,7 +57,7 @@ public sealed class NotificationRecorderTests
         var recorder = CreateRecorder(settingsRepository, entryRepository);
         var userId = Guid.NewGuid();
         var settings = NotificationSettings.Default(userId);
-        settings.Update(allowNotifications: true, allowPush: false, allowEmail: false, allowMobileBanner: true, showExceptionDetails: true);
+        settings.Update(allowNotifications: true, allowPush: false, allowEmail: false, allowMobileBanner: true, showExceptionDetails: true, BannerTiming.Default);
         await settingsRepository.UpsertAsync(settings, CancellationToken.None);
 
         var result = await recorder.RecordAndFilterAsync(
