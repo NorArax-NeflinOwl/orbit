@@ -1,0 +1,89 @@
+# Deletes branches that are fully merged into main once they've sat idle for a few days, rather than
+# immediately on merge (GitHub's own "auto-delete head branches" repo setting does that already if
+# enabled, but doesn't allow a grace period) - a short buffer means a branch is still there for a
+# little while if someone wants to look at its history, cherry-pick from it, or reopen a discussion.
+
+name: Delete merged branches after inactivity
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # 03:00 UTC daily
+  workflow_dispatch:       # manual "Run workflow" button, for testing or an on-demand cleanup
+
+permissions:
+  contents: write        # needed to delete branches
+  pull-requests: read    # needed to look up each branch's merge date below
+
+env:
+  # Only ever considers branches that are provably merged into this one (see the `git branch --merged`
+  # step below) - a branch that hasn't been merged is never a deletion candidate here, regardless of
+  # age. Nothing in this workflow can delete unmerged work.
+  baseBranch: main
+  # A branch is eligible for deletion once BOTH its last commit and its PR's merge date are at least
+  # this old - i.e. counted from whichever of the two happened more recently. A branch merged days ago
+  # but pushed to again yesterday stays alive; so does a branch whose last commit is old but that
+  # (unusually) only just got merged.
+  inactivityDays: 3
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history - needed for accurate merge-base checks below
+
+      - name: Delete merged branches idle for ${{ env.inactivityDays }}+ days
+        run: |
+          git fetch origin --prune
+
+          cutoffEpoch=$(date -u -d "${{ env.inactivityDays }} days ago" +%s)
+          deletedAny=false
+
+          # One API call for every merged PR's head branch + merge date, used to look up each
+          # candidate branch below - cheaper and less flaky than one search-API call per branch.
+          mergedPrsJson=$(gh pr list --state merged --limit 500 --json headRefName,mergedAt)
+
+          # --merged lists only branches whose entire commit history is already reachable from
+          # $baseBranch - i.e. provably contains nothing that isn't already merged in, so deleting one
+          # can never lose work. HEAD and $baseBranch itself are always excluded.
+          for ref in $(git branch -r --merged "origin/${{ env.baseBranch }}" | grep -v -e "HEAD" -e "origin/${{ env.baseBranch }}$"); do
+            branchName="${ref#origin/}"
+            lastCommitEpoch=$(git log -1 --format=%ct "$ref")
+
+            # A branch can be merged without a PR (e.g. `git merge` + push done by hand) - in that
+            # case there's no merge date to compare against, so this falls back to the commit date
+            # alone, which is still a correct (if slightly more conservative) answer.
+            mergedAtIso=$(echo "$mergedPrsJson" | jq -r --arg b "$branchName" '[.[] | select(.headRefName == $b)][0].mergedAt // empty')
+            mergedAtEpoch=0
+            if [ -n "$mergedAtIso" ]; then
+              mergedAtEpoch=$(date -u -d "$mergedAtIso" +%s)
+            fi
+
+            effectiveEpoch=$lastCommitEpoch
+            if [ "$mergedAtEpoch" -gt "$effectiveEpoch" ]; then
+              effectiveEpoch=$mergedAtEpoch
+            fi
+            ageDays=$(( ($(date -u +%s) - effectiveEpoch) / 86400 ))
+
+            if [ "$effectiveEpoch" -lt "$cutoffEpoch" ]; then
+              echo "Deleting '$branchName' - merged into ${{ env.baseBranch }}, last activity (commit or merge, whichever is later) ${ageDays}d ago"
+              if git push origin --delete "$branchName"; then
+                deletedAny=true
+              else
+                echo "::warning::Failed to delete '$branchName' (already gone, or protected?)"
+              fi
+            else
+              echo "Keeping '$branchName' for now - last activity (commit or merge) only ${ageDays}d ago (threshold: ${{ env.inactivityDays }}d)"
+            fi
+          done
+
+          if [ "$deletedAny" = false ]; then
+            echo "Nothing to delete this run."
+          fi
