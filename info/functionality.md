@@ -577,3 +577,70 @@ The three triggers:
   eligible for exactly one notification for as long as it remains overdue and unnotified. A task item
   that links to another task list (see [Tasks](#tasks) above) is excluded from this check, since its true
   completion depends on the list it links to, not its own stored (always-false) completion flag.
+
+## In-app notifications
+
+Every push/email trigger above (the three under [Push notifications](#push-notifications), plus a
+calendar event's own "on creation" notification) also records an entry in a per-user in-app feed,
+independent of whether push or email delivery is actually enabled — this is what backs the sidebar's
+unread badge, the "Notifications" panel, and the toast banner described below.
+
+**`NotificationSettings`** (`Orbit.Core.Notifications`) is a per-user row (created lazily on first read,
+not at registration, so no migration ever has to touch existing accounts) with five switches:
+`AllowNotifications` (master — off suppresses everything below, including new feed entries),
+`AllowPush`, `AllowEmail`, `AllowMobileBanner`, and `ShowExceptionDetails` (see below). `Update` forces
+the three delivery/display switches off whenever the master switch is off, so nothing downstream needs
+to check the master switch itself. `GET`/`PUT /api/notifications/settings` expose this to the client;
+Options.razor's "Notifications" section renders the master switch and three child switches (the
+children visually greyed out via the `disabled` attribute, not hidden, when the master is off).
+
+**`NotificationRecorder`** (`Orbit.Core.Notifications`) is the single place every trigger goes through
+instead of calling `PushNotificationDispatcher`/`IEmailSender` directly: given a user id, the per-item
+`NotificationChannel` that item was configured with, and the notification's title/body/url,
+`RecordAndFilterAsync` looks up that user's settings once and returns the per-item channel with any
+globally-disabled channel stripped out (the global switch overrides the per-item choice, not the other
+way around), plus whether a `NotificationEntry` was recorded (true whenever the master switch is on,
+regardless of whether the specific delivery channels are). Each background service's own claim-before-send
+idempotency guard (see [Push notifications](#push-notifications) above) treats a recorded entry the same
+as a successful channel send, so a notification with both delivery channels globally disabled doesn't
+look "unclaimed" and get retried every poll.
+
+Existing per-item `NotificationChannelOption` dropdowns (on a calendar event, task item, or inventory
+item) grey out the "Push"/"Email"/"Email and push" options (via `NotificationChannelOption.IsDisabledBy`)
+when the corresponding global switch is off — the value can still be picked and stored, it just won't
+actually deliver on a channel the account has turned off.
+
+**The feed itself.** `NotificationEntry` (`Id, UserId, Kind, Title, Body, Url?, CreatedAtUtc, ReadAtUtc?`)
+is a flat, reverse-chronological list per user — `GET /api/notifications` returns the most recent 30,
+`GET /api/notifications/unread-count` the unread count, `POST /api/notifications/read` marks everything
+read at once (there's no per-entry read state exposed anywhere, matching "opening the panel clears the
+badge" rather than tracking which individual entries were seen). `Kind` is `PushReminder` or
+`ChatMessage`, mostly for the client to render slightly differently later; `Url` is the same in-app deep
+link (`/tasks/{id}`, `/calendar/{id}`, `/chat/{userId}`, ...) the corresponding push notification's own
+payload already carries.
+
+**Client (`MainLayout.razor`).** The avatar gets a small unread-count badge (`FormatUnreadCount`: hidden
+at 0, the number at 1–9, "9+" above that) and a new "Notifications" entry next to "Log out" in the
+dropdown, opening a panel anchored the same way the avatar dropdown is. Opening the panel loads the
+recent feed, calls `POST /api/notifications/read`, and zeros the badge immediately rather than waiting
+for the next poll tick. A dedicated 10-second poll (separate from the existing 60-second session
+heartbeat) refreshes the settings/unread count; when the count has just gone up and
+`AllowMobileBanner` is on, it fetches the newest entry and shows it as a toast fixed to the top of the
+viewport for exactly one second — gated by its own `BannerMinimumGap` (10 seconds) independent of the
+poll interval itself, so at most one banner ever appears in any 10-second window even if the poll cadence
+changes later.
+
+**Frontend exceptions stay client-local**, extending the existing `PersistentLoggerProvider`/
+`orbit.clientLogs` localStorage mechanism ([Authentication](#authentication) above touches the same
+mechanism for session-expiry diagnostics) rather than round-tripping raw client errors to a new server
+endpoint — they're per-browser debug info, not something worth centralizing or risking as a spam vector.
+The Notifications panel reads them via a new `window.OrbitClientLogging.getEntries()` (added alongside
+the existing `copyLogsToClipboard`), filters to Error-level entries, and gives each one its own "Copy"
+button (`navigator.clipboard.writeText`, invoked directly from C# via `IJSRuntime` — no new JS needed for
+that part). This section only renders when **both** `GET /api/config/client-flags`'s
+`ExceptionDetailsAllowed` (reflecting `IWebHostEnvironment.IsDevelopment()` — an unauthenticated,
+environment-driven flag, the same shape as the existing VAPID public-key endpoint) and this user's own
+`ShowExceptionDetails` setting agree — the server-side flag is a hard gate a Production deployment can
+never be talked out of via a stored per-account preference. Options.razor's own "Diagnostics" section
+(the "Show exceptions" switch) is likewise only rendered at all when the server reports it's not running
+in Production.
