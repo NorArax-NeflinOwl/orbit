@@ -569,7 +569,7 @@ input.note-editor-title {
 
 .sidebar.collapsed .sidebar-logo-text,
 .sidebar.collapsed .nav-item .label,
-.sidebar.collapsed .user-meta {
+.sidebar.collapsed .avatar-trigger .user-meta {
     display: none;
 }
 
@@ -601,7 +601,7 @@ input.note-editor-title {
 
     .sidebar-logo-text,
     .nav-item .label,
-    .user-meta {
+    .avatar-trigger .user-meta {
         display: none;
     }
 
@@ -767,7 +767,7 @@ input.note-editor-title {
         flex: 0 0 auto;
     }
 
-    .user-meta {
+    .avatar-trigger .user-meta {
         display: none;
     }
 

@@ -1,20 +1,33 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using Orbit.Contracts.Users;
 
 namespace Orbit.Web.Services;
 
 /// <summary>
 /// Attaches the signed-in user's access token to every outgoing request made through it. If the API
 /// rejects a request with 401 (the access token expired), transparently exchanges the stored refresh
-/// token for a new access token through a separate, unauthenticated HttpClient - reusing this handler
-/// for that call would recurse into this same retry logic - and retries the original request once.
+/// token for a new access token via <see cref="TokenRefreshService"/> and retries the original request
+/// once.
 /// </summary>
-public sealed class AuthorizationMessageHandler(TokenStore tokenStore, HttpClient refreshHttpClient) : DelegatingHandler
+/// <remarks>
+/// This type itself is registered Transient in Program.cs - it must be, since IHttpClientFactory
+/// mutates a handler's InnerHandler while assembling each client's pipeline, and throws if the same
+/// instance is reused across more than one. Everything it depends on
+/// (TokenStore/TokenRefreshService/OrbitAuthenticationStateProvider) is Singleton though, which is what
+/// actually matters here: AddHttpMessageHandler resolves this handler from IHttpClientFactory's own
+/// internal, periodically-rotating DI scope, not the app's one real scope, so a Scoped dependency would
+/// silently be a throwaway instance unrelated to what the rest of the app is using - which is exactly
+/// what made <see cref="OrbitAuthenticationStateProvider.NotifyAuthenticationStateChanged"/> below a
+/// no-op the first time this was wired up: it fired on an OrbitAuthenticationStateProvider instance
+/// nothing else was subscribed to.
+/// </remarks>
+public sealed class AuthorizationMessageHandler(
+    TokenStore tokenStore, TokenRefreshService tokenRefreshService, OrbitAuthenticationStateProvider authenticationStateProvider)
+    : DelegatingHandler
 {
     private readonly TokenStore _tokenStore = tokenStore;
-    private readonly HttpClient _refreshHttpClient = refreshHttpClient;
+    private readonly TokenRefreshService _tokenRefreshService = tokenRefreshService;
+    private readonly OrbitAuthenticationStateProvider _authenticationStateProvider = authenticationStateProvider;
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -25,12 +38,22 @@ public sealed class AuthorizationMessageHandler(TokenStore tokenStore, HttpClien
             return response;
         }
 
-        var refreshedAccessToken = await TryRefreshAccessTokenAsync(cancellationToken);
-        if (refreshedAccessToken is null)
+        if (!await _tokenRefreshService.TryRefreshAsync(cancellationToken))
         {
+            // The session is genuinely over (the refresh token is invalid or expired too). Every
+            // caller that lands here already has its own "catch the 401, NavigateTo /login" handling
+            // for its own page content, but none of them think to also invalidate the authentication
+            // state - without this, MainLayout's sidebar (which listens for exactly this
+            // AuthenticationStateChanged notification, not the token itself) and any [Authorize]-gated
+            // route would keep rendering as signed-in on top of whatever the caller navigates to, since
+            // nothing else would have told them the session ended. Centralized here instead of at each
+            // of those call sites since every authenticated request already passes through this one
+            // handler.
+            _authenticationStateProvider.NotifyAuthenticationStateChanged();
             return response;
         }
 
+        var refreshedAccessToken = await _tokenStore.GetTokenAsync();
         response.Dispose();
         var retryRequest = await CloneRequestAsync(request);
         retryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshedAccessToken);
@@ -44,33 +67,6 @@ public sealed class AuthorizationMessageHandler(TokenStore tokenStore, HttpClien
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
-    }
-
-    private async Task<string?> TryRefreshAccessTokenAsync(CancellationToken cancellationToken)
-    {
-        var refreshToken = await _tokenStore.GetRefreshTokenAsync();
-        if (string.IsNullOrEmpty(refreshToken))
-        {
-            return null;
-        }
-
-        var response = await _refreshHttpClient.PostAsJsonAsync("api/auth/refresh", new RefreshTokenRequest(refreshToken), cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            // The refresh token is invalid or expired too - there is no way back into a signed-in state
-            // without the user logging in again, so both tokens are cleared.
-            await _tokenStore.ClearTokenAsync();
-            return null;
-        }
-
-        var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken: cancellationToken);
-        if (authResponse is null)
-        {
-            return null;
-        }
-
-        await _tokenStore.SetTokensAsync(authResponse.Token, authResponse.RefreshToken);
-        return authResponse.Token;
     }
 
     /// <summary>

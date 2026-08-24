@@ -95,7 +95,8 @@ public sealed class AuthorizationMessageHandlerTests
         {
             BaseAddress = new Uri("https://example.test/")
         };
-        var handler = new AuthorizationMessageHandler(tokenStore, refreshHttpClient)
+        var handler = new AuthorizationMessageHandler(
+            tokenStore, new TokenRefreshService(tokenStore, refreshHttpClient), new OrbitAuthenticationStateProvider(tokenStore))
         {
             InnerHandler = new StubHttpMessageHandler(respondToInnerRequest)
         };

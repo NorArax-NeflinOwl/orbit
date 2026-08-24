@@ -37,20 +37,40 @@ var apiBaseAddress = string.IsNullOrEmpty(configuredApiBaseAddressValue)
     : new UriBuilder(new Uri(configuredApiBaseAddressValue)) { Host = browserOrigin.Host }.Uri.ToString();
 const string tokenRefreshHttpClientName = "Orbit.Web.TokenRefresh";
 
-builder.Services.AddScoped<TokenStore>();
+// Singleton, not Scoped: AddHttpMessageHandler<AuthorizationMessageHandler> below resolves its handler
+// (and whatever it depends on) from IHttpClientFactory's own internal, periodically-rotating DI scope,
+// not this app's single long-lived scope - a Scoped registration here would silently hand
+// AuthorizationMessageHandler a throwaway TokenStore instance on every request instead of sharing the
+// same one components use to read/write tokens. TokenStore itself is a stateless wrapper over
+// IJSRuntime/localStorage either way, so this only matters because of what depends on it below; a
+// Blazor WASM app also has no real per-request concept for "Scoped" to model in the first place.
+builder.Services.AddSingleton<TokenStore>();
 
-// A separate, unauthenticated client for AuthorizationMessageHandler's own token-refresh call (see its
-// class comment for why that call can't go through AuthorizationMessageHandler itself).
+// A separate, unauthenticated client for TokenRefreshService's own refresh call (see its class comment
+// for why that call can't go through AuthorizationMessageHandler itself).
 builder.Services.AddHttpClient(tokenRefreshHttpClientName, httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress));
-builder.Services.AddScoped<AuthorizationMessageHandler>(services => new AuthorizationMessageHandler(
+builder.Services.AddSingleton<TokenRefreshService>(services => new TokenRefreshService(
     services.GetRequiredService<TokenStore>(),
     services.GetRequiredService<IHttpClientFactory>().CreateClient(tokenRefreshHttpClientName)));
+// Must be Transient, not Singleton: IHttpClientFactory mutates a handler's InnerHandler while
+// assembling each client's pipeline, so reusing one instance across multiple pipelines (as Singleton or
+// Scoped-from-the-wrong-scope would) throws "the inner handler is already set" on the second client
+// that resolves it. A fresh, cheap Transient instance still resolves the same Singleton
+// TokenStore/TokenRefreshService/OrbitAuthenticationStateProvider above and below through constructor
+// injection, which is the part that actually needed to be shared - see this type's class remarks.
+builder.Services.AddTransient<AuthorizationMessageHandler>();
 
 // Registered once as the concrete type and forwarded from the AuthenticationStateProvider base type,
-// so both injection sites resolve to the same scoped instance.
-builder.Services.AddScoped<OrbitAuthenticationStateProvider>();
-builder.Services.AddScoped<AuthenticationStateProvider>(services => services.GetRequiredService<OrbitAuthenticationStateProvider>());
+// so both injection sites resolve to the same instance. Singleton for the same reason as TokenStore
+// above: AuthorizationMessageHandler calls NotifyAuthenticationStateChanged() on this when a request's
+// access and refresh tokens both turn out to be dead (see its class comment) - a Scoped registration
+// meant that call landed on a throwaway instance nothing was subscribed to, so MainLayout's sidebar
+// never found out the session had ended until something else (a manual login/logout, or the
+// session-expiry heartbeat below, both of which run in the app's real scope) eventually noticed too.
+builder.Services.AddSingleton<OrbitAuthenticationStateProvider>();
+builder.Services.AddSingleton<AuthenticationStateProvider>(services => services.GetRequiredService<OrbitAuthenticationStateProvider>());
 builder.Services.AddAuthorizationCore();
+builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddHttpClient<NotesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
