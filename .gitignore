@@ -1,7 +1,16 @@
 /.vs
-/.vscode
+
+# Ignore everything under .vscode except the files worth sharing across the team.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
 _to_delete/
-/.claude
+
+# Ephemeral Claude Code state; the project's own /.claude/CLAUDE.md instructions stay tracked.
+/.claude/worktrees/
+/.claude/settings.local.json
 
 **/bin/
 **/obj/
