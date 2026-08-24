@@ -20,11 +20,36 @@ database leak alone can't be used to sign in as a user, the same way a leaked pa
 used to log in directly.
 
 The Blazor client handles all of this itself once signed in: `/login` and `/register` call the
-endpoints above and store both returned tokens in `localStorage`; a `DelegatingHandler` attaches the
-access token as a bearer token to every subsequent API call, and if a call comes back 401 (the access
-token expired), transparently redeems the refresh token for a new pair and retries the call once before
-giving up. Logging out revokes the refresh token on the API and clears both tokens locally. Any page
-that isn't explicitly public redirects to `/login` when there's no valid access token.
+endpoints above and store both returned tokens in `localStorage`; `AuthorizationMessageHandler` (a
+`DelegatingHandler`) attaches the access token as a bearer token to every subsequent API call, and if a
+call comes back 401 (the access token expired), transparently redeems the refresh token via
+`TokenRefreshService` for a new pair and retries the call once before giving up. Logging out revokes the
+refresh token on the API and clears both tokens locally. Any page that isn't explicitly public redirects
+to `/login` when there's no valid access token.
+
+**Noticing a session has ended.** Two independent mechanisms exist because neither alone covers every
+case:
+- `AuthorizationMessageHandler` calls `OrbitAuthenticationStateProvider.NotifyAuthenticationStateChanged()`
+  whenever a request's access *and* refresh tokens both turn out to be dead — this is what makes
+  `MainLayout`'s sidebar disappear and `[Authorize]`-gated routes redirect to `/login` in the same
+  instant a page's own API call (e.g. `Dashboard.razor`'s 3-second poll) discovers the session is over,
+  rather than only the page content changing while the sidebar keeps rendering as if still signed in.
+- `MainLayout` also runs its own 60-second heartbeat (`CheckSessionHeartbeatAsync`) that re-checks the
+  stored access token's own `exp` claim even when nothing is actively polling — this is what catches a
+  tab merely left idle past `Jwt:ExpiryMinutes` (15 minutes today) with no API calls happening at all.
+  On each tick, if the access token has locally expired, it first tries a silent refresh (the same
+  recovery `AuthorizationMessageHandler` does on-demand) before treating it as a real sign-out, so an
+  idle tab doesn't lose a session that's still well within the refresh token's much longer 30-day
+  lifetime.
+
+Both mechanisms depend on `TokenStore`, `TokenRefreshService`, and `OrbitAuthenticationStateProvider`
+all being registered as **Singleton** in `Program.cs`, not Scoped: `AddHttpMessageHandler<T>()` builds
+`AuthorizationMessageHandler` from `IHttpClientFactory`'s own internal, periodically-rotating DI scope,
+not the app's one real scope, so a Scoped dependency would silently be a throwaway instance disconnected
+from the one `MainLayout` is actually subscribed to — the notification would fire, but into the void.
+`AuthorizationMessageHandler` itself stays Transient (the one exception), since
+`IHttpClientFactory` mutates a handler's `InnerHandler` while assembling each client's pipeline and
+rejects reusing one instance across more than one.
 
 `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` are all rate
 limited to 5 requests per minute per client IP address (no queueing — an excess request gets an
@@ -394,6 +419,13 @@ instead switches to the fully different mobile layout described above (a horizon
 top, sidebar labels and the nav divider/Options row hidden) rather than staying a narrow vertical rail —
 680px is also the calendar's page (`app.css`) and chat's own drawer breakpoint, kept consistent across
 the app rather than each surface picking its own.
+
+Collapsing the sidebar hides `.user-meta` on the avatar trigger itself (name/initials button in the
+rail), but the popup menu opened by clicking that avatar (`.avatar-dropdown`) always shows the full
+name regardless — it's an overlay meant to show full detail, not part of the collapsed rail, even
+though it's nested inside the same collapsed `.sidebar` in the DOM. The CSS rule that hides
+`.user-meta` when collapsed is scoped to `.avatar-trigger .user-meta` specifically (not a bare
+`.user-meta` selector) so it doesn't also catch the dropdown's own copy of that markup.
 
 ## Dashboard
 

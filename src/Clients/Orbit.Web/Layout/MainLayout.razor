@@ -4,14 +4,16 @@
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject TokenStore TokenStore
+@inject TokenRefreshService TokenRefreshService
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject ThemeService ThemeService
 @inject NavigationManager NavigationManager
 @inject ILogger<MainLayout> Logger
 
 <div class="app-shell">
-    <AuthorizeView>
-        <Authorized>
+    @if (_isAuthenticated)
+    {
             <aside class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
                 <div class="sidebar-logo" role="button" tabindex="0" title="Collapse sidebar"
                      @onclick="ToggleSidebarCollapsed" @onkeydown="OnLogoKeyDown">
@@ -72,9 +74,9 @@
                        that means an extra poll loop here too. A proper fix is a real notifications concept
                        server-side. *@
                     <button type="button" class="avatar-trigger" @onclick="ToggleAvatarMenu" @onclick:stopPropagation="true">
-                        <span class="avatar">@GetInitials(context.User.Identity?.Name)</span>
+                        <span class="avatar">@GetInitials(_userName)</span>
                         <span class="user-meta">
-                            <span class="user-name">@context.User.Identity?.Name</span>
+                            <span class="user-name">@_userName</span>
                         </span>
                     </button>
 
@@ -82,9 +84,9 @@
                     {
                         <div class="avatar-dropdown" @onclick:stopPropagation="true">
                             <div class="avatar-dropdown-header">
-                                <span class="avatar">@GetInitials(context.User.Identity?.Name)</span>
+                                <span class="avatar">@GetInitials(_userName)</span>
                                 <span class="user-meta">
-                                    <span class="user-name">@context.User.Identity?.Name</span>
+                                    <span class="user-name">@_userName</span>
                                 </span>
                             </div>
                             <div class="avatar-dropdown-divider"></div>
@@ -108,8 +110,7 @@
                     }
                 </div>
             </aside>
-        </Authorized>
-    </AuthorizeView>
+    }
 
     <main class="main-content" @onclick="CloseAvatarMenu">
         @Body
@@ -119,16 +120,57 @@
 @code {
     private bool _sidebarCollapsed;
     private bool _avatarMenuOpen;
+    private PeriodicTimer? _sessionHeartbeatTimer;
+    private CancellationTokenSource? _sessionHeartbeatCancellation;
+
+    /// <summary>
+    /// Whether to render the sidebar at all, and <see cref="_userName"/> for its avatar/name. Tracked
+    /// explicitly here instead of via a nested &lt;AuthorizeView&gt; so the sidebar's visibility doesn't
+    /// depend on anything but this component's own, always-correctly-scoped AuthenticationStateProvider
+    /// instance (see the DI registration notes in Program.cs and AuthorizationMessageHandler's class
+    /// remarks for the scoping pitfall that motivated this). Updated directly off the same
+    /// AuthenticationStateChanged event this component already subscribes to (see
+    /// EnsureEncryptionKeyIfAuthenticatedAsync's use of it below).
+    /// </summary>
+    private bool _isAuthenticated;
+    private string? _userName;
+
+    /// <summary>
+    /// How often MainLayout re-checks whether the stored access token is still valid while the SPA sits
+    /// idle. Well under JwtSettings.ExpiryMinutes (15 minutes today), so a tab left open past that point
+    /// notices within about a minute instead of indefinitely - nothing else re-evaluates authentication
+    /// state on its own, since Blazor's cascading AuthenticationState only updates when
+    /// NotifyAuthenticationStateChanged is called, which otherwise only happens on an explicit
+    /// login/logout action.
+    /// </summary>
+    private static readonly TimeSpan SessionHeartbeatInterval = TimeSpan.FromSeconds(60);
 
     protected override async Task OnInitializedAsync()
     {
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
         NavigationManager.LocationChanged += OnLocationChanged;
+        await RefreshAuthenticationDisplayStateAsync();
         // Syncs ThemeService.Current to whatever index.html's inline anti-flash script already applied
         // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
         // theme applies to the login/register pages too.
         await ThemeService.InitializeAsync();
         await EnsureEncryptionKeyIfAuthenticatedAsync();
+        StartSessionHeartbeat();
+    }
+
+    /// <summary>
+    /// Reads the current authentication state and updates <see cref="_isAuthenticated"/>/<see cref="_userName"/>
+    /// (see their doc comment for why this deliberate, explicit read replaces a nested AuthorizeView).
+    /// Called from OnInitializedAsync for the very first render, and from OnAuthenticationStateChanged -
+    /// which fires for every subsequent NotifyAuthenticationStateChanged call, from login, logout, the
+    /// session heartbeat, and AuthorizationMessageHandler alike.
+    /// </summary>
+    private async Task RefreshAuthenticationDisplayStateAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _isAuthenticated = authenticationState.User.Identity?.IsAuthenticated == true;
+        _userName = _isAuthenticated ? authenticationState.User.Identity!.Name : null;
+        StateHasChanged();
     }
 
     /// <summary>
@@ -191,7 +233,12 @@
 
     private void OnAuthenticationStateChanged(Task<AuthenticationState> newState)
     {
+        _ = RefreshAuthenticationDisplayStateAsync();
         _ = EnsureEncryptionKeyIfAuthenticatedAsync();
+        // Restarts the heartbeat after a fresh sign-in that follows an explicit logout (StopSessionHeartbeat
+        // above) - MainLayout itself is never recreated across that transition, so nothing else would.
+        // A no-op while it's already running (StartSessionHeartbeat only starts one if none exists yet).
+        StartSessionHeartbeat();
     }
 
     /// <summary>Closes the avatar menu on navigation, so it doesn't stay open across an unrelated route change.</summary>
@@ -216,6 +263,79 @@
 
     private void ToggleAvatarMenu() => _avatarMenuOpen = !_avatarMenuOpen;
 
+    private void StartSessionHeartbeat()
+    {
+        if (_sessionHeartbeatTimer is not null)
+        {
+            return;
+        }
+
+        _sessionHeartbeatCancellation = new CancellationTokenSource();
+        _sessionHeartbeatTimer = new PeriodicTimer(SessionHeartbeatInterval);
+        _ = SessionHeartbeatLoopAsync(_sessionHeartbeatCancellation.Token);
+    }
+
+    private void StopSessionHeartbeat()
+    {
+        _sessionHeartbeatCancellation?.Cancel();
+        _sessionHeartbeatCancellation?.Dispose();
+        _sessionHeartbeatCancellation = null;
+        _sessionHeartbeatTimer?.Dispose();
+        _sessionHeartbeatTimer = null;
+    }
+
+    private async Task SessionHeartbeatLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _sessionHeartbeatTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                await CheckSessionHeartbeatAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when DisposeAsync/logout cancels the heartbeat.
+        }
+        catch (ObjectDisposedException)
+        {
+            // The timer was disposed by StopSessionHeartbeat between a tick starting and this loop checking again.
+        }
+    }
+
+    /// <summary>
+    /// Re-checks the stored access token's own "exp" claim (see OrbitAuthenticationStateProvider) and,
+    /// if it has lapsed, tries a silent refresh before treating this as a real sign-out - the same
+    /// on-demand recovery AuthorizationMessageHandler already does for a live API call, so a tab merely
+    /// left idle past the access token's short lifetime doesn't lose a session that's still well within
+    /// the refresh token's much longer one (30 days - see RefreshTokenService). Either way,
+    /// NotifyAuthenticationStateChanged is what actually makes this sidebar and every [Authorize]-gated
+    /// route notice - on success it just confirms the (now-renewed) signed-in state; on failure it's
+    /// what finally hides the sidebar and redirects to /login instead of leaving both looking
+    /// signed-in indefinitely.
+    /// </summary>
+    private async Task CheckSessionHeartbeatAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+        {
+            return;
+        }
+
+        var refreshToken = await TokenStore.GetRefreshTokenAsync();
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            // Nothing has ever signed in on this browser (or a real logout already ran) - nothing
+            // lapsed, so there's nothing to notify. Avoids a spurious re-render of the cascading
+            // authentication state (and whatever's on /login right now) every tick on a browser that
+            // was never signed in to begin with.
+            return;
+        }
+
+        await TokenRefreshService.TryRefreshAsync();
+        AuthenticationStateProvider.NotifyAuthenticationStateChanged();
+    }
+
     /// <summary>
     /// Bound to a click anywhere in the main content area, so clicking outside the dropdown closes it
     /// without needing JS interop for outside-click detection - the trigger and dropdown itself both
@@ -232,6 +352,9 @@
     private async Task LogoutAsync()
     {
         _avatarMenuOpen = false;
+        _isAuthenticated = false;
+        _userName = null;
+        StopSessionHeartbeat();
         await AuthApiClient.LogoutAsync();
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
         NavigationManager.NavigateTo("/login");
@@ -258,5 +381,6 @@
     {
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
         NavigationManager.LocationChanged -= OnLocationChanged;
+        StopSessionHeartbeat();
     }
 }
