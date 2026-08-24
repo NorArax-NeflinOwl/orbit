@@ -66,13 +66,14 @@ public sealed class OverdueTaskNotificationBackgroundService : BackgroundService
         var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
         var pushNotificationDispatcher = scope.ServiceProvider.GetRequiredService<PushNotificationDispatcher>();
+        var notificationRecorder = scope.ServiceProvider.GetRequiredService<NotificationRecorder>();
 
         var newlyOverdueItems = await scheduler.FindNewlyOverdueAsync(DateTimeOffset.UtcNow, cancellationToken, MaxNotificationsPerPoll);
         foreach (var overdueTaskItem in newlyOverdueItems)
         {
             await NotifyOwnerAsync(
                 overdueTaskItem, overdueTaskNotificationRepository, userRepository, emailSender, pushNotificationDispatcher,
-                cancellationToken);
+                notificationRecorder, cancellationToken);
         }
     }
 
@@ -82,6 +83,7 @@ public sealed class OverdueTaskNotificationBackgroundService : BackgroundService
         IUserRepository userRepository,
         IEmailSender emailSender,
         PushNotificationDispatcher pushNotificationDispatcher,
+        NotificationRecorder notificationRecorder,
         CancellationToken cancellationToken)
     {
         // Reserves this specific item before doing anything else - the unique index backing
@@ -95,15 +97,24 @@ public sealed class OverdueTaskNotificationBackgroundService : BackgroundService
             return;
         }
 
+        // Built unconditionally (not just inside the Push branch below) since the in-app feed entry
+        // reuses the same title/body/url a push notification would use, independent of whether push
+        // delivery itself ends up allowed.
+        var payload = OverdueTaskPushContent.Build(overdueTaskItem);
+        var recordResult = await notificationRecorder.RecordAndFilterAsync(
+            overdueTaskItem.UserId, overdueTaskItem.NotificationChannel, NotificationEntryKind.PushReminder,
+            payload.Title, payload.Body, payload.Url, cancellationToken);
+
         // Sent best-effort per channel, mirroring CalendarEventReminderBackgroundService: the claim above
         // guards the whole item, not each channel individually, so once at least one notification has
-        // gone out the claim must stay in place - releasing it would make a later poll resend it.
-        var sentOnAnyChannel = false;
-        var channel = overdueTaskItem.NotificationChannel;
+        // gone out the claim must stay in place - releasing it would make a later poll resend it. A
+        // recorded feed entry counts the same as a channel send here (see NotificationRecordResult) -
+        // both globally-disabled delivery channels shouldn't make this item look unclaimed again.
+        var sentOnAnyChannel = recordResult.EntryRecorded;
+        var channel = recordResult.AllowedChannel;
 
         if (channel.HasFlag(NotificationChannel.Push))
         {
-            var payload = OverdueTaskPushContent.Build(overdueTaskItem);
             await pushNotificationDispatcher.NotifyUserAsync(overdueTaskItem.UserId, payload, cancellationToken);
             sentOnAnyChannel = true;
         }

@@ -66,12 +66,14 @@ public sealed class InventoryExpiryReminderBackgroundService : BackgroundService
         var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
         var pushNotificationDispatcher = scope.ServiceProvider.GetRequiredService<PushNotificationDispatcher>();
+        var notificationRecorder = scope.ServiceProvider.GetRequiredService<NotificationRecorder>();
 
         var dueReminders = await scheduler.FindDueRemindersAsync(DateTimeOffset.UtcNow, cancellationToken, MaxRemindersPerPoll);
         foreach (var reminder in dueReminders)
         {
             await NotifyOwnerAsync(
-                reminder, inventoryExpiryNotificationRepository, userRepository, emailSender, pushNotificationDispatcher, cancellationToken);
+                reminder, inventoryExpiryNotificationRepository, userRepository, emailSender, pushNotificationDispatcher,
+                notificationRecorder, cancellationToken);
         }
     }
 
@@ -81,6 +83,7 @@ public sealed class InventoryExpiryReminderBackgroundService : BackgroundService
         IUserRepository userRepository,
         IEmailSender emailSender,
         PushNotificationDispatcher pushNotificationDispatcher,
+        NotificationRecorder notificationRecorder,
         CancellationToken cancellationToken)
     {
         // Reserves this specific (item, expiry date) pair before doing anything else - the unique index
@@ -95,16 +98,24 @@ public sealed class InventoryExpiryReminderBackgroundService : BackgroundService
             return;
         }
 
+        // Built unconditionally (not just inside the Push branch below) since the in-app feed entry
+        // reuses the same title/body/url a push notification would use, independent of whether push
+        // delivery itself ends up allowed.
+        var payload = InventoryExpiryPushContent.Build(reminder);
+        var recordResult = await notificationRecorder.RecordAndFilterAsync(
+            reminder.UserId, reminder.NotificationChannel, NotificationEntryKind.PushReminder,
+            payload.Title, payload.Body, payload.Url, cancellationToken);
+
         // Sent best-effort per channel, mirroring OverdueTaskNotificationBackgroundService: the claim
         // above guards the whole (item, expiry date) pair, not each channel individually, so once at
         // least one notification has gone out the claim must stay in place - releasing it would make a
-        // later poll resend it.
-        var sentOnAnyChannel = false;
-        var channel = reminder.NotificationChannel;
+        // later poll resend it. A recorded feed entry counts the same as a channel send here (see
+        // NotificationRecordResult).
+        var sentOnAnyChannel = recordResult.EntryRecorded;
+        var channel = recordResult.AllowedChannel;
 
         if (channel.HasFlag(NotificationChannel.Push))
         {
-            var payload = InventoryExpiryPushContent.Build(reminder);
             await pushNotificationDispatcher.NotifyUserAsync(reminder.UserId, payload, cancellationToken);
             sentOnAnyChannel = true;
         }

@@ -78,6 +78,7 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         var eventReminderRepository = scope.ServiceProvider.GetRequiredService<IEventReminderRepository>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
         var pushNotificationDispatcher = scope.ServiceProvider.GetRequiredService<PushNotificationDispatcher>();
+        var notificationRecorder = scope.ServiceProvider.GetRequiredService<NotificationRecorder>();
 
         var dueReminders = await scheduler.FindDueRemindersAsync(
             DateTimeOffset.UtcNow, LookBackWindow, cancellationToken, maxResults: MaxRemindersPerPoll);
@@ -85,7 +86,7 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         {
             await SendReminderEmailAsync(
                 dueReminder, userRepository, calendarEventShareRepository, eventReminderRepository, emailSender,
-                pushNotificationDispatcher, _logger, cancellationToken);
+                pushNotificationDispatcher, notificationRecorder, _logger, cancellationToken);
         }
     }
 
@@ -96,6 +97,7 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         IEventReminderRepository eventReminderRepository,
         IEmailSender emailSender,
         PushNotificationDispatcher pushNotificationDispatcher,
+        NotificationRecorder notificationRecorder,
         ILogger<CalendarEventReminderBackgroundService> logger,
         CancellationToken cancellationToken)
     {
@@ -124,17 +126,28 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
 
         var occurrenceDetails = BuildOccurrenceDetails(calendarEvent.Details, dueReminder.OccurrenceStartUtc);
         var channel = calendarEvent.Details.ReminderNotificationChannel;
+        // Built unconditionally (not just inside the Push branch below) since the in-app feed entry
+        // reuses the same title/body/url a push notification would use, independent of whether push
+        // delivery itself ends up allowed for a given recipient.
+        var pushPayload = EventReminderPushContent.Build(occurrenceDetails, calendarEvent.Id, dueReminder.MinutesBeforeStart);
 
         // Sent best-effort per recipient: the claim above guards the whole event+lead-time pair, not
         // each recipient individually (see TryClaimAsync), so once at least one notification has gone
         // out the claim must stay in place - releasing it would make a later poll resend to whoever
         // already received it. Only when every single recipient's e-mail fails (or the channel has no
         // e-mail leg to begin with) does nothing go out, making a full retry on the next poll safe -
-        // PushNotificationDispatcher never throws, so a push send always counts as delivered here.
+        // PushNotificationDispatcher never throws, so a push send always counts as delivered here. A
+        // recipient's recorded feed entry counts the same way (see NotificationRecordResult).
         var sentToAnyRecipient = false;
         foreach (var recipient in recipients)
         {
-            if (channel.HasFlag(NotificationChannel.Email))
+            var recordResult = await notificationRecorder.RecordAndFilterAsync(
+                recipient.Id, channel, NotificationEntryKind.PushReminder,
+                pushPayload.Title, pushPayload.Body, pushPayload.Url, cancellationToken);
+            sentToAnyRecipient = sentToAnyRecipient || recordResult.EntryRecorded;
+            var recipientChannel = recordResult.AllowedChannel;
+
+            if (recipientChannel.HasFlag(NotificationChannel.Email))
             {
                 try
                 {
@@ -150,9 +163,8 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
                 }
             }
 
-            if (channel.HasFlag(NotificationChannel.Push))
+            if (recipientChannel.HasFlag(NotificationChannel.Push))
             {
-                var pushPayload = EventReminderPushContent.Build(occurrenceDetails, calendarEvent.Id, dueReminder.MinutesBeforeStart);
                 await pushNotificationDispatcher.NotifyUserAsync(recipient.Id, pushPayload, cancellationToken);
                 sentToAnyRecipient = true;
             }

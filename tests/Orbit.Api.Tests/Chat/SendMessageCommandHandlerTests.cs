@@ -18,7 +18,7 @@ public sealed class SendMessageCommandHandlerTests
         var messageRepository = new InMemoryChatMessageRepository();
         var contactRepository = new InMemoryContactRepository();
         var handler = new SendMessageCommandHandler(
-            userRepository, messageRepository, contactRepository, new InMemoryChatConversationAccessRepository(), CreateDispatcher());
+            userRepository, messageRepository, contactRepository, new InMemoryChatConversationAccessRepository(), CreateDispatcher(), CreateNotificationRecorder());
         var senderId = Guid.NewGuid();
 
         var result = await handler.HandleAsync(
@@ -38,7 +38,7 @@ public sealed class SendMessageCommandHandlerTests
     {
         var handler = new SendMessageCommandHandler(
             new InMemoryUserRepository(), new InMemoryChatMessageRepository(), new InMemoryContactRepository(),
-            new InMemoryChatConversationAccessRepository(), CreateDispatcher());
+            new InMemoryChatConversationAccessRepository(), CreateDispatcher(), CreateNotificationRecorder());
 
         var result = await handler.HandleAsync(
             new SendMessageCommand(Guid.NewGuid(), Guid.NewGuid(), "ciphertext", "nonce"), CancellationToken.None);
@@ -56,7 +56,7 @@ public sealed class SendMessageCommandHandlerTests
         var contactRepository = new InMemoryContactRepository();
         var handler = new SendMessageCommandHandler(
             userRepository, new InMemoryChatMessageRepository(), contactRepository, new InMemoryChatConversationAccessRepository(),
-            CreateDispatcher());
+            CreateDispatcher(), CreateNotificationRecorder());
         var senderId = Guid.NewGuid();
 
         await handler.HandleAsync(new SendMessageCommand(senderId, recipient.Id, "first", "nonce"), CancellationToken.None);
@@ -74,7 +74,7 @@ public sealed class SendMessageCommandHandlerTests
         await userRepository.AddAsync(recipient, CancellationToken.None);
         var handler = new SendMessageCommandHandler(
             userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
-            CreateDispatcher());
+            CreateDispatcher(), CreateNotificationRecorder());
         var senderId = Guid.NewGuid();
 
         await handler.HandleAsync(new SendMessageCommand(senderId, recipient.Id, "first", "nonce"), CancellationToken.None);
@@ -93,7 +93,7 @@ public sealed class SendMessageCommandHandlerTests
         await userRepository.AddAsync(recipient, CancellationToken.None);
         var handler = new SendMessageCommandHandler(
             userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
-            CreateDispatcher());
+            CreateDispatcher(), CreateNotificationRecorder());
 
         await handler.HandleAsync(new SendMessageCommand(initiator.Id, recipient.Id, "first", "nonce"), CancellationToken.None);
         var result = await handler.HandleAsync(new SendMessageCommand(recipient.Id, initiator.Id, "reply", "nonce"), CancellationToken.None);
@@ -113,7 +113,7 @@ public sealed class SendMessageCommandHandlerTests
         var conversationAccessRepository = new InMemoryChatConversationAccessRepository();
         var handler = new SendMessageCommandHandler(
             userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), conversationAccessRepository,
-            CreateDispatcher());
+            CreateDispatcher(), CreateNotificationRecorder());
 
         await handler.HandleAsync(new SendMessageCommand(initiator.Id, recipient.Id, "first", "nonce"), CancellationToken.None);
         await conversationAccessRepository.ApproveAsync(recipient.Id, initiator.Id, CancellationToken.None);
@@ -137,7 +137,7 @@ public sealed class SendMessageCommandHandlerTests
         var dispatcher = new PushNotificationDispatcher(subscriptionRepository, pushSender, NullLogger<PushNotificationDispatcher>.Instance);
         var handler = new SendMessageCommandHandler(
             userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
-            dispatcher);
+            dispatcher, CreateNotificationRecorder());
 
         await handler.HandleAsync(new SendMessageCommand(sender.Id, recipient.Id, "ciphertext", "nonce"), CancellationToken.None);
 
@@ -147,4 +147,7 @@ public sealed class SendMessageCommandHandlerTests
 
     private static PushNotificationDispatcher CreateDispatcher()
         => new(new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(), NullLogger<PushNotificationDispatcher>.Instance);
+
+    private static NotificationRecorder CreateNotificationRecorder()
+        => new(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository());
 }

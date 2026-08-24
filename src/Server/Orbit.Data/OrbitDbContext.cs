@@ -27,6 +27,8 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<InventoryItemEntity> InventoryItems => Set<InventoryItemEntity>();
     public DbSet<InventoryManagedTaskListEntity> InventoryManagedTaskLists => Set<InventoryManagedTaskListEntity>();
     public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
+    public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
+    public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -245,6 +247,25 @@ public sealed class OrbitDbContext : DbContext
             // A given (inventory item, expiry date) pair is only ever warned about once; this unique
             // index is what actually enforces that - see the entity's class comment.
             entity.HasIndex(delivery => new { delivery.InventoryItemId, delivery.ExpiryDate }).IsUnique();
+        });
+
+        modelBuilder.Entity<NotificationSettingsEntity>(entity =>
+        {
+            entity.HasKey(row => row.Id);
+            // At most one settings row per user - NotificationSettingsRepository relies on this to
+            // decide insert-vs-update.
+            entity.HasIndex(row => row.UserId).IsUnique();
+        });
+
+        modelBuilder.Entity<NotificationEntryEntity>(entity =>
+        {
+            entity.HasKey(entry => entry.Id);
+            entity.Property(entry => entry.Kind).IsRequired().HasMaxLength(20);
+            entity.Property(entry => entry.Title).IsRequired().HasMaxLength(200);
+            entity.Property(entry => entry.Body).IsRequired().HasMaxLength(1000);
+            // The feed/unread-count queries are always scoped to one user, most-recent-first - this
+            // index covers both without a separate sort step.
+            entity.HasIndex(entry => new { entry.UserId, entry.CreatedAtUtc });
         });
     }
 }

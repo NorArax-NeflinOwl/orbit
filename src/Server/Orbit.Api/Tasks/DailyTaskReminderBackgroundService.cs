@@ -67,6 +67,7 @@ public sealed class DailyTaskReminderBackgroundService : BackgroundService
         var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
         var pushNotificationDispatcher = scope.ServiceProvider.GetRequiredService<PushNotificationDispatcher>();
+        var notificationRecorder = scope.ServiceProvider.GetRequiredService<NotificationRecorder>();
 
         // DailyTaskReminderScheduler compares each candidate against its own local time-of-day (see
         // TaskItem.DailyReminderTimeOfDay), so - like EventReminderEmailContent's own use of
@@ -77,8 +78,8 @@ public sealed class DailyTaskReminderBackgroundService : BackgroundService
         foreach (var dueReminder in dueReminders)
         {
             await SendReminderAsync(
-                dueReminder, dailyTaskReminderRepository, userRepository, emailSender, pushNotificationDispatcher, _logger,
-                cancellationToken);
+                dueReminder, dailyTaskReminderRepository, userRepository, emailSender, pushNotificationDispatcher, notificationRecorder,
+                _logger, cancellationToken);
         }
     }
 
@@ -88,6 +89,7 @@ public sealed class DailyTaskReminderBackgroundService : BackgroundService
         IUserRepository userRepository,
         IEmailSender emailSender,
         PushNotificationDispatcher pushNotificationDispatcher,
+        NotificationRecorder notificationRecorder,
         ILogger<DailyTaskReminderBackgroundService> logger,
         CancellationToken cancellationToken)
     {
@@ -103,15 +105,24 @@ public sealed class DailyTaskReminderBackgroundService : BackgroundService
             return;
         }
 
+        // Built unconditionally (not just inside the Push branch below) since the in-app feed entry
+        // reuses the same title/body/url a push notification would use, independent of whether push
+        // delivery itself ends up allowed.
+        var payload = DailyTaskReminderPushContent.Build(dueReminder);
+        var recordResult = await notificationRecorder.RecordAndFilterAsync(
+            dueReminder.UserId, dueReminder.NotificationChannel, NotificationEntryKind.PushReminder,
+            payload.Title, payload.Body, payload.Url, cancellationToken);
+
         // Sent best-effort per channel, mirroring CalendarEventReminderBackgroundService: the claim above
         // guards the whole (task item, date) pair, not each channel individually, so once at least one
         // notification has gone out the claim must stay in place - releasing it would resend on a later poll.
-        var sentOnAnyChannel = false;
-        var channel = dueReminder.NotificationChannel;
+        // A recorded feed entry counts the same as a channel send here (see NotificationRecordResult) -
+        // both globally-disabled delivery channels shouldn't make this reminder look unclaimed again.
+        var sentOnAnyChannel = recordResult.EntryRecorded;
+        var channel = recordResult.AllowedChannel;
 
         if (channel.HasFlag(NotificationChannel.Push))
         {
-            var payload = DailyTaskReminderPushContent.Build(dueReminder);
             await pushNotificationDispatcher.NotifyUserAsync(dueReminder.UserId, payload, cancellationToken);
             sentOnAnyChannel = true;
         }

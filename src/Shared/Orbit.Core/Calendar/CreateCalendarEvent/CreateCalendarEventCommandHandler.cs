@@ -11,6 +11,7 @@ public sealed class CreateCalendarEventCommandHandler : IRequestHandler<CreateCa
     private readonly IUserRepository _userRepository;
     private readonly IEmailSender _emailSender;
     private readonly PushNotificationDispatcher _pushNotificationDispatcher;
+    private readonly NotificationRecorder _notificationRecorder;
     private readonly ILogger<CreateCalendarEventCommandHandler> _logger;
 
     public CreateCalendarEventCommandHandler(
@@ -18,12 +19,14 @@ public sealed class CreateCalendarEventCommandHandler : IRequestHandler<CreateCa
         IUserRepository userRepository,
         IEmailSender emailSender,
         PushNotificationDispatcher pushNotificationDispatcher,
+        NotificationRecorder notificationRecorder,
         ILogger<CreateCalendarEventCommandHandler> logger)
     {
         _calendarEventRepository = calendarEventRepository;
         _userRepository = userRepository;
         _emailSender = emailSender;
         _pushNotificationDispatcher = pushNotificationDispatcher;
+        _notificationRecorder = notificationRecorder;
         _logger = logger;
     }
 
@@ -47,11 +50,14 @@ public sealed class CreateCalendarEventCommandHandler : IRequestHandler<CreateCa
     /// </summary>
     private async Task SendCreationNotificationAsync(CalendarEvent calendarEvent, CancellationToken cancellationToken)
     {
-        var channel = calendarEvent.Details.CreationNotificationChannel;
+        var payload = EventCreationPushContent.Build(calendarEvent.Details, calendarEvent.Id);
+        var recordResult = await _notificationRecorder.RecordAndFilterAsync(
+            calendarEvent.UserId, calendarEvent.Details.CreationNotificationChannel, NotificationEntryKind.PushReminder,
+            payload.Title, payload.Body, payload.Url, cancellationToken);
+        var channel = recordResult.AllowedChannel;
 
         if (channel.HasFlag(NotificationChannel.Push))
         {
-            var payload = EventCreationPushContent.Build(calendarEvent.Details, calendarEvent.Id);
             await _pushNotificationDispatcher.NotifyUserAsync(calendarEvent.UserId, payload, cancellationToken);
         }
 

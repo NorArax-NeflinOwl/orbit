@@ -8,6 +8,7 @@ using Orbit.Api;
 using Orbit.Api.Auth;
 using Orbit.Api.Calendar;
 using Orbit.Api.Chat;
+using Orbit.Api.Config;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Inventory;
 using Orbit.Api.Notes;
@@ -211,6 +212,8 @@ try
     app.MapCalendarEndpoints();
     app.MapInventoryEndpoints();
     app.MapPushNotificationEndpoints();
+    app.MapNotificationEndpoints();
+    app.MapConfigEndpoints();
     app.MapHealthEndpoints();
 
     app.Run();

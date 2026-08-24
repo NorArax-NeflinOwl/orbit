@@ -51,6 +51,8 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IInventoryManagedTaskListRepository, InventoryManagedTaskListRepository>();
         services.AddScoped<IInventoryExpiryNotificationRepository, InventoryExpiryNotificationRepository>();
+        services.AddScoped<INotificationSettingsRepository, NotificationSettingsRepository>();
+        services.AddScoped<INotificationEntryRepository, NotificationEntryRepository>();
 
         return services;
     }

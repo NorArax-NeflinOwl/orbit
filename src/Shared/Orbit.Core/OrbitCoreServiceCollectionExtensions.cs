@@ -41,6 +41,11 @@ using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
 using Orbit.Core.Notifications;
+using Orbit.Core.Notifications.GetNotificationEntries;
+using Orbit.Core.Notifications.GetNotificationSettings;
+using Orbit.Core.Notifications.GetUnreadNotificationCount;
+using Orbit.Core.Notifications.MarkAllNotificationsRead;
+using Orbit.Core.Notifications.UpdateNotificationSettings;
 using Orbit.Core.PushNotifications.SubscribeToPush;
 using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 using Orbit.Core.Tasks;
@@ -160,6 +165,17 @@ public static class OrbitCoreServiceCollectionExtensions
         // too - called directly (not through IDispatcher) by SendMessageCommandHandler above and, in
         // Orbit.Api, by CalendarEventReminderBackgroundService and OverdueTaskNotificationBackgroundService.
         services.AddScoped<PushNotificationDispatcher>();
+
+        services.AddScoped<IRequestHandler<GetNotificationSettingsQuery, NotificationSettings>, GetNotificationSettingsQueryHandler>();
+        services.AddScoped<IRequestHandler<UpdateNotificationSettingsCommand, NotificationSettings>, UpdateNotificationSettingsCommandHandler>();
+        services.AddScoped<IRequestHandler<GetNotificationEntriesQuery, IReadOnlyList<NotificationEntry>>, GetNotificationEntriesQueryHandler>();
+        services.AddScoped<IRequestHandler<GetUnreadNotificationCountQuery, int>, GetUnreadNotificationCountQueryHandler>();
+        services.AddScoped<IRequestHandler<MarkAllNotificationsReadCommand, bool>, MarkAllNotificationsReadCommandHandler>();
+        // Depends on the two repositories above (scoped, backed by the DbContext), so it must be scoped
+        // too - called directly (not through IDispatcher) by SendMessageCommandHandler and, in Orbit.Api,
+        // by each of the four reminder background services, the same way they already call
+        // PushNotificationDispatcher directly.
+        services.AddScoped<NotificationRecorder>();
 
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
         services.AddScoped<PendingRestockTaskResolver>();

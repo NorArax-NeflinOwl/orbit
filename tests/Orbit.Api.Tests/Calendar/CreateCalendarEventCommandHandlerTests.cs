@@ -126,6 +126,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
             new PushNotificationDispatcher(
                 new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(),
                 NullLogger<PushNotificationDispatcher>.Instance),
+            new NotificationRecorder(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository()),
             NullLogger<CreateCalendarEventCommandHandler>.Instance);
 
     /// <summary>Simulates a transient SMTP failure to verify creation stays successful despite it.</summary>

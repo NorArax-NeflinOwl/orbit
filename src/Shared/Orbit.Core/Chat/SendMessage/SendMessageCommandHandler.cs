@@ -11,19 +11,22 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
     private readonly IContactRepository _contactRepository;
     private readonly IChatConversationAccessRepository _chatConversationAccessRepository;
     private readonly PushNotificationDispatcher _pushNotificationDispatcher;
+    private readonly NotificationRecorder _notificationRecorder;
 
     public SendMessageCommandHandler(
         IUserRepository userRepository,
         IChatMessageRepository chatMessageRepository,
         IContactRepository contactRepository,
         IChatConversationAccessRepository chatConversationAccessRepository,
-        PushNotificationDispatcher pushNotificationDispatcher)
+        PushNotificationDispatcher pushNotificationDispatcher,
+        NotificationRecorder notificationRecorder)
     {
         _userRepository = userRepository;
         _chatMessageRepository = chatMessageRepository;
         _contactRepository = contactRepository;
         _chatConversationAccessRepository = chatConversationAccessRepository;
         _pushNotificationDispatcher = pushNotificationDispatcher;
+        _notificationRecorder = notificationRecorder;
     }
 
     /// <summary>
@@ -76,6 +79,13 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
         }
 
         var payload = ChatMessagePushContent.Build(sender.Id, sender.DisplayName);
-        await _pushNotificationDispatcher.NotifyUserAsync(request.RecipientUserId, payload, cancellationToken);
+        var recordResult = await _notificationRecorder.RecordAndFilterAsync(
+            request.RecipientUserId, NotificationChannel.Push, NotificationEntryKind.ChatMessage,
+            payload.Title, payload.Body, payload.Url, cancellationToken);
+
+        if (recordResult.AllowedChannel.HasFlag(NotificationChannel.Push))
+        {
+            await _pushNotificationDispatcher.NotifyUserAsync(request.RecipientUserId, payload, cancellationToken);
+        }
     }
 }
