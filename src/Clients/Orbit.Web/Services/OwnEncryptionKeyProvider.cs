@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using Orbit.Contracts.Users;
@@ -150,9 +151,18 @@ public sealed class OwnEncryptionKeyProvider
     private ValueTask<IJSObjectReference> ImportCryptoModuleAsync()
         => _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
 
+    /// <summary>
+    /// Throws the same "session invalid, go sign in again" signal every caller here already handles
+    /// (HttpRequestException/Unauthorized - see EnsurePublicKeyAsync's callers in MainLayout and
+    /// Chat.razor) rather than a raw NullReferenceException, for the same lapsed-token race the "sub"
+    /// claim can go missing under: the token was cleared (e.g. by a failed refresh) between the caller's
+    /// own "am I authenticated" check and this call actually reading it.
+    /// </summary>
     private async Task<Guid> GetOwnUserIdAsync()
     {
         var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-        return Guid.Parse(authenticationState.User.FindFirst("sub")!.Value);
+        var subjectClaim = authenticationState.User.FindFirst("sub")
+            ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
+        return Guid.Parse(subjectClaim.Value);
     }
 }

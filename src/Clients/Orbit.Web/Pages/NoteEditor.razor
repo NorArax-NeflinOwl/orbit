@@ -168,7 +168,17 @@ else
     protected override async Task OnInitializedAsync()
     {
         var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        _ownUserId = Guid.Parse(authenticationState.User.FindFirst("sub")!.Value);
+        // The "sub" claim can be missing if the stored token lapsed (expired, or cleared by a failed
+        // refresh) between page load and this check - guarded here instead of a raw
+        // Guid.Parse(...!.Value) so a lapsed session redirects to sign-in instead of crashing with a
+        // NullReferenceException, matching the HttpRequestException/Unauthorized handling just below.
+        var subjectClaim = authenticationState.User.FindFirst("sub");
+        if (subjectClaim is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        _ownUserId = Guid.Parse(subjectClaim.Value);
 
         if (Id is { } noteId)
         {

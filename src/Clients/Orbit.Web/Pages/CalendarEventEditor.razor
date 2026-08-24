@@ -85,20 +85,20 @@ else
         <div class="field">
             <label>Start</label>
             <div class="field-row">
-                <InputDate @bind-Value="_formModel.StartDate" />
+                <InputDate @bind-Value="_formModel.StartDate" @bind-Value:after="OnStartChanged" />
                 @if (!_formModel.IsAllDay)
                 {
-                    <input type="time" @bind="_formModel.StartTime" />
+                    <input type="time" @bind="_formModel.StartTime" @bind:after="OnStartChanged" />
                 }
             </div>
         </div>
         <div class="field">
             <label>End</label>
             <div class="field-row">
-                <InputDate @bind-Value="_formModel.EndDate" />
+                <InputDate @bind-Value="_formModel.EndDate" @bind-Value:after="OnEndChanged" />
                 @if (!_formModel.IsAllDay)
                 {
-                    <input type="time" @bind="_formModel.EndTime" />
+                    <input type="time" @bind="_formModel.EndTime" @bind:after="OnEndChanged" />
                 }
             </div>
         </div>
@@ -128,8 +128,39 @@ else
             </div>
         }
         <div class="field">
-            <label>Reminders (minutes before the event, comma-separated)</label>
-            <InputText @bind-Value="_formModel.RemindersText" />
+            <label>Reminders</label>
+            @if (_reminderRows.Count == 0)
+            {
+                <p>No reminders.</p>
+            }
+            else
+            {
+                @foreach (var row in _reminderRows)
+                {
+                    <div class="field-row reminder-row">
+                        <select @bind="row.PresetSelection">
+                            @foreach (var preset in ReminderPresets)
+                            {
+                                <option value="@preset.Minutes">@preset.Label</option>
+                            }
+                            <option value="custom">Custom</option>
+                        </select>
+                        @if (row.IsCustom)
+                        {
+                            <InputNumber @bind-Value="row.CustomAmount" @bind-Value:after="row.RecomputeFromCustom" min="1" />
+                            <select @bind="row.CustomUnit" @bind:after="row.RecomputeFromCustom">
+                                <option value="minutes">minutes</option>
+                                <option value="hours">hours</option>
+                                <option value="days">days</option>
+                                <option value="weeks">weeks</option>
+                            </select>
+                            <span>before</span>
+                        }
+                        <button type="button" class="btn-secondary" @onclick="() => RemoveReminderRow(row)">Remove</button>
+                    </div>
+                }
+            }
+            <button type="button" class="btn-secondary" @onclick="AddReminderRow">Add reminder</button>
         </div>
         <div class="field">
             <label>
@@ -288,13 +319,44 @@ else
     /// </summary>
     private readonly Dictionary<Guid, string> _resolvedGuestUserNames = [];
 
+    /// <summary>Common reminder offsets, mirroring Google Calendar's reminder picker.</summary>
+    private static readonly (int Minutes, string Label)[] ReminderPresets =
+    [
+        (5, "5 minutes before"),
+        (10, "10 minutes before"),
+        (15, "15 minutes before"),
+        (30, "30 minutes before"),
+        (60, "1 hour before"),
+        (120, "2 hours before"),
+        (720, "12 hours before"),
+        (1440, "1 day before"),
+        (2880, "2 days before"),
+        (10080, "1 week before")
+    ];
+
+    private List<ReminderRow> _reminderRows = [];
+
+    /// <summary>
+    /// The gap between start and end the last time both were valid (start on/before end) - reapplied to
+    /// End whenever Start is moved past it, so an event keeps its length instead of collapsing to zero
+    /// duration or being left invalid. Kept up to date by both OnStartChanged and OnEndChanged.
+    /// </summary>
+    private TimeSpan _lastKnownDuration = TimeSpan.FromHours(1);
+
     protected override async Task OnInitializedAsync()
     {
         var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        _ownUserId = Guid.Parse(authenticationState.User.FindFirst("sub")!.Value);
 
         try
         {
+            // The "sub" claim can be missing if the stored token lapsed (expired, or cleared by a
+            // failed refresh) between page load and this check - guarded here instead of a raw
+            // Guid.Parse(...!.Value) so it lands on the same "go sign in again" path below instead of
+            // crashing with a NullReferenceException.
+            var subjectClaim = authenticationState.User.FindFirst("sub")
+                ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
+            _ownUserId = Guid.Parse(subjectClaim.Value);
+
             if (Id is { } eventId)
             {
                 Logger.LogInformation("Calendar event editor opened for event {EventId}", eventId);
@@ -326,6 +388,14 @@ else
                 Logger.LogInformation("Calendar event editor opened for a new event");
             }
 
+            _reminderRows = _formModel.ReminderMinutesBeforeStart.Select(ReminderRow.FromMinutes).ToList();
+            var initialStart = ComputeStartInstant();
+            var initialEnd = ComputeEndInstant();
+            if (initialStart is { } start && initialEnd is { } end && end > start)
+            {
+                _lastKnownDuration = end - start;
+            }
+
             _contacts = await ChatApiClient.GetContactsAsync();
             await ResolveMissingGuestDisplayNamesAsync();
         }
@@ -340,6 +410,54 @@ else
 
         _isLoading = false;
     }
+
+    private DateTime? ComputeStartInstant()
+        => _formModel.StartDate?.ToDateTime(_formModel.IsAllDay ? TimeOnly.MinValue : _formModel.StartTime ?? TimeOnly.MinValue);
+
+    private DateTime? ComputeEndInstant()
+        => _formModel.EndDate?.ToDateTime(_formModel.IsAllDay ? TimeOnly.MinValue : _formModel.EndTime ?? TimeOnly.MinValue);
+
+    /// <summary>
+    /// Auto-corrects the end date/time whenever moving the start pushes it past the current end - keeps
+    /// the previously-known duration (see <see cref="_lastKnownDuration"/>) instead of leaving the event
+    /// end before its start or collapsed to zero length, mirroring how Google Calendar shifts the end
+    /// when you drag the start past it.
+    /// </summary>
+    private void OnStartChanged()
+    {
+        var start = ComputeStartInstant();
+        if (start is null)
+        {
+            return;
+        }
+
+        var end = ComputeEndInstant();
+        if (end is null || start.Value > end.Value)
+        {
+            var corrected = start.Value + _lastKnownDuration;
+            _formModel.EndDate = DateOnly.FromDateTime(corrected);
+            _formModel.EndTime = TimeOnly.FromDateTime(corrected);
+        }
+        else
+        {
+            _lastKnownDuration = end.Value - start.Value;
+        }
+    }
+
+    /// <summary>Keeps <see cref="_lastKnownDuration"/> current when the user edits End directly instead of moving Start.</summary>
+    private void OnEndChanged()
+    {
+        var start = ComputeStartInstant();
+        var end = ComputeEndInstant();
+        if (start is { } startValue && end is { } endValue && endValue >= startValue)
+        {
+            _lastKnownDuration = endValue - startValue;
+        }
+    }
+
+    private void AddReminderRow() => _reminderRows.Add(ReminderRow.FromMinutes(10));
+
+    private void RemoveReminderRow(ReminderRow row) => _reminderRows.Remove(row);
 
     /// <summary>
     /// Adds the currently selected contact as a guest by user id. Silently ignores an already-added
@@ -449,6 +567,7 @@ else
         Logger.LogInformation(
             "User clicked 'Save' ({Mode}, EventId={EventId})", IsNewEvent ? "create" : "update", Id);
 
+        _formModel.ReminderMinutesBeforeStart = _reminderRows.Select(row => row.MinutesBeforeStart).ToList();
         var details = _formModel.ToRequest();
         if (details.EndUtc < details.StartUtc)
         {
@@ -705,7 +824,7 @@ else
         public int RecurrenceIntervalCount { get; set; } = 1;
         public DateOnly? RecurrenceUntil { get; set; }
         public List<Guid> GuestUserIds { get; set; } = [];
-        public string RemindersText { get; set; } = string.Empty;
+        public List<int> ReminderMinutesBeforeStart { get; set; } = [];
         public string CreationNotificationChannel { get; set; } = "None";
         public string ReminderNotificationChannel { get; set; } = "None";
 
@@ -745,7 +864,7 @@ else
                 RecurrenceIntervalCount = details.Recurrence?.IntervalCount ?? 1,
                 RecurrenceUntil = details.Recurrence?.UntilUtc is { } until ? DateOnly.FromDateTime(until.LocalDateTime) : null,
                 GuestUserIds = details.Guests.ToList(),
-                RemindersText = string.Join(", ", details.ReminderMinutesBeforeStart),
+                ReminderMinutesBeforeStart = details.ReminderMinutesBeforeStart.ToList(),
                 CreationNotificationChannel = details.CreationNotificationChannel,
                 ReminderNotificationChannel = details.ReminderNotificationChannel
             };
@@ -771,7 +890,7 @@ else
                 IsAllDay,
                 recurrence,
                 GuestUserIds,
-                ParseCommaSeparatedIntegers(RemindersText),
+                ReminderMinutesBeforeStart,
                 CreationNotificationChannel,
                 ReminderNotificationChannel);
         }
@@ -789,11 +908,67 @@ else
 
         private static DateTimeOffset? ToOptionalDateTimeOffset(DateOnly? date)
             => date is { } value ? new DateTimeOffset(value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local)).ToUniversalTime() : null;
+    }
 
-        private static List<int> ParseCommaSeparatedIntegers(string text)
-            => text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(part => int.TryParse(part, out _))
-                .Select(int.Parse)
-                .ToList();
+    /// <summary>
+    /// One reminder row in the editor UI: either a picked preset (see <see cref="ReminderPresets"/>) or a
+    /// custom amount+unit pair (mirrors Google Calendar's reminder picker) - either way it always
+    /// resolves down to <see cref="MinutesBeforeStart"/>, the only thing the API actually stores.
+    /// </summary>
+    private sealed class ReminderRow
+    {
+        public int MinutesBeforeStart { get; set; }
+        public bool IsCustom { get; set; }
+        public int CustomAmount { get; set; } = 10;
+        public string CustomUnit { get; set; } = "minutes";
+
+        /// <summary>Bound to the row's &lt;select&gt; - "custom" or the preset's minutes value as a string.</summary>
+        public string PresetSelection
+        {
+            get => IsCustom ? "custom" : MinutesBeforeStart.ToString();
+            set
+            {
+                if (value == "custom")
+                {
+                    IsCustom = true;
+                    RecomputeFromCustom();
+                }
+                else if (int.TryParse(value, out var minutes))
+                {
+                    IsCustom = false;
+                    MinutesBeforeStart = minutes;
+                }
+            }
+        }
+
+        public void RecomputeFromCustom()
+        {
+            var unitMinutes = CustomUnit switch
+            {
+                "weeks" => 10080,
+                "days" => 1440,
+                "hours" => 60,
+                _ => 1
+            };
+            MinutesBeforeStart = Math.Max(1, CustomAmount) * unitMinutes;
+        }
+
+        /// <summary>Builds a row for minutes, matching it to a preset when one exists exactly, custom otherwise.</summary>
+        public static ReminderRow FromMinutes(int minutes)
+        {
+            if (ReminderPresets.Any(preset => preset.Minutes == minutes))
+            {
+                return new ReminderRow { MinutesBeforeStart = minutes, IsCustom = false };
+            }
+
+            var (amount, unit) = minutes switch
+            {
+                > 0 and _ when minutes % 10080 == 0 => (minutes / 10080, "weeks"),
+                > 0 and _ when minutes % 1440 == 0 => (minutes / 1440, "days"),
+                > 0 and _ when minutes % 60 == 0 => (minutes / 60, "hours"),
+                _ => (minutes, "minutes")
+            };
+            return new ReminderRow { MinutesBeforeStart = minutes, IsCustom = true, CustomAmount = amount, CustomUnit = unit };
+        }
     }
 }
