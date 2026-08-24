@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Orbit.Web.Services;
@@ -11,7 +12,8 @@ public sealed class OrbitAuthenticationStateProviderTests
     [Fact]
     public async Task GetAuthenticationStateAsync_returns_an_anonymous_principal_when_no_token_is_stored()
     {
-        var provider = new OrbitAuthenticationStateProvider(new TokenStore(new StubJSRuntime()));
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        var provider = new OrbitAuthenticationStateProvider(tokenStore, CreateTokenRefreshService(tokenStore));
 
         var state = await provider.GetAuthenticationStateAsync();
 
@@ -28,7 +30,7 @@ public sealed class OrbitAuthenticationStateProviderTests
             ["email"] = "user@example.com",
             ["name"] = "Test User"
         }));
-        var provider = new OrbitAuthenticationStateProvider(tokenStore);
+        var provider = new OrbitAuthenticationStateProvider(tokenStore, CreateTokenRefreshService(tokenStore));
 
         var state = await provider.GetAuthenticationStateAsync();
 
@@ -48,11 +50,21 @@ public sealed class OrbitAuthenticationStateProviderTests
             // Any point well in the past - the exact value doesn't matter, only that it's expired.
             ["exp"] = "1000000000"
         }));
-        var provider = new OrbitAuthenticationStateProvider(tokenStore);
+        var provider = new OrbitAuthenticationStateProvider(tokenStore, CreateTokenRefreshService(tokenStore));
 
         var state = await provider.GetAuthenticationStateAsync();
 
         Assert.False(state.User.Identity?.IsAuthenticated);
+    }
+
+    private static TokenRefreshService CreateTokenRefreshService(TokenStore tokenStore)
+    {
+        var refreshHttpClient = new HttpClient(
+            new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        return new TokenRefreshService(tokenStore, refreshHttpClient);
     }
 
     /// <summary>

@@ -10,7 +10,7 @@
 @inject NotesApiClient NotesApiClient
 @inject ChatApiClient ChatApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<NoteEditor> Logger
 
@@ -167,18 +167,13 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        // The "sub" claim can be missing if the stored token lapsed (expired, or cleared by a failed
-        // refresh) between page load and this check - guarded here instead of a raw
-        // Guid.Parse(...!.Value) so a lapsed session redirects to sign-in instead of crashing with a
-        // NullReferenceException, matching the HttpRequestException/Unauthorized handling just below.
-        var subjectClaim = authenticationState.User.FindFirst("sub");
-        if (subjectClaim is null)
+        var currentUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync();
+        if (currentUserId is null)
         {
             NavigationManager.NavigateTo("/login");
             return;
         }
-        _ownUserId = Guid.Parse(subjectClaim.Value);
+        _ownUserId = currentUserId.Value;
 
         if (Id is { } noteId)
         {
