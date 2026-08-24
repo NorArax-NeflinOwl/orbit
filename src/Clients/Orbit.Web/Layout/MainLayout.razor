@@ -208,8 +208,8 @@
     /// </summary>
     private static readonly TimeSpan NotificationPollInterval = TimeSpan.FromSeconds(10);
 
-    private static readonly TimeSpan BannerMinimumGap = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan BannerVisibleDuration = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan BannerMinimumGap = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan BannerVisibleDuration = TimeSpan.FromSeconds(5);
 
     /// <summary>Mirrors PersistentLoggerProvider's shape as mirrored into localStorage by clientLogging.js's appendLog - see window.OrbitClientLogging.getEntries.</summary>
     private sealed record ClientLogEntry(
@@ -639,10 +639,22 @@
             .ToList();
     }
 
+    /// <summary>
+    /// A denied clipboard permission (some mobile browsers, restricted webviews) throws a JSException -
+    /// this is the whole point of this button (giving a person without devtools access a way to get error
+    /// details out), so a denial must degrade to nothing happening rather than crashing the component.
+    /// </summary>
     private async Task CopyExceptionAsync(ClientLogEntry entry)
     {
         var text = $"[{entry.TimestampUtc:O}] {entry.Level} {entry.Category}: {entry.Message}" + (entry.Exception is null ? "" : $"\n{entry.Exception}");
-        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Failed to copy exception details to the clipboard");
+        }
     }
 
     private static string FormatUnreadCount(int count) => count > 9 ? "9+" : count.ToString(CultureInfo.InvariantCulture);
