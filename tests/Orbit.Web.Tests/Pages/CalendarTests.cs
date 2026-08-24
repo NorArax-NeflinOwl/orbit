@@ -64,17 +64,18 @@ public sealed class CalendarTests : TestContext
     }
 
     [Fact]
-    public void Hiding_the_event_list_removes_the_panel_and_relabels_the_toggle_button()
+    public void The_event_list_starts_hidden_and_the_toggle_button_reveals_it()
     {
         RegisterCalendarApiClient([]);
         var cut = RenderComponent<Calendar>();
-        Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
-
-        FindButtonByTitle(cut, "Hide event list").Click();
-
         Assert.Empty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.Contains(cut.FindAll("button"), button => button.GetAttribute("title") == "Show event list");
-        // The visualization panel keeps rendering full-width once the list is hidden.
+        Assert.Equal("false", FindButtonByTitle(cut, "Show event list").GetAttribute("aria-pressed"));
+
+        FindButtonByTitle(cut, "Show event list").Click();
+
+        Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
+        Assert.Contains(cut.FindAll("button"), button => button.GetAttribute("title") == "Hide event list");
+        // The visualization panel keeps rendering alongside the revealed list.
         Assert.NotEmpty(cut.FindAll(".calendar-visualization-panel"));
     }
 
