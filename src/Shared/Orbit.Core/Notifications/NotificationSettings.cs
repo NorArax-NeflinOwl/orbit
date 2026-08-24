@@ -48,18 +48,18 @@ public sealed class NotificationSettings
         => new(userId, allowNotifications, allowPush, allowEmail, allowMobileBanner, showExceptionDetails);
 
     /// <summary>
-    /// The three delivery/display switches are stored as the caller set them, but Update forces them off
-    /// whenever the master switch is off - matches the Blazor client's own greyed-out-when-master-off
-    /// checkbox group, and means every other reader of this type (the background services filtering a
-    /// per-item NotificationChannel, the banner) only has to check its own flag, never AllowNotifications
-    /// as well.
+    /// The three delivery/display switches are stored exactly as the caller set them, independent of the
+    /// master switch - turning AllowNotifications off must not erase what the user had previously chosen
+    /// for push/email/banner, or re-enabling it would silently lose those preferences. Readers that need
+    /// the *effective* value (FilterChannel, NotificationChannelOption.IsDisabledBy) check AllowNotifications
+    /// themselves rather than relying on it having been baked into these three flags at save time.
     /// </summary>
     public void Update(bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails)
     {
         AllowNotifications = allowNotifications;
-        AllowPush = allowNotifications && allowPush;
-        AllowEmail = allowNotifications && allowEmail;
-        AllowMobileBanner = allowNotifications && allowMobileBanner;
+        AllowPush = allowPush;
+        AllowEmail = allowEmail;
+        AllowMobileBanner = allowMobileBanner;
         ShowExceptionDetails = showExceptionDetails;
     }
 
@@ -70,6 +70,11 @@ public sealed class NotificationSettings
     /// </summary>
     public NotificationChannel FilterChannel(NotificationChannel requested)
     {
+        if (!AllowNotifications)
+        {
+            return NotificationChannel.None;
+        }
+
         var allowed = NotificationChannel.None;
         if (AllowPush && requested.HasFlag(NotificationChannel.Push))
         {

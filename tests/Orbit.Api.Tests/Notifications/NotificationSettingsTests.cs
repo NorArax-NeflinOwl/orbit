@@ -18,17 +18,18 @@ public sealed class NotificationSettingsTests
     }
 
     [Fact]
-    public void Update_forces_the_three_child_switches_off_when_the_master_switch_is_off()
+    public void Update_preserves_the_three_child_switches_when_the_master_switch_is_off()
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
 
         settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true);
 
         Assert.False(settings.AllowNotifications);
-        Assert.False(settings.AllowPush);
-        Assert.False(settings.AllowEmail);
-        Assert.False(settings.AllowMobileBanner);
-        // Independent of the master switch - a separate concern (debug visibility, not notifications).
+        // Turning the master off must not erase what the user had chosen for each channel - otherwise
+        // re-enabling it would silently lose those preferences instead of restoring them.
+        Assert.True(settings.AllowPush);
+        Assert.True(settings.AllowEmail);
+        Assert.True(settings.AllowMobileBanner);
         Assert.True(settings.ShowExceptionDetails);
     }
 
@@ -65,5 +66,16 @@ public sealed class NotificationSettingsTests
         var filtered = settings.FilterChannel(NotificationChannel.Push);
 
         Assert.Equal(NotificationChannel.Push, filtered);
+    }
+
+    [Fact]
+    public void FilterChannel_strips_everything_when_the_master_switch_is_off_even_if_child_switches_are_on()
+    {
+        var settings = NotificationSettings.Default(Guid.NewGuid());
+        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true);
+
+        var filtered = settings.FilterChannel(NotificationChannel.Both);
+
+        Assert.Equal(NotificationChannel.None, filtered);
     }
 }
