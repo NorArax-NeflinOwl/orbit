@@ -68,6 +68,23 @@ else
                         }
                     </select>
                 </label>
+                @if (item.Id is { } persistedItemId && _linkableTaskLists.Count > 0)
+                {
+                    <label>
+                        Move to list
+                        <select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
+                            <option value="">Move to…</option>
+                            @foreach (var targetTaskList in _linkableTaskLists)
+                            {
+                                <option value="@targetTaskList.Id">@targetTaskList.Title</option>
+                            }
+                        </select>
+                    </label>
+                    @if (_moveErrorMessage is not null && _moveErrorMessageForItemId == persistedItemId)
+                    {
+                        <p class="error">@_moveErrorMessage</p>
+                    }
+                }
                 @if (string.IsNullOrEmpty(item.LinkedTaskListId))
                 {
                     <label>
@@ -178,6 +195,9 @@ else
     private bool _isLoading = true;
     private bool _isSaving;
     private bool _isSharing;
+    private bool _isMovingItem;
+    private string? _moveErrorMessage;
+    private Guid? _moveErrorMessageForItemId;
     private TaskListFormModel _formModel = new();
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
     private bool _isShared;
@@ -241,6 +261,7 @@ else
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
+                                Id = item.Id,
                                 Description = item.Description,
                                 DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
@@ -298,6 +319,52 @@ else
     private void RemoveItem(TaskItemFormModel item)
     {
         _formModel.Items.Remove(item);
+    }
+
+    /// <summary>
+    /// Moves a persisted item out of this list and into targetTaskListId immediately, rather than
+    /// waiting for this form's own Save - see MoveTaskItemCommandHandler, which needs both lists' real
+    /// ids, not the whole-list snapshot SaveAsync submits. On success the item disappears from this
+    /// editor immediately, matching that it now belongs to the other list.
+    /// </summary>
+    private async Task MoveItemAsync(TaskItemFormModel item, Guid itemId, object? targetTaskListIdValue)
+    {
+        if (Id is not { } sourceTaskListId || targetTaskListIdValue is not string { Length: > 0 } targetTaskListIdText
+            || !Guid.TryParse(targetTaskListIdText, out var targetTaskListId))
+        {
+            return;
+        }
+
+        _isMovingItem = true;
+        _moveErrorMessage = null;
+        try
+        {
+            var outcome = await TasksApiClient.MoveTaskItemAsync(sourceTaskListId, itemId, targetTaskListId);
+            if (outcome.Kind != EditOutcomeKind.Success)
+            {
+                _moveErrorMessage = outcome.Kind == EditOutcomeKind.Locked
+                    ? $"Can't move this item right now - {outcome.LockedByUserName} is editing one of the lists."
+                    : "Failed to move this item. Try again.";
+                _moveErrorMessageForItemId = itemId;
+                return;
+            }
+
+            _formModel.Items.Remove(item);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to move task item {ItemId} to task list {TargetTaskListId}", itemId, targetTaskListId);
+            _moveErrorMessage = "Failed to move this item. Try again.";
+            _moveErrorMessageForItemId = itemId;
+        }
+        finally
+        {
+            _isMovingItem = false;
+        }
     }
 
     private async Task SaveAsync()
@@ -526,6 +593,8 @@ else
 
     private sealed class TaskItemFormModel
     {
+        /// <summary>Null for an item added in this editing session that hasn't been saved yet - "Move to another list" only applies once an item actually has a persisted id to move.</summary>
+        public Guid? Id { get; set; }
         public string Description { get; set; } = string.Empty;
         public DateOnly? DueDate { get; set; }
         public TimeOnly? DueTime { get; set; }

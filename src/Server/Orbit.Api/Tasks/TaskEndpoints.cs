@@ -12,6 +12,7 @@ using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
@@ -58,6 +59,17 @@ public static class TaskEndpoints
         {
             var deleted = await dispatcher.SendAsync(new DeleteTaskListCommand(GetUserId(user), id), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Moves one item out of this list and into another of the caller's own lists - see
+        // MoveTaskItemCommandHandler for why this needs its own endpoint rather than folding into the
+        // whole-list PUT above (it touches two different TaskList aggregates at once).
+        tasks.MapPost("/{id:guid}/items/{itemId:guid}/move", async (
+            Guid id, Guid itemId, MoveTaskItemRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new MoveTaskItemCommand(GetUserId(user), id, itemId, request.TargetTaskListId), cancellationToken);
+            return ToApiResult(outcome);
         });
 
         // Mirrors NoteEndpoints' equivalent lock endpoints - see AcquireTaskListLockCommand's comment.

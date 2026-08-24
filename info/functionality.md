@@ -228,6 +228,20 @@ the id doesn't exist or isn't owned by the caller. Deleting a list that another 
 failing, so this is safe, just something to be aware of if a list you expect to still be linkable is
 gone. The Blazor client's task list page asks for confirmation before calling this endpoint.
 
+### Moving an item to another task list
+
+`POST /api/tasks/{sourceListId}/items/{itemId}/move` (`{ targetTaskListId }`) moves a single item out of
+one task list and into another of the caller's own lists — a separate operation from `linkedTaskListId`
+above, which mirrors another list's completion state without the item ever changing which list it
+belongs to. Both lists must resolve to `CanEdit` access for the caller and share the same owner; the
+item, its due date, notification settings, etc. are otherwise unchanged, just relocated.
+`MoveTaskItemCommandHandler` persists both lists in a single `ITaskRepository.UpdateManyAsync` call so a
+mid-operation failure can't duplicate or drop the item across the two lists. In the Blazor client, the
+task editor's "Move to list" dropdown (next to the existing "Link to list" one, on each already-saved
+item) triggers the move immediately rather than waiting for the form's own Save, since it reaches beyond
+the one task list this editor page otherwise touches; a freshly added, not-yet-saved item has no dropdown
+since there's nothing persisted yet to move.
+
 ## Inventory
 
 `POST /api/inventory` and `PUT /api/inventory/{id}` both take `{ name, productType, category, quantity,
