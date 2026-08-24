@@ -512,7 +512,7 @@ else
     /// </summary>
     private static DateTimeOffset? ToDueDateUtc(TaskItemFormModel item)
         => item.DueDate is { } dueDate
-            ? new DateTimeOffset(dueDate.ToDateTime(item.DueTime ?? TimeOnly.MinValue, DateTimeKind.Local))
+            ? new DateTimeOffset(dueDate.ToDateTime(item.DueTime ?? TimeOnly.MinValue, DateTimeKind.Local)).ToUniversalTime()
             : null;
 
     private static Guid? ToLinkedTaskListId(TaskItemFormModel item)

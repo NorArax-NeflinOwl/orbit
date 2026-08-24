@@ -784,11 +784,11 @@ else
         {
             var effectiveDate = date ?? DateOnly.FromDateTime(DateTime.Today);
             var effectiveTime = isAllDay ? TimeOnly.MinValue : time ?? TimeOnly.MinValue;
-            return new DateTimeOffset(effectiveDate.ToDateTime(effectiveTime, DateTimeKind.Local));
+            return new DateTimeOffset(effectiveDate.ToDateTime(effectiveTime, DateTimeKind.Local)).ToUniversalTime();
         }
 
         private static DateTimeOffset? ToOptionalDateTimeOffset(DateOnly? date)
-            => date is { } value ? new DateTimeOffset(value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local)) : null;
+            => date is { } value ? new DateTimeOffset(value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local)).ToUniversalTime() : null;
 
         private static List<int> ParseCommaSeparatedIntegers(string text)
             => text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
