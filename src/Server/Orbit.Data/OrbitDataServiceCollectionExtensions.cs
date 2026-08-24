@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Chat;
+using Orbit.Core.Inventory;
+using Orbit.Core.Inventory.ExpiryReminders;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
@@ -44,6 +46,9 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
         services.AddScoped<IOverdueTaskNotificationRepository, OverdueTaskNotificationRepository>();
         services.AddScoped<IDailyTaskReminderRepository, DailyTaskReminderRepository>();
+        services.AddScoped<IInventoryRepository, InventoryRepository>();
+        services.AddScoped<IInventoryManagedTaskListRepository, InventoryManagedTaskListRepository>();
+        services.AddScoped<IInventoryExpiryNotificationRepository, InventoryExpiryNotificationRepository>();
 
         return services;
     }

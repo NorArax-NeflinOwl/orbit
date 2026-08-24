@@ -9,6 +9,7 @@ using Orbit.Api.Auth;
 using Orbit.Api.Calendar;
 using Orbit.Api.Chat;
 using Orbit.Api.HealthChecks;
+using Orbit.Api.Inventory;
 using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;
@@ -99,6 +100,7 @@ try
     builder.Services.AddSingleton<IPushNotificationSender, VapidPushNotificationSender>();
     builder.Services.AddHostedService<OverdueTaskNotificationBackgroundService>();
     builder.Services.AddHostedService<DailyTaskReminderBackgroundService>();
+    builder.Services.AddHostedService<InventoryExpiryReminderBackgroundService>();
 
     builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
     builder.Services.AddSingleton<TokenService>();
@@ -207,6 +209,7 @@ try
     app.MapNoteEndpoints();
     app.MapTaskEndpoints();
     app.MapCalendarEndpoints();
+    app.MapInventoryEndpoints();
     app.MapPushNotificationEndpoints();
     app.MapHealthEndpoints();
 

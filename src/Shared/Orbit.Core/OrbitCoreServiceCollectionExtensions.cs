@@ -22,6 +22,13 @@ using Orbit.Core.Chat.GetConversationAccess;
 using Orbit.Core.Chat.GetReadReceipt;
 using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
+using Orbit.Core.Inventory;
+using Orbit.Core.Inventory.CreateInventoryItem;
+using Orbit.Core.Inventory.DeleteInventoryItem;
+using Orbit.Core.Inventory.ExpiryReminders;
+using Orbit.Core.Inventory.GetInventoryItemById;
+using Orbit.Core.Inventory.GetInventoryItems;
+using Orbit.Core.Inventory.UpdateInventoryItem;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.AcceptNoteShare;
 using Orbit.Core.Notes.AcquireNoteLock;
@@ -151,6 +158,19 @@ public static class OrbitCoreServiceCollectionExtensions
         // too - called directly (not through IDispatcher) by SendMessageCommandHandler above and, in
         // Orbit.Api, by CalendarEventReminderBackgroundService and OverdueTaskNotificationBackgroundService.
         services.AddScoped<PushNotificationDispatcher>();
+
+        // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
+        services.AddScoped<PendingRestockTaskResolver>();
+        services.AddScoped<InventoryTaskListCoordinator>();
+        services.AddScoped<IRequestHandler<CreateInventoryItemCommand, Guid>, CreateInventoryItemCommandHandler>();
+        services.AddScoped<IRequestHandler<UpdateInventoryItemCommand, EditOutcome>, UpdateInventoryItemCommandHandler>();
+        services.AddScoped<IRequestHandler<DeleteInventoryItemCommand, bool>, DeleteInventoryItemCommandHandler>();
+        services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>>, GetInventoryItemsQueryHandler>();
+        services.AddScoped<IRequestHandler<GetInventoryItemByIdQuery, InventoryItem?>, GetInventoryItemByIdQueryHandler>();
+        // Depends on IInventoryExpiryNotificationRepository (scoped, backed by the DbContext), so it
+        // must be scoped too - used by Orbit.Api's InventoryExpiryReminderBackgroundService, not
+        // through IDispatcher, for the same reason as OverdueTaskNotificationScheduler above.
+        services.AddScoped<InventoryExpiryReminderScheduler>();
 
         services.AddScoped<Dispatcher>();
         services.AddScoped<IDispatcher>(provider => new LoggingDispatcher(

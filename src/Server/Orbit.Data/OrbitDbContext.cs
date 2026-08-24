@@ -24,6 +24,9 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<PushSubscriptionEntity> PushSubscriptions => Set<PushSubscriptionEntity>();
     public DbSet<TaskOverdueNotificationDeliveryEntity> TaskOverdueNotificationDeliveries => Set<TaskOverdueNotificationDeliveryEntity>();
     public DbSet<TaskDailyReminderDeliveryEntity> TaskDailyReminderDeliveries => Set<TaskDailyReminderDeliveryEntity>();
+    public DbSet<InventoryItemEntity> InventoryItems => Set<InventoryItemEntity>();
+    public DbSet<InventoryManagedTaskListEntity> InventoryManagedTaskLists => Set<InventoryManagedTaskListEntity>();
+    public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -214,6 +217,34 @@ public sealed class OrbitDbContext : DbContext
             // check-then-act read that alone can't guarantee it (see TaskOverdueNotificationDeliveryEntity
             // above for the same reasoning applied to overdue-task notifications).
             entity.HasIndex(delivery => new { delivery.TaskItemId, delivery.ReminderDate }).IsUnique();
+        });
+
+        modelBuilder.Entity<InventoryItemEntity>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Name).IsRequired().HasMaxLength(200);
+            entity.Property(item => item.ProductType).HasMaxLength(100);
+            entity.Property(item => item.Category).HasMaxLength(100);
+            entity.Property(item => item.ExpiryNotificationChannel).HasMaxLength(20);
+            // Every inventory query is scoped to a single user's items; this is the index that makes
+            // those lookups fast instead of scanning the whole table.
+            entity.HasIndex(item => item.UserId);
+        });
+
+        modelBuilder.Entity<InventoryManagedTaskListEntity>(entity =>
+        {
+            entity.HasKey(row => row.Id);
+            // At most one managed task list per user - IInventoryManagedTaskListRepository relies on
+            // this to decide insert-vs-update.
+            entity.HasIndex(row => row.UserId).IsUnique();
+        });
+
+        modelBuilder.Entity<InventoryExpiryNotificationDeliveryEntity>(entity =>
+        {
+            entity.HasKey(delivery => delivery.Id);
+            // A given (inventory item, expiry date) pair is only ever warned about once; this unique
+            // index is what actually enforces that - see the entity's class comment.
+            entity.HasIndex(delivery => new { delivery.InventoryItemId, delivery.ExpiryDate }).IsUnique();
         });
     }
 }
