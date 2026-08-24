@@ -4,14 +4,14 @@ using Orbit.Core.Tasks;
 namespace Orbit.Core.Inventory;
 
 /// <summary>
-/// Creates and maintains the single, system-managed TaskList ("Uzupełnij zapasy") that Inventory uses
+/// Creates and maintains the single, system-managed TaskList ("Restock supplies") that Inventory uses
 /// for both the standing "keep your stock updated" reminder and every per-product restock task - see
 /// IInventoryManagedTaskListRepository for why this is tracked outside the Tasks schema entirely.
 /// </summary>
 public sealed class InventoryTaskListCoordinator
 {
     /// <summary>Title of the system-managed task list this coordinator creates/reuses per user.</summary>
-    public const string ManagedTaskListTitle = "Uzupełnij zapasy";
+    public const string ManagedTaskListTitle = "Restock supplies";
 
     /// <summary>
     /// Description of the standing, never-recreated reminder task - RemindDaily nags about it every day
@@ -19,7 +19,7 @@ public sealed class InventoryTaskListCoordinator
     /// reminder to keep stock updated" the feature asked for; Tasks has no recurrence engine to build a
     /// self-recreating task on top of, and RemindDaily already covers the same intent without one.
     /// </summary>
-    public const string UpdateStockReminderDescription = "Zaktualizuj stan magazynu";
+    public const string UpdateStockReminderDescription = "Update stock levels";
 
     private readonly ITaskRepository _taskRepository;
     private readonly IInventoryManagedTaskListRepository _managedTaskListRepository;
@@ -80,7 +80,7 @@ public sealed class InventoryTaskListCoordinator
         var taskList = await _taskRepository.GetByIdAsync(item.UserId, taskListId, cancellationToken)
             ?? throw new InvalidOperationException($"Managed task list {taskListId} for user {item.UserId} disappeared between ensuring it and using it.");
 
-        var restockItem = TaskItem.Create($"Uzupełnij: {item.Name}", dueDateUtc: null, isCompleted: false);
+        var restockItem = TaskItem.Create($"Restock: {item.Name}", dueDateUtc: null, isCompleted: false);
         taskList.Update(taskList.Title, [.. taskList.Items, restockItem]);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 

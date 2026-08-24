@@ -81,7 +81,7 @@ public sealed class UpdateInventoryItemCommandHandlerTests
         var stored = await inventoryRepository.GetByIdAsync(userId, item.Id, CancellationToken.None);
         Assert.Equal(firstPendingTaskItemId, stored!.PendingRestockTaskItemId);
         var taskList = await taskRepository.GetByIdAsync(userId, stored.PendingRestockTaskListId!.Value, CancellationToken.None);
-        Assert.Single(taskList!.Items, taskItem => taskItem.Description == "Uzupełnij: Milk" || taskItem.Description == "Uzupełnij: Whole milk");
+        Assert.Single(taskList!.Items, taskItem => taskItem.Description == "Restock: Milk" || taskItem.Description == "Restock: Whole milk");
     }
 
     [Fact]

@@ -33,8 +33,8 @@ public sealed class GetInventoryItemsQueryHandlerTests
         var handler = new GetInventoryItemsQueryHandler(inventoryRepository, new PendingRestockTaskResolver(taskRepository));
         var userId = Guid.NewGuid();
 
-        var restockItem = TaskItem.Create("Uzupełnij: Milk", dueDateUtc: null, isCompleted: true);
-        var taskList = TaskList.Create(userId, "Uzupełnij zapasy", [restockItem]);
+        var restockItem = TaskItem.Create("Restock: Milk", dueDateUtc: null, isCompleted: true);
+        var taskList = TaskList.Create(userId, "Restock supplies", [restockItem]);
         await taskRepository.AddAsync(taskList, CancellationToken.None);
 
         var item = InventoryItem.Create(userId, "Milk", "Dairy", "Fridge", 0m, 1m, null, NotificationChannel.Push);

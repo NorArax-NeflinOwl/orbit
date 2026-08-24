@@ -256,8 +256,8 @@ lock on inventory items, since neither was requested and both would be pure scop
 already large feature.
 
 **Low stock creates a real Task, not a separate notification.** Whenever a saved item's `quantity` is at
-or below its `minimumQuantity`, `InventoryTaskListCoordinator` appends a `TaskItem` ("Uzupełnij:
-{name}") to a single, system-managed `TaskList` titled "Uzupełnij zapasy" — the exact same `TaskList`/
+or below its `minimumQuantity`, `InventoryTaskListCoordinator` appends a `TaskItem` ("Restock:
+{name}") to a single, system-managed `TaskList` titled "Restock supplies" — the exact same `TaskList`/
 `TaskItem` domain objects Tasks itself uses, so the item shows up on `/tasks` with the same
 edit/complete/notification UI as anything the user created by hand. This check runs inline inside the
 Create/Update handlers right after saving (`CreateInventoryItemCommandHandler`/
@@ -267,7 +267,7 @@ or calendar reminders have.
 
 The managed task list is created lazily, once per user, the first time they add *any* inventory item —
 independent of whether that first item happens to be low — and comes pre-seeded with one standing item,
-"Zaktualizuj stan magazynu", with `RemindDaily` turned on. This is the "recurring reminder to keep stock
+"Update stock levels", with `RemindDaily` turned on. This is the "recurring reminder to keep stock
 updated" the feature calls for: Tasks has no engine for a task that recreates itself after being
 completed, but `RemindDaily` already nags daily until checked off, and unchecking it re-arms the daily
 nag — treated here as close enough to "recurring" without building a second recurrence engine on top of

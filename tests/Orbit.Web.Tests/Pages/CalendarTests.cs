@@ -97,21 +97,21 @@ public sealed class CalendarTests : TestContext
     public void Todays_timed_event_shows_up_as_a_chip_with_its_start_time_in_the_month_view()
     {
         var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
-        var calendarEvent = CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Spotkanie zespołu");
+        var calendarEvent = CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Team meeting");
         RegisterCalendarApiClient([calendarEvent]);
 
         var cut = RenderComponent<Calendar>();
 
         var chipText = cut.Find(".calendar-event-chip").TextContent;
         Assert.Contains("14:30", chipText);
-        Assert.Contains("Spotkanie zespołu", chipText);
+        Assert.Contains("Team meeting", chipText);
     }
 
     [Fact]
     public void Todays_task_with_a_due_date_shows_up_as_a_task_chip_in_the_month_view()
     {
         var todayMorning = DateTime.SpecifyKind(DateTime.Today.AddHours(9), DateTimeKind.Local);
-        var taskList = CreateTaskListWithDueItem(todayMorning, "Wyślij raport");
+        var taskList = CreateTaskListWithDueItem(todayMorning, "Send the report");
         RegisterCalendarApiClient([]);
         RegisterTasksApiClient([taskList]);
 
@@ -119,14 +119,14 @@ public sealed class CalendarTests : TestContext
 
         var chipText = cut.Find(".calendar-task-chip").TextContent;
         Assert.Contains("09:00", chipText);
-        Assert.Contains("Wyślij raport", chipText);
+        Assert.Contains("Send the report", chipText);
     }
 
     [Fact]
     public void Todays_task_with_a_due_date_shows_up_on_the_day_grids_timeline_at_its_exact_due_time()
     {
         var todayMorning = DateTime.SpecifyKind(DateTime.Today.AddHours(9).AddMinutes(45), DateTimeKind.Local);
-        var taskList = CreateTaskListWithDueItem(todayMorning, "Wyślij raport");
+        var taskList = CreateTaskListWithDueItem(todayMorning, "Send the report");
         RegisterCalendarApiClient([]);
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<Calendar>();
@@ -135,7 +135,7 @@ public sealed class CalendarTests : TestContext
 
         var block = cut.Find(".calendar-task-block");
         Assert.Contains("09:45", block.TextContent);
-        Assert.Contains("Wyślij raport", block.TextContent);
+        Assert.Contains("Send the report", block.TextContent);
         // 9h45m since midnight is 585 of the day's 1440 minutes - see CalendarDayGrid's DueTaskPositionStyle.
         Assert.Contains("top:40.625", block.GetAttribute("style"));
     }
@@ -144,7 +144,7 @@ public sealed class CalendarTests : TestContext
     public void Year_view_shows_task_dots_by_default_and_hides_them_once_the_checkbox_is_unchecked()
     {
         var todayMorning = DateTime.SpecifyKind(DateTime.Today.AddHours(9), DateTimeKind.Local);
-        var taskList = CreateTaskListWithDueItem(todayMorning, "Wyślij raport");
+        var taskList = CreateTaskListWithDueItem(todayMorning, "Send the report");
         RegisterCalendarApiClient([]);
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<Calendar>();
@@ -180,7 +180,7 @@ public sealed class CalendarTests : TestContext
             LinkedTaskListId: null, OverdueNotificationChannel: "None", RemindDaily: false, DailyReminderNotificationChannel: "None",
             DailyReminderTimeOfDay: default);
         return new TaskDto(
-            Guid.NewGuid(), "Lista zadań", [item], IsCompleted: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            Guid.NewGuid(), "Task list", [item], IsCompleted: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
     }
 
