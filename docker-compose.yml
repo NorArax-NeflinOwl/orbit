@@ -23,18 +23,24 @@ services:
     ports:
       - "5432:5432" # published so `dotnet run`/`dotnet watch` outside Docker can reach it too
     environment:
-      POSTGRES_DB: orbit
-      POSTGRES_USER: orbit
-      # Local-only default; nothing else on the host network can reach this container's port except
-      # localhost, so this isn't a real secret the way the production connection string is.
-      POSTGRES_PASSWORD: orbit
+      POSTGRES_DB: "${POSTGRES_DB:-orbit}"
+      POSTGRES_USER: "${POSTGRES_USER:-orbit}"
+      # Secret - read from the .env file at the repo root (see .env.example), never hardcoded here,
+      # same as Jwt__SigningKey below. Port 5432 is published (see the port mapping above) so a stray
+      # process on the same network segment could reach it, not just localhost - a fixed, tracked
+      # password would be a real credential leak, not a harmless local-only default.
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in a .env file - see .env.example}"
     volumes:
       # Postgres 18+'s official image expects a single mount at /var/lib/postgresql (not the
       # .../data subdirectory older major versions used) and manages its own versioned subdirectory
       # underneath it - mounting at .../data directly makes the entrypoint refuse to start.
       - orbit-postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U orbit -d orbit"]
+      # $POSTGRES_USER/$POSTGRES_DB here are read from the container's own environment (set by the
+      # official postgres image's entrypoint from the values above), not substituted by Compose -
+      # single quotes are deliberate so Compose leaves them alone and the shell inside the container
+      # expands them instead. Keeps this in sync if POSTGRES_USER/POSTGRES_DB are ever overridden.
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -57,7 +63,7 @@ services:
       # origin (e.g. the `dotnet run`/`dotnet watch` dev server). Set WEB_CLIENT_LAN_ORIGIN in .env for
       # that case if needed.
       WebClientOrigins: "http://localhost:8080,${WEB_CLIENT_LAN_ORIGIN:-}"
-      ConnectionStrings__Orbit: "Host=postgres;Port=5432;Database=orbit;Username=orbit;Password=orbit"
+      ConnectionStrings__Orbit: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-orbit};Username=${POSTGRES_USER:-orbit};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in a .env file - see .env.example}"
       # Secret - read from the .env file at the repo root (see .env.example), never hardcoded here.
       Jwt__SigningKey: "${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in a .env file - see .env.example}"
       # Optional - calendar event reminder emails (see README.md's "Calendar event reminders"

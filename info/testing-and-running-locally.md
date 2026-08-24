@@ -131,12 +131,19 @@ whatever `docker compose config --volumes` prints) to remove just that one.
 Each project can be run directly with `dotnet run` from its own folder (`src/Server/Orbit.Api`,
 `src/Clients/Orbit.Web`) using the `https` launch profile; see `Properties/launchSettings.json` in each
 project for the exact ports. Orbit.Api still needs a real Postgres to talk to even when run this way -
-either start just that one container (`docker compose up -d postgres`, published on `localhost:5432`
-per `appsettings.json`'s default connection string) or point `ConnectionStrings:Orbit` at any other
-reachable PostgreSQL instance via `dotnet user-secrets`. Set the JWT signing key via `dotnet user-secrets`
-too (see [Functionality — Authentication](functionality.md#authentication)); optionally configure SMTP
-and/or a VAPID key pair the same way if you want to actually see reminder emails and push notifications
-locally — see the two sections right below.
+either start just that one container (`docker compose up -d postgres`, published on `localhost:5432`)
+or point `ConnectionStrings:Orbit` at any other reachable PostgreSQL instance. Either way, set it via
+`dotnet user-secrets` - there's no working default in `appsettings.json` on purpose, since a real
+password can't live in a tracked file:
+
+```
+dotnet user-secrets set "ConnectionStrings:Orbit" "Host=localhost;Port=5432;Database=orbit;Username=orbit;Password=<your .env's POSTGRES_PASSWORD>" --project src/Server/Orbit.Api
+```
+
+Set the JWT signing key via `dotnet user-secrets` too (see
+[Functionality — Authentication](functionality.md#authentication)); optionally configure SMTP and/or a
+VAPID key pair the same way if you want to actually see reminder emails and push notifications locally
+— see the two sections right below.
 
 ### Configuring SMTP for local development
 
