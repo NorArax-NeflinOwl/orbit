@@ -1,0 +1,64 @@
+# Deletes branches that are fully merged into main once they've sat idle for a few days, rather than
+# immediately on merge (GitHub's own "auto-delete head branches" repo setting does that already if
+# enabled, but doesn't allow a grace period) - a short buffer means a branch is still there for a
+# little while if someone wants to look at its history, cherry-pick from it, or reopen a discussion.
+
+name: Delete merged branches after inactivity
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # 03:00 UTC daily
+  workflow_dispatch:       # manual "Run workflow" button, for testing or an on-demand cleanup
+
+permissions:
+  contents: write   # needed to delete branches
+
+env:
+  # Only ever considers branches that are provably merged into this one (see the `git branch --merged`
+  # step below) - a branch that hasn't been merged is never a deletion candidate here, regardless of
+  # age. Nothing in this workflow can delete unmerged work.
+  baseBranch: main
+  # A branch's last commit has to be at least this old before it's eligible for deletion, counted from
+  # its own last commit date - not from when it was merged. Gives a short window after merging (or
+  # after any later push to an already-merged branch) before it disappears.
+  inactivityDays: 3
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history - needed for accurate merge-base checks below
+
+      - name: Delete merged branches idle for ${{ env.inactivityDays }}+ days
+        run: |
+          git fetch origin --prune
+
+          cutoffEpoch=$(date -u -d "${{ env.inactivityDays }} days ago" +%s)
+          deletedAny=false
+
+          # --merged lists only branches whose entire commit history is already reachable from
+          # $baseBranch - i.e. provably contains nothing that isn't already merged in, so deleting one
+          # can never lose work. HEAD and $baseBranch itself are always excluded.
+          for ref in $(git branch -r --merged "origin/${{ env.baseBranch }}" | grep -v -e "HEAD" -e "origin/${{ env.baseBranch }}$"); do
+            branchName="${ref#origin/}"
+            lastCommitEpoch=$(git log -1 --format=%ct "$ref")
+            ageDays=$(( ($(date -u +%s) - lastCommitEpoch) / 86400 ))
+
+            if [ "$lastCommitEpoch" -lt "$cutoffEpoch" ]; then
+              echo "Deleting '$branchName' - merged into ${{ env.baseBranch }}, last commit ${ageDays}d ago"
+              if git push origin --delete "$branchName"; then
+                deletedAny=true
+              else
+                echo "::warning::Failed to delete '$branchName' (already gone, or protected?)"
+              fi
+            else
+              echo "Keeping '$branchName' for now - merged, but only ${ageDays}d old (threshold: ${{ env.inactivityDays }}d)"
+            fi
+          done
+
+          if [ "$deletedAny" = false ]; then
+            echo "Nothing to delete this run."
+          fi
