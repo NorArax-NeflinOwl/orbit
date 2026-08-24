@@ -70,12 +70,27 @@ public sealed class CalendarTests : TestContext
         var cut = RenderComponent<Calendar>();
         Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
 
-        FindButtonByTitle(cut, "Hide list").Click();
+        FindButtonByTitle(cut, "Hide event list").Click();
 
         Assert.Empty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.Contains(cut.FindAll("button"), button => button.GetAttribute("title") == "Show list");
+        Assert.Contains(cut.FindAll("button"), button => button.GetAttribute("title") == "Show event list");
         // The visualization panel keeps rendering full-width once the list is hidden.
         Assert.NotEmpty(cut.FindAll(".calendar-visualization-panel"));
+    }
+
+    [Fact]
+    public void The_due_task_list_starts_hidden_and_the_toggle_button_reveals_it()
+    {
+        RegisterCalendarApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        Assert.DoesNotContain("Tasks with a due date", cut.Markup);
+        Assert.Equal("false", FindButtonByTitle(cut, "Show task list").GetAttribute("aria-pressed"));
+
+        FindButtonByTitle(cut, "Show task list").Click();
+
+        Assert.Contains("Tasks with a due date", cut.Markup);
+        Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
     }
 
     [Fact]

@@ -27,7 +27,7 @@
 
 <div class="calendar-toolbar">
     <button type="button" class="icon-btn @(_viewState.IsEventListVisible ? "active" : "")"
-            title="@(_viewState.IsEventListVisible ? "Hide list" : "Show list")"
+            title="@(_viewState.IsEventListVisible ? "Hide event list" : "Show event list")"
             aria-pressed="@AriaBool(_viewState.IsEventListVisible)" @onclick="ToggleEventListVisibility">
         @if (_viewState.IsEventListVisible)
         {
@@ -38,80 +38,91 @@
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.3" /><path d="M3 17L17 3" /></svg>
         }
     </button>
+    <button type="button" class="icon-btn @(_viewState.IsTaskListVisible ? "active" : "")"
+            title="@(_viewState.IsTaskListVisible ? "Hide task list" : "Show task list")"
+            aria-pressed="@AriaBool(_viewState.IsTaskListVisible)" @onclick="ToggleTaskListVisibility">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
+    </button>
 </div>
 
 <div class="calendar-layout">
-    @if (_viewState.IsEventListVisible)
+    @if (_viewState.IsEventListVisible || _viewState.IsTaskListVisible)
     {
         <div class="calendar-event-list-panel">
-            @if (_events is null)
+            @if (_viewState.IsEventListVisible)
             {
-                <p>Loading…</p>
-            }
-            else if (_events.Count == 0)
-            {
-                <p>No events.</p>
-            }
-            else
-            {
-                <ul>
-                    @foreach (var calendarEvent in _events)
-                    {
-                        <li>
-                            <strong>@calendarEvent.Details.Title</strong>
-                            @if (!string.IsNullOrWhiteSpace(calendarEvent.Details.Color))
-                            {
-                                <span style="display:inline-block;width:0.75em;height:0.75em;background-color:@calendarEvent.Details.Color;border-radius:50%;"></span>
-                            }
-                            @if (calendarEvent.IsShared)
-                            {
-                                <span class="shared-event-badge">Shared by @calendarEvent.SharedByUserName</span>
-                            }
-                            <br>
-                            <small>@FormatTimeRange(calendarEvent.Details)</small>
-                            @if (calendarEvent.Details.Location is { } location)
-                            {
-                                <br><small>Location: @FormatLocation(location)</small>
-                            }
-                            @if (calendarEvent.Details.Recurrence is { } recurrence)
-                            {
-                                <br><small>Repeats: @FormatRecurrence(recurrence)</small>
-                            }
-                            @if (calendarEvent.Details.Guests.Count > 0)
-                            {
-                                <br><small>Guests: @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</small>
-                            }
-                            <br>
-                            <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "View" : "Edit")</button>
-                            <button @onclick="() => DeleteEventAsync(calendarEvent)">Delete</button>
-                        </li>
-                    }
-                </ul>
+                @if (_events is null)
+                {
+                    <p>Loading…</p>
+                }
+                else if (_events.Count == 0)
+                {
+                    <p>No events.</p>
+                }
+                else
+                {
+                    <ul>
+                        @foreach (var calendarEvent in _events)
+                        {
+                            <li>
+                                <strong>@calendarEvent.Details.Title</strong>
+                                @if (!string.IsNullOrWhiteSpace(calendarEvent.Details.Color))
+                                {
+                                    <span style="display:inline-block;width:0.75em;height:0.75em;background-color:@calendarEvent.Details.Color;border-radius:50%;"></span>
+                                }
+                                @if (calendarEvent.IsShared)
+                                {
+                                    <span class="shared-event-badge">Shared by @calendarEvent.SharedByUserName</span>
+                                }
+                                <br>
+                                <small>@FormatTimeRange(calendarEvent.Details)</small>
+                                @if (calendarEvent.Details.Location is { } location)
+                                {
+                                    <br><small>Location: @FormatLocation(location)</small>
+                                }
+                                @if (calendarEvent.Details.Recurrence is { } recurrence)
+                                {
+                                    <br><small>Repeats: @FormatRecurrence(recurrence)</small>
+                                }
+                                @if (calendarEvent.Details.Guests.Count > 0)
+                                {
+                                    <br><small>Guests: @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</small>
+                                }
+                                <br>
+                                <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "View" : "Edit")</button>
+                                <button @onclick="() => DeleteEventAsync(calendarEvent)">Delete</button>
+                            </li>
+                        }
+                    </ul>
+                }
             }
 
-            <h3>Tasks with a due date</h3>
-            @if (_dueTasks is null)
+            @if (_viewState.IsTaskListVisible)
             {
-                <p>Loading…</p>
-            }
-            else if (_dueTasks.Count == 0)
-            {
-                <p>No tasks with a due date.</p>
-            }
-            else
-            {
-                <ul>
-                    @foreach (var dueTask in _dueTasks)
-                    {
-                        <li>
-                            @(dueTask.IsCompleted ? "☑" : "☐") @dueTask.Description
-                            <br>
-                            <small>Due: @dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
-                            <br>
-                            <button @onclick="() => GoToEditTaskList(dueTask.TaskListId)">Open</button>
-                        </li>
-                    }
-                </ul>
+                <h3>Tasks with a due date</h3>
+                @if (_dueTasks is null)
+                {
+                    <p>Loading…</p>
+                }
+                else if (_dueTasks.Count == 0)
+                {
+                    <p>No tasks with a due date.</p>
+                }
+                else
+                {
+                    <ul>
+                        @foreach (var dueTask in _dueTasks)
+                        {
+                            <li>
+                                @(dueTask.IsCompleted ? "☑" : "☐") @dueTask.Description
+                                <br>
+                                <small>Due: @dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
+                                <br>
+                                <button @onclick="() => GoToEditTaskList(dueTask.TaskListId)">Open</button>
+                            </li>
+                        }
+                    </ul>
+                }
             }
         </div>
     }
@@ -291,6 +302,8 @@
 
     private void ToggleEventListVisibility() => _viewState.IsEventListVisible = !_viewState.IsEventListVisible;
 
+    private void ToggleTaskListVisibility() => _viewState.IsTaskListVisible = !_viewState.IsTaskListVisible;
+
     private void ToggleShowDueTasksInYearView()
     {
         _viewState.ShowDueTasksInYearView = !_viewState.ShowDueTasksInYearView;
@@ -372,6 +385,9 @@
         public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
         public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
         public bool IsEventListVisible { get; set; } = true;
+
+        /// <summary>Hidden by default - the due-task list is a secondary panel most users don't need open every visit.</summary>
+        public bool IsTaskListVisible { get; set; }
 
         /// <summary>
         /// Whether due-task dots are mixed in with event dots on the compact year view - each day cell
