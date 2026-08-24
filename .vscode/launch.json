@@ -1,0 +1,40 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Orbit.Api",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build-orbit-api",
+            "program": "${workspaceFolder}/src/Server/Orbit.Api/bin/Debug/net10.0/Orbit.Api.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Server/Orbit.Api",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+                // Jwt:SigningKey is deliberately not set here - it's a secret and this file is
+                // committed to git. Configure it once per machine from src/Server/Orbit.Api with
+                // `dotnet user-secrets set "Jwt:SigningKey" "<a long random string>"` (see README's
+                // "Running locally" section); ASPNETCORE_ENVIRONMENT=Development above makes
+                // ASP.NET Core pick up user secrets automatically. Without it Orbit.Api throws on
+                // startup before any breakpoint in application code can be reached.
+            }
+        },
+        {
+            "name": "Orbit.Web",
+            // The C# extension's blazorwasm debugger drives its own build + dev server, so this
+            // needs no preLaunchTask or program path.
+            "type": "blazorwasm",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/src/Clients/Orbit.Web",
+            "browser": "chrome"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Orbit.Api + Orbit.Web",
+            "configurations": ["Orbit.Api", "Orbit.Web"]
+        }
+    ]
+}
