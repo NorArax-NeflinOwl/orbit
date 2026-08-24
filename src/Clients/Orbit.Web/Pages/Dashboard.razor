@@ -22,7 +22,11 @@
     </div>
 </div>
 
-@if (_notes is null || _taskLists is null || _events is null || _contacts is null)
+@if (_loadErrorMessage is not null)
+{
+    <p>@_loadErrorMessage</p>
+}
+else if (_notes is null || _taskLists is null || _events is null || _contacts is null)
 {
     <p>Loading…</p>
 }
@@ -152,6 +156,7 @@ else
 
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
+    private string? _loadErrorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -168,6 +173,16 @@ else
             // also failed (e.g. the refresh token itself expired or was revoked) - the session is no
             // longer valid, so send the user back to sign in instead of leaving the page stuck loading.
             NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            // Any other failure (a transient 404/5xx, API unreachable, DNS, ...) used to propagate out
+            // of OnInitializedAsync uncaught, crashing the whole WASM renderer - PollOnceAsync already
+            // treats the same failure as transient (see its own matching catch below); the initial load
+            // should too, showing an error instead of taking the whole page down.
+            Logger.LogError(exception, "Failed to load the dashboard");
+            _loadErrorMessage = "Couldn't load the dashboard. Check your connection and try again.";
             return;
         }
         Logger.LogInformation(

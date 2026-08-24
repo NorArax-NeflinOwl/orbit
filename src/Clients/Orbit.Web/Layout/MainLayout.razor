@@ -9,6 +9,7 @@
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject ThemeService ThemeService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @inject ILogger<MainLayout> Logger
 
 <div class="app-shell">
@@ -16,7 +17,7 @@
     {
             <aside class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
                 <div class="sidebar-logo" role="button" tabindex="0" title="Collapse sidebar"
-                     @onclick="ToggleSidebarCollapsed" @onkeydown="OnLogoKeyDown">
+                     @onclick="ToggleSidebarCollapsedAsync" @onkeydown="OnLogoKeyDown">
                     <svg width="26" height="26" viewBox="0 0 26 26">
                         <circle cx="13" cy="13" r="3" fill="var(--accent)" />
                         <ellipse cx="13" cy="13" rx="11" ry="5.5" fill="none" stroke="var(--accent)" stroke-width="1.6" transform="rotate(-28 13 13)" />
@@ -122,6 +123,8 @@
 </div>
 
 @code {
+    private const string SidebarCollapsedStorageKey = "orbit.sidebarCollapsed";
+
     private bool _sidebarCollapsed;
     private bool _avatarMenuOpen;
     private PeriodicTimer? _sessionHeartbeatTimer;
@@ -153,6 +156,7 @@
     {
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
         NavigationManager.LocationChanged += OnLocationChanged;
+        _sidebarCollapsed = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", SidebarCollapsedStorageKey) == "true";
         await RefreshAuthenticationDisplayStateAsync();
         // Syncs ThemeService.Current to whatever index.html's inline anti-flash script already applied
         // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
@@ -255,13 +259,17 @@
         }
     }
 
-    private void ToggleSidebarCollapsed() => _sidebarCollapsed = !_sidebarCollapsed;
+    private async Task ToggleSidebarCollapsedAsync()
+    {
+        _sidebarCollapsed = !_sidebarCollapsed;
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", SidebarCollapsedStorageKey, _sidebarCollapsed ? "true" : "false");
+    }
 
-    private void OnLogoKeyDown(KeyboardEventArgs args)
+    private async Task OnLogoKeyDown(KeyboardEventArgs args)
     {
         if (args.Key is "Enter" or " ")
         {
-            ToggleSidebarCollapsed();
+            await ToggleSidebarCollapsedAsync();
         }
     }
 
