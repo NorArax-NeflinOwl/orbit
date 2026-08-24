@@ -152,13 +152,22 @@ public sealed class OwnEncryptionKeyProvider
         => _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
 
     /// <summary>
-    /// Tries a silent token refresh (via <see cref="OrbitAuthenticationStateProvider.TryGetCurrentUserIdAsync"/>)
-    /// before giving up, so a locally-expired access token doesn't force a sign-out here while the refresh
-    /// token could still keep the session alive. Only throws the "session invalid, go sign in again"
-    /// signal every caller here already handles (HttpRequestException/Unauthorized - see
-    /// EnsurePublicKeyAsync's callers in MainLayout and Chat.razor) once that refresh genuinely fails.
+    /// Calls <see cref="OrbitAuthenticationStateProvider.GetAuthenticationStateAsync"/> directly rather
+    /// than <see cref="OrbitAuthenticationStateProvider.TryGetCurrentUserIdAsync"/> - both try a silent
+    /// token refresh before giving up on a locally-expired access token, but the latter also calls
+    /// NotifyAuthenticationStateChanged() before returning, which would recurse back into this method:
+    /// that notification is exactly what makes MainLayout.EnsureEncryptionKeyIfAuthenticatedAsync (one of
+    /// this method's own callers, via EnsurePublicKeyAsync) run in the first place, since it's registered
+    /// as an AuthenticationStateChanged handler - notifying again from in here would just trigger another
+    /// call to itself, forever, with no delay. Only throws the "session invalid, go sign in again" signal
+    /// every caller here already handles (HttpRequestException/Unauthorized - see EnsurePublicKeyAsync's
+    /// callers in MainLayout and Chat.razor) once that refresh genuinely fails.
     /// </summary>
     private async Task<Guid> GetOwnUserIdAsync()
-        => await _authenticationStateProvider.TryGetCurrentUserIdAsync()
-            ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
+    {
+        var state = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        return state.User.FindFirst("sub") is { } subjectClaim
+            ? Guid.Parse(subjectClaim.Value)
+            : throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
+    }
 }
