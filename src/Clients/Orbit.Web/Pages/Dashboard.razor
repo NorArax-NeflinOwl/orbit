@@ -1,6 +1,7 @@
 @page "/"
 @attribute [Authorize]
 @implements IDisposable
+@using System.Globalization
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
@@ -37,7 +38,7 @@ else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _co
 else
 {
     <div class="today-strip">
-        <span class="today-strip-date">@DateTime.Today.ToString("dddd, MMMM d")</span>
+        <span class="today-strip-date">@DateTime.Today.ToString("dddd, MMMM d", DisplayCulture)</span>
         <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong> tasks due today</span>
         <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong> events today</span>
         <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong> new chat requests</span>
@@ -126,6 +127,14 @@ else
 }
 
 @code {
+    /// <summary>
+    /// The UI copy is English throughout, but Blazor WASM derives CultureInfo.CurrentCulture from the
+    /// browser's own locale by default - pinning en-US here keeps the day name in sync with the rest of
+    /// the page instead of leaking whatever language the visitor's browser is set to (mirrors
+    /// Calendar.razor's own DisplayCulture).
+    /// </summary>
+    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
     private IReadOnlyList<NoteDto>? _notes;
     private IReadOnlyList<TaskDto>? _taskLists;
     private IReadOnlyList<CalendarEventDto>? _events;
