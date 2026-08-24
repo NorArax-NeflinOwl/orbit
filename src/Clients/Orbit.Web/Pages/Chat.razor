@@ -1,6 +1,7 @@
 @page "/chat/{userId:guid}"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using System.Globalization
 @using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Users
@@ -114,6 +115,7 @@ else
                 }
 
                 <div class="chat-messages" @onclick="CloseMessageMenu">
+                    @{ DateTime? previousMessageDate = null; }
                     @foreach (var message in _messages)
                     {
                         var isShareNotice = _shareNoticeByMessageId.ContainsKey(message.Id);
@@ -121,6 +123,14 @@ else
                         var canEdit = message.SenderUserId == _ownUserId && !isShareNotice
                             && !_forwardedFromByMessageId.ContainsKey(message.Id) && hasContent;
                         var canForward = !isShareNotice && hasContent;
+                        var messageDate = message.SentAtUtc.ToLocalTime().Date;
+                        var showDaySeparator = previousMessageDate != messageDate;
+                        previousMessageDate = messageDate;
+
+                        @if (showDaySeparator)
+                        {
+                            <div class="chat-day-separator"><span>@FormatDaySeparatorLabel(messageDate)</span></div>
+                        }
 
                         <div class="chat-bubble-row @(message.SenderUserId == _ownUserId ? "own" : "theirs")">
                             @if (_editingMessageId == message.Id)
@@ -232,6 +242,9 @@ else
 }
 
 @code {
+    /// <summary>Matches Dashboard.razor/Calendar.razor's own DisplayCulture - keeps day/month names English regardless of the browser's locale.</summary>
+    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
     [Parameter]
     public Guid UserId { get; set; }
 
@@ -687,6 +700,25 @@ else
     /// <summary>True once the other party has read up to at least this own message's send time.</summary>
     private bool IsReadByOtherParty(ChatMessageDto message)
         => _otherPartyReadUpToUtc is { } readUpToUtc && message.SentAtUtc <= readUpToUtc;
+
+    /// <summary>The label shown on a day-separator row between messages sent on different calendar days - "Today" / "Yesterday" / a weekday name within the last week / a full date otherwise.</summary>
+    private static string FormatDaySeparatorLabel(DateTime localDate)
+    {
+        var today = DateTime.Today;
+        if (localDate == today)
+        {
+            return "Today";
+        }
+        if (localDate == today.AddDays(-1))
+        {
+            return "Yesterday";
+        }
+        if (localDate > today.AddDays(-7))
+        {
+            return localDate.ToString("dddd", DisplayCulture);
+        }
+        return localDate.ToString("MMMM d, yyyy", DisplayCulture);
+    }
 
     private async Task LoadConversationAccessAsync()
     {

@@ -751,6 +751,11 @@ input.note-editor-title {
         display: none;
     }
 
+    /* The logo takes over as the Dashboard shortcut on mobile (see MainLayout.razor's OnLogoClickAsync). */
+    .nav-item-dashboard {
+        display: none;
+    }
+
     .nav-item {
         padding: 9px;
         flex: 0 0 auto;
@@ -1065,6 +1070,22 @@ input.note-editor-title {
     display: flex;
     flex-direction: column;
     gap: 2px;
+}
+
+.chat-day-separator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0;
+}
+
+.chat-day-separator span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    background: var(--border);
+    padding: 3px 12px;
+    border-radius: 999px;
 }
 
 .chat-bubble-row {
