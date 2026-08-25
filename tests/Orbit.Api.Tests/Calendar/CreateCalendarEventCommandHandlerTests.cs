@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.CreateCalendarEvent;
 using Orbit.Core.Notifications;
@@ -36,7 +37,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
         var now = DateTimeOffset.UtcNow;
         var details = DefaultDetails with { StartUtc = now, EndUtc = now.AddHours(-1) };
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<InvalidRequestException>(
             () => handler.HandleAsync(new CreateCalendarEventCommand(Guid.NewGuid(), details), CancellationToken.None));
     }
 
@@ -65,7 +66,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
         var handler = CreateHandler(new InMemoryCalendarEventRepository());
         var details = DefaultDetails with { Location = new EventLocation(null, latitude, longitude) };
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<InvalidRequestException>(
             () => handler.HandleAsync(new CreateCalendarEventCommand(Guid.NewGuid(), details), CancellationToken.None));
     }
 
@@ -77,7 +78,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
         // API before mapPicker.js started wrapping the picked point.
         var details = DefaultDetails with { Location = new EventLocation(null, 50.0617, 254.09) };
 
-        var exception = await Assert.ThrowsAsync<ArgumentException>(
+        var exception = await Assert.ThrowsAsync<InvalidRequestException>(
             () => handler.HandleAsync(new CreateCalendarEventCommand(Guid.NewGuid(), details), CancellationToken.None));
 
         // Returned verbatim as the 400 body (see CalendarEndpoints.ToValidationFailure), so it must read

@@ -41,31 +41,17 @@ public static class CalendarEndpoints
         calendarEvents.MapPost("/", async (
             CreateCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            try
-            {
-                var id = await dispatcher.SendAsync(
-                    new CreateCalendarEventCommand(GetUserId(user), ToDomainDetails(request.Details)), cancellationToken);
-                return Results.Created($"/api/calendar-events/{id}", id);
-            }
-            catch (ArgumentException exception)
-            {
-                return ToValidationFailure(exception);
-            }
+            var id = await dispatcher.SendAsync(
+                new CreateCalendarEventCommand(GetUserId(user), ToDomainDetails(request.Details)), cancellationToken);
+            return Results.Created($"/api/calendar-events/{id}", id);
         });
 
         calendarEvents.MapPut("/{id:guid}", async (
             Guid id, UpdateCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            try
-            {
-                var outcome = await dispatcher.SendAsync(
-                    new UpdateCalendarEventCommand(GetUserId(user), id, ToDomainDetails(request.Details)), cancellationToken);
-                return ToApiResult(outcome);
-            }
-            catch (ArgumentException exception)
-            {
-                return ToValidationFailure(exception);
-            }
+            var outcome = await dispatcher.SendAsync(
+                new UpdateCalendarEventCommand(GetUserId(user), id, ToDomainDetails(request.Details)), cancellationToken);
+            return ToApiResult(outcome);
         });
 
         calendarEvents.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -94,7 +80,7 @@ public static class CalendarEndpoints
             Guid id, ShareCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new ShareCalendarEventCommand(GetUserId(user), id, request.RecipientUserId, Enum.Parse<ShareAccessLevel>(request.AccessLevel, ignoreCase: true)),
+                new ShareCalendarEventCommand(GetUserId(user), id, request.RecipientUserId, RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
             return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared));
         });
@@ -142,8 +128,8 @@ public static class CalendarEndpoints
             ToDomainRecurrence(request.Recurrence),
             request.Guests,
             request.ReminderMinutesBeforeStart,
-            Enum.Parse<NotificationChannel>(request.CreationNotificationChannel, ignoreCase: true),
-            Enum.Parse<NotificationChannel>(request.ReminderNotificationChannel, ignoreCase: true));
+            RequestEnum.Parse<NotificationChannel>(request.CreationNotificationChannel, "creationNotificationChannel"),
+            RequestEnum.Parse<NotificationChannel>(request.ReminderNotificationChannel, "reminderNotificationChannel"));
 
     private static EventLocation? ToDomainLocation(EventLocationRequest? request)
         => request is null ? null : new EventLocation(request.Address, request.Latitude, request.Longitude);
@@ -151,7 +137,7 @@ public static class CalendarEndpoints
     private static EventRecurrence? ToDomainRecurrence(RecurrenceRequest? request)
         => request is null
             ? null
-            : new EventRecurrence(Enum.Parse<RecurrenceFrequency>(request.Frequency, ignoreCase: true), request.IntervalCount, request.UntilUtc);
+            : new EventRecurrence(RequestEnum.Parse<RecurrenceFrequency>(request.Frequency, "frequency"), request.IntervalCount, request.UntilUtc);
 
     private static CalendarEventDto ToDto(CalendarEvent calendarEvent)
     {
@@ -181,15 +167,6 @@ public static class CalendarEndpoints
 
     private static RecurrenceDto? ToRecurrenceDto(EventRecurrence? recurrence)
         => recurrence is null ? null : new RecurrenceDto(recurrence.Frequency.ToString(), recurrence.IntervalCount, recurrence.UntilUtc);
-
-    /// <summary>
-    /// Turns a rejected event (end before start, or a location off the globe - see
-    /// CalendarEvent.ValidateTimeRange/ValidateLocation) into a 400 naming what was wrong, rather than
-    /// letting it escape as an unhandled 500 that tells the caller nothing. Scoped to these two
-    /// endpoints deliberately: it is the caller's input being refused here, not a server fault.
-    /// </summary>
-    private static IResult ToValidationFailure(ArgumentException exception)
-        => Results.BadRequest(new { message = exception.Message });
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch
