@@ -33,11 +33,18 @@ public sealed class NotificationsApiClient
     public async Task<IReadOnlyList<NotificationEntryDto>> GetRecentAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<List<NotificationEntryDto>>("api/notifications", cancellationToken) ?? [];
 
+    /// <summary>Everything still held, including entries cleared out of the panel - what the notifications page lists.</summary>
+    public async Task<IReadOnlyList<NotificationEntryDto>> GetHistoryAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<NotificationEntryDto>>("api/notifications/history", cancellationToken) ?? [];
+
     /// <summary>The unread entries themselves - the caller derives both the avatar count and the per-source badges from them.</summary>
     public async Task<IReadOnlyList<NotificationEntryDto>> GetUnreadAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<List<NotificationEntryDto>>("api/notifications/unread", cancellationToken) ?? [];
 
-    /// <summary>Empties the feed, as opposed to MarkAllReadAsync which only clears the unread state.</summary>
+    /// <summary>
+    /// Clears the panel. Entries stay readable on the notifications page until the retention window
+    /// deletes them, so this is not the same as destroying them - see NotificationEntry.Dismiss.
+    /// </summary>
     public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync("api/notifications", cancellationToken);
@@ -48,5 +55,17 @@ public sealed class NotificationsApiClient
     {
         var response = await _httpClient.PostAsync("api/notifications/read", content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Marks read whatever notifications pointed at this route, called when the reader arrives there.
+    /// Deliberately quiet about failure: this is housekeeping alongside a navigation the reader asked
+    /// for, and a page must not fail to open because a badge could not be cleared.
+    /// </summary>
+    public async Task<bool> MarkReadAtUrlAsync(string url, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/notifications/read-at", new MarkNotificationsReadAtUrlRequest(url), cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 }

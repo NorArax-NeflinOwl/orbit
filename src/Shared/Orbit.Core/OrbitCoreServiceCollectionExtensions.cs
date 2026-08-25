@@ -58,6 +58,8 @@ using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
 using Orbit.Core.Notifications.GetUnreadNotificationEntries;
 using Orbit.Core.Notifications.ClearNotifications;
+using Orbit.Core.Notifications.GetNotificationHistory;
+using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Transfer;
 using Orbit.Core.Transfer.ExportArchive;
 using Orbit.Core.Transfer.ImportArchive;
@@ -233,6 +235,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetUnreadNotificationEntriesQuery, IReadOnlyList<NotificationEntry>>, GetUnreadNotificationEntriesQueryHandler>();
         services.AddScoped<IRequestHandler<ClearNotificationsCommand, bool>, ClearNotificationsCommandHandler>();
         services.AddScoped<IRequestHandler<MarkAllNotificationsReadCommand, bool>, MarkAllNotificationsReadCommandHandler>();
+        services.AddScoped<IRequestHandler<MarkNotificationsAtUrlReadCommand, bool>, MarkNotificationsAtUrlReadCommandHandler>();
+        services.AddScoped<IRequestHandler<GetNotificationHistoryQuery, IReadOnlyList<NotificationEntry>>, GetNotificationHistoryQueryHandler>();
 
         services.AddScoped<IRequestHandler<ExportArchiveQuery, OrbitArchive>, ExportArchiveQueryHandler>();
         services.AddScoped<IRequestHandler<ImportArchiveCommand, ImportArchiveResult>, ImportArchiveCommandHandler>();

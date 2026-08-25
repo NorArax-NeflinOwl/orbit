@@ -16,7 +16,7 @@ public sealed class UpdateNotificationSettingsCommandHandler : IRequestHandler<U
         var settings = await _notificationSettingsRepository.GetAsync(request.UserId, cancellationToken);
         settings.Update(
             request.AllowNotifications, request.AllowPush, request.AllowEmail, request.AllowMobileBanner, request.ShowExceptionDetails,
-            request.AllowShareNotifications, request.BannerTiming);
+            request.AllowShareNotifications, request.BannerTiming, request.RetentionDays);
         await _notificationSettingsRepository.UpsertAsync(settings, cancellationToken);
         return settings;
     }

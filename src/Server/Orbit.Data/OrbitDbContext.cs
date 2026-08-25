@@ -340,6 +340,10 @@ public sealed class OrbitDbContext : DbContext
             // the same defaults a brand-new settings row gets rather than a 0-second banner.
             entity.Property(row => row.BannerVisibleSeconds).HasDefaultValue(5);
             entity.Property(row => row.BannerMinimumGapSeconds).HasDefaultValue(5);
+            // Same reason: an account that predates this column should get the window a new account
+            // gets, not the 0 an int column would otherwise default to - which NotificationSettings
+            // would then clamp up to 1, quietly shortening it.
+            entity.Property(row => row.RetentionDays).HasDefaultValue(Orbit.Core.Notifications.NotificationSettings.DefaultRetentionDays);
         });
 
         modelBuilder.Entity<TaskEntity>(entity =>

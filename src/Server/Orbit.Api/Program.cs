@@ -127,6 +127,7 @@ try
     builder.Services.AddHostedService<OverdueTaskNotificationBackgroundService>();
     builder.Services.AddHostedService<DailyTaskReminderBackgroundService>();
     builder.Services.AddHostedService<InventoryExpiryReminderBackgroundService>();
+    builder.Services.AddHostedService<NotificationRetentionBackgroundService>();
 
     builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
     builder.Services.AddSingleton<TokenService>();

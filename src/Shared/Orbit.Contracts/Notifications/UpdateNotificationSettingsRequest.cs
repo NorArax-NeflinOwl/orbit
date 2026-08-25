@@ -8,4 +8,5 @@ namespace Orbit.Contracts.Notifications;
 /// </summary>
 public sealed record UpdateNotificationSettingsRequest(
     bool AllowNotifications, bool AllowPush, bool AllowEmail, bool AllowMobileBanner, bool ShowExceptionDetails,
-    int BannerVisibleSeconds, int BannerMinimumGapSeconds, bool AllowShareNotifications = false);
+    int BannerVisibleSeconds, int BannerMinimumGapSeconds, bool AllowShareNotifications = false,
+    int RetentionDays = 3);
