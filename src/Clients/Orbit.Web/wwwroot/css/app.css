@@ -596,6 +596,27 @@ input.note-editor-title {
     font-size: 13.5px;
     font-weight: 700;
     color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+/* The panel header's "Clear" - a quiet text action rather than a button block, so emptying the list
+   never competes with the notifications themselves for attention. */
+.notifications-panel-clear {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.notifications-panel-clear:hover:not(:disabled) {
+    background: none;
+    color: var(--accent);
 }
 
 .notifications-panel-empty {
@@ -1063,6 +1084,7 @@ input.note-editor-title {
 }
 
 .avatar-sm {
+    position: relative;
     width: 26px;
     height: 26px;
     border-radius: 50%;
@@ -2119,4 +2141,47 @@ input.note-editor-title {
     display: flex;
     gap: 8px;
     align-items: center;
+}
+
+/* Chat.razor's per-contact unread badge sits on the small avatar, so .notif-badge (sized for the big
+   sidebar avatar) needs to come in a touch smaller here. */
+.avatar-sm .notif-badge {
+    min-width: 14px;
+    height: 14px;
+    font-size: 9px;
+    bottom: -2px;
+    left: -2px;
+}
+
+/* MainLayout.razor: the unread badge on a nav section (Tasks/Calendar/Inventory/Contacts), marking
+   where a notification actually came from rather than only the avatar. Absolute so it never widens the
+   collapsed icon rail. */
+.nav-item {
+    position: relative;
+}
+
+.nav-item-badge {
+    position: absolute;
+    top: 4px;
+    left: 22px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: var(--accent-on);
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+}
+
+/* Notifications.razor: the full-page form of the panel used on phones - the list itself is the same
+   component, so it only needs the surrounding card. */
+.notifications-page {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    max-width: 640px;
 }

@@ -33,10 +33,15 @@ public sealed class NotificationsApiClient
     public async Task<IReadOnlyList<NotificationEntryDto>> GetRecentAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<List<NotificationEntryDto>>("api/notifications", cancellationToken) ?? [];
 
-    public async Task<int> GetUnreadCountAsync(CancellationToken cancellationToken = default)
+    /// <summary>The unread entries themselves - the caller derives both the avatar count and the per-source badges from them.</summary>
+    public async Task<IReadOnlyList<NotificationEntryDto>> GetUnreadAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<NotificationEntryDto>>("api/notifications/unread", cancellationToken) ?? [];
+
+    /// <summary>Empties the feed, as opposed to MarkAllReadAsync which only clears the unread state.</summary>
+    public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.GetFromJsonAsync<UnreadCountDto>("api/notifications/unread-count", cancellationToken);
-        return response?.Count ?? 0;
+        var response = await _httpClient.DeleteAsync("api/notifications", cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task MarkAllReadAsync(CancellationToken cancellationToken = default)

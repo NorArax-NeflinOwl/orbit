@@ -1,0 +1,59 @@
+@using System.Globalization
+@using Orbit.Contracts.Notifications
+@using Orbit.Web.Services
+@inject ClientExceptionLog ClientExceptionLog
+
+@* Shared by MainLayout's desktop popup and the mobile Notifications page, so the two can never drift. *@
+@if (IsLoading)
+{
+    <p class="notifications-panel-empty">Loading…</p>
+}
+else if (Entries.Count == 0 && ExceptionEntries.Count == 0)
+{
+    <p class="notifications-panel-empty">Nothing yet.</p>
+}
+else
+{
+    <ul class="notifications-panel-list">
+        @foreach (var entry in Entries)
+        {
+            <li class="notifications-panel-item @(entry.Url is null ? "" : "notifications-panel-item-link")"
+                role="@(entry.Url is null ? null : "link")"
+                @onclick="() => OnEntrySelected.InvokeAsync(entry)">
+                <span class="notifications-panel-item-title">@entry.Title</span>
+                <span class="notifications-panel-item-body">@entry.Body</span>
+                <span class="notifications-panel-item-time">@FormatEntryTime(entry.CreatedAtUtc)</span>
+            </li>
+        }
+        @foreach (var exceptionEntry in ExceptionEntries)
+        {
+            <li class="notifications-panel-item notifications-panel-item-exception">
+                <span class="notifications-panel-item-title">Frontend error</span>
+                <span class="notifications-panel-item-body">@exceptionEntry.Message</span>
+                <span class="notifications-panel-item-time">@FormatEntryTime(exceptionEntry.TimestampUtc)</span>
+                <button type="button" class="btn-secondary" @onclick="() => ClientExceptionLog.CopyToClipboardAsync(exceptionEntry)">Copy</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    /// <summary>Matches Dashboard/Calendar/Chat's own DisplayCulture - keeps month names English regardless of the browser's locale.</summary>
+    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<NotificationEntryDto> Entries { get; set; } = [];
+
+    /// <summary>Already gated by the caller on the server's environment flag and the user's own setting - see NotificationSettings.</summary>
+    [Parameter]
+    public IReadOnlyList<ClientLogEntry> ExceptionEntries { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<NotificationEntryDto> OnEntrySelected { get; set; }
+
+    private static string FormatEntryTime(DateTimeOffset timestampUtc)
+        => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", DisplayCulture);
+}

@@ -5,7 +5,8 @@ using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
 using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
-using Orbit.Core.Notifications.GetUnreadNotificationCount;
+using Orbit.Core.Notifications.GetUnreadNotificationEntries;
+using Orbit.Core.Notifications.ClearNotifications;
 using Orbit.Core.Notifications.MarkAllNotificationsRead;
 using Orbit.Core.Notifications.UpdateNotificationSettings;
 
@@ -45,10 +46,20 @@ public static class NotificationEndpoints
             return Results.Ok(entries.Select(ToDto));
         });
 
-        notifications.MapGet("/unread-count", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        // The unread entries themselves rather than a bare count: the client badges each place a
+        // notification came from (a chat contact, a nav section) by reading their Url, and gets the
+        // count for the avatar badge from the list length.
+        notifications.MapGet("/unread", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var count = await dispatcher.SendAsync(new GetUnreadNotificationCountQuery(GetUserId(user)), cancellationToken);
-            return Results.Ok(new UnreadCountDto(count));
+            var entries = await dispatcher.SendAsync(
+                new GetUnreadNotificationEntriesQuery(GetUserId(user), MaxRecentEntries), cancellationToken);
+            return Results.Ok(entries.Select(ToDto));
+        });
+
+        notifications.MapDelete("/", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(new ClearNotificationsCommand(GetUserId(user)), cancellationToken);
+            return Results.NoContent();
         });
 
         notifications.MapPost("/read", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
