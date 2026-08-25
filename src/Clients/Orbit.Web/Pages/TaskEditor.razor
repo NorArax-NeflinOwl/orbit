@@ -65,85 +65,100 @@ else
         <h2>Items</h2>
         @foreach (var item in _formModel.Items)
         {
-            <div class="editor-item-card" @key="item">
-                <div class="field-row">
-                    <InputText @bind-Value="item.Description" placeholder="Item description" />
-                    <InputDate @bind-Value="item.DueDate" />
-                    <input type="time" @bind="item.DueTime" />
-                </div>
-                <label>
-                    Link to list
-                    <select @bind="item.LinkedTaskListId">
-                        <option value="">None</option>
-                        @foreach (var linkableTaskList in _linkableTaskLists)
-                        {
-                            <option value="@linkableTaskList.Id">@linkableTaskList.Title</option>
-                        }
-                    </select>
-                </label>
-                @if (item.Id is { } persistedItemId && _linkableTaskLists.Count > 0)
-                {
-                    <label>
-                        Move to list
-                        <select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
-                            <option value="">Move to…</option>
-                            @foreach (var targetTaskList in _linkableTaskLists)
-                            {
-                                <option value="@targetTaskList.Id">@targetTaskList.Title</option>
-                            }
-                        </select>
-                    </label>
-                    @if (_moveErrorMessage is not null && _moveErrorMessageForItemId == persistedItemId)
+            <div class="editor-item" @key="item">
+                @* One line per item: what it says, when it's due, whether it's done. Everything else is
+                   a click away, so a list of any length still fits on a screen. *@
+                <div class="editor-item-summary">
+                    @if (string.IsNullOrEmpty(item.LinkedTaskListId))
                     {
-                        <p class="error">@_moveErrorMessage</p>
+                        <InputCheckbox @bind-Value="item.IsCompleted" title="Completed" />
                     }
-                }
-                @if (string.IsNullOrEmpty(item.LinkedTaskListId))
-                {
-                    <label>
-                        <InputCheckbox @bind-Value="item.IsCompleted" />
-                        Completed
-                    </label>
-                }
-                else
-                {
-                    <label>
-                        <input type="checkbox" checked="@item.IsCompleted" disabled />
-                        Completed (determined by the linked list, can't be set manually)
-                    </label>
-                }
-                <label>
-                    Overdue notification
-                    <select @bind="item.OverdueNotificationChannel">
-                        @foreach (var option in NotificationChannelOption.All)
-                        {
-                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
-                        }
-                    </select>
-                </label>
-                <label>
-                    <InputCheckbox @bind-Value="item.RemindDaily" />
-                    Remind daily
-                </label>
-                @if (item.RemindDaily)
-                {
-                    <label>
-                        Daily reminder channel
-                        <select @bind="item.DailyReminderNotificationChannel">
-                            @foreach (var option in NotificationChannelOption.All)
-                            {
-                                <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
-                            }
-                        </select>
-                    </label>
-                    <label>
-                        Daily reminder time
-                        <input type="time" @bind="item.DailyReminderTimeOfDay" />
-                    </label>
-                }
-                <div>
-                    <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
+                    else
+                    {
+                        <input type="checkbox" checked="@item.IsCompleted" disabled
+                               title="Completed - follows the linked list, can't be set by hand" />
+                    }
+                    <InputText class="editor-item-main" @bind-Value="item.Description" placeholder="Item description" />
+                    <span class="editor-item-aside">
+                        <InputDate @bind-Value="item.DueDate" />
+                        <input type="time" @bind="item.DueTime" />
+                        <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
+                                title="@(IsExpanded(item) ? "Hide this item's other settings" : "Show this item's other settings")"
+                                aria-expanded="@(IsExpanded(item) ? "true" : "false")"
+                                @onclick="() => ToggleExpanded(item)">
+                            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+                        </button>
+                        <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
+                    </span>
                 </div>
+
+                @if (IsExpanded(item))
+                {
+                    <div class="editor-item-details">
+                        <label>
+                            Link to list
+                            <select @bind="item.LinkedTaskListId">
+                                <option value="">None</option>
+                                @foreach (var linkableTaskList in _linkableTaskLists)
+                                {
+                                    <option value="@linkableTaskList.Id">@linkableTaskList.Title</option>
+                                }
+                            </select>
+                        </label>
+                        @if (item.Id is { } persistedItemId && _linkableTaskLists.Count > 0)
+                        {
+                            <label>
+                                Move to list
+                                <select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
+                                    <option value="">Move to…</option>
+                                    @foreach (var targetTaskList in _linkableTaskLists)
+                                    {
+                                        <option value="@targetTaskList.Id">@targetTaskList.Title</option>
+                                    }
+                                </select>
+                            </label>
+                        }
+                        <label>
+                            Overdue notification
+                            <select @bind="item.OverdueNotificationChannel">
+                                @foreach (var option in NotificationChannelOption.All)
+                                {
+                                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
+                                }
+                            </select>
+                        </label>
+                        <label>
+                            <InputCheckbox @bind-Value="item.RemindDaily" />
+                            Remind daily
+                        </label>
+                        @if (item.RemindDaily)
+                        {
+                            <label>
+                                Daily reminder channel
+                                <select @bind="item.DailyReminderNotificationChannel">
+                                    @foreach (var option in NotificationChannelOption.All)
+                                    {
+                                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
+                                    }
+                                </select>
+                            </label>
+                            <label>
+                                Daily reminder time
+                                <input type="time" @bind="item.DailyReminderTimeOfDay" />
+                            </label>
+                        }
+                        @if (!string.IsNullOrEmpty(item.LinkedTaskListId))
+                        {
+                            <span class="field-break"></span>
+                            <small>Completion follows the linked list, so it can't be ticked by hand.</small>
+                        }
+                        @if (_moveErrorMessage is not null && item.Id is { } movedItemId && _moveErrorMessageForItemId == movedItemId)
+                        {
+                            <span class="field-break"></span>
+                            <p class="error">@_moveErrorMessage</p>
+                        }
+                    </div>
+                }
             </div>
         }
         <div>
@@ -212,6 +227,12 @@ else
     private string? _moveErrorMessage;
     private Guid? _moveErrorMessageForItemId;
     private TaskListFormModel _formModel = new();
+
+    /// <summary>
+    /// Which item currently has its extra settings open, if any. One at a time on purpose: the point of
+    /// folding them away is that the list stays readable, which a page full of open items would undo.
+    /// </summary>
+    private TaskItemFormModel? _expandedItem;
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
     private bool _isShared;
     private bool _isSharedReadOnly;
@@ -338,13 +359,24 @@ else
         _isLoading = false;
     }
 
+    private bool IsExpanded(TaskItemFormModel item) => ReferenceEquals(_expandedItem, item);
+
+    private void ToggleExpanded(TaskItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
+
     private void AddItem()
     {
-        _formModel.Items.Add(new TaskItemFormModel());
+        var item = new TaskItemFormModel();
+        _formModel.Items.Add(item);
+        _expandedItem = item;
     }
 
     private void RemoveItem(TaskItemFormModel item)
     {
+        if (IsExpanded(item))
+        {
+            _expandedItem = null;
+        }
+
         _formModel.Items.Remove(item);
     }
 

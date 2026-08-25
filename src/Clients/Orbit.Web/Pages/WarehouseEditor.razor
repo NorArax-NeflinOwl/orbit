@@ -53,38 +53,56 @@ else
             {
                 @foreach (var item in _formModel.Items)
                 {
-                    <div class="editor-item-card">
-                        <div class="field-row">
-                            <InputText placeholder="Item name" @bind-Value="item.Name" />
-                            <InputText placeholder="Product type" @bind-Value="item.ProductType" />
-                            <InputText placeholder="Category" @bind-Value="item.Category" />
+                    <div class="editor-item" @key="item">
+                        @* Name and the two numbers that decide whether it needs restocking stay on the
+                           row; everything else waits behind the toggle so a full warehouse is readable. *@
+                        <div class="editor-item-summary">
+                            <InputText class="editor-item-main" placeholder="Item name" @bind-Value="item.Name" />
+                            <span class="editor-item-aside">
+                                <label title="Quantity">
+                                    Qty
+                                    <InputNumber TValue="decimal" @bind-Value="item.Quantity" step="0.01" />
+                                </label>
+                                <label title="Restock below this quantity">
+                                    Min
+                                    <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
+                                </label>
+                                <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
+                                        title="@(IsExpanded(item) ? "Hide this item's other settings" : "Show this item's other settings")"
+                                        aria-expanded="@(IsExpanded(item) ? "true" : "false")"
+                                        @onclick="() => ToggleExpanded(item)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+                                </button>
+                                <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
+                            </span>
                         </div>
-                        <div class="field-row">
-                            <label>
-                                Quantity
-                                <InputNumber TValue="decimal" @bind-Value="item.Quantity" step="0.01" />
-                            </label>
-                            <label>
-                                Minimum
-                                <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
-                            </label>
-                            <label>
-                                Expires
-                                <InputDate @bind-Value="item.ExpiryDate" />
-                            </label>
-                        </div>
-                        <div class="field-row">
-                            <label>
-                                Expiry notification
-                                <select @bind="item.ExpiryNotificationChannel">
-                                    @foreach (var option in NotificationChannelOption.All)
-                                    {
-                                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
-                                    }
-                                </select>
-                            </label>
-                            <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
-                        </div>
+
+                        @if (IsExpanded(item))
+                        {
+                            <div class="editor-item-details">
+                                <label>
+                                    Product type
+                                    <InputText placeholder="Product type" @bind-Value="item.ProductType" />
+                                </label>
+                                <label>
+                                    Category
+                                    <InputText placeholder="Category" @bind-Value="item.Category" />
+                                </label>
+                                <label>
+                                    Expires
+                                    <InputDate @bind-Value="item.ExpiryDate" />
+                                </label>
+                                <label>
+                                    Expiry notification
+                                    <select @bind="item.ExpiryNotificationChannel">
+                                        @foreach (var option in NotificationChannelOption.All)
+                                        {
+                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
+                                        }
+                                    </select>
+                                </label>
+                            </div>
+                        }
                     </div>
                 }
             }
@@ -108,6 +126,12 @@ else
     public Guid WarehouseId { get; set; }
 
     private bool _isLoading = true;
+
+    /// <summary>
+    /// Which item currently has its extra fields open, if any - one at a time, mirroring TaskEditor:
+    /// folding them away only helps while the list stays short.
+    /// </summary>
+    private WarehouseItemFormModel? _expandedItem;
     private bool _isSaving;
     private WarehouseFormModel _formModel = new();
     private string? _saveErrorMessage;
@@ -182,9 +206,27 @@ else
         _isLoading = false;
     }
 
-    private void AddItem() => _formModel.Items.Add(new WarehouseItemFormModel());
+    /// <summary>A new row opens straight to its fields - there is nothing to recognise it by yet.</summary>
+    private void AddItem()
+    {
+        var item = new WarehouseItemFormModel();
+        _formModel.Items.Add(item);
+        _expandedItem = item;
+    }
 
-    private void RemoveItem(WarehouseItemFormModel item) => _formModel.Items.Remove(item);
+    private bool IsExpanded(WarehouseItemFormModel item) => ReferenceEquals(_expandedItem, item);
+
+    private void ToggleExpanded(WarehouseItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
+
+    private void RemoveItem(WarehouseItemFormModel item)
+    {
+        if (IsExpanded(item))
+        {
+            _expandedItem = null;
+        }
+
+        _formModel.Items.Remove(item);
+    }
 
     private void GoToWarehouses() => NavigationManager.NavigateTo("/inventory");
 

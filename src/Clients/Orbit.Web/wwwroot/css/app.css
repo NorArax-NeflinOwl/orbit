@@ -2389,3 +2389,173 @@ input.note-editor-title {
     font-size: 13px;
     margin: 4px;
 }
+
+/* Editor item rows (TaskEditor/WarehouseEditor): one line per item, with everything that isn't needed
+   to recognise it folded away until asked for. The previous full-height card per item made a list of
+   any real length unreadable - a single item filled close to half the viewport. */
+.editor-item {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-elevated);
+    margin-bottom: 8px;
+}
+
+.editor-item-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+}
+
+.editor-item-summary > input[type="text"],
+.editor-item-summary > .editor-item-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.editor-item-summary > .editor-item-aside {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.editor-item-summary label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+/* A quantity needs a few characters, not the width a text field defaults to. */
+.editor-item-summary input[type="number"] {
+    width: 5.5rem;
+}
+
+.editor-item-summary input[type="date"],
+.editor-item-summary input[type="time"] {
+    width: auto;
+}
+
+/* Reveals the fields below; rotates to point down while they are open. */
+.editor-item-toggle {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: transform .15s ease, color .15s ease;
+}
+
+.editor-item-toggle:hover {
+    color: var(--text-primary);
+}
+
+.editor-item-toggle.open {
+    transform: rotate(90deg);
+    color: var(--accent);
+}
+
+.editor-item-details {
+    border-top: 1px solid var(--border);
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+}
+
+.editor-item-details label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.editor-item-details .field-break {
+    flex-basis: 100%;
+    height: 0;
+}
+
+@media (max-width: 680px) {
+    .editor-item-summary {
+        flex-wrap: wrap;
+    }
+
+    .editor-item-summary > .editor-item-aside {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+/* Tasks.razor: one card per list - title, how far along it is, a few of its items, and the two ways
+   into it. Replaces the plain <ul>/<li> markup that page still carried from before the redesign. */
+.task-list-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.card-badge {
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    vertical-align: middle;
+}
+
+.card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+}
+
+.task-preview-row .row-title {
+    font-weight: 400;
+}
+
+.task-preview-row.completed .row-title {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
+}
+
+.task-preview-mark {
+    flex: 0 0 auto;
+    width: 14px;
+    color: var(--success);
+    font-size: 12px;
+}
+
+.empty-hint {
+    color: var(--text-tertiary);
+    font-size: 13px;
+}
+
+/* Calendar.razor's event list, sharing the editor row shape so a day's events read the same way an
+   editor's items do. */
+.event-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.event-title {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.event-when {
+    display: block;
+    margin-top: 2px;
+}
