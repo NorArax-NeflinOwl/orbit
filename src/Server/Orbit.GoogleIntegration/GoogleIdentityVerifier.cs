@@ -40,9 +40,15 @@ public sealed class GoogleIdentityVerifier : IGoogleIdentityVerifier
                 idToken,
                 new GoogleJsonWebSignature.ValidationSettings { Audience = [_settings.CurrentValue.ClientId] });
         }
-        catch (InvalidJwtException exception)
+        catch (Exception exception) when (exception is not OperationCanceledException and not HttpRequestException)
         {
             // Expected for anything an attacker sends, so logged as information rather than as an error.
+            // Deliberately wider than InvalidJwtException: that is only raised for a token Google's
+            // library can read but won't trust, while a string it can't read at all (bad base64,
+            // segments that aren't JSON) surfaces as a parse error from inside its JSON stack instead -
+            // which used to escape as a 500 on an endpoint anyone can post junk to. HttpRequestException
+            // is left to propagate on purpose: that is Google being unreachable, a real server-side
+            // failure rather than a bad token, and answering "invalid token" would misdescribe it.
             _logger.LogInformation(exception, "Rejected an invalid Google ID token");
             return null;
         }
