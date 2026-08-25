@@ -17,7 +17,9 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
     {
         await _taskListLinkValidator.ValidateAsync(request.UserId, taskListId: null, request.Items, cancellationToken);
 
-        var taskList = TaskList.Create(request.UserId, request.Title, request.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent);
+        var taskList = TaskList.Create(
+            request.UserId, request.Title, request.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent,
+            request.Priority);
         await _taskRepository.AddAsync(taskList, cancellationToken);
         return taskList.Id;
     }

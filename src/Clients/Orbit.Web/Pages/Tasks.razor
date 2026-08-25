@@ -1,6 +1,7 @@
 @page "/tasks"
 @attribute [Authorize]
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject NavigationManager NavigationManager
@@ -29,8 +30,41 @@ else if (_taskLists.Count == 0)
 }
 else
 {
+    <div class="list-controls">
+        <div class="list-filters">
+            @* "All" is a filter like the rest rather than a way of clearing them, so there is always
+               exactly one answer to "what am I looking at". *@
+            <button type="button" class="filter-chip @(_statusFilter is null ? "on" : "")"
+                    @onclick="() => SetStatusFilter(null)">
+                All <span class="filter-chip-count">@_taskLists.Count</span>
+            </button>
+            @foreach (var status in StatusFilters)
+            {
+                <button type="button" class="filter-chip @(_statusFilter == status ? "on" : "")"
+                        @onclick="() => SetStatusFilter(status)">
+                    @DescribeStatus(status) <span class="filter-chip-count">@CountWithStatus(status)</span>
+                </button>
+            }
+        </div>
+        <label class="list-sort">
+            Sort
+            <select @bind="_sortOrder" @bind:after="OnSortChanged">
+                <option value="@TaskListSortOrder.Priority">Priority</option>
+                <option value="@TaskListSortOrder.Newest">Newest first</option>
+                <option value="@TaskListSortOrder.Oldest">Oldest first</option>
+                <option value="@TaskListSortOrder.Alphabetical">A to Z</option>
+                <option value="@TaskListSortOrder.ReverseAlphabetical">Z to A</option>
+            </select>
+        </label>
+    </div>
+
+    @if (VisibleTaskLists.Count == 0)
+    {
+        <p class="empty-hint">No lists are @DescribeStatus(_statusFilter!.Value).ToLowerInvariant().</p>
+    }
+
     <div class="card-grid">
-        @foreach (var taskList in _taskLists)
+        @foreach (var taskList in VisibleTaskLists)
         {
             <div class="card task-list-card">
                 <div class="card-header">
@@ -44,6 +78,11 @@ else
                         {
                             <span class="card-badge">Shared</span>
                         }
+                        @if (taskList.Priority != "Normal")
+                        {
+                            <span class="card-badge card-badge-priority-@taskList.Priority.ToLowerInvariant()">@taskList.Priority</span>
+                        }
+                        <span class="card-badge card-badge-status-@taskList.Status.ToLowerInvariant()">@DescribeStatus(ParseStatus(taskList))</span>
                     </span>
                     <span class="card-count">@CompletionSummary(taskList)</span>
                 </div>
@@ -88,6 +127,83 @@ else
 
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;
+
+    /// <summary>Which statuses the filter row offers, in the order a list moves through them.</summary>
+    private static readonly TaskListStatus[] StatusFilters =
+        [TaskListStatus.New, TaskListStatus.Pending, TaskListStatus.Overdue, TaskListStatus.Completed];
+
+    /// <summary>Null means every list - see the "All" chip, which is a filter like the others rather than a way of clearing them.</summary>
+    private TaskListStatus? _statusFilter;
+
+    private TaskListSortOrder _sortOrder = TaskListSortOrder.Priority;
+
+    /// <summary>
+    /// Filtering and sorting happen here rather than on the server: the page already has every list it
+    /// owns, so asking again would be a round trip to rearrange what is already on screen.
+    /// </summary>
+    private IReadOnlyList<TaskDto> VisibleTaskLists
+    {
+        get
+        {
+            var visible = _taskLists ?? [];
+            if (_statusFilter is { } status)
+            {
+                visible = visible.Where(taskList => ParseStatus(taskList) == status).ToList();
+            }
+
+            return Sort(visible, _sortOrder);
+        }
+    }
+
+    private static IReadOnlyList<TaskDto> Sort(IReadOnlyList<TaskDto> taskLists, TaskListSortOrder sortOrder) => sortOrder switch
+    {
+        // Within a priority, newest first: two lists that matter equally are most usefully ordered by
+        // which was touched last.
+        TaskListSortOrder.Priority => taskLists
+            .OrderByDescending(taskList => ParsePriority(taskList))
+            .ThenByDescending(taskList => taskList.UpdatedAtUtc)
+            .ToList(),
+        TaskListSortOrder.Newest => taskLists.OrderByDescending(taskList => taskList.CreatedAtUtc).ToList(),
+        TaskListSortOrder.Oldest => taskLists.OrderBy(taskList => taskList.CreatedAtUtc).ToList(),
+        TaskListSortOrder.Alphabetical => taskLists.OrderBy(taskList => taskList.Title, StringComparer.CurrentCultureIgnoreCase).ToList(),
+        _ => taskLists.OrderByDescending(taskList => taskList.Title, StringComparer.CurrentCultureIgnoreCase).ToList()
+    };
+
+    private int CountWithStatus(TaskListStatus status)
+        => _taskLists?.Count(taskList => ParseStatus(taskList) == status) ?? 0;
+
+    private void SetStatusFilter(TaskListStatus? status)
+    {
+        _statusFilter = status;
+        Logger.LogInformation("Task list filter set to {StatusFilter}", status?.ToString() ?? "All");
+    }
+
+    private void OnSortChanged() => Logger.LogInformation("Task lists sorted by {SortOrder}", _sortOrder);
+
+    /// <summary>An unrecognised status reads as New - a status this client doesn't know yet is not one it should invent a meaning for.</summary>
+    private static TaskListStatus ParseStatus(TaskDto taskList)
+        => Enum.TryParse<TaskListStatus>(taskList.Status, out var status) ? status : TaskListStatus.New;
+
+    private static TaskListPriority ParsePriority(TaskDto taskList)
+        => Enum.TryParse<TaskListPriority>(taskList.Priority, out var priority) ? priority : TaskListPriority.Normal;
+
+    private static string DescribeStatus(TaskListStatus status) => status switch
+    {
+        TaskListStatus.Pending => "In progress",
+        TaskListStatus.Completed => "Done",
+        TaskListStatus.Overdue => "Overdue",
+        _ => "Not started"
+    };
+
+    /// <summary>The orders the sort dropdown offers - Priority first, since it is the one the reader set themselves.</summary>
+    private enum TaskListSortOrder
+    {
+        Priority,
+        Newest,
+        Oldest,
+        Alphabetical,
+        ReverseAlphabetical
+    }
 
     /// <summary>How much of a list to show on its card before falling back to "and N more" - a card is for recognising a list, not working through it.</summary>
     private const int PreviewItemCount = 4;

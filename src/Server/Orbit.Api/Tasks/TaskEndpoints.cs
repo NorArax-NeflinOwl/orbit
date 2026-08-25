@@ -44,7 +44,10 @@ public static class TaskEndpoints
             CreateTaskRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var id = await dispatcher.SendAsync(
-                new CreateTaskListCommand(GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
+                new CreateTaskListCommand(
+                    GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<TaskListPriority>(request.Priority, "priority")),
+                cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
 
@@ -52,7 +55,10 @@ public static class TaskEndpoints
             Guid id, UpdateTaskRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new UpdateTaskListCommand(GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
+                new UpdateTaskListCommand(
+                    GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<TaskListPriority>(request.Priority, "priority")),
+                cancellationToken);
             return ToApiResult(outcome);
         });
 
@@ -175,7 +181,9 @@ public static class TaskEndpoints
             taskList.IsShared,
             taskList.SharedByUserName,
             taskList.AccessLevel.ToString(),
-            taskList.IsShared ? taskList.UserId : null);
+            taskList.IsShared ? taskList.UserId : null,
+            taskList.Priority.ToString(),
+            taskList.Status.ToString());
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

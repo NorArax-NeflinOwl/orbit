@@ -34,6 +34,9 @@ public sealed class TaskList
     /// </summary>
     public bool IsCompleted { get; private set; }
 
+    /// <summary>How much this list matters, for sorting and for the reader's own sense of it. See <see cref="TaskListPriority"/>.</summary>
+    public TaskListPriority Priority { get; private set; }
+
     /// <summary>
     /// Marks this list as one that gathers other lists: the lists its items link to are its members,
     /// and the checklist view renders them inline underneath it so the whole group can be worked
@@ -65,7 +68,7 @@ public sealed class TaskList
 
     private TaskList(
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
-        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        TaskListPriority priority, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
@@ -73,6 +76,7 @@ public sealed class TaskList
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(Items);
+        Priority = priority;
         LockedByUserId = lockedByUserId;
         LockedByUserName = lockedByUserName;
         LockExpiresAtUtc = lockExpiresAtUtc;
@@ -82,21 +86,27 @@ public sealed class TaskList
 
     public static TaskList Create(
         Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
-        bool isPrivate = false, EncryptedPayload? encryptedContent = null)
+        bool isPrivate = false, EncryptedPayload? encryptedContent = null, TaskListPriority priority = TaskListPriority.Normal)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         var now = DateTimeOffset.UtcNow;
         return new TaskList(
-            Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, now, now,
+            Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, now, now,
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
     }
 
-    /// <summary>Rebuilds a task list from already-persisted values, bypassing creation rules.</summary>
+    /// <summary>
+    /// Rebuilds a task list from already-persisted values, bypassing creation rules. Every parameter is
+    /// required on purpose, priority included: this is also used to rebuild a list in memory (see
+    /// LinkedTaskCompletionResolver), and an optional parameter there is a field that silently reverts
+    /// to its default instead of a compiler error.
+    /// </summary>
     public static TaskList FromPersistence(
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
-        => new(id, userId, title, items, isGroup, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
+        TaskListPriority priority)
+        => new(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, createdAtUtc, updatedAtUtc,
             lockedByUserId, lockedByUserName, lockExpiresAtUtc);
 
     /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
@@ -114,12 +124,15 @@ public sealed class TaskList
     /// UpdateTaskListCommandHandler. <paramref name="isGroup"/> has no default on purpose: this
     /// replaces the whole list, so a caller that forgot it would silently un-group the list.
     /// </summary>
-    public void Update(string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent)
+    public void Update(
+        string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
+        TaskListPriority priority = TaskListPriority.Normal)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(Items);
+        Priority = priority;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
@@ -130,6 +143,33 @@ public sealed class TaskList
         {
             throw new InvalidRequestException("A private task list must arrive already encrypted.");
         }
+    }
+
+    /// <summary>
+    /// Where this list has got to, worked out from its items - see <see cref="TaskListStatus"/> for why
+    /// it isn't stored. A private list always reads as New: its items are sealed, so there is nothing
+    /// here to work it out from, and guessing would be worse than saying nothing.
+    /// </summary>
+    public TaskListStatus Status => ComputeStatus(Items, DateTimeOffset.UtcNow);
+
+    private static TaskListStatus ComputeStatus(IReadOnlyList<TaskItem> items, DateTimeOffset nowUtc)
+    {
+        if (items.Count == 0)
+        {
+            return TaskListStatus.New;
+        }
+
+        if (items.All(item => item.IsCompleted))
+        {
+            return TaskListStatus.Completed;
+        }
+
+        if (items.Any(item => !item.IsCompleted && item.DueDateUtc is { } dueDateUtc && dueDateUtc < nowUtc))
+        {
+            return TaskListStatus.Overdue;
+        }
+
+        return items.Any(item => item.IsCompleted) ? TaskListStatus.Pending : TaskListStatus.New;
     }
 
     /// <summary>Mirrors Note.ReadableOrSealed - see its comment for why this is enforced rather than trusted.</summary>
