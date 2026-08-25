@@ -65,6 +65,48 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_94E34BA93C604CA382EDE479DD7DF344 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4D66E98B9B334790B251FF8C8748B1B1 }}
 
+      # A container app with incomplete environment variables "deploys successfully" and then silently
+      # degrades: SmtpEmailSender and its siblings deliberately drop work with only a log line when
+      # their settings are missing, so production ran without sending a single email and nothing
+      # visibly failed. Checking the env var names up front - before spending minutes on image builds -
+      # turns that into a failed run naming exactly what to set. Only names can be checked from here
+      # (secret values are write-only); empty-but-present values are the "configuration" health
+      # check's job at runtime (see ConfigurationHealthCheck in Orbit.Api). When a feature is dropped
+      # from this deployment on purpose, remove its variables from this list in the same change.
+      - name: Verify orbit-api has every required environment variable
+        run: |
+          REQUIRED_VARIABLES="
+            Jwt__SigningKey
+            ConnectionStrings__Orbit
+            APPLICATIONINSIGHTS_CONNECTION_STRING
+            Vapid__PublicKeyBase64Url
+            Vapid__PrivateKeyBase64Url
+            Vapid__Subject
+            Smtp__Host
+            Smtp__Port
+            Smtp__UserName
+            Smtp__Password
+            Smtp__FromAddress
+            GoogleAuth__ClientId
+          "
+          CONFIGURED_VARIABLES=$(az containerapp show \
+            --name orbit-api \
+            --resource-group ${{ env.resourceGroupName }} \
+            --query "properties.template.containers[0].env[].name" -o tsv)
+
+          missing=""
+          for variable in $REQUIRED_VARIABLES; do
+            if ! echo "$CONFIGURED_VARIABLES" | grep -qx "$variable"; then
+              missing="$missing $variable"
+            fi
+          done
+
+          if [ -n "$missing" ]; then
+            echo "::error::orbit-api is missing environment variable(s):$missing - set them with 'az containerapp update -n orbit-api -g ${{ env.resourceGroupName }} --set-env-vars ...' (see the settings table in info/azure-setup.md, including which values belong in secrets), or remove deliberately dropped features from the list in this step."
+            exit 1
+          fi
+          echo "orbit-api has every required environment variable."
+
       # az acr build (ACR Tasks) is blocked on Azure Free Trial subscriptions regardless of role
       # assignments, so images are built here on the runner instead and pushed with plain docker push.
       - name: Log in to Azure Container Registry

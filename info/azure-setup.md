@@ -113,7 +113,19 @@ All required and optional settings in one place. Every `az containerapp secret s
 | `ConnectionStrings__Orbit` | **Required.** Throws on startup if unset - see [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs). | Container App secret. PostgreSQL connection string from step 1. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional - traces. A malformed value (not empty - see [gotcha](#a-malformed-app-insights-string-crashes-startup-same-as-missing-jwt)) crashes startup the same as a missing JWT key. | Container App secret. From the `appinsights-orbit` resource. |
 | `Vapid__PublicKeyBase64Url` / `Vapid__PrivateKeyBase64Url` / `Vapid__Subject` | Optional - push notifications. Missing means the "enable push notifications" toggle silently never turns on, no visible error. | Public key/subject as plain env vars, private key as a secret. `npx web-push generate-vapid-keys`. |
-| `Smtp__Host` / `Smtp__Port` / `Smtp__UserName` / `Smtp__Password` / `Smtp__FromAddress` | Optional - calendar reminder emails. | `Smtp__Password` as a secret, rest as plain env vars. |
+| `Smtp__Host` / `Smtp__Port` / `Smtp__UserName` / `Smtp__Password` / `Smtp__FromAddress` | Optional - all outgoing email: calendar reminders, email verification codes, password reset codes. | `Smtp__Password` as a secret, rest as plain env vars. |
+| `GoogleAuth__ClientId` | Optional - "sign in with Google". Missing means the Google button never renders, no visible error. Public by design, so a plain env var. | The OAuth web client in Google Cloud Console → Credentials; the production `orbit-web` URL must be in its Authorized JavaScript origins. |
+
+Two safety nets watch this table, because every "Optional" row fails *silently* when missing:
+
+- The deploy workflow refuses to deploy while any variable above is absent from `orbit-api` (the
+  "Verify orbit-api has every required environment variable" step in
+  [main_orbit.yml](../.github/workflows/main_orbit.yml) - edit its list when deliberately dropping a
+  feature). It checks names only, since secret values can't be read back.
+- The API's `configuration` health check reports on `GET /health` which integration is unconfigured
+  (Degraded) or - always a mistake - only partially configured (Unhealthy), naming the missing keys.
+  `orbit-api` has no external ingress, so read it via
+  `az containerapp exec -n orbit-api -g Orbit --command "curl -s localhost:8080/health"`.
 
 ```bash
 # Required
@@ -143,11 +155,15 @@ az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "Vapid__PrivateKeyBase64Url=secretref:vapid-private-key" \
   "Vapid__Subject=mailto:you@example.com"
 
-# Optional: calendar reminder emails
+# Optional: outgoing email (calendar reminders, verification and password reset codes)
 az containerapp secret set -n orbit-api -g Orbit --secrets smtp-password="<password>"
 az containerapp update -n orbit-api -g Orbit --set-env-vars \
   "Smtp__Host=<host>" "Smtp__Port=587" "Smtp__UserName=<user>" \
   "Smtp__FromAddress=<address>" "Smtp__Password=secretref:smtp-password"
+
+# Optional: "sign in with Google"
+az containerapp update -n orbit-api -g Orbit --set-env-vars \
+  "GoogleAuth__ClientId=<client id>.apps.googleusercontent.com"
 ```
 
 **A secret's *value* can be updated without creating a new revision** - existing running replicas keep
