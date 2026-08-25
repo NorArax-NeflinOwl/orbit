@@ -16,11 +16,20 @@ public sealed class DeleteAccountCommandHandler : IRequestHandler<DeleteAccountC
         _accountDeletionRepository = accountDeletionRepository;
     }
 
-    /// <summary>False when the account is gone or the password doesn't match - same signal as ChangePasswordCommandHandler.</summary>
+    /// <summary>
+    /// False when the account is gone, or it has a password and the one given doesn't match. An account
+    /// with no password (Google-only, see SetPasswordCommand) needs none here either - being signed in
+    /// is the proof, same reasoning as SetPasswordCommand.
+    /// </summary>
     public async Task<bool> HandleAsync(DeleteAccountCommand request, CancellationToken cancellationToken)
     {
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
-        if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
+        if (user is null)
+        {
+            return false;
+        }
+
+        if (user.PasswordHash is { } currentHash && !_passwordHasher.Verify(request.Password, currentHash))
         {
             return false;
         }
