@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using AngleSharp.Dom;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -49,13 +50,73 @@ public sealed class DashboardTests : TestContext
         Assert.DoesNotContain("Bartek Nowak", contactsColumnText);
     }
 
+    [Fact]
+    public void Group_chats_get_their_own_column()
+    {
+        RegisterChatApiClient([], [Group("Weekend trip", memberCount: 3), Group("Book club", memberCount: 5)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var groupsColumn = FindColumn(cut, "Groups").TextContent;
+        Assert.Contains("Weekend trip", groupsColumn);
+        Assert.Contains("Book club", groupsColumn);
+    }
+
+    [Fact]
+    public void A_group_you_administer_says_so()
+    {
+        RegisterChatApiClient([], [Group("Weekend trip", memberCount: 3, ownRole: "Admin")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Admin", FindColumn(cut, "Groups").TextContent);
+    }
+
+    [Fact]
+    public void An_account_in_no_groups_gets_no_groups_column()
+    {
+        RegisterChatApiClient([], []);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // A column that only ever said "none" would be dead space on the one page meant to be scanned.
+        Assert.DoesNotContain("Groups", cut.Markup);
+    }
+
+    [Fact]
+    public void Clicking_a_group_opens_it()
+    {
+        var group = Group("Weekend trip", memberCount: 3);
+        RegisterChatApiClient([], [group]);
+        var cut = RenderComponent<Dashboard>();
+
+        FindColumn(cut, "Groups").QuerySelector("button")!.Click();
+
+        Assert.EndsWith($"/chat/groups/{group.Id}", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    private static ChatGroupDto Group(string name, int memberCount, string ownRole = "Member")
+        => new(
+            Guid.NewGuid(), name, Guid.NewGuid(), DateTimeOffset.UtcNow, ownRole,
+            Enumerable.Range(0, memberCount)
+                .Select(_ => new ChatGroupMemberDto(Guid.NewGuid(), "Member", DateTimeOffset.UtcNow))
+                .ToList());
+
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
         => cut.FindAll("div.card").Single(column => column.QuerySelector(".card-title")!.TextContent == heading);
 
-    private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)
+    /// <summary>
+    /// The dashboard asks this client for two different things - contacts and groups - so the stub has
+    /// to answer by path. Answering everything with contacts would deserialize them as groups too, and
+    /// the groups card would render entries with no name.
+    /// </summary>
+    private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts, IReadOnlyList<ChatGroupDto>? groups = null)
     {
-        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(contacts))) { BaseAddress = new Uri("https://example.test/") };
-        Services.AddSingleton(new ChatApiClient(httpClient));
+        var handler = new StubHttpMessageHandler(request =>
+            request.RequestUri!.AbsolutePath.EndsWith("/groups", StringComparison.Ordinal)
+                ? JsonResponse(groups ?? [])
+                : JsonResponse(contacts));
+        Services.AddSingleton(new ChatApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
     }
 
     private void RegisterEmptyNotesApiClient()
