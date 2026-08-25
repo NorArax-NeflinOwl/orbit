@@ -12,5 +12,9 @@
     "PublicKeyBase64Url": "your-vapid-public-key",
     "PrivateKeyBase64Url": "your-vapid-private-key",
     "Subject": "mailto:you@example.com"
+  },
+  "GoogleAuth": {
+    "_comment": "OAuth client id for 'sign in with Google' (Google Cloud Console > Credentials > OAuth client ID, type 'Web application', with this app's origin authorized). Only the id - Orbit verifies browser-obtained ID tokens, so there is no client secret. Leave empty to hide the Google button entirely.",
+    "ClientId": ""
   }
 }
