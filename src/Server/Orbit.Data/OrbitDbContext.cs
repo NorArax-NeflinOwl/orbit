@@ -35,6 +35,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
     public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
+    public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -352,6 +353,18 @@ public sealed class OrbitDbContext : DbContext
             // the default a new list gets rather than as an unparseable empty string.
             entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
                 .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskListPriority.Normal));
+        });
+
+        modelBuilder.Entity<PublicShareLinkEntity>(entity =>
+        {
+            entity.HasKey(link => link.Id);
+            entity.Property(link => link.Token).IsRequired().HasMaxLength(64);
+            entity.Property(link => link.ItemType).IsRequired().HasMaxLength(20);
+            // The token is the entire access check, so every read behind a link is a lookup by it -
+            // unique both to make that an index seek and because two links can't share a secret.
+            entity.HasIndex(link => link.Token).IsUnique();
+            // GetLiveForItemAsync's exact filter: one live link per item per owner.
+            entity.HasIndex(link => new { link.OwnerUserId, link.ItemType, link.ItemId });
         });
 
         modelBuilder.Entity<NotificationEntryEntity>(entity =>

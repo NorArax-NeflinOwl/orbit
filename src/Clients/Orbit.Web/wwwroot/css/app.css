@@ -2762,6 +2762,128 @@ input.note-editor-title {
     margin: 0;
     font-size: 12.5px;
     color: var(--text-secondary);
+/* ---- Public share links (ShareLinkButton.razor, SharedItemPage.razor) ---- */
+
+.share-link {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.share-link-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.share-link-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.share-link-icon {
+    flex: 0 0 auto;
+}
+
+.share-link-note {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    max-width: 62ch;
+}
+
+.share-link-url {
+    width: 100%;
+    max-width: 62ch;
+    font-family: var(--font-mono, monospace);
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+/* The page behind a link. Centred and narrow on purpose: it is one item on its own, read by someone who
+   may never have seen Orbit before, not a page of an app they are navigating. */
+.shared-item-page {
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+}
+
+.shared-item-card {
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.shared-item-header h1 {
+    margin: 6px 0 0;
+}
+
+.shared-item-kind {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.shared-item-owner {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+}
+
+.shared-item-lines {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.shared-item-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    background: var(--bg-subtle);
+}
+
+.shared-item-line-checked .shared-item-line-text {
+    text-decoration: line-through;
+    color: var(--text-tertiary);
+}
+
+.shared-item-line-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.shared-item-line-detail {
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+}
+
+.shared-item-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.shared-item-claimed {
+    margin: 0;
+    font-weight: 600;
+    color: var(--success);
 }
 /* ---- Filtering and sorting a list of cards (Tasks.razor) ---- */
 

@@ -1,0 +1,155 @@
+@page "/s/{Token}"
+@using Orbit.Contracts.Sharing
+@using Orbit.Web.Services
+@inject PublicShareApiClient PublicShareApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<SharedItemPage> Logger
+
+<PageTitle>@(_item is null ? "Orbit — Shared" : $"Orbit — {_item.Title}")</PageTitle>
+
+@* Deliberately has no [Authorize]: this is the one page a reader with no account is meant to reach.
+   Everything it shows comes from PublicSharedItem, which is a projection rather than the item itself -
+   see its class comment for what is left out on purpose. *@
+<div class="shared-item-page">
+    @if (_isLoading)
+    {
+        <p class="page-subtitle">Loading…</p>
+    }
+    else if (_item is null)
+    {
+        <div class="card shared-item-card">
+            <h1>This link doesn't work</h1>
+            <p class="page-subtitle">
+                It may have been turned off by whoever shared it, or the thing it pointed at may be gone.
+                Ask them for a new one.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="card shared-item-card">
+            <div class="shared-item-header">
+                <span class="shared-item-kind">@DescribeKind(_item.ItemType)</span>
+                <h1>@_item.Title</h1>
+                @if (_item.Subtitle is not null)
+                {
+                    <p class="page-subtitle">@_item.Subtitle</p>
+                }
+                <p class="shared-item-owner">Shared by @_item.OwnerDisplayName</p>
+            </div>
+
+            @if (_item.Lines.Count == 0)
+            {
+                <p class="page-subtitle">Nothing in it yet.</p>
+            }
+            else
+            {
+                <ul class="shared-item-lines">
+                    @foreach (var line in _item.Lines)
+                    {
+                        <li class="shared-item-line @(line.IsChecked ? "shared-item-line-checked" : "")">
+                            @if (line.IsChecklistItem)
+                            {
+                                @* Disabled rather than absent: the reader can see what is done without
+                                   being offered a control that would do nothing. *@
+                                <input type="checkbox" checked="@line.IsChecked" disabled />
+                            }
+                            <span class="shared-item-line-text">@line.Text</span>
+                            @if (line.Detail is not null)
+                            {
+                                <span class="shared-item-line-detail">@line.Detail</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+
+            <div class="shared-item-footer">
+                @if (_claimMessage is not null)
+                {
+                    <p class="shared-item-claimed">@_claimMessage</p>
+                }
+                else
+                {
+                    <AuthorizeView>
+                        <Authorized>
+                            <button type="button" class="btn-primary" disabled="@_isClaiming" @onclick="ClaimAsync">
+                                Save to my account
+                            </button>
+                            <p class="page-subtitle">You'll get your own read-only copy. Nothing you do changes theirs.</p>
+                        </Authorized>
+                        <NotAuthorized>
+                            <button type="button" class="btn-primary" @onclick="SignInToClaim">Sign in to save this</button>
+                            <p class="page-subtitle">Reading needs no account. Saving it to your own does.</p>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Token { get; set; } = string.Empty;
+
+    private PublicSharedItemDto? _item;
+    private bool _isLoading = true;
+    private bool _isClaiming;
+    private string? _claimMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _item = await PublicShareApiClient.ReadAsync(Token);
+        }
+        catch (HttpRequestException exception)
+        {
+            // Every way a link can fail already reads as one message, and a network failure is another
+            // way of not being able to show it.
+            Logger.LogWarning(exception, "Failed to read a shared item");
+            _item = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    /// <summary>Comes back here afterwards rather than landing on the dashboard - see Login.DestinationAfterLogin.</summary>
+    private void SignInToClaim()
+        => NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString($"/s/{Token}")}");
+
+    private async Task ClaimAsync()
+    {
+        _isClaiming = true;
+        try
+        {
+            var result = await PublicShareApiClient.ClaimAsync(Token);
+            _claimMessage = result is null
+                ? "Couldn't save it. The link may have been turned off."
+                : result.AlreadyHeld
+                    ? "You already have this."
+                    : "Saved. It's in your account now.";
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to claim a shared item");
+            _claimMessage = "Couldn't save it. Try again.";
+        }
+        finally
+        {
+            _isClaiming = false;
+        }
+    }
+
+    private static string DescribeKind(string itemType) => itemType switch
+    {
+        "Note" => "Note",
+        "TaskList" => "Task list",
+        "CalendarEvent" => "Event",
+        _ => "Storage"
+    };
+}

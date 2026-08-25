@@ -60,6 +60,11 @@ using Orbit.Core.Notifications.GetUnreadNotificationEntries;
 using Orbit.Core.Notifications.ClearNotifications;
 using Orbit.Core.Notifications.GetNotificationHistory;
 using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
+using Orbit.Core.Sharing;
+using Orbit.Core.Sharing.ClaimPublicShareLink;
+using Orbit.Core.Sharing.CreatePublicShareLink;
+using Orbit.Core.Sharing.GetPublicSharedItem;
+using Orbit.Core.Sharing.RevokePublicShareLink;
 using Orbit.Core.Transfer;
 using Orbit.Core.Transfer.ExportArchive;
 using Orbit.Core.Transfer.ImportArchive;
@@ -237,6 +242,12 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<MarkAllNotificationsReadCommand, bool>, MarkAllNotificationsReadCommandHandler>();
         services.AddScoped<IRequestHandler<MarkNotificationsAtUrlReadCommand, bool>, MarkNotificationsAtUrlReadCommandHandler>();
         services.AddScoped<IRequestHandler<GetNotificationHistoryQuery, IReadOnlyList<NotificationEntry>>, GetNotificationHistoryQueryHandler>();
+
+        services.AddScoped<PublicSharedItemReader>();
+        services.AddScoped<IRequestHandler<CreatePublicShareLinkCommand, PublicShareLink?>, CreatePublicShareLinkCommandHandler>();
+        services.AddScoped<IRequestHandler<RevokePublicShareLinkCommand, bool>, RevokePublicShareLinkCommandHandler>();
+        services.AddScoped<IRequestHandler<GetPublicSharedItemQuery, PublicSharedItem?>, GetPublicSharedItemQueryHandler>();
+        services.AddScoped<IRequestHandler<ClaimPublicShareLinkCommand, ClaimPublicShareLinkResult>, ClaimPublicShareLinkCommandHandler>();
 
         services.AddScoped<IRequestHandler<ExportArchiveQuery, OrbitArchive>, ExportArchiveQueryHandler>();
         services.AddScoped<IRequestHandler<ImportArchiveCommand, ImportArchiveResult>, ImportArchiveCommandHandler>();

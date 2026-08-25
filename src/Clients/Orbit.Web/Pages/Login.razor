@@ -44,6 +44,11 @@
 <p>Don't have an account? <a href="/register">Register</a></p>
 
 @code {
+    /// <summary>Set by whatever sent the reader here - see DestinationAfterLogin, which is what decides whether to honour it.</summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
     private readonly LoginFormModel _formModel = new();
     private bool _isSubmitting;
     private string? _errorMessage;
@@ -79,7 +84,7 @@
             // this call finishes. Running this first means that attempt always finds a key already there.
             await TryUnlockEncryptionKeyAsync(_formModel.Password);
             AuthenticationStateProvider.NotifyAuthenticationStateChanged();
-            NavigationManager.NavigateTo("/");
+            NavigationManager.NavigateTo(DestinationAfterLogin());
             return;
         }
 
@@ -149,6 +154,23 @@
         // no password at all, so there is nothing to wrap a chat key with yet. Chat asks for one when it
         // is actually needed - see Chat.razor's password gate.
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
-        NavigationManager.NavigateTo("/");
+        NavigationManager.NavigateTo(DestinationAfterLogin());
+    }
+
+    /// <summary>
+    /// Where to land after signing in. Normally the dashboard, but someone who arrived from a share link
+    /// came here to do one specific thing - save that item - and dropping them on the dashboard would
+    /// lose it.
+    ///
+    /// Only ever an in-app path: ReturnUrl arrives in the address bar, so anyone can put anything in it,
+    /// and following an absolute URL from there would turn this page into a redirector someone could
+    /// point at their own site from a link that genuinely starts at Orbit.
+    /// </summary>
+    private string DestinationAfterLogin()
+    {
+        var returnUrl = ReturnUrl;
+        return string.IsNullOrWhiteSpace(returnUrl) || !returnUrl.StartsWith('/') || returnUrl.StartsWith("//", StringComparison.Ordinal)
+            ? "/"
+            : returnUrl;
     }
 }
