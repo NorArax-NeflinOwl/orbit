@@ -31,9 +31,16 @@ Migrations — see [Testing and Running Locally](testing-and-running-locally.md#
 
 ### Orbit.GoogleIntegration
 
-An empty placeholder project for the future Google Calendar/Contacts sync referenced by the calendar
-feature. See [Future Plan](future-plan.md#planned-features) and
-[Functionality — Calendar](functionality.md#calendar) for what's implemented so far without it.
+Holds what Orbit needs from Google. Today that is authentication only: `GoogleIdentityVerifier`
+validates the ID token the browser gets from Google Identity Services, and `GoogleAuthSettings` carries
+the client id it checks against — see
+[Functionality — Authentication](functionality.md#authentication). Kept in its own project rather than
+in `Orbit.Api` so the Google SDK dependency stays off the API's own surface.
+
+The Google Calendar/Contacts sync this project was originally reserved for still hasn't been started,
+and shares nothing with the sign-in code beyond living here. See
+[Future Plan](future-plan.md#planned-features) and
+[Functionality — Calendar](functionality.md#calendar) for what the calendar does without it.
 
 ## `src/Clients`
 
@@ -84,7 +91,7 @@ what each one covers.
   to the HTTPS port). Depends on `orbit-api`'s `/health/live` check reporting healthy before starting,
   not just on the container existing. TLS certificates live in a named volume
   (`orbit-web-certs`) and are self-signed on first startup — see
-  [Testing and Running Locally](testing-and-running-locally.md#accessing-orbit.web-from-another-device-on-your-network).
+  [Testing and Running Locally](testing-and-running-locally.md#accessing-orbitweb-from-another-device-on-your-network).
 
 `orbit-web`'s nginx reverse-proxies `/api/*` to `orbit-api`, so the browser always calls the API under
 the same origin it loaded the page from and no CORS configuration is needed for the Docker Compose

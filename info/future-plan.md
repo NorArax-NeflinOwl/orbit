@@ -10,27 +10,31 @@ picture of what's left.
 - **.NET MAUI client (mobile and desktop).** The long-term target architecture is a shared ASP.NET
   Core API backing a .NET MAUI client so every device stays in sync (see the top-level
   [README](../README.md)). Today the Blazor WebAssembly web client (`src/Clients/Orbit.Web`) is the
-  only client, and MAUI work has not started — see
+  only client, and MAUI work has not started — `src/Clients/Orbit.Maui` exists as an empty folder that
+  isn't part of `Orbit.sln`, so it builds nothing and is a reservation rather than a stub. See
   [Architecture — Orbit.Web](architecture.md#orbitweb).
-- **Location sharing.** Part of the product's stated scope, not implemented at all yet — no server
-  endpoints, data model, or client UI exist for it. The fuller intended shape, as captured on the
-  backlog:
-  - Capture and store the user's own device location.
-  - Share it with another user through chat, either as a one-off snapshot or a "live" share that
-    keeps refreshing — a client polling for the target's last known location, with the sharer's own
-    client pushing an updated position roughly once a minute while online.
-  - **Proposed approach:** a `UserLocations` table (`UserId`, `Latitude`, `Longitude`, `RecordedAtUtc`)
-    updated via an upsert endpoint the client calls on an interval (mirroring the chat page's existing
-    3-second polling loop — see
-    [Known scope cuts — Chat delivery is polling-based](#known-scope-cuts-and-rough-edges) — a
-    once-a-minute interval for location is far cheaper). A share would work like calendar event
-    sharing already does (`CalendarApiClient.ShareCalendarEventAsync` /
-    `EncryptedChatMessageSender`): an encrypted chat message carrying a reference the recipient's
-    client resolves by polling `UserLocations` for as long as the share is marked active, with an
-    explicit "stop sharing" action to end the live share.
-- **Google Calendar / Contacts sync.** `Orbit.GoogleIntegration` (`src/Server`) exists today only as
-  an empty placeholder project reserved for this — see
-  [Architecture — Orbit.GoogleIntegration](architecture.md#orbitgoogleintegration) and
+- **Sharing a location with another user.** Half of this is now built: a user can record their own
+  location and see it on a map (`/map`, `PUT`/`DELETE /api/users/me/location`, `UserLocation`), stored
+  as one point per user that each new recording replaces — Orbit deliberately keeps no history of
+  where someone has been. Recording is always an explicit user action; nothing reads the browser's
+  position on its own. What's still missing is the sharing half:
+  - Share that location with another user through chat, either as a one-off snapshot or a "live"
+    share that keeps refreshing — a client polling for the target's last known location, with the
+    sharer's own client pushing an updated position roughly once a minute while online.
+  - **Proposed approach:** the storage side already exists, so this is now mostly a sharing-and-consent
+    problem. A share would work like calendar event sharing already does
+    (`CalendarApiClient.ShareCalendarEventAsync` / `EncryptedChatMessageSender`): an encrypted chat
+    message carrying a reference the recipient's client resolves by re-reading the sharer's location
+    for as long as the share is marked active, with an explicit "stop sharing" action to end it. The
+    live variant additionally needs the sharer's client to refresh its own stored position on a timer
+    (once a minute is far cheaper than the chat page's existing per-second poll — see
+    [Known scope cuts — Chat delivery is polling-based](#known-scope-cuts-and-rough-edges)), and needs
+    a deliberate answer for how a recipient stops seeing a location the sharer forgot to stop sharing.
+- **Google Calendar / Contacts sync.** `Orbit.GoogleIntegration` (`src/Server`) is no longer empty —
+  it holds the ID-token verification behind Google sign-in (`GoogleIdentityVerifier`,
+  `GoogleAuthSettings`) — but that is authentication only, and shares nothing with this beyond the
+  project it lives in and the fact that both talk to Google. No calendar or contacts data is read or
+  written. See [Architecture — Orbit.GoogleIntegration](architecture.md#orbitgoogleintegration) and
   [Functionality — Calendar](functionality.md#calendar) for what the calendar feature does without
   it. The backlog frames this as two separate integrations, not one:
   - Sharing a calendar event or task and writing a copy of it onto the recipient's actual Google
@@ -46,36 +50,6 @@ picture of what's left.
   distributed lock or message queue once it's needed — see
   [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders). No second
   instance runs today; this is forward-looking groundwork already in place.
-- **Checklist items inside a note.** Today a note is a single title/body pair - no way to attach a
-  list of `{ checkbox, text }` items to it. **Proposed approach:** a `NoteChecklistItem` child table
-  (`NoteId`, `Text`, `IsChecked`, `SortOrder`) rather than cramming it into the note's existing body
-  text, so items can be toggled with their own small PATCH endpoint instead of re-saving the whole
-  note body on every checkbox click.
-- **Chat groups, with per-role permissions.** Chat is explicitly 1:1 only today - see
-  [Known scope cuts — Chat is 1:1 only](#known-scope-cuts-and-rough-edges). The backlog wants real
-  group conversations, with two roles: an admin who can remove any message or any member, and a
-  regular member who can only remove their own messages. **Proposed approach:** a `ChatGroup` +
-  `ChatGroupMember` (with a `Role` column) pair sitting alongside the existing 1:1 `ChatMessage` table
-  - group messages would need their own encryption story, though, since the current design derives one
-    AES-GCM key per *pair* of users (see
-  [Known scope cuts — Chat has no per-message forward secrecy](#known-scope-cuts-and-rough-edges));
-  a group needs a key every member can decrypt, which is a materially bigger design change than the
-  schema addition, and should be scoped as its own follow-up before implementation starts.
-- **Editing an already-sent chat message.** No edit path exists today - see
-  `SendMessageCommand`/`ChatApiClient.SendMessageAsync`. **Proposed approach:** an
-  `EditMessageCommand` mirroring the existing send path (re-encrypt the new text client-side, PUT the
-  ciphertext to `/api/chat/messages/{id}`), plus an `EditedAtUtc` column so the UI can show an "edited"
-  marker the way most chat apps do.
-- **Shopping/inventory planner.** A stock-management feature: products with a name, type, category, an
-  on-hand quantity, an optional minimum quantity, and an expiry date. When a product's quantity drops to
-  or below its minimum, the system should create a task for the user; a recurring reminder task should
-  separately prompt the user to keep the recorded quantity up to date, and the expiry date should
-  surface its own approaching-expiry warning. **Proposed approach:** this reuses more of the existing
-  Tasks feature than it first looks like it needs - a background service in the same family as
-  `CalendarEventReminderBackgroundService`/`OverdueTaskNotificationBackgroundService` (see
-  [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders)) can create a
-  regular `TaskList` item automatically when a new `Product`'s quantity crosses its minimum, rather than
-  inventory needing its own separate notification pipeline.
 - **Password manager and strong-password generator.** Not scoped in detail yet on the backlog beyond
   the idea itself. **Proposed approach:** worth treating as an extension of the existing E2EE chat
   design rather than a new subsystem - encrypted credential entries could reuse the same per-user key
@@ -104,8 +78,13 @@ version, so they aren't mistaken for oversights:
   fingerprints) to confirm a public key really belongs to the person it claims to; the browser
   trusts whatever key Orbit.Api currently reports for a user. A compromised server could substitute
   a key and intercept new messages, though it still couldn't decrypt already-sent ciphertext.
-- **Chat is 1:1 only** — no group conversations.
-- **Chat delivery is polling-based** (every 3 seconds while a chat window is open), not real-time —
+- **A new group member can't read anything sent before they joined.** Group messages are encrypted
+  once per member under the existing pairwise keys rather than under a group key, so no copy exists
+  for someone who wasn't a member at the time. The group view says so rather than showing empty
+  space, and the trade-off is deliberate — there is no group key to distribute or rotate when
+  membership changes. The other side of the same choice is that a group message costs one stored row
+  per member instead of one. See [Functionality — Group chats](functionality.md#group-chats).
+- **Chat delivery is polling-based** (once a second while a chat window is open), not real-time —
   no SignalR or WebSockets.
 - **Calendar guests aren't wired to notifications.** `guests` is stored on an event but only the
   event's owner receives reminder emails and push notifications today — see
@@ -125,8 +104,9 @@ as not covered by an automated test today, together with why:
   infrastructure (e.g. `WebApplicationFactory` on the API side) that this project doesn't have yet.
 - Actually sending an email through `SmtpEmailSender` or a push notification through
   `VapidPushNotificationSender` — both need a real or fake server to connect to.
-- The `Notes`/`Tasks`/`Calendar`/`Dashboard` pages themselves as bUnit tests against the actual
-  pages (unlike `Login`/`Register`, which already have this).
+- The `Notes`/`NoteEditor` pages themselves as bUnit tests against the actual pages — the last pages
+  still without them, now that `Login`/`Register`/`Calendar`/`CalendarEventEditor`/`Dashboard`/`Tasks`/
+  `TaskListChecklist` all have this.
 - The `Contacts`/`Chat` pages, `PushNotificationManager`, and the browser-side JavaScript
   (`e2eeChat.js`, `pushNotifications.js`, `service-worker.js`) — the encryption/decryption round
   trip, IndexedDB key persistence, the polling UI, browser notification permission handling, and the
