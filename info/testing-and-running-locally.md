@@ -48,8 +48,6 @@ and what closing them would take:
 - The client-side retry-after-refresh path end-to-end through a real `HttpClientHandler` pipeline.
 - Actually sending an email through `SmtpEmailSender` or a push notification through
   `VapidPushNotificationSender`.
-- The `Notes`/`NoteEditor` pages themselves (only their command-handler logic is tested, not a bUnit
-  test against the actual pages) — the last pages still missing this.
 - The `Contacts`/`Chat` pages, `PushNotificationManager`, and
   `wwwroot/js/e2eeChat.js`/`wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — the
   encryption/decryption round trip, key generation and persistence in IndexedDB, the polling UI,

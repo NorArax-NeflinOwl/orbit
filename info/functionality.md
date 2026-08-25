@@ -652,10 +652,10 @@ The Blazor client's calendar page asks for confirmation before calling this endp
 
 ### Calendar event reminders
 
-Two independent notification emails can go to an event's owner (the account that created it — not the
-`guests` list, which isn't wired to notifications yet; see
-[Future Plan](future-plan.md#known-scope-cuts-and-rough-edges)), each gated by its own checkbox in the
-event editor:
+Two independent notification emails can go to the event's owner and to every guest who has accepted a
+share of it (see `ResolveRecipientsAsync`) — the `guests` list on the event itself is the editor's
+record of who was invited, while the accepted share is what makes someone a recipient. Each is gated by
+its own checkbox in the event editor:
 
 - **`notifyOnCreation`**: sent once, immediately, the first time the event is saved. Handled directly in
   `CreateCalendarEventCommandHandler` — not by the polling service below — since it's a one-off reaction
