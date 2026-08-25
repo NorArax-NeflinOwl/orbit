@@ -13,7 +13,7 @@ public sealed class ClearNotificationsCommandHandler : IRequestHandler<ClearNoti
 
     public async Task<bool> HandleAsync(ClearNotificationsCommand request, CancellationToken cancellationToken)
     {
-        await _notificationEntryRepository.DeleteAllAsync(request.UserId, cancellationToken);
+        await _notificationEntryRepository.DismissAllAsync(request.UserId, DateTimeOffset.UtcNow, cancellationToken);
         return true;
     }
 }

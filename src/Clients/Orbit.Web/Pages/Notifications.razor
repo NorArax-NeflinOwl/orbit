@@ -11,24 +11,31 @@
 
 <PageTitle>Orbit — Notifications</PageTitle>
 
-@* The full-page form of the notifications panel, used on phones where the popup would be unreadably
-   cramped (see MainLayout.ToggleNotificationsMenuAsync). Same list component, same actions. *@
+@* The full record, not just the panel's view: this lists entries already cleared out of the panel too,
+   so clearing is somewhere to put things rather than somewhere they are destroyed. Reached from the
+   panel's "See all" link on any screen, and it is the whole notifications UI on phones, where the popup
+   would be unreadably cramped (see MainLayout.ToggleNotificationsMenuAsync). *@
 <div class="page-header">
     <div>
         <h1>Notifications</h1>
-        <p class="page-subtitle">Recent reminders and messages, newest first.</p>
+        <p class="page-subtitle">
+            Everything from the last @_retentionDays @(_retentionDays == 1 ? "day" : "days"), newest first
+            — cleared ones included. Older than that and they are deleted; change how long in
+            <a href="/options">Options</a>.
+        </p>
     </div>
     <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">Clear</button>
 </div>
 
 <div class="notifications-page">
     <NotificationList IsLoading="_isLoading" Entries="_entries" ExceptionEntries="_exceptionEntries"
-                      OnEntrySelected="OpenEntry" />
+                      OnEntrySelected="OpenEntry" ShowsDismissed="true" />
 </div>
 
 @code {
     private bool _isLoading = true;
     private bool _isClearing;
+    private int _retentionDays = 3;
     private IReadOnlyList<NotificationEntryDto> _entries = [];
     private IReadOnlyList<ClientLogEntry> _exceptionEntries = [];
 
@@ -37,7 +44,7 @@
     {
         try
         {
-            _entries = await NotificationsApiClient.GetRecentAsync();
+            _entries = await NotificationsApiClient.GetHistoryAsync();
             await LoadExceptionEntriesAsync();
             await NotificationsApiClient.MarkAllReadAsync();
             NotificationFeedState.Clear();
@@ -63,6 +70,7 @@
     private async Task LoadExceptionEntriesAsync()
     {
         var settings = await NotificationsApiClient.GetSettingsAsync();
+        _retentionDays = settings.RetentionDays;
         var allowedByServer = await ClientFlagsApiClient.GetExceptionDetailsAllowedAsync();
         _exceptionEntries = allowedByServer && settings.ShowExceptionDetails
             ? await ClientExceptionLog.GetRecentErrorsAsync()
@@ -77,7 +85,7 @@
         }
     }
 
-    /// <summary>Mirrors MainLayout's own Clear - see its comment for why both halves of the list go.</summary>
+    /// <summary>Mirrors MainLayout's own Clear - see NotificationEntry.Dismiss for what clearing actually does.</summary>
     private async Task ClearAsync()
     {
         _isClearing = true;
@@ -85,7 +93,10 @@
         {
             await NotificationsApiClient.ClearAsync();
             await ClientExceptionLog.ClearAsync();
-            _entries = [];
+
+            // Re-read rather than emptied: clearing marks entries as cleared, and this page is the one
+            // place that still shows them - they just move from "new" to "cleared".
+            _entries = await NotificationsApiClient.GetHistoryAsync();
             _exceptionEntries = [];
             NotificationFeedState.Clear();
         }

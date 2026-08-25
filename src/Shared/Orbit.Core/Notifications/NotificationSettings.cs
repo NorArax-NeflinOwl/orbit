@@ -39,9 +39,29 @@ public sealed class NotificationSettings
     /// <summary>See <see cref="Notifications.BannerTiming"/> - stored per user so the Options page can tune it.</summary>
     public BannerTiming BannerTiming { get; private set; }
 
+    /// <summary>
+    /// How many days a notification is kept before it is deleted for good. Clearing the panel only
+    /// hides an entry (see NotificationEntry.Dismiss); this is what actually removes it, dismissed or
+    /// not, so the feed doesn't grow without limit and an old notification doesn't outlive its point.
+    /// </summary>
+    public int RetentionDays { get; private set; }
+
+    /// <summary>Three days: long enough to catch up after a weekend, short enough that the list stays a list of what is going on.</summary>
+    public const int DefaultRetentionDays = 3;
+
+    public const int MinimumRetentionDays = 1;
+    public const int MaximumRetentionDays = 90;
+
+    /// <summary>
+    /// Clamped rather than rejected: this arrives from a settings form, and a nonsensical number there
+    /// should leave the reader with a working setting rather than a failed save.
+    /// </summary>
+    private static int ClampRetentionDays(int retentionDays)
+        => Math.Clamp(retentionDays, MinimumRetentionDays, MaximumRetentionDays);
+
     private NotificationSettings(
         Guid userId, bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
-        bool allowShareNotifications, BannerTiming bannerTiming)
+        bool allowShareNotifications, BannerTiming bannerTiming, int retentionDays)
     {
         UserId = userId;
         AllowNotifications = allowNotifications;
@@ -51,6 +71,7 @@ public sealed class NotificationSettings
         ShowExceptionDetails = showExceptionDetails;
         AllowShareNotifications = allowShareNotifications;
         BannerTiming = bannerTiming;
+        RetentionDays = ClampRetentionDays(retentionDays);
     }
 
     /// <summary>
@@ -60,13 +81,13 @@ public sealed class NotificationSettings
     public static NotificationSettings Default(Guid userId)
         => new(
             userId, allowNotifications: true, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true,
-            allowShareNotifications: false, BannerTiming.Default);
+            allowShareNotifications: false, BannerTiming.Default, DefaultRetentionDays);
 
     public static NotificationSettings FromPersistence(
         Guid userId, bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
-        bool allowShareNotifications, BannerTiming bannerTiming)
+        bool allowShareNotifications, BannerTiming bannerTiming, int retentionDays)
         => new(userId, allowNotifications, allowPush, allowEmail, allowMobileBanner, showExceptionDetails,
-            allowShareNotifications, bannerTiming);
+            allowShareNotifications, bannerTiming, retentionDays);
 
     /// <summary>
     /// The three delivery/display switches are stored exactly as the caller set them, independent of the
@@ -77,7 +98,7 @@ public sealed class NotificationSettings
     /// </summary>
     public void Update(
         bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
-        bool allowShareNotifications, BannerTiming bannerTiming)
+        bool allowShareNotifications, BannerTiming bannerTiming, int retentionDays)
     {
         AllowNotifications = allowNotifications;
         AllowPush = allowPush;
@@ -86,6 +107,7 @@ public sealed class NotificationSettings
         ShowExceptionDetails = showExceptionDetails;
         AllowShareNotifications = allowShareNotifications;
         BannerTiming = bannerTiming;
+        RetentionDays = ClampRetentionDays(retentionDays);
     }
 
     /// <summary>

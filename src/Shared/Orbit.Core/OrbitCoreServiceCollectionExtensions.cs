@@ -58,6 +58,8 @@ using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
 using Orbit.Core.Notifications.GetUnreadNotificationEntries;
 using Orbit.Core.Notifications.ClearNotifications;
+using Orbit.Core.Notifications.GetNotificationHistory;
+using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Notifications.MarkAllNotificationsRead;
 using Orbit.Core.Notifications.UpdateNotificationSettings;
 using Orbit.Core.PushNotifications.SubscribeToPush;
@@ -230,6 +232,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetUnreadNotificationEntriesQuery, IReadOnlyList<NotificationEntry>>, GetUnreadNotificationEntriesQueryHandler>();
         services.AddScoped<IRequestHandler<ClearNotificationsCommand, bool>, ClearNotificationsCommandHandler>();
         services.AddScoped<IRequestHandler<MarkAllNotificationsReadCommand, bool>, MarkAllNotificationsReadCommandHandler>();
+        services.AddScoped<IRequestHandler<MarkNotificationsAtUrlReadCommand, bool>, MarkNotificationsAtUrlReadCommandHandler>();
+        services.AddScoped<IRequestHandler<GetNotificationHistoryQuery, IReadOnlyList<NotificationEntry>>, GetNotificationHistoryQueryHandler>();
         // Depends on the two repositories above (scoped, backed by the DbContext), so it must be scoped
         // too - called directly (not through IDispatcher) by SendMessageCommandHandler and, in Orbit.Api,
         // by each of the four reminder background services, the same way they already call

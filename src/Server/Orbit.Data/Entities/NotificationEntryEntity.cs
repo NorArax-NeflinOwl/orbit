@@ -11,4 +11,5 @@ public sealed class NotificationEntryEntity
     public string? Url { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? ReadAtUtc { get; set; }
+    public DateTimeOffset? DismissedAtUtc { get; set; }
 }
