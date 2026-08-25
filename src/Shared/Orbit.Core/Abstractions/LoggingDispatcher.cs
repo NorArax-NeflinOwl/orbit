@@ -84,16 +84,25 @@ public sealed class LoggingDispatcher : IDispatcher
             actionCategory, requestName, elapsedMilliseconds);
     }
 
+    /// <summary>
+    /// An <see cref="InvalidRequestException"/> is the caller being told no - a private note that can't
+    /// be shared, a link that would make a cycle between task lists - and the API turns it into a 400.
+    /// That is expected input rather than a fault, so it logs as a warning: left at Error, the Error
+    /// level fills up with ordinary refusals and stops meaning that something is actually wrong, which
+    /// is the only thing it is for. Every other exception is still an error.
+    /// </summary>
     private void LogFailed(string requestName, ClientActionCategory? actionCategory, long elapsedMilliseconds, Exception exception)
     {
+        var level = exception is InvalidRequestException ? LogLevel.Warning : LogLevel.Error;
+
         if (actionCategory is null)
         {
-            _logger.LogError(exception, "{RequestName} failed after {ElapsedMilliseconds} ms", requestName, elapsedMilliseconds);
+            _logger.Log(level, exception, "{RequestName} failed after {ElapsedMilliseconds} ms", requestName, elapsedMilliseconds);
             return;
         }
 
-        _logger.LogError(
-            exception, "[ACTION:{ActionCategory}] {RequestName} failed after {ElapsedMilliseconds} ms",
+        _logger.Log(
+            level, exception, "[ACTION:{ActionCategory}] {RequestName} failed after {ElapsedMilliseconds} ms",
             actionCategory, requestName, elapsedMilliseconds);
     }
 }
