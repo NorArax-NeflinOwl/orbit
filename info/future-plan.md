@@ -65,6 +65,46 @@ picture of what's left.
   paid third-party LLM API, at the cost of needing real CPU/GPU/RAM sized for whatever model is chosen
   - worth prototyping with a small model before committing to it as the target architecture.
 
+## What real Google Calendar sync would take
+
+Orbit currently hands events to Google as **links** (see
+[Functionality](functionality.md#handing-something-off-to-google)). That needs nothing beyond the sign-in
+client id, works immediately, and keeps the user in control - but it is one-way and one-shot: Orbit
+cannot read a Google calendar, cannot update what it already put there, and learns nothing when the copy
+in Google changes.
+
+Making it a real integration is a different kind of change, and most of the work is outside this
+repository. In rough order:
+
+**1. In Google Cloud Console.** Enable the Google Calendar API on the project. Add the
+`https://www.googleapis.com/auth/calendar.events` scope to the OAuth consent screen. That scope is one
+Google classes as **sensitive**, which means the consent screen has to go through Google's verification
+before anyone outside the project's own test users can grant it - a review that asks for a privacy
+policy, a recorded demonstration of the flow, and a justification of why the scope is needed. Budget
+weeks, not hours, and expect back-and-forth.
+
+**2. A different OAuth flow.** Today the browser gets an ID token and Orbit verifies it - that is all.
+Writing to a calendar needs an **access token** for the scope above, plus a **refresh token** so it keeps
+working tomorrow, which means an authorization-code flow with `access_type=offline`. That introduces a
+**client secret**, which the current design deliberately does not have (see `GoogleAuthSettings`). The
+secret has to live where the API's other secrets do - an environment variable fed from a Container App
+secret, never a committed file.
+
+**3. Somewhere to keep the tokens.** A refresh token is a long-lived credential to someone's calendar. It
+belongs encrypted at rest, with a clear path for revoking it - both when the user disconnects Google in
+Orbit and when they revoke Orbit from their Google account, which Orbit only finds out about by getting a
+refusal on the next call and having to handle it gracefully.
+
+**4. Deciding what "sync" means.** One-way (Orbit → Google, keeping the Google event id so an edit
+updates rather than duplicates) is a substantially smaller job than two-way, which needs Google's watch
+channels or polling, a rule for what happens when both sides changed the same event, and a story for an
+event deleted on one side. One-way is the sensible first step.
+
+**5. Quota and failure handling.** API calls fail, get rate-limited, and time out in ways a link never
+does: retries, backoff, and somewhere for the user to see that a sync did not go through.
+
+None of this is required for what Orbit does today, which is why it is here rather than in the code.
+
 ## Known scope cuts and rough edges
 
 Explicitly called out in the functionality documentation as deliberate limitations of this first

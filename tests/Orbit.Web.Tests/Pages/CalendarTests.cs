@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Tasks;
+using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -25,6 +26,7 @@ public sealed class CalendarTests : TestContext
         // Only reached if an event carries a guest id missing from the (empty) contact list above - none
         // of these tests add guests, so this just needs to satisfy Calendar.razor's @inject.
         Services.AddSingleton(new UsersApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
+        RegisterGoogleIntegrationAccess();
     }
 
     [Fact]
@@ -183,6 +185,26 @@ public sealed class CalendarTests : TestContext
         return new TaskDto(
             Guid.NewGuid(), "Task list", [item], IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
+    }
+
+
+    /// <summary>
+    /// The pages inject this to decide whether to offer the Google links. Registered over a stubbed
+    /// account rather than a live one: a real HttpClient here would spend wall-clock time on a DNS
+    /// lookup bUnit's synchronous render doesn't wait out.
+    /// </summary>
+    private void RegisterGoogleIntegrationAccess()
+    {
+        // These tests are not about the Google links, so the account the gate sees qualifies for none.
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new AccountDto(
+                Guid.NewGuid(), "owner@example.com", "owner", "Owner",
+                IsEmailVerified: false, HasPassword: true, IsGoogleLinked: false))
+        });
+        Services.AddSingleton(new GoogleIntegrationAccess(
+            new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
+            NullLogger<GoogleIntegrationAccess>.Instance));
     }
 
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)

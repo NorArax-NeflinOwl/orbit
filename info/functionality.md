@@ -334,6 +334,50 @@ follows: a position is not something to be able to push at a stranger who never 
 The Map page shows the viewer's own position and everyone sharing with them on **one** map, framed to fit
 them all.
 
+## Handing something off to Google
+
+An account that has **confirmed its email address or connected Google** is offered links that carry
+something across to Google (`GoogleIntegrationAccess` decides; both routes mean the same thing here -
+somebody stood behind the account rather than typing an address nobody has read):
+
+- **Add to Google Calendar**, on a calendar event and on a task item that has a due date. Google Calendar
+  opens with everything filled in and the user saves it wherever they want.
+- **An address as a link**, on a calendar event's location and on the Map page - the street name itself
+  opens the place in Google Maps.
+- **Directions** to an event's location or to a position someone shared.
+
+### These are links, not an API integration
+
+Nothing here calls a Google API, and Orbit asks for no access to anyone's calendar. `GoogleCalendarEventLink`
+builds a Google Calendar *template* URL; `GoogleMapsLink` builds Maps URLs. Both are plain links - no
+API key, no quota, no OAuth scope, no stored token - and the user stays in control of what actually
+lands in their calendar, because they press save themselves.
+
+What that means in practice:
+
+- It works the moment someone clicks it, on any deployment, with no Google Cloud setup beyond the sign-in
+  client id Orbit already needs.
+- It is **one-way and one-shot**. Editing the event in Orbit afterwards does not change the copy in Google
+  Calendar, and deleting it there does not tell Orbit. There is no sync.
+- Orbit cannot *read* anyone's Google Calendar, so it cannot show Google events beside Orbit's own.
+
+Turning that into real two-way sync is a different kind of change - see
+[Future Plan](future-plan.md#what-real-google-calendar-sync-would-take).
+
+Details worth knowing about the links themselves, all of them things that silently break a link when got
+wrong (and each pinned by a test):
+
+- Google reads `dates` in UTC in one exact shape, so a local time is converted rather than relabelled.
+- An all-day range's end is **exclusive**: one day is written `20260901/20260902`.
+- A task has no Google equivalent a template link can create, so a deadline becomes a short event ending
+  at it.
+- Coordinates are formatted invariantly - under `pl-PL` a decimal comma would split the pair into two
+  parameters and send the reader somewhere else.
+- Directions carry **no origin**, so Google routes from where the reader actually is. Passing Orbit's
+  recorded position would look more precise and be worse: it is whatever they last recorded on purpose,
+  possibly another city days ago.
+- Every link opens with `target="_blank" rel="noopener"`.
+
 ## Refusing a request
 
 Anything that refuses what a caller asked for — domain validation (an event ending before it starts, a

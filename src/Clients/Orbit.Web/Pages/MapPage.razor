@@ -12,6 +12,7 @@
 @inject SharedLocationSender SharedLocationSender
 @inject EncryptedChatMessageReader EncryptedChatMessageReader
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
@@ -99,7 +100,17 @@
     {
         <div class="card location-card">
             <div class="card-header">
-                <span class="card-title">@(_location.Address ?? "Recorded location")</span>
+                <span class="card-title">
+                @if (_hasGoogleExtras)
+                {
+                    @* The street name itself opens the place in Google Maps. *@
+                    <a href="@GoogleMapsLink.ToPlace(_location.Latitude, _location.Longitude)" target="_blank" rel="noopener">@(_location.Address ?? "Recorded location")</a>
+                }
+                else
+                {
+                    @(_location.Address ?? "Recorded location")
+                }
+            </span>
                 <span class="card-count">@FormatRecordedAt(_location.RecordedAtUtc)</span>
             </div>
             <div class="list-row">
@@ -149,6 +160,7 @@
     protected override async Task OnInitializedAsync()
     {
         _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
+        _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         await LoadAsync();
         StartRefreshLoop();
     }
@@ -493,6 +505,9 @@
             Logger.LogWarning(exception, "A location refresh tick did not complete");
         }
     }
+
+    /// <summary>Whether to offer the Google links - see GoogleIntegrationAccess for who qualifies.</summary>
+    private bool _hasGoogleExtras;
 
     private string DisplayNameFor(Guid userId)
         => _contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? "Someone";

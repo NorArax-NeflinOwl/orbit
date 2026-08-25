@@ -3,8 +3,9 @@
 Orbit is a working prototype. Accounts (including Google sign-in and full self-service account
 management), notes, tasks, calendar, an inventory planner, and end-to-end-encrypted chat — one-to-one
 and group — are implemented end to end, including the Blazor WebAssembly web client, still the only
-client. Sharing a location with another user and the .NET MAUI client are the two headline pieces of
-the product's stated scope that remain unbuilt.
+client. Locations can now be recorded, seen on a map, and shared with a contact under the same
+encryption chat uses. The .NET MAUI client, and a real two-way Google Calendar sync as opposed to the
+hand-off links Orbit builds today, are what remain unbuilt of the product's stated scope.
 
 ## Implemented vs. planned
 
@@ -22,14 +23,17 @@ the product's stated scope that remain unbuilt.
 | Push notifications | Implemented | [Functionality — Push notifications](functionality.md#push-notifications) |
 | In-app notification feed, badge, and banner | Implemented | [Functionality — In-app notifications](functionality.md#in-app-notifications) |
 | Blazor WebAssembly web client | Implemented (only client so far) | [Architecture](architecture.md#orbitweb) |
-| Recording your own location and seeing it on a map | Implemented | [Future Plan](future-plan.md#planned-features) |
-| Sharing a location with another user | Not started | [Future Plan](future-plan.md#planned-features) |
+| Recording your own location and seeing it on a map | Implemented | [Functionality](functionality.md#the-map-and-the-location-behind-it) |
+| Sharing a location with another user | Implemented | [Functionality](functionality.md#sharing-a-position-with-a-contact) |
+| Google Calendar and Maps links (verified/Google accounts) | Implemented | [Functionality](functionality.md#handing-something-off-to-google) |
+| Two-way Google Calendar sync | Not started | [Future Plan](future-plan.md#what-real-google-calendar-sync-would-take) |
 | .NET MAUI client (mobile and desktop) | Not started | [Future Plan](future-plan.md#planned-features) |
-| Google Calendar / Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
+| Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Password manager and password generator | Not started | [Future Plan](future-plan.md#planned-features) |
 
 `Orbit.GoogleIntegration` (`src/Server`) is no longer the empty placeholder it was: it holds the
-Google ID-token verification behind Google sign-in. The Calendar/Contacts sync it was originally
+Google ID-token verification behind Google sign-in, and nothing else - the calendar and maps features
+are links the browser builds, needing no API. The Calendar/Contacts sync it was originally
 reserved for still hasn't been started — see [Future Plan](future-plan.md#planned-features).
 
 ## The signed-in experience today

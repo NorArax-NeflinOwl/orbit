@@ -5,6 +5,7 @@
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject NavigationManager NavigationManager
+@inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ILogger<TaskListChecklist> Logger
 
 <PageTitle>@(_sections.Count > 0 ? _sections[0].TaskList.Title : "Checklist")</PageTitle>
@@ -79,6 +80,13 @@ else
                         else if (item.DueDateUtc is { } dueDate)
                         {
                             <span class="row-meta">due @dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+                            @if (_hasGoogleExtras)
+                            {
+                                @* Google Calendar template links can't create a task, so a deadline
+                                   becomes a short event ending at it - see GoogleCalendarEventLink. *@
+                                <a class="google-link" href="@GoogleCalendarEventLink.ForTaskItem(item.Description, dueDate, section.TaskList.Title)"
+                                   target="_blank" rel="noopener" @onclick:stopPropagation="true">Add to Google Calendar</a>
+                            }
                         }
                     </label>
                 }
@@ -106,6 +114,9 @@ else
     /// </summary>
     private IReadOnlyList<TaskDto> _allTaskLists = [];
 
+    /// <summary>Whether to offer the Google links - see GoogleIntegrationAccess for who qualifies.</summary>
+    private bool _hasGoogleExtras;
+
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
     private async Task LoadAsync()
@@ -127,6 +138,7 @@ else
             return;
         }
 
+        _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         _sections = BuildSections();
         _isLoading = false;
     }
