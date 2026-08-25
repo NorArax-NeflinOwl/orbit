@@ -35,6 +35,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
     public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
+    public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -344,6 +345,18 @@ public sealed class OrbitDbContext : DbContext
             // gets, not the 0 an int column would otherwise default to - which NotificationSettings
             // would then clamp up to 1, quietly shortening it.
             entity.Property(row => row.RetentionDays).HasDefaultValue(Orbit.Core.Notifications.NotificationSettings.DefaultRetentionDays);
+        });
+
+        modelBuilder.Entity<PublicShareLinkEntity>(entity =>
+        {
+            entity.HasKey(link => link.Id);
+            entity.Property(link => link.Token).IsRequired().HasMaxLength(64);
+            entity.Property(link => link.ItemType).IsRequired().HasMaxLength(20);
+            // The token is the entire access check, so every read behind a link is a lookup by it -
+            // unique both to make that an index seek and because two links can't share a secret.
+            entity.HasIndex(link => link.Token).IsUnique();
+            // GetLiveForItemAsync's exact filter: one live link per item per owner.
+            entity.HasIndex(link => new { link.OwnerUserId, link.ItemType, link.ItemId });
         });
 
         modelBuilder.Entity<NotificationEntryEntity>(entity =>

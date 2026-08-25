@@ -8,4 +8,7 @@ namespace Orbit.Api;
 public static class RateLimiterPolicyNames
 {
     public const string Auth = "Auth";
+
+    /// <summary>Guards /api/public/{token} - see PublicShareEndpoints for why that one endpoint needs it.</summary>
+    public const string PublicShare = "PublicShare";
 }
