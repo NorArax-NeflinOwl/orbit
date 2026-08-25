@@ -11,6 +11,7 @@ using Orbit.Api.Calendar;
 using Orbit.Api.Chat;
 using Orbit.Api.Config;
 using Orbit.Api.HealthChecks;
+using Orbit.Api.Sharing;
 using Orbit.Api.Inventory;
 using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
@@ -188,6 +189,19 @@ try
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+
+        // Public share links: the token in the URL is the whole access check, so this is the one
+        // endpoint where guessing is worth attempting at all. 30 a minute per IP is far more than
+        // opening links by hand needs and far less than working through a keyspace requires - the
+        // token's own length is what makes that hopeless; this just removes the free attempts.
+        options.AddPolicy(RateLimiterPolicyNames.PublicShare, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
     });
 
     // Traces every incoming HTTP request, every outgoing HttpClient call, and every command/query
@@ -267,6 +281,7 @@ try
     app.MapPushNotificationEndpoints();
     app.MapNotificationEndpoints();
     app.MapConfigEndpoints();
+    app.MapPublicShareEndpoints();
     app.MapHealthEndpoints();
 
     app.Run();

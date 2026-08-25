@@ -248,6 +248,12 @@ else
     </div>
     </EditForm>
 
+    @if (!IsNewEvent && Id is { } calendarEventId)
+    {
+        <h2>Link</h2>
+        <ShareLinkButton ItemType="CalendarEvent" ItemId="calendarEventId" />
+    }
+
     @if (_errorMessage is not null)
     {
         <p class="error">@_errorMessage</p>

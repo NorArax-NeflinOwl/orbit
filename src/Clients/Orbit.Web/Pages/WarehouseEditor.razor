@@ -138,6 +138,12 @@ else
             </div>
         </fieldset>
     </EditForm>
+
+    @if (!_formModel.IsPrivate)
+    {
+        <h2>Link</h2>
+        <ShareLinkButton ItemType="Warehouse" ItemId="WarehouseId" />
+    }
 }
 
 @code {
