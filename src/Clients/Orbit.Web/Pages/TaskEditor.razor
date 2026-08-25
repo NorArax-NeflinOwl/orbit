@@ -211,6 +211,12 @@ else
     </fieldset>
     </EditForm>
 
+    @if (!IsNewTaskList && !_formModel.IsPrivate && Id is { } taskListId)
+    {
+        <h2>Link</h2>
+        <ShareLinkButton ItemType="TaskList" ItemId="taskListId" />
+    }
+
     @if (!IsNewTaskList && _canShare && !_formModel.IsPrivate)
     {
         <h2>Sharing</h2>

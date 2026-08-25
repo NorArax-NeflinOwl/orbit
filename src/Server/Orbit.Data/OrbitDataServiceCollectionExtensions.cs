@@ -10,6 +10,7 @@ using Orbit.Core.Inventory;
 using Orbit.Core.Inventory.ExpiryReminders;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
+using Orbit.Core.Sharing;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.OverdueNotifications;
@@ -61,6 +62,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IInventoryExpiryNotificationRepository, InventoryExpiryNotificationRepository>();
         services.AddScoped<INotificationSettingsRepository, NotificationSettingsRepository>();
         services.AddScoped<INotificationEntryRepository, NotificationEntryRepository>();
+        services.AddScoped<IPublicShareLinkRepository, PublicShareLinkRepository>();
 
         return services;
     }

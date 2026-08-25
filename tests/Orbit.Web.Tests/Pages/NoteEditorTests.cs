@@ -199,6 +199,13 @@ public sealed class NoteEditorTests : TestContext
                     };
             }
 
+            // ShareLinkButton asks on render whether this item already has a public link. NoContent is
+            // "no link yet", which is what these tests want - none of them are about publishing.
+            if (path.StartsWith("/api/share-links", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
             if (path.StartsWith("/api/notes", StringComparison.Ordinal))
             {
                 return note is null
@@ -211,6 +218,7 @@ public sealed class NoteEditorTests : TestContext
 
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new NotesApiClient(httpClient));
+        Services.AddSingleton(new PublicShareApiClient(httpClient));
         Services.AddSingleton(new ChatApiClient(httpClient));
     }
 

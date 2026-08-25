@@ -94,6 +94,12 @@ else
         </fieldset>
     </EditForm>
 
+    @if (!IsNewNote && !_formModel.IsPrivate && Id is { } noteId)
+    {
+        <h2>Link</h2>
+        <ShareLinkButton ItemType="Note" ItemId="noteId" />
+    }
+
     @if (!IsNewNote && _canShare && !_formModel.IsPrivate)
     {
         <h2>Sharing</h2>
