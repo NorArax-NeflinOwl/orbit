@@ -1,0 +1,17 @@
+#!/bin/sh
+# Refuses to push to a branch whose pull request has already been merged - see
+# block-merged-branch.sh for the reasoning and how to enable this hook. Checks the refs actually
+# being pushed (from the standard pre-push stdin lines) rather than the current branch, so it also
+# catches a commit made before the merge but pushed after it - the case a commit-time check alone
+# would miss.
+deleted_branch_sha=0000000000000000000000000000000000000000
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$deleted_branch_sha" ] && continue   # deleting a remote branch adds nothing to it
+    case "$remote_ref" in
+        refs/heads/*) branch="${remote_ref#refs/heads/}" ;;
+        *) continue ;;                                     # tags etc. are not PR heads
+    esac
+    "$(dirname "$0")/block-merged-branch.sh" "$branch" || status=1
+done
+exit $status
