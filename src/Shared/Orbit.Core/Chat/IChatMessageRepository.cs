@@ -12,6 +12,19 @@ public interface IChatMessageRepository
 
     Task AddAsync(ChatMessage message, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Every copy of a group's messages that userId can actually decrypt - the ones addressed to them
+    /// and the ones they sent - oldest first. See GetGroupConversationQueryHandler for why the rest are
+    /// left out.
+    /// </summary>
+    Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(Guid groupId, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Removes one message row. No-op when it no longer exists.</summary>
+    Task DeleteAsync(Guid messageId, CancellationToken cancellationToken);
+
+    /// <summary>Removes every per-recipient copy of one group posting - see ChatMessage.GroupMessageId.</summary>
+    Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken);
+
     /// <summary>Looks up a single message by id, or null if it doesn't exist - used by EditMessageCommandHandler to check who sent it before allowing an edit.</summary>
     Task<ChatMessage?> GetByIdAsync(Guid messageId, CancellationToken cancellationToken);
 

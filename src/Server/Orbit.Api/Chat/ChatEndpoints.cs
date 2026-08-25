@@ -5,6 +5,13 @@ using Orbit.Core.Abstractions;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.EditMessage;
+using Orbit.Core.Chat.Groups.SendGroupMessage;
+using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
+using Orbit.Core.Chat.Groups.GetGroupConversation;
+using Orbit.Core.Chat.Groups.GetChatGroups;
+using Orbit.Core.Chat.Groups.CreateChatGroup;
+using Orbit.Core.Chat.Groups;
+using Orbit.Core.Chat.DeleteMessage;
 using Orbit.Core.Chat.GetContacts;
 using Orbit.Core.Chat.GetConversation;
 using Orbit.Core.Chat.GetConversationAccess;
@@ -102,6 +109,77 @@ public static class ChatEndpoints
         // this (see EditMessageCommandHandler). Never offered for a share-notice message (an event/note/
         // task-list invite) - Chat.razor only shows the "Edit" option on the sender's own plain-text
         // bubbles.
+
+        // Groups. Membership decides everything here, so a caller who isn't in a group gets the same
+        // 404 as one asking about a group that doesn't exist - see IChatGroupRepository's comment.
+        chat.MapPost("/groups", async (
+            CreateChatGroupRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var groupId = await dispatcher.SendAsync(
+                new CreateChatGroupCommand(GetUserId(user), request.Name, request.MemberUserIds), cancellationToken);
+            return Results.Created($"/api/chat/groups/{groupId}", groupId);
+        });
+
+        chat.MapGet("/groups", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var callerId = GetUserId(user);
+            var groups = await dispatcher.SendAsync(new GetChatGroupsQuery(callerId), cancellationToken);
+            return Results.Ok(groups.Select(group => ToDto(group, callerId)));
+        });
+
+        chat.MapPost("/groups/{groupId:guid}/members", async (
+            Guid groupId, AddChatGroupMemberRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var added = await dispatcher.SendAsync(
+                new AddChatGroupMemberCommand(GetUserId(user), groupId, request.UserId), cancellationToken);
+            return added ? Results.NoContent() : Results.NotFound();
+        });
+
+        chat.MapDelete("/groups/{groupId:guid}/members/{userId:guid}", async (
+            Guid groupId, Guid userId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var removed = await dispatcher.SendAsync(
+                new RemoveChatGroupMemberCommand(GetUserId(user), groupId, userId), cancellationToken);
+            return removed ? Results.NoContent() : Results.NotFound();
+        });
+
+        chat.MapPut("/groups/{groupId:guid}/members/{userId:guid}/role", async (
+            Guid groupId, Guid userId, ChangeChatGroupMemberRoleRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var changed = await dispatcher.SendAsync(
+                new ChangeChatGroupMemberRoleCommand(
+                    GetUserId(user), groupId, userId, RequestEnum.Parse<ChatGroupRole>(request.Role, "role")),
+                cancellationToken);
+            return changed ? Results.NoContent() : Results.NotFound();
+        });
+
+        chat.MapGet("/groups/{groupId:guid}/messages", async (
+            Guid groupId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var messages = await dispatcher.SendAsync(new GetGroupConversationQuery(GetUserId(user), groupId), cancellationToken);
+            return Results.Ok(messages.Select(ToDto));
+        });
+
+        chat.MapPost("/groups/{groupId:guid}/messages", async (
+            Guid groupId, SendGroupMessageRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var copies = request.Copies
+                .Select(copy => new GroupMessageCopy(copy.RecipientUserId, copy.CiphertextBase64, copy.NonceBase64))
+                .ToList();
+            var sent = await dispatcher.SendAsync(new SendGroupMessageCommand(GetUserId(user), groupId, copies), cancellationToken);
+            return sent ? Results.NoContent() : Results.NotFound();
+        });
+
+        chat.MapDelete("/messages/{messageId:guid}", async (
+            Guid messageId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var deleted = await dispatcher.SendAsync(new DeleteChatMessageCommand(GetUserId(user), messageId), cancellationToken);
+            return deleted ? Results.NoContent() : Results.NotFound();
+        });
+
         chat.MapPut("/messages/{messageId:guid}", async (
             Guid messageId, EditMessageRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -123,6 +201,13 @@ public static class ChatEndpoints
     /// valid: the group requires authorization, and Orbit.Api only ever issues tokens with this claim
     /// (see TokenService).
     /// </summary>
+
+    private static ChatGroupDto ToDto(ChatGroup group, Guid callerUserId)
+        => new(
+            group.Id, group.Name, group.CreatedByUserId, group.CreatedAtUtc,
+            group.FindMember(callerUserId)?.Role.ToString() ?? ChatGroupRole.Member.ToString(),
+            group.Members.Select(member => new ChatGroupMemberDto(member.UserId, member.Role.ToString(), member.JoinedAtUtc)).ToList());
+
     private static Guid GetUserId(ClaimsPrincipal user)
     {
         var subject = user.FindFirstValue(JwtRegisteredClaimNames.Sub)

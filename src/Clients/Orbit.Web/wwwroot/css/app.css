@@ -2559,3 +2559,46 @@ input.note-editor-title {
     display: block;
     margin-top: 2px;
 }
+
+/* GroupChat.razor: the group list beside whichever group is open. */
+.group-layout {
+    display: grid;
+    grid-template-columns: minmax(200px, 280px) 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.group-create-card {
+    margin-bottom: 16px;
+}
+
+.list-row-button.active {
+    background: var(--bg-subtle);
+}
+
+.group-members {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+.group-messages {
+    max-height: 46vh;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
+.group-message .row-title {
+    white-space: normal;
+    font-weight: 400;
+}
+
+.group-message.own .row-title strong {
+    color: var(--accent);
+}
+
+@media (max-width: 900px) {
+    .group-layout {
+        grid-template-columns: 1fr;
+    }
+}

@@ -16,6 +16,13 @@ using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.EditMessage;
+using Orbit.Core.Chat.Groups.GetGroupConversation;
+using Orbit.Core.Chat.Groups.SendGroupMessage;
+using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
+using Orbit.Core.Chat.Groups.GetChatGroups;
+using Orbit.Core.Chat.Groups.CreateChatGroup;
+using Orbit.Core.Chat.Groups;
+using Orbit.Core.Chat.DeleteMessage;
 using Orbit.Core.Chat.GetContacts;
 using Orbit.Core.Chat.GetConversation;
 using Orbit.Core.Chat.GetConversationAccess;
@@ -180,6 +187,17 @@ public static class OrbitCoreServiceCollectionExtensions
 
         services.AddScoped<IRequestHandler<SendMessageCommand, SendMessageResult>, SendMessageCommandHandler>();
         services.AddScoped<IRequestHandler<EditMessageCommand, EditMessageResult>, EditMessageCommandHandler>();
+        services.AddScoped<IRequestHandler<DeleteChatMessageCommand, bool>, DeleteChatMessageCommandHandler>();
+
+        // Group chat: the group itself, its membership, and the fan-out that keeps group messages
+        // encrypted under the same pairwise keys one-to-one chat uses.
+        services.AddScoped<IRequestHandler<CreateChatGroupCommand, Guid>, CreateChatGroupCommandHandler>();
+        services.AddScoped<IRequestHandler<GetChatGroupsQuery, IReadOnlyList<ChatGroup>>, GetChatGroupsQueryHandler>();
+        services.AddScoped<IRequestHandler<AddChatGroupMemberCommand, bool>, AddChatGroupMemberCommandHandler>();
+        services.AddScoped<IRequestHandler<RemoveChatGroupMemberCommand, bool>, RemoveChatGroupMemberCommandHandler>();
+        services.AddScoped<IRequestHandler<ChangeChatGroupMemberRoleCommand, bool>, ChangeChatGroupMemberRoleCommandHandler>();
+        services.AddScoped<IRequestHandler<SendGroupMessageCommand, bool>, SendGroupMessageCommandHandler>();
+        services.AddScoped<IRequestHandler<GetGroupConversationQuery, IReadOnlyList<ChatMessage>>, GetGroupConversationQueryHandler>();
         services.AddScoped<IRequestHandler<GetConversationQuery, IReadOnlyList<ChatMessage>>, GetConversationQueryHandler>();
         services.AddScoped<IRequestHandler<GetContactsQuery, IReadOnlyList<ContactSummary>>, GetContactsQueryHandler>();
         services.AddScoped<IRequestHandler<MarkConversationAsReadCommand, bool>, MarkConversationAsReadCommandHandler>();

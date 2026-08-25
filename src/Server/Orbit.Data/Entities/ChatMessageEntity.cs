@@ -22,4 +22,10 @@ public sealed class ChatMessageEntity
 
     /// <summary>Null until the sender edits this message at least once - see EditMessageCommandHandler.</summary>
     public DateTimeOffset? EditedAtUtc { get; set; }
+
+    /// <summary>The group this was posted to, or null for a one-to-one message.</summary>
+    public Guid? GroupId { get; set; }
+
+    /// <summary>Shared by every per-recipient copy of one group posting - see Orbit.Core.Chat.ChatMessage.GroupMessageId.</summary>
+    public Guid? GroupMessageId { get; set; }
 }

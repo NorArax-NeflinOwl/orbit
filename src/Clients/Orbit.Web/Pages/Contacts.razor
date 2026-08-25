@@ -17,6 +17,8 @@
     </div>
 </div>
 
+<p><a class="btn-secondary" href="/chat/groups">Group chats</a></p>
+
 <div class="field-row" style="margin-bottom:24px;">
     <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="Email address or username" />
     <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">Search</button>

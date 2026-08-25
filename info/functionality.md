@@ -183,6 +183,53 @@ own content fieldset (`_canEditContent`), not the separately-gated Guests sectio
 `Share`-tier recipient can still add guests while someone else holds the content lock, mirroring how
 those two sections are already independent for access-level purposes.
 
+## Group chats
+
+A chat with more than one other person, under the same end-to-end encryption one-to-one chats already
+have. There is no group key: the sender's browser encrypts the same text **once per other member**,
+under the pairwise key it already shares with each of them, and posts the copies together
+(`POST /api/chat/groups/{id}/messages`). Each copy is an ordinary `ChatMessage` row tagged with the
+group and with a `GroupMessageId` the copies share.
+
+That choice buys a lot and costs two things worth knowing:
+
+- Nothing new to distribute or rotate when membership changes, and the server still can't read
+  anything — it never had a key and doesn't get one now.
+- **A new member can't read anything sent before they joined**, since no copy was ever encrypted for
+  them. The group view says so rather than showing empty space.
+- A message costs N rows instead of one.
+
+The server checks the fan-out rather than trusting it: exactly one copy per current member, no more and
+no fewer. A missing copy would silently cut someone out of a conversation they are in; an extra one
+would deliver into a group its recipient has no part in. Reading a group returns only the copies the
+caller can actually decrypt — the ones addressed to them plus the ones they sent.
+
+### Roles
+
+Two roles, `Member` and `Admin` — every capability this feature needs falls on one side of the same
+line, and a permission matrix nobody varies is machinery to keep correct for nothing. All of it lives on
+`ChatGroup`, which takes the id of whoever is asking and refuses if they aren't entitled:
+
+| | Member | Admin |
+|---|---|---|
+| Read and post | yes | yes |
+| Delete own messages | yes | yes |
+| Delete anyone's messages | no | yes |
+| Add and remove members | no | yes |
+| Promote and demote | no | yes |
+| Rename the group | no | yes |
+
+The creator is the first admin. **The last admin can't be removed or demoted** — that would leave a
+group nobody can manage and no way to fix it from inside; an admin can step down once someone else can
+take over. Adding someone requires an existing one-to-one chat with them, so a group can't be used to
+reach a stranger who never agreed to hear from you; re-adding an existing member skips that check, being
+a no-op.
+
+Deleting a message removes it **for everyone**, not just for the person asking: there is one row per
+recipient, and removing only your own copy would leave the message standing for everybody else. The same
+endpoint covers one-to-one messages, where only the sender may delete — being sent something doesn't
+give you the right to erase it from the sender's own history.
+
 ## Refusing a request
 
 Anything that refuses what a caller asked for — domain validation (an event ending before it starts, a
