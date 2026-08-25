@@ -22,9 +22,19 @@ public sealed class NotificationEntry
     public DateTimeOffset? ReadAtUtc { get; private set; }
     public bool IsRead => ReadAtUtc is not null;
 
+    /// <summary>
+    /// When the reader cleared this entry out of the feed. Dismissing hides it from the panel without
+    /// destroying it: the notifications page still shows it, until the reader's own retention window
+    /// deletes it for good (see NotificationSettings.RetentionDays). "Clear" used to delete on the
+    /// spot, which meant a notification glanced at and cleared was unrecoverable.
+    /// </summary>
+    public DateTimeOffset? DismissedAtUtc { get; private set; }
+
+    public bool IsDismissed => DismissedAtUtc is not null;
+
     private NotificationEntry(
         Guid id, Guid userId, NotificationEntryKind kind, string title, string body, string? url,
-        DateTimeOffset createdAtUtc, DateTimeOffset? readAtUtc)
+        DateTimeOffset createdAtUtc, DateTimeOffset? readAtUtc, DateTimeOffset? dismissedAtUtc)
     {
         Id = id;
         UserId = userId;
@@ -34,16 +44,28 @@ public sealed class NotificationEntry
         Url = url;
         CreatedAtUtc = createdAtUtc;
         ReadAtUtc = readAtUtc;
+        DismissedAtUtc = dismissedAtUtc;
     }
 
     public static NotificationEntry Create(Guid userId, NotificationEntryKind kind, string title, string body, string? url)
-        => new(Guid.NewGuid(), userId, kind, title, body, url, DateTimeOffset.UtcNow, readAtUtc: null);
+        => new(Guid.NewGuid(), userId, kind, title, body, url, DateTimeOffset.UtcNow, readAtUtc: null, dismissedAtUtc: null);
 
     public static NotificationEntry FromPersistence(
         Guid id, Guid userId, NotificationEntryKind kind, string title, string body, string? url,
-        DateTimeOffset createdAtUtc, DateTimeOffset? readAtUtc)
-        => new(id, userId, kind, title, body, url, createdAtUtc, readAtUtc);
+        DateTimeOffset createdAtUtc, DateTimeOffset? readAtUtc, DateTimeOffset? dismissedAtUtc = null)
+        => new(id, userId, kind, title, body, url, createdAtUtc, readAtUtc, dismissedAtUtc);
 
     /// <summary>Idempotent, mirroring NoteShare.MarkAccepted - marking an already-read entry read again is a no-op, not a timestamp bump.</summary>
     public void MarkRead(DateTimeOffset nowUtc) => ReadAtUtc ??= nowUtc;
+
+    /// <summary>
+    /// Clearing an entry out of the panel. Idempotent like MarkRead, and implies read: an entry the
+    /// reader has dismissed is one they have finished with, so leaving it counted as unread would keep
+    /// the badge lit over a panel showing nothing.
+    /// </summary>
+    public void Dismiss(DateTimeOffset nowUtc)
+    {
+        DismissedAtUtc ??= nowUtc;
+        MarkRead(nowUtc);
+    }
 }

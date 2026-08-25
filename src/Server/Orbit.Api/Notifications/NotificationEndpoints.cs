@@ -7,6 +7,8 @@ using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
 using Orbit.Core.Notifications.GetUnreadNotificationEntries;
 using Orbit.Core.Notifications.ClearNotifications;
+using Orbit.Core.Notifications.GetNotificationHistory;
+using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Notifications.MarkAllNotificationsRead;
 using Orbit.Core.Notifications.UpdateNotificationSettings;
 
@@ -16,6 +18,9 @@ public static class NotificationEndpoints
 {
     /// <summary>Capped so the panel never has to render or transfer an unbounded feed - matches the "recent" framing in the UI, not a full history.</summary>
     private const int MaxRecentEntries = 30;
+
+    /// <summary>Larger than the panel's cap: the notifications page is where someone goes to find one they cleared away.</summary>
+    private const int MaxHistoryEntries = 200;
 
     public static void MapNotificationEndpoints(this WebApplication app)
     {
@@ -34,7 +39,7 @@ public static class NotificationEndpoints
                 new UpdateNotificationSettingsCommand(
                     GetUserId(user), request.AllowNotifications, request.AllowPush, request.AllowEmail,
                     request.AllowMobileBanner, request.ShowExceptionDetails, request.AllowShareNotifications,
-                    new BannerTiming(request.BannerVisibleSeconds, request.BannerMinimumGapSeconds)),
+                    new BannerTiming(request.BannerVisibleSeconds, request.BannerMinimumGapSeconds), request.RetentionDays),
                 cancellationToken);
             return Results.Ok(ToDto(settings));
         });
@@ -43,6 +48,15 @@ public static class NotificationEndpoints
         {
             var entries = await dispatcher.SendAsync(
                 new GetNotificationEntriesQuery(GetUserId(user), MaxRecentEntries), cancellationToken);
+            return Results.Ok(entries.Select(ToDto));
+        });
+
+        // Everything still held, cleared entries included - the notifications page's own view. Clearing
+        // the panel tidies entries away rather than destroying them; only the retention window deletes.
+        notifications.MapGet("/history", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var entries = await dispatcher.SendAsync(
+                new GetNotificationHistoryQuery(GetUserId(user), MaxHistoryEntries), cancellationToken);
             return Results.Ok(entries.Select(ToDto));
         });
 
@@ -67,6 +81,15 @@ public static class NotificationEndpoints
             await dispatcher.SendAsync(new MarkAllNotificationsReadCommand(GetUserId(user)), cancellationToken);
             return Results.NoContent();
         });
+
+        // Arriving at the page a notification was about counts as having read it, however the reader got
+        // there - see MarkNotificationsAtUrlReadCommand.
+        notifications.MapPost("/read-at", async (
+            MarkNotificationsReadAtUrlRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(new MarkNotificationsAtUrlReadCommand(GetUserId(user), request.Url), cancellationToken);
+            return Results.NoContent();
+        });
     }
 
     /// <summary>
@@ -84,8 +107,9 @@ public static class NotificationEndpoints
     private static NotificationSettingsDto ToDto(NotificationSettings settings)
         => new(
             settings.AllowNotifications, settings.AllowPush, settings.AllowEmail, settings.AllowMobileBanner, settings.ShowExceptionDetails,
-            settings.BannerTiming.VisibleSeconds, settings.BannerTiming.MinimumGapSeconds, settings.AllowShareNotifications);
+            settings.BannerTiming.VisibleSeconds, settings.BannerTiming.MinimumGapSeconds, settings.AllowShareNotifications,
+            settings.RetentionDays);
 
     private static NotificationEntryDto ToDto(NotificationEntry entry)
-        => new(entry.Id, entry.Kind.ToString(), entry.Title, entry.Body, entry.Url, entry.CreatedAtUtc, entry.IsRead);
+        => new(entry.Id, entry.Kind.ToString(), entry.Title, entry.Body, entry.Url, entry.CreatedAtUtc, entry.IsRead, entry.IsDismissed);
 }

@@ -139,7 +139,63 @@ input[type="color"] {
     width: 52px;
 }
 
-input[type="checkbox"],
+/* Drawn rather than left to accent-color, which only tints the browser's own box: every platform
+   renders that box a different size and shape, so the one control that appears on nearly every form
+   was the one thing on screen that didn't look like the rest of the app. The shape follows the
+   buttons and inputs around it - the same border, radius, accent and focus ring. */
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    border: 1.5px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg-elevated);
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+/* A mask rather than a glyph, so the tick is drawn in the same colour text is and stays crisp at any
+   zoom - a text checkmark would inherit the font and sit off-centre. */
+input[type="checkbox"]::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    transform: scale(0);
+    transition: transform 120ms ease;
+    background-color: var(--accent-on);
+    clip-path: polygon(14% 44%, 0 60%, 40% 100%, 100% 18%, 84% 4%, 38% 68%);
+}
+
+input[type="checkbox"]:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent-subtle);
+    outline-offset: 2px;
+    border-color: var(--accent);
+}
+
+input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 input[type="radio"] {
     accent-color: var(--accent);
 }
@@ -664,9 +720,50 @@ input.note-editor-title {
 }
 
 .notifications-panel-item-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
+}
+
+/* Notifications page only: an entry cleared out of the panel is still listed here, dimmed and labelled
+   rather than hidden, so clearing reads as tidying away instead of deleting. */
+.notifications-panel-item-dismissed {
+    opacity: 0.62;
+}
+
+.notifications-panel-item-tag {
+    flex: 0 0 auto;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 7px;
+}
+
+/* Sits under the panel's list, so "See all" is reachable without scrolling past every entry. */
+.notifications-panel-footer {
+    border-top: 1px solid var(--border);
+    margin-top: 6px;
+    padding-top: 8px;
+    text-align: center;
+}
+
+.notifications-panel-footer a {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.notifications-panel-footer a:hover {
+    text-decoration: underline;
 }
 
 .notifications-panel-item-body {
@@ -2360,17 +2457,6 @@ input.note-editor-title {
 
 .check-row:hover {
     background: var(--bg-subtle);
-}
-
-.check-row input[type="checkbox"] {
-    flex: 0 0 auto;
-    width: 16px;
-    height: 16px;
-    accent-color: var(--accent);
-}
-
-.check-row input[type="checkbox"]:disabled {
-    cursor: not-allowed;
 }
 
 .check-row-text {

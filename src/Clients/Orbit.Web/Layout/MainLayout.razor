@@ -150,6 +150,11 @@
                             <NotificationList IsLoading="_isLoadingNotifications" Entries="_recentEntries"
                                               ExceptionEntries="_clientExceptionEntries"
                                               OnEntrySelected="OpenNotificationEntry" />
+                            <div class="notifications-panel-footer">
+                                <a href="/notifications" @onclick="CloseNotificationsMenu" @onclick:preventDefault="false">
+                                    See all notifications
+                                </a>
+                            </div>
                         </div>
                     }
                 </div>
@@ -358,7 +363,10 @@
         StartNotificationPoll();
     }
 
-    /// <summary>Closes the avatar/notifications menus on navigation, so neither stays open across an unrelated route change.</summary>
+    /// <summary>
+    /// Closes the avatar/notifications menus on navigation, so neither stays open across an unrelated
+    /// route change, and marks read whatever notification pointed at wherever the reader just arrived.
+    /// </summary>
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         if (_avatarMenuOpen || _notificationsMenuOpen)
@@ -366,6 +374,36 @@
             _avatarMenuOpen = false;
             _notificationsMenuOpen = false;
             InvokeAsync(StateHasChanged);
+        }
+
+        InvokeAsync(() => MarkNotificationsForCurrentPageReadAsync(e.Location));
+    }
+
+    /// <summary>
+    /// Reaching the page a notification was about is the same as having read it, however the reader got
+    /// there - before this, only clicking the entry in the panel counted, so opening the task from the
+    /// task list left the badge lit over a notification about the page already being looked at.
+    ///
+    /// Skipped entirely when nothing is unread, which is the usual case: an ordinary click around the
+    /// app should not cost a request per navigation.
+    /// </summary>
+    private async Task MarkNotificationsForCurrentPageReadAsync(string location)
+    {
+        if (!_isAuthenticated || NotificationFeedState.UnreadCount == 0)
+        {
+            return;
+        }
+
+        var path = new Uri(location, UriKind.Absolute).AbsolutePath;
+        if (!NotificationFeedState.HasUnreadFor(path))
+        {
+            return;
+        }
+
+        if (await NotificationsApiClient.MarkReadAtUrlAsync(path))
+        {
+            NotificationFeedState.MarkReadFor(path);
+            StateHasChanged();
         }
     }
 
@@ -635,6 +673,10 @@
             _recentEntries = [];
             _clientExceptionEntries = [];
             NotificationFeedState.Clear();
+
+            // The panel now has nothing in it, so leaving it open would show the reader an empty box
+            // they have to dismiss themselves.
+            _notificationsMenuOpen = false;
         }
         catch (HttpRequestException exception)
         {
@@ -673,6 +715,8 @@
     /// PushNotificationPayload) - clicking the panel row navigates there and closes the panel, so the
     /// panel isn't a dead end compared to the push path. Entries without a Url stay inert.
     /// </summary>
+    private void CloseNotificationsMenu() => _notificationsMenuOpen = false;
+
     private void OpenNotificationEntry(NotificationEntryDto entry)
     {
         if (entry.Url is null)
