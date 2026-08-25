@@ -16,6 +16,7 @@ using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;
 using Orbit.Api.Tasks;
+using Orbit.Api.Transfer;
 using Orbit.Api.Users;
 using Orbit.Core;
 using Orbit.Core.Abstractions;
@@ -267,6 +268,7 @@ try
     app.MapPushNotificationEndpoints();
     app.MapNotificationEndpoints();
     app.MapConfigEndpoints();
+    app.MapTransferEndpoints();
     app.MapHealthEndpoints();
 
     app.Run();
