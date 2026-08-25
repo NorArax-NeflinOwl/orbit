@@ -50,13 +50,16 @@ gitignored and must never be committed. Create it from the template:
 cp .env.example .env
 ```
 
-Then open `.env` and fill in the values below. Only `JWT_SIGNING_KEY` is required to start the
-stack - everything else can be left blank and the corresponding feature just logs a warning and
-skips itself (see `README.md`'s "Calendar event reminders" and "Push notifications" sections).
+Then open `.env` and fill in the values below. Only `JWT_SIGNING_KEY` and `POSTGRES_PASSWORD` are
+required to start the stack - everything else can be left blank and the corresponding feature just
+logs a warning and skips itself (see `README.md`'s "Calendar event reminders" and "Push
+notifications" sections).
 
 | Variable | Required | How to get a value |
 | --- | --- | --- |
 | `JWT_SIGNING_KEY` | Yes | A random string, at least 32 characters. Generate one with `openssl rand -base64 48` (Git Bash/WSL on Windows, or Terminal on macOS). |
+| `POSTGRES_PASSWORD` | Yes | Password for the local `postgres` container's admin user - `docker compose` refuses to start without it rather than falling back to a fixed, tracked default (see `docker-compose.yml`'s comment for why). Generate one with `openssl rand -base64 24`. |
+| `POSTGRES_DB`, `POSTGRES_USER` | No | Only needed to change the local database/user names away from their `orbit` defaults. Leave unset otherwise. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER_NAME`, `SMTP_PASSWORD`, `SMTP_FROM_ADDRESS` | No | Credentials for whatever SMTP provider you want calendar reminder emails sent through. Leave blank to skip email delivery. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | No | Generate a key pair with `npx web-push generate-vapid-keys` (needs Node.js/npm). `VAPID_SUBJECT` is a `mailto:` address or HTTPS URL identifying you to push services. Leave blank to skip push delivery. |
 | `WEB_CLIENT_LAN_ORIGIN` | No | Only needed if you call `Orbit.Api` directly from a different origin than `orbit-web`'s own (e.g. a `dotnet run` dev server) - see `docker-compose.yml`'s `WebClientOrigins` comment. |
