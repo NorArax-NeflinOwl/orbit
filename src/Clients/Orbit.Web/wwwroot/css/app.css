@@ -352,6 +352,15 @@ input.note-editor-title {
     padding: 20px 16px;
     gap: 4px;
     transition: width .18s ease;
+    /* Pinned to the viewport instead of stretching with the page. Without this the sidebar grows to
+       the full document height, taking the avatar in .sidebar-footer with it - on a long page that
+       puts it an entire scroll away, even though navigation is meant to stay reachable throughout.
+       align-self keeps the flex container from stretching it back to full height, which would
+       cancel the sticky behaviour. */
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    align-self: flex-start;
 }
 
 .sidebar-logo {
@@ -380,6 +389,9 @@ input.note-editor-title {
     flex-direction: column;
     gap: 2px;
     flex: 1;
+    /* Scrolls within the pinned sidebar rather than pushing the footer avatar past the bottom edge
+       when the viewport is short. */
+    overflow-y: auto;
 }
 
 .nav-item {
@@ -918,6 +930,10 @@ input.note-editor-title {
         flex: 0 0 auto;
         flex-direction: row;
         align-items: center;
+        /* Undoes the desktop full-height pinning: here the sidebar is a top bar that sticks to the
+           top of a column layout, so it has to be as tall as its own content. */
+        height: auto;
+        align-self: auto;
         padding: 10px 14px;
         border-right: none;
         border-bottom: 1px solid var(--border);
@@ -2303,3 +2319,4 @@ input.note-editor-title {
     border-radius: 6px;
     padding: 10px 12px;
 }
+
