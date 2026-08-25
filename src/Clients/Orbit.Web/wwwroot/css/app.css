@@ -1090,6 +1090,33 @@ input.note-editor-title {
     border-bottom: none;
 }
 
+/* A whole row that opens something, rather than only its title: the avatar, status dot and meta
+   text are part of the same target, which is what a row looks like it should do. */
+.list-row-button {
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-family: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.list-row-button:hover {
+    background: var(--bg-subtle);
+}
+
+.list-row-button:hover .row-title {
+    color: var(--accent);
+}
+
+.list-row-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
 .row-title {
     flex: 1;
     min-width: 0;
@@ -1098,17 +1125,7 @@ input.note-editor-title {
     white-space: nowrap;
     color: var(--text-primary);
     font-weight: 500;
-    background: none;
-    border: none;
-    padding: 0;
     text-align: left;
-    font-family: inherit;
-    font-size: inherit;
-    cursor: pointer;
-}
-
-.row-title:hover {
-    color: var(--accent);
 }
 
 .row-meta {
@@ -1143,6 +1160,7 @@ input.note-editor-title {
 }
 
 .progress-fill {
+    display: block;
     height: 100%;
     border-radius: 999px;
     background: var(--accent);

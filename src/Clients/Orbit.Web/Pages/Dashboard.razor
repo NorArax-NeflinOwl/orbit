@@ -51,10 +51,10 @@ else
                 <div class="card-header"><span class="card-title">Notes</span><span class="card-count">@_notes.Count</span></div>
                 @foreach (var note in _notes)
                 {
-                    <div class="list-row">
-                        <button class="row-title" @onclick="() => GoToEditNote(note.Id)">@note.Title</button>
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToEditNote(note.Id)">
+                        <span class="row-title">@note.Title</span>
                         <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
-                    </div>
+                    </button>
                 }
             </div>
         }
@@ -65,18 +65,18 @@ else
                 <div class="card-header"><span class="card-title">Tasks</span><span class="card-count">@_taskLists.Count lists</span></div>
                 @foreach (var taskList in _taskLists)
                 {
-                    <div class="list-row">
-                        <button class="row-title" @onclick="() => GoToEditTaskList(taskList.Id)">@taskList.Title</button>
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToEditTaskList(taskList.Id)">
+                        <span class="row-title">@taskList.Title</span>
                         @if (taskList.Items.Count > 0)
                         {
-                            <div class="progress-track"><div class="progress-fill" style="width:@(CompletionPercent(taskList))%"></div></div>
+                            <span class="progress-track"><span class="progress-fill" style="width:@(CompletionPercent(taskList))%"></span></span>
                             <span class="row-meta">@taskList.Items.Count(item => item.IsCompleted)/@taskList.Items.Count</span>
                         }
                         else if (taskList.IsCompleted)
                         {
                             <span class="row-meta">Done</span>
                         }
-                    </div>
+                    </button>
                 }
             </div>
         }
@@ -87,13 +87,13 @@ else
                 <div class="card-header"><span class="card-title">Upcoming</span><span class="card-count">@_events.Count</span></div>
                 @foreach (var calendarEvent in _events.OrderBy(e => e.Details.StartUtc).Take(6))
                 {
-                    <div class="list-row">
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToEditEvent(calendarEvent.Id)">
                         <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
-                        <button class="row-title" @onclick="() => GoToEditEvent(calendarEvent.Id)">
+                        <span class="row-title">
                             @calendarEvent.Details.Title @(calendarEvent.IsShared ? "(shared)" : "")
-                        </button>
+                        </span>
                         <span class="row-meta">@FormatEventMeta(calendarEvent.Details)</span>
-                    </div>
+                    </button>
                 }
             </div>
         }
@@ -104,11 +104,11 @@ else
                 <div class="card-header"><span class="card-title">Recent chats</span></div>
                 @foreach (var contact in _recentContacts.Take(6))
                 {
-                    <div class="list-row">
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
                         <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
-                        <button class="row-title" @onclick="() => GoToChat(contact.UserId)">@contact.DisplayName</button>
+                        <span class="row-title">@contact.DisplayName</span>
                         <span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span>
-                    </div>
+                    </button>
                 }
             </div>
 
@@ -116,10 +116,10 @@ else
                 <div class="card-header"><span class="card-title">Contacts</span><span class="card-count">@_contactsAlphabetically.Count()</span></div>
                 @foreach (var contact in _contactsAlphabetically)
                 {
-                    <div class="list-row">
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
                         <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
-                        <button class="row-title" @onclick="() => GoToChat(contact.UserId)">@contact.DisplayName</button>
-                    </div>
+                        <span class="row-title">@contact.DisplayName</span>
+                    </button>
                 }
             </div>
         }
