@@ -53,6 +53,10 @@ else
             <li class="card warehouse-card">
                 <div class="warehouse-card-main">
                     <button type="button" class="warehouse-name" @onclick="() => OpenWarehouse(warehouse.Id)">@warehouse.Name</button>
+                    @if (warehouse.IsPrivate)
+                    {
+                        <span class="warehouse-shared-badge">Private - encrypted, and only you can read it</span>
+                    }
                     @if (warehouse.IsShared)
                     {
                         <span class="warehouse-shared-badge">Shared by @warehouse.SharedByUserName · @AccessDescription(warehouse.AccessLevel)</span>
@@ -172,8 +176,12 @@ else
             : _contacts;
 
     /// <summary>Mirrors ShareWarehouseCommandHandler's own rule, so the button isn't offered for a share that would be rejected.</summary>
+    /// <summary>
+    /// A private warehouse can never be shared - the server refuses it, so offering the button would
+    /// only lead to a refusal. Matches the same rule for notes and task lists.
+    /// </summary>
     private static bool CanShare(WarehouseDto warehouse)
-        => !warehouse.IsShared || warehouse.AccessLevel is "CanEdit" or "Share";
+        => !warehouse.IsPrivate && (!warehouse.IsShared || warehouse.AccessLevel is "CanEdit" or "Share");
 
     /// <summary>A re-share can never grant more than the re-sharer holds - again matching the server.</summary>
     private static bool CanGrantCanEdit(WarehouseDto warehouse)

@@ -14,13 +14,77 @@ public sealed class InventoryApiClient
 {
     private readonly HttpClient _httpClient;
 
-    public InventoryApiClient(HttpClient httpClient)
+    private readonly PrivateContentSealer? _privateContentSealer;
+
+    /// <summary>Shown in place of a private warehouse nobody can open any more - see PrivateContentSealer.OpenAsync.</summary>
+    public const string UnreadableWarehouseName = "Unreadable - encrypted with an older key";
+
+    // The sealer defaults to absent so existing call sites (including every test that constructs this
+    // with just an HttpClient) keep compiling unchanged; only the DI-resolved instance handles private
+    // warehouses.
+    public InventoryApiClient(HttpClient httpClient, PrivateContentSealer? privateContentSealer = null)
     {
         _httpClient = httpClient;
+        _privateContentSealer = privateContentSealer;
     }
 
+    /// <summary>
+    /// Hands back an ordinary warehouse unchanged, and a private one with its real name put back. Its
+    /// items come back through GetInventoryItemsAsync, which opens the same sealed payload - the server
+    /// holds no item rows for a private warehouse at all.
+    /// </summary>
+    private async Task<WarehouseDto> OpenIfPrivateAsync(WarehouseDto warehouse, CancellationToken cancellationToken)
+    {
+        var content = await OpenContentAsync(warehouse, cancellationToken);
+        if (content is null)
+        {
+            return warehouse.IsPrivate ? warehouse with { Name = UnreadableWarehouseName } : warehouse;
+        }
+
+        return warehouse with { Name = content.Name };
+    }
+
+    private async Task<SealedWarehouse?> OpenContentAsync(WarehouseDto warehouse, CancellationToken cancellationToken)
+        => warehouse.IsPrivate && warehouse.EncryptedContent is { } encryptedContent && _privateContentSealer is not null
+            ? await _privateContentSealer.OpenAsync<SealedWarehouse>(encryptedContent, cancellationToken)
+            : null;
+
+    /// <summary>
+    /// Seals a private warehouse's name and items and empties the readable fields, so what leaves this
+    /// browser matches what the server is allowed to hold. Left alone when it isn't private.
+    /// </summary>
+    private async Task<SaveWarehouseRequest> SealIfPrivateAsync(SaveWarehouseRequest request, CancellationToken cancellationToken)
+    {
+        if (!request.IsPrivate)
+        {
+            return request with { EncryptedContent = null };
+        }
+
+        if (_privateContentSealer is null)
+        {
+            throw new InvalidOperationException("This InventoryApiClient was built without a PrivateContentSealer, so it can't save a private warehouse.");
+        }
+
+        var encryptedContent = await _privateContentSealer.SealAsync(
+            new SealedWarehouse(request.Name, request.Items), cancellationToken);
+        return request with { Name = string.Empty, Items = [], EncryptedContent = encryptedContent };
+    }
+
+    /// <summary>Everything a private warehouse hides from the server, as one sealed payload.</summary>
+    private sealed record SealedWarehouse(string Name, IReadOnlyList<WarehouseItemDto> Items);
+
     public async Task<IReadOnlyList<WarehouseDto>> GetWarehousesAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<WarehouseDto>>("api/warehouses", cancellationToken) ?? [];
+    {
+        var warehouses = await _httpClient.GetFromJsonAsync<List<WarehouseDto>>("api/warehouses", cancellationToken) ?? [];
+
+        var opened = new List<WarehouseDto>(warehouses.Count);
+        foreach (var warehouse in warehouses)
+        {
+            opened.Add(await OpenIfPrivateAsync(warehouse, cancellationToken));
+        }
+
+        return opened;
+    }
 
     public async Task<WarehouseDto?> GetWarehouseByIdAsync(Guid warehouseId, CancellationToken cancellationToken = default)
     {
@@ -31,11 +95,13 @@ public sealed class InventoryApiClient
         }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<WarehouseDto>(cancellationToken: cancellationToken);
+        var warehouse = await response.Content.ReadFromJsonAsync<WarehouseDto>(cancellationToken: cancellationToken);
+        return warehouse is null ? null : await OpenIfPrivateAsync(warehouse, cancellationToken);
     }
 
     public async Task<Guid> CreateWarehouseAsync(SaveWarehouseRequest request, CancellationToken cancellationToken = default)
     {
+        request = await SealIfPrivateAsync(request, cancellationToken);
         var response = await _httpClient.PostAsJsonAsync("api/warehouses", request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
@@ -45,6 +111,7 @@ public sealed class InventoryApiClient
     public async Task<EditOutcome> UpdateWarehouseAsync(
         Guid warehouseId, SaveWarehouseRequest request, CancellationToken cancellationToken = default)
     {
+        request = await SealIfPrivateAsync(request, cancellationToken);
         var response = await _httpClient.PutAsJsonAsync($"api/warehouses/{warehouseId}", request, cancellationToken);
         return await ToEditOutcomeAsync(response, cancellationToken);
     }
@@ -137,7 +204,51 @@ public sealed class InventoryApiClient
         }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<List<InventoryItemDto>>(cancellationToken: cancellationToken) ?? [];
+        var items = await response.Content.ReadFromJsonAsync<List<InventoryItemDto>>(cancellationToken: cancellationToken) ?? [];
+
+        // A private warehouse keeps no item rows on the server, so what comes back is empty by
+        // definition and its real items live in the warehouse's sealed payload.
+        var warehouse = await GetWarehouseRawAsync(warehouseId, cancellationToken);
+        if (warehouse is null || !warehouse.IsPrivate)
+        {
+            return items;
+        }
+
+        var content = await OpenContentAsync(warehouse, cancellationToken);
+        return content is null
+            ? []
+            : content.Items
+                .Select(item => new InventoryItemDto(
+                    item.Id ?? Guid.Empty, item.Name, item.ProductType, item.Category, item.Quantity,
+                    item.MinimumQuantity, item.ExpiryDate, item.ExpiryNotificationChannel,
+                    IsBelowMinimum(item), HasPendingRestockTask: false,
+                    // The server keeps no rows for these, so it has no timestamps to report either.
+                    CreatedAtUtc: default, UpdatedAtUtc: default))
+                .ToList();
     }
+
+    /// <summary>
+    /// The warehouse as the server sent it, sealed content and all - OpenIfPrivateAsync would have
+    /// replaced the name already, and this needs the payload rather than the readable view of it.
+    /// </summary>
+    private async Task<WarehouseDto?> GetWarehouseRawAsync(Guid warehouseId, CancellationToken cancellationToken)
+    {
+        var response = await _httpClient.GetAsync($"api/warehouses/{warehouseId}", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<WarehouseDto>(cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Worked out here for a private warehouse because the server can't: it derives this from item rows
+    /// it no longer has. Same rule as InventoryItem.IsBelowMinimum - strictly below, so sitting exactly
+    /// at the minimum is fine.
+    /// </summary>
+    private static bool IsBelowMinimum(WarehouseItemDto item)
+        => item.MinimumQuantity is { } minimumQuantity && item.Quantity < minimumQuantity;
 
 }

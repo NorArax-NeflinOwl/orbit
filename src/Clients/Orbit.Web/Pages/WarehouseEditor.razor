@@ -44,6 +44,25 @@ else
                 <InputText id="warehouseNameInput" @bind-Value="_formModel.Name" />
             </div>
 
+            @* Only the owner may turn this on: a warehouse reached through a share belongs to someone
+               else, and "private" means private to its creator. *@
+            @if (!_isShared)
+            {
+                <div class="field">
+                    <label>
+                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />
+                        Private
+                    </label>
+                    <small>
+                        Encrypted in this browser before it is saved, so Orbit's servers hold something they
+                        can't read - no item rows for this warehouse exist there at all. A private warehouse
+                        can't be shared, and any share of it stops working while it stays private. Because
+                        the server can no longer read a quantity or an expiry date, it raises no restock
+                        tasks and sends no expiry reminders. Losing your password means losing it.
+                    </small>
+                </div>
+            }
+
             <h2 class="options-heading">Items</h2>
             @if (_formModel.Items.Count == 0)
             {
@@ -344,10 +363,14 @@ else
         public string Name { get; set; } = string.Empty;
         public List<WarehouseItemFormModel> Items { get; set; } = [];
 
+        /// <summary>Encrypt this warehouse so only its owner can read it - see PrivateContentSealer.</summary>
+        public bool IsPrivate { get; set; }
+
         public static WarehouseFormModel FromDto(WarehouseDto warehouse, IReadOnlyList<InventoryItemDto> items)
             => new()
             {
                 Name = warehouse.Name,
+                IsPrivate = warehouse.IsPrivate,
                 Items = items
                     .Select(item => new WarehouseItemFormModel
                     {
@@ -370,7 +393,8 @@ else
                     .Select(item => new WarehouseItemDto(
                         item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
                         ToExpiryDateUtc(item), item.ExpiryNotificationChannel))
-                    .ToList());
+                    .ToList(),
+                IsPrivate);
 
         /// <summary>
         /// Npgsql only accepts a DateTimeOffset with Offset=0 for a "timestamp with time zone" column, so

@@ -20,7 +20,19 @@ public sealed class Warehouse
 {
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
+    /// <summary>Empty for a private warehouse - its real name is inside <see cref="EncryptedContent"/>.</summary>
     public string Name { get; private set; }
+
+    /// <summary>
+    /// Marks a warehouse only its owner can read. Its name and every item in it are sealed in the
+    /// browser before they get here, so no item rows exist server-side at all - which is also why a
+    /// private warehouse raises no restock tasks and no expiry reminders: both are worked out from item
+    /// rows the server no longer has.
+    /// </summary>
+    public bool IsPrivate { get; private set; }
+
+    /// <summary>The sealed name and items of a private warehouse; null for an ordinary one.</summary>
+    public EncryptedPayload? EncryptedContent { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -43,12 +55,13 @@ public sealed class Warehouse
     public DateTimeOffset? LockExpiresAtUtc { get; private set; }
 
     private Warehouse(
-        Guid id, Guid userId, string name, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string name, bool isPrivate, EncryptedPayload? encryptedContent,
+        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
         UserId = userId;
-        Name = name;
+        (Name, IsPrivate, EncryptedContent) = ReadableOrSealed(name, isPrivate, encryptedContent);
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
         LockedByUserId = lockedByUserId;
@@ -56,17 +69,21 @@ public sealed class Warehouse
         LockExpiresAtUtc = lockExpiresAtUtc;
     }
 
-    public static Warehouse Create(Guid userId, string name)
+    public static Warehouse Create(Guid userId, string name, bool isPrivate = false, EncryptedPayload? encryptedContent = null)
     {
         var now = DateTimeOffset.UtcNow;
-        return new Warehouse(Guid.NewGuid(), userId, name, now, now, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
+        return new Warehouse(
+            Guid.NewGuid(), userId, name, isPrivate, encryptedContent, now, now,
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
     }
 
     /// <summary>Rebuilds a warehouse from already-persisted values, bypassing creation rules.</summary>
     public static Warehouse FromPersistence(
-        Guid id, Guid userId, string name, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string name, bool isPrivate, EncryptedPayload? encryptedContent,
+        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
-        => new(id, userId, name, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+        => new(id, userId, name, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
+            lockedByUserId, lockedByUserName, lockExpiresAtUtc);
 
     /// <summary>
     /// Stamps how the current caller relates to this warehouse - see the class comment. Called exactly
@@ -84,10 +101,31 @@ public sealed class Warehouse
     /// <see cref="IsLockedByAnotherUser"/> is false - see UpdateWarehouseCommandHandler. Kept out of this
     /// method so a locked/read-only warehouse fails with a specific EditOutcome instead of an exception.
     /// </summary>
-    public void Update(string name)
+    public void Update(string name, bool isPrivate, EncryptedPayload? encryptedContent)
     {
-        Name = name;
+        (Name, IsPrivate, EncryptedContent) = ReadableOrSealed(name, isPrivate, encryptedContent);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Mirrors Note.ReadableOrSealed: a private warehouse stores its sealed payload and no readable
+    /// name, an ordinary one the reverse. Enforced rather than trusted, because a private warehouse that
+    /// still carried a readable name would break the only promise this makes.
+    /// </summary>
+    private static (string Name, bool IsPrivate, EncryptedPayload? EncryptedContent) ReadableOrSealed(
+        string name, bool isPrivate, EncryptedPayload? encryptedContent)
+    {
+        if (!isPrivate)
+        {
+            return (name, false, null);
+        }
+
+        if (encryptedContent is null)
+        {
+            throw new InvalidRequestException("A private warehouse must arrive already encrypted.");
+        }
+
+        return (string.Empty, true, encryptedContent);
     }
 
     public bool IsLockedByAnotherUser(Guid callerId, DateTimeOffset nowUtc)

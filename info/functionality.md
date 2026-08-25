@@ -264,6 +264,20 @@ What private costs:
 - **Completion is recomputed in the browser.** The server derives `IsCompleted` from items it can't see,
   so what it sends for a private list means nothing; `TasksApiClient` works it out after opening.
 
+### Private warehouses
+
+A warehouse can be marked private too, on the same key and the same rules — with one difference worth
+stating plainly. A note's lines and a task list's items live inside their parent row, so sealing the
+parent seals them. **A warehouse's items are rows of their own**, so making one private *deletes* those
+rows: the sealed payload carries the name and every item, and `UpdateWarehouseCommandHandler` removes
+whatever item rows were there before. "The server can't read this warehouse" is therefore literally
+true — there is nothing left for it to read.
+
+That is also why a private warehouse **raises no restock tasks and sends no expiry reminders**: both are
+worked out from item rows that no longer exist. `IsBelowMinimum` is recomputed in the browser after
+opening the payload, the same way a private task list's completion is.
+
+
 ## The map, and the location behind it
 
 A user can record **one** location for themselves — coordinates, the address reverse geocoding resolved

@@ -39,8 +39,20 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
             return EditOutcome.LockedBy(warehouse.LockedByUserName!);
         }
 
-        warehouse.Update(request.Name);
+        warehouse.Update(request.Name, request.IsPrivate, request.EncryptedContent);
         await _warehouseRepository.UpdateAsync(warehouse, cancellationToken);
+
+        if (warehouse.IsPrivate)
+        {
+            // Everything the caller sent is already inside the sealed payload, so no item row should
+            // exist here at all - including any left over from before it was made private. Dropping
+            // them is what makes "the server can't read this warehouse" true rather than aspirational,
+            // and it is why a private warehouse gets no restock tasks or expiry reminders: both are
+            // worked out from rows that are now gone.
+            await RemoveEveryItemAsync(request.WarehouseId, cancellationToken);
+            return EditOutcome.Success;
+        }
+
         await SaveItemsAsync(request, cancellationToken);
 
         // The standing "keep your stock updated" reminder should exist from the first item this
@@ -51,6 +63,14 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
         }
 
         return EditOutcome.Success;
+    }
+
+    private async Task RemoveEveryItemAsync(Guid warehouseId, CancellationToken cancellationToken)
+    {
+        foreach (var item in await _inventoryRepository.GetAllAsync(warehouseId, cancellationToken))
+        {
+            await _inventoryRepository.DeleteAsync(warehouseId, item.Id, cancellationToken);
+        }
     }
 
     private async Task SaveItemsAsync(UpdateWarehouseCommand request, CancellationToken cancellationToken)

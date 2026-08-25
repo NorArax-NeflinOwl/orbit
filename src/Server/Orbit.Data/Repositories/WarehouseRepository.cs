@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Inventory;
 using Orbit.Data.Entities;
 
@@ -71,9 +72,15 @@ public sealed class WarehouseRepository : IWarehouseRepository
         return owner;
     }
 
+    /// <summary>Both columns are written together or not at all, so either alone means no sealed content.</summary>
+    private static EncryptedPayload? ToEncryptedPayload(string? ciphertext, string? nonce)
+        => ciphertext is not null && nonce is not null ? new EncryptedPayload(ciphertext, nonce) : null;
+
     private static Warehouse ToDomain(WarehouseEntity entity)
         => Warehouse.FromPersistence(
-            entity.Id, entity.UserId, entity.Name, entity.CreatedAtUtc, entity.UpdatedAtUtc,
+            entity.Id, entity.UserId, entity.Name, entity.IsPrivate,
+            ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
+            entity.CreatedAtUtc, entity.UpdatedAtUtc,
             entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc);
 
     private static WarehouseEntity ToEntity(Warehouse warehouse)
@@ -82,6 +89,9 @@ public sealed class WarehouseRepository : IWarehouseRepository
             Id = warehouse.Id,
             UserId = warehouse.UserId,
             Name = warehouse.Name,
+            IsPrivate = warehouse.IsPrivate,
+            EncryptedCiphertext = warehouse.EncryptedContent?.Ciphertext,
+            EncryptedNonce = warehouse.EncryptedContent?.Nonce,
             CreatedAtUtc = warehouse.CreatedAtUtc,
             UpdatedAtUtc = warehouse.UpdatedAtUtc,
             LockedByUserId = warehouse.LockedByUserId,
