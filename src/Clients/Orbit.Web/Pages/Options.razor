@@ -298,7 +298,7 @@
                 <input type="number" id="bannerVisibleSecondsInput" class="options-number-input" min="1" max="30"
                        value="@_notificationSettings.BannerVisibleSeconds"
                        disabled="@(!_notificationSettings.AllowNotifications || !_notificationSettings.AllowMobileBanner || _isSavingNotificationSettings)"
-                       @onchange="@(args => UpdateBannerTimingAsync(args, seconds => _notificationSettings with { BannerVisibleSeconds = seconds }))" />
+                       @onchange="@(args => UpdateNumericSettingAsync(args, seconds => _notificationSettings with { BannerVisibleSeconds = seconds }))" />
             </div>
             <div class="options-row options-row-child">
                 <div>
@@ -308,7 +308,21 @@
                 <input type="number" id="bannerMinimumGapSecondsInput" class="options-number-input" min="1" max="300"
                        value="@_notificationSettings.BannerMinimumGapSeconds"
                        disabled="@(!_notificationSettings.AllowNotifications || !_notificationSettings.AllowMobileBanner || _isSavingNotificationSettings)"
-                       @onchange="@(args => UpdateBannerTimingAsync(args, seconds => _notificationSettings with { BannerMinimumGapSeconds = seconds }))" />
+                       @onchange="@(args => UpdateNumericSettingAsync(args, seconds => _notificationSettings with { BannerMinimumGapSeconds = seconds }))" />
+            </div>
+            <div class="options-row options-row-child">
+                <div>
+                    <div class="options-row-title">Keep notifications for (days)</div>
+                    <div class="options-row-desc">
+                        How long a notification stays on the
+                        <a href="/notifications">notifications page</a> before it is deleted for good (1-90).
+                        Clearing the panel only tidies them out of the way; this is what actually removes them.
+                    </div>
+                </div>
+                <input type="number" id="retentionDaysInput" class="options-number-input" min="1" max="90"
+                       value="@_notificationSettings.RetentionDays"
+                       disabled="@_isSavingNotificationSettings"
+                       @onchange="@(args => UpdateNumericSettingAsync(args, days => _notificationSettings with { RetentionDays = days }))" />
             </div>
         </div>
         @if (_pushNotificationErrorMessage is not null)
@@ -440,18 +454,19 @@
     }
 
     /// <summary>
-    /// Parses one of the two banner-timing number inputs and saves the settings with buildUpdated
-    /// applying the parsed value - non-numeric input is ignored (the field just re-renders the stored
-    /// value); the server clamps out-of-range numbers (see BannerTiming) and the response re-syncs the field.
+    /// Parses one of the numeric notification inputs and saves the settings with buildUpdated applying
+    /// the parsed value - non-numeric input is ignored (the field just re-renders the stored value); the
+    /// server clamps out-of-range numbers (see BannerTiming and NotificationSettings.RetentionDays) and
+    /// the response re-syncs the field.
     /// </summary>
-    private async Task UpdateBannerTimingAsync(ChangeEventArgs args, Func<int, NotificationSettingsDto> buildUpdated)
+    private async Task UpdateNumericSettingAsync(ChangeEventArgs args, Func<int, NotificationSettingsDto> buildUpdated)
     {
-        if (!int.TryParse(args.Value?.ToString(), out var seconds))
+        if (!int.TryParse(args.Value?.ToString(), out var value))
         {
             return;
         }
 
-        await UpdateNotificationSettingsAsync(buildUpdated(seconds));
+        await UpdateNotificationSettingsAsync(buildUpdated(value));
     }
 
     private async Task UpdateNotificationSettingsAsync(NotificationSettingsDto updated)
@@ -463,7 +478,8 @@
             _notificationSettings = await NotificationsApiClient.UpdateSettingsAsync(
                 new UpdateNotificationSettingsRequest(
                     updated.AllowNotifications, updated.AllowPush, updated.AllowEmail, updated.AllowMobileBanner, updated.ShowExceptionDetails,
-                    updated.BannerVisibleSeconds, updated.BannerMinimumGapSeconds, updated.AllowShareNotifications));
+                    updated.BannerVisibleSeconds, updated.BannerMinimumGapSeconds, updated.AllowShareNotifications,
+                    updated.RetentionDays));
         }
         catch (HttpRequestException exception)
         {

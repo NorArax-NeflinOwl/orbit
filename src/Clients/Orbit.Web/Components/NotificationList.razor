@@ -17,10 +17,16 @@ else
     <ul class="notifications-panel-list">
         @foreach (var entry in Entries)
         {
-            <li class="notifications-panel-item @(entry.Url is null ? "" : "notifications-panel-item-link")"
+            <li class="notifications-panel-item @(entry.Url is null ? "" : "notifications-panel-item-link") @(ShowsDismissed && entry.IsDismissed ? "notifications-panel-item-dismissed" : "")"
                 role="@(entry.Url is null ? null : "link")"
                 @onclick="() => OnEntrySelected.InvokeAsync(entry)">
-                <span class="notifications-panel-item-title">@entry.Title</span>
+                <span class="notifications-panel-item-title">
+                    @entry.Title
+                    @if (ShowsDismissed && entry.IsDismissed)
+                    {
+                        <span class="notifications-panel-item-tag">Cleared</span>
+                    }
+                </span>
                 <span class="notifications-panel-item-body">@entry.Body</span>
                 <span class="notifications-panel-item-time">@FormatEntryTime(entry.CreatedAtUtc)</span>
             </li>
@@ -53,6 +59,13 @@ else
 
     [Parameter]
     public EventCallback<NotificationEntryDto> OnEntrySelected { get; set; }
+
+    /// <summary>
+    /// Set by the notifications page, which lists entries already cleared out of the panel and marks
+    /// them as such. The panel itself never receives one, so it has nothing to label.
+    /// </summary>
+    [Parameter]
+    public bool ShowsDismissed { get; set; }
 
     private static string FormatEntryTime(DateTimeOffset timestampUtc)
         => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", DisplayCulture);

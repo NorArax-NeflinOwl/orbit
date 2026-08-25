@@ -152,7 +152,7 @@ public sealed class SharedItemNotifierTests
             var settings = NotificationSettings.Default(RecipientId);
             settings.Update(
                 allowNotifications, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true,
-                allowShareNotifications, BannerTiming.Default);
+                allowShareNotifications, BannerTiming.Default, NotificationSettings.DefaultRetentionDays);
             return _settingsRepository.UpsertAsync(settings, CancellationToken.None);
         }
     }
