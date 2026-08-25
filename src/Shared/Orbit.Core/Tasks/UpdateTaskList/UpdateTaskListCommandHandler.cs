@@ -20,7 +20,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     public async Task<EditOutcome> HandleAsync(UpdateTaskListCommand request, CancellationToken cancellationToken)
     {
         var taskList = await _taskListAccessResolver.ResolveAsync(request.UserId, request.Id, cancellationToken);
-        if (taskList is null || taskList.AccessLevel != ShareAccessLevel.CanEdit)
+        if (taskList is null || !taskList.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
         }

@@ -35,6 +35,12 @@ else
         <p class="shared-task-list-banner">
             This task list was shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.
         </p>
+        @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
+        {
+            <RequestEditAccessButton ItemType="TaskList" ItemId="Id!.Value" ItemTitle="_formModel.Title"
+                                     OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
+                                     OwnerDisplayName="@(_sharedByUserName ?? "them")" />
+        }
     }
 
     @if (_lockedByUserName is not null)
@@ -215,6 +221,10 @@ else
                 <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
                     <option value="ReadOnly">Read-only</option>
                     <option value="Share">Can share</option>
+                    @if (_canGrantEditOnly)
+                    {
+                        <option value="EditOnly">Can edit, but not share editing</option>
+                    }
                     @if (_canGrantCanEdit)
                     {
                         <option value="CanEdit">Can edit</option>
@@ -257,7 +267,8 @@ else
     private bool _isSharedReadOnly;
     private bool _canShare;
     private bool _canGrantCanEdit;
-    private string _accessLevel = "ReadOnly";
+    private bool _canGrantEditOnly;
+    private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
     private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private IReadOnlyList<ContactDto> _contacts = [];
@@ -282,12 +293,7 @@ else
             : _contacts;
 
     /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
-    private string SharedAccessDescription => _accessLevel switch
-    {
-        "CanEdit" => "you can edit it",
-        "Share" => "you can share it further, but not edit it",
-        _ => "read-only"
-    };
+    private string SharedAccessDescription => _access.Description;
 
     protected override async Task OnInitializedAsync()
     {
@@ -343,10 +349,11 @@ else
                             .ToList()
                     };
                     _isShared = taskList.IsShared;
-                    _isSharedReadOnly = taskList.IsShared && taskList.AccessLevel != "CanEdit";
-                    _canShare = !taskList.IsShared || taskList.AccessLevel is "CanEdit" or "Share";
-                    _canGrantCanEdit = !taskList.IsShared || taskList.AccessLevel == "CanEdit";
-                    _accessLevel = taskList.AccessLevel;
+                    _access = SharedItemAccess.For(taskList.IsShared, taskList.AccessLevel);
+                    _isSharedReadOnly = taskList.IsShared && !_access.CanEdit;
+                    _canShare = _access.CanShare;
+                    _canGrantCanEdit = _access.CanGrantCanEdit;
+                    _canGrantEditOnly = _access.CanGrantEditOnly;
                     _originalOwnerUserId = taskList.OriginalOwnerUserId;
                     _sharedByUserName = taskList.SharedByUserName;
 

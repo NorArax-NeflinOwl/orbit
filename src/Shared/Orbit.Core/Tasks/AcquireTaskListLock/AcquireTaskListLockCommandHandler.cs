@@ -22,7 +22,7 @@ public sealed class AcquireTaskListLockCommandHandler : IRequestHandler<AcquireT
     public async Task<EditOutcome> HandleAsync(AcquireTaskListLockCommand request, CancellationToken cancellationToken)
     {
         var taskList = await _taskListAccessResolver.ResolveAsync(request.UserId, request.TaskListId, cancellationToken);
-        if (taskList is null || taskList.AccessLevel != ShareAccessLevel.CanEdit)
+        if (taskList is null || !taskList.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
         }

@@ -17,7 +17,7 @@ public sealed class UpdateCalendarEventCommandHandler : IRequestHandler<UpdateCa
     public async Task<EditOutcome> HandleAsync(UpdateCalendarEventCommand request, CancellationToken cancellationToken)
     {
         var calendarEvent = await _calendarEventAccessResolver.ResolveAsync(request.UserId, request.Id, cancellationToken);
-        if (calendarEvent is null || calendarEvent.AccessLevel != ShareAccessLevel.CanEdit)
+        if (calendarEvent is null || !calendarEvent.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
         }

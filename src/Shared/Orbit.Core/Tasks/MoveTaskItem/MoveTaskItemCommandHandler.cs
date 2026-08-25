@@ -31,13 +31,13 @@ public sealed class MoveTaskItemCommandHandler : IRequestHandler<MoveTaskItemCom
         }
 
         var sourceList = await _taskListAccessResolver.ResolveAsync(request.UserId, request.SourceTaskListId, cancellationToken);
-        if (sourceList is null || sourceList.AccessLevel != ShareAccessLevel.CanEdit)
+        if (sourceList is null || !sourceList.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
         }
 
         var targetList = await _taskListAccessResolver.ResolveAsync(request.UserId, request.TargetTaskListId, cancellationToken);
-        if (targetList is null || targetList.AccessLevel != ShareAccessLevel.CanEdit || targetList.UserId != sourceList.UserId)
+        if (targetList is null || !targetList.AccessLevel.AllowsEditing() || targetList.UserId != sourceList.UserId)
         {
             return EditOutcome.NotFound;
         }
