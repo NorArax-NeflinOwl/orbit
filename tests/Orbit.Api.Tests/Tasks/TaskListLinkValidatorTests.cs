@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Xunit;
 
@@ -40,7 +41,7 @@ public sealed class TaskListLinkValidatorTests
         var validator = new TaskListLinkValidator(repository);
         var items = new[] { TaskItem.Create("Self reference", null, false, taskList.Id) };
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<InvalidRequestException>(
             () => validator.ValidateAsync(userId, taskList.Id, items, CancellationToken.None));
     }
 
@@ -50,7 +51,7 @@ public sealed class TaskListLinkValidatorTests
         var validator = new TaskListLinkValidator(new InMemoryTaskRepository());
         var items = new[] { TaskItem.Create("Depends on nothing", null, false, Guid.NewGuid()) };
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<InvalidRequestException>(
             () => validator.ValidateAsync(Guid.NewGuid(), taskListId: null, items, CancellationToken.None));
     }
 
@@ -63,7 +64,7 @@ public sealed class TaskListLinkValidatorTests
         var validator = new TaskListLinkValidator(repository);
         var items = new[] { TaskItem.Create("Depends on someone else's list", null, false, otherUsersList.Id) };
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<InvalidRequestException>(
             () => validator.ValidateAsync(Guid.NewGuid(), taskListId: null, items, CancellationToken.None));
     }
 
@@ -82,7 +83,7 @@ public sealed class TaskListLinkValidatorTests
         // Now trying to make List B link back to List A would close the loop.
         var itemsForB = new[] { TaskItem.Create("Depends on A", null, false, listA.Id) };
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<InvalidRequestException>(
             () => validator.ValidateAsync(userId, listB.Id, itemsForB, CancellationToken.None));
     }
 

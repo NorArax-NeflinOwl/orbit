@@ -167,7 +167,7 @@ public sealed class UpdateCalendarEventCommandHandlerTests
         await repository.AddAsync(calendarEvent, CancellationToken.None);
         var invalidLocation = new EventLocation(null, 90.1, 19.9373);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(
+        await Assert.ThrowsAsync<InvalidRequestException>(() => handler.HandleAsync(
             new UpdateCalendarEventCommand(userId, calendarEvent.Id, DefaultDetails with { Location = invalidLocation }), CancellationToken.None));
     }
 }

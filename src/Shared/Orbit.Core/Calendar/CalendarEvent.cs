@@ -109,7 +109,7 @@ public sealed class CalendarEvent
     {
         if (details.EndUtc < details.StartUtc)
         {
-            throw new ArgumentException("An event's end time can't be before its start time.");
+            throw new InvalidRequestException("An event's end time can't be before its start time.");
         }
     }
 
@@ -122,12 +122,12 @@ public sealed class CalendarEvent
 
         if (location.Latitude is < -90 or > 90)
         {
-            throw new ArgumentException("A location's latitude must be between -90 and 90 degrees.");
+            throw new InvalidRequestException("A location's latitude must be between -90 and 90 degrees.");
         }
 
         if (location.Longitude is < -180 or > 180)
         {
-            throw new ArgumentException("A location's longitude must be between -180 and 180 degrees.");
+            throw new InvalidRequestException("A location's longitude must be between -180 and 180 degrees.");
         }
     }
 }

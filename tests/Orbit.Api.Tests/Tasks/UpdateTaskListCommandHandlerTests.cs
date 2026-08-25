@@ -155,7 +155,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         await repository.AddAsync(taskList, CancellationToken.None);
         var itemsLinkingToSelf = new[] { TaskItem.Create("Self reference", null, false, taskList.Id) };
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(
+        await Assert.ThrowsAsync<InvalidRequestException>(() => handler.HandleAsync(
             new UpdateTaskListCommand(userId, taskList.Id, "Errands", itemsLinkingToSelf, IsGroup: false), CancellationToken.None));
     }
 

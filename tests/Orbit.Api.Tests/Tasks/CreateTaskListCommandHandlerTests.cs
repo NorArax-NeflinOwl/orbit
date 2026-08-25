@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.CreateTaskList;
 using Xunit;
@@ -82,7 +83,7 @@ public sealed class CreateTaskListCommandHandlerTests
         var handler = new CreateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
         var items = new[] { TaskItem.Create("Depends on nothing", null, false, Guid.NewGuid()) };
 
-        await Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<InvalidRequestException>(
             () => handler.HandleAsync(new CreateTaskListCommand(Guid.NewGuid(), "Main list", items, IsGroup: false), CancellationToken.None));
     }
 }
