@@ -27,11 +27,11 @@
 {
     <p>@_loadErrorMessage</p>
 }
-else if (_notes is null || _taskLists is null || _events is null || _contacts is null)
+else if (_notes is null || _taskLists is null || _events is null || _contacts is null || _groups is null)
 {
     <p>Loading…</p>
 }
-else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _contacts.Count == 0)
+else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _contacts.Count == 0 && _groups.Count == 0)
 {
     <p>Nothing to show.</p>
 }
@@ -98,6 +98,25 @@ else
             </div>
         }
 
+        @if (_groups.Count > 0)
+        {
+            <div class="card">
+                <div class="card-header"><span class="card-title">Groups</span><span class="card-count">@_groups.Count</span></div>
+                @foreach (var group in _groups)
+                {
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToGroup(group.Id)">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
+                        <span class="row-title">@group.Name</span>
+                        @if (group.OwnRole == AdminRole)
+                        {
+                            <span class="card-badge">Admin</span>
+                        }
+                        <span class="row-meta">@group.Members.Count</span>
+                    </button>
+                }
+            </div>
+        }
+
         @if (_contacts.Count > 0)
         {
             <div class="card">
@@ -139,6 +158,10 @@ else
     private IReadOnlyList<TaskDto>? _taskLists;
     private IReadOnlyList<CalendarEventDto>? _events;
     private IReadOnlyList<ContactDto>? _contacts;
+    private IReadOnlyList<ChatGroupDto>? _groups;
+
+    /// <summary>Matches Orbit.Core.Chat.Groups.ChatGroupRole.Admin, which the API sends by name.</summary>
+    private const string AdminRole = "Admin";
 
     /// <summary>The "Chats" column's ordering - most recently active conversation first.</summary>
     private IEnumerable<ContactDto> _recentContacts
@@ -169,12 +192,13 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Logger.LogInformation("Dashboard opened, loading notes/task lists/events/contacts");
+        Logger.LogInformation("Dashboard opened, loading notes/task lists/events/contacts/groups");
         try
         {
             // Loaded together rather than one after another, so the dashboard's total load time is the
-            // slowest single call instead of the sum of all four.
-            await Task.WhenAll(LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync());
+            // slowest single call instead of the sum of all of them.
+            await Task.WhenAll(
+                LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -255,6 +279,8 @@ else
 
     private async Task LoadContactsAsync() => _contacts = await ChatApiClient.GetContactsAsync();
 
+    private async Task LoadGroupsAsync() => _groups = await ChatApiClient.GetGroupsAsync();
+
     private static int CompletionPercent(TaskDto taskList)
         => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);
 
@@ -301,6 +327,12 @@ else
     {
         _pollCancellation?.Cancel();
         _pollTimer?.Dispose();
+    }
+
+    private void GoToGroup(Guid groupId)
+    {
+        Logger.LogInformation("User clicked a group on the dashboard ({GroupId})", groupId);
+        NavigationManager.NavigateTo($"/chat/groups/{groupId}");
     }
 
     private void GoToChat(Guid contactUserId)

@@ -7,9 +7,13 @@ namespace Orbit.Web.Components;
 /// </summary>
 public static class AvatarHelper
 {
-    public static string GetInitials(string displayName)
+    /// <summary>
+    /// Tolerates a missing name rather than throwing: this is called while building a render tree, so a
+    /// null slipping through from an API response would take the whole page down over a decoration.
+    /// </summary>
+    public static string GetInitials(string? displayName)
     {
-        var parts = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var parts = (displayName ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return parts.Length switch
         {
             0 => "?",
