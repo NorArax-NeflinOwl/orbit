@@ -9,15 +9,15 @@
 
 <PageTitle>Orbit — Tasks</PageTitle>
 
-@* TODO(Orbit.Web.UI): still the pre-redesign markup - plain <ul>/<li>/<button>, no design-system
-   classes. The concept mockup for this page (task-list-card with a progress ring, a checklist that
-   expands per list, priority dots, a "Shared" badge) was approved but never implemented - see the
-   Options.razor/Dashboard.razor/Chat.razor already-restyled pages for the .card/.btn-primary/.switch
-   vocabulary to build it with, plus TaskDto.Items completion counts (already used in Dashboard.razor's
-   "Tasks" card progress bar) for the ring. *@
-<h1>Tasks</h1>
-
-<p><button @onclick="GoToAddTaskList">Add task list</button></p>
+<div class="page-header">
+    <div>
+        <h1>Tasks</h1>
+        <p class="page-subtitle">Every list you own or someone shared with you.</p>
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-primary" @onclick="GoToAddTaskList">Add task list</button>
+    </div>
+</div>
 
 @if (_taskLists is null)
 {
@@ -25,45 +25,75 @@
 }
 else if (_taskLists.Count == 0)
 {
-    <p>No task lists.</p>
+    <p class="empty-hint">No task lists yet.</p>
 }
 else
 {
-    <ul>
+    <div class="card-grid">
         @foreach (var taskList in _taskLists)
         {
-            <li>
-                <strong>@taskList.Title</strong> @(taskList.IsCompleted ? "✓" : "")
-                @if (taskList.IsGroup)
+            <div class="card task-list-card">
+                <div class="card-header">
+                    <span class="card-title">
+                        @taskList.Title
+                        @if (taskList.IsGroup)
+                        {
+                            <span class="card-badge">Group</span>
+                        }
+                        @if (taskList.IsShared)
+                        {
+                            <span class="card-badge">Shared</span>
+                        }
+                    </span>
+                    <span class="card-count">@CompletionSummary(taskList)</span>
+                </div>
+
+                @* A preview rather than the whole list: enough to recognise what is on it, with the
+                   checklist view one click away for working through it. *@
+                @foreach (var item in taskList.Items.Take(PreviewItemCount))
                 {
-                    <small> (group)</small>
+                    <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
+                        <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
+                        <span class="row-title">@item.Description</span>
+                        @if (item.LinkedTaskListId is not null)
+                        {
+                            <span class="row-meta">follows another list</span>
+                        }
+                        else if (item.DueDateUtc is { } dueDate)
+                        {
+                            <span class="row-meta">@dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+                        }
+                    </div>
                 }
-                <ul>
-                    @foreach (var item in taskList.Items)
-                    {
-                        <li>
-                            @(item.IsCompleted ? "☑" : "☐") @item.Description
-                            @if (item.LinkedTaskListId is not null)
-                            {
-                                <small> (depends on another list)</small>
-                            }
-                            @if (item.DueDateUtc is { } dueDate)
-                            {
-                                <small> — due: @dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
-                            }
-                        </li>
-                    }
-                </ul>
-                <button @onclick="() => GoToChecklist(taskList.Id)">Open checklist</button>
-                <button @onclick="() => GoToEditTaskList(taskList.Id)">Edit</button>
-                <button @onclick="() => DeleteTaskListAsync(taskList)">Delete</button>
-            </li>
+                @if (taskList.Items.Count > PreviewItemCount)
+                {
+                    <div class="list-row">
+                        <span class="row-meta">and @(taskList.Items.Count - PreviewItemCount) more…</span>
+                    </div>
+                }
+                @if (taskList.Items.Count == 0)
+                {
+                    <p class="empty-hint">No items on this list.</p>
+                }
+
+                <div class="card-actions">
+                    <button type="button" class="btn-primary" @onclick="() => GoToChecklist(taskList.Id)">Open checklist</button>
+                    <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(taskList.Id)">Edit</button>
+                    <button type="button" class="btn-secondary" @onclick="() => DeleteTaskListAsync(taskList)">Delete</button>
+                </div>
+            </div>
         }
-    </ul>
+    </div>
 }
 
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;
+
+    /// <summary>How much of a list to show on its card before falling back to "and N more" - a card is for recognising a list, not working through it.</summary>
+    private const int PreviewItemCount = 4;
+
+    private static string CompletionSummary(TaskDto taskList)
+        => taskList.Items.Count == 0 ? "empty" : $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";
 
     protected override async Task OnInitializedAsync()
     {

@@ -61,39 +61,57 @@
                 }
                 else
                 {
-                    <ul>
+                    <div class="event-list">
                         @foreach (var calendarEvent in _events)
                         {
-                            <li>
-                                <strong>@calendarEvent.Details.Title</strong>
-                                @if (!string.IsNullOrWhiteSpace(calendarEvent.Details.Color))
+                            @* One row per event: colour, title, when. Location, repeats and guests
+                               open underneath, so a busy day stays a list rather than a wall. *@
+                            <div class="editor-item">
+                                <div class="editor-item-summary">
+                                    <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
+                                    <span class="editor-item-main">
+                                        <span class="event-title">@calendarEvent.Details.Title</span>
+                                        @if (calendarEvent.IsShared)
+                                        {
+                                            <span class="card-badge">Shared by @calendarEvent.SharedByUserName</span>
+                                        }
+                                        <span class="row-meta event-when">@FormatTimeRange(calendarEvent.Details)</span>
+                                    </span>
+                                    <span class="editor-item-aside">
+                                        @if (HasDetails(calendarEvent.Details))
+                                        {
+                                            <button type="button" class="editor-item-toggle @(IsEventExpanded(calendarEvent.Id) ? "open" : "")"
+                                                    title="@(IsEventExpanded(calendarEvent.Id) ? "Hide details" : "Show details")"
+                                                    aria-expanded="@(IsEventExpanded(calendarEvent.Id) ? "true" : "false")"
+                                                    @onclick="() => ToggleEventExpanded(calendarEvent.Id)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+                                            </button>
+                                        }
+                                        <button type="button" class="btn-secondary" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "View" : "Edit")</button>
+                                        <button type="button" class="btn-secondary" @onclick="() => DeleteEventAsync(calendarEvent)">Delete</button>
+                                    </span>
+                                </div>
+
+                                @if (IsEventExpanded(calendarEvent.Id))
                                 {
-                                    <span style="display:inline-block;width:0.75em;height:0.75em;background-color:@calendarEvent.Details.Color;border-radius:50%;"></span>
+                                    <div class="editor-item-details">
+                                        @if (calendarEvent.Details.Location is { } location)
+                                        {
+                                            <span><strong>Location:</strong> @FormatLocation(location)</span>
+                                        }
+                                        @if (calendarEvent.Details.Recurrence is { } recurrence)
+                                        {
+                                            <span><strong>Repeats:</strong> @FormatRecurrence(recurrence)</span>
+                                        }
+                                        @if (calendarEvent.Details.Guests.Count > 0)
+                                        {
+                                            <span><strong>Guests:</strong> @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</span>
+                                        }
+                                    </div>
                                 }
-                                @if (calendarEvent.IsShared)
-                                {
-                                    <span class="shared-event-badge">Shared by @calendarEvent.SharedByUserName</span>
-                                }
-                                <br>
-                                <small>@FormatTimeRange(calendarEvent.Details)</small>
-                                @if (calendarEvent.Details.Location is { } location)
-                                {
-                                    <br><small>Location: @FormatLocation(location)</small>
-                                }
-                                @if (calendarEvent.Details.Recurrence is { } recurrence)
-                                {
-                                    <br><small>Repeats: @FormatRecurrence(recurrence)</small>
-                                }
-                                @if (calendarEvent.Details.Guests.Count > 0)
-                                {
-                                    <br><small>Guests: @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</small>
-                                }
-                                <br>
-                                <button @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "View" : "Edit")</button>
-                                <button @onclick="() => DeleteEventAsync(calendarEvent)">Delete</button>
-                            </li>
+                            </div>
                         }
-                    </ul>
+                    </div>
                 }
             }
 
@@ -110,18 +128,17 @@
                 }
                 else
                 {
-                    <ul>
+                    <div class="event-list">
                         @foreach (var dueTask in _dueTasks)
                         {
-                            <li>
-                                @(dueTask.IsCompleted ? "☑" : "☐") @dueTask.Description
-                                <br>
-                                <small>Due: @dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</small>
-                                <br>
-                                <button @onclick="() => GoToEditTaskList(dueTask.TaskListId)">Open</button>
-                            </li>
+                            <div class="list-row task-preview-row @(dueTask.IsCompleted ? "completed" : "")">
+                                <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
+                                <span class="row-title">@dueTask.Description</span>
+                                <span class="row-meta">@dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+                                <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(dueTask.TaskListId)">Open</button>
+                            </div>
                         }
-                    </ul>
+                    </div>
                 }
             }
         </div>
@@ -168,6 +185,23 @@
 }
 
 @code {
+    /// <summary>Event ids whose location/repeat/guest lines are unfolded. Independent per event here: unlike an editor, this is for reading, and comparing two days' events at once is the point.</summary>
+    private readonly HashSet<Guid> _expandedEventIds = [];
+
+    private bool IsEventExpanded(Guid eventId) => _expandedEventIds.Contains(eventId);
+
+    private void ToggleEventExpanded(Guid eventId)
+    {
+        if (!_expandedEventIds.Add(eventId))
+        {
+            _expandedEventIds.Remove(eventId);
+        }
+    }
+
+    /// <summary>Whether an event has anything worth unfolding - no toggle is drawn when it hasn't.</summary>
+    private static bool HasDetails(CalendarEventDetailsDto details)
+        => details.Location is not null || details.Recurrence is not null || details.Guests.Count > 0;
+
     private IReadOnlyList<CalendarEventDto>? _events;
     private IReadOnlyList<DueTaskDto>? _dueTasks;
     private IReadOnlyList<ContactDto> _contacts = [];
