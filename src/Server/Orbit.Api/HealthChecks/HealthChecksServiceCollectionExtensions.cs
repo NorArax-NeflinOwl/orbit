@@ -17,6 +17,9 @@ public static class HealthChecksServiceCollectionExtensions
         services.AddSingleton<HostedServiceHealthTracker>();
 
         services.AddHealthChecks()
+            // Deliberately not tagged "ready": a configuration gap means a feature silently degrades,
+            // which must show up on /health without pulling replicas out of rotation on /health/ready.
+            .AddCheck<ConfigurationHealthCheck>("configuration")
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"])
             .AddCheck<DiskSpaceHealthCheck>("disk-space", tags: ["ready"])
             .AddCheck<ExternalServicesHealthCheck>("external-services", tags: ["ready"])
