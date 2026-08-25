@@ -305,10 +305,13 @@
                         inventory, and chat history. This cannot be undone.
                     </div>
                 </div>
-                <div class="field">
-                    <label for="deleteAccountPasswordInput">Password</label>
-                    <input type="password" id="deleteAccountPasswordInput" @bind="_deleteAccountForm.Password" />
-                </div>
+                @if (_account?.HasPassword == true)
+                {
+                    <div class="field">
+                        <label for="deleteAccountPasswordInput">Password</label>
+                        <input type="password" id="deleteAccountPasswordInput" @bind="_deleteAccountForm.Password" />
+                    </div>
+                }
                 <div class="form-actions">
                     <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">Delete account</button>
                 </div>
@@ -661,14 +664,16 @@
     }
 
     /// <summary>
-    /// Asks for an explicit confirm() on top of the password already required (see DeleteAccountRequest) -
-    /// the one truly irreversible action on this page gets a stronger guard than the rest. On success the
-    /// account and everything it owns is already gone server-side; this only drops the local session and
-    /// sends the browser to /login, mirroring MainLayout.LogoutAsync.
+    /// Asks for an explicit confirm() on top of the password already required for an account that has one
+    /// (see DeleteAccountRequest) - the one truly irreversible action on this page gets a stronger guard
+    /// than the rest. A Google-only account (see SetPasswordCommand) has no password to ask for at all -
+    /// being signed in is the proof, same as everywhere else that rule applies. On success the account and
+    /// everything it owns is already gone server-side; this only drops the local session and sends the
+    /// browser to /login, mirroring MainLayout.LogoutAsync.
     /// </summary>
     private async Task DeleteAccountAsync()
     {
-        if (string.IsNullOrEmpty(_deleteAccountForm.Password))
+        if (_account?.HasPassword == true && string.IsNullOrEmpty(_deleteAccountForm.Password))
         {
             _deleteAccountFailed = true;
             _deleteAccountMessage = "Enter your password to confirm.";

@@ -167,6 +167,20 @@ public sealed class AccountSecurityTests
     }
 
     [Fact]
+    public async Task Deleting_a_google_only_account_needs_no_password_since_being_signed_in_is_the_proof()
+    {
+        var context = new AccountTestContext();
+        var user = User.CreateFromGoogle("alice@example.com", "alice", "Alice", "google-subject-id");
+        await context.UserRepository.AddAsync(user, CancellationToken.None);
+        var handler = new DeleteAccountCommandHandler(context.UserRepository, context.PasswordHasher, context.AccountDeletionRepository);
+
+        var deleted = await handler.HandleAsync(new DeleteAccountCommand(user.Id, string.Empty), CancellationToken.None);
+
+        Assert.True(deleted);
+        Assert.Equal(user.Id, Assert.Single(context.AccountDeletionRepository.DeletedUserIds));
+    }
+
+    [Fact]
     public async Task Deleting_an_unknown_account_fails_without_wiping_anything()
     {
         var context = new AccountTestContext();
