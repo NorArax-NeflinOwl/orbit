@@ -65,6 +65,9 @@ using Orbit.Core.Sharing.ClaimPublicShareLink;
 using Orbit.Core.Sharing.CreatePublicShareLink;
 using Orbit.Core.Sharing.GetPublicSharedItem;
 using Orbit.Core.Sharing.RevokePublicShareLink;
+using Orbit.Core.Transfer;
+using Orbit.Core.Transfer.ExportArchive;
+using Orbit.Core.Transfer.ImportArchive;
 using Orbit.Core.Notifications.MarkAllNotificationsRead;
 using Orbit.Core.Notifications.UpdateNotificationSettings;
 using Orbit.Core.PushNotifications.SubscribeToPush;
@@ -245,6 +248,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<RevokePublicShareLinkCommand, bool>, RevokePublicShareLinkCommandHandler>();
         services.AddScoped<IRequestHandler<GetPublicSharedItemQuery, PublicSharedItem?>, GetPublicSharedItemQueryHandler>();
         services.AddScoped<IRequestHandler<ClaimPublicShareLinkCommand, ClaimPublicShareLinkResult>, ClaimPublicShareLinkCommandHandler>();
+
+        services.AddScoped<IRequestHandler<ExportArchiveQuery, OrbitArchive>, ExportArchiveQueryHandler>();
+        services.AddScoped<IRequestHandler<ImportArchiveCommand, ImportArchiveResult>, ImportArchiveCommandHandler>();
         // Depends on the two repositories above (scoped, backed by the DbContext), so it must be scoped
         // too - called directly (not through IDispatcher) by SendMessageCommandHandler and, in Orbit.Api,
         // by each of the four reminder background services, the same way they already call

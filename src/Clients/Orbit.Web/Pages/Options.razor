@@ -3,6 +3,9 @@
 @implements IDisposable
 @using Orbit.Contracts.Notifications
 @using Orbit.Contracts.Users
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using Orbit.Core.Transfer
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
 @inject PushNotificationManager PushNotificationManager
@@ -15,6 +18,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject TransferApiClient TransferApiClient
 @inject ILogger<Options> Logger
 
 <PageTitle>Orbit — Options</PageTitle>
@@ -357,6 +361,46 @@
     }
 
     <div class="options-section">
+        <h2 class="options-heading">Your data</h2>
+        <p class="options-subtext">
+            Everything you own — notes, task lists, events and storages — as one JSON file, and back again.
+        </p>
+        <div class="options-card">
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">Export</div>
+                    <div class="options-row-desc">
+                        Downloads a file holding everything in your account. Things other people shared with
+                        you stay theirs and are left out. A private item travels sealed: import it back here
+                        and it opens again, import it into another account and nobody there can read it.
+                    </div>
+                </div>
+                <button type="button" class="btn-secondary" disabled="@_isExporting" @onclick="ExportAsync">
+                    @(_isExporting ? "Preparing…" : "Export everything")
+                </button>
+            </div>
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">Import</div>
+                    <div class="options-row-desc">
+                        Adds everything in a file to this account. Nothing is replaced or matched up with what
+                        you already have, so importing the same file twice leaves two copies of everything.
+                    </div>
+                </div>
+                <InputFile OnChange="ImportAsync" accept=".json,application/json" disabled="@_isImporting" />
+            </div>
+            @if (_transferMessage is not null)
+            {
+                <p class="options-subtext">@_transferMessage</p>
+            }
+            @if (_transferErrorMessage is not null)
+            {
+                <p class="error">@_transferErrorMessage</p>
+            }
+        </div>
+    </div>
+
+    <div class="options-section">
         <h2 class="options-heading">Danger zone</h2>
         <p class="options-subtext">Deleting your account is permanent and cannot be undone.</p>
         <div class="options-card options-card-danger">
@@ -388,6 +432,95 @@
 </div>
 
 @code {
+    /// <summary>An export of a whole account is not large by file standards, but a hand-made file could be - this is where a nonsense one stops.</summary>
+    private const long MaximumImportSizeBytes = 32 * 1024 * 1024;
+
+    private bool _isExporting;
+    private bool _isImporting;
+    private string? _transferMessage;
+    private string? _transferErrorMessage;
+
+    /// <summary>
+    /// Written by the browser rather than served as a download from the API: the API answers with JSON
+    /// the client already has to read, and a second authenticated GET that the browser itself performs
+    /// would need the token in the URL to work.
+    /// </summary>
+    private async Task ExportAsync()
+    {
+        _isExporting = true;
+        _transferMessage = null;
+        _transferErrorMessage = null;
+        try
+        {
+            var archive = await TransferApiClient.ExportAsync();
+            if (archive is null)
+            {
+                _transferErrorMessage = "Couldn't build the export. Try again.";
+                return;
+            }
+
+            var json = JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true });
+            await using var downloadModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileDownload.js");
+            await downloadModule.InvokeVoidAsync(
+                "downloadText", $"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", "application/json", json);
+
+            _transferMessage = $"Exported {archive.Notes.Count} notes, {archive.TaskLists.Count} task lists, "
+                + $"{archive.CalendarEvents.Count} events and {archive.Warehouses.Count} storages.";
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to export the account archive");
+            _transferErrorMessage = "Couldn't build the export. Try again.";
+        }
+        finally
+        {
+            _isExporting = false;
+        }
+    }
+
+    private async Task ImportAsync(InputFileChangeEventArgs args)
+    {
+        _isImporting = true;
+        _transferMessage = null;
+        _transferErrorMessage = null;
+        try
+        {
+            await using var stream = args.File.OpenReadStream(MaximumImportSizeBytes);
+            var archive = await JsonSerializer.DeserializeAsync<OrbitArchive>(
+                stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (archive is null)
+            {
+                _transferErrorMessage = "That file didn't contain an Orbit export.";
+                return;
+            }
+
+            var result = await TransferApiClient.ImportAsync(archive);
+            if (result is null)
+            {
+                _transferErrorMessage = "Orbit couldn't read that file. It may have been written by a different version.";
+                return;
+            }
+
+            _transferMessage = $"Imported {result.Notes} notes, {result.TaskLists} task lists, "
+                + $"{result.CalendarEvents} events and {result.Warehouses} storages.";
+        }
+        catch (JsonException)
+        {
+            // A file that isn't JSON at all, or is JSON of some other shape - the same message either
+            // way, since neither is something the reader can act on differently.
+            _transferErrorMessage = "That file didn't contain an Orbit export.";
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to import an account archive");
+            _transferErrorMessage = "Couldn't import that file. Try again.";
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
     private bool? _pushNotificationsSupported;
     private bool _pushNotificationsEnabled;
     private bool _pushNotificationActionInProgress;

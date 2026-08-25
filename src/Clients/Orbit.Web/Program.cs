@@ -95,6 +95,8 @@ builder.Services.AddHttpClient<ClientFlagsApiClient>(httpClient => httpClient.Ba
 // the reader's half of this client works with or without one.
 builder.Services.AddHttpClient<PublicShareApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<TransferApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddScoped<OwnEncryptionKeyProvider>();
 builder.Services.AddScoped<EncryptedChatMessageSender>();
 builder.Services.AddScoped<EncryptedChatMessageReader>();
