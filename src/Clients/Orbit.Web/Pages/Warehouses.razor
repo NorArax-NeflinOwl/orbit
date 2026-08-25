@@ -57,6 +57,10 @@ else
                     {
                         <span class="warehouse-shared-badge">Shared by @warehouse.SharedByUserName · @AccessDescription(warehouse.AccessLevel)</span>
                     }
+                    @if (warehouse.LockedByUserName is { } lockedBy)
+                    {
+                        <span class="warehouse-shared-badge">@lockedBy is editing it right now</span>
+                    }
                 </div>
                 <div class="warehouse-card-actions">
                     @if (CanShare(warehouse))
@@ -198,7 +202,7 @@ else
         _errorMessage = null;
         try
         {
-            await InventoryApiClient.CreateWarehouseAsync(new SaveWarehouseRequest(_newWarehouseName.Trim()));
+            await InventoryApiClient.CreateWarehouseAsync(new SaveWarehouseRequest(_newWarehouseName.Trim(), []));
             _warehouses = await InventoryApiClient.GetWarehousesAsync();
             CancelCreating();
         }

@@ -239,6 +239,8 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(warehouse => warehouse.Id);
             entity.Property(warehouse => warehouse.Name).IsRequired().HasMaxLength(200);
+            // Matches UserEntity.UserName's max length, since this is always copied from there.
+            entity.Property(warehouse => warehouse.LockedByUserName).HasMaxLength(64);
             // Listing a user's own warehouses is the most common warehouse query.
             entity.HasIndex(warehouse => warehouse.UserId);
         });

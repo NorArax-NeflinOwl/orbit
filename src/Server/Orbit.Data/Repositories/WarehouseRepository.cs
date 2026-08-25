@@ -72,7 +72,9 @@ public sealed class WarehouseRepository : IWarehouseRepository
     }
 
     private static Warehouse ToDomain(WarehouseEntity entity)
-        => Warehouse.FromPersistence(entity.Id, entity.UserId, entity.Name, entity.CreatedAtUtc, entity.UpdatedAtUtc);
+        => Warehouse.FromPersistence(
+            entity.Id, entity.UserId, entity.Name, entity.CreatedAtUtc, entity.UpdatedAtUtc,
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc);
 
     private static WarehouseEntity ToEntity(Warehouse warehouse)
         => new()
@@ -81,6 +83,9 @@ public sealed class WarehouseRepository : IWarehouseRepository
             UserId = warehouse.UserId,
             Name = warehouse.Name,
             CreatedAtUtc = warehouse.CreatedAtUtc,
-            UpdatedAtUtc = warehouse.UpdatedAtUtc
+            UpdatedAtUtc = warehouse.UpdatedAtUtc,
+            LockedByUserId = warehouse.LockedByUserId,
+            LockedByUserName = warehouse.LockedByUserName,
+            LockExpiresAtUtc = warehouse.LockExpiresAtUtc
         };
 }

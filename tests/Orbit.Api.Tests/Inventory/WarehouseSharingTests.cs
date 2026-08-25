@@ -109,10 +109,11 @@ public sealed class WarehouseSharingTests
         var recipientUserId = Guid.NewGuid();
         var warehouseId = context.AddWarehouse(ownerUserId, "Kitchen");
         context.AddAcceptedShare(warehouseId, ownerUserId, recipientUserId, ShareAccessLevel.ReadOnly);
-        var handler = new UpdateWarehouseCommandHandler(context.AccessResolver, context.WarehouseRepository);
+        var handler = new UpdateWarehouseCommandHandler(
+            context.AccessResolver, context.WarehouseRepository, context.InventoryRepository, context.TaskListCoordinator);
 
         var outcome = await handler.HandleAsync(
-            new UpdateWarehouseCommand(recipientUserId, warehouseId, "Renamed"), CancellationToken.None);
+            new UpdateWarehouseCommand(recipientUserId, warehouseId, "Renamed", []), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }

@@ -261,17 +261,31 @@ including the re-share rules (who may re-share, and never above their own level)
 over chat exactly like every other kind: `WarehouseShareMessagePayload` carries the share id inside an
 ordinary end-to-end encrypted message, and Chat renders it with the same "Accept" action.
 
-Two things differ from notes deliberately. There is **no edit lock**: a warehouse is a name and a bag of
-items, and the items are edited one at a time, so there's no long multi-field form for two people to
-collide over. And **only the owner may delete** a warehouse — not even a `CanEdit` grantee, since that
-would let a recipient destroy the owner's data wholesale rather than just edit it; its items go with it,
-because nothing could reach them afterwards. Accepted shares of a deleted warehouse are left as dangling
-grants, which the resolver already reads as "not found".
+**Editing works the way a task list does.** A warehouse and its whole item list are edited in one form
+and saved in one request (`UpdateWarehouseCommand`), so items have no routes of their own — exactly as
+task items only exist through their task list. Items missing from a save are deleted, which makes the
+request the full intended contents rather than a patch.
 
-Every route names the warehouse (`/api/warehouses/{warehouseId}/items/...`) — there is deliberately no
-route that reaches an item without it, since the warehouse is what authorizes the request. On the client,
-`/inventory` is the warehouse list (`Warehouses.razor`, where sharing lives) and `/inventory/{id}` is one
-warehouse's stock.
+Items are *reconciled* by id rather than replaced wholesale: a row arriving without an `Id` is new, one
+with an `Id` updates in place. That matters because an inventory item carries state the editor never sees
+— its open restock task — so a delete-and-reinsert would drop it and re-raise a restock task the user
+already has. The restock rule itself is unchanged, just applied per item during the save: an item that
+just went below its minimum raises a task, one that recovered has its reference cleared.
+
+Because the whole warehouse is now saved in one go, it carries the same **edit lock** Note/TaskList/
+CalendarEvent do (`POST`/`DELETE /api/warehouses/{id}/lock`, a 60-second lease refreshed by a 20-second
+heartbeat from the editor) — without it two people editing at once would silently overwrite each other.
+A save attempted while someone else holds the lock comes back `409` with their name.
+
+**Only the owner may delete** a warehouse — not even a `CanEdit` grantee, since that would let a
+recipient destroy the owner's data wholesale rather than just edit it; its items go with it, because
+nothing could reach them afterwards. Accepted shares of a deleted warehouse are left as dangling grants,
+which the resolver already reads as "not found".
+
+Every route names the warehouse (`/api/warehouses/{warehouseId}/...`) — there is deliberately no route
+that reaches an item without it, since the warehouse is what authorizes the request. On the client,
+`/inventory` is the warehouse list (`Warehouses.razor`, where sharing lives) and `/inventory/{id}` is the
+editor (`WarehouseEditor.razor`).
 
 **Low stock creates a real Task, not a separate notification.** Whenever a saved item's `quantity` is at
 or below its `minimumQuantity`, `InventoryTaskListCoordinator` appends a `TaskItem` ("Restock:

@@ -5,17 +5,15 @@ using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Inventory;
 using Orbit.Core.Inventory.AcceptWarehouseShare;
-using Orbit.Core.Inventory.CreateInventoryItem;
+using Orbit.Core.Inventory.AcquireWarehouseLock;
 using Orbit.Core.Inventory.CreateWarehouse;
-using Orbit.Core.Inventory.DeleteInventoryItem;
 using Orbit.Core.Inventory.DeleteWarehouse;
-using Orbit.Core.Inventory.GetInventoryItemById;
 using Orbit.Core.Inventory.GetInventoryItems;
 using Orbit.Core.Inventory.GetWarehouseById;
 using Orbit.Core.Inventory.GetWarehouses;
 using Orbit.Core.Inventory.GetWarehouseShareStatus;
+using Orbit.Core.Inventory.ReleaseWarehouseLock;
 using Orbit.Core.Inventory.ShareWarehouse;
-using Orbit.Core.Inventory.UpdateInventoryItem;
 using Orbit.Core.Inventory.UpdateWarehouse;
 using Orbit.Core.Notifications;
 
@@ -53,7 +51,8 @@ public static class InventoryEndpoints
             Guid warehouseId, SaveWarehouseRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new UpdateWarehouseCommand(GetUserId(user), warehouseId, request.Name), cancellationToken);
+                new UpdateWarehouseCommand(GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items)),
+                cancellationToken);
             return ToApiResult(outcome);
         });
 
@@ -98,45 +97,25 @@ public static class InventoryEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result.Select(ToDto));
         });
 
-        warehouses.MapGet("/{warehouseId:guid}/items/{id:guid}", async (
-            Guid warehouseId, Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        // Items have no routes of their own: they are created, changed, and removed through the warehouse
+        // save above, exactly as task items are through their task list.
+        warehouses.MapPost("/{warehouseId:guid}/lock", async (
+            Guid warehouseId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var item = await dispatcher.SendAsync(new GetInventoryItemByIdQuery(GetUserId(user), warehouseId, id), cancellationToken);
-            return item is null ? Results.NotFound() : Results.Ok(ToDto(item));
+            var outcome = await dispatcher.SendAsync(new AcquireWarehouseLockCommand(GetUserId(user), warehouseId), cancellationToken);
+            return outcome.Kind switch
+            {
+                EditOutcomeKind.Success => Results.NoContent(),
+                EditOutcomeKind.Locked => Results.Json(new LockConflictDto(outcome.LockedByUserName!), statusCode: StatusCodes.Status409Conflict),
+                _ => Results.NotFound()
+            };
         });
 
-        warehouses.MapPost("/{warehouseId:guid}/items", async (
-            Guid warehouseId, CreateInventoryItemRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
+        warehouses.MapDelete("/{warehouseId:guid}/lock", async (
+            Guid warehouseId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var id = await dispatcher.SendAsync(
-                new CreateInventoryItemCommand(
-                    GetUserId(user), warehouseId, request.Name, request.ProductType, request.Category, request.Quantity,
-                    request.MinimumQuantity, request.ExpiryDate,
-                    Enum.Parse<NotificationChannel>(request.ExpiryNotificationChannel, ignoreCase: true)),
-                cancellationToken);
-            return id is null ? Results.NotFound() : Results.Created($"/api/warehouses/{warehouseId}/items/{id}", id);
-        });
-
-        warehouses.MapPut("/{warehouseId:guid}/items/{id:guid}", async (
-            Guid warehouseId, Guid id, UpdateInventoryItemRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var outcome = await dispatcher.SendAsync(
-                new UpdateInventoryItemCommand(
-                    GetUserId(user), warehouseId, id, request.Name, request.ProductType, request.Category, request.Quantity,
-                    request.MinimumQuantity, request.ExpiryDate,
-                    Enum.Parse<NotificationChannel>(request.ExpiryNotificationChannel, ignoreCase: true)),
-                cancellationToken);
-            return ToApiResult(outcome);
-        });
-
-        warehouses.MapDelete("/{warehouseId:guid}/items/{id:guid}", async (
-            Guid warehouseId, Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
-        {
-            var deleted = await dispatcher.SendAsync(
-                new DeleteInventoryItemCommand(GetUserId(user), warehouseId, id), cancellationToken);
-            return deleted ? Results.NoContent() : Results.NotFound();
+            var released = await dispatcher.SendAsync(new ReleaseWarehouseLockCommand(GetUserId(user), warehouseId), cancellationToken);
+            return released ? Results.NoContent() : Results.NotFound();
         });
     }
 
@@ -155,7 +134,14 @@ public static class InventoryEndpoints
     private static WarehouseDto ToDto(Warehouse warehouse)
         => new(
             warehouse.Id, warehouse.Name, warehouse.CreatedAtUtc, warehouse.UpdatedAtUtc,
-            warehouse.IsShared, warehouse.SharedByUserName, warehouse.AccessLevel.ToString());
+            warehouse.IsShared, warehouse.SharedByUserName, warehouse.AccessLevel.ToString(), warehouse.LockedByUserName);
+
+    private static IReadOnlyList<WarehouseItemInput> ToDomainItems(IReadOnlyList<WarehouseItemDto> items)
+        => items
+            .Select(item => new WarehouseItemInput(
+                item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity, item.ExpiryDate,
+                Enum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, ignoreCase: true)))
+            .ToList();
 
     private static InventoryItemDto ToDto(InventoryItem item)
         => new(
@@ -163,7 +149,11 @@ public static class InventoryEndpoints
             item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum, item.PendingRestockTaskItemId is not null,
             item.CreatedAtUtc, item.UpdatedAtUtc);
 
-    /// <summary>Maps an EditOutcome onto the corresponding HTTP response - Inventory has no locking concept, so Locked never actually occurs here.</summary>
     private static IResult ToApiResult(EditOutcome outcome)
-        => outcome.Kind == EditOutcomeKind.Success ? Results.NoContent() : Results.NotFound();
+        => outcome.Kind switch
+        {
+            EditOutcomeKind.Success => Results.NoContent(),
+            EditOutcomeKind.Locked => Results.Json(new LockConflictDto(outcome.LockedByUserName!), statusCode: StatusCodes.Status409Conflict),
+            _ => Results.NotFound()
+        };
 }

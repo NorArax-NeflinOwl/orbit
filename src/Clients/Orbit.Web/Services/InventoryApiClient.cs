@@ -41,13 +41,39 @@ public sealed class InventoryApiClient
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
     }
 
+    /// <summary>Saves the warehouse and its whole item list in one request - see SaveWarehouseRequest.</summary>
     public async Task<EditOutcome> UpdateWarehouseAsync(
         Guid warehouseId, SaveWarehouseRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync($"api/warehouses/{warehouseId}", request, cancellationToken);
+        return await ToEditOutcomeAsync(response, cancellationToken);
+    }
+
+    /// <summary>Mirrors TasksApiClient.AcquireTaskListLockAsync - see its comment.</summary>
+    public async Task<EditOutcome> AcquireWarehouseLockAsync(Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/warehouses/{warehouseId}/lock", content: null, cancellationToken);
+        return await ToEditOutcomeAsync(response, cancellationToken);
+    }
+
+    /// <summary>Mirrors TasksApiClient.ReleaseTaskListLockAsync - see its comment.</summary>
+    public async Task ReleaseWarehouseLockAsync(Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/warehouses/{warehouseId}/lock", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return EditOutcome.NotFound;
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
+            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? "another user");
         }
 
         response.EnsureSuccessStatusCode();
@@ -114,50 +140,4 @@ public sealed class InventoryApiClient
         return await response.Content.ReadFromJsonAsync<List<InventoryItemDto>>(cancellationToken: cancellationToken) ?? [];
     }
 
-    public async Task<InventoryItemDto?> GetInventoryItemByIdAsync(
-        Guid warehouseId, Guid id, CancellationToken cancellationToken = default)
-    {
-        var response = await _httpClient.GetAsync($"api/warehouses/{warehouseId}/items/{id}", cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<InventoryItemDto>(cancellationToken: cancellationToken);
-    }
-
-    /// <summary>Null when the warehouse isn't writable by the caller - missing, not shared with them, or shared read-only.</summary>
-    public async Task<Guid?> CreateInventoryItemAsync(
-        Guid warehouseId, CreateInventoryItemRequest request, CancellationToken cancellationToken = default)
-    {
-        var response = await _httpClient.PostAsJsonAsync($"api/warehouses/{warehouseId}/items", request, cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
-    }
-
-    /// <summary>NotFound covers the item being missing and the warehouse not being writable by the caller - items have no lock, so those are the only two outcomes.</summary>
-    public async Task<EditOutcome> UpdateInventoryItemAsync(
-        Guid warehouseId, Guid id, UpdateInventoryItemRequest request, CancellationToken cancellationToken = default)
-    {
-        var response = await _httpClient.PutAsJsonAsync($"api/warehouses/{warehouseId}/items/{id}", request, cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return EditOutcome.NotFound;
-        }
-
-        response.EnsureSuccessStatusCode();
-        return EditOutcome.Success;
-    }
-
-    public async Task DeleteInventoryItemAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken = default)
-    {
-        var response = await _httpClient.DeleteAsync($"api/warehouses/{warehouseId}/items/{id}", cancellationToken);
-        response.EnsureSuccessStatusCode();
-    }
 }

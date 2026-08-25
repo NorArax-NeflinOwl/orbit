@@ -1,0 +1,342 @@
+@page "/inventory/{WarehouseId:guid}"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@using Orbit.Contracts.Inventory
+@using Orbit.Contracts.Notifications
+@using Orbit.Core.Abstractions
+@using Orbit.Web.Services
+@inject InventoryApiClient InventoryApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<WarehouseEditor> Logger
+
+<PageTitle>@(_formModel.Name.Length > 0 ? _formModel.Name : "Warehouse")</PageTitle>
+
+@if (_isLoading)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="page-header">
+        <div>
+            <h1>@(_formModel.Name.Length > 0 ? _formModel.Name : "Warehouse")</h1>
+            <p class="page-subtitle">Everything in this warehouse, edited together - a low item still raises a restock task.</p>
+            @if (_isShared)
+            {
+                <p class="shared-note-banner">Shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
+            }
+        </div>
+        <button class="btn-secondary" @onclick="GoToWarehouses">All warehouses</button>
+    </div>
+
+    @if (_lockedByUserName is not null)
+    {
+        <p class="lock-banner">
+            <strong>@_lockedByUserName</strong> is currently editing this warehouse - you can't edit it right now.
+        </p>
+    }
+
+    <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
+        <fieldset disabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)">
+            <div class="field">
+                <label>Name</label>
+                <InputText id="warehouseNameInput" @bind-Value="_formModel.Name" />
+            </div>
+
+            <h2 class="options-heading">Items</h2>
+            @if (_formModel.Items.Count == 0)
+            {
+                <p>No items yet.</p>
+            }
+            else
+            {
+                @foreach (var item in _formModel.Items)
+                {
+                    <div class="editor-item-card">
+                        <div class="field-row">
+                            <InputText placeholder="Item name" @bind-Value="item.Name" />
+                            <InputText placeholder="Product type" @bind-Value="item.ProductType" />
+                            <InputText placeholder="Category" @bind-Value="item.Category" />
+                        </div>
+                        <div class="field-row">
+                            <label>
+                                Quantity
+                                <InputNumber TValue="decimal" @bind-Value="item.Quantity" step="0.01" />
+                            </label>
+                            <label>
+                                Minimum
+                                <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
+                            </label>
+                            <label>
+                                Expires
+                                <InputDate @bind-Value="item.ExpiryDate" />
+                            </label>
+                        </div>
+                        <div class="field-row">
+                            <label>
+                                Expiry notification
+                                <select @bind="item.ExpiryNotificationChannel">
+                                    @foreach (var option in NotificationChannelOption.All)
+                                    {
+                                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
+                                    }
+                                </select>
+                            </label>
+                            <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
+                        </div>
+                    </div>
+                }
+            }
+
+            <button type="button" class="btn-secondary" @onclick="AddItem">Add item</button>
+
+            @if (_saveErrorMessage is not null)
+            {
+                <p class="error">@_saveErrorMessage</p>
+            }
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" class="btn-secondary" @onclick="GoToWarehouses">Cancel</button>
+            </div>
+        </fieldset>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid WarehouseId { get; set; }
+
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private WarehouseFormModel _formModel = new();
+    private string? _saveErrorMessage;
+
+    private bool _isShared;
+    private string? _sharedByUserName;
+    private string _accessLevel = "CanEdit";
+
+    /// <summary>A read-only or share-only grant can look but not touch, so the whole form is disabled.</summary>
+    private bool _isReadOnly;
+
+    private string? _lockedByUserName;
+    private PeriodicTimer? _lockHeartbeatTimer;
+    private CancellationTokenSource? _lockHeartbeatCancellation;
+    private static readonly TimeSpan LockHeartbeatInterval = TimeSpan.FromSeconds(20);
+
+    private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
+
+    private string SharedAccessDescription => _accessLevel switch
+    {
+        "CanEdit" => "you can edit it",
+        "Share" => "you can share it further, but not edit it",
+        _ => "read-only"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var warehouse = await InventoryApiClient.GetWarehouseByIdAsync(WarehouseId);
+            if (warehouse is null)
+            {
+                NavigationManager.NavigateTo("/inventory");
+                return;
+            }
+
+            _isShared = warehouse.IsShared;
+            _sharedByUserName = warehouse.SharedByUserName;
+            _accessLevel = warehouse.AccessLevel;
+            _isReadOnly = warehouse.AccessLevel != "CanEdit";
+
+            var items = await InventoryApiClient.GetInventoryItemsAsync(WarehouseId) ?? [];
+            _formModel = WarehouseFormModel.FromDto(warehouse, items);
+
+            if (!_isReadOnly)
+            {
+                await AcquireLockAsync();
+                if (_lockedByUserName is null)
+                {
+                    StartLockHeartbeat();
+                }
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        _isLoading = false;
+    }
+
+    private void AddItem() => _formModel.Items.Add(new WarehouseItemFormModel());
+
+    private void RemoveItem(WarehouseItemFormModel item) => _formModel.Items.Remove(item);
+
+    private void GoToWarehouses() => NavigationManager.NavigateTo("/inventory");
+
+    private async Task SaveAsync()
+    {
+        _saveErrorMessage = null;
+        _isSaving = true;
+        try
+        {
+            var outcome = await InventoryApiClient.UpdateWarehouseAsync(WarehouseId, _formModel.ToRequest());
+            if (outcome.Kind == EditOutcomeKind.Locked)
+            {
+                _lockedByUserName = outcome.LockedByUserName;
+                return;
+            }
+
+            if (outcome.Kind == EditOutcomeKind.NotFound)
+            {
+                _saveErrorMessage = "Failed to save the warehouse. Try again.";
+                return;
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to save warehouse {WarehouseId}", WarehouseId);
+            _saveErrorMessage = "Failed to save the warehouse. Try again.";
+            return;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+
+        NavigationManager.NavigateTo("/inventory");
+    }
+
+    private async Task AcquireLockAsync()
+    {
+        try
+        {
+            var outcome = await InventoryApiClient.AcquireWarehouseLockAsync(WarehouseId);
+            _lockedByUserName = outcome.Kind == EditOutcomeKind.Locked ? outcome.LockedByUserName : null;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+
+    /// <summary>Mirrors TaskEditor's method of the same name - see its comment.</summary>
+    private async Task ReleaseLockAsync()
+    {
+        StopLockHeartbeat();
+        if (_isReadOnly)
+        {
+            return;
+        }
+
+        try
+        {
+            await InventoryApiClient.ReleaseWarehouseLockAsync(WarehouseId);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private void StartLockHeartbeat()
+    {
+        _lockHeartbeatCancellation = new CancellationTokenSource();
+        _lockHeartbeatTimer = new PeriodicTimer(LockHeartbeatInterval);
+        _ = LockHeartbeatLoopAsync(_lockHeartbeatCancellation.Token);
+    }
+
+    private void StopLockHeartbeat()
+    {
+        _lockHeartbeatCancellation?.Cancel();
+        _lockHeartbeatCancellation?.Dispose();
+        _lockHeartbeatCancellation = null;
+        _lockHeartbeatTimer?.Dispose();
+        _lockHeartbeatTimer = null;
+    }
+
+    private async Task LockHeartbeatLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _lockHeartbeatTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                await AcquireLockAsync();
+                StateHasChanged();
+                if (_lockedByUserName is not null)
+                {
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync() => await ReleaseLockAsync();
+
+    private sealed class WarehouseFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public List<WarehouseItemFormModel> Items { get; set; } = [];
+
+        public static WarehouseFormModel FromDto(WarehouseDto warehouse, IReadOnlyList<InventoryItemDto> items)
+            => new()
+            {
+                Name = warehouse.Name,
+                Items = items
+                    .Select(item => new WarehouseItemFormModel
+                    {
+                        Id = item.Id,
+                        Name = item.Name,
+                        ProductType = item.ProductType,
+                        Category = item.Category,
+                        Quantity = item.Quantity,
+                        MinimumQuantity = item.MinimumQuantity,
+                        ExpiryDate = item.ExpiryDate?.LocalDateTime,
+                        ExpiryNotificationChannel = item.ExpiryNotificationChannel
+                    })
+                    .ToList()
+            };
+
+        public SaveWarehouseRequest ToRequest()
+            => new(
+                Name,
+                Items
+                    .Select(item => new WarehouseItemDto(
+                        item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+                        ToExpiryDateUtc(item), item.ExpiryNotificationChannel))
+                    .ToList());
+
+        /// <summary>
+        /// Npgsql only accepts a DateTimeOffset with Offset=0 for a "timestamp with time zone" column, so
+        /// the picked local date is converted to its equivalent UTC instant rather than just re-labeled.
+        /// </summary>
+        private static DateTimeOffset? ToExpiryDateUtc(WarehouseItemFormModel item)
+            => item.ExpiryDate is { } expiryDate
+                ? new DateTimeOffset(expiryDate, TimeZoneInfo.Local.GetUtcOffset(expiryDate)).ToUniversalTime()
+                : null;
+    }
+
+    /// <summary>One editable row. Id is null for a row the user just added - see WarehouseItemDto.</summary>
+    private sealed class WarehouseItemFormModel
+    {
+        public Guid? Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ProductType { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public decimal Quantity { get; set; }
+        public decimal? MinimumQuantity { get; set; }
+        public DateTime? ExpiryDate { get; set; }
+        public string ExpiryNotificationChannel { get; set; } = "Push";
+    }
+}

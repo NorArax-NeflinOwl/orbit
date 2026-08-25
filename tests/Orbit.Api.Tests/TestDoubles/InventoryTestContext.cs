@@ -1,4 +1,5 @@
 using Orbit.Core.Inventory;
+using Orbit.Core.Users;
 
 namespace Orbit.Api.Tests.TestDoubles;
 
@@ -35,6 +36,14 @@ internal sealed class InventoryTestContext
         var warehouse = Warehouse.Create(ownerUserId, name);
         WarehouseRepository.AddAsync(warehouse, CancellationToken.None).GetAwaiter().GetResult();
         return warehouse.Id;
+    }
+
+    /// <summary>Registers a user, needed by the paths that stamp a name onto something (the edit lock records who holds it).</summary>
+    public void AddUser(Guid userId, string userName)
+    {
+        var user = User.FromPersistence(
+            userId, $"{userName}@example.com", userName, userName, "hash", DateTimeOffset.UtcNow, publicKeyBase64: null);
+        UserRepository.AddAsync(user, CancellationToken.None).GetAwaiter().GetResult();
     }
 
     /// <summary>Grants recipientUserId already-accepted access to warehouseId, for the tests that exercise a share recipient's view.</summary>
