@@ -12,8 +12,21 @@ public sealed class TaskList
 {
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
+    /// <summary>Empty for a private list - its real title is inside <see cref="EncryptedContent"/>.</summary>
     public string Title { get; private set; }
+
+    /// <summary>Empty for a private list - its real items are inside <see cref="EncryptedContent"/>.</summary>
     public IReadOnlyList<TaskItem> Items { get; private set; }
+
+    /// <summary>
+    /// Marks a list only its owner can ever read: its items are sealed in the browser before they get
+    /// here, and it can't be shared. Because the server can no longer read a due date or a description,
+    /// a private list gets no overdue or daily reminders - see EncryptedPayload's comment.
+    /// </summary>
+    public bool IsPrivate { get; private set; }
+
+    /// <summary>The sealed title and items of a private list; null for an ordinary one.</summary>
+    public EncryptedPayload? EncryptedContent { get; private set; }
 
     /// <summary>
     /// Derived, not settable directly: a task list is done exactly when every item on it is checked
@@ -51,15 +64,15 @@ public sealed class TaskList
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
     private TaskList(
-        Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
+        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
         UserId = userId;
-        Title = title;
-        Items = items;
+        (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         IsGroup = isGroup;
-        IsCompleted = ComputeIsCompleted(items);
+        IsCompleted = ComputeIsCompleted(Items);
         LockedByUserId = lockedByUserId;
         LockedByUserName = lockedByUserName;
         LockExpiresAtUtc = lockExpiresAtUtc;
@@ -67,19 +80,23 @@ public sealed class TaskList
         UpdatedAtUtc = updatedAtUtc;
     }
 
-    public static TaskList Create(Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false)
+    public static TaskList Create(
+        Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
+        bool isPrivate = false, EncryptedPayload? encryptedContent = null)
     {
         var now = DateTimeOffset.UtcNow;
         return new TaskList(
-            Guid.NewGuid(), userId, title, items, isGroup, now, now,
+            Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, now, now,
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
     }
 
     /// <summary>Rebuilds a task list from already-persisted values, bypassing creation rules.</summary>
     public static TaskList FromPersistence(
-        Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
+        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
-        => new(id, userId, title, items, isGroup, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+        => new(id, userId, title, items, isGroup, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
+            lockedByUserId, lockedByUserName, lockExpiresAtUtc);
 
     /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
     public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
@@ -96,13 +113,29 @@ public sealed class TaskList
     /// UpdateTaskListCommandHandler. <paramref name="isGroup"/> has no default on purpose: this
     /// replaces the whole list, so a caller that forgot it would silently un-group the list.
     /// </summary>
-    public void Update(string title, IReadOnlyList<TaskItem> items, bool isGroup)
+    public void Update(string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent)
     {
-        Title = title;
-        Items = items;
+        (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         IsGroup = isGroup;
-        IsCompleted = ComputeIsCompleted(items);
+        IsCompleted = ComputeIsCompleted(Items);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Mirrors Note.ReadableOrSealed - see its comment for why this is enforced rather than trusted.</summary>
+    private static (string Title, IReadOnlyList<TaskItem> Items, bool IsPrivate, EncryptedPayload? EncryptedContent) ReadableOrSealed(
+        string title, IReadOnlyList<TaskItem> items, bool isPrivate, EncryptedPayload? encryptedContent)
+    {
+        if (!isPrivate)
+        {
+            return (title, items, false, null);
+        }
+
+        if (encryptedContent is null)
+        {
+            throw new InvalidRequestException("A private task list must arrive already encrypted.");
+        }
+
+        return (string.Empty, [], true, encryptedContent);
     }
 
     public bool IsLockedByAnotherUser(Guid callerId, DateTimeOffset nowUtc)

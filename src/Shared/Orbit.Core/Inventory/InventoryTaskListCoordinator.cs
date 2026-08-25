@@ -1,3 +1,4 @@
+using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 
@@ -98,7 +99,16 @@ public sealed class InventoryTaskListCoordinator
             ?? throw new InvalidOperationException($"Managed task list {taskListId} for warehouse {item.WarehouseId} disappeared between ensuring it and using it.");
 
         var restockItem = TaskItem.Create($"Restock: {item.Name}", dueDateUtc: null, isCompleted: false);
-        taskList.Update(taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup);
+        if (taskList.IsPrivate)
+        {
+            // The list's items are sealed in the owner's browser, so appending here would either be
+            // invisible or - since a private list keeps no readable items - quietly dropped. Better to
+            // say so than to leave the warehouse looking like it raised a restock task it didn't.
+            throw new InvalidRequestException(
+                $"The restock list for this warehouse is private, so Orbit can't add \"{item.Name}\" to it. Turn privacy off for that list first.");
+        }
+
+        taskList.Update(taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 
         item.SetPendingRestockTask(taskListId, restockItem.Id);

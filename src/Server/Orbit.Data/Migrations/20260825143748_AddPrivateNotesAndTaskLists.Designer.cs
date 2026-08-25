@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Orbit.Data;
@@ -11,9 +12,11 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    partial class OrbitDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260825143748_AddPrivateNotesAndTaskLists")]
+    partial class AddPrivateNotesAndTaskLists
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -172,58 +175,6 @@ namespace Orbit.Data.Migrations
                     b.ToTable("ChatConversationAccesses");
                 });
 
-            modelBuilder.Entity("Orbit.Data.Entities.ChatGroupEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("CreatedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ChatGroups");
-                });
-
-            modelBuilder.Entity("Orbit.Data.Entities.ChatGroupMemberEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("JoinedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("GroupId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("ChatGroupMembers");
-                });
-
             modelBuilder.Entity("Orbit.Data.Entities.ChatMessageEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -236,12 +187,6 @@ namespace Orbit.Data.Migrations
 
                     b.Property<DateTimeOffset?>("EditedAtUtc")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("GroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("GroupMessageId")
-                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsEdited")
                         .HasColumnType("boolean");
@@ -263,10 +208,6 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("GroupId");
-
-                    b.HasIndex("GroupMessageId");
 
                     b.HasIndex("RecipientUserId", "SenderUserId");
 
@@ -1012,15 +953,6 @@ namespace Orbit.Data.Migrations
                     b.ToTable("WarehouseShares");
                 });
 
-            modelBuilder.Entity("Orbit.Data.Entities.ChatGroupMemberEntity", b =>
-                {
-                    b.HasOne("Orbit.Data.Entities.ChatGroupEntity", null)
-                        .WithMany("Members")
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemEntity", b =>
                 {
                     b.HasOne("Orbit.Data.Entities.TaskEntity", null)
@@ -1028,11 +960,6 @@ namespace Orbit.Data.Migrations
                         .HasForeignKey("TaskId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("Orbit.Data.Entities.ChatGroupEntity", b =>
-                {
-                    b.Navigation("Members");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskEntity", b =>

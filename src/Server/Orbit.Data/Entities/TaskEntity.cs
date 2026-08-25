@@ -10,6 +10,15 @@ public sealed class TaskEntity
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>Whether this task list is readable only by its owner - see Orbit.Core's IsPrivate.</summary>
+    public bool IsPrivate { get; set; }
+
+    /// <summary>Base64 AES-GCM ciphertext of a private task list's title and content; null otherwise.</summary>
+    public string? EncryptedCiphertext { get; set; }
+
+    /// <summary>Base64 nonce the ciphertext above was sealed with; null otherwise.</summary>
+    public string? EncryptedNonce { get; set; }
     public bool IsCompleted { get; set; }
 
     /// <summary>Whether this list gathers other lists - see Orbit.Core.Tasks.TaskList.IsGroup.</summary>

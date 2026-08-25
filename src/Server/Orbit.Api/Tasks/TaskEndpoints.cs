@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Contracts.Sharing;
+using Orbit.Contracts;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
@@ -43,7 +44,7 @@ public static class TaskEndpoints
             CreateTaskRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var id = await dispatcher.SendAsync(
-                new CreateTaskListCommand(GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup), cancellationToken);
+                new CreateTaskListCommand(GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
 
@@ -51,7 +52,7 @@ public static class TaskEndpoints
             Guid id, UpdateTaskRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new UpdateTaskListCommand(GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup), cancellationToken);
+                new UpdateTaskListCommand(GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
             return ToApiResult(outcome);
         });
 
@@ -141,6 +142,14 @@ public static class TaskEndpoints
                 item.DailyReminderTimeOfDay))
             .ToList();
 
+
+    /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>
+    private static EncryptedPayload? ToDomainPayload(EncryptedContentDto? encryptedContent)
+        => encryptedContent is null ? null : new EncryptedPayload(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
+    private static EncryptedContentDto? ToDto(EncryptedPayload? encryptedContent)
+        => encryptedContent is null ? null : new EncryptedContentDto(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
     private static TaskDto ToDto(TaskList taskList)
         => new(
             taskList.Id,
@@ -159,6 +168,8 @@ public static class TaskEndpoints
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,
+            taskList.IsPrivate,
+            ToDto(taskList.EncryptedContent),
             taskList.CreatedAtUtc,
             taskList.UpdatedAtUtc,
             taskList.IsShared,

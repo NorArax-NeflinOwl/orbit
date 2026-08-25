@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts;
 using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
@@ -10,23 +11,42 @@ namespace Orbit.Web.Services;
 
 /// <summary>
 /// Thin wrapper around Orbit.Api's /api/tasks endpoints, keeping HTTP and JSON details out of the pages.
+///
+/// Private lists are sealed and opened here rather than in each page (see PrivateContentSealer), so the
+/// checklist view, the overview, the dashboard and the calendar all receive a readable TaskDto without
+/// any of them knowing that a private one arrives empty with its real items encrypted.
 /// </summary>
 public sealed class TasksApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
+    private readonly PrivateContentSealer? _privateContentSealer;
 
-    // logger defaults to a no-op instance rather than being required, so existing call sites (including
+    /// <summary>Shown in place of a private list nobody can open any more - see PrivateContentSealer.OpenAsync.</summary>
+    public const string UnreadableTaskListTitle = "Unreadable - encrypted with an older key";
+
+    // logger and sealer default to absent rather than being required, so existing call sites (including
     // every test that constructs this with just an HttpClient) keep compiling unchanged; only the
-    // DI-resolved instance registered in Program.cs actually logs anywhere.
-    public TasksApiClient(HttpClient httpClient, ILogger<TasksApiClient>? logger = null)
+    // DI-resolved instance registered in Program.cs logs or handles private lists.
+    public TasksApiClient(HttpClient httpClient, ILogger<TasksApiClient>? logger = null, PrivateContentSealer? privateContentSealer = null)
     {
         _httpClient = httpClient;
         _logger = logger ?? NullLogger<TasksApiClient>.Instance;
+        _privateContentSealer = privateContentSealer;
     }
 
     public async Task<IReadOnlyList<TaskDto>> GetTaskListsAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<TaskDto>>("api/tasks", cancellationToken) ?? [];
+    {
+        var taskLists = await _httpClient.GetFromJsonAsync<List<TaskDto>>("api/tasks", cancellationToken) ?? [];
+
+        var opened = new List<TaskDto>(taskLists.Count);
+        foreach (var taskList in taskLists)
+        {
+            opened.Add(await OpenIfPrivateAsync(taskList, cancellationToken));
+        }
+
+        return opened;
+    }
 
     public async Task<TaskDto?> GetTaskListByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -37,11 +57,71 @@ public sealed class TasksApiClient
         }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<TaskDto>(cancellationToken: cancellationToken);
+        var taskList = await response.Content.ReadFromJsonAsync<TaskDto>(cancellationToken: cancellationToken);
+        return taskList is null ? null : await OpenIfPrivateAsync(taskList, cancellationToken);
     }
+
+    /// <summary>
+    /// Hands back an ordinary list unchanged, and a private one with its real title and items put back
+    /// in place, including the completion flag the server could no longer work out for itself. A list
+    /// that can't be opened says so in its title rather than throwing.
+    /// </summary>
+    private async Task<TaskDto> OpenIfPrivateAsync(TaskDto taskList, CancellationToken cancellationToken)
+    {
+        if (!taskList.IsPrivate || taskList.EncryptedContent is not { } encryptedContent || _privateContentSealer is null)
+        {
+            return taskList;
+        }
+
+        var content = await _privateContentSealer.OpenAsync<SealedTaskList>(encryptedContent, cancellationToken);
+        if (content is null)
+        {
+            return taskList with { Title = UnreadableTaskListTitle };
+        }
+
+        return taskList with
+        {
+            Title = content.Title,
+            Items = content.Items,
+            // Recomputed here for the same reason the domain derives it: the server saw no items to
+            // derive it from, so what it sent back is meaningless for a private list.
+            IsCompleted = content.Items.Count > 0 && content.Items.All(item => item.IsCompleted)
+        };
+    }
+
+    /// <summary>Mirrors NotesApiClient.SealIfPrivateAsync - see its comment.</summary>
+    private async Task<(string Title, IReadOnlyList<TaskItemRequest> Items, EncryptedContentDto? EncryptedContent)> SealIfPrivateAsync(
+        string title, IReadOnlyList<TaskItemRequest> items, bool isPrivate, CancellationToken cancellationToken)
+    {
+        if (!isPrivate)
+        {
+            return (title, items, null);
+        }
+
+        if (_privateContentSealer is null)
+        {
+            throw new InvalidOperationException("This TasksApiClient was built without a PrivateContentSealer, so it can't save a private list.");
+        }
+
+        var sealedItems = items
+            .Select(item => new TaskItemDto(
+                Guid.Empty, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
+                item.DailyReminderTimeOfDay))
+            .ToList();
+        var encryptedContent = await _privateContentSealer.SealAsync(new SealedTaskList(title, sealedItems), cancellationToken);
+        return (string.Empty, [], encryptedContent);
+    }
+
+    /// <summary>Everything a private list hides from the server, as one sealed payload.</summary>
+    private sealed record SealedTaskList(string Title, IReadOnlyList<TaskItemDto> Items);
 
     public async Task<Guid> CreateTaskListAsync(CreateTaskRequest request, CancellationToken cancellationToken = default)
     {
+        var (title, items, encryptedContent) = await SealIfPrivateAsync(
+            request.Title, request.Items, request.IsPrivate, cancellationToken);
+        request = request with { Title = title, Items = items, EncryptedContent = encryptedContent };
+
         try
         {
             var response = await _httpClient.PostAsJsonAsync("api/tasks", request, cancellationToken);
@@ -60,6 +140,10 @@ public sealed class TasksApiClient
     /// <summary>Mirrors NotesApiClient.UpdateNoteAsync - see its comment for what NotFound/Locked mean here.</summary>
     public async Task<EditOutcome> UpdateTaskListAsync(Guid id, UpdateTaskRequest request, CancellationToken cancellationToken = default)
     {
+        var (title, items, encryptedContent) = await SealIfPrivateAsync(
+            request.Title, request.Items, request.IsPrivate, cancellationToken);
+        request = request with { Title = title, Items = items, EncryptedContent = encryptedContent };
+
         try
         {
             var response = await _httpClient.PutAsJsonAsync($"api/tasks/{id}", request, cancellationToken);
