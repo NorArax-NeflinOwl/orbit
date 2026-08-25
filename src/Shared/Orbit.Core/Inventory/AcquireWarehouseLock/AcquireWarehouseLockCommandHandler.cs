@@ -23,7 +23,7 @@ public sealed class AcquireWarehouseLockCommandHandler : IRequestHandler<Acquire
     public async Task<EditOutcome> HandleAsync(AcquireWarehouseLockCommand request, CancellationToken cancellationToken)
     {
         var warehouse = await _warehouseAccessResolver.ResolveAsync(request.UserId, request.WarehouseId, cancellationToken);
-        if (warehouse is null || warehouse.AccessLevel != ShareAccessLevel.CanEdit)
+        if (warehouse is null || !warehouse.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
         }

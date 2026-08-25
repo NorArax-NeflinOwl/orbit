@@ -46,4 +46,21 @@ public sealed class TaskListShare
     {
         AcceptedAtUtc ??= DateTimeOffset.UtcNow;
     }
+
+    /// <summary>
+    /// Raises what this share grants, and only ever raises it - answering a request for edit access is
+    /// the point, and an owner re-sharing at a lower level than they already gave is far more likely to
+    /// be a stale form than an intention to take access away. Returns whether anything changed.
+    /// </summary>
+    public bool RaiseAccessLevelTo(ShareAccessLevel accessLevel)
+    {
+        if (accessLevel <= AccessLevel)
+        {
+            return false;
+        }
+
+        AccessLevel = accessLevel;
+        return true;
+    }
+
 }

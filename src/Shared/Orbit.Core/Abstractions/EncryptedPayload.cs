@@ -12,4 +12,25 @@ namespace Orbit.Core.Abstractions;
 /// a matter of trust - and it is also why a server-side feature that needs to read content (a reminder
 /// about a due date, say) cannot work on private items.
 /// </summary>
-public sealed record EncryptedPayload(string Ciphertext, string Nonce);
+/// <remarks>
+/// Both parts are checked here rather than at each call site, so an EncryptedPayload that exists at all
+/// is one with something in it. A request whose encryptedContent object is present but whose members
+/// didn't bind - a client sending the wrong property names, say - arrives as a non-null payload holding
+/// nulls, and without this it wrote a row marked private with nothing sealed inside it.
+/// </remarks>
+public sealed record EncryptedPayload
+{
+    public EncryptedPayload(string Ciphertext, string Nonce)
+    {
+        if (string.IsNullOrWhiteSpace(Ciphertext) || string.IsNullOrWhiteSpace(Nonce))
+        {
+            throw new InvalidRequestException("Encrypted content must carry both its ciphertext and its nonce.");
+        }
+
+        this.Ciphertext = Ciphertext;
+        this.Nonce = Nonce;
+    }
+
+    public string Ciphertext { get; init; }
+    public string Nonce { get; init; }
+}

@@ -7,4 +7,8 @@ namespace Orbit.Contracts.Sharing;
 /// Orbit.Core.Abstractions.ShareOutcome, which this mirrors across the HTTP boundary. Either way,
 /// ShareId is the id the client encrypts into a chat message to notify the recipient.
 /// </summary>
-public sealed record ShareResultDto(Guid ShareId, bool AlreadyShared);
+/// <param name="AccessLevelRaised">
+/// The offer already existed and this request widened what it grants - which is what happens when an
+/// owner answers a request for edit access. See Orbit.Core.Abstractions.ShareOutcome.
+/// </param>
+public sealed record ShareResultDto(Guid ShareId, bool AlreadyShared, bool AccessLevelRaised = false);

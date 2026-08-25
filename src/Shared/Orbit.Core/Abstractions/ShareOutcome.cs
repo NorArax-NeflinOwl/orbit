@@ -13,4 +13,9 @@ namespace Orbit.Core.Abstractions;
 /// allowed to share it - the same "not found" response either way, since telling those apart would leak
 /// whether a given id exists to someone who can't already see it.
 /// </summary>
-public sealed record ShareOutcome(Guid ShareId, bool AlreadyShared);
+/// <param name="AccessLevelRaised">
+/// An offer already existed and this request raised what it grants - which is how an owner answers a
+/// request for edit access: sharing again at a higher level. Reported separately from AlreadyShared
+/// because the recipient's access genuinely changed, so the client says so rather than "already shared".
+/// </param>
+public sealed record ShareOutcome(Guid ShareId, bool AlreadyShared, bool AccessLevelRaised = false);

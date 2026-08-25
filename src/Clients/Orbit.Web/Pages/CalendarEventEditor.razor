@@ -230,6 +230,10 @@ else
                         <select id="guestAccessLevelSelect" @bind="_selectedAccessLevel">
                             <option value="ReadOnly">Read-only</option>
                             <option value="Share">Can share</option>
+                            @if (_canGrantEditOnly)
+                            {
+                                <option value="EditOnly">Can edit, but not share editing</option>
+                            }
                             @if (_canGrantCanEdit)
                             {
                                 <option value="CanEdit">Can edit</option>
@@ -286,7 +290,8 @@ else
     private bool _canEditContent = true;
     private bool _canShare = true;
     private bool _canGrantCanEdit = true;
-    private string _accessLevel = "ReadOnly";
+    private bool _canGrantEditOnly = true;
+    private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
     private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private bool _isSaving;
@@ -304,12 +309,7 @@ else
             : _contacts;
 
     /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
-    private string SharedAccessDescription => _accessLevel switch
-    {
-        "CanEdit" => "you can edit it",
-        "Share" => "you can share it further, but not edit it",
-        _ => "read-only"
-    };
+    private string SharedAccessDescription => _access.Description;
 
     /// <summary>
     /// Contacts added as a guest via the picker during this editing session (not guests already present
@@ -379,11 +379,13 @@ else
                 {
                     _formModel = CalendarEventFormModel.FromDto(calendarEvent.Details);
                     _isShared = calendarEvent.IsShared;
-                    _isSharedReadOnly = calendarEvent.IsShared && calendarEvent.AccessLevel != "CanEdit";
-                    _canEditContent = !calendarEvent.IsShared || calendarEvent.AccessLevel == "CanEdit";
-                    _canShare = !calendarEvent.IsShared || calendarEvent.AccessLevel is "CanEdit" or "Share";
-                    _canGrantCanEdit = !calendarEvent.IsShared || calendarEvent.AccessLevel == "CanEdit";
-                    _accessLevel = calendarEvent.AccessLevel;
+                    _access = SharedItemAccess.For(calendarEvent.IsShared, calendarEvent.AccessLevel);
+                    _isSharedReadOnly = calendarEvent.IsShared && !_access.CanEdit;
+                    _canEditContent = _access.CanEdit;
+                    _canShare = _access.CanShare;
+                    _canGrantCanEdit = _access.CanGrantCanEdit;
+                    _canGrantEditOnly = _access.CanGrantEditOnly;
+                    _canGrantEditOnly = _access.CanGrantEditOnly;
                     _originalOwnerUserId = calendarEvent.OriginalOwnerUserId;
                     _sharedByUserName = calendarEvent.SharedByUserName;
 

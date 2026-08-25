@@ -46,7 +46,7 @@ public sealed class ShareWarehouseCommandHandler : IRequestHandler<ShareWarehous
             return null;
         }
 
-        if (warehouse.IsShared && (warehouse.AccessLevel < ShareAccessLevel.Share || request.AccessLevel > warehouse.AccessLevel))
+        if (warehouse.IsShared && !warehouse.AccessLevel.CanGrant(request.AccessLevel))
         {
             return null;
         }
@@ -54,7 +54,16 @@ public sealed class ShareWarehouseCommandHandler : IRequestHandler<ShareWarehous
         var existingShare = await _warehouseShareRepository.FindExistingAsync(warehouse.Id, request.RecipientUserId, cancellationToken);
         if (existingShare is not null)
         {
-            return new ShareOutcome(existingShare.Id, AlreadyShared: true);
+            // Sharing again at a higher level raises the existing offer rather than being a no-op:
+            // that is how an owner answers a request for edit access (see RequestEditAccess), and
+            // "share it with them again, but with more" is what they mean by doing it.
+            var accessLevelRaised = existingShare.RaiseAccessLevelTo(request.AccessLevel);
+            if (accessLevelRaised)
+            {
+                await _warehouseShareRepository.UpdateAsync(existingShare, cancellationToken);
+            }
+
+            return new ShareOutcome(existingShare.Id, AlreadyShared: true, accessLevelRaised);
         }
 
         var share = WarehouseShare.Create(warehouse.Id, warehouse.UserId, request.RecipientUserId, request.AccessLevel);
