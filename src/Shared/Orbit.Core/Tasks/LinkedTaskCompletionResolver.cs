@@ -49,7 +49,7 @@ public sealed class LinkedTaskCompletionResolver
             .ToList();
 
         var resolvedTaskList = TaskList.FromPersistence(
-            taskList.Id, taskList.UserId, taskList.Title, resolvedItems, taskList.CreatedAtUtc, taskList.UpdatedAtUtc,
+            taskList.Id, taskList.UserId, taskList.Title, resolvedItems, taskList.IsGroup, taskList.CreatedAtUtc, taskList.UpdatedAtUtc,
             taskList.LockedByUserId, taskList.LockedByUserName, taskList.LockExpiresAtUtc);
         // FromPersistence only rebuilds the persisted fields - IsShared/SharedByUserName/AccessLevel are
         // stamped separately per caller (see TaskList's class comment) and would otherwise be lost here.

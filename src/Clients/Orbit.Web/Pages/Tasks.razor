@@ -34,6 +34,10 @@ else
         {
             <li>
                 <strong>@taskList.Title</strong> @(taskList.IsCompleted ? "✓" : "")
+                @if (taskList.IsGroup)
+                {
+                    <small> (group)</small>
+                }
                 <ul>
                     @foreach (var item in taskList.Items)
                     {
@@ -50,6 +54,7 @@ else
                         </li>
                     }
                 </ul>
+                <button @onclick="() => GoToChecklist(taskList.Id)">Open checklist</button>
                 <button @onclick="() => GoToEditTaskList(taskList.Id)">Edit</button>
                 <button @onclick="() => DeleteTaskListAsync(taskList)">Delete</button>
             </li>
@@ -88,6 +93,13 @@ else
     {
         Logger.LogInformation("User clicked 'Edit' for task list {TaskListId}", taskListId);
         NavigationManager.NavigateTo($"/tasks/{taskListId}");
+    }
+
+    /// <summary>Opens the shallow editing level - see TaskListChecklist.razor.</summary>
+    private void GoToChecklist(Guid taskListId)
+    {
+        Logger.LogInformation("User clicked 'Open checklist' for task list {TaskListId}", taskListId);
+        NavigationManager.NavigateTo($"/tasks/{taskListId}/checklist");
     }
 
     private async Task DeleteTaskListAsync(TaskDto taskList)

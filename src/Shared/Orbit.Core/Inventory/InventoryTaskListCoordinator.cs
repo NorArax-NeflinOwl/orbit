@@ -98,7 +98,7 @@ public sealed class InventoryTaskListCoordinator
             ?? throw new InvalidOperationException($"Managed task list {taskListId} for warehouse {item.WarehouseId} disappeared between ensuring it and using it.");
 
         var restockItem = TaskItem.Create($"Restock: {item.Name}", dueDateUtc: null, isCompleted: false);
-        taskList.Update(taskList.Title, [.. taskList.Items, restockItem]);
+        taskList.Update(taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 
         item.SetPendingRestockTask(taskListId, restockItem.Id);

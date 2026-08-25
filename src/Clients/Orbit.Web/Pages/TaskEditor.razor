@@ -51,6 +51,17 @@ else
             <InputText @bind-Value="_formModel.Title" />
         </div>
 
+        <div class="field">
+            <label>
+                <InputCheckbox @bind-Value="_formModel.IsGroup" />
+                Group list
+            </label>
+            <small>
+                The checklist view of a group list also shows every list its items link to, so the whole
+                group can be worked through on one screen.
+            </small>
+        </div>
+
         <h2>Items</h2>
         @foreach (var item in _formModel.Items)
         {
@@ -273,6 +284,7 @@ else
                     _formModel = new TaskListFormModel
                     {
                         Title = taskList.Title,
+                        IsGroup = taskList.IsGroup,
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
@@ -408,12 +420,12 @@ else
         {
             if (IsNewTaskList)
             {
-                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items));
+                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items, _formModel.IsGroup));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
             {
-                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items));
+                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items, _formModel.IsGroup));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -603,6 +615,7 @@ else
     private sealed class TaskListFormModel
     {
         public string Title { get; set; } = string.Empty;
+        public bool IsGroup { get; set; }
         public List<TaskItemFormModel> Items { get; set; } = [];
     }
 

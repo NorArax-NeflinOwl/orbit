@@ -2338,3 +2338,54 @@ input.note-editor-title {
     padding: 10px 12px;
 }
 
+/* Shallow task-list editing (TaskListChecklist.razor): a whole list - or a group list and every list
+   it gathers - as nothing but tickable rows. */
+.checklist-card {
+    margin-bottom: 16px;
+}
+
+.check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+.check-row:last-child {
+    border-bottom: none;
+}
+
+.check-row:hover {
+    background: var(--bg-subtle);
+}
+
+.check-row input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
+.check-row input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+}
+
+.check-row-text {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-primary);
+}
+
+.check-row.completed .check-row-text {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
+}
+
+.checklist-empty {
+    color: var(--text-tertiary);
+    font-size: 13px;
+    margin: 4px;
+}

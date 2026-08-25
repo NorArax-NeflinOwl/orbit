@@ -24,7 +24,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         await repository.AddAsync(taskList, CancellationToken.None);
         var newItems = new[] { TaskItem.Create("New item", null, false) };
 
-        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(userId, taskList.Id, "New title", newItems), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(userId, taskList.Id, "New title", newItems, IsGroup: false), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
         var stored = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
@@ -42,7 +42,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         await repository.AddAsync(taskList, CancellationToken.None);
         var allDoneItems = new[] { TaskItem.Create("Buy milk", null, true) };
 
-        await handler.HandleAsync(new UpdateTaskListCommand(userId, taskList.Id, "Errands", allDoneItems), CancellationToken.None);
+        await handler.HandleAsync(new UpdateTaskListCommand(userId, taskList.Id, "Errands", allDoneItems, IsGroup: false), CancellationToken.None);
 
         var stored = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
         Assert.True(stored!.IsCompleted);
@@ -58,7 +58,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var taskList = TaskList.Create(ownerId, "Original title", []);
         await repository.AddAsync(taskList, CancellationToken.None);
 
-        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(otherUserId, taskList.Id, "Hijacked title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(otherUserId, taskList.Id, "Hijacked title", [], IsGroup: false), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
         var stored = await repository.GetByIdAsync(ownerId, taskList.Id, CancellationToken.None);
@@ -71,7 +71,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var repository = new InMemoryTaskRepository();
         var handler = CreateHandler(repository);
 
-        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(Guid.NewGuid(), Guid.NewGuid(), "Title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(Guid.NewGuid(), Guid.NewGuid(), "Title", [], IsGroup: false), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }
@@ -97,7 +97,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var (taskRepository, _, recipientId, taskList) = await CreateSharedTaskListAsync(taskListShareRepository, ShareAccessLevel.ReadOnly);
         var handler = CreateHandler(taskRepository, taskListShareRepository);
 
-        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "Edited title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "Edited title", [], IsGroup: false), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }
@@ -109,7 +109,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var (taskRepository, _, recipientId, taskList) = await CreateSharedTaskListAsync(taskListShareRepository, ShareAccessLevel.Share);
         var handler = CreateHandler(taskRepository, taskListShareRepository);
 
-        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "Edited title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "Edited title", [], IsGroup: false), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }
@@ -121,7 +121,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var (taskRepository, ownerId, recipientId, taskList) = await CreateSharedTaskListAsync(taskListShareRepository, ShareAccessLevel.CanEdit);
         var handler = CreateHandler(taskRepository, taskListShareRepository);
 
-        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "New title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "New title", [], IsGroup: false), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
         var stored = await taskRepository.GetByIdAsync(ownerId, taskList.Id, CancellationToken.None);
@@ -139,7 +139,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         taskList.AcquireLock(otherUserId, "otherUser", DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1));
         await repository.AddAsync(taskList, CancellationToken.None);
 
-        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(userId, taskList.Id, "Edited title", []), CancellationToken.None);
+        var outcome = await handler.HandleAsync(new UpdateTaskListCommand(userId, taskList.Id, "Edited title", [], IsGroup: false), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Locked, outcome.Kind);
         Assert.Equal("otherUser", outcome.LockedByUserName);
@@ -156,6 +156,41 @@ public sealed class UpdateTaskListCommandHandlerTests
         var itemsLinkingToSelf = new[] { TaskItem.Create("Self reference", null, false, taskList.Id) };
 
         await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(
-            new UpdateTaskListCommand(userId, taskList.Id, "Errands", itemsLinkingToSelf), CancellationToken.None));
+            new UpdateTaskListCommand(userId, taskList.Id, "Errands", itemsLinkingToSelf, IsGroup: false), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task HandleAsync_saves_the_grouping_flag()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var member = TaskList.Create(userId, "Kitchen", [TaskItem.Create("Paint walls", null, false)]);
+        var taskList = TaskList.Create(userId, "Renovation", []);
+        await repository.AddAsync(member, CancellationToken.None);
+        await repository.AddAsync(taskList, CancellationToken.None);
+        var items = new[] { TaskItem.Create("Kitchen done", null, false, member.Id) };
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(userId, taskList.Id, "Renovation", items, IsGroup: true), CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
+        Assert.True(stored!.IsGroup);
+    }
+
+    [Fact]
+    public async Task HandleAsync_turns_grouping_back_off_when_the_flag_is_cleared()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var taskList = TaskList.Create(userId, "Renovation", [], isGroup: true);
+        await repository.AddAsync(taskList, CancellationToken.None);
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(userId, taskList.Id, "Renovation", [], IsGroup: false), CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
+        Assert.False(stored!.IsGroup);
     }
 }

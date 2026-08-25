@@ -43,7 +43,7 @@ public static class TaskEndpoints
             CreateTaskRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var id = await dispatcher.SendAsync(
-                new CreateTaskListCommand(GetUserId(user), request.Title, ToDomainItems(request.Items)), cancellationToken);
+                new CreateTaskListCommand(GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup), cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
 
@@ -51,7 +51,7 @@ public static class TaskEndpoints
             Guid id, UpdateTaskRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new UpdateTaskListCommand(GetUserId(user), id, request.Title, ToDomainItems(request.Items)), cancellationToken);
+                new UpdateTaskListCommand(GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup), cancellationToken);
             return ToApiResult(outcome);
         });
 
@@ -158,6 +158,7 @@ public static class TaskEndpoints
                     item.DailyReminderTimeOfDay))
                 .ToList(),
             taskList.IsCompleted,
+            taskList.IsGroup,
             taskList.CreatedAtUtc,
             taskList.UpdatedAtUtc,
             taskList.IsShared,

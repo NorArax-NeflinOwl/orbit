@@ -74,6 +74,7 @@ public sealed class TaskRepository : ITaskRepository
         var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
         entity.Title = taskList.Title;
         entity.IsCompleted = taskList.IsCompleted;
+        entity.IsGroup = taskList.IsGroup;
         entity.LockedByUserId = taskList.LockedByUserId;
         entity.LockedByUserName = taskList.LockedByUserName;
         entity.LockExpiresAtUtc = taskList.LockExpiresAtUtc;
@@ -113,6 +114,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.UserId,
             entity.Title,
             entity.Items.Select(ToItemDomain).ToList(),
+            entity.IsGroup,
             entity.CreatedAtUtc,
             entity.UpdatedAtUtc,
             entity.LockedByUserId,
@@ -138,6 +140,7 @@ public sealed class TaskRepository : ITaskRepository
             UserId = taskList.UserId,
             Title = taskList.Title,
             IsCompleted = taskList.IsCompleted,
+            IsGroup = taskList.IsGroup,
             LockedByUserId = taskList.LockedByUserId,
             LockedByUserName = taskList.LockedByUserName,
             LockExpiresAtUtc = taskList.LockExpiresAtUtc,

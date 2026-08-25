@@ -1,0 +1,235 @@
+@page "/tasks/{Id:guid}/checklist"
+@attribute [Authorize]
+@using Orbit.Contracts.Tasks
+@using Orbit.Core.Abstractions
+@using Orbit.Web.Services
+@inject TasksApiClient TasksApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<TaskListChecklist> Logger
+
+<PageTitle>@(_sections.Count > 0 ? _sections[0].TaskList.Title : "Checklist")</PageTitle>
+
+@* The shallow half of the two editing levels: the deep editor (TaskEditor.razor) can change and remove
+   anything, while this view only ticks items off. Everything else about a list is read-only here, which
+   is what lets the whole list - and, for a group list, every list it gathers - stay on one screen. *@
+@if (_isLoading)
+{
+    <p>Loading…</p>
+}
+else if (_sections.Count == 0)
+{
+    <p>This task list no longer exists.</p>
+    <button type="button" class="btn-secondary" @onclick="GoToTaskLists">Back to task lists</button>
+}
+else
+{
+    <div class="page-header">
+        <div>
+            <h1>@_sections[0].TaskList.Title</h1>
+            <p class="page-subtitle">
+                @if (_sections[0].TaskList.IsGroup)
+                {
+                    <text>Group list - @(_sections.Count - 1) linked @(_sections.Count == 2 ? "list" : "lists") shown below.</text>
+                }
+                else
+                {
+                    <text>Tick items off; use Edit to change the list itself.</text>
+                }
+            </p>
+        </div>
+        <div class="page-header-actions">
+            <button type="button" class="btn-secondary" @onclick="GoToDeepEditor">Edit</button>
+            <button type="button" class="btn-secondary" @onclick="GoToTaskLists">Back</button>
+        </div>
+    </div>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="error">@_errorMessage</p>
+    }
+
+    @foreach (var section in _sections)
+    {
+        <div class="card checklist-card">
+            @if (section.IsMember)
+            {
+                <div class="card-header">
+                    <span class="card-title">@section.TaskList.Title</span>
+                    <span class="card-count">@CompletionSummary(section.TaskList)</span>
+                </div>
+            }
+
+            @if (section.TaskList.Items.Count == 0)
+            {
+                <p class="checklist-empty">No items.</p>
+            }
+            else
+            {
+                @foreach (var item in section.TaskList.Items)
+                {
+                    <label class="check-row @(item.IsCompleted ? "completed" : "")">
+                        <input type="checkbox" checked="@item.IsCompleted"
+                               disabled="@IsItemLocked(section, item)"
+                               @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
+                        <span class="check-row-text">@item.Description</span>
+                        @if (item.LinkedTaskListId is { } linkedTaskListId)
+                        {
+                            <span class="row-meta">follows @LinkedTaskListTitle(linkedTaskListId)</span>
+                        }
+                        else if (item.DueDateUtc is { } dueDate)
+                        {
+                            <span class="row-meta">due @dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+                        }
+                    </label>
+                }
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    /// <summary>
+    /// The list being viewed first, then - when it's a group list - every list its items link to. Kept
+    /// as one flat ordered collection because the view renders them identically apart from the header.
+    /// </summary>
+    private IReadOnlyList<ChecklistSection> _sections = [];
+
+    /// <summary>
+    /// Every list the user can reach, kept from the same load: it's what resolves a group's members and
+    /// what gives a linked item's target list a title to show.
+    /// </summary>
+    private IReadOnlyList<TaskDto> _allTaskLists = [];
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load the checklist for task list {TaskListId}", Id);
+            _errorMessage = "Couldn't load this task list. Try again.";
+            _isLoading = false;
+            return;
+        }
+
+        _sections = BuildSections();
+        _isLoading = false;
+    }
+
+    /// <summary>
+    /// A group list is followed one level down, to the lists its own items link to - those are its
+    /// members. Deeper links aren't expanded: a member that is itself a group stays a single line here,
+    /// so one screen can't unfold into an unbounded tree.
+    /// </summary>
+    private IReadOnlyList<ChecklistSection> BuildSections()
+    {
+        var taskList = _allTaskLists.FirstOrDefault(candidate => candidate.Id == Id);
+        if (taskList is null)
+        {
+            return [];
+        }
+
+        var sections = new List<ChecklistSection> { new(taskList, IsMember: false) };
+        if (!taskList.IsGroup)
+        {
+            return sections;
+        }
+
+        var memberIds = taskList.Items
+            .Select(item => item.LinkedTaskListId)
+            .OfType<Guid>()
+            .Distinct();
+        sections.AddRange(memberIds
+            .Select(memberId => _allTaskLists.FirstOrDefault(candidate => candidate.Id == memberId))
+            .OfType<TaskDto>()
+            .Select(member => new ChecklistSection(member, IsMember: true)));
+
+        return sections;
+    }
+
+    /// <summary>
+    /// A linked item's completion mirrors the list it points at rather than being set by hand (see
+    /// LinkedTaskCompletionResolver), and a read-only share grants no writes at all - both render as a
+    /// checkbox that can be seen but not moved.
+    /// </summary>
+    private static bool IsItemLocked(ChecklistSection section, TaskItemDto item)
+        => item.LinkedTaskListId is not null || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+
+    private string LinkedTaskListTitle(Guid linkedTaskListId)
+        => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId)?.Title ?? "another list";
+
+    private static string CompletionSummary(TaskDto taskList)
+        => $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";
+
+    /// <summary>
+    /// Saves the whole list back with just this item's completion changed - the update endpoint replaces
+    /// the list wholesale, so everything else has to be sent along unchanged. Items are matched by
+    /// position rather than id because a save regenerates item ids (see TaskEndpoints.ToDomainItems).
+    /// </summary>
+    private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, bool isCompleted)
+    {
+        _errorMessage = null;
+        var toggledIndex = taskList.Items.ToList().IndexOf(item);
+        var items = taskList.Items
+            .Select((existingItem, index) => new TaskItemRequest(
+                existingItem.Description,
+                existingItem.DueDateUtc,
+                index == toggledIndex ? isCompleted : existingItem.IsCompleted,
+                existingItem.LinkedTaskListId,
+                existingItem.OverdueNotificationChannel,
+                existingItem.RemindDaily,
+                existingItem.DailyReminderNotificationChannel,
+                existingItem.DailyReminderTimeOfDay))
+            .ToList();
+
+        try
+        {
+            var outcome = await TasksApiClient.UpdateTaskListAsync(
+                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup));
+            if (outcome.Kind == EditOutcomeKind.Locked)
+            {
+                _errorMessage = $"{outcome.LockedByUserName} is currently editing \"{taskList.Title}\" - try again in a moment.";
+            }
+            else if (outcome.Kind == EditOutcomeKind.NotFound)
+            {
+                _errorMessage = $"\"{taskList.Title}\" is no longer available to you.";
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to toggle an item on task list {TaskListId}", taskList.Id);
+            _errorMessage = "Couldn't save that change. Try again.";
+        }
+
+        // Reloads even after a failure, so a checkbox that didn't save snaps back to what the server
+        // actually holds - and after a success, so a group's linked items pick up their new completion.
+        await LoadAsync();
+    }
+
+    private void GoToDeepEditor() => NavigationManager.NavigateTo($"/tasks/{Id}");
+
+    private void GoToTaskLists() => NavigationManager.NavigateTo("/tasks");
+
+    /// <summary>One list rendered in this view - the list being viewed, or one of a group list's members.</summary>
+    private sealed record ChecklistSection(TaskDto TaskList, bool IsMember);
+}

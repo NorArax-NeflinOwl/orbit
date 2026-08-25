@@ -185,10 +185,10 @@ those two sections are already independent for access-level purposes.
 
 ## Tasks
 
-`POST /api/tasks` and `PUT /api/tasks/{id}` both take `{ title, items }`, where each item is
+`POST /api/tasks` and `PUT /api/tasks/{id}` both take `{ title, items, isGroup }`, where each item is
 `{ description, dueDateUtc, isCompleted, linkedTaskListId }` (`dueDateUtc` and `linkedTaskListId` are
-both optional). `GET /api/tasks` and `GET /api/tasks/{id}` return the same shape back, plus
-`isCompleted` on the task list itself — this is derived automatically (a list is complete only once
+both optional, and `isGroup` defaults to false — see [Group lists](#group-lists)). `GET /api/tasks` and
+`GET /api/tasks/{id}` return the same shape back, plus `isCompleted` on the task list itself — this is derived automatically (a list is complete only once
 every item on it is checked off) and can't be set directly. Updating a task list always replaces its
 whole checklist rather than patching individual items, since the client always sends the full current
 list back.
@@ -227,6 +227,35 @@ the id doesn't exist or isn't owned by the caller. Deleting a list that another 
 `LinkedTaskCompletionResolver` already treats a link to a missing list as "not completed" instead of
 failing, so this is safe, just something to be aware of if a list you expect to still be linkable is
 gone. The Blazor client's task list page asks for confirmation before calling this endpoint.
+
+### Two editing levels
+
+A task list can be opened at either of two depths, both reachable from the task list page:
+
+- **Deep** (`/tasks/{id}`, `TaskEditor.razor`) — the full editor: title, grouping, every item's text,
+  due date, link, notification settings, adding and removing items. This is the level that takes the
+  edit lock described under [Edit locking](#edit-locking).
+- **Shallow** (`/tasks/{id}/checklist`, `TaskListChecklist.razor`) — the whole list as nothing but
+  tickable rows. The only thing it can change is whether an item is checked off, which is what lets it
+  show the entire list at once. It deliberately takes **no** edit lock: ticking items off is not an
+  editing session, and two people doing it at the same time is normal rather than a conflict. It still
+  goes through the same `PUT /api/tasks/{id}`, so it does respect someone else's lock — a save during
+  another user's deep edit comes back 409 and the checkbox snaps back to what the server holds.
+
+Rows that can't be ticked by hand render as disabled checkboxes: items whose completion follows a
+linked list (see above), and any list reached through a read-only share.
+
+### Group lists
+
+Setting `isGroup` marks a list as one that gathers other lists. It changes nothing about completion —
+the flag is purely about how the list is presented — but in the shallow checklist view a group list is
+rendered together with **every list its own items link to** via `linkedTaskListId`, each as its own
+card with its items tickable in place. Ticking an item there saves that member list, not the group,
+and the group's own linked row then follows it automatically through the usual completion resolution:
+check off the last item on a member list and the group's row for it ticks itself.
+
+Expansion goes exactly one level deep. A member that is itself a group list stays a single row rather
+than unfolding further, so one screen can't turn into an unbounded tree.
 
 ### Moving an item to another task list
 
