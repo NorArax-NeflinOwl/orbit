@@ -86,6 +86,9 @@ try
     builder.Services.AddOrbitData(builder.Configuration);
     builder.Services.AddOrbitHealthChecks(builder.Configuration);
 
+    // One place decides what a refused request looks like - see InvalidRequestExceptionHandler.
+    builder.Services.AddExceptionHandler<InvalidRequestExceptionHandler>();
+
     // Calendar event reminder emails (see CalendarEventReminderBackgroundService). SmtpEmailSender
     // itself just logs a warning and skips sending when Smtp:Host/Smtp:FromAddress aren't configured,
     // rather than failing startup - a fresh local checkout should still run without email set up.
@@ -204,6 +207,16 @@ try
     }
 
     app.UseSerilogRequestLogging();
+
+    // Inside the request logging above on purpose: a refused request is turned into its 400 before
+    // Serilog writes the access log line, so the log records the 400 the caller actually got rather
+    // than a 500 with a stack trace for what is ordinary, expected input.
+    app.UseExceptionHandler(new ExceptionHandlerOptions
+    {
+        // Anything InvalidRequestExceptionHandler doesn't claim falls through to here and keeps the
+        // empty 500 it has always produced, rather than needing a ProblemDetails body it never had.
+        ExceptionHandler = _ => Task.CompletedTask
+    });
     app.UseCors(webClientCorsPolicy);
     app.UseRateLimiter();
     app.UseAuthentication();

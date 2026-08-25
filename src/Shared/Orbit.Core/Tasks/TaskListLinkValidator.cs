@@ -1,3 +1,5 @@
+using Orbit.Core.Abstractions;
+
 namespace Orbit.Core.Tasks;
 
 /// <summary>
@@ -34,17 +36,17 @@ public sealed class TaskListLinkValidator
         {
             if (linkedListId == taskListId)
             {
-                throw new ArgumentException("A task list item can't link to the list it belongs to.");
+                throw new InvalidRequestException("A task list item can't link to the list it belongs to.");
             }
 
             if (!taskListsById.ContainsKey(linkedListId))
             {
-                throw new ArgumentException("A linked task list must exist and belong to the same user.");
+                throw new InvalidRequestException("A linked task list must exist and belong to the same user.");
             }
 
             if (taskListId is { } currentListId && Reaches(linkedListId, currentListId, taskListsById))
             {
-                throw new ArgumentException("This link would create a cycle between task lists.");
+                throw new InvalidRequestException("This link would create a cycle between task lists.");
             }
         }
     }

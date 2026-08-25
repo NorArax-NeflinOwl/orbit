@@ -93,7 +93,7 @@ public static class TaskEndpoints
             Guid id, ShareTaskListRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new ShareTaskListCommand(GetUserId(user), id, request.RecipientUserId, Enum.Parse<ShareAccessLevel>(request.AccessLevel, ignoreCase: true)),
+                new ShareTaskListCommand(GetUserId(user), id, request.RecipientUserId, RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
             return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared));
         });
@@ -135,9 +135,9 @@ public static class TaskEndpoints
                 item.DueDateUtc,
                 item.IsCompleted,
                 item.LinkedTaskListId,
-                Enum.Parse<NotificationChannel>(item.OverdueNotificationChannel, ignoreCase: true),
+                RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel"),
                 item.RemindDaily,
-                Enum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, ignoreCase: true),
+                RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel"),
                 item.DailyReminderTimeOfDay))
             .ToList();
 

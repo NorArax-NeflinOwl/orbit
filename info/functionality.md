@@ -183,6 +183,25 @@ own content fieldset (`_canEditContent`), not the separately-gated Guests sectio
 `Share`-tier recipient can still add guests while someone else holds the content lock, mirroring how
 those two sections are already independent for access-level purposes.
 
+## Refusing a request
+
+Anything that refuses what a caller asked for — domain validation (an event ending before it starts, a
+task list link that would close a cycle) or an endpoint reading a field by name (`accessLevel`, any
+`*NotificationChannel`, `frequency`) — throws `InvalidRequestException` (`Orbit.Core.Abstractions`).
+`InvalidRequestExceptionHandler`, registered once in `Program.cs`, turns every one of them into
+**`400` with `{ "message": "..." }`** and logs it at information level, since a refused request is the
+API working rather than failing.
+
+It is deliberately its own type rather than plain `ArgumentException`: the framework raises that one too
+when Orbit's own code passes something impossible, and those are faults that have to keep surfacing as
+500s instead of being reported to the caller as their mistake. Nothing else is mapped, so an unexpected
+exception still produces the empty 500 it always did.
+
+Enum-valued fields go through `RequestEnum.Parse`, which refuses a missing, misspelled, or
+numeric-but-undeclared value with a message naming the field and the values it accepts — `Enum.Parse`
+on its own turned a missing field into a null-argument fault and an unknown one into a message written
+for a programmer.
+
 ## Tasks
 
 `POST /api/tasks` and `PUT /api/tasks/{id}` both take `{ title, items, isGroup }`, where each item is
@@ -209,9 +228,8 @@ not completed; the only way to complete it is to complete every item on the list
 task list that exists and is owned by the same user, an item can't link to the list it belongs to, and
 a link can't close a cycle between task lists (directly, or transitively through a chain of other
 links) — either of the last two would make completion resolution loop forever without this check. A
-validation failure throws `ArgumentException`, which is not caught anywhere and surfaces as an
-unhandled 500, matching how `CalendarEvent`'s start-before-end validation already behaves in this
-codebase. The Blazor client's task editor only excludes linking a list to itself from its dropdown of
+validation failure throws `InvalidRequestException` and comes back as a **400 carrying the reason** —
+see [Refusing a request](#refusing-a-request). The Blazor client's task editor only excludes linking a list to itself from its dropdown of
 linkable lists; it does not check for longer cycles client-side, so building one still relies on the
 API's validation and surfaces as a failed save rather than a client-side error message — a known rough
 edge, not a silent gap (see [Future Plan](future-plan.md#known-scope-cuts-and-rough-edges)).
@@ -380,9 +398,9 @@ across the request body, because there are enough of them that flattening them o
 read — see `CalendarEventDetails` in `Orbit.Core.Calendar` for the same grouping on the domain side.
 
 `endUtc` can't be before `startUtc` (`CalendarEvent.ValidateTimeRange`) — checked both server-side, where
-a violation throws `ArgumentException` and surfaces as an unhandled 500, and client-side in
-`CalendarEventEditor.razor`, which shows an inline error instead of submitting a request that's bound to
-fail.
+a violation comes back as a 400 naming the rule (see [Refusing a request](#refusing-a-request)), and
+client-side in `CalendarEventEditor.razor`, which shows an inline error instead of submitting a request
+that's bound to fail.
 
 `location`, when present, is `{ address, latitude, longitude }` — `address` is optional (reverse
 geocoding can fail to resolve one), `latitude` and `longitude` are always required and validated to be

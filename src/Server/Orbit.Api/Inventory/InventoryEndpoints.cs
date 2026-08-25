@@ -52,20 +52,10 @@ public static class InventoryEndpoints
         warehouses.MapPut("/{warehouseId:guid}", async (
             Guid warehouseId, SaveWarehouseRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            try
-            {
-                var outcome = await dispatcher.SendAsync(
-                    new UpdateWarehouseCommand(GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items)),
-                    cancellationToken);
-                return ToApiResult(outcome);
-            }
-            catch (ArgumentException)
-            {
-                // ToDomainItems parses each item's notification channel by name; one that is missing or
-                // isn't a channel is the caller's mistake, and used to leave the request as an
-                // unhandled 500 rather than saying what was wrong.
-                return Results.BadRequest(new { message = "Each item needs a notification channel of \"None\", \"Email\", \"Push\", or \"Both\"." });
-            }
+            var outcome = await dispatcher.SendAsync(
+                new UpdateWarehouseCommand(GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items)),
+                cancellationToken);
+            return ToApiResult(outcome);
         });
 
         warehouses.MapDelete("/{warehouseId:guid}", async (
@@ -81,7 +71,7 @@ public static class InventoryEndpoints
             var outcome = await dispatcher.SendAsync(
                 new ShareWarehouseCommand(
                     GetUserId(user), warehouseId, request.RecipientUserId,
-                    Enum.Parse<ShareAccessLevel>(request.AccessLevel, ignoreCase: true)),
+                    RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
             return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared));
         });
@@ -156,7 +146,7 @@ public static class InventoryEndpoints
         => items
             .Select(item => new WarehouseItemInput(
                 item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity, item.ExpiryDate,
-                Enum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, ignoreCase: true)))
+                RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel")))
             .ToList();
 
     private static InventoryItemDto ToDto(InventoryItem item)
