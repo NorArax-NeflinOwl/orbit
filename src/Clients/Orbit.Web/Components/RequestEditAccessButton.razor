@@ -1,0 +1,86 @@
+@using System.Text.Json
+@using Orbit.Contracts.Chat
+@using Orbit.Web.Services
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject ILogger<RequestEditAccessButton> Logger
+
+@* Shown to someone holding read-only access to something that isn't theirs. Only the owner can widen
+   access, so this asks rather than does: it sends them an encrypted chat message carrying an "Allow
+   editing" action (see EditAccessRequestPayload and Chat.razor's handling of it). *@
+<div class="request-edit-access">
+    @if (_sent)
+    {
+        <p class="request-edit-access-sent">Asked @OwnerDisplayName. They'll see it in your chat.</p>
+    }
+    else
+    {
+        <button type="button" class="btn-secondary" disabled="@_isSending" @onclick="RequestAsync">
+            Ask to edit this
+        </button>
+    }
+    @if (_errorMessage is not null)
+    {
+        <p class="error">@_errorMessage</p>
+    }
+</div>
+
+@code {
+    /// <summary>One of "Note", "TaskList", "CalendarEvent", "Warehouse" - see Orbit.Core.Sharing.SharedItemType.</summary>
+    [Parameter]
+    [EditorRequired]
+    public string ItemType { get; set; } = string.Empty;
+
+    [Parameter]
+    [EditorRequired]
+    public Guid ItemId { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public string ItemTitle { get; set; } = string.Empty;
+
+    [Parameter]
+    [EditorRequired]
+    public Guid OwnerUserId { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public Guid OwnUserId { get; set; }
+
+    /// <summary>Only used in the confirmation - whose item this is, in the words the reader already saw on the page.</summary>
+    [Parameter]
+    public string OwnerDisplayName { get; set; } = "them";
+
+    private bool _isSending;
+    private bool _sent;
+    private string? _errorMessage;
+
+    private async Task RequestAsync()
+    {
+        _isSending = true;
+        _errorMessage = null;
+        try
+        {
+            var payloadJson = JsonSerializer.Serialize(new EditAccessRequestPayload(ItemType, ItemId, ItemTitle));
+
+            // Not marked as a share invitation: nothing has been shared, and the owner should hear about
+            // this the way they hear about any other message asking them for something.
+            await EncryptedChatMessageSender.SendAsync(OwnUserId, OwnerUserId, payloadJson);
+            _sent = true;
+        }
+        catch (InvalidOperationException)
+        {
+            // The owner has never signed in on a browser that made them a key, so there is nothing to
+            // encrypt for - the same wall Chat itself hits with such a user.
+            _errorMessage = "They haven't set up encryption yet, so they can't receive this.";
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to ask for edit access to {ItemType} {ItemId}", ItemType, ItemId);
+            _errorMessage = "Couldn't send the request. Try again.";
+        }
+        finally
+        {
+            _isSending = false;
+        }
+    }
+}

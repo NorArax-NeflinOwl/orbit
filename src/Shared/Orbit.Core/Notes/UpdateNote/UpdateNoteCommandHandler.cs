@@ -24,7 +24,7 @@ public sealed class UpdateNoteCommandHandler : IRequestHandler<UpdateNoteCommand
     public async Task<EditOutcome> HandleAsync(UpdateNoteCommand request, CancellationToken cancellationToken)
     {
         var note = await _noteAccessResolver.ResolveAsync(request.UserId, request.Id, cancellationToken);
-        if (note is null || note.AccessLevel != ShareAccessLevel.CanEdit)
+        if (note is null || !note.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
         }

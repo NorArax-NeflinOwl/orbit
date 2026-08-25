@@ -33,6 +33,12 @@ else
         <p class="shared-note-banner">
             This note was shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.
         </p>
+        @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
+        {
+            <RequestEditAccessButton ItemType="Note" ItemId="Id!.Value" ItemTitle="_formModel.Title"
+                                     OwnerUserId="ownerUserId" OwnUserId="_ownUserId"
+                                     OwnerDisplayName="@(_sharedByUserName ?? "them")" />
+        }
     }
 
     @if (_lockedByUserName is not null)
@@ -108,6 +114,10 @@ else
                 <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
                     <option value="ReadOnly">Read-only</option>
                     <option value="Share">Can share</option>
+                    @if (_canGrantEditOnly)
+                    {
+                        <option value="EditOnly">Can edit, but not share editing</option>
+                    }
                     @if (_canGrantCanEdit)
                     {
                         <option value="CanEdit">Can edit</option>
@@ -140,7 +150,8 @@ else
     private bool _isSharedReadOnly;
     private bool _canShare;
     private bool _canGrantCanEdit;
-    private string _accessLevel = "ReadOnly";
+    private bool _canGrantEditOnly;
+    private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
     private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private IReadOnlyList<ContactDto> _contacts = [];
@@ -176,12 +187,7 @@ else
             : _contacts;
 
     /// <summary>Explains what the current user can do with this shared copy, for the "shared by X" banner.</summary>
-    private string SharedAccessDescription => _accessLevel switch
-    {
-        "CanEdit" => "you can edit it",
-        "Share" => "you can share it further, but not edit it",
-        _ => "read-only"
-    };
+    private string SharedAccessDescription => _access.Description;
 
     protected override async Task OnInitializedAsync()
     {
@@ -203,10 +209,11 @@ else
                 {
                     _formModel = new NoteFormModel { Title = note.Title, Content = note.Content, IsPrivate = note.IsPrivate };
                     _isShared = note.IsShared;
-                    _isSharedReadOnly = note.IsShared && note.AccessLevel != "CanEdit";
-                    _canShare = !note.IsShared || note.AccessLevel is "CanEdit" or "Share";
-                    _canGrantCanEdit = !note.IsShared || note.AccessLevel == "CanEdit";
-                    _accessLevel = note.AccessLevel;
+                    _access = SharedItemAccess.For(note.IsShared, note.AccessLevel);
+                    _isSharedReadOnly = note.IsShared && !_access.CanEdit;
+                    _canShare = _access.CanShare;
+                    _canGrantCanEdit = _access.CanGrantCanEdit;
+                    _canGrantEditOnly = _access.CanGrantEditOnly;
                     _originalOwnerUserId = note.OriginalOwnerUserId;
                     _sharedByUserName = note.SharedByUserName;
 

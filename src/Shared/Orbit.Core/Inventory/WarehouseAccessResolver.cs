@@ -85,6 +85,6 @@ public sealed class WarehouseAccessResolver
     public async Task<Warehouse?> ResolveForEditAsync(Guid callerId, Guid warehouseId, CancellationToken cancellationToken)
     {
         var warehouse = await ResolveAsync(callerId, warehouseId, cancellationToken);
-        return warehouse?.AccessLevel == ShareAccessLevel.CanEdit ? warehouse : null;
+        return warehouse is not null && warehouse.AccessLevel.AllowsEditing() ? warehouse : null;
     }
 }

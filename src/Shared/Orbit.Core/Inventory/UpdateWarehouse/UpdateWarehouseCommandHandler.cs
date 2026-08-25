@@ -28,7 +28,7 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
     public async Task<EditOutcome> HandleAsync(UpdateWarehouseCommand request, CancellationToken cancellationToken)
     {
         var warehouse = await _warehouseAccessResolver.ResolveAsync(request.UserId, request.WarehouseId, cancellationToken);
-        if (warehouse is null || warehouse.AccessLevel != ShareAccessLevel.CanEdit)
+        if (warehouse is null || !warehouse.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
         }

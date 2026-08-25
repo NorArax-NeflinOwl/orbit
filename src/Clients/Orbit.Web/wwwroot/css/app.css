@@ -2665,3 +2665,15 @@ input.note-editor-title {
     color: var(--accent);
     border-color: var(--accent);
 }
+
+/* ---- Asking the owner for edit access (RequestEditAccessButton.razor) ---- */
+
+.request-edit-access {
+    margin: 0 0 16px;
+}
+
+.request-edit-access-sent {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
