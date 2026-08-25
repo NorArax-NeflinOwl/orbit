@@ -60,11 +60,11 @@ else
                 <button type="button" class="icon-btn" title="@(_isContactListCollapsed ? "Show names" : "Hide names")" @onclick="ToggleContactListCollapsed">
                     @if (_isContactListCollapsed)
                     {
-                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
                     }
                     else
                     {
-                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
                     }
                 </button>
             </div>
@@ -88,7 +88,7 @@ else
         <div class="chat-thread">
             <div class="chat-thread-header">
                 <button type="button" class="icon-btn chat-list-toggle" title="Conversations" @onclick="ToggleDrawer">
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
                 </button>
                 <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(_otherUser.Id);width:34px;height:34px;font-size:12.5px;">@AvatarHelper.GetInitials(_otherUser.DisplayName)</span>
                 <div>
@@ -166,7 +166,7 @@ else
                                         <div class="chat-bubble-menu">
                                             <button type="button" class="icon-btn chat-bubble-menu-trigger" title="Message options"
                                                     @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
-                                                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
                                             </button>
                                             @if (_openMessageMenuId == message.Id)
                                             {
@@ -238,7 +238,7 @@ else
                     {
                         <button type="button" class="chat-jump-to-newest" title="Jump to newest message"
                                 @onclick="ScrollToNewestMessageAsync" @onclick:stopPropagation="true">
-                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M10 4v12M5 11l5 5 5-5" />
                             </svg>
                         </button>

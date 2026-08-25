@@ -70,6 +70,22 @@ public sealed class CreateCalendarEventCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_rejects_an_out_of_range_location_with_a_message_fit_to_show_the_caller()
+    {
+        var handler = CreateHandler(new InMemoryCalendarEventRepository());
+        // The longitude a map click reports after panning two worlds east - what actually reached the
+        // API before mapPicker.js started wrapping the picked point.
+        var details = DefaultDetails with { Location = new EventLocation(null, 50.0617, 254.09) };
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => handler.HandleAsync(new CreateCalendarEventCommand(Guid.NewGuid(), details), CancellationToken.None));
+
+        // Returned verbatim as the 400 body (see CalendarEndpoints.ToValidationFailure), so it must read
+        // as a sentence rather than carrying .NET's "(Parameter 'details')" suffix.
+        Assert.Equal("A location's longitude must be between -180 and 180 degrees.", exception.Message);
+    }
+
+    [Fact]
     public async Task HandleAsync_emails_the_owner_when_notify_on_creation_is_enabled()
     {
         var userRepository = new InMemoryUserRepository();
