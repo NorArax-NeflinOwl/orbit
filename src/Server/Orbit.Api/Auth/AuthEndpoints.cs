@@ -4,6 +4,9 @@ using Orbit.Core.Abstractions;
 using Orbit.Core.Users;
 using Orbit.Core.Users.Login;
 using Orbit.Core.Users.RegisterUser;
+using Orbit.Core.Users.RequestPasswordReset;
+using Orbit.Core.Users.SignInWithGoogle;
+using Orbit.Core.Users.ResetPassword;
 
 namespace Orbit.Api.Auth;
 
@@ -43,6 +46,37 @@ public static class AuthEndpoints
             return user is null
                 ? Results.Unauthorized()
                 : Results.Ok(await ToAuthResponseAsync(user, tokenService, refreshTokenService, cancellationToken));
+        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
+
+        // Registration and login in one gesture: the browser has already obtained a Google ID token, and
+        // whether that identity is new to Orbit is the server's business, not something the user picks.
+        auth.MapPost("/google", async (
+            GoogleSignInRequest request, IDispatcher dispatcher, TokenService tokenService,
+            RefreshTokenService refreshTokenService, CancellationToken cancellationToken) =>
+        {
+            var user = await dispatcher.SendAsync(new SignInWithGoogleCommand(request.IdToken), cancellationToken);
+            return user is null
+                ? Results.Unauthorized()
+                : Results.Ok(await ToAuthResponseAsync(user, tokenService, refreshTokenService, cancellationToken));
+        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
+
+        // Anonymous by necessity - the whole point is that the caller can't sign in. Rate-limited with the
+        // same budget as login: both take a user-supplied identifier and a guessable secret.
+        auth.MapPost("/password-reset", async (
+            RequestPasswordResetRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(new RequestPasswordResetCommand(request.EmailOrUserName), cancellationToken);
+            // Always NoContent, whether or not that account exists or has a verified address - see
+            // RequestPasswordResetCommand for why this endpoint must not be an account-existence oracle.
+            return Results.NoContent();
+        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
+
+        auth.MapPost("/password-reset/confirm", async (
+            ResetPasswordRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var reset = await dispatcher.SendAsync(
+                new ResetPasswordCommand(request.EmailOrUserName, request.Code, request.NewPassword), cancellationToken);
+            return reset ? Results.NoContent() : Results.BadRequest(new { message = "That code isn't valid any more. Request a new one." });
         }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
 
         auth.MapPost("/refresh", async (

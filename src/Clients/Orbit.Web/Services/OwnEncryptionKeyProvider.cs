@@ -132,6 +132,34 @@ public sealed class OwnEncryptionKeyProvider
         }
     }
 
+    /// <summary>
+    /// Re-encrypts the server-side private key backup under a new password, which a password change must
+    /// do or the backup silently stops being openable: it stays wrapped under the old password, so the
+    /// next browser to sign in would fail to restore it and generate a fresh key pair instead, leaving
+    /// every earlier message unreadable there.
+    ///
+    /// Only the browser can do this - the server never sees the private key. Best-effort by design: a
+    /// browser with no local key and no working backup has nothing to re-wrap, and the password change
+    /// itself has already happened either way, so this reports rather than throws.
+    /// </summary>
+    public async Task RewrapAsync(string currentPassword, string newPassword)
+    {
+        var ownUserId = await GetOwnUserIdAsync();
+        await using var cryptoModule = await ImportCryptoModuleAsync();
+
+        // Prefer this browser's own key; fall back to restoring the backup with the password the user
+        // just proved they know, which covers changing the password from a browser that never had one.
+        if (!await cryptoModule.InvokeAsync<bool>("hasOwnPrivateKey", ownUserId))
+        {
+            await RestoreOrGeneratePrivateKeyAsync(cryptoModule, ownUserId, currentPassword);
+        }
+
+        _publicKeyBase64 = await cryptoModule.InvokeAsync<string>("ensureOwnPublicKey", ownUserId);
+        _cachedForUserId = ownUserId;
+
+        await BackUpPrivateKeyAsync(cryptoModule, ownUserId, newPassword);
+    }
+
     private async Task BackUpPrivateKeyAsync(IJSObjectReference cryptoModule, Guid ownUserId, string password)
     {
         var wrappedPrivateKey = await cryptoModule.InvokeAsync<WrappedPrivateKeyDto?>(

@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
+using Orbit.Contracts.Config;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Xunit;
@@ -22,6 +23,17 @@ public sealed class RegisterTests : TestContext
     public RegisterTests()
     {
         Services.AddSingleton(_tokenStore);
+        // Google sign-in is unconfigured in tests, so GoogleSignInButton renders nothing and these tests
+        // stay about the password form. A StubHttpMessageHandler rather than a real HttpClient: an actual
+        // (unreachable) request would add real wall-clock time to every render here.
+        Services.AddSingleton(new ClientFlagsApiClient(new HttpClient(
+            new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new ClientFlagsDto(ExceptionDetailsAllowed: false, GoogleClientId: string.Empty))
+            }))
+        { BaseAddress = new Uri("https://example.test/") }));
+
+
         var refreshHttpClient = new HttpClient(
             new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)))
         {
@@ -67,9 +79,13 @@ public sealed class RegisterTests : TestContext
         cut.Find("#userName").Change("newuser");
         cut.Find("#displayName").Change("New User");
         cut.Find("#password").Change("s3cret-password");
+        cut.Find("#repeatPassword").Change("s3cret-password");
         cut.Find("form").Submit();
 
         Assert.EndsWith("/", navigationManager.Uri);
+        // Asserted separately because the dashboard's own URL is the base URL: EndsWith("/") alone is
+        // just as true when the form never submitted at all.
+        Assert.Empty(cut.FindAll(".error"));
     }
 
     [Fact]
@@ -82,9 +98,32 @@ public sealed class RegisterTests : TestContext
         cut.Find("#userName").Change("takenname");
         cut.Find("#displayName").Change("Someone");
         cut.Find("#password").Change("password");
+        cut.Find("#repeatPassword").Change("password");
         cut.Find("form").Submit();
 
         Assert.Contains("That email or username is already taken.", cut.Markup);
+    }
+
+    [Fact]
+    public void Submitting_two_different_passwords_shows_an_error_without_calling_the_api()
+    {
+        var apiWasCalled = false;
+        RegisterAuthApiClient(_ =>
+        {
+            apiWasCalled = true;
+            return JsonResponse(CreateAuthResponse("new@example.com", "New User"));
+        });
+
+        var cut = RenderComponent<Register>();
+        cut.Find("#email").Change("new@example.com");
+        cut.Find("#userName").Change("newuser");
+        cut.Find("#displayName").Change("New User");
+        cut.Find("#password").Change("s3cret-password");
+        cut.Find("#repeatPassword").Change("s3cret-passwrod");
+        cut.Find("form").Submit();
+
+        Assert.Contains("The two passwords don't match.", cut.Markup);
+        Assert.False(apiWasCalled);
     }
 
     private void RegisterAuthApiClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

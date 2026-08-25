@@ -25,6 +25,9 @@ internal sealed class InMemoryUserRepository : IUserRepository
         return Task.CompletedTask;
     }
 
+    public Task<User?> GetByGoogleSubjectIdAsync(string googleSubjectId, CancellationToken cancellationToken)
+        => Task.FromResult(_users.FirstOrDefault(user => user.GoogleSubjectId == googleSubjectId));
+
     public Task UpdateAsync(User user, CancellationToken cancellationToken)
     {
         // Handlers mutate the same User instance this repository already holds a reference to, so

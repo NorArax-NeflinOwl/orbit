@@ -26,7 +26,14 @@ public sealed class LoginQueryHandler : IRequestHandler<LoginQuery, User?>
             return null;
         }
 
-        return _passwordHasher.Verify(request.Password, user.PasswordHash) ? user : null;
+        // A Google account that has never set a password has nothing to check a password against, so no
+        // password can ever be right for it - refused here rather than handed as null to the hasher.
+        if (user.PasswordHash is not { } passwordHash)
+        {
+            return null;
+        }
+
+        return _passwordHasher.Verify(request.Password, passwordHash) ? user : null;
     }
 
     /// <summary>

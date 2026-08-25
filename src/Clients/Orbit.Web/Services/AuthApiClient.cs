@@ -35,6 +35,46 @@ public sealed class AuthApiClient
         return await StoreTokensAndSucceedAsync(response, cancellationToken);
     }
 
+    /// <summary>
+    /// Signs in with a Google ID token, which registers the account on first use - the browser can't tell
+    /// the two apart, and neither should the caller (see SignInWithGoogleCommandHandler).
+    /// </summary>
+    public async Task<AuthResult> SignInWithGoogleAsync(string idToken, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/auth/google", new GoogleSignInRequest(idToken), cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return AuthResult.InvalidCredentials();
+        }
+
+        return await StoreTokensAndSucceedAsync(response, cancellationToken);
+    }
+
+    /// <summary>Requests a password-reset code by email. Reports nothing about the account - see RequestPasswordResetCommand.</summary>
+    public async Task RequestPasswordResetAsync(string emailOrUserName, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/auth/password-reset", new RequestPasswordResetRequest(emailOrUserName), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>False when the code is wrong, expired, already used, or out of attempts.</summary>
+    public async Task<bool> ResetPasswordAsync(
+        string emailOrUserName, string code, string newPassword, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/auth/password-reset/confirm", new ResetPasswordRequest(emailOrUserName, code, newPassword), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
     public async Task<AuthResult> LoginAsync(string emailOrUserName, string password, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(

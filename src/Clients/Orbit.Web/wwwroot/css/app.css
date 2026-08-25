@@ -851,6 +851,25 @@ input.note-editor-title {
     color: var(--text-primary);
 }
 
+/* Options.razor's "Delete account" button - the app's one irreversible, destructive action. */
+.btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--danger);
+    color: var(--accent-on);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-weight: 600;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+.btn-danger:hover {
+    opacity: 0.9;
+}
+
 /* Flat card - the app's one content-container style: 1px border, no shadow, no left-border accent
    stripe. Used for dashboard sections, task lists, options groups, etc. */
 .card {
@@ -1638,6 +1657,16 @@ input.note-editor-title {
     overflow: hidden;
 }
 
+/* Options.razor's "Danger zone" card - a --danger border instead of .options-card's plain one, since
+   this is the one section on the page where a wrong click is irreversible (see .lock-banner for the
+   same --danger-on-elevated treatment applied to a different kind of warning). */
+.options-card-danger {
+    background: color-mix(in oklch, var(--danger) 6%, var(--bg-elevated));
+    border: 1px solid var(--danger);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
 .options-row {
     display: flex;
     align-items: center;
@@ -2184,4 +2213,93 @@ input.note-editor-title {
     border-radius: 12px;
     padding: 6px;
     max-width: 640px;
+}
+
+/* Options.razor's Account section: rows that hold a form rather than a label + single control, so they
+   stack instead of putting the control on the right. */
+.options-row-stacked {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+
+.options-row-stacked .form-actions {
+    margin-top: 0;
+}
+
+/* Whether the account's address has been proved readable - see Orbit.Core.Users.User.EmailVerifiedAtUtc. */
+.verified-badge,
+.unverified-badge {
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    vertical-align: middle;
+}
+
+.verified-badge {
+    background: var(--accent-subtle);
+    color: var(--accent);
+}
+
+.unverified-badge {
+    background: var(--bg-subtle);
+    color: var(--text-tertiary);
+}
+
+/* Login/Register: separates the password form from the Google button so the two read as alternatives
+   rather than as steps of one flow. */
+.auth-divider {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    max-width: 640px;
+    margin: 18px 0;
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    background: var(--border);
+    content: "";
+    flex: 1;
+    height: 1px;
+}
+
+/* Google draws the button itself inside this container - see googleSignIn.js. */
+.google-signin-button {
+    min-height: 40px;
+}
+
+/* Chat.razor's password gate - the form standing between a signed-in user and an encrypted conversation. */
+.chat-key-gate {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 520px;
+    padding: 22px 24px;
+}
+
+.chat-key-gate h2 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.chat-key-gate p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+}
+
+/* The "you can't get this back" notices, which have to be read rather than skimmed past. */
+.chat-key-gate-warning {
+    background: var(--bg-subtle);
+    border-left: 3px solid var(--danger);
+    border-radius: 6px;
+    padding: 10px 12px;
 }

@@ -33,6 +33,10 @@
              password field needs a plain <input> with a manual two-way binding instead. -->
         <input type="password" id="password" @bind="_formModel.Password" />
     </div>
+    <div class="field">
+        <label>Repeat password</label>
+        <input type="password" id="repeatPassword" @bind="_formModel.RepeatPassword" />
+    </div>
     <div class="form-actions">
         <button type="submit" class="btn-primary" disabled="@_isSubmitting">Register</button>
     </div>
@@ -43,6 +47,8 @@
     <p class="error">@_errorMessage</p>
 }
 
+<GoogleSignInButton OnCredential="SignInWithGoogleAsync" ShowDivider="true" />
+
 <p>Already have an account? <a href="/login">Log in</a></p>
 
 @code {
@@ -52,6 +58,14 @@
 
     private async Task SubmitAsync()
     {
+        // Checked here rather than server-side: it guards against a typo in this form, which is a
+        // property of the form, not of the account being created.
+        if (_formModel.Password != _formModel.RepeatPassword)
+        {
+            _errorMessage = "The two passwords don't match.";
+            return;
+        }
+
         _isSubmitting = true;
         _errorMessage = null;
 
@@ -123,5 +137,38 @@
         public string UserName { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string RepeatPassword { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// One handler for both signing in and registering with Google: the browser gesture is identical and
+    /// the server decides whether this identity is new (see SignInWithGoogleCommandHandler).
+    /// </summary>
+    private async Task SignInWithGoogleAsync(string idToken)
+    {
+        _errorMessage = null;
+        AuthResult result;
+        try
+        {
+            result = await AuthApiClient.SignInWithGoogleAsync(idToken);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Google sign-in failed");
+            _errorMessage = "Couldn't sign in with Google. Try again.";
+            return;
+        }
+
+        if (result.Outcome != AuthOutcome.Success)
+        {
+            _errorMessage = "Couldn't sign in with Google. Try again.";
+            return;
+        }
+
+        // Deliberately no UnlockOrCreateAsync here, unlike the password paths: a Google account may have
+        // no password at all, so there is nothing to wrap a chat key with yet. Chat asks for one when it
+        // is actually needed - see Chat.razor's password gate.
+        AuthenticationStateProvider.NotifyAuthenticationStateChanged();
+        NavigationManager.NavigateTo("/");
     }
 }

@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
+using Orbit.Contracts.Config;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Xunit;
@@ -22,6 +23,17 @@ public sealed class LoginTests : TestContext
     public LoginTests()
     {
         Services.AddSingleton(_tokenStore);
+        // Google sign-in is unconfigured in tests, so GoogleSignInButton renders nothing and these tests
+        // stay about the password form. A StubHttpMessageHandler rather than a real HttpClient: an actual
+        // (unreachable) request would add real wall-clock time to every render here.
+        Services.AddSingleton(new ClientFlagsApiClient(new HttpClient(
+            new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new ClientFlagsDto(ExceptionDetailsAllowed: false, GoogleClientId: string.Empty))
+            }))
+        { BaseAddress = new Uri("https://example.test/") }));
+
+
         var refreshHttpClient = new HttpClient(
             new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)))
         {

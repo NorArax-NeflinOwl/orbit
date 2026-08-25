@@ -2,10 +2,18 @@
 @attribute [Authorize]
 @implements IDisposable
 @using Orbit.Contracts.Notifications
+@using Orbit.Contracts.Users
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
 @inject PushNotificationManager PushNotificationManager
 @inject NotificationsApiClient NotificationsApiClient
+@inject ClientFlagsApiClient ClientFlagsApiClient
+@inject UsersApiClient UsersApiClient
+@inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
+@inject AuthApiClient AuthApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @inject ILogger<Options> Logger
 
 <PageTitle>Orbit — Options</PageTitle>
@@ -13,11 +21,136 @@
 <div class="page-header">
     <div>
         <h1>Options</h1>
-        <p class="page-subtitle">Appearance and notification preferences.</p>
+        <p class="page-subtitle">Your account, appearance, and notification preferences.</p>
     </div>
 </div>
 
 <div class="options-page">
+    <div class="options-section">
+        <h2 class="options-heading">Account</h2>
+        <p class="options-subtext">Your profile, sign-in address, and password.</p>
+        <div class="options-card">
+            <div class="options-row options-row-stacked">
+                <div class="field">
+                    <label for="displayNameInput">Display name</label>
+                    <input id="displayNameInput" @bind="_profileForm.DisplayName" />
+                </div>
+                <div class="field">
+                    <label for="userNameInput">Username</label>
+                    <input id="userNameInput" @bind="_profileForm.UserName" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-primary" disabled="@_isSavingProfile" @onclick="SaveProfileAsync">Save profile</button>
+                </div>
+                @if (_profileMessage is not null)
+                {
+                    <p class="@(_profileFailed ? "error" : "info")">@_profileMessage</p>
+                }
+            </div>
+
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">
+                        Email address
+                        @if (_account?.IsEmailVerified == true)
+                        {
+                            <span class="verified-badge">Verified</span>
+                        }
+                        else
+                        {
+                            <span class="unverified-badge">Not verified</span>
+                        }
+                    </div>
+                    <div class="options-row-desc">
+                        A verified address is what a password reset is sent to, so it has to be one you can read.
+                        Entering a different address here changes the account's address - but only once you confirm the code sent to it.
+                    </div>
+                </div>
+                <div class="field">
+                    <input id="emailInput" @bind="_emailForm.EmailAddress" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">Send code</button>
+                </div>
+                @if (_codeSent)
+                {
+                    <div class="field">
+                        <label for="emailCodeInput">Code from the email</label>
+                        <input id="emailCodeInput" inputmode="numeric" autocomplete="one-time-code" @bind="_emailForm.Code" />
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" disabled="@_isConfirmingCode" @onclick="ConfirmEmailCodeAsync">Confirm</button>
+                    </div>
+                }
+                @if (_emailMessage is not null)
+                {
+                    <p class="@(_emailFailed ? "error" : "info")">@_emailMessage</p>
+                }
+            </div>
+
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">
+                        Google
+                        @if (_account?.IsGoogleLinked == true)
+                        {
+                            <span class="verified-badge">Connected</span>
+                        }
+                    </div>
+                    <div class="options-row-desc">
+                        Connecting Google lets you sign in with it as well as with your password.
+                        @if (_account?.HasPassword == false)
+                        {
+                            <text>Your account has no password yet, so Google is currently the only way in - set one below before disconnecting.</text>
+                        }
+                    </div>
+                </div>
+                @if (_account?.IsGoogleLinked == true)
+                {
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" disabled="@_isChangingGoogleLink" @onclick="UnlinkGoogleAsync">Disconnect</button>
+                    </div>
+                }
+                else
+                {
+                    <GoogleSignInButton OnCredential="LinkGoogleAsync" />
+                }
+                @if (_googleMessage is not null)
+                {
+                    <p class="@(_googleFailed ? "error" : "info")">@_googleMessage</p>
+                }
+            </div>
+
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">Password</div>
+                    <div class="options-row-desc">
+                        Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere.
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="currentPasswordInput">Current password</label>
+                    <input type="password" id="currentPasswordInput" @bind="_passwordForm.CurrentPassword" />
+                </div>
+                <div class="field">
+                    <label for="newPasswordInput">New password</label>
+                    <input type="password" id="newPasswordInput" @bind="_passwordForm.NewPassword" />
+                </div>
+                <div class="field">
+                    <label for="repeatNewPasswordInput">Repeat new password</label>
+                    <input type="password" id="repeatNewPasswordInput" @bind="_passwordForm.RepeatNewPassword" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-primary" disabled="@_isChangingPassword" @onclick="ChangePasswordAsync">Change password</button>
+                </div>
+                @if (_passwordMessage is not null)
+                {
+                    <p class="@(_passwordFailed ? "error" : "info")">@_passwordMessage</p>
+                }
+            </div>
+        </div>
+    </div>
+
     <div class="options-section">
         <h2 class="options-heading">Appearance</h2>
         <p class="options-subtext">Choose how Orbit looks on this device.</p>
@@ -159,6 +292,33 @@
             </div>
         </div>
     }
+
+    <div class="options-section">
+        <h2 class="options-heading">Danger zone</h2>
+        <p class="options-subtext">Deleting your account is permanent and cannot be undone.</p>
+        <div class="options-card options-card-danger">
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">Delete account</div>
+                    <div class="options-row-desc">
+                        Permanently deletes your account and everything in it - notes, tasks, calendar events,
+                        inventory, and chat history. This cannot be undone.
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="deleteAccountPasswordInput">Password</label>
+                    <input type="password" id="deleteAccountPasswordInput" @bind="_deleteAccountForm.Password" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">Delete account</button>
+                </div>
+                @if (_deleteAccountMessage is not null)
+                {
+                    <p class="@(_deleteAccountFailed ? "error" : "info")">@_deleteAccountMessage</p>
+                }
+            </div>
+        </div>
+    </div>
 </div>
 
 @code {
@@ -174,8 +334,37 @@
     /// <summary>Server-environment gate (see ClientFlagsDto) on top of _notificationSettings.ShowExceptionDetails - the Diagnostics section only ever renders when both agree, so Production never shows it regardless of what an account has stored.</summary>
     private bool _exceptionDetailsAllowedByServer;
 
+    private AccountDto? _account;
+    private readonly ProfileFormModel _profileForm = new();
+    private readonly EmailFormModel _emailForm = new();
+    private readonly PasswordFormModel _passwordForm = new();
+
+    private bool _isSavingProfile;
+    private string? _profileMessage;
+    private bool _profileFailed;
+
+    private bool _isSendingCode;
+    private bool _isConfirmingCode;
+    private bool _codeSent;
+    private string? _emailMessage;
+    private bool _emailFailed;
+
+    private bool _isChangingGoogleLink;
+    private string? _googleMessage;
+    private bool _googleFailed;
+
+    private bool _isChangingPassword;
+    private string? _passwordMessage;
+    private bool _passwordFailed;
+
+    private readonly DeleteAccountFormModel _deleteAccountForm = new();
+    private bool _isDeletingAccount;
+    private string? _deleteAccountMessage;
+    private bool _deleteAccountFailed;
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadAccountAsync();
         ThemeService.Changed += OnThemeChanged;
         await RefreshPushNotificationStateAsync();
         await RefreshNotificationSettingsAsync();
@@ -186,7 +375,7 @@
         try
         {
             _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
-            _exceptionDetailsAllowedByServer = await NotificationsApiClient.GetExceptionDetailsAllowedAsync();
+            _exceptionDetailsAllowedByServer = await ClientFlagsApiClient.GetExceptionDetailsAllowedAsync();
         }
         catch (HttpRequestException exception)
         {
@@ -312,5 +501,290 @@
     public void Dispose()
     {
         ThemeService.Changed -= OnThemeChanged;
+    }
+
+    private async Task LoadAccountAsync()
+    {
+        try
+        {
+            _account = await UsersApiClient.GetAccountAsync();
+            if (_account is not null)
+            {
+                _profileForm.DisplayName = _account.DisplayName;
+                _profileForm.UserName = _account.UserName;
+                _emailForm.EmailAddress = _account.Email;
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load the account profile");
+        }
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        _isSavingProfile = true;
+        _profileMessage = null;
+        try
+        {
+            var error = await UsersApiClient.UpdateProfileAsync(_profileForm.DisplayName, _profileForm.UserName);
+            _profileFailed = error is not null;
+            _profileMessage = error ?? "Profile saved.";
+            if (error is null)
+            {
+                await LoadAccountAsync();
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to save the account profile");
+            _profileFailed = true;
+            _profileMessage = "Couldn't save your profile. Try again.";
+        }
+        finally
+        {
+            _isSavingProfile = false;
+        }
+    }
+
+    /// <summary>
+    /// Sends a code to whatever address is in the box - the account's own (to verify it) or a new one (to
+    /// change to it). Nothing about the account changes until the code comes back confirmed.
+    /// </summary>
+    private async Task SendEmailCodeAsync()
+    {
+        _isSendingCode = true;
+        _emailMessage = null;
+        try
+        {
+            var error = await UsersApiClient.RequestEmailVerificationAsync(_emailForm.EmailAddress);
+            _emailFailed = error is not null;
+            _codeSent = error is null;
+            _emailMessage = error ?? $"Code sent to {_emailForm.EmailAddress.Trim()}. It expires in 15 minutes.";
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to request an email verification code");
+            _emailFailed = true;
+            _emailMessage = "Couldn't send the code. Try again.";
+        }
+        finally
+        {
+            _isSendingCode = false;
+        }
+    }
+
+    private async Task ConfirmEmailCodeAsync()
+    {
+        _isConfirmingCode = true;
+        _emailMessage = null;
+        try
+        {
+            var confirmed = await UsersApiClient.ConfirmEmailVerificationAsync(_emailForm.Code);
+            _emailFailed = !confirmed;
+            _emailMessage = confirmed ? "Email address confirmed." : "That code isn't valid any more. Request a new one.";
+            if (confirmed)
+            {
+                _codeSent = false;
+                _emailForm.Code = string.Empty;
+                await LoadAccountAsync();
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to confirm an email verification code");
+            _emailFailed = true;
+            _emailMessage = "Couldn't confirm the code. Try again.";
+        }
+        finally
+        {
+            _isConfirmingCode = false;
+        }
+    }
+
+    /// <summary>
+    /// Changes the password, then re-wraps the chat key backup under it - see
+    /// OwnEncryptionKeyProvider.RewrapAsync for why skipping that would quietly cost the user their
+    /// message history on their next device.
+    /// </summary>
+    private async Task ChangePasswordAsync()
+    {
+        if (_passwordForm.NewPassword != _passwordForm.RepeatNewPassword)
+        {
+            _passwordFailed = true;
+            _passwordMessage = "The two new passwords don't match.";
+            return;
+        }
+
+        _isChangingPassword = true;
+        _passwordMessage = null;
+        try
+        {
+            var changed = await UsersApiClient.ChangePasswordAsync(_passwordForm.CurrentPassword, _passwordForm.NewPassword);
+            _passwordFailed = !changed;
+            if (!changed)
+            {
+                _passwordMessage = "That current password isn't right.";
+                return;
+            }
+
+            await RewrapChatKeyAsync();
+            _passwordMessage = "Password changed.";
+            _passwordForm.Clear();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to change the password");
+            _passwordFailed = true;
+            _passwordMessage = "Couldn't change your password. Try again.";
+        }
+        finally
+        {
+            _isChangingPassword = false;
+        }
+    }
+
+    /// <summary>
+    /// Best-effort, and deliberately not fatal: the password has already changed by this point, so a
+    /// browser that has no key to re-wrap should report that rather than pretend the change failed.
+    /// </summary>
+    private async Task RewrapChatKeyAsync()
+    {
+        try
+        {
+            await OwnEncryptionKeyProvider.RewrapAsync(_passwordForm.CurrentPassword, _passwordForm.NewPassword);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to re-wrap the chat key backup after a password change");
+        }
+    }
+
+    /// <summary>
+    /// Asks for an explicit confirm() on top of the password already required (see DeleteAccountRequest) -
+    /// the one truly irreversible action on this page gets a stronger guard than the rest. On success the
+    /// account and everything it owns is already gone server-side; this only drops the local session and
+    /// sends the browser to /login, mirroring MainLayout.LogoutAsync.
+    /// </summary>
+    private async Task DeleteAccountAsync()
+    {
+        if (string.IsNullOrEmpty(_deleteAccountForm.Password))
+        {
+            _deleteAccountFailed = true;
+            _deleteAccountMessage = "Enter your password to confirm.";
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            "Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        _isDeletingAccount = true;
+        _deleteAccountMessage = null;
+        try
+        {
+            var deleted = await UsersApiClient.DeleteAccountAsync(_deleteAccountForm.Password);
+            if (!deleted)
+            {
+                _deleteAccountFailed = true;
+                _deleteAccountMessage = "That password isn't right.";
+                return;
+            }
+
+            await AuthApiClient.LogoutAsync();
+            AuthenticationStateProvider.NotifyAuthenticationStateChanged();
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to delete the account");
+            _deleteAccountFailed = true;
+            _deleteAccountMessage = "Couldn't delete your account. Try again.";
+        }
+        finally
+        {
+            _isDeletingAccount = false;
+        }
+    }
+
+    private async Task LinkGoogleAsync(string idToken)
+    {
+        _isChangingGoogleLink = true;
+        _googleMessage = null;
+        try
+        {
+            var error = await UsersApiClient.LinkGoogleAsync(idToken);
+            _googleFailed = error is not null;
+            _googleMessage = error ?? "Google connected.";
+            await LoadAccountAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to connect Google");
+            _googleFailed = true;
+            _googleMessage = "Couldn't connect Google. Try again.";
+        }
+        finally
+        {
+            _isChangingGoogleLink = false;
+        }
+    }
+
+    private async Task UnlinkGoogleAsync()
+    {
+        _isChangingGoogleLink = true;
+        _googleMessage = null;
+        try
+        {
+            var error = await UsersApiClient.UnlinkGoogleAsync();
+            _googleFailed = error is not null;
+            _googleMessage = error ?? "Google disconnected.";
+            await LoadAccountAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to disconnect Google");
+            _googleFailed = true;
+            _googleMessage = "Couldn't disconnect Google. Try again.";
+        }
+        finally
+        {
+            _isChangingGoogleLink = false;
+        }
+    }
+
+    private sealed class ProfileFormModel
+    {
+        public string DisplayName { get; set; } = string.Empty;
+        public string UserName { get; set; } = string.Empty;
+    }
+
+    private sealed class DeleteAccountFormModel
+    {
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private sealed class EmailFormModel
+    {
+        public string EmailAddress { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+    }
+
+    private sealed class PasswordFormModel
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+        public string RepeatNewPassword { get; set; } = string.Empty;
+
+        public void Clear()
+        {
+            CurrentPassword = string.Empty;
+            NewPassword = string.Empty;
+            RepeatNewPassword = string.Empty;
+        }
     }
 }
