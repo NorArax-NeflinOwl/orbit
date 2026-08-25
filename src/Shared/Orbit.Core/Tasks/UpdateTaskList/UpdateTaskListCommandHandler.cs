@@ -36,7 +36,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         // TaskListLinkValidator has always validated against.
         await _taskListLinkValidator.ValidateAsync(taskList.UserId, request.Id, request.Items, cancellationToken);
 
-        taskList.Update(request.Title, request.Items);
+        taskList.Update(request.Title, request.Items, request.IsGroup);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
         return EditOutcome.Success;
     }

@@ -21,6 +21,14 @@ public sealed class TaskList
     /// </summary>
     public bool IsCompleted { get; private set; }
 
+    /// <summary>
+    /// Marks this list as one that gathers other lists: the lists its items link to are its members,
+    /// and the checklist view renders them inline underneath it so the whole group can be worked
+    /// through in one place. Purely a presentation flag - completion still follows the same rules,
+    /// with each linked item resolving to its list's completion (see LinkedTaskCompletionResolver).
+    /// </summary>
+    public bool IsGroup { get; private set; }
+
     /// <summary>The user id currently holding the edit lock, if any - see AcquireLock/ReleaseLock.</summary>
     public Guid? LockedByUserId { get; private set; }
 
@@ -43,13 +51,14 @@ public sealed class TaskList
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
     private TaskList(
-        Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
         UserId = userId;
         Title = title;
         Items = items;
+        IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(items);
         LockedByUserId = lockedByUserId;
         LockedByUserName = lockedByUserName;
@@ -58,17 +67,19 @@ public sealed class TaskList
         UpdatedAtUtc = updatedAtUtc;
     }
 
-    public static TaskList Create(Guid userId, string title, IReadOnlyList<TaskItem> items)
+    public static TaskList Create(Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false)
     {
         var now = DateTimeOffset.UtcNow;
-        return new TaskList(Guid.NewGuid(), userId, title, items, now, now, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
+        return new TaskList(
+            Guid.NewGuid(), userId, title, items, isGroup, now, now,
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
     }
 
     /// <summary>Rebuilds a task list from already-persisted values, bypassing creation rules.</summary>
     public static TaskList FromPersistence(
-        Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
-        => new(id, userId, title, items, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+        => new(id, userId, title, items, isGroup, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
 
     /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
     public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
@@ -79,14 +90,17 @@ public sealed class TaskList
     }
 
     /// <summary>
-    /// Replaces the title and the whole checklist, then recomputes <see cref="IsCompleted"/> from the
-    /// new items. Callers are expected to have already checked AccessLevel is CanEdit and the list isn't
-    /// locked by someone else - see UpdateTaskListCommandHandler.
+    /// Replaces the title, the whole checklist and the grouping flag, then recomputes
+    /// <see cref="IsCompleted"/> from the new items. Callers are expected to have already checked
+    /// AccessLevel is CanEdit and the list isn't locked by someone else - see
+    /// UpdateTaskListCommandHandler. <paramref name="isGroup"/> has no default on purpose: this
+    /// replaces the whole list, so a caller that forgot it would silently un-group the list.
     /// </summary>
-    public void Update(string title, IReadOnlyList<TaskItem> items)
+    public void Update(string title, IReadOnlyList<TaskItem> items, bool isGroup)
     {
         Title = title;
         Items = items;
+        IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(items);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }

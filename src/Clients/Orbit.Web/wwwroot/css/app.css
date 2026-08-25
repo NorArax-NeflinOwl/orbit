@@ -352,6 +352,15 @@ input.note-editor-title {
     padding: 20px 16px;
     gap: 4px;
     transition: width .18s ease;
+    /* Pinned to the viewport instead of stretching with the page. Without this the sidebar grows to
+       the full document height, taking the avatar in .sidebar-footer with it - on a long page that
+       puts it an entire scroll away, even though navigation is meant to stay reachable throughout.
+       align-self keeps the flex container from stretching it back to full height, which would
+       cancel the sticky behaviour. */
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    align-self: flex-start;
 }
 
 .sidebar-logo {
@@ -380,6 +389,9 @@ input.note-editor-title {
     flex-direction: column;
     gap: 2px;
     flex: 1;
+    /* Scrolls within the pinned sidebar rather than pushing the footer avatar past the bottom edge
+       when the viewport is short. */
+    overflow-y: auto;
 }
 
 .nav-item {
@@ -918,6 +930,10 @@ input.note-editor-title {
         flex: 0 0 auto;
         flex-direction: row;
         align-items: center;
+        /* Undoes the desktop full-height pinning: here the sidebar is a top bar that sticks to the
+           top of a column layout, so it has to be as tall as its own content. */
+        height: auto;
+        align-self: auto;
         padding: 10px 14px;
         border-right: none;
         border-bottom: 1px solid var(--border);
@@ -1074,6 +1090,33 @@ input.note-editor-title {
     border-bottom: none;
 }
 
+/* A whole row that opens something, rather than only its title: the avatar, status dot and meta
+   text are part of the same target, which is what a row looks like it should do. */
+.list-row-button {
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-family: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.list-row-button:hover {
+    background: var(--bg-subtle);
+}
+
+.list-row-button:hover .row-title {
+    color: var(--accent);
+}
+
+.list-row-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
 .row-title {
     flex: 1;
     min-width: 0;
@@ -1082,17 +1125,7 @@ input.note-editor-title {
     white-space: nowrap;
     color: var(--text-primary);
     font-weight: 500;
-    background: none;
-    border: none;
-    padding: 0;
     text-align: left;
-    font-family: inherit;
-    font-size: inherit;
-    cursor: pointer;
-}
-
-.row-title:hover {
-    color: var(--accent);
 }
 
 .row-meta {
@@ -1127,6 +1160,7 @@ input.note-editor-title {
 }
 
 .progress-fill {
+    display: block;
     height: 100%;
     border-radius: 999px;
     background: var(--accent);
@@ -2302,4 +2336,56 @@ input.note-editor-title {
     border-left: 3px solid var(--danger);
     border-radius: 6px;
     padding: 10px 12px;
+}
+
+/* Shallow task-list editing (TaskListChecklist.razor): a whole list - or a group list and every list
+   it gathers - as nothing but tickable rows. */
+.checklist-card {
+    margin-bottom: 16px;
+}
+
+.check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+.check-row:last-child {
+    border-bottom: none;
+}
+
+.check-row:hover {
+    background: var(--bg-subtle);
+}
+
+.check-row input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
+.check-row input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+}
+
+.check-row-text {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-primary);
+}
+
+.check-row.completed .check-row-text {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
+}
+
+.checklist-empty {
+    color: var(--text-tertiary);
+    font-size: 13px;
+    margin: 4px;
 }

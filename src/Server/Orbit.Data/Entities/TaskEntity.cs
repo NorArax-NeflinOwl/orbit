@@ -12,6 +12,9 @@ public sealed class TaskEntity
     public string Title { get; set; } = string.Empty;
     public bool IsCompleted { get; set; }
 
+    /// <summary>Whether this list gathers other lists - see Orbit.Core.Tasks.TaskList.IsGroup.</summary>
+    public bool IsGroup { get; set; }
+
     /// <summary>The user id currently holding the edit lock, if any - see Orbit.Core.Tasks.TaskList.LockedByUserId.</summary>
     public Guid? LockedByUserId { get; set; }
 

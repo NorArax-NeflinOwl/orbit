@@ -39,6 +39,24 @@
                     <label for="userNameInput">Username</label>
                     <input id="userNameInput" @bind="_profileForm.UserName" />
                 </div>
+                <div class="field">
+                    <label for="emailInput">
+                        Email address
+                        @if (_account?.IsEmailVerified == true)
+                        {
+                            <span class="verified-badge">Verified</span>
+                        }
+                        else
+                        {
+                            <span class="unverified-badge">Not verified</span>
+                        }
+                    </label>
+                    <input id="emailInput" type="email" @bind="_profileForm.EmailAddress" />
+                    <div class="options-row-desc">
+                        Saving a different address doesn't move the account to it on its own - that only happens
+                        once you confirm the code sent to the new address.
+                    </div>
+                </div>
                 <div class="form-actions">
                     <button type="button" class="btn-primary" disabled="@_isSavingProfile" @onclick="SaveProfileAsync">Save profile</button>
                 </div>
@@ -50,36 +68,27 @@
 
             <div class="options-row options-row-stacked">
                 <div>
-                    <div class="options-row-title">
-                        Email address
-                        @if (_account?.IsEmailVerified == true)
-                        {
-                            <span class="verified-badge">Verified</span>
-                        }
-                        else
-                        {
-                            <span class="unverified-badge">Not verified</span>
-                        }
-                    </div>
+                    <div class="options-row-title">Email verification</div>
                     <div class="options-row-desc">
                         A verified address is what a password reset is sent to, so it has to be one you can read.
-                        Entering a different address here changes the account's address - but only once you confirm the code sent to it.
                     </div>
                 </div>
-                <div class="field">
-                    <input id="emailInput" @bind="_emailForm.EmailAddress" />
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">Send code</button>
-                </div>
-                @if (_codeSent)
+                @if (_emailForm.IsCodePending)
                 {
                     <div class="field">
-                        <label for="emailCodeInput">Code from the email</label>
+                        <label for="emailCodeInput">Code sent to <strong>@_emailForm.SentToAddress</strong></label>
                         <input id="emailCodeInput" inputmode="numeric" autocomplete="one-time-code" @bind="_emailForm.Code" />
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn-primary" disabled="@_isConfirmingCode" @onclick="ConfirmEmailCodeAsync">Confirm</button>
+                        <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">Send again</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="options-row-desc">The code goes to <strong>@VerificationTargetAddress</strong>.</div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">Send code</button>
                     </div>
                 }
                 @if (_emailMessage is not null)
@@ -340,6 +349,10 @@
     private AccountDto? _account;
     private readonly ProfileFormModel _profileForm = new();
     private readonly EmailFormModel _emailForm = new();
+
+    /// <summary>Where a code requested right now would go: the address being edited, or the account's own if that box was cleared.</summary>
+    private string VerificationTargetAddress
+        => _profileForm.EmailAddress.Trim() is { Length: > 0 } typedAddress ? typedAddress : _account?.Email ?? string.Empty;
     private readonly PasswordFormModel _passwordForm = new();
 
     private bool _isSavingProfile;
@@ -348,7 +361,6 @@
 
     private bool _isSendingCode;
     private bool _isConfirmingCode;
-    private bool _codeSent;
     private string? _emailMessage;
     private bool _emailFailed;
 
@@ -515,7 +527,7 @@
             {
                 _profileForm.DisplayName = _account.DisplayName;
                 _profileForm.UserName = _account.UserName;
-                _emailForm.EmailAddress = _account.Email;
+                _profileForm.EmailAddress = _account.Email;
             }
         }
         catch (HttpRequestException exception)
@@ -524,6 +536,11 @@
         }
     }
 
+    /// <summary>
+    /// Saves the name and username outright, and treats a changed address as a request to move to it:
+    /// the account keeps its current address until the code sent to the new one is confirmed, so this
+    /// only starts that verification rather than performing the change.
+    /// </summary>
     private async Task SaveProfileAsync()
     {
         _isSavingProfile = true;
@@ -533,9 +550,20 @@
             var error = await UsersApiClient.UpdateProfileAsync(_profileForm.DisplayName, _profileForm.UserName);
             _profileFailed = error is not null;
             _profileMessage = error ?? "Profile saved.";
-            if (error is null)
+            if (error is not null)
             {
-                await LoadAccountAsync();
+                return;
+            }
+
+            var requestedAddress = _profileForm.EmailAddress.Trim();
+            var isAddressChanged = !string.Equals(requestedAddress, _account?.Email, StringComparison.OrdinalIgnoreCase);
+            await LoadAccountAsync();
+            if (isAddressChanged)
+            {
+                // LoadAccountAsync just reset the box to the account's still-unchanged address; put the
+                // requested one back so the pending change stays visible while it's being confirmed.
+                _profileForm.EmailAddress = requestedAddress;
+                await SendEmailCodeAsync();
             }
         }
         catch (HttpRequestException exception)
@@ -551,19 +579,20 @@
     }
 
     /// <summary>
-    /// Sends a code to whatever address is in the box - the account's own (to verify it) or a new one (to
-    /// change to it). Nothing about the account changes until the code comes back confirmed.
+    /// Sends a code to the address in the profile form - the account's own (to verify it) or a new one
+    /// (to change to it). Nothing about the account changes until the code comes back confirmed.
     /// </summary>
     private async Task SendEmailCodeAsync()
     {
         _isSendingCode = true;
         _emailMessage = null;
+        var targetAddress = VerificationTargetAddress;
         try
         {
-            var error = await UsersApiClient.RequestEmailVerificationAsync(_emailForm.EmailAddress);
+            var error = await UsersApiClient.RequestEmailVerificationAsync(targetAddress);
             _emailFailed = error is not null;
-            _codeSent = error is null;
-            _emailMessage = error ?? $"Code sent to {_emailForm.EmailAddress.Trim()}. It expires in 15 minutes.";
+            _emailForm.SentToAddress = error is null ? targetAddress : string.Empty;
+            _emailMessage = error ?? $"Code sent to {targetAddress}. It expires in 15 minutes.";
         }
         catch (HttpRequestException exception)
         {
@@ -588,8 +617,7 @@
             _emailMessage = confirmed ? "Email address confirmed." : "That code isn't valid any more. Request a new one.";
             if (confirmed)
             {
-                _codeSent = false;
-                _emailForm.Code = string.Empty;
+                _emailForm.Clear();
                 await LoadAccountAsync();
             }
         }
@@ -766,6 +794,9 @@
     {
         public string DisplayName { get; set; } = string.Empty;
         public string UserName { get; set; } = string.Empty;
+
+        /// <summary>What the user wants the address to be - the account only moves to it once a code sent there is confirmed.</summary>
+        public string EmailAddress { get; set; } = string.Empty;
     }
 
     private sealed class DeleteAccountFormModel
@@ -775,8 +806,20 @@
 
     private sealed class EmailFormModel
     {
-        public string EmailAddress { get; set; } = string.Empty;
+        /// <summary>
+        /// Where the code in play was actually sent - kept separately from the address in the profile
+        /// form, which the user may have edited again since, so the prompt never names the wrong inbox.
+        /// </summary>
+        public string SentToAddress { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
+
+        public bool IsCodePending => SentToAddress.Length > 0;
+
+        public void Clear()
+        {
+            SentToAddress = string.Empty;
+            Code = string.Empty;
+        }
     }
 
     private sealed class PasswordFormModel

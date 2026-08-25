@@ -125,4 +125,24 @@ public sealed class MoveTaskItemCommandHandlerTests
         Assert.Equal(EditOutcomeKind.Locked, outcome.Kind);
         Assert.Equal("otherUser", outcome.LockedByUserName);
     }
+
+    [Fact]
+    public async Task HandleAsync_leaves_the_grouping_flag_alone_on_both_lists()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var item = TaskItem.Create("Buy milk", null, false);
+        var sourceList = TaskList.Create(userId, "Errands", [item], isGroup: true);
+        var targetList = TaskList.Create(userId, "Groceries", [], isGroup: true);
+        await repository.AddAsync(sourceList, CancellationToken.None);
+        await repository.AddAsync(targetList, CancellationToken.None);
+
+        await handler.HandleAsync(new MoveTaskItemCommand(userId, sourceList.Id, item.Id, targetList.Id), CancellationToken.None);
+
+        // Moving an item replaces both lists' checklists wholesale (see TaskList.Update), which is
+        // exactly where a flag that isn't carried along would quietly get dropped.
+        Assert.True((await repository.GetByIdAsync(userId, sourceList.Id, CancellationToken.None))!.IsGroup);
+        Assert.True((await repository.GetByIdAsync(userId, targetList.Id, CancellationToken.None))!.IsGroup);
+    }
 }
