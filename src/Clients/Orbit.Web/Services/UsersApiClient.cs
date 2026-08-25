@@ -213,4 +213,40 @@ public sealed class UsersApiClient
         var response = await _httpClient.DeleteAsync("api/users/me/location", cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    /// <summary>
+    /// Shares the caller's position with one recipient, or replaces what is already shared with them.
+    /// The point must already be sealed for that recipient - see SharedLocationSender, which is what
+    /// callers should use rather than this directly.
+    /// </summary>
+    public async Task ShareLocationAsync(ShareLocationRequest request, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync("api/users/me/location/shares", request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Ends sharing with one person. The row is deleted, so the position is gone rather than stale.</summary>
+    public async Task StopSharingLocationAsync(Guid recipientUserId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/users/me/location/shares/{recipientUserId}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Ends sharing with everyone at once.</summary>
+    public async Task StopSharingLocationWithEveryoneAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync("api/users/me/location/shares", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Who the caller is currently sharing their position with.</summary>
+    public async Task<IReadOnlyList<SharedLocationDto>> GetOwnLocationSharesAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shares", cancellationToken) ?? [];
+
+    /// <summary>
+    /// Positions other people are sharing with the caller, still encrypted - this is the call a recipient
+    /// polls. Opening them needs the pairwise key, so it happens in the page (see EncryptedChatMessageReader).
+    /// </summary>
+    public async Task<IReadOnlyList<SharedLocationDto>> GetLocationsSharedWithMeAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shared-with-me", cancellationToken) ?? [];
 }

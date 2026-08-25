@@ -292,6 +292,34 @@ out yet — which leaves the tiles covering one corner and the marker outside th
 doesn't work: `invalidateSize` fixes the size Leaflet believes in, but a `setView` back to the same
 centre and zoom is a no-op, so the tile grid keeps its stale origin.
 
+### Sharing a position with a contact
+
+A position can be shared with one contact at a time, sealed for **them specifically** under the pairwise
+key the two already use for chat (`SharedLocationSender`). Orbit relays a point it cannot read, exactly
+as it relays a message; the recipient's browser opens it with the same key.
+
+Two shapes, one row:
+
+- **Send once** — a fixed point. It stays until the sharer ends it.
+- **Keep sharing** — the same row, marked live and refreshed **every minute while the Map page is open**.
+  The refresh is tied to the page on purpose: sharing a position is something someone is doing
+  deliberately, and a timer that outlived the page would keep broadcasting after they had moved on.
+
+**There is exactly one row per (sharer, recipient) pair, overwritten in place** — enforced by a unique
+index as well as by the handler, so a refresh racing itself can't leave two points behind. That is the
+whole of "no history": an hour of live sharing leaves one row, not sixty that together say where someone
+has been. A client is free to keep its own local history; nothing server-side does.
+
+Ending a share **deletes the row** (`DELETE /api/users/me/location/shares/{recipientUserId}`, or without
+the id to end all of them at once), so stopping means the position is gone rather than stale. Stopping
+something never started is not an error — the end state asked for is already true.
+
+Sharing requires an existing one-to-one chat with the recipient, the same rule adding someone to a group
+follows: a position is not something to be able to push at a stranger who never agreed to hear from you.
+
+The Map page shows the viewer's own position and everyone sharing with them on **one** map, framed to fit
+them all.
+
 ## Refusing a request
 
 Anything that refuses what a caller asked for — domain validation (an event ending before it starts, a

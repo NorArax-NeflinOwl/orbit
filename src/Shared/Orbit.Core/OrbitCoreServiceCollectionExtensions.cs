@@ -78,6 +78,10 @@ using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SaveOwnLocation;
+using Orbit.Core.Location.GetSharedLocations;
+using Orbit.Core.Location.StopSharingLocation;
+using Orbit.Core.Location.ShareLocation;
+using Orbit.Core.Location;
 using Orbit.Core.Users.GetUserById;
 using Orbit.Core.Users.GetWrappedPrivateKey;
 using Orbit.Core.Users.Login;
@@ -190,6 +194,12 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<EditMessageCommand, EditMessageResult>, EditMessageCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteChatMessageCommand, bool>, DeleteChatMessageCommandHandler>();
         services.AddScoped<IRequestHandler<SaveOwnLocationCommand, bool>, SaveOwnLocationCommandHandler>();
+
+        // Sharing a position with one contact, encrypted for them - see SharedLocation.
+        services.AddScoped<IRequestHandler<ShareLocationCommand, bool>, ShareLocationCommandHandler>();
+        services.AddScoped<IRequestHandler<StopSharingLocationCommand, bool>, StopSharingLocationCommandHandler>();
+        services.AddScoped<IRequestHandler<GetSharedLocationsQuery, IReadOnlyList<SharedLocation>>, GetSharedLocationsQueryHandler>();
+        services.AddScoped<IRequestHandler<GetOwnLocationSharesQuery, IReadOnlyList<SharedLocation>>, GetOwnLocationSharesQueryHandler>();
 
         // Group chat: the group itself, its membership, and the fan-out that keeps group messages
         // encrypted under the same pairwise keys one-to-one chat uses.

@@ -2,10 +2,16 @@
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Globalization
+@using System.Text.Json
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Users
 @using Orbit.Web.Services
 @inject UsersApiClient UsersApiClient
 @inject GeocodingApiClient GeocodingApiClient
+@inject ChatApiClient ChatApiClient
+@inject SharedLocationSender SharedLocationSender
+@inject EncryptedChatMessageReader EncryptedChatMessageReader
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
@@ -32,6 +38,47 @@
     @if (_message is not null)
     {
         <p class="@(_hasFailed ? "error" : "info")">@_message</p>
+    }
+
+    @if (_contacts.Count > 0)
+    {
+        <div class="card share-location-card">
+            <div class="card-header">
+                <span class="card-title">Share where you are</span>
+                @if (_ownShares.Count > 0)
+                {
+                    <span class="card-count">@_ownShares.Count sharing</span>
+                }
+            </div>
+            <div class="field-row">
+                <select @bind="_shareWithUserId">
+                    <option value="">Pick a contact…</option>
+                    @foreach (var contact in _contacts)
+                    {
+                        <option value="@contact.UserId">@contact.DisplayName</option>
+                    }
+                </select>
+                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: false)">Send once</button>
+                <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: true)">Keep sharing</button>
+            </div>
+
+            @foreach (var share in _ownShares)
+            {
+                <div class="list-row">
+                    <span class="row-title">@DisplayNameFor(share.SharerUserId == _ownUserId ? share.RecipientUserId : share.SharerUserId)</span>
+                    <span class="row-meta">@(share.IsContinuous ? "live" : "sent once") · @FormatRecordedAt(share.UpdatedAtUtc)</span>
+                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StopSharingAsync(share.RecipientUserId)">Stop</button>
+                </div>
+            }
+
+            @if (_isLiveSharing)
+            {
+                <p class="empty-hint">
+                    Your position goes out again every minute while this page is open, and stops the moment it isn't.
+                    Ending a share deletes the position from Orbit - nothing is kept afterwards.
+                </p>
+            }
+        </div>
     }
 
     @if (_isLoading)
@@ -74,6 +121,22 @@
     private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
 
     private UserLocationDto? _location;
+    private Guid _ownUserId;
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private IReadOnlyList<SharedLocationDto> _ownShares = [];
+    private IReadOnlyList<ReceivedPosition> _receivedPositions = [];
+    private string _shareWithUserId = string.Empty;
+
+    /// <summary>
+    /// Refreshes every live share while this page is open. Deliberately tied to the page rather than
+    /// running in the background: sharing a position is something someone is doing on purpose, and a
+    /// timer that outlived the page would keep broadcasting after they had moved on from it.
+    /// </summary>
+    private PeriodicTimer? _refreshTimer;
+    private CancellationTokenSource? _refreshCancellation;
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(1);
+
+    private bool _isLiveSharing => _ownShares.Any(share => share.IsContinuous);
     private bool _isLoading = true;
     private bool _isBusy;
     private bool _hasFailed;
@@ -83,7 +146,12 @@
     private bool _isMapDrawnFor;
     private IJSObjectReference? _mapModule;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
+        await LoadAsync();
+        StartRefreshLoop();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -98,8 +166,20 @@
         try
         {
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
-            await _mapModule.InvokeVoidAsync(
-                "showLocation", MapElementId, _location.Latitude, _location.Longitude, _location.Address);
+
+            // One map for everyone on it: the viewer's own position plus anyone sharing with them.
+            var points = new List<object>
+            {
+                new { latitude = _location.Latitude, longitude = _location.Longitude, label = _location.Address ?? "You" }
+            };
+            points.AddRange(_receivedPositions.Select(received => (object)new
+            {
+                latitude = received.Position.Latitude,
+                longitude = received.Position.Longitude,
+                label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? "shared a position"}"
+            }));
+
+            await _mapModule.InvokeVoidAsync("showLocations", MapElementId, points);
         }
         catch (JSException exception)
         {
@@ -115,6 +195,9 @@
         {
             var account = await UsersApiClient.GetAccountAsync();
             _location = account?.Location;
+            _contacts = await ChatApiClient.GetContactsAsync();
+            _ownShares = await UsersApiClient.GetOwnLocationSharesAsync();
+            _receivedPositions = await OpenReceivedPositionsAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -138,7 +221,9 @@
     /// asks the user's permission itself; a refusal comes back as an ordinary message rather than an
     /// error, since declining is a legitimate answer.
     /// </summary>
-    private async Task RecordCurrentLocationAsync()
+    private async Task RecordCurrentLocationAsync() => await RecordCurrentLocationAsync(announce: true);
+
+    private async Task RecordCurrentLocationAsync(bool announce)
     {
         _isBusy = true;
         _message = null;
@@ -161,7 +246,10 @@
             await UsersApiClient.SaveOwnLocationAsync(position.Latitude, position.Longitude, address);
 
             await RedrawAsync();
-            _message = "Location recorded.";
+            if (announce)
+            {
+                _message = "Location recorded.";
+            }
         }
         catch (HttpRequestException exception)
         {
@@ -243,6 +331,175 @@
         }
     }
 
+
+    /// <summary>
+    /// Opens each position shared with this user. Each was sealed between its sharer and this reader, so
+    /// the key is the pairwise one with that sharer. A position that won't open is left out rather than
+    /// failing the page - most often one sealed for a key pair since replaced.
+    /// </summary>
+    private async Task<IReadOnlyList<ReceivedPosition>> OpenReceivedPositionsAsync()
+    {
+        var shared = await UsersApiClient.GetLocationsSharedWithMeAsync();
+        var opened = new List<ReceivedPosition>(shared.Count);
+
+        foreach (var share in shared)
+        {
+            var plainText = await EncryptedChatMessageReader.TryDecryptFromAsync(
+                _ownUserId, share.SharerUserId, share.CiphertextBase64, share.NonceBase64);
+            if (plainText is null)
+            {
+                continue;
+            }
+
+            var position = JsonSerializer.Deserialize<SharedLocationSender.SharedPosition>(plainText);
+            if (position is not null)
+            {
+                opened.Add(new ReceivedPosition(share.SharerUserId, share.IsContinuous, position));
+            }
+        }
+
+        return opened;
+    }
+
+    /// <summary>
+    /// Shares the position already recorded for this user. Recording one first is deliberate: it keeps
+    /// "what Orbit knows about where I am" a single thing the user set on purpose, rather than sharing
+    /// silently reading the device behind a second, easier-to-miss button.
+    /// </summary>
+    private async Task ShareAsync(bool isContinuous)
+    {
+        if (!Guid.TryParse(_shareWithUserId, out var recipientUserId))
+        {
+            return;
+        }
+
+        if (_location is not { } location)
+        {
+            _hasFailed = true;
+            _message = "Record where you are first - there is nothing to share yet.";
+            return;
+        }
+
+        _isBusy = true;
+        _message = null;
+        _hasFailed = false;
+        try
+        {
+            await SharedLocationSender.ShareAsync(
+                _ownUserId, recipientUserId,
+                new SharedLocationSender.SharedPosition(location.Latitude, location.Longitude, location.Address, location.RecordedAtUtc),
+                isContinuous);
+            _shareWithUserId = string.Empty;
+            await LoadAsync();
+            _message = isContinuous
+                ? "Sharing. Your position goes out again every minute while this page is open."
+                : "Sent. That one position is all they can see.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            // The recipient has never signed in, so there is no key to seal for them.
+            Logger.LogWarning(exception, "Could not share a location");
+            _hasFailed = true;
+            _message = exception.Message;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to share a location");
+            _hasFailed = true;
+            _message = "Couldn't share your location. Try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task StopSharingAsync(Guid recipientUserId)
+    {
+        _isBusy = true;
+        _message = null;
+        _hasFailed = false;
+        try
+        {
+            await UsersApiClient.StopSharingLocationAsync(recipientUserId);
+            await LoadAsync();
+            _message = "Stopped. Orbit no longer holds that position at all.";
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to stop sharing a location");
+            _hasFailed = true;
+            _message = "Couldn't stop sharing. Try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Re-records the device's position and sends it to everyone being shared with continuously, once a
+    /// minute. Failures are swallowed: a minute that couldn't be sent is not worth interrupting the page
+    /// for, and the next one will try again.
+    /// </summary>
+    private void StartRefreshLoop()
+    {
+        _refreshCancellation = new CancellationTokenSource();
+        _refreshTimer = new PeriodicTimer(RefreshInterval);
+        _ = RefreshLoopAsync(_refreshCancellation.Token);
+    }
+
+    private async Task RefreshLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _refreshTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                await RefreshOnceAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The page was left - the loop is meant to end with it.
+        }
+    }
+
+    private async Task RefreshOnceAsync()
+    {
+        try
+        {
+            var live = _ownShares.Where(share => share.IsContinuous).ToList();
+            if (live.Count > 0)
+            {
+                await RecordCurrentLocationAsync(announce: false);
+                if (_location is { } location)
+                {
+                    foreach (var share in live)
+                    {
+                        await SharedLocationSender.ShareAsync(
+                            _ownUserId, share.RecipientUserId,
+                            new SharedLocationSender.SharedPosition(location.Latitude, location.Longitude, location.Address, location.RecordedAtUtc),
+                            isContinuous: true);
+                    }
+                }
+            }
+
+            _receivedPositions = await OpenReceivedPositionsAsync();
+            await RedrawAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JSException or InvalidOperationException)
+        {
+            Logger.LogWarning(exception, "A location refresh tick did not complete");
+        }
+    }
+
+    private string DisplayNameFor(Guid userId)
+        => _contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? "Someone";
+
+    /// <summary>One position someone is sharing with this user, already opened.</summary>
+    private sealed record ReceivedPosition(Guid SharerUserId, bool IsContinuous, SharedLocationSender.SharedPosition Position);
+
     private static string FormatCoordinates(UserLocationDto location)
         => $"{location.Latitude.ToString("F5", DisplayCulture)}, {location.Longitude.ToString("F5", DisplayCulture)}";
 
@@ -251,6 +508,11 @@
 
     public async ValueTask DisposeAsync()
     {
+        // Leaving the page ends live sharing's refresh loop - see _refreshTimer's comment.
+        _refreshCancellation?.Cancel();
+        _refreshTimer?.Dispose();
+        _refreshCancellation?.Dispose();
+
         await DisposeMapAsync();
         if (_mapModule is not null)
         {

@@ -5,6 +5,10 @@ using Orbit.Contracts.Users;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SaveOwnLocation;
+using Orbit.Core.Location.GetSharedLocations;
+using Orbit.Core.Location.StopSharingLocation;
+using Orbit.Core.Location.ShareLocation;
+using Orbit.Core.Location;
 using Orbit.Core.Users.GetUserById;
 using Orbit.Core.Users.GetWrappedPrivateKey;
 using Orbit.Core.Users.SearchUser;
@@ -55,6 +59,49 @@ public static class UserEndpoints
         {
             var cleared = await dispatcher.SendAsync(new SaveOwnLocationCommand(GetUserId(user), Location: null), cancellationToken);
             return cleared ? Results.NoContent() : Results.NotFound();
+        });
+
+
+        // Sharing a position with one contact. Everything here is the caller's own doing: they share,
+        // they refresh, they stop - and stopping deletes the row rather than flagging it, so a position
+        // nobody is sharing any more is a position the database no longer holds.
+        users.MapPut("/me/location/shares", async (
+            ShareLocationRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(
+                new ShareLocationCommand(
+                    GetUserId(user), request.RecipientUserId, request.CiphertextBase64, request.NonceBase64, request.IsContinuous),
+                cancellationToken);
+            return Results.NoContent();
+        });
+
+        users.MapDelete("/me/location/shares/{recipientUserId:guid}", async (
+            Guid recipientUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(new StopSharingLocationCommand(GetUserId(user), recipientUserId), cancellationToken);
+            return Results.NoContent();
+        });
+
+        users.MapDelete("/me/location/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(new StopSharingLocationCommand(GetUserId(user), RecipientUserId: null), cancellationToken);
+            return Results.NoContent();
+        });
+
+        // Who the caller is currently sharing with, so they can see it and end any of it.
+        users.MapGet("/me/location/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var shares = await dispatcher.SendAsync(new GetOwnLocationSharesQuery(GetUserId(user)), cancellationToken);
+            return Results.Ok(shares.Select(ToDto));
+        });
+
+        // What other people are sharing with the caller - the endpoint a recipient polls for the latest
+        // point. Returns ciphertext; only the recipient's own browser can open it.
+        users.MapGet("/me/location/shared-with-me", async (
+            ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var shares = await dispatcher.SendAsync(new GetSharedLocationsQuery(GetUserId(user)), cancellationToken);
+            return Results.Ok(shares.Select(ToDto));
         });
 
         users.MapPut("/me/profile", async (
@@ -191,6 +238,12 @@ public static class UserEndpoints
         _ => Results.NotFound()
     };
 
+
+
+    private static SharedLocationDto ToDto(SharedLocation sharedLocation)
+        => new(
+            sharedLocation.SharerUserId, sharedLocation.RecipientUserId, sharedLocation.CiphertextBase64,
+            sharedLocation.NonceBase64, sharedLocation.IsContinuous, sharedLocation.UpdatedAtUtc);
 
     private static UserLocationDto? ToDto(UserLocation? location)
         => location is null ? null : new UserLocationDto(location.Address, location.Latitude, location.Longitude, location.RecordedAtUtc);
