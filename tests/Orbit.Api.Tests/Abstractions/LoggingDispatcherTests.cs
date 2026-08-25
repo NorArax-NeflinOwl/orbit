@@ -45,6 +45,49 @@ public sealed class LoggingDispatcherTests
         Assert.Same(failure, errorEntry.Exception);
     }
 
+    [Fact]
+    public async Task SendAsync_logs_a_refused_request_as_a_warning_rather_than_an_error()
+    {
+        var logger = new RecordingLogger<LoggingDispatcher>();
+        var refusal = new InvalidRequestException("A private note can't be shared.");
+        var dispatcher = new LoggingDispatcher(StubDispatcher.Throwing(refusal), logger);
+
+        await Assert.ThrowsAsync<InvalidRequestException>(() => dispatcher.SendAsync(new TaggedRequest()));
+
+        // The caller being told no is expected input the API answers with a 400, not a fault. Left at
+        // Error, the Error level fills with ordinary refusals and stops meaning anything.
+        var entry = Assert.Single(logger.Entries, candidate => candidate.Level == LogLevel.Warning);
+        Assert.StartsWith("[ACTION:Save] TaggedRequest failed", entry.Message);
+        Assert.Same(refusal, entry.Exception);
+        Assert.DoesNotContain(logger.Entries, candidate => candidate.Level == LogLevel.Error);
+    }
+
+    [Fact]
+    public async Task SendAsync_still_logs_a_plain_requests_refusal_as_a_warning()
+    {
+        var logger = new RecordingLogger<LoggingDispatcher>();
+        var dispatcher = new LoggingDispatcher(
+            StubDispatcher.Throwing(new InvalidRequestException("This link would create a cycle.")), logger);
+
+        await Assert.ThrowsAsync<InvalidRequestException>(() => dispatcher.SendAsync(new PlainRequest()));
+
+        Assert.Single(logger.Entries, candidate => candidate.Level == LogLevel.Warning);
+        Assert.DoesNotContain(logger.Entries, candidate => candidate.Level == LogLevel.Error);
+    }
+
+    [Fact]
+    public async Task SendAsync_still_logs_anything_else_as_an_error()
+    {
+        // The control: the whole point is that a real fault stays a real fault.
+        var logger = new RecordingLogger<LoggingDispatcher>();
+        var dispatcher = new LoggingDispatcher(StubDispatcher.Throwing(new TimeoutException("gone")), logger);
+
+        await Assert.ThrowsAsync<TimeoutException>(() => dispatcher.SendAsync(new TaggedRequest()));
+
+        Assert.Single(logger.Entries, candidate => candidate.Level == LogLevel.Error);
+        Assert.DoesNotContain(logger.Entries, candidate => candidate.Level == LogLevel.Warning);
+    }
+
     [ClientAction(ClientActionCategory.Save)]
     private sealed record TaggedRequest : IRequest<string?>;
 
