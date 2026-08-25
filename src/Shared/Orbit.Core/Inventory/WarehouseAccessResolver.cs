@@ -41,8 +41,10 @@ public sealed class WarehouseAccessResolver
 
         // The owner may have deleted the warehouse after granting access - a dangling grant reads as
         // "not found" rather than throwing, matching NoteAccessResolver.
+        // Mirrors NoteAccessResolver: a warehouse its owner has since made private stops being reachable
+        // through any grant, without the grant having to be found and deleted.
         var warehouse = await _warehouseRepository.GetByIdAsync(grant.OwnerUserId, grant.SourceWarehouseId, cancellationToken);
-        if (warehouse is null)
+        if (warehouse is null || warehouse.IsPrivate)
         {
             return null;
         }
@@ -62,7 +64,7 @@ public sealed class WarehouseAccessResolver
         foreach (var grant in grants)
         {
             var warehouse = await _warehouseRepository.GetByIdAsync(grant.OwnerUserId, grant.SourceWarehouseId, cancellationToken);
-            if (warehouse is null)
+            if (warehouse is null || warehouse.IsPrivate)
             {
                 continue;
             }

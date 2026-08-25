@@ -1,3 +1,5 @@
+using Orbit.Contracts;
+
 namespace Orbit.Contracts.Inventory;
 
 /// <summary>
@@ -17,4 +19,7 @@ public sealed record WarehouseDto(
     string? SharedByUserName,
     string AccessLevel,
     string? LockedByUserName,
-    Guid? OriginalOwnerUserId);
+    Guid? OriginalOwnerUserId,
+    /// <summary>Readable only by its owner - Name is empty and everything is inside EncryptedContent.</summary>
+    bool IsPrivate = false,
+    EncryptedContentDto? EncryptedContent = null);

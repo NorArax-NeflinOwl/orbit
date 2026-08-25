@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Orbit.Contracts;
 using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -45,7 +46,7 @@ public static class InventoryEndpoints
         warehouses.MapPost("/", async (
             SaveWarehouseRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var id = await dispatcher.SendAsync(new CreateWarehouseCommand(GetUserId(user), request.Name), cancellationToken);
+            var id = await dispatcher.SendAsync(new CreateWarehouseCommand(GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
             return Results.Created($"/api/warehouses/{id}", id);
         });
 
@@ -53,7 +54,9 @@ public static class InventoryEndpoints
             Guid warehouseId, SaveWarehouseRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new UpdateWarehouseCommand(GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items)),
+                new UpdateWarehouseCommand(
+                    GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items),
+                    request.IsPrivate, ToDomainPayload(request.EncryptedContent)),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -140,7 +143,17 @@ public static class InventoryEndpoints
             // Only someone ELSE's live lock is worth telling the caller about: their own lock never
             // blocks them, and an expired one is free for the taking - see IsLockedByAnotherUser.
             warehouse.IsLockedByAnotherUser(callerId, DateTimeOffset.UtcNow) ? warehouse.LockedByUserName : null,
-            warehouse.IsShared ? warehouse.UserId : null);
+            warehouse.IsShared ? warehouse.UserId : null,
+            warehouse.IsPrivate,
+            ToDto(warehouse.EncryptedContent));
+
+
+    /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>
+    private static EncryptedPayload? ToDomainPayload(EncryptedContentDto? encryptedContent)
+        => encryptedContent is null ? null : new EncryptedPayload(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
+    private static EncryptedContentDto? ToDto(EncryptedPayload? encryptedContent)
+        => encryptedContent is null ? null : new EncryptedContentDto(encryptedContent.Ciphertext, encryptedContent.Nonce);
 
     private static IReadOnlyList<WarehouseItemInput> ToDomainItems(IReadOnlyList<WarehouseItemDto> items)
         => items

@@ -22,7 +22,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         var warehouseId = context.AddWarehouse(userId);
 
         var outcome = await CreateHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 5m)]), CancellationToken.None);
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 5m)], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
         var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
@@ -38,7 +38,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         var existing = await AddStoredItemAsync(context, warehouseId, "Milk", quantity: 5m);
 
         await CreateHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Whole milk", quantity: 3m) with { Id = existing.Id }]),
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Whole milk", quantity: 3m) with { Id = existing.Id }], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
         var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
@@ -57,7 +57,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         await AddStoredItemAsync(context, warehouseId, "Eggs", quantity: 5m);
 
         await CreateHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 5m) with { Id = kept.Id }]),
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 5m) with { Id = kept.Id }], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
         var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
@@ -72,7 +72,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         var warehouseId = context.AddWarehouse(userId);
 
         await CreateHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 0m, minimumQuantity: 1m)]),
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 0m, minimumQuantity: 1m)], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
         var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
@@ -89,7 +89,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         var warehouseId = context.AddWarehouse(userId);
 
         await CreateHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 1m, minimumQuantity: 1m)]),
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 1m, minimumQuantity: 1m)], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
         // The minimum is the level to keep, not one that already needs restocking - 1 of 1 is fine.
@@ -105,7 +105,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         var warehouseId = context.AddWarehouse(userId);
         var handler = CreateHandler(context);
         await handler.HandleAsync(
-            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 0m, minimumQuantity: 1m)]),
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 0m, minimumQuantity: 1m)], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
         var afterFirstSave = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
         var originalTaskItemId = afterFirstSave.PendingRestockTaskItemId;
@@ -115,7 +115,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         await handler.HandleAsync(
             new UpdateWarehouseCommand(
                 userId, warehouseId, "Kitchen",
-                [NewItem("Whole milk", quantity: 0m, minimumQuantity: 1m) with { Id = afterFirstSave.Id }]),
+                [NewItem("Whole milk", quantity: 0m, minimumQuantity: 1m) with { Id = afterFirstSave.Id }], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
         var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
@@ -130,13 +130,13 @@ public sealed class UpdateWarehouseCommandHandlerTests
         var warehouseId = context.AddWarehouse(userId);
         var handler = CreateHandler(context);
         await handler.HandleAsync(
-            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 0m, minimumQuantity: 1m)]),
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 0m, minimumQuantity: 1m)], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
         var low = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
 
         await handler.HandleAsync(
             new UpdateWarehouseCommand(
-                userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 9m, minimumQuantity: 1m) with { Id = low.Id }]),
+                userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 9m, minimumQuantity: 1m) with { Id = low.Id }], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
         var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
@@ -156,7 +156,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         await AcquireLockAsync(context, otherUserId, warehouseId);
 
         var outcome = await CreateHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(ownerUserId, warehouseId, "Kitchen", []), CancellationToken.None);
+            new UpdateWarehouseCommand(ownerUserId, warehouseId, "Kitchen", [], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Locked, outcome.Kind);
         Assert.Equal("otheruser", outcome.LockedByUserName);
@@ -172,7 +172,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         await AcquireLockAsync(context, userId, warehouseId);
 
         var outcome = await CreateHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", []), CancellationToken.None);
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
     }

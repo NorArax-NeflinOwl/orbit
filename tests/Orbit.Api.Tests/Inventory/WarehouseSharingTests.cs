@@ -113,7 +113,7 @@ public sealed class WarehouseSharingTests
             context.AccessResolver, context.WarehouseRepository, context.InventoryRepository, context.TaskListCoordinator);
 
         var outcome = await handler.HandleAsync(
-            new UpdateWarehouseCommand(recipientUserId, warehouseId, "Renamed", []), CancellationToken.None);
+            new UpdateWarehouseCommand(recipientUserId, warehouseId, "Renamed", [], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }
