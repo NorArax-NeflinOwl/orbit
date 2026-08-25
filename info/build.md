@@ -41,6 +41,18 @@ git clone <this repository's URL>
 cd orbit
 ```
 
+Then enable the repository's git hooks (once per clone):
+
+```
+git config core.hooksPath .githooks
+```
+
+These block committing to or pushing a branch whose pull request has already been merged - such a
+branch is finished and anything added to it would never reach `main`; start a fresh branch and open a
+new pull request instead. The check uses the [GitHub CLI](https://cli.github.com) (`gh`) and skips
+itself quietly when `gh` is not installed or there is no network, so it never blocks offline work -
+see `.githooks/block-merged-branch.sh` for the details.
+
 ## 3. Configure environment variables
 
 Docker Compose reads secrets and settings from a `.env` file at the repository root, which is

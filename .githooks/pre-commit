@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses to commit on a branch whose pull request has already been merged - see
+# block-merged-branch.sh for the reasoning and how to enable this hook.
+exec "$(dirname "$0")/block-merged-branch.sh" "$(git symbolic-ref --quiet --short HEAD)"
