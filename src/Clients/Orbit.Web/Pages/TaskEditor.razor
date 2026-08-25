@@ -633,7 +633,7 @@ else
             }
 
             var payloadJson = JsonSerializer.Serialize(new TaskListShareMessagePayload(result.ShareId, _formModel.Title));
-            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
             _shareInfoMessage = result.AlreadyShared ? "Already shared with that contact - sent a reminder." : null;
             _selectedContactUserId = string.Empty;
         }

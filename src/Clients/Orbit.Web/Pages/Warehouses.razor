@@ -275,7 +275,7 @@ else
             }
 
             var payloadJson = JsonSerializer.Serialize(new WarehouseShareMessagePayload(result.ShareId, warehouse.Name));
-            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
             _shareInfoMessage = result.AlreadyShared
                 ? "Already shared with that contact - sent a reminder."
                 : "Shared - they'll see it in your chat.";

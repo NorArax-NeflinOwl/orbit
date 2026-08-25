@@ -692,7 +692,7 @@ else
                 // this event - result.ShareId is that existing offer's id rather than a new one, so this
                 // resends it as a reminder instead of creating a duplicate (see ShareCalendarEventCommandHandler).
                 var payloadJson = JsonSerializer.Serialize(new EventShareMessagePayload(result.ShareId, eventTitle));
-                await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+                await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

@@ -145,6 +145,35 @@ public sealed class SendMessageCommandHandlerTests
         Assert.Contains("Ada Lovelace", sent.Payload.Body);
     }
 
+    [Fact]
+    public async Task HandleAsync_leaves_a_share_invitation_to_announce_itself()
+    {
+        var userRepository = new InMemoryUserRepository();
+        var sender = User.FromPersistence(Guid.NewGuid(), "sender@example.com", "sender", "Ada Lovelace", "hash", DateTimeOffset.UtcNow, null);
+        var recipient = User.FromPersistence(Guid.NewGuid(), "recipient@example.com", "recipient", "Recipient", "hash", DateTimeOffset.UtcNow, null);
+        await userRepository.AddAsync(sender, CancellationToken.None);
+        await userRepository.AddAsync(recipient, CancellationToken.None);
+        var subscriptionRepository = new InMemoryPushSubscriptionRepository();
+        await subscriptionRepository.AddOrReplaceAsync(
+            PushSubscription.Create(recipient.Id, "https://push.example/a", "p256dh", "auth"), CancellationToken.None);
+        var pushSender = new RecordingPushNotificationSender();
+        var entryRepository = new InMemoryNotificationEntryRepository();
+        var handler = new SendMessageCommandHandler(
+            userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
+            new PushNotificationDispatcher(subscriptionRepository, pushSender, NullLogger<PushNotificationDispatcher>.Instance),
+            new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository));
+
+        var result = await handler.HandleAsync(
+            new SendMessageCommand(sender.Id, recipient.Id, "ciphertext", "nonce", IsShareInvitation: true), CancellationToken.None);
+
+        // The share this message carries an Accept for has already told the recipient about itself, by
+        // name. A "New message" on top of it would be a second entry for one invitation, and the less
+        // informative of the two.
+        Assert.Equal(SendMessageOutcome.Success, result.Outcome);
+        Assert.Empty(pushSender.SentNotifications);
+        Assert.Empty(await entryRepository.GetRecentAsync(recipient.Id, 10, CancellationToken.None));
+    }
+
     private static PushNotificationDispatcher CreateDispatcher()
         => new(new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(), NullLogger<PushNotificationDispatcher>.Instance);
 
