@@ -1,0 +1,100 @@
+@page "/notifications"
+@attribute [Authorize]
+@using Orbit.Contracts.Notifications
+@using Orbit.Web.Services
+@inject NotificationsApiClient NotificationsApiClient
+@inject NotificationFeedState NotificationFeedState
+@inject ClientExceptionLog ClientExceptionLog
+@inject NavigationManager NavigationManager
+@inject ILogger<Notifications> Logger
+
+<PageTitle>Orbit — Notifications</PageTitle>
+
+@* The full-page form of the notifications panel, used on phones where the popup would be unreadably
+   cramped (see MainLayout.ToggleNotificationsMenuAsync). Same list component, same actions. *@
+<div class="page-header">
+    <div>
+        <h1>Notifications</h1>
+        <p class="page-subtitle">Recent reminders and messages, newest first.</p>
+    </div>
+    <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">Clear</button>
+</div>
+
+<div class="notifications-page">
+    <NotificationList IsLoading="_isLoading" Entries="_entries" ExceptionEntries="_exceptionEntries"
+                      OnEntrySelected="OpenEntry" />
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isClearing;
+    private IReadOnlyList<NotificationEntryDto> _entries = [];
+    private IReadOnlyList<ClientLogEntry> _exceptionEntries = [];
+
+    /// <summary>Opening the page counts as seeing the notifications, exactly as opening the desktop popup does.</summary>
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _entries = await NotificationsApiClient.GetRecentAsync();
+            await LoadExceptionEntriesAsync();
+            await NotificationsApiClient.MarkAllReadAsync();
+            NotificationFeedState.Clear();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to load notifications");
+        }
+
+        _isLoading = false;
+    }
+
+    /// <summary>
+    /// Gated on both the server's environment flag and this user's own ShowExceptionDetails preference,
+    /// so a Production deployment never shows stack traces regardless of what an account has stored -
+    /// see NotificationSettings' class comment.
+    /// </summary>
+    private async Task LoadExceptionEntriesAsync()
+    {
+        var settings = await NotificationsApiClient.GetSettingsAsync();
+        var allowedByServer = await NotificationsApiClient.GetExceptionDetailsAllowedAsync();
+        _exceptionEntries = allowedByServer && settings.ShowExceptionDetails
+            ? await ClientExceptionLog.GetRecentErrorsAsync()
+            : [];
+    }
+
+    private void OpenEntry(NotificationEntryDto entry)
+    {
+        if (entry.Url is not null)
+        {
+            NavigationManager.NavigateTo(entry.Url);
+        }
+    }
+
+    /// <summary>Mirrors MainLayout's own Clear - see its comment for why both halves of the list go.</summary>
+    private async Task ClearAsync()
+    {
+        _isClearing = true;
+        try
+        {
+            await NotificationsApiClient.ClearAsync();
+            await ClientExceptionLog.ClearAsync();
+            _entries = [];
+            _exceptionEntries = [];
+            NotificationFeedState.Clear();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to clear notifications");
+        }
+        finally
+        {
+            _isClearing = false;
+        }
+    }
+}

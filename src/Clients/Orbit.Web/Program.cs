@@ -94,6 +94,10 @@ builder.Services.AddScoped<OwnEncryptionKeyProvider>();
 builder.Services.AddScoped<EncryptedChatMessageSender>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
+// Shared unread state so the avatar badge, the nav-section badges, and Chat's contact avatars all read
+// the same poll (MainLayout owns it) instead of each fetching their own.
+builder.Services.AddScoped<NotificationFeedState>();
+builder.Services.AddScoped<ClientExceptionLog>();
 
 // A third-party host, not Orbit.Api - deliberately not given AuthorizationMessageHandler, so Orbit's
 // own bearer token is never sent to it (see GeocodingApiClient's class comment).

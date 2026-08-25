@@ -11,6 +11,7 @@
 @inject NotesApiClient NotesApiClient
 @inject TasksApiClient TasksApiClient
 @inject InventoryApiClient InventoryApiClient
+@inject NotificationFeedState NotificationFeedState
 @inject UsersApiClient UsersApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
@@ -73,7 +74,13 @@ else
             @foreach (var contact in _establishedChats)
             {
                 <button type="button" class="chat-list-item @(contact.UserId == UserId ? "active" : "")" title="@contact.DisplayName" @onclick="() => SwitchContact(contact.UserId)">
-                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
+                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">
+                        @AvatarHelper.GetInitials(contact.DisplayName)
+                        @if (NotificationFeedState.CountForChatWith(contact.UserId) is > 0 and var unreadFromContact)
+                        {
+                            <span class="notif-badge">@FormatUnreadCount(unreadFromContact)</span>
+                        }
+                    </span>
                     <span class="chat-list-meta">
                         <span class="chat-list-name">@contact.DisplayName</span>
                     </span>
@@ -361,6 +368,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // MainLayout's poll owns the unread set; subscribing keeps this contact list's badges in step
+        // with the avatar's without a second poll of its own.
+        NotificationFeedState.Changed += OnNotificationFeedChanged;
+
         try
         {
             _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
@@ -1063,8 +1074,14 @@ else
         }
     }
 
+    /// <summary>Matches MainLayout's own badge formatting - 1-9 as-is, "9+" above that.</summary>
+    private static string FormatUnreadCount(int count) => count > 9 ? "9+" : count.ToString(CultureInfo.InvariantCulture);
+
+    private void OnNotificationFeedChanged() => InvokeAsync(StateHasChanged);
+
     public async ValueTask DisposeAsync()
     {
+        NotificationFeedState.Changed -= OnNotificationFeedChanged;
         StopPolling();
         await DetachScrollObserverAsync();
         _scrollObserverReference?.Dispose();

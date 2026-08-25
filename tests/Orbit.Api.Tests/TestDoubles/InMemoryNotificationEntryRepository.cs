@@ -20,8 +20,18 @@ internal sealed class InMemoryNotificationEntryRepository : INotificationEntryRe
                 .Take(take)
                 .ToList());
 
-    public Task<int> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken)
-        => Task.FromResult(_entries.Count(entry => entry.UserId == userId && !entry.IsRead));
+    public Task<IReadOnlyList<NotificationEntry>> GetUnreadAsync(Guid userId, int take, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<NotificationEntry>>(
+            _entries.Where(entry => entry.UserId == userId && !entry.IsRead)
+                .OrderByDescending(entry => entry.CreatedAtUtc)
+                .Take(take)
+                .ToList());
+
+    public Task DeleteAllAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        _entries.RemoveAll(entry => entry.UserId == userId);
+        return Task.CompletedTask;
+    }
 
     public Task MarkAllReadAsync(Guid userId, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
