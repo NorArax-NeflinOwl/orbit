@@ -22,6 +22,14 @@ public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListC
             return null;
         }
 
+        if (taskList.IsPrivate)
+        {
+            // A private task list has no readable content on the server and is the owner's alone by
+            // definition - refused here as well as hidden in the client, so a hand-made request can't
+            // create a share that would only ever hand someone ciphertext they cannot open.
+            throw new InvalidRequestException("A private task list can't be shared.");
+        }
+
         if (request.RecipientUserId == taskList.UserId)
         {
             return null;

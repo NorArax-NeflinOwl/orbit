@@ -14,8 +14,21 @@ public sealed class Note
 {
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
+    /// <summary>Empty for a private note - its real title is inside <see cref="EncryptedContent"/>.</summary>
     public string Title { get; private set; }
+
+    /// <summary>Empty for a private note - its real lines are inside <see cref="EncryptedContent"/>.</summary>
     public IReadOnlyList<NoteContentLine> Content { get; private set; }
+
+    /// <summary>
+    /// Marks a note only its owner can ever read: its content is sealed in the browser before it gets
+    /// here (see <see cref="EncryptedContent"/>), and it can't be shared - not "isn't shared yet", but
+    /// refused by ShareNoteCommandHandler, with any existing shares revoked the moment it is turned on.
+    /// </summary>
+    public bool IsPrivate { get; private set; }
+
+    /// <summary>The sealed title and lines of a private note; null for an ordinary one. See <see cref="EncryptedPayload"/>.</summary>
+    public EncryptedPayload? EncryptedContent { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -38,13 +51,13 @@ public sealed class Note
     public ShareAccessLevel AccessLevel { get; private set; } = ShareAccessLevel.CanEdit;
 
     private Note(
-        Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
+        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
         UserId = userId;
-        Title = title;
-        Content = content;
+        (Title, Content, IsPrivate, EncryptedContent) = ReadableOrSealed(title, content, isPrivate, encryptedContent);
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
         LockedByUserId = lockedByUserId;
@@ -52,17 +65,22 @@ public sealed class Note
         LockExpiresAtUtc = lockExpiresAtUtc;
     }
 
-    public static Note Create(Guid userId, string title, IReadOnlyList<NoteContentLine> content)
+    public static Note Create(
+        Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate = false, EncryptedPayload? encryptedContent = null)
     {
         var now = DateTimeOffset.UtcNow;
-        return new Note(Guid.NewGuid(), userId, title, content, now, now, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
+        return new Note(
+            Guid.NewGuid(), userId, title, content, isPrivate, encryptedContent, now, now,
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
     }
 
     /// <summary>Rebuilds a note from already-persisted values, bypassing creation rules.</summary>
     public static Note FromPersistence(
-        Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
+        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
-        => new(id, userId, title, content, createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+        => new(id, userId, title, content, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
+            lockedByUserId, lockedByUserName, lockExpiresAtUtc);
 
     /// <summary>
     /// Stamps how the current caller relates to this note - see the class comment. Called exactly once,
@@ -81,11 +99,32 @@ public sealed class Note
     /// Kept out of this method itself so a locked/read-only note fails with a specific EditOutcome
     /// instead of a generic exception.
     /// </summary>
-    public void Update(string title, IReadOnlyList<NoteContentLine> content)
+    public void Update(string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent)
     {
-        Title = title;
-        Content = content;
+        (Title, Content, IsPrivate, EncryptedContent) = ReadableOrSealed(title, content, isPrivate, encryptedContent);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Keeps the two states from ever half-overlapping: a private note stores its sealed payload and
+    /// nothing readable, an ordinary one stores readable content and no payload. Enforced here rather
+    /// than trusted from callers, because a private note that still carried a readable title would break
+    /// the only promise this feature makes.
+    /// </summary>
+    private static (string Title, IReadOnlyList<NoteContentLine> Content, bool IsPrivate, EncryptedPayload? EncryptedContent) ReadableOrSealed(
+        string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent)
+    {
+        if (!isPrivate)
+        {
+            return (title, content, false, null);
+        }
+
+        if (encryptedContent is null)
+        {
+            throw new InvalidRequestException("A private note must arrive already encrypted.");
+        }
+
+        return (string.Empty, [], true, encryptedContent);
     }
 
     public bool IsLockedByAnotherUser(Guid callerId, DateTimeOffset nowUtc)

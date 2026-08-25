@@ -31,8 +31,10 @@ public sealed class TaskListAccessResolver
             return null;
         }
 
+        // Mirrors NoteAccessResolver: a list its owner has since made private stops being reachable
+        // through any grant, without the grant having to be found and deleted.
         var taskList = await _taskRepository.GetByIdAsync(grant.OwnerUserId, grant.SourceTaskListId, cancellationToken);
-        if (taskList is null)
+        if (taskList is null || taskList.IsPrivate)
         {
             return null;
         }
@@ -52,7 +54,7 @@ public sealed class TaskListAccessResolver
         foreach (var grant in grants)
         {
             var taskList = await _taskRepository.GetByIdAsync(grant.OwnerUserId, grant.SourceTaskListId, cancellationToken);
-            if (taskList is null)
+            if (taskList is null || taskList.IsPrivate)
             {
                 continue;
             }

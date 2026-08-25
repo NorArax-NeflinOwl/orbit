@@ -181,7 +181,7 @@ public sealed class CalendarTests : TestContext
             LinkedTaskListId: null, OverdueNotificationChannel: "None", RemindDaily: false, DailyReminderNotificationChannel: "None",
             DailyReminderTimeOfDay: default);
         return new TaskDto(
-            Guid.NewGuid(), "Task list", [item], IsCompleted: false, IsGroup: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            Guid.NewGuid(), "Task list", [item], IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
     }
 

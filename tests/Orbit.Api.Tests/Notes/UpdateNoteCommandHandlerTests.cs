@@ -25,7 +25,7 @@ public sealed class UpdateNoteCommandHandlerTests
         await repository.AddAsync(note, CancellationToken.None);
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(userId, note.Id, "New title", [NoteContentLine.PlainText("New content")]), CancellationToken.None);
+            new UpdateNoteCommand(userId, note.Id, "New title", [NoteContentLine.PlainText("New content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
         var stored = await repository.GetByIdAsync(userId, note.Id, CancellationToken.None);
@@ -44,7 +44,7 @@ public sealed class UpdateNoteCommandHandlerTests
         await repository.AddAsync(note, CancellationToken.None);
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(otherUserId, note.Id, "Hijacked title", [NoteContentLine.PlainText("Hijacked content")]), CancellationToken.None);
+            new UpdateNoteCommand(otherUserId, note.Id, "Hijacked title", [NoteContentLine.PlainText("Hijacked content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
         var stored = await repository.GetByIdAsync(ownerId, note.Id, CancellationToken.None);
@@ -73,7 +73,7 @@ public sealed class UpdateNoteCommandHandlerTests
         var handler = CreateHandler(noteRepository, noteShareRepository);
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(recipientId, note.Id, "Edited title", [NoteContentLine.PlainText("Edited content")]), CancellationToken.None);
+            new UpdateNoteCommand(recipientId, note.Id, "Edited title", [NoteContentLine.PlainText("Edited content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }
@@ -86,7 +86,7 @@ public sealed class UpdateNoteCommandHandlerTests
         var handler = CreateHandler(noteRepository, noteShareRepository);
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(recipientId, note.Id, "Edited title", [NoteContentLine.PlainText("Edited content")]), CancellationToken.None);
+            new UpdateNoteCommand(recipientId, note.Id, "Edited title", [NoteContentLine.PlainText("Edited content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }
@@ -99,7 +99,7 @@ public sealed class UpdateNoteCommandHandlerTests
         var handler = CreateHandler(noteRepository, noteShareRepository);
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(recipientId, note.Id, "New title", [NoteContentLine.PlainText("New content")]), CancellationToken.None);
+            new UpdateNoteCommand(recipientId, note.Id, "New title", [NoteContentLine.PlainText("New content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
         var stored = await noteRepository.GetByIdAsync(ownerId, note.Id, CancellationToken.None);
@@ -118,7 +118,7 @@ public sealed class UpdateNoteCommandHandlerTests
         await repository.AddAsync(note, CancellationToken.None);
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(userId, note.Id, "Edited title", [NoteContentLine.PlainText("Edited content")]), CancellationToken.None);
+            new UpdateNoteCommand(userId, note.Id, "Edited title", [NoteContentLine.PlainText("Edited content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Locked, outcome.Kind);
         Assert.Equal("otherUser", outcome.LockedByUserName);
@@ -135,7 +135,7 @@ public sealed class UpdateNoteCommandHandlerTests
         await repository.AddAsync(note, CancellationToken.None);
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(userId, note.Id, "New title", [NoteContentLine.PlainText("New content")]), CancellationToken.None);
+            new UpdateNoteCommand(userId, note.Id, "New title", [NoteContentLine.PlainText("New content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
     }
@@ -152,7 +152,7 @@ public sealed class UpdateNoteCommandHandlerTests
         await repository.AddAsync(note, CancellationToken.None);
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(userId, note.Id, "New title", [NoteContentLine.PlainText("New content")]), CancellationToken.None);
+            new UpdateNoteCommand(userId, note.Id, "New title", [NoteContentLine.PlainText("New content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
     }
@@ -163,7 +163,7 @@ public sealed class UpdateNoteCommandHandlerTests
         var handler = CreateHandler(new InMemoryNoteRepository());
 
         var outcome = await handler.HandleAsync(
-            new UpdateNoteCommand(Guid.NewGuid(), Guid.NewGuid(), "Title", [NoteContentLine.PlainText("Content")]), CancellationToken.None);
+            new UpdateNoteCommand(Guid.NewGuid(), Guid.NewGuid(), "Title", [NoteContentLine.PlainText("Content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
     }

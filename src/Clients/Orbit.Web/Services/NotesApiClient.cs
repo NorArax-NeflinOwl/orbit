@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Notes;
+using Orbit.Contracts;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Web.Services.Logging;
@@ -10,23 +11,42 @@ namespace Orbit.Web.Services;
 
 /// <summary>
 /// Thin wrapper around Orbit.Api's /api/notes endpoints, keeping HTTP and JSON details out of the pages.
+///
+/// Private notes are sealed and opened here rather than in each page (see PrivateContentSealer): every
+/// caller gets a NoteDto with a readable title and content whichever kind of note it is, and none of
+/// them has to remember that a private one arrives empty with its real content encrypted.
 /// </summary>
 public sealed class NotesApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
+    private readonly PrivateContentSealer? _privateContentSealer;
 
-    // logger defaults to a no-op instance rather than being required, so existing call sites (including
+    /// <summary>Shown in place of a private note nobody can open any more - see PrivateContentSealer.OpenAsync.</summary>
+    public const string UnreadableNoteTitle = "Unreadable - encrypted with an older key";
+
+    // logger and sealer default to absent rather than being required, so existing call sites (including
     // every test that constructs this with just an HttpClient) keep compiling unchanged; only the
-    // DI-resolved instance registered in Program.cs actually logs anywhere.
-    public NotesApiClient(HttpClient httpClient, ILogger<NotesApiClient>? logger = null)
+    // DI-resolved instance registered in Program.cs logs or handles private notes.
+    public NotesApiClient(HttpClient httpClient, ILogger<NotesApiClient>? logger = null, PrivateContentSealer? privateContentSealer = null)
     {
         _httpClient = httpClient;
         _logger = logger ?? NullLogger<NotesApiClient>.Instance;
+        _privateContentSealer = privateContentSealer;
     }
 
     public async Task<IReadOnlyList<NoteDto>> GetNotesAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<NoteDto>>("api/notes", cancellationToken) ?? [];
+    {
+        var notes = await _httpClient.GetFromJsonAsync<List<NoteDto>>("api/notes", cancellationToken) ?? [];
+
+        var opened = new List<NoteDto>(notes.Count);
+        foreach (var note in notes)
+        {
+            opened.Add(await OpenIfPrivateAsync(note, cancellationToken));
+        }
+
+        return opened;
+    }
 
     public async Task<NoteDto?> GetNoteByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -37,11 +57,58 @@ public sealed class NotesApiClient
         }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<NoteDto>(cancellationToken: cancellationToken);
+        var note = await response.Content.ReadFromJsonAsync<NoteDto>(cancellationToken: cancellationToken);
+        return note is null ? null : await OpenIfPrivateAsync(note, cancellationToken);
     }
+
+    /// <summary>
+    /// Hands back an ordinary note unchanged, and a private one with its real title and content put back
+    /// in place. A note that can't be opened keeps its empty content and says so in the title rather
+    /// than throwing, so one unreadable note doesn't take a whole list down with it.
+    /// </summary>
+    private async Task<NoteDto> OpenIfPrivateAsync(NoteDto note, CancellationToken cancellationToken)
+    {
+        if (!note.IsPrivate || note.EncryptedContent is not { } encryptedContent || _privateContentSealer is null)
+        {
+            return note;
+        }
+
+        var content = await _privateContentSealer.OpenAsync<SealedNote>(encryptedContent, cancellationToken);
+        return content is null
+            ? note with { Title = UnreadableNoteTitle }
+            : note with { Title = content.Title, Content = content.Content };
+    }
+
+    /// <summary>
+    /// Seals a private note's title and content and empties the readable fields, so what leaves this
+    /// browser matches what the server is allowed to hold. Left alone when the note isn't private.
+    /// </summary>
+    private async Task<(string Title, IReadOnlyList<NoteContentLineDto> Content, EncryptedContentDto? EncryptedContent)> SealIfPrivateAsync(
+        string title, IReadOnlyList<NoteContentLineDto> content, bool isPrivate, CancellationToken cancellationToken)
+    {
+        if (!isPrivate)
+        {
+            return (title, content, null);
+        }
+
+        if (_privateContentSealer is null)
+        {
+            throw new InvalidOperationException("This NotesApiClient was built without a PrivateContentSealer, so it can't save a private note.");
+        }
+
+        var encryptedContent = await _privateContentSealer.SealAsync(new SealedNote(title, content), cancellationToken);
+        return (string.Empty, [], encryptedContent);
+    }
+
+    /// <summary>Everything a private note hides from the server, as one sealed payload.</summary>
+    private sealed record SealedNote(string Title, IReadOnlyList<NoteContentLineDto> Content);
 
     public async Task<Guid> CreateNoteAsync(CreateNoteRequest request, CancellationToken cancellationToken = default)
     {
+        var (title, content, encryptedContent) = await SealIfPrivateAsync(
+            request.Title, request.Content, request.IsPrivate, cancellationToken);
+        request = request with { Title = title, Content = content, EncryptedContent = encryptedContent };
+
         try
         {
             var response = await _httpClient.PostAsJsonAsync("api/notes", request, cancellationToken);
@@ -66,6 +133,10 @@ public sealed class NotesApiClient
     /// </summary>
     public async Task<EditOutcome> UpdateNoteAsync(Guid id, UpdateNoteRequest request, CancellationToken cancellationToken = default)
     {
+        var (title, content, encryptedContent) = await SealIfPrivateAsync(
+            request.Title, request.Content, request.IsPrivate, cancellationToken);
+        request = request with { Title = title, Content = content, EncryptedContent = encryptedContent };
+
         try
         {
             var response = await _httpClient.PutAsJsonAsync($"api/notes/{id}", request, cancellationToken);

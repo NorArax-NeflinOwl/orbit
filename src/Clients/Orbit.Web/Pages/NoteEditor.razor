@@ -48,6 +48,24 @@ else
                 <label>Title</label>
                 <InputText @bind-Value="_formModel.Title" class="note-editor-title" />
             </div>
+            @* Only the owner may turn this on: a note reached through a share belongs to someone else,
+               and "private" means private to its creator. *@
+            @if (!_isShared)
+            {
+                <div class="field">
+                    <label>
+                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />
+                        Private
+                    </label>
+                    <small>
+                        Encrypted in this browser before it is saved, so Orbit's servers hold something they
+                        can't read. A private note can't be shared, and any share of it stops working while
+                        it stays private. Losing your password means losing it - a reset replaces the key it
+                        was encrypted with, exactly as it does for chat history.
+                    </small>
+                </div>
+            }
+
             <div class="field">
                 <label>Content</label>
                 <div class="note-editor-toolbar">
@@ -70,7 +88,7 @@ else
         </fieldset>
     </EditForm>
 
-    @if (!IsNewNote && _canShare)
+    @if (!IsNewNote && _canShare && !_formModel.IsPrivate)
     {
         <h2>Sharing</h2>
         @if (_shareableContacts.Count == 0)
@@ -183,7 +201,7 @@ else
                 var note = await NotesApiClient.GetNoteByIdAsync(noteId);
                 if (note is not null)
                 {
-                    _formModel = new NoteFormModel { Title = note.Title, Content = note.Content };
+                    _formModel = new NoteFormModel { Title = note.Title, Content = note.Content, IsPrivate = note.IsPrivate };
                     _isShared = note.IsShared;
                     _isSharedReadOnly = note.IsShared && note.AccessLevel != "CanEdit";
                     _canShare = !note.IsShared || note.AccessLevel is "CanEdit" or "Share";
@@ -235,12 +253,12 @@ else
         {
             if (IsNewNote)
             {
-                var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(_formModel.Title, _formModel.Content));
+                var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate));
                 Logger.LogInformation("Note {NoteId} created", newNoteId);
             }
             else
             {
-                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content));
+                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -439,5 +457,8 @@ else
     {
         public string Title { get; set; } = string.Empty;
         public IReadOnlyList<NoteContentLineDto> Content { get; set; } = [];
+
+        /// <summary>Encrypt this note so only its owner can read it - see PrivateContentSealer.</summary>
+        public bool IsPrivate { get; set; }
     }
 }

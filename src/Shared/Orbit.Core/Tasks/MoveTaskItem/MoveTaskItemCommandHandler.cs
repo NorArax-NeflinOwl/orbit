@@ -42,6 +42,15 @@ public sealed class MoveTaskItemCommandHandler : IRequestHandler<MoveTaskItemCom
             return EditOutcome.NotFound;
         }
 
+        if (sourceList.IsPrivate || targetList.IsPrivate)
+        {
+            // A private list keeps no readable items on the server, so it has nothing to move out of and
+            // nowhere to put anything moved in: without this the item would be taken off the source and
+            // then dropped when the target sealed itself again. Moving between private lists is a client
+            // job - it can read both, and saving each one re-seals it.
+            throw new InvalidRequestException("Items can't be moved into or out of a private task list.");
+        }
+
         var nowUtc = DateTimeOffset.UtcNow;
         if (sourceList.IsLockedByAnotherUser(request.UserId, nowUtc))
         {
@@ -65,8 +74,8 @@ public sealed class MoveTaskItemCommandHandler : IRequestHandler<MoveTaskItemCom
         // moving into, which TaskListLinkValidator would reject as a self-link.
         await _taskListLinkValidator.ValidateAsync(targetList.UserId, targetList.Id, updatedTargetItems, cancellationToken);
 
-        sourceList.Update(sourceList.Title, updatedSourceItems, sourceList.IsGroup);
-        targetList.Update(targetList.Title, updatedTargetItems, targetList.IsGroup);
+        sourceList.Update(sourceList.Title, updatedSourceItems, sourceList.IsGroup, sourceList.IsPrivate, sourceList.EncryptedContent);
+        targetList.Update(targetList.Title, updatedTargetItems, targetList.IsGroup, targetList.IsPrivate, targetList.EncryptedContent);
         await _taskRepository.UpdateManyAsync([sourceList, targetList], cancellationToken);
         return EditOutcome.Success;
     }

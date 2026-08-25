@@ -14,6 +14,15 @@ public sealed class NoteEntity
     public Guid UserId { get; set; }
     public string Title { get; set; } = string.Empty;
 
+    /// <summary>Whether this note is readable only by its owner - see Orbit.Core's IsPrivate.</summary>
+    public bool IsPrivate { get; set; }
+
+    /// <summary>Base64 AES-GCM ciphertext of a private note's title and content; null otherwise.</summary>
+    public string? EncryptedCiphertext { get; set; }
+
+    /// <summary>Base64 nonce the ciphertext above was sealed with; null otherwise.</summary>
+    public string? EncryptedNonce { get; set; }
+
     /// <summary>JSON-encoded list of NoteContentLine (text + checklist state per line) - SQLite has no native array/object column type. See CalendarEventEntity.GuestsJson for the same convention.</summary>
     public string ContentJson { get; set; } = "[]";
 
