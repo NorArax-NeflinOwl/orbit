@@ -76,7 +76,7 @@ else
                 @if (_sharePanelWarehouseId == warehouse.Id)
                 {
                     <div class="warehouse-share-panel">
-                        @if (_contacts.Count == 0)
+                        @if (ShareableContacts(warehouse).Count == 0)
                         {
                             <p>No contacts to share with yet - start a conversation first.</p>
                         }
@@ -84,7 +84,7 @@ else
                         {
                             <select id="shareContactSelect" @bind="_selectedContactUserId">
                                 <option value="">-- select a contact --</option>
-                                @foreach (var contact in _contacts)
+                                @foreach (var contact in ShareableContacts(warehouse))
                                 {
                                     <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
                                 }
@@ -160,6 +160,16 @@ else
             _warehouses = [];
         }
     }
+
+    /// <summary>
+    /// Keeps the warehouse's true owner out of a re-sharer's recipient picker - sharing back to them is
+    /// always rejected server-side (see ShareWarehouseCommandHandler), so offering the option would only
+    /// ever produce an error. Mirrors NoteEditor's _shareableContacts.
+    /// </summary>
+    private IReadOnlyList<ContactDto> ShareableContacts(WarehouseDto warehouse)
+        => warehouse.OriginalOwnerUserId is { } ownerUserId
+            ? _contacts.Where(contact => contact.UserId != ownerUserId).ToList()
+            : _contacts;
 
     /// <summary>Mirrors ShareWarehouseCommandHandler's own rule, so the button isn't offered for a share that would be rejected.</summary>
     private static bool CanShare(WarehouseDto warehouse)

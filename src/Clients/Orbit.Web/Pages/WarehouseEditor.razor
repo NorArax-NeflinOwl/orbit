@@ -6,6 +6,7 @@
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject InventoryApiClient InventoryApiClient
+@inject NotificationsApiClient NotificationsApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<WarehouseEditor> Logger
 
@@ -134,6 +135,18 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Best-effort: gates which notification-channel options are selectable (see
+        // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
+        // rather than blocking the rest of the page from loading.
+        try
+        {
+            _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to load notification settings");
+        }
+
         try
         {
             var warehouse = await InventoryApiClient.GetWarehouseByIdAsync(WarehouseId);

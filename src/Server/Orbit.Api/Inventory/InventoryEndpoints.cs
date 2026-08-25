@@ -29,15 +29,17 @@ public static class InventoryEndpoints
 
         warehouses.MapGet("/", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var result = await dispatcher.SendAsync(new GetWarehousesQuery(GetUserId(user)), cancellationToken);
-            return Results.Ok(result.Select(ToDto));
+            var callerId = GetUserId(user);
+            var result = await dispatcher.SendAsync(new GetWarehousesQuery(callerId), cancellationToken);
+            return Results.Ok(result.Select(warehouse => ToDto(warehouse, callerId)));
         });
 
         warehouses.MapGet("/{warehouseId:guid}", async (
             Guid warehouseId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var warehouse = await dispatcher.SendAsync(new GetWarehouseByIdQuery(GetUserId(user), warehouseId), cancellationToken);
-            return warehouse is null ? Results.NotFound() : Results.Ok(ToDto(warehouse));
+            var callerId = GetUserId(user);
+            var warehouse = await dispatcher.SendAsync(new GetWarehouseByIdQuery(callerId, warehouseId), cancellationToken);
+            return warehouse is null ? Results.NotFound() : Results.Ok(ToDto(warehouse, callerId));
         });
 
         warehouses.MapPost("/", async (
@@ -131,10 +133,14 @@ public static class InventoryEndpoints
         return Guid.Parse(subject);
     }
 
-    private static WarehouseDto ToDto(Warehouse warehouse)
+    private static WarehouseDto ToDto(Warehouse warehouse, Guid callerId)
         => new(
             warehouse.Id, warehouse.Name, warehouse.CreatedAtUtc, warehouse.UpdatedAtUtc,
-            warehouse.IsShared, warehouse.SharedByUserName, warehouse.AccessLevel.ToString(), warehouse.LockedByUserName);
+            warehouse.IsShared, warehouse.SharedByUserName, warehouse.AccessLevel.ToString(),
+            // Only someone ELSE's live lock is worth telling the caller about: their own lock never
+            // blocks them, and an expired one is free for the taking - see IsLockedByAnotherUser.
+            warehouse.IsLockedByAnotherUser(callerId, DateTimeOffset.UtcNow) ? warehouse.LockedByUserName : null,
+            warehouse.IsShared ? warehouse.UserId : null);
 
     private static IReadOnlyList<WarehouseItemInput> ToDomainItems(IReadOnlyList<WarehouseItemDto> items)
         => items
