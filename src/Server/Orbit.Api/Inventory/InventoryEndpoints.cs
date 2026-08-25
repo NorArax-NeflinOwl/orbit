@@ -52,10 +52,20 @@ public static class InventoryEndpoints
         warehouses.MapPut("/{warehouseId:guid}", async (
             Guid warehouseId, SaveWarehouseRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var outcome = await dispatcher.SendAsync(
-                new UpdateWarehouseCommand(GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items)),
-                cancellationToken);
-            return ToApiResult(outcome);
+            try
+            {
+                var outcome = await dispatcher.SendAsync(
+                    new UpdateWarehouseCommand(GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items)),
+                    cancellationToken);
+                return ToApiResult(outcome);
+            }
+            catch (ArgumentException)
+            {
+                // ToDomainItems parses each item's notification channel by name; one that is missing or
+                // isn't a channel is the caller's mistake, and used to leave the request as an
+                // unhandled 500 rather than saying what was wrong.
+                return Results.BadRequest(new { message = "Each item needs a notification channel of \"None\", \"Email\", \"Push\", or \"Both\"." });
+            }
         });
 
         warehouses.MapDelete("/{warehouseId:guid}", async (

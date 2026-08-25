@@ -99,8 +99,8 @@ services:
     ports:
       # 8443 (HTTPS) is the real, default entry point - see nginx.conf's header comment. 8080 (plain
       # HTTP) stays published only so a stray request there still lands somewhere useful: nginx
-      # redirects it to 8443, except for "localhost"/"127.0.0.1", which stay on plain HTTP since they
-      # already satisfy the browser's secure-context requirement without it.
+      # redirects all of it to 8443, localhost included, so the app only ever runs under one origin -
+      # the chat's encryption keys live in per-origin IndexedDB, and two origins would split them.
       - "8080:80"
       - "8443:443"
     environment:

@@ -65,6 +65,14 @@ public static class AuthEndpoints
         auth.MapPost("/password-reset", async (
             RequestPasswordResetRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
+            if (string.IsNullOrWhiteSpace(request.EmailOrUserName))
+            {
+                // Refused before it reaches the handler, which trims the identifier and so met a null
+                // head-on. Safe to answer differently from the cases below: this says nothing about
+                // whether any account exists, only that the request itself was incomplete.
+                return Results.BadRequest(new { message = "Enter the email address or username to send the code to." });
+            }
+
             await dispatcher.SendAsync(new RequestPasswordResetCommand(request.EmailOrUserName), cancellationToken);
             // Always NoContent, whether or not that account exists or has a verified address - see
             // RequestPasswordResetCommand for why this endpoint must not be an account-existence oracle.
