@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Orbit.Contracts.Users;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Users;
+using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Users.GetUserById;
 using Orbit.Core.Users.GetWrappedPrivateKey;
 using Orbit.Core.Users.SearchUser;
@@ -36,7 +37,24 @@ public static class UserEndpoints
                 ? Results.NotFound()
                 : Results.Ok(new AccountDto(
                     account.Id, account.Email, account.UserName, account.DisplayName, account.IsEmailVerified,
-                    account.HasPassword, account.GoogleSubjectId is not null));
+                    account.HasPassword, account.GoogleSubjectId is not null, ToDto(account.Location)));
+        });
+
+
+        // Recording a location is always the user's own doing - there is no endpoint for writing anyone
+        // else's, and none for reading one either: the account's own /me above is the only way out.
+        users.MapPut("/me/location", async (
+            SaveOwnLocationRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var location = new UserLocation(request.Address, request.Latitude, request.Longitude, DateTimeOffset.UtcNow);
+            var saved = await dispatcher.SendAsync(new SaveOwnLocationCommand(GetUserId(user), location), cancellationToken);
+            return saved ? Results.NoContent() : Results.NotFound();
+        });
+
+        users.MapDelete("/me/location", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var cleared = await dispatcher.SendAsync(new SaveOwnLocationCommand(GetUserId(user), Location: null), cancellationToken);
+            return cleared ? Results.NoContent() : Results.NotFound();
         });
 
         users.MapPut("/me/profile", async (
@@ -172,6 +190,10 @@ public static class UserEndpoints
             Results.Conflict(new { message = "Set a password first - otherwise you'd have no way to sign in." }),
         _ => Results.NotFound()
     };
+
+
+    private static UserLocationDto? ToDto(UserLocation? location)
+        => location is null ? null : new UserLocationDto(location.Address, location.Latitude, location.Longitude, location.RecordedAtUtc);
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {

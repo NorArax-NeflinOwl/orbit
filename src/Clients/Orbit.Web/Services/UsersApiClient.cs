@@ -197,4 +197,20 @@ public sealed class UsersApiClient
         response.EnsureSuccessStatusCode();
         return true;
     }
+
+    /// <summary>Records where the caller is. The address is best-effort - a point without one is still worth keeping.</summary>
+    public async Task SaveOwnLocationAsync(
+        double latitude, double longitude, string? address, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            "api/users/me/location", new SaveOwnLocationRequest(address, latitude, longitude), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Forgets the recorded location. Orbit keeps no history, so this leaves nothing behind.</summary>
+    public async Task ClearOwnLocationAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync("api/users/me/location", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 }

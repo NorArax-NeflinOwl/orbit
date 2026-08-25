@@ -15,6 +15,19 @@ public sealed class UserEntity
 
     /// <summary>Google's stable subject id, once the account is linked - see Orbit.Core.Users.User.GoogleSubjectId.</summary>
     public string? GoogleSubjectId { get; set; }
+    /// <summary>
+    /// The single point this user last recorded for themselves, if any - see Orbit.Core.Users.UserLocation.
+    /// All four move together: either every one is set or none is.
+    /// </summary>
+    public double? LocationLatitude { get; set; }
+
+    public double? LocationLongitude { get; set; }
+
+    /// <summary>The address reverse geocoding resolved, when it managed to - a point can be recorded without one.</summary>
+    public string? LocationAddress { get; set; }
+
+    public DateTimeOffset? LocationRecordedAtUtc { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     /// <summary>When the user last confirmed a code sent to Email, or null if never - see Orbit.Core.Users.User.EmailVerifiedAtUtc.</summary>
     public DateTimeOffset? EmailVerifiedAtUtc { get; set; }

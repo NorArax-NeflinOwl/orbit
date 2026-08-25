@@ -9,7 +9,19 @@ public sealed record AccountDto(
     bool IsEmailVerified,
     /// <summary>False for a Google account that hasn't set one - it can sign in, but can't use chat yet.</summary>
     bool HasPassword,
-    bool IsGoogleLinked);
+    bool IsGoogleLinked,
+    /// <summary>Null until the user records one - see UserLocationDto.</summary>
+    UserLocationDto? Location = null);
+
+/// <summary>
+/// A point a user recorded for themselves: coordinates, the address reverse geocoding resolved if it
+/// managed to, and when it was taken. Orbit stores one per user and no history - see
+/// Orbit.Core.Users.UserLocation.
+/// </summary>
+public sealed record UserLocationDto(string? Address, double Latitude, double Longitude, DateTimeOffset RecordedAtUtc);
+
+/// <summary>Records where the caller is. Latitude/longitude come from the browser; Address is best-effort reverse geocoding.</summary>
+public sealed record SaveOwnLocationRequest(string? Address, double Latitude, double Longitude);
 
 public sealed record UpdateProfileRequest(string DisplayName, string UserName);
 

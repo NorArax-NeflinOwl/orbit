@@ -64,7 +64,8 @@ public sealed class UserRepository : IUserRepository
     private static User ToDomain(UserEntity entity)
         => User.FromPersistence(
             entity.Id, entity.Email, entity.UserName, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc,
-            entity.PublicKeyBase64, ToWrappedPrivateKey(entity), entity.EmailVerifiedAtUtc, entity.GoogleSubjectId);
+            entity.PublicKeyBase64, ToWrappedPrivateKey(entity), entity.EmailVerifiedAtUtc, entity.GoogleSubjectId,
+            ToLocation(entity));
 
     private static UserEntity ToEntity(User user)
         => new()
@@ -81,8 +82,22 @@ public sealed class UserRepository : IUserRepository
             WrappedPrivateKeyBase64 = user.WrappedPrivateKey?.CiphertextBase64,
             PrivateKeyWrapNonceBase64 = user.WrappedPrivateKey?.NonceBase64,
             PrivateKeySaltBase64 = user.WrappedPrivateKey?.SaltBase64,
-            PrivateKeyDerivationIterations = user.WrappedPrivateKey?.Iterations
+            PrivateKeyDerivationIterations = user.WrappedPrivateKey?.Iterations,
+            LocationLatitude = user.Location?.Latitude,
+            LocationLongitude = user.Location?.Longitude,
+            LocationAddress = user.Location?.Address,
+            LocationRecordedAtUtc = user.Location?.RecordedAtUtc
         };
+
+    /// <summary>
+    /// Read back the same way the wrapped-key columns are: a location exists only when the coordinates
+    /// and the timestamp are all there, rather than trusting one column to decide.
+    /// </summary>
+    private static UserLocation? ToLocation(UserEntity entity)
+        => entity.LocationLatitude is { } latitude && entity.LocationLongitude is { } longitude
+            && entity.LocationRecordedAtUtc is { } recordedAtUtc
+            ? new UserLocation(entity.LocationAddress, latitude, longitude, recordedAtUtc)
+            : null;
 
     /// <summary>
     /// The four wrapped-private-key columns are only ever written together (see ToEntity) and read back

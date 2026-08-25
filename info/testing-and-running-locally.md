@@ -36,8 +36,8 @@ notification scheduling logic (see
 Covers the Blazor client's auth wiring: the token store; the handler that attaches the access token to
 outgoing requests and transparently refreshes it after a 401; `AuthApiClient`;
 `OrbitAuthenticationStateProvider`; `PushNotificationApiClient`; and the `Login`, `Register`, `Calendar`
-(including `CalendarEventEditor`), and `Dashboard` pages themselves, rendered with
-[bUnit](https://bunit.dev).
+(including `CalendarEventEditor`), `Dashboard`, `Tasks`, and `TaskListChecklist` pages themselves,
+rendered with [bUnit](https://bunit.dev).
 
 ### What is not covered by an automated test today
 
@@ -48,8 +48,8 @@ and what closing them would take:
 - The client-side retry-after-refresh path end-to-end through a real `HttpClientHandler` pipeline.
 - Actually sending an email through `SmtpEmailSender` or a push notification through
   `VapidPushNotificationSender`.
-- The `Notes`/`NoteEditor`/`Tasks`/`TaskEditor` pages themselves (only their command-handler logic is
-  tested, not a bUnit test against the actual pages, unlike `Login`/`Register`/`Calendar`/`Dashboard`).
+- The `Notes`/`NoteEditor` pages themselves (only their command-handler logic is tested, not a bUnit
+  test against the actual pages) — the last pages still missing this.
 - The `Contacts`/`Chat` pages, `PushNotificationManager`, and
   `wwwroot/js/e2eeChat.js`/`wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — the
   encryption/decryption round trip, key generation and persistence in IndexedDB, the polling UI,

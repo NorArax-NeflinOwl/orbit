@@ -1,43 +1,70 @@
 # Current Status
 
-Orbit is an early-stage prototype. Accounts, notes, tasks, a basic calendar, and end-to-end-encrypted
-1:1 chat are implemented end to end, including the Blazor WebAssembly web client — today the only
-client. Location sharing and the .NET MAUI client are not implemented yet.
+Orbit is a working prototype. Accounts (including Google sign-in and full self-service account
+management), notes, tasks, calendar, an inventory planner, and end-to-end-encrypted chat — one-to-one
+and group — are implemented end to end, including the Blazor WebAssembly web client, still the only
+client. Sharing a location with another user and the .NET MAUI client are the two headline pieces of
+the product's stated scope that remain unbuilt.
 
 ## Implemented vs. planned
 
 | Area | Status | Where to read more |
 | --- | --- | --- |
 | Accounts (register / login / refresh / logout) | Implemented | [Functionality — Authentication](functionality.md#authentication) |
-| Notes (including sharing with another user) | Implemented | [Functionality — Notes](functionality.md#notes) |
-| Tasks (including sharing with another user) | Implemented | [Functionality — Tasks](functionality.md#tasks) |
-| Calendar (basic, including event sharing) | Implemented | [Functionality — Calendar](functionality.md#calendar) |
-| End-to-end-encrypted 1:1 chat | Implemented | [Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat) |
+| Account management (email verification, password reset and change, account deletion) | Implemented | [Functionality — Authentication](functionality.md#authentication) |
+| Google sign-in and account linking | Implemented | [Functionality — Authentication](functionality.md#authentication) |
+| Notes (sharing, private notes, checklist lines) | Implemented | [Functionality — Notes](functionality.md#notes) |
+| Tasks (sharing, private lists, group lists, list links, daily and overdue reminders) | Implemented | [Functionality — Tasks](functionality.md#tasks) |
+| Calendar (sharing, recurrence, reminders, map location picker) | Implemented | [Functionality — Calendar](functionality.md#calendar) |
+| Inventory planner (warehouses, sharing, restock tasks, expiry warnings) | Implemented | [Functionality — Inventory](functionality.md#inventory) |
+| End-to-end-encrypted 1:1 chat (including editing a sent message) | Implemented | [Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat) |
+| Group chats, with admin and member roles | Implemented | [Functionality — Group chats](functionality.md#group-chats) |
 | Push notifications | Implemented | [Functionality — Push notifications](functionality.md#push-notifications) |
+| In-app notification feed, badge, and banner | Implemented | [Functionality — In-app notifications](functionality.md#in-app-notifications) |
 | Blazor WebAssembly web client | Implemented (only client so far) | [Architecture](architecture.md#orbitweb) |
-| Location sharing | Not started | [Future Plan](future-plan.md#planned-features) |
+| Recording your own location and seeing it on a map | Implemented | [Future Plan](future-plan.md#planned-features) |
+| Sharing a location with another user | Not started | [Future Plan](future-plan.md#planned-features) |
 | .NET MAUI client (mobile and desktop) | Not started | [Future Plan](future-plan.md#planned-features) |
-| `Orbit.GoogleIntegration` (Google Calendar/Contacts sync) | Empty placeholder project | [Future Plan](future-plan.md#planned-features) |
+| Google Calendar / Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
+| Password manager and password generator | Not started | [Future Plan](future-plan.md#planned-features) |
+
+`Orbit.GoogleIntegration` (`src/Server`) is no longer the empty placeholder it was: it holds the
+Google ID-token verification behind Google sign-in. The Calendar/Contacts sync it was originally
+reserved for still hasn't been started — see [Future Plan](future-plan.md#planned-features).
 
 ## The signed-in experience today
 
-Registering or logging in happens on `/register`/`/login`; the dashboard, notes, tasks, calendar, and
-contacts/chat pages are only reachable once signed in. Signing in lands on the dashboard (`/`), which
-lists notes, task lists, and calendar events at a glance. Each of those areas also has its own page
-(`/notes`, `/tasks`, `/calendar`) where items can be created, edited, or deleted. `/contacts` searches
-for other users and lists existing conversations — see
-[Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat).
+Registering or logging in happens on `/register`/`/login`, either with an email address and password
+or with Google. Everything else is behind authentication. Signing in lands on the dashboard (`/`),
+which summarizes notes, task lists, calendar events, and contacts, and where each row opens the thing
+it names.
 
-Once a user approves browser notifications, push notifications fire for approaching calendar events,
-new chat messages, and overdue tasks — see
-[Functionality — Push notifications](functionality.md#push-notifications).
+Each area also has its own page: `/notes`, `/tasks`, `/calendar`, `/inventory` (warehouses and their
+contents), `/contacts` (user search and existing conversations), `/map` (the one location you've
+recorded for yourself), and `/options`. Notes, task lists, calendar events, and warehouses can each be
+shared with another user through an offer/accept flow carried over encrypted chat, or marked private
+so they can't be shared at all.
+
+`/options` covers the account itself — display name, username, email address and its verification,
+password, connecting or disconnecting Google, and deleting the account outright — alongside the theme
+picker and notification preferences.
+
+Notifications arrive three ways: browser push (even while Orbit is closed), an in-app feed with an
+unread badge, and a short banner while the app is open. All three are configurable per account, and
+the push half needs the user to approve browser notifications first — see
+[Functionality — Push notifications](functionality.md#push-notifications) and
+[In-app notifications](functionality.md#in-app-notifications).
 
 ## Not yet implemented
 
-- **Location sharing** — no work has started on this yet, despite being part of the product's stated
-  scope (see the top-level [README](../README.md)).
-- **.NET MAUI client** (mobile and desktop) — planned but not started; the Blazor WebAssembly web
-  client is the only client today.
+- **Sharing a location with another user** — recording your own location and viewing it on a map works
+  today, but there is no way to share it with someone else, one-off or live. This is the half of
+  "location sharing" from the top-level [README](../README.md) that is still missing.
+- **.NET MAUI client** (mobile and desktop) — planned but not started. `src/Clients/Orbit.Maui` exists
+  as an empty folder that isn't part of the solution; the Blazor WebAssembly web client is the only
+  client today.
+- **Google Calendar / Contacts sync** — writing a shared event onto a recipient's real Google Calendar,
+  and turning a saved location into Google Maps directions.
 
 See [Future Plan](future-plan.md) for the fuller list of planned work, known scope cuts, and testing
 gaps.
