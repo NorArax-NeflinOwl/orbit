@@ -1,4 +1,4 @@
-@page "/inventory"
+@page "/inventory/{WarehouseId:guid}"
 @attribute [Authorize]
 @using Orbit.Contracts.Inventory
 @using Orbit.Web.Services
@@ -11,10 +11,20 @@
 
 <div class="page-header">
     <div>
-        <h1>Inventory</h1>
+        <h1>@(_warehouse?.Name ?? "Inventory")</h1>
         <p class="page-subtitle">Track what's in stock, get a task when something runs low, and a heads-up before it expires.</p>
+        @if (_warehouse is { IsShared: true } shared)
+        {
+            <p class="shared-note-banner">Shared by <strong>@shared.SharedByUserName</strong> - @AccessDescription(shared.AccessLevel).</p>
+        }
     </div>
-    <button class="btn-primary" @onclick="GoToAddItem">Add item</button>
+    <div class="page-header-actions">
+        <button class="btn-secondary" @onclick="GoToWarehouses">All warehouses</button>
+        @if (_canEdit)
+        {
+            <button class="btn-primary" @onclick="GoToAddItem">Add item</button>
+        }
+    </div>
 </div>
 
 @if (_items is null)
@@ -64,28 +74,53 @@ else
                     <br>
                     <small class="error">@expiryBadge</small>
                 }
-                <br>
-                <button @onclick="() => GoToEditItem(item.Id)">Edit</button>
-                <button @onclick="() => DeleteItemAsync(item)">Delete</button>
+                @if (_canEdit)
+                {
+                    <br>
+                    <button @onclick="() => GoToEditItem(item.Id)">Edit</button>
+                    <button @onclick="() => DeleteItemAsync(item)">Delete</button>
+                }
             </li>
         }
     </ul>
 }
 
 @code {
+    [Parameter]
+    public Guid WarehouseId { get; set; }
+
     private IReadOnlyList<InventoryItemDto>? _items;
+    private WarehouseDto? _warehouse;
+
+    /// <summary>Read-only share recipients see the stock but get no add/edit/delete affordances - matching what the API would allow.</summary>
+    private bool _canEdit;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _items = await InventoryApiClient.GetInventoryItemsAsync();
+            _warehouse = await InventoryApiClient.GetWarehouseByIdAsync(WarehouseId);
+            if (_warehouse is null)
+            {
+                NavigationManager.NavigateTo("/inventory");
+                return;
+            }
+
+            _canEdit = _warehouse.AccessLevel == "CanEdit";
+            _items = await InventoryApiClient.GetInventoryItemsAsync(WarehouseId) ?? [];
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
             NavigationManager.NavigateTo("/login");
         }
     }
+
+    private static string AccessDescription(string accessLevel) => accessLevel switch
+    {
+        "CanEdit" => "you can edit it",
+        "Share" => "you can share it further, but not edit it",
+        _ => "read-only"
+    };
 
     /// <summary>Expiring/expired items float to the top so they're the first thing the user sees - the passive UI-only side of expiry warnings (the background service handles the active push/email side).</summary>
     private IEnumerable<InventoryItemDto> SortedItems()
@@ -107,9 +142,11 @@ else
         return expiryDate <= now.AddDays(3) ? "Expires soon" : null;
     }
 
-    private void GoToAddItem() => NavigationManager.NavigateTo("/inventory/new");
+    private void GoToWarehouses() => NavigationManager.NavigateTo("/inventory");
 
-    private void GoToEditItem(Guid id) => NavigationManager.NavigateTo($"/inventory/{id}");
+    private void GoToAddItem() => NavigationManager.NavigateTo($"/inventory/{WarehouseId}/items/new");
+
+    private void GoToEditItem(Guid id) => NavigationManager.NavigateTo($"/inventory/{WarehouseId}/items/{id}");
 
     private async Task DeleteItemAsync(InventoryItemDto item)
     {
@@ -121,7 +158,7 @@ else
 
         try
         {
-            await InventoryApiClient.DeleteInventoryItemAsync(item.Id);
+            await InventoryApiClient.DeleteInventoryItemAsync(WarehouseId, item.Id);
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {

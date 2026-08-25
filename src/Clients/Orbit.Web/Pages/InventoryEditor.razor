@@ -1,5 +1,5 @@
-@page "/inventory/new"
-@page "/inventory/{Id:guid}"
+@page "/inventory/{WarehouseId:guid}/items/new"
+@page "/inventory/{WarehouseId:guid}/items/{Id:guid}"
 @attribute [Authorize]
 @using Orbit.Contracts.Inventory
 @using Orbit.Contracts.Notifications
@@ -70,6 +70,9 @@ else
 
 @code {
     [Parameter]
+    public Guid WarehouseId { get; set; }
+
+    [Parameter]
     public Guid? Id { get; set; }
 
     private bool IsNewItem => Id is null;
@@ -97,7 +100,7 @@ else
         {
             try
             {
-                var item = await InventoryApiClient.GetInventoryItemByIdAsync(itemId);
+                var item = await InventoryApiClient.GetInventoryItemByIdAsync(WarehouseId, itemId);
                 if (item is not null)
                 {
                     _formModel = new InventoryItemFormModel
@@ -130,11 +133,16 @@ else
         {
             if (IsNewItem)
             {
-                await InventoryApiClient.CreateInventoryItemAsync(ToCreateRequest(_formModel));
+                var createdId = await InventoryApiClient.CreateInventoryItemAsync(WarehouseId, ToCreateRequest(_formModel));
+                if (createdId is null)
+                {
+                    _saveErrorMessage = "Failed to save the item. Try again.";
+                    return;
+                }
             }
             else
             {
-                var outcome = await InventoryApiClient.UpdateInventoryItemAsync(Id!.Value, ToUpdateRequest(_formModel));
+                var outcome = await InventoryApiClient.UpdateInventoryItemAsync(WarehouseId, Id!.Value, ToUpdateRequest(_formModel));
                 if (outcome.Kind == EditOutcomeKind.NotFound)
                 {
                     _saveErrorMessage = "Failed to save the item. Try again.";
@@ -158,10 +166,10 @@ else
             _isSaving = false;
         }
 
-        NavigationManager.NavigateTo("/inventory");
+        NavigationManager.NavigateTo($"/inventory/{WarehouseId}");
     }
 
-    private void Cancel() => NavigationManager.NavigateTo("/inventory");
+    private void Cancel() => NavigationManager.NavigateTo($"/inventory/{WarehouseId}");
 
     private static CreateInventoryItemRequest ToCreateRequest(InventoryItemFormModel model)
         => new(

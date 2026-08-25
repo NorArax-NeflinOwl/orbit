@@ -2040,3 +2040,83 @@ input.note-editor-title {
 .calendar-year-view-options {
     margin-top: 0.75rem;
 }
+
+/* Warehouses.razor: the list of warehouses that Inventory now opens on. */
+.warehouse-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.warehouse-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.warehouse-card-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+/* A button rather than a link so it matches the rest of the app's navigation, but styled as the card's
+   title - the whole point of the row is to open that warehouse. */
+.warehouse-name {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: left;
+}
+
+.warehouse-name:hover {
+    background: none;
+    color: var(--accent);
+}
+
+.warehouse-shared-badge {
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.warehouse-card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* The inline share form that opens under one warehouse card at a time. */
+.warehouse-share-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+.warehouse-create-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+/* Inventory.razor's header keeps two buttons side by side now ("All warehouses" plus "Add item"). */
+.page-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
