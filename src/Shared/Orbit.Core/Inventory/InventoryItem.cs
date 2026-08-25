@@ -34,8 +34,12 @@ public sealed class InventoryItem
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
-    /// <summary>Whether this item is at or below its own minimum - always false when no minimum is set.</summary>
-    public bool IsBelowMinimum => MinimumQuantity is { } minimumQuantity && Quantity <= minimumQuantity;
+    /// <summary>
+    /// Whether this item has dropped strictly below its own minimum - always false when no minimum is
+    /// set. Sitting exactly at the minimum counts as fine: the minimum is the level to keep, not the
+    /// level that already needs restocking, so 1 of 1 raises no task.
+    /// </summary>
+    public bool IsBelowMinimum => MinimumQuantity is { } minimumQuantity && Quantity < minimumQuantity;
 
     private InventoryItem(
         Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,

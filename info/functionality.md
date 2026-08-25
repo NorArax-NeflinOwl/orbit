@@ -287,8 +287,9 @@ that reaches an item without it, since the warehouse is what authorizes the requ
 `/inventory` is the warehouse list (`Warehouses.razor`, where sharing lives) and `/inventory/{id}` is the
 editor (`WarehouseEditor.razor`).
 
-**Low stock creates a real Task, not a separate notification.** Whenever a saved item's `quantity` is at
-or below its `minimumQuantity`, `InventoryTaskListCoordinator` appends a `TaskItem` ("Restock:
+**Low stock creates a real Task, not a separate notification.** Whenever a saved item's `quantity` drops
+strictly below its `minimumQuantity` (exactly at the minimum still counts as fine - the minimum is the
+level to keep, not one that already needs restocking), `InventoryTaskListCoordinator` appends a `TaskItem` ("Restock:
 {name}") to a single, system-managed `TaskList` titled "Restock supplies" — the exact same `TaskList`/
 `TaskItem` domain objects Tasks itself uses, so the item shows up on `/tasks` with the same
 edit/complete/notification UI as anything the user created by hand. This check runs inline inside the
