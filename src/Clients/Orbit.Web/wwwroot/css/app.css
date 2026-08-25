@@ -2602,3 +2602,39 @@ input.note-editor-title {
         grid-template-columns: 1fr;
     }
 }
+
+/* MapPage.razor: the map fills the screen rather than sitting in a box - it is the point of the page,
+   and a location is easier to place with more of its surroundings visible. */
+.map-page {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* .main-content's own vertical padding (28px top, 40px bottom) is what's taken off the viewport. */
+    height: calc(100dvh - 68px);
+}
+
+.location-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    /* Without this a flex child refuses to shrink below its content, and the map pushes the card past
+       the bottom of the screen instead of fitting inside it. */
+    min-height: 0;
+}
+
+.location-map {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+@media (max-width: 680px) {
+    .map-page {
+        /* The sidebar is a top bar at this width (see its own rule), so it takes its height out of the
+           viewport before the content gets any. */
+        height: calc(100dvh - 129px);
+    }
+}

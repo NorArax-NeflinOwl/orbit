@@ -25,6 +25,12 @@ public sealed class User
     /// </summary>
     public string? GoogleSubjectId { get; private set; }
 
+    /// <summary>
+    /// Where this user last recorded themselves as being, or null if they never have or have since
+    /// cleared it. Only ever set by the user themselves - see SaveOwnLocationCommandHandler.
+    /// </summary>
+    public UserLocation? Location { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     /// <summary>
@@ -91,10 +97,14 @@ public sealed class User
     public static User FromPersistence(
         Guid id, string email, string userName, string displayName, string? passwordHash, DateTimeOffset createdAtUtc,
         string? publicKeyBase64, WrappedPrivateKey? wrappedPrivateKey = null, DateTimeOffset? emailVerifiedAtUtc = null,
-        string? googleSubjectId = null)
-        => new(
+        string? googleSubjectId = null, UserLocation? location = null)
+    {
+        var user = new User(
             id, email, userName, displayName, passwordHash, createdAtUtc, publicKeyBase64, wrappedPrivateKey,
             emailVerifiedAtUtc, googleSubjectId);
+        user.Location = location;
+        return user;
+    }
 
     /// <summary>Ties an existing account to a Google identity, so signing in with Google finds this account instead of creating a second one.</summary>
     public void LinkGoogle(string googleSubjectId) => GoogleSubjectId = googleSubjectId;
@@ -102,6 +112,12 @@ public sealed class User
     public void UnlinkGoogle() => GoogleSubjectId = null;
 
     public void ChangeDisplayName(string displayName) => DisplayName = displayName;
+
+    /// <summary>
+    /// Replaces whatever was recorded before - there is only ever one point per user, so recording a new
+    /// one is how the old one goes away. Passing null clears it outright.
+    /// </summary>
+    public void RecordLocation(UserLocation? location) => Location = location;
 
     /// <summary>Callers are expected to have already rejected a login that is taken by someone else - see ChangeUserNameCommandHandler.</summary>
     public void ChangeUserName(string userName) => UserName = userName;

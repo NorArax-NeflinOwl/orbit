@@ -1,0 +1,269 @@
+@page "/map"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@using System.Globalization
+@using Orbit.Contracts.Users
+@using Orbit.Web.Services
+@inject UsersApiClient UsersApiClient
+@inject GeocodingApiClient GeocodingApiClient
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject ILogger<MapPage> Logger
+
+<PageTitle>Orbit — Map</PageTitle>
+
+<div class="map-page">
+    <div class="page-header">
+        <div>
+            <h1>Map</h1>
+            <p class="page-subtitle">The one location you've recorded for yourself, and where it is.</p>
+        </div>
+        <div class="page-header-actions">
+            <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="RecordCurrentLocationAsync">
+                @(_location is null ? "Record where I am" : "Update to where I am now")
+            </button>
+            @if (_location is not null)
+            {
+                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="ClearLocationAsync">Forget it</button>
+            }
+        </div>
+    </div>
+
+    @if (_message is not null)
+    {
+        <p class="@(_hasFailed ? "error" : "info")">@_message</p>
+    }
+
+    @if (_isLoading)
+    {
+        <p>Loading…</p>
+    }
+    else if (_location is null)
+    {
+        <div class="card">
+            <p class="empty-hint">
+                Nothing recorded yet. Recording asks your browser for your position - it will ask your
+                permission first, and nothing is read until you press the button. Orbit keeps one point and no
+                history: recording again replaces it, and forgetting it leaves nothing behind.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="card location-card">
+            <div class="card-header">
+                <span class="card-title">@(_location.Address ?? "Recorded location")</span>
+                <span class="card-count">@FormatRecordedAt(_location.RecordedAtUtc)</span>
+            </div>
+            <div class="list-row">
+                <span class="row-title">@FormatCoordinates(_location)</span>
+            </div>
+            @* The map itself is drawn by Leaflet into this element - see locationMap.js. *@
+            <div id="@MapElementId" class="location-map"></div>
+        </div>
+    }
+</div>
+
+@code {
+    private const string MapElementId = "recordedLocationMap";
+
+    /// <summary>Long enough for a cold GPS fix, short enough that a page waiting on nothing gives up.</summary>
+    private const int PositionTimeoutMs = 15000;
+
+    /// <summary>Matches the rest of the app's date formatting - see Dashboard.razor.</summary>
+    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
+    private UserLocationDto? _location;
+    private bool _isLoading = true;
+    private bool _isBusy;
+    private bool _hasFailed;
+    private string? _message;
+
+    /// <summary>The element only exists once there is something to draw, so drawing waits for the render that adds it.</summary>
+    private bool _isMapDrawnFor;
+    private IJSObjectReference? _mapModule;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Deliberately not keyed on firstRender: the location arrives from an HTTP call, so the render
+        // that has the map element in it is never the first one.
+        if (_location is null || _isMapDrawnFor)
+        {
+            return;
+        }
+
+        _isMapDrawnFor = true;
+        try
+        {
+            _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
+            await _mapModule.InvokeVoidAsync(
+                "showLocation", MapElementId, _location.Latitude, _location.Longitude, _location.Address);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Failed to draw the location map");
+            _hasFailed = true;
+            _message = "The map couldn't be drawn, but your location is recorded.";
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var account = await UsersApiClient.GetAccountAsync();
+            _location = account?.Location;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load the recorded location");
+            _hasFailed = true;
+            _message = "Couldn't load your location. Try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Asks the browser where it is, resolves an address for it best-effort, and saves both. The browser
+    /// asks the user's permission itself; a refusal comes back as an ordinary message rather than an
+    /// error, since declining is a legitimate answer.
+    /// </summary>
+    private async Task RecordCurrentLocationAsync()
+    {
+        _isBusy = true;
+        _message = null;
+        _hasFailed = false;
+        try
+        {
+            await using var geolocationModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/geolocation.js");
+            var position = await geolocationModule.InvokeAsync<BrowserPosition>("getCurrentPosition", PositionTimeoutMs);
+
+            if (position.Error is { } error)
+            {
+                _hasFailed = true;
+                _message = error;
+                return;
+            }
+
+            // Best-effort: a point with no address is still worth keeping, so a failed lookup doesn't
+            // stop the save.
+            var address = await TryResolveAddressAsync(position.Latitude, position.Longitude);
+            await UsersApiClient.SaveOwnLocationAsync(position.Latitude, position.Longitude, address);
+
+            await RedrawAsync();
+            _message = "Location recorded.";
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to save the recorded location");
+            _hasFailed = true;
+            _message = "Couldn't save your location. Try again.";
+        }
+        catch (JSException exception)
+        {
+            Logger.LogError(exception, "Failed to read the browser's position");
+            _hasFailed = true;
+            _message = "Your location couldn't be read in this browser.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task<string?> TryResolveAddressAsync(double latitude, double longitude)
+    {
+        try
+        {
+            return await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Reverse geocoding failed for a recorded location");
+            return null;
+        }
+    }
+
+    private async Task ClearLocationAsync()
+    {
+        _isBusy = true;
+        _message = null;
+        _hasFailed = false;
+        try
+        {
+            await UsersApiClient.ClearOwnLocationAsync();
+            await DisposeMapAsync();
+            await RedrawAsync();
+            _message = "Location forgotten.";
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to clear the recorded location");
+            _hasFailed = true;
+            _message = "Couldn't clear your location. Try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    /// <summary>Reloads and lets the next render put a fresh map in place of the old one.</summary>
+    private async Task RedrawAsync()
+    {
+        await DisposeMapAsync();
+        _isMapDrawnFor = false;
+        await LoadAsync();
+    }
+
+    private async Task DisposeMapAsync()
+    {
+        if (_mapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mapModule.InvokeVoidAsync("dispose", MapElementId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is already gone, so there is no map left to tear down.
+        }
+    }
+
+    private static string FormatCoordinates(UserLocationDto location)
+        => $"{location.Latitude.ToString("F5", DisplayCulture)}, {location.Longitude.ToString("F5", DisplayCulture)}";
+
+    private static string FormatRecordedAt(DateTimeOffset recordedAtUtc)
+        => recordedAtUtc.ToLocalTime().ToString("d MMM yyyy, HH:mm", DisplayCulture);
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisposeMapAsync();
+        if (_mapModule is not null)
+        {
+            try
+            {
+                await _mapModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+
+    /// <summary>Shape returned by geolocation.js - matched by camelCase property name. Error is set instead of the coordinates when the position couldn't be had.</summary>
+    private sealed record BrowserPosition(double Latitude, double Longitude, double AccuracyMetres, string? Error);
+}

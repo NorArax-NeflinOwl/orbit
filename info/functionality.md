@@ -84,9 +84,12 @@ Studio's built-in HTTP file support or VS Code's "REST Client" extension).
 
 ## Notes
 
-`POST /api/notes` and `PUT /api/notes/{id}` both take `{ title, content }`, where `content` is
-free-form text. `GET /api/notes` and `GET /api/notes/{id}` return the same shape back, plus `id`,
-`createdAtUtc`, and `updatedAtUtc`. `DELETE /api/notes/{id}` deletes a note, 404ing under the same
+`POST /api/notes` and `PUT /api/notes/{id}` both take `{ title, content }`, where `content` is an
+ordered list of lines, each `{ text, isChecklistItem, isChecked }` — a note is plain text and checklist
+items in one body, not two separate features. A checklist item's checked state is a real field rather
+than `"[ ]"`/`"[x]"` text every client would have to parse back out, and it is persisted as JSON (see
+`NoteEntity.ContentJson`). `GET /api/notes` and `GET /api/notes/{id}` return the same shape back, plus
+`id`, `createdAtUtc`, and `updatedAtUtc`. `DELETE /api/notes/{id}` deletes a note, 404ing under the same
 ownership rule as every other endpoint; the Blazor client's notes page asks for confirmation before
 calling it.
 
@@ -260,6 +263,34 @@ What private costs:
   keeps no readable items, so the move would take the item off the source and then drop it.
 - **Completion is recomputed in the browser.** The server derives `IsCompleted` from items it can't see,
   so what it sends for a private list means nothing; `TasksApiClient` works it out after opening.
+
+## The map, and the location behind it
+
+A user can record **one** location for themselves — coordinates, the address reverse geocoding resolved
+for them if it managed to, and when it was taken (`UserLocation`). The Map page (`/map`) shows it on a
+Leaflet map, the same library and tile source the calendar's location picker already uses.
+
+Recording is always something the user does on purpose: pressing the button asks the browser for a
+position, the browser asks the user's permission, and nothing is read until both happen. Refusing is an
+ordinary answer — it comes back as a sentence on the page, not an error. Nothing in Orbit reads a
+position on its own, and there is no background tracking.
+
+**One point, no history.** Recording again replaces what was there; "Forget it" removes it and leaves
+nothing behind. `PUT /api/users/me/location` and `DELETE /api/users/me/location` are the only ways to
+write one, and both act on the caller's own account — there is no endpoint for writing anyone else's,
+and none for reading one either. A location leaves the API only through the caller's own `GET
+/api/users/me`, which is to say: **a location is currently visible to nobody but the person who
+recorded it.**
+
+Coordinates are validated the same way a calendar event's are (±90 / ±180), and a point off the globe is
+refused with a message rather than stored — see [Refusing a request](#refusing-a-request). The address is
+best-effort: a point Nominatim has nothing for is still worth keeping.
+
+The map waits for its container to have a height before Leaflet measures it. Blazor adds the element in
+the same render pass that draws into it, so measuring immediately measures a box the browser hasn't laid
+out yet — which leaves the tiles covering one corner and the marker outside them. Correcting afterwards
+doesn't work: `invalidateSize` fixes the size Leaflet believes in, but a `setView` back to the same
+centre and zoom is a no-op, so the tile grid keeps its stale origin.
 
 ## Refusing a request
 
