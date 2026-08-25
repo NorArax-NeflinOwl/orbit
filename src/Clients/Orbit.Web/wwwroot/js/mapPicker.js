@@ -23,12 +23,18 @@ export function initializeMapPicker(elementId, dotNetHelper, initialLatitude, in
     let marker = hasInitialPosition ? L.marker(startPosition).addTo(map) : null;
 
     map.on('click', event => {
-        const { lat, lng } = event.latlng;
         if (marker) {
             marker.setLatLng(event.latlng);
         } else {
             marker = L.marker(event.latlng).addTo(map);
         }
+
+        // The marker stays where the click landed, but the coordinates reported to .NET are wrapped
+        // first: the tile layer repeats the world horizontally, and Leaflet keeps panning past the
+        // antimeridian in the same continuous coordinate space rather than wrapping - a click two
+        // worlds east of Warsaw arrives here as longitude 741, not 21. CalendarEvent rejects anything
+        // outside -180..180, so sending it unwrapped turned an ordinary map click into a failed save.
+        const { lat, lng } = event.latlng.wrap();
         dotNetHelper.invokeMethodAsync('OnMapLocationPicked', lat, lng);
     });
 

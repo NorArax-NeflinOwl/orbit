@@ -41,17 +41,31 @@ public static class CalendarEndpoints
         calendarEvents.MapPost("/", async (
             CreateCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var id = await dispatcher.SendAsync(
-                new CreateCalendarEventCommand(GetUserId(user), ToDomainDetails(request.Details)), cancellationToken);
-            return Results.Created($"/api/calendar-events/{id}", id);
+            try
+            {
+                var id = await dispatcher.SendAsync(
+                    new CreateCalendarEventCommand(GetUserId(user), ToDomainDetails(request.Details)), cancellationToken);
+                return Results.Created($"/api/calendar-events/{id}", id);
+            }
+            catch (ArgumentException exception)
+            {
+                return ToValidationFailure(exception);
+            }
         });
 
         calendarEvents.MapPut("/{id:guid}", async (
             Guid id, UpdateCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var outcome = await dispatcher.SendAsync(
-                new UpdateCalendarEventCommand(GetUserId(user), id, ToDomainDetails(request.Details)), cancellationToken);
-            return ToApiResult(outcome);
+            try
+            {
+                var outcome = await dispatcher.SendAsync(
+                    new UpdateCalendarEventCommand(GetUserId(user), id, ToDomainDetails(request.Details)), cancellationToken);
+                return ToApiResult(outcome);
+            }
+            catch (ArgumentException exception)
+            {
+                return ToValidationFailure(exception);
+            }
         });
 
         calendarEvents.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -167,6 +181,15 @@ public static class CalendarEndpoints
 
     private static RecurrenceDto? ToRecurrenceDto(EventRecurrence? recurrence)
         => recurrence is null ? null : new RecurrenceDto(recurrence.Frequency.ToString(), recurrence.IntervalCount, recurrence.UntilUtc);
+
+    /// <summary>
+    /// Turns a rejected event (end before start, or a location off the globe - see
+    /// CalendarEvent.ValidateTimeRange/ValidateLocation) into a 400 naming what was wrong, rather than
+    /// letting it escape as an unhandled 500 that tells the caller nothing. Scoped to these two
+    /// endpoints deliberately: it is the caller's input being refused here, not a server fault.
+    /// </summary>
+    private static IResult ToValidationFailure(ArgumentException exception)
+        => Results.BadRequest(new { message = exception.Message });
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch
