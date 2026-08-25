@@ -31,10 +31,17 @@ public sealed class NotificationEntryRepository : INotificationEntryRepository
         return entities.Select(ToDomain).ToList();
     }
 
-    public Task<int> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken)
-        => _dbContext.NotificationEntries
+    public async Task<IReadOnlyList<NotificationEntry>> GetUnreadAsync(Guid userId, int take, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.NotificationEntries
             .AsNoTracking()
-            .CountAsync(entity => entity.UserId == userId && entity.ReadAtUtc == null, cancellationToken);
+            .Where(entity => entity.UserId == userId && entity.ReadAtUtc == null)
+            .OrderByDescending(entity => entity.CreatedAtUtc)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
 
     public async Task MarkAllReadAsync(Guid userId, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
@@ -47,6 +54,20 @@ public sealed class NotificationEntryRepository : INotificationEntryRepository
             entity.ReadAtUtc = nowUtc;
         }
 
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAllAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.NotificationEntries
+            .Where(entity => entity.UserId == userId)
+            .ToListAsync(cancellationToken);
+        if (entities.Count == 0)
+        {
+            return;
+        }
+
+        _dbContext.NotificationEntries.RemoveRange(entities);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

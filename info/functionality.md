@@ -646,8 +646,8 @@ actually deliver on a channel the account has turned off.
 
 **The feed itself.** `NotificationEntry` (`Id, UserId, Kind, Title, Body, Url?, CreatedAtUtc, ReadAtUtc?`)
 is a flat, reverse-chronological list per user — `GET /api/notifications` returns the most recent 30,
-`GET /api/notifications/unread-count` the unread count, `POST /api/notifications/read` marks everything
-read at once (there's no per-entry read state exposed anywhere, matching "opening the panel clears the
+`GET /api/notifications/unread` the unread ones (which is what the per-source badges are computed from),
+`POST /api/notifications/read` marks everything read at once, `DELETE /api/notifications` empties the feed (there's no per-entry read state exposed anywhere, matching "opening the panel clears the
 badge" rather than tracking which individual entries were seen). `Kind` is `PushReminder` or
 `ChatMessage`, mostly for the client to render slightly differently later; `Url` is the same in-app deep
 link (`/tasks/{id}`, `/calendar/{id}`, `/chat/{userId}`, ...) the corresponding push notification's own
@@ -655,13 +655,26 @@ payload already carries.
 
 **Client (`MainLayout.razor`).** The avatar gets a small unread-count badge (`FormatUnreadCount`: hidden
 at 0, the number at 1–9, "9+" above that) and a new "Notifications" entry next to "Log out" in the
-dropdown, opening a panel anchored the same way the avatar dropdown is. Opening the panel loads the
-recent feed, calls `POST /api/notifications/read`, and zeros the badge immediately rather than waiting
-for the next poll tick. Clicking a feed row that carries a `Url` navigates there and closes the panel, so
-the panel reaches the same destination the corresponding push notification would. A dedicated 10-second
-poll (separate from the existing 60-second session heartbeat) refreshes the settings/unread count; when
-the count has just gone up and `AllowMobileBanner` is on, it fetches the newest entry and shows it as a
-toast fixed to the top of the viewport.
+dropdown. Opening it loads the recent feed, calls `POST /api/notifications/read`, and zeros the badge
+immediately rather than waiting for the next poll tick. Clicking a feed row that carries a `Url`
+navigates there, so the panel reaches the same destination the corresponding push notification would.
+
+**Desktop opens a popup; a phone opens a page.** A 320px panel anchored to the mobile top bar leaves
+almost nothing readable, so on that breakpoint the entry navigates to `/notifications`
+(`Notifications.razor`) instead — the same decision the logo makes when it becomes a Dashboard shortcut
+(`OrbitViewport.isMobile`, the one place both CSS and Blazor read the breakpoint). Both forms render the
+same `NotificationList` component and offer the same **Clear**, which empties the server feed *and* this
+browser's captured errors, because the panel presents them as one list and clearing half would look
+broken. Clear discards rather than marks read — it is about getting rid of the list, not the badge.
+
+**Badges mark where a notification came from, not just that one arrived.** The 10-second poll fetches the
+unread *entries* (`GET /api/notifications/unread`) rather than a bare count and puts them in
+`NotificationFeedState`, a scoped service everything badges off: the avatar (total), each nav section,
+and each chat contact's avatar. A section's count is simply how many unread entries have a `Url` under
+its prefix (`/tasks`, `/calendar`, `/inventory`, `/chat`), so a reminder shows up on the thing it is
+about. Chat subscribes to the same state instead of polling again. The poll also refreshes settings, so a
+change made on Options takes effect within one interval; when the unread count has just gone up and
+`AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport.
 
 How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
 (`BannerTiming`, defaulting to 5 seconds each) editable from Options — the poll interval only bounds how

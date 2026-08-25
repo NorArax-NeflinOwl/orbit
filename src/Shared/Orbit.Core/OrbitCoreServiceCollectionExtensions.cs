@@ -49,7 +49,8 @@ using Orbit.Core.Notes.UpdateNote;
 using Orbit.Core.Notifications;
 using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
-using Orbit.Core.Notifications.GetUnreadNotificationCount;
+using Orbit.Core.Notifications.GetUnreadNotificationEntries;
+using Orbit.Core.Notifications.ClearNotifications;
 using Orbit.Core.Notifications.MarkAllNotificationsRead;
 using Orbit.Core.Notifications.UpdateNotificationSettings;
 using Orbit.Core.PushNotifications.SubscribeToPush;
@@ -175,7 +176,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetNotificationSettingsQuery, NotificationSettings>, GetNotificationSettingsQueryHandler>();
         services.AddScoped<IRequestHandler<UpdateNotificationSettingsCommand, NotificationSettings>, UpdateNotificationSettingsCommandHandler>();
         services.AddScoped<IRequestHandler<GetNotificationEntriesQuery, IReadOnlyList<NotificationEntry>>, GetNotificationEntriesQueryHandler>();
-        services.AddScoped<IRequestHandler<GetUnreadNotificationCountQuery, int>, GetUnreadNotificationCountQueryHandler>();
+        services.AddScoped<IRequestHandler<GetUnreadNotificationEntriesQuery, IReadOnlyList<NotificationEntry>>, GetUnreadNotificationEntriesQueryHandler>();
+        services.AddScoped<IRequestHandler<ClearNotificationsCommand, bool>, ClearNotificationsCommandHandler>();
         services.AddScoped<IRequestHandler<MarkAllNotificationsReadCommand, bool>, MarkAllNotificationsReadCommandHandler>();
         // Depends on the two repositories above (scoped, backed by the DbContext), so it must be scoped
         // too - called directly (not through IDispatcher) by SendMessageCommandHandler and, in Orbit.Api,

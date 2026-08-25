@@ -2,7 +2,8 @@ using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Notifications;
 using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
-using Orbit.Core.Notifications.GetUnreadNotificationCount;
+using Orbit.Core.Notifications.GetUnreadNotificationEntries;
+using Orbit.Core.Notifications.ClearNotifications;
 using Orbit.Core.Notifications.MarkAllNotificationsRead;
 using Orbit.Core.Notifications.UpdateNotificationSettings;
 using Xunit;
@@ -57,19 +58,39 @@ public sealed class NotificationHandlerTests
     }
 
     [Fact]
-    public async Task GetUnreadNotificationCountQueryHandler_counts_only_unread_entries()
+    public async Task GetUnreadNotificationEntriesQueryHandler_returns_only_unread_entries()
     {
         var repository = new InMemoryNotificationEntryRepository();
         var userId = Guid.NewGuid();
         var readEntry = NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, "Read", "Body", null);
         readEntry.MarkRead(DateTimeOffset.UtcNow);
         await repository.AddAsync(readEntry, CancellationToken.None);
-        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, "Unread", "Body", null), CancellationToken.None);
-        var handler = new GetUnreadNotificationCountQueryHandler(repository);
+        await repository.AddAsync(
+            NotificationEntry.Create(userId, NotificationEntryKind.ChatMessage, "Unread", "Body", "/chat/abc"), CancellationToken.None);
+        var handler = new GetUnreadNotificationEntriesQueryHandler(repository);
 
-        var count = await handler.HandleAsync(new GetUnreadNotificationCountQuery(userId), CancellationToken.None);
+        var entries = await handler.HandleAsync(new GetUnreadNotificationEntriesQuery(userId, Take: 30), CancellationToken.None);
 
-        Assert.Equal(1, count);
+        var unread = Assert.Single(entries);
+        Assert.Equal("Unread", unread.Title);
+        // The Url comes back too - it is what the client badges the individual chat/nav sections by.
+        Assert.Equal("/chat/abc", unread.Url);
+    }
+
+    [Fact]
+    public async Task ClearNotificationsCommandHandler_removes_every_entry_for_the_user_but_leaves_other_users_alone()
+    {
+        var repository = new InMemoryNotificationEntryRepository();
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, "Mine", "Body", null), CancellationToken.None);
+        await repository.AddAsync(NotificationEntry.Create(otherUserId, NotificationEntryKind.PushReminder, "Theirs", "Body", null), CancellationToken.None);
+        var handler = new ClearNotificationsCommandHandler(repository);
+
+        await handler.HandleAsync(new ClearNotificationsCommand(userId), CancellationToken.None);
+
+        Assert.Empty(await repository.GetRecentAsync(userId, 30, CancellationToken.None));
+        Assert.Single(await repository.GetRecentAsync(otherUserId, 30, CancellationToken.None));
     }
 
     [Fact]
@@ -84,6 +105,6 @@ public sealed class NotificationHandlerTests
         var result = await handler.HandleAsync(new MarkAllNotificationsReadCommand(userId), CancellationToken.None);
 
         Assert.True(result);
-        Assert.Equal(0, await repository.GetUnreadCountAsync(userId, CancellationToken.None));
+        Assert.Empty(await repository.GetUnreadAsync(userId, 30, CancellationToken.None));
     }
 }

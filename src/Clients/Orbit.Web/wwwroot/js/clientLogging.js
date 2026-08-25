@@ -100,12 +100,23 @@
         appendLog("Error", "unhandledrejection", message, stack);
     });
 
+    function clearEntries() {
+        try {
+            window.localStorage.removeItem(STORAGE_KEY);
+        } catch {
+            // Same best-effort handling as writeEntries - storage being unavailable must never break the app.
+        }
+    }
+
     window.OrbitClientLogging = {
         appendLog: appendLog,
         getLogsAsText: getLogsAsText,
         copyLogsToClipboard: copyLogsToClipboard,
         // Read-only access to the structured entries, for the Notifications panel's exception list
         // (see MainLayout.razor) to render and copy them individually rather than only as one big blob.
-        getEntries: readEntries
+        getEntries: readEntries,
+        // Backs the notifications panel's "Clear", which empties this browser's own error list alongside
+        // the server-side feed - the panel presents them as one list, so clearing has to cover both.
+        clearEntries: clearEntries
     };
 })();
