@@ -102,7 +102,7 @@ public static class TaskEndpoints
             var outcome = await dispatcher.SendAsync(
                 new ShareTaskListCommand(GetUserId(user), id, request.RecipientUserId, RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
-            return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared));
+            return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared, outcome.AccessLevelRaised));
         });
 
         // Resolves a share offered to the caller into a copy in their own task lists - see AcceptTaskListShareCommand.

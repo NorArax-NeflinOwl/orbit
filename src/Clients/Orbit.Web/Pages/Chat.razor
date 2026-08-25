@@ -219,6 +219,20 @@ else
                                 }
                             }
                         </div>
+                        @if (message.SenderUserId != _ownUserId && _editAccessRequestByMessageId.TryGetValue(message.Id, out var editAccessRequest))
+                        {
+                            @if (_grantedEditAccessMessageIds.Contains(message.Id))
+                            {
+                                <p class="event-share-status">They can edit it now.</p>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn-secondary" disabled="@_grantingEditAccessMessageIds.Contains(message.Id)"
+                                        @onclick="() => GrantEditAccessAsync(message.Id, editAccessRequest)">
+                                    Allow editing
+                                </button>
+                            }
+                        }
                         @if (message.SenderUserId != _ownUserId && _shareNoticeByMessageId.TryGetValue(message.Id, out var shareNotice))
                         {
                             @if (_acceptedShareIds.Contains(shareNotice.ShareId))
@@ -333,6 +347,9 @@ else
     /// all three kinds without three near-identical copies of the accept/status-tracking logic.
     /// </summary>
     private readonly Dictionary<Guid, ShareNotice> _shareNoticeByMessageId = [];
+    private readonly Dictionary<Guid, EditAccessRequestNotice> _editAccessRequestByMessageId = [];
+    private readonly HashSet<Guid> _grantedEditAccessMessageIds = [];
+    private readonly HashSet<Guid> _grantingEditAccessMessageIds = [];
 
     /// <summary>
     /// Shares known to be accepted - seeded from the matching ApiClient's GetXShareStatusAsync when a
@@ -443,6 +460,7 @@ else
         _messages.Clear();
         _decryptedContentByMessageId.Clear();
         _shareNoticeByMessageId.Clear();
+        _editAccessRequestByMessageId.Clear();
         _acceptedShareIds.Clear();
         _acceptingShareIds.Clear();
         _forwardedFromByMessageId.Clear();
@@ -938,6 +956,13 @@ else
             return;
         }
 
+        if (TryDeserialize<EditAccessRequestPayload>(plainText) is { Type: EditAccessRequestPayload.MessageType } editAccessRequest)
+        {
+            _editAccessRequestByMessageId[message.Id] = BuildEditAccessRequestNotice(editAccessRequest, message.SenderUserId);
+            _decryptedContentByMessageId[message.Id] = _editAccessRequestByMessageId[message.Id].Description;
+            return;
+        }
+
         if (TryDeserialize<ForwardedMessagePayload>(plainText) is { Type: ForwardedMessagePayload.MessageType } forwarded)
         {
             _decryptedContentByMessageId[message.Id] = forwarded.Content;
@@ -991,6 +1016,55 @@ else
         return null;
     }
 
+    /// <summary>
+    /// Granting is an ordinary share at EditOnly: they asked to edit, not to decide who else can, and
+    /// the owner can still hand out more from the sharing form if they mean to. Sharing something
+    /// already shared raises what the existing offer grants rather than creating a second one - see
+    /// ShareOutcome.AccessLevelRaised.
+    /// </summary>
+    private EditAccessRequestNotice BuildEditAccessRequestNotice(EditAccessRequestPayload request, Guid requesterUserId)
+    {
+        var description = $"Asked to edit {DescribeItemType(request.ItemType)}: {request.ItemTitle}";
+
+        return new EditAccessRequestNotice(description, () => request.ItemType switch
+        {
+            "Note" => GrantAsync(NotesApiClient.ShareNoteAsync(request.ItemId, requesterUserId, "EditOnly")),
+            "TaskList" => GrantAsync(TasksApiClient.ShareTaskListAsync(request.ItemId, requesterUserId, "EditOnly")),
+            "CalendarEvent" => GrantAsync(CalendarApiClient.ShareCalendarEventAsync(request.ItemId, requesterUserId, "EditOnly")),
+            _ => GrantAsync(InventoryApiClient.ShareWarehouseAsync(request.ItemId, requesterUserId, "EditOnly"))
+        });
+    }
+
+    private static async Task<bool> GrantAsync<T>(Task<T?> shareTask) where T : class => await shareTask is not null;
+
+    private static string DescribeItemType(string itemType) => itemType switch
+    {
+        "Note" => "a note",
+        "TaskList" => "a task list",
+        "CalendarEvent" => "an event",
+        _ => "a warehouse"
+    };
+
+    private async Task GrantEditAccessAsync(Guid messageId, EditAccessRequestNotice notice)
+    {
+        _grantingEditAccessMessageIds.Add(messageId);
+        try
+        {
+            if (await notice.GrantAsync())
+            {
+                _grantedEditAccessMessageIds.Add(messageId);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to grant edit access from a chat request");
+        }
+        finally
+        {
+            _grantingEditAccessMessageIds.Remove(messageId);
+        }
+    }
+
     private static T? TryDeserialize<T>(string plainText) where T : class
     {
         try
@@ -1037,6 +1111,13 @@ else
     /// </summary>
     private sealed record ShareNotice(
         Guid ShareId, string Description, Func<Task<bool?>> GetStatusAsync, Func<Task<bool>> AcceptAsync);
+
+    /// <summary>
+    /// Somebody asking the owner to let them edit something (see EditAccessRequestPayload). Unlike a
+    /// ShareNotice there is nothing to accept - the owner grants it by sharing again at a higher level,
+    /// which is what GrantAsync does.
+    /// </summary>
+    private sealed record EditAccessRequestNotice(string Description, Func<Task<bool>> GrantAsync);
 
     private async Task OnDraftKeyDownAsync(KeyboardEventArgs args)
     {

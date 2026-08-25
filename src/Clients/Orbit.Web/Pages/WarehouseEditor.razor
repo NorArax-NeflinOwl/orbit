@@ -157,7 +157,7 @@ else
 
     private bool _isShared;
     private string? _sharedByUserName;
-    private string _accessLevel = "CanEdit";
+    private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
 
     /// <summary>A read-only or share-only grant can look but not touch, so the whole form is disabled.</summary>
     private bool _isReadOnly;
@@ -169,12 +169,7 @@ else
 
     private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
 
-    private string SharedAccessDescription => _accessLevel switch
-    {
-        "CanEdit" => "you can edit it",
-        "Share" => "you can share it further, but not edit it",
-        _ => "read-only"
-    };
+    private string SharedAccessDescription => _access.Description;
 
     protected override async Task OnInitializedAsync()
     {
@@ -201,8 +196,8 @@ else
 
             _isShared = warehouse.IsShared;
             _sharedByUserName = warehouse.SharedByUserName;
-            _accessLevel = warehouse.AccessLevel;
-            _isReadOnly = warehouse.AccessLevel != "CanEdit";
+            _access = SharedItemAccess.For(warehouse.IsShared, warehouse.AccessLevel);
+            _isReadOnly = !_access.CanEdit;
 
             var items = await InventoryApiClient.GetInventoryItemsAsync(WarehouseId) ?? [];
             _formModel = WarehouseFormModel.FromDto(warehouse, items);

@@ -76,7 +76,7 @@ public static class InventoryEndpoints
                     GetUserId(user), warehouseId, request.RecipientUserId,
                     RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
-            return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared));
+            return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared, outcome.AccessLevelRaised));
         });
 
         warehouses.MapPost("/shares/{shareId:guid}/accept", async (

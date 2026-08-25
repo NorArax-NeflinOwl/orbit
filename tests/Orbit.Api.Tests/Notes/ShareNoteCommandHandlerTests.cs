@@ -37,6 +37,74 @@ public sealed class ShareNoteCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_raises_an_existing_share_when_the_owner_shares_again_with_more()
+    {
+        var noteRepository = new InMemoryNoteRepository();
+        var shareRepository = new InMemoryNoteShareRepository();
+        var handler = CreateHandler(noteRepository, shareRepository);
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var note = Note.Create(ownerId, "Shopping list", []);
+        await noteRepository.AddAsync(note, CancellationToken.None);
+        await handler.HandleAsync(new ShareNoteCommand(ownerId, note.Id, recipientId, ShareAccessLevel.ReadOnly), CancellationToken.None);
+
+        var outcome = await handler.HandleAsync(
+            new ShareNoteCommand(ownerId, note.Id, recipientId, ShareAccessLevel.EditOnly), CancellationToken.None);
+
+        // This is how an owner answers a request for edit access: share it with them again, with more.
+        Assert.True(outcome!.AlreadyShared);
+        Assert.True(outcome.AccessLevelRaised);
+        var share = await shareRepository.GetByIdAsync(recipientId, outcome.ShareId, CancellationToken.None);
+        Assert.Equal(ShareAccessLevel.EditOnly, share!.AccessLevel);
+    }
+
+    [Fact]
+    public async Task HandleAsync_never_lowers_an_existing_share()
+    {
+        var noteRepository = new InMemoryNoteRepository();
+        var shareRepository = new InMemoryNoteShareRepository();
+        var handler = CreateHandler(noteRepository, shareRepository);
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var note = Note.Create(ownerId, "Shopping list", []);
+        await noteRepository.AddAsync(note, CancellationToken.None);
+        await handler.HandleAsync(new ShareNoteCommand(ownerId, note.Id, recipientId, ShareAccessLevel.CanEdit), CancellationToken.None);
+
+        var outcome = await handler.HandleAsync(
+            new ShareNoteCommand(ownerId, note.Id, recipientId, ShareAccessLevel.ReadOnly), CancellationToken.None);
+
+        // Sharing again at less than was already given is far more likely a stale form than an
+        // intention to take access away - taking it back is its own action, not a side effect of this.
+        Assert.False(outcome!.AccessLevelRaised);
+        var share = await shareRepository.GetByIdAsync(recipientId, outcome.ShareId, CancellationToken.None);
+        Assert.Equal(ShareAccessLevel.CanEdit, share!.AccessLevel);
+    }
+
+    [Fact]
+    public async Task An_edit_only_recipient_can_re_share_but_never_with_editing()
+    {
+        var noteRepository = new InMemoryNoteRepository();
+        var shareRepository = new InMemoryNoteShareRepository();
+        var handler = CreateHandler(noteRepository, shareRepository);
+        var ownerId = Guid.NewGuid();
+        var editorId = Guid.NewGuid();
+        var note = Note.Create(ownerId, "Shopping list", []);
+        await noteRepository.AddAsync(note, CancellationToken.None);
+        var outcome = await handler.HandleAsync(
+            new ShareNoteCommand(ownerId, note.Id, editorId, ShareAccessLevel.EditOnly), CancellationToken.None);
+        var share = await shareRepository.GetByIdAsync(editorId, outcome!.ShareId, CancellationToken.None);
+        share!.MarkAccepted();
+        await shareRepository.UpdateAsync(share, CancellationToken.None);
+
+        Assert.NotNull(await handler.HandleAsync(
+            new ShareNoteCommand(editorId, note.Id, Guid.NewGuid(), ShareAccessLevel.ReadOnly), CancellationToken.None));
+        Assert.Null(await handler.HandleAsync(
+            new ShareNoteCommand(editorId, note.Id, Guid.NewGuid(), ShareAccessLevel.EditOnly), CancellationToken.None));
+        Assert.Null(await handler.HandleAsync(
+            new ShareNoteCommand(editorId, note.Id, Guid.NewGuid(), ShareAccessLevel.CanEdit), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task HandleAsync_does_not_announce_a_share_that_already_existed()
     {
         var noteRepository = new InMemoryNoteRepository();
