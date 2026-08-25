@@ -21,6 +21,8 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<ContactEntity> Contacts => Set<ContactEntity>();
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
     public DbSet<ChatConversationAccessEntity> ChatConversationAccesses => Set<ChatConversationAccessEntity>();
+    public DbSet<ChatGroupEntity> ChatGroups => Set<ChatGroupEntity>();
+    public DbSet<ChatGroupMemberEntity> ChatGroupMembers => Set<ChatGroupMemberEntity>();
     public DbSet<CalendarEventShareEntity> CalendarEventShares => Set<CalendarEventShareEntity>();
     public DbSet<PushSubscriptionEntity> PushSubscriptions => Set<PushSubscriptionEntity>();
     public DbSet<TaskOverdueNotificationDeliveryEntity> TaskOverdueNotificationDeliveries => Set<TaskOverdueNotificationDeliveryEntity>();
@@ -192,6 +194,35 @@ public sealed class OrbitDbContext : DbContext
             // ChatMessageRepository.GetConversationAsync); these two indexes cover both.
             entity.HasIndex(message => new { message.SenderUserId, message.RecipientUserId });
             entity.HasIndex(message => new { message.RecipientUserId, message.SenderUserId });
+            // A group conversation is fetched by group, then filtered to the copies one member can read
+            // (see ChatMessageRepository.GetGroupConversationAsync), and deleting a posting looks every
+            // copy up by the id they share.
+            entity.HasIndex(message => message.GroupId);
+            entity.HasIndex(message => message.GroupMessageId);
+        });
+
+        modelBuilder.Entity<ChatGroupEntity>(entity =>
+        {
+            entity.HasKey(group => group.Id);
+            entity.Property(group => group.Name).IsRequired().HasMaxLength(120);
+
+            // Members are only ever read and written through their group (see ChatGroupRepository), so
+            // this navigation is all EF Core needs to know about them; the DbSet exists only so the
+            // repository can delete removed rows explicitly.
+            entity.HasMany(group => group.Members)
+                .WithOne()
+                .HasForeignKey(member => member.GroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChatGroupMemberEntity>(entity =>
+        {
+            entity.HasKey(member => member.Id);
+            entity.Property(member => member.Role).IsRequired().HasMaxLength(16);
+            // "Which groups am I in" is the query behind the whole group list, and one person can only
+            // be in a given group once.
+            entity.HasIndex(member => member.UserId);
+            entity.HasIndex(member => new { member.GroupId, member.UserId }).IsUnique();
         });
 
         modelBuilder.Entity<ChatConversationAccessEntity>(entity =>

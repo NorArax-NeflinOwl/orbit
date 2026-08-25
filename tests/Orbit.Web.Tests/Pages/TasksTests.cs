@@ -122,7 +122,7 @@ public sealed class TasksTests : TestContext
 
     private static TaskDto TaskList(string title, params TaskItemDto[] items)
         => new(
-            Guid.NewGuid(), title, items, IsCompleted: false, IsGroup: false,
+            Guid.NewGuid(), title, items, IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 

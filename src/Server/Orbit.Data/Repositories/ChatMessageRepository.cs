@@ -43,6 +43,27 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(Guid groupId, Guid userId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.GroupId == groupId && (message.SenderUserId == userId || message.RecipientUserId == userId))
+            .OrderBy(message => message.SentAtUtc)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
+    public async Task DeleteAsync(Guid messageId, CancellationToken cancellationToken)
+    {
+        await _dbContext.ChatMessages.Where(message => message.Id == messageId).ExecuteDeleteAsync(cancellationToken);
+    }
+
+    public async Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken)
+    {
+        await _dbContext.ChatMessages.Where(message => message.GroupMessageId == groupMessageId).ExecuteDeleteAsync(cancellationToken);
+    }
+
     public async Task<ChatMessage?> GetByIdAsync(Guid messageId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.ChatMessages.AsNoTracking().FirstOrDefaultAsync(message => message.Id == messageId, cancellationToken);
@@ -104,7 +125,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
     private static ChatMessage ToDomain(ChatMessageEntity entity)
         => ChatMessage.FromPersistence(
             entity.Id, entity.SenderUserId, entity.RecipientUserId, entity.CiphertextBase64, entity.NonceBase64, entity.SentAtUtc,
-            entity.IsEdited, entity.EditedAtUtc);
+            entity.IsEdited, entity.EditedAtUtc, entity.GroupId, entity.GroupMessageId);
 
     private static ChatMessageEntity ToEntity(ChatMessage message)
         => new()
@@ -114,6 +135,8 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             RecipientUserId = message.RecipientUserId,
             CiphertextBase64 = message.CiphertextBase64,
             NonceBase64 = message.NonceBase64,
+            GroupId = message.GroupId,
+            GroupMessageId = message.GroupMessageId,
             SentAtUtc = message.SentAtUtc,
             IsEdited = message.IsEdited,
             EditedAtUtc = message.EditedAtUtc

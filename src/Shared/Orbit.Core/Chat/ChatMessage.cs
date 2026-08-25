@@ -16,10 +16,22 @@ public sealed class ChatMessage
     public bool IsEdited { get; private set; }
     public DateTimeOffset? EditedAtUtc { get; private set; }
 
+    /// <summary>The group this message was posted to, or null for an ordinary one-to-one message.</summary>
+    public Guid? GroupId { get; private set; }
+
+    /// <summary>
+    /// Shared by every copy of one group message. A group message is encrypted separately for each
+    /// member - see CreateForGroup - so "the message" is really N rows; this is what ties them together
+    /// so deleting it deletes all of them rather than one person's copy.
+    /// </summary>
+    public Guid? GroupMessageId { get; private set; }
+
     private ChatMessage(
         Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
-        bool isEdited, DateTimeOffset? editedAtUtc)
+        bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId, Guid? groupMessageId)
     {
+        GroupId = groupId;
+        GroupMessageId = groupMessageId;
         Id = id;
         SenderUserId = senderUserId;
         RecipientUserId = recipientUserId;
@@ -31,15 +43,31 @@ public sealed class ChatMessage
     }
 
     public static ChatMessage Create(Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
-        => new(Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, DateTimeOffset.UtcNow, isEdited: false, editedAtUtc: null);
+        => new(
+            Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, DateTimeOffset.UtcNow,
+            isEdited: false, editedAtUtc: null, groupId: null, groupMessageId: null);
+
+    /// <summary>
+    /// One recipient's copy of a group message. Groups reuse the pairwise encryption people already
+    /// have rather than introducing a group key: the sender encrypts the same text once per member, and
+    /// each copy is readable by exactly the two people whose keys made it. That keeps the server unable
+    /// to read anything and needs no key distribution or rotation when membership changes - at the cost
+    /// of N rows per message, and of a new member being unable to read anything sent before they
+    /// joined, since no copy was ever encrypted for them.
+    /// </summary>
+    public static ChatMessage CreateForGroup(
+        Guid groupId, Guid groupMessageId, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
+        => new(
+            Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, DateTimeOffset.UtcNow,
+            isEdited: false, editedAtUtc: null, groupId, groupMessageId);
 
     /// <summary>
     /// Rebuilds a message from already-persisted values, bypassing creation rules.
     /// </summary>
     public static ChatMessage FromPersistence(
         Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
-        bool isEdited, DateTimeOffset? editedAtUtc)
-        => new(id, senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc, isEdited, editedAtUtc);
+        bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId = null, Guid? groupMessageId = null)
+        => new(id, senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc, isEdited, editedAtUtc, groupId, groupMessageId);
 
     /// <summary>
     /// Replaces this message's ciphertext with a re-encrypted edit - only the sender is ever allowed to

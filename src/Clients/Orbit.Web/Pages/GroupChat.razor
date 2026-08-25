@@ -1,0 +1,369 @@
+@page "/chat/groups"
+@page "/chat/groups/{GroupId:guid}"
+@attribute [Authorize]
+@using Orbit.Contracts.Chat
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject EncryptedChatMessageReader EncryptedChatMessageReader
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<GroupChat> Logger
+
+<PageTitle>@(_selectedGroup?.Name ?? "Groups")</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Groups</h1>
+        <p class="page-subtitle">Chats with more than one other person, encrypted the same way one-to-one chats are.</p>
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-secondary" @onclick="GoToContacts">Contacts</button>
+        <button type="button" class="btn-primary" @onclick="StartCreating">New group</button>
+    </div>
+</div>
+
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+
+@if (_isCreating)
+{
+    <div class="card group-create-card">
+        <div class="field">
+            <label for="groupNameInput">Group name</label>
+            <input id="groupNameInput" @bind="_newGroupName" placeholder="Weekend trip" />
+        </div>
+        <div class="field">
+            <label>Who's in it</label>
+            @if (_contacts.Count == 0)
+            {
+                <p class="empty-hint">You need at least one contact to start a group.</p>
+            }
+            else
+            {
+                @foreach (var contact in _contacts)
+                {
+                    <label class="check-row">
+                        <input type="checkbox" checked="@_selectedContactIds.Contains(contact.UserId)"
+                               @onchange="args => ToggleContact(contact.UserId, (bool)args.Value!)" />
+                        <span class="check-row-text">@contact.DisplayName</span>
+                    </label>
+                }
+            }
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn-primary" disabled="@(_isBusy || _newGroupName.Trim().Length == 0)" @onclick="CreateGroupAsync">Create</button>
+            <button type="button" class="btn-secondary" @onclick="() => _isCreating = false">Cancel</button>
+        </div>
+    </div>
+}
+
+<div class="group-layout">
+    <div class="card group-list">
+        <div class="card-header"><span class="card-title">Your groups</span><span class="card-count">@_groups.Count</span></div>
+        @if (_groups.Count == 0)
+        {
+            <p class="empty-hint">No groups yet.</p>
+        }
+        else
+        {
+            @foreach (var group in _groups)
+            {
+                <button type="button" class="list-row list-row-button @(group.Id == GroupId ? "active" : "")"
+                        @onclick="() => OpenGroup(group.Id)">
+                    <span class="row-title">@group.Name</span>
+                    @if (group.OwnRole == AdminRole)
+                    {
+                        <span class="card-badge">Admin</span>
+                    }
+                    <span class="row-meta">@group.Members.Count</span>
+                </button>
+            }
+        }
+    </div>
+
+    @if (_selectedGroup is { } selectedGroup)
+    {
+        <div class="card group-conversation">
+            <div class="card-header">
+                <span class="card-title">@selectedGroup.Name</span>
+                <span class="card-count">@selectedGroup.Members.Count members</span>
+            </div>
+
+            @* Membership is only editable by an admin - see ChatGroup, which refuses it server-side too. *@
+            <div class="group-members">
+                @foreach (var member in selectedGroup.Members)
+                {
+                    <div class="list-row">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(member.UserId)">@AvatarHelper.GetInitials(DisplayNameFor(member.UserId))</span>
+                        <span class="row-title">@DisplayNameFor(member.UserId)</span>
+                        @if (member.Role == AdminRole)
+                        {
+                            <span class="card-badge">Admin</span>
+                        }
+                        @if (IsOwnAdmin && member.UserId != _ownUserId)
+                        {
+                            <button type="button" class="btn-secondary" disabled="@_isBusy"
+                                    @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
+                                @(member.Role == AdminRole ? "Demote" : "Make admin")
+                            </button>
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">Remove</button>
+                        }
+                    </div>
+                }
+
+                @if (IsOwnAdmin && _addableContacts.Count > 0)
+                {
+                    <div class="field-row">
+                        <select @bind="_contactToAddId">
+                            <option value="">Add someone…</option>
+                            @foreach (var contact in _addableContacts)
+                            {
+                                <option value="@contact.UserId">@contact.DisplayName</option>
+                            }
+                        </select>
+                        <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="AddMemberAsync">Add</button>
+                    </div>
+                }
+            </div>
+
+            <div class="group-messages">
+                @if (_messages.Count == 0)
+                {
+                    <p class="empty-hint">Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you.</p>
+                }
+                @foreach (var message in _messages)
+                {
+                    <div class="list-row group-message @(message.SenderUserId == _ownUserId ? "own" : "")">
+                        <span class="row-title">
+                            <strong>@DisplayNameFor(message.SenderUserId)</strong>
+                            @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? "…")
+                        </span>
+                        <span class="row-meta">@message.SentAtUtc.LocalDateTime.ToString("dd.MM HH:mm")</span>
+                        @if (CanDelete(message))
+                        {
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => DeleteMessageAsync(message)">Delete</button>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="field-row">
+                <input @bind="_draft" placeholder="Write to the group" @onkeydown="OnDraftKeyDownAsync" />
+                <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">Send</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid? GroupId { get; set; }
+
+    private const string AdminRole = "Admin";
+    private const string MemberRole = "Member";
+
+    private Guid _ownUserId;
+    private IReadOnlyList<ChatGroupDto> _groups = [];
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private IReadOnlyList<ChatMessageDto> _messages = [];
+
+    /// <summary>Decrypted message bodies, keyed by message id - the ciphertext itself is never rendered.</summary>
+    private readonly Dictionary<Guid, string> _plainTextByMessageId = [];
+
+    private readonly HashSet<Guid> _selectedContactIds = [];
+    private string _newGroupName = string.Empty;
+    private string _contactToAddId = string.Empty;
+    private string _draft = string.Empty;
+    private bool _isCreating;
+    private bool _isBusy;
+    private string? _errorMessage;
+
+    private ChatGroupDto? _selectedGroup => _groups.FirstOrDefault(group => group.Id == GroupId);
+
+    private bool IsOwnAdmin => _selectedGroup?.OwnRole == AdminRole;
+
+    /// <summary>Contacts not already in the open group - the only people an admin can usefully add.</summary>
+    private IReadOnlyList<ContactDto> _addableContacts
+        => _selectedGroup is { } group
+            ? _contacts.Where(contact => group.Members.All(member => member.UserId != contact.UserId)).ToList()
+            : [];
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
+            _groups = await ChatApiClient.GetGroupsAsync();
+            _contacts = await ChatApiClient.GetContactsAsync();
+
+            if (GroupId is { } groupId && _selectedGroup is not null)
+            {
+                _messages = await ChatApiClient.GetGroupConversationAsync(groupId);
+                await DecryptMessagesAsync();
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load groups");
+            _errorMessage = "Couldn't load your groups. Check your connection and try again.";
+        }
+    }
+
+    /// <summary>
+    /// Each copy is encrypted between its sender and its recipient, so the key to open it is the pairwise
+    /// one with whichever of those two isn't the reader. A copy that won't open renders as a placeholder
+    /// rather than taking the conversation down - see decryptMessage's own null return.
+    /// </summary>
+    private async Task DecryptMessagesAsync()
+    {
+        foreach (var message in _messages)
+        {
+            if (_plainTextByMessageId.ContainsKey(message.Id))
+            {
+                continue;
+            }
+
+            var otherPartyUserId = message.SenderUserId == _ownUserId ? message.RecipientUserId : message.SenderUserId;
+            var plainText = await EncryptedChatMessageReader.TryDecryptFromAsync(
+                _ownUserId, otherPartyUserId, message.CiphertextBase64, message.NonceBase64);
+            _plainTextByMessageId[message.Id] = plainText ?? "(can't be opened on this device)";
+        }
+    }
+
+    private void GoToContacts() => NavigationManager.NavigateTo("/contacts");
+
+    private void OpenGroup(Guid groupId) => NavigationManager.NavigateTo($"/chat/groups/{groupId}");
+
+    private void StartCreating()
+    {
+        _isCreating = true;
+        _newGroupName = string.Empty;
+        _selectedContactIds.Clear();
+    }
+
+    private void ToggleContact(Guid contactUserId, bool isSelected)
+    {
+        if (isSelected)
+        {
+            _selectedContactIds.Add(contactUserId);
+        }
+        else
+        {
+            _selectedContactIds.Remove(contactUserId);
+        }
+    }
+
+    private async Task CreateGroupAsync()
+        => await RunAsync(async () =>
+        {
+            var groupId = await ChatApiClient.CreateGroupAsync(_newGroupName, [.. _selectedContactIds]);
+            _isCreating = false;
+            NavigationManager.NavigateTo($"/chat/groups/{groupId}");
+        });
+
+    private async Task AddMemberAsync()
+    {
+        if (!Guid.TryParse(_contactToAddId, out var userId))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await ChatApiClient.AddGroupMemberAsync(GroupId!.Value, userId);
+            _contactToAddId = string.Empty;
+            await LoadAsync();
+        });
+    }
+
+    private async Task RemoveMemberAsync(Guid userId)
+        => await RunAsync(async () =>
+        {
+            await ChatApiClient.RemoveGroupMemberAsync(GroupId!.Value, userId);
+            await LoadAsync();
+        });
+
+    private async Task ChangeRoleAsync(Guid userId, string role)
+        => await RunAsync(async () =>
+        {
+            await ChatApiClient.ChangeGroupMemberRoleAsync(GroupId!.Value, userId, role);
+            await LoadAsync();
+        });
+
+    /// <summary>The same rule the server enforces (ChatGroup.CanDeleteMessageFrom), so the button only appears when it would work.</summary>
+    private bool CanDelete(ChatMessageDto message)
+        => message.SenderUserId == _ownUserId || IsOwnAdmin;
+
+    private async Task DeleteMessageAsync(ChatMessageDto message)
+        => await RunAsync(async () =>
+        {
+            if (!await ChatApiClient.DeleteMessageAsync(message.Id))
+            {
+                _errorMessage = "That message is no longer yours to delete.";
+                return;
+            }
+
+            await LoadAsync();
+        });
+
+    private async Task OnDraftKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && _draft.Trim().Length > 0)
+        {
+            await SendAsync();
+        }
+    }
+
+    private async Task SendAsync()
+        => await RunAsync(async () =>
+        {
+            var otherMemberIds = _selectedGroup!.Members
+                .Select(member => member.UserId)
+                .Where(userId => userId != _ownUserId)
+                .ToList();
+
+            await EncryptedChatMessageSender.SendToGroupAsync(_ownUserId, GroupId!.Value, otherMemberIds, _draft.Trim());
+            _draft = string.Empty;
+            await LoadAsync();
+        });
+
+    private string DisplayNameFor(Guid userId)
+        => userId == _ownUserId
+            ? "You"
+            : _contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? "Someone";
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _isBusy = true;
+        _errorMessage = null;
+        try
+        {
+            await action();
+        }
+        catch (InvalidOperationException exception)
+        {
+            // Raised when a member has never signed in, so there is no key to encrypt for them.
+            Logger.LogWarning(exception, "A group action could not complete");
+            _errorMessage = exception.Message;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "A group action failed");
+            _errorMessage = "That didn't work. Reload the group and try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+}

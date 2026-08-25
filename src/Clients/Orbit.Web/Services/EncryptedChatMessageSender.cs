@@ -47,6 +47,41 @@ public sealed class EncryptedChatMessageSender
             new SendMessageRequest(recipientUserId, payload.CiphertextBase64, payload.NonceBase64), cancellationToken);
     }
 
+
+    /// <summary>
+    /// Posts to a group by encrypting the same text once for each other member, under the pairwise key
+    /// this browser already shares with each of them. The server can't fan out for us - it has no key to
+    /// read the text with - so the whole group's public keys are fetched and the work happens here.
+    ///
+    /// Throws <see cref="InvalidOperationException"/> naming anyone who has never signed in, since there
+    /// is no key to encrypt for them and a group message that silently skipped a member would be worse
+    /// than one that refuses to send.
+    /// </summary>
+    public async Task SendToGroupAsync(
+        Guid ownUserId, Guid groupId, IReadOnlyList<Guid> otherMemberUserIds, string plainTextContent,
+        CancellationToken cancellationToken = default)
+    {
+        await _ownEncryptionKeyProvider.EnsurePublicKeyAsync();
+        await using var cryptoModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
+
+        var copies = new List<GroupMessageCopyDto>(otherMemberUserIds.Count);
+        foreach (var memberUserId in otherMemberUserIds)
+        {
+            var member = await _usersApiClient.GetUserAsync(memberUserId, cancellationToken);
+            if (member?.PublicKeyBase64 is null)
+            {
+                throw new InvalidOperationException(
+                    $"User {memberUserId} has no public key on file yet - they must log in at least once before they can be sent group messages.");
+            }
+
+            var payload = await cryptoModule.InvokeAsync<EncryptedPayload>(
+                "encryptMessage", cancellationToken, ownUserId, member.PublicKeyBase64, plainTextContent);
+            copies.Add(new GroupMessageCopyDto(memberUserId, payload.CiphertextBase64, payload.NonceBase64));
+        }
+
+        await _chatApiClient.SendGroupMessageAsync(groupId, copies, cancellationToken);
+    }
+
     /// <summary>Shape returned by e2eeChat.js's encryptMessage - matched by camelCase property name.</summary>
     private sealed record EncryptedPayload(string CiphertextBase64, string NonceBase64);
 }

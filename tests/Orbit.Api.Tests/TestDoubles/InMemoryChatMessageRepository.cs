@@ -10,6 +10,9 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
 {
     private readonly List<ChatMessage> _messages = [];
 
+    /// <summary>Everything stored, for tests that assert on the rows themselves rather than a query's answer.</summary>
+    public IReadOnlyList<ChatMessage> All => _messages;
+
     /// <summary>
     /// Read state lives here instead of on <see cref="ChatMessage"/> itself, mirroring how the real
     /// repository tracks it on ChatMessageEntity.ReadAtUtc without the domain object needing to know
@@ -74,5 +77,24 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
             .ToList();
 
         return Task.FromResult(readSentTimestamps.Count == 0 ? null : (DateTimeOffset?)readSentTimestamps.Max());
+    }
+
+    public Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(Guid groupId, Guid userId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<ChatMessage>>(
+            _messages
+                .Where(message => message.GroupId == groupId && (message.SenderUserId == userId || message.RecipientUserId == userId))
+                .OrderBy(message => message.SentAtUtc)
+                .ToList());
+
+    public Task DeleteAsync(Guid messageId, CancellationToken cancellationToken)
+    {
+        _messages.RemoveAll(message => message.Id == messageId);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken)
+    {
+        _messages.RemoveAll(message => message.GroupMessageId == groupMessageId);
+        return Task.CompletedTask;
     }
 }

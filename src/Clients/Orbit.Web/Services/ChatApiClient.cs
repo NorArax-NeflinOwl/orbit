@@ -115,4 +115,62 @@ public sealed class ChatApiClient
         var response = await _httpClient.PostAsync($"api/chat/conversations/{otherUserId}/approve", content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    // Groups. A group's messages are ordinary per-recipient rows behind the scenes (see
+    // EncryptedChatMessageSender.SendToGroupAsync), so only the addressing differs from one-to-one chat.
+
+    public async Task<IReadOnlyList<ChatGroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<ChatGroupDto>>("api/chat/groups", cancellationToken) ?? [];
+
+    public async Task<Guid> CreateGroupAsync(string name, IReadOnlyList<Guid> memberUserIds, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/chat/groups", new CreateChatGroupRequest(name, memberUserIds), cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ChatMessageDto>> GetGroupConversationAsync(Guid groupId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<ChatMessageDto>>($"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
+
+    public async Task SendGroupMessageAsync(
+        Guid groupId, IReadOnlyList<GroupMessageCopyDto> copies, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/chat/groups/{groupId}/messages", new SendGroupMessageRequest(copies), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task AddGroupMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/chat/groups/{groupId}/members", new AddChatGroupMemberRequest(userId), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task RemoveGroupMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/chat/groups/{groupId}/members/{userId}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ChangeGroupMemberRoleAsync(Guid groupId, Guid userId, string role, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/chat/groups/{groupId}/members/{userId}/role", new ChangeChatGroupMemberRoleRequest(role), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Deletes a message for everyone. Returns false when the caller isn't allowed to - see DeleteChatMessageCommandHandler.</summary>
+    public async Task<bool> DeleteMessageAsync(Guid messageId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/chat/messages/{messageId}", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
 }
