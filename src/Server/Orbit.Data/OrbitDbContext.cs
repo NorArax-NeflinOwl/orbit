@@ -21,6 +21,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<ContactEntity> Contacts => Set<ContactEntity>();
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
     public DbSet<ChatConversationAccessEntity> ChatConversationAccesses => Set<ChatConversationAccessEntity>();
+    public DbSet<SharedLocationEntity> SharedLocations => Set<SharedLocationEntity>();
     public DbSet<ChatGroupEntity> ChatGroups => Set<ChatGroupEntity>();
     public DbSet<ChatGroupMemberEntity> ChatGroupMembers => Set<ChatGroupMemberEntity>();
     public DbSet<CalendarEventShareEntity> CalendarEventShares => Set<CalendarEventShareEntity>();
@@ -199,6 +200,18 @@ public sealed class OrbitDbContext : DbContext
             // copy up by the id they share.
             entity.HasIndex(message => message.GroupId);
             entity.HasIndex(message => message.GroupMessageId);
+        });
+
+        modelBuilder.Entity<SharedLocationEntity>(entity =>
+        {
+            entity.HasKey(shared => shared.Id);
+            entity.Property(shared => shared.CiphertextBase64).IsRequired();
+            entity.Property(shared => shared.NonceBase64).IsRequired();
+            // One row per pair, enforced here rather than only in the handler - a refresh racing itself
+            // would otherwise be able to leave two points behind, which is the history this must not keep.
+            entity.HasIndex(shared => new { shared.SharerUserId, shared.RecipientUserId }).IsUnique();
+            // "What is being shared with me" is the query the recipient polls.
+            entity.HasIndex(shared => shared.RecipientUserId);
         });
 
         modelBuilder.Entity<ChatGroupEntity>(entity =>

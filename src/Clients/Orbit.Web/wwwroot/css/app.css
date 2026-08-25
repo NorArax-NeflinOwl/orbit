@@ -2638,3 +2638,8 @@ input.note-editor-title {
         height: calc(100dvh - 129px);
     }
 }
+
+/* MapPage.razor's sharing panel, above the map it feeds. */
+.share-location-card {
+    flex: 0 0 auto;
+}
