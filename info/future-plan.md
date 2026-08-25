@@ -13,36 +13,15 @@ picture of what's left.
   only client, and MAUI work has not started — `src/Clients/Orbit.Maui` exists as an empty folder that
   isn't part of `Orbit.sln`, so it builds nothing and is a reservation rather than a stub. See
   [Architecture — Orbit.Web](architecture.md#orbitweb).
-- **Sharing a location with another user.** Half of this is now built: a user can record their own
-  location and see it on a map (`/map`, `PUT`/`DELETE /api/users/me/location`, `UserLocation`), stored
-  as one point per user that each new recording replaces — Orbit deliberately keeps no history of
-  where someone has been. Recording is always an explicit user action; nothing reads the browser's
-  position on its own. What's still missing is the sharing half:
-  - Share that location with another user through chat, either as a one-off snapshot or a "live"
-    share that keeps refreshing — a client polling for the target's last known location, with the
-    sharer's own client pushing an updated position roughly once a minute while online.
-  - **Proposed approach:** the storage side already exists, so this is now mostly a sharing-and-consent
-    problem. A share would work like calendar event sharing already does
-    (`CalendarApiClient.ShareCalendarEventAsync` / `EncryptedChatMessageSender`): an encrypted chat
-    message carrying a reference the recipient's client resolves by re-reading the sharer's location
-    for as long as the share is marked active, with an explicit "stop sharing" action to end it. The
-    live variant additionally needs the sharer's client to refresh its own stored position on a timer
-    (once a minute is far cheaper than the chat page's existing per-second poll — see
-    [Known scope cuts — Chat delivery is polling-based](#known-scope-cuts-and-rough-edges)), and needs
-    a deliberate answer for how a recipient stops seeing a location the sharer forgot to stop sharing.
-- **Google Calendar / Contacts sync.** `Orbit.GoogleIntegration` (`src/Server`) is no longer empty —
-  it holds the ID-token verification behind Google sign-in (`GoogleIdentityVerifier`,
-  `GoogleAuthSettings`) — but that is authentication only, and shares nothing with this beyond the
-  project it lives in and the fact that both talk to Google. No calendar or contacts data is read or
-  written. See [Architecture — Orbit.GoogleIntegration](architecture.md#orbitgoogleintegration) and
-  [Functionality — Calendar](functionality.md#calendar) for what the calendar feature does without
-  it. The backlog frames this as two separate integrations, not one:
-  - Sharing a calendar event or task and writing a copy of it onto the recipient's actual Google
-    Calendar, on top of Orbit's own sharing model.
-  - Turning a saved location into driving/walking directions via Google Maps (sending the address
-    onward to pick a route to it) — a client-side deep link (`https://www.google.com/maps/dir/?api=1&destination=...`)
-    covers this without any Google API credentials or server work, unlike the Calendar-writing half
-    above, which does need OAuth and the Google Calendar API.
+- **Writing to a real Google Calendar.** `Orbit.GoogleIntegration` (`src/Server`) holds the ID-token
+  verification behind Google sign-in (`GoogleIdentityVerifier`, `GoogleAuthSettings`) — that is
+  authentication only, and no calendar data is read or written. What ships today is the link-based
+  half: a verified or Google-linked account can hand an event or task to Google Calendar and turn a
+  location into directions, both as deep links needing no API credentials (see
+  [Functionality — Handing something off to Google](functionality.md#handing-something-off-to-google)).
+  Making Orbit actually write to someone's calendar — so an edit updates the copy rather than
+  duplicating it — is a different kind of change, and most of the work is outside this repository:
+  see [What real Google Calendar sync would take](#what-real-google-calendar-sync-would-take) below.
 - **Running more than one instance of the reminder background services.** The claim-before-send
   design of `CalendarEventReminderBackgroundService` and `OverdueTaskNotificationBackgroundService`
   (a unique-indexed "claim" row inserted before sending, so a losing insert means another instance
@@ -126,9 +105,6 @@ version, so they aren't mistaken for oversights:
   per member instead of one. See [Functionality — Group chats](functionality.md#group-chats).
 - **Chat delivery is polling-based** (once a second while a chat window is open), not real-time —
   no SignalR or WebSockets.
-- **Calendar guests aren't wired to notifications.** `guests` is stored on an event but only the
-  event's owner receives reminder emails and push notifications today — see
-  [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders).
 - **Task list cycle validation is server-side only.** The Blazor task editor only prevents linking a
   list to itself in its dropdown; it does not detect longer cycles client-side. Building one still
   relies on the API's validation (`TaskListLinkValidator`) and surfaces as a failed save rather than
@@ -144,9 +120,6 @@ as not covered by an automated test today, together with why:
   infrastructure (e.g. `WebApplicationFactory` on the API side) that this project doesn't have yet.
 - Actually sending an email through `SmtpEmailSender` or a push notification through
   `VapidPushNotificationSender` — both need a real or fake server to connect to.
-- The `Notes`/`NoteEditor` pages themselves as bUnit tests against the actual pages — the last pages
-  still without them, now that `Login`/`Register`/`Calendar`/`CalendarEventEditor`/`Dashboard`/`Tasks`/
-  `TaskListChecklist` all have this.
 - The `Contacts`/`Chat` pages, `PushNotificationManager`, and the browser-side JavaScript
   (`e2eeChat.js`, `pushNotifications.js`, `service-worker.js`) — the encryption/decryption round
   trip, IndexedDB key persistence, the polling UI, browser notification permission handling, and the
@@ -156,17 +129,13 @@ as not covered by an automated test today, together with why:
 
 ## Deployment
 
-- **A public, reachable address to test against, instead of only local Docker.** Partially done
-  already, not just an open idea: [`.github/workflows/main_orbit.yml`](../.github/workflows/main_orbit.yml)
-  builds both `orbit-api` and `orbit-web` images on every push to `main` and deploys them to two Azure
-  Container Apps via OIDC login (no stored client secret) - this is real, working infrastructure, not
-  a stub. What's still open is verifying and documenting that the deployed result is actually reachable
-  and functional end-to-end (health checks, the LAN-IP-style TLS/certificate concerns from
-  [`info/instructions.md`](instructions.md) don't apply the same way behind Azure's own ingress
-  TLS termination - see `nginx.azure.conf` vs `nginx.conf`), and writing down the public URL and any
-  first-time setup (e.g. seeding `JWT_SIGNING_KEY`/VAPID keys as Container App secrets rather than a
-  local `.env`) somewhere a person can follow without archaeology through the workflow file. Now
-  mostly written down in [Azure Container Apps setup](azure-setup.md).
+- **A public, reachable address to test against, instead of only local Docker.** Mostly done:
+  [`.github/workflows/main_orbit.yml`](../.github/workflows/main_orbit.yml) builds both `orbit-api`
+  and `orbit-web` images on every push to `main` and deploys them to two Azure Container Apps via
+  OIDC login (no stored client secret), and the first-time setup — Container App secrets for
+  `JWT_SIGNING_KEY`, SMTP and VAPID, the database, backups — is written down in
+  [Azure Container Apps setup](azure-setup.md). What is still open is the public URL itself being
+  recorded somewhere findable, rather than read off the workflow file.
 - **Manage the Azure infrastructure itself as code (Bicep or Terraform), instead of one-off `az cli`
   commands typed into Cloud Shell.** Not started. Every Azure resource this project depends on today
   - `orbit-api`/`orbit-web` Container Apps, `orbit-environment`, the container registry, the
