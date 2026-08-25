@@ -200,3 +200,29 @@ export async function decryptMessage(ownUserId, otherPartyPublicKeyBase64, ciphe
         return null;
     }
 }
+
+/// Seals plainText so only ownUserId can ever open it again - used for private notes and task lists,
+/// which have one reader rather than two. The key is derived by running the same ECDH agreement the
+/// chat uses, but with the user's own public key on both sides: no second party, and so no new key to
+/// generate, store, back up, or restore. Anything that can already unlock chat can open these too, and
+/// a password reset that replaces the key pair loses both alike.
+export async function encryptForSelf(ownUserId, plainText) {
+    const ownPublicKeyBase64 = await getKeyRecord(ownPublicKeyRecordId(ownUserId));
+    if (!ownPublicKeyBase64) {
+        throw new Error('No local key pair for this user - call ensureOwnPublicKey first.');
+    }
+
+    return encryptMessage(ownUserId, ownPublicKeyBase64, plainText);
+}
+
+/// Reverses encryptForSelf. Returns null rather than throwing when the content cannot be opened - most
+/// often content sealed under a key pair that has since been replaced - so a list of notes can render a
+/// placeholder for that one item instead of failing whole.
+export async function decryptForSelf(ownUserId, ciphertextBase64, nonceBase64) {
+    const ownPublicKeyBase64 = await getKeyRecord(ownPublicKeyRecordId(ownUserId));
+    if (!ownPublicKeyBase64) {
+        return null;
+    }
+
+    return decryptMessage(ownUserId, ownPublicKeyBase64, ciphertextBase64, nonceBase64);
+}

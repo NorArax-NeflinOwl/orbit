@@ -183,6 +183,38 @@ own content fieldset (`_canEditContent`), not the separately-gated Guests sectio
 `Share`-tier recipient can still add guests while someone else holds the content lock, mirroring how
 those two sections are already independent for access-level purposes.
 
+## Private notes and task lists
+
+A note or task list can be marked **private**, which means exactly one thing: only its creator can ever
+read it, and Orbit's servers can't. Ticking the box in the editor makes the browser seal the title and
+the content before saving, so what the server stores is `IsPrivate` plus a base64 ciphertext and nonce
+(`EncryptedPayload`) — the readable columns go **empty**, not merely unread. `Note.Update` and
+`TaskList.Update` enforce that pairing rather than trusting callers: claiming privacy without sealed
+content is refused, and turning privacy off drops the ciphertext.
+
+The key is the one chat already uses, agreed with the owner's own public key on both sides of an ECDH
+exchange (`e2eeChat.js`'s `encryptForSelf`). That means no second key to generate, back up, or restore:
+a browser that can read your chat can read your private items, one that can't asks for your password
+the same way, and **a password reset replaces the key pair, so private content is lost with the chat
+history** — the editor says so next to the checkbox.
+
+Sealing and opening happen in `NotesApiClient`/`TasksApiClient`, not in the pages, so the overview, the
+dashboard, the checklist view and the calendar all receive a readable DTO without knowing any of this
+happened. Content that can no longer be opened renders with an "Unreadable — encrypted with an older
+key" title rather than throwing, so one lost item doesn't take a whole list down.
+
+What private costs:
+
+- **It can't be shared.** `ShareNoteCommandHandler`/`ShareTaskListCommandHandler` refuse it, and an
+  existing share stops resolving the moment the item becomes private — the grant row is left in place
+  and simply no longer grants, so turning privacy back off restores it.
+- **A private task list gets no reminders.** Overdue and daily reminders are scheduled server-side from
+  due dates the server can no longer read.
+- **Items can't be moved into or out of one** (`MoveTaskItemCommandHandler` refuses): a private list
+  keeps no readable items, so the move would take the item off the source and then drop it.
+- **Completion is recomputed in the browser.** The server derives `IsCompleted` from items it can't see,
+  so what it sends for a private list means nothing; `TasksApiClient` works it out after opening.
+
 ## Refusing a request
 
 Anything that refuses what a caller asked for — domain validation (an event ending before it starts, a

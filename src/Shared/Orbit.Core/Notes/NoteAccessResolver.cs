@@ -41,8 +41,11 @@ public sealed class NoteAccessResolver
         // The owner may have deleted the note after granting access but before this lookup - a dangling
         // grant reads as "not found" here rather than throwing, the same way any other stale reference in
         // this codebase (e.g. a calendar reminder claim for a deleted event) is left rather than actively cleaned up.
+        // A note its owner has since made private stops being reachable through any grant, without the
+        // grant having to be found and deleted: the promise is "only the creator", and a stale row can't
+        // quietly outlive it. Turning privacy back off makes the same grant work again.
         var note = await _noteRepository.GetByIdAsync(grant.OwnerUserId, grant.SourceNoteId, cancellationToken);
-        if (note is null)
+        if (note is null || note.IsPrivate)
         {
             return null;
         }
@@ -62,7 +65,7 @@ public sealed class NoteAccessResolver
         foreach (var grant in grants)
         {
             var note = await _noteRepository.GetByIdAsync(grant.OwnerUserId, grant.SourceNoteId, cancellationToken);
-            if (note is null)
+            if (note is null || note.IsPrivate)
             {
                 continue;
             }

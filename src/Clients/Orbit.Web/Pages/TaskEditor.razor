@@ -51,6 +51,25 @@ else
             <InputText @bind-Value="_formModel.Title" />
         </div>
 
+        @* Only the owner may turn this on: a list reached through a share belongs to someone else,
+           and "private" means private to its creator. *@
+        @if (!_isShared)
+        {
+            <div class="field">
+                <label>
+                    <InputCheckbox @bind-Value="_formModel.IsPrivate" />
+                    Private
+                </label>
+                <small>
+                    Encrypted in this browser before it is saved, so Orbit's servers hold something they
+                    can't read. A private list can't be shared, and any share of it stops working while it
+                    stays private. Because the server can no longer read a due date, a private list gets no
+                    overdue or daily reminders - and losing your password loses the list, exactly as a reset
+                    loses chat history.
+                </small>
+            </div>
+        }
+
         <div class="field">
             <label>
                 <InputCheckbox @bind-Value="_formModel.IsGroup" />
@@ -161,7 +180,7 @@ else
     </fieldset>
     </EditForm>
 
-    @if (!IsNewTaskList && _canShare)
+    @if (!IsNewTaskList && _canShare && !_formModel.IsPrivate)
     {
         <h2>Sharing</h2>
         @if (_shareableContacts.Count == 0)
@@ -285,6 +304,7 @@ else
                     {
                         Title = taskList.Title,
                         IsGroup = taskList.IsGroup,
+                        IsPrivate = taskList.IsPrivate,
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
@@ -420,12 +440,12 @@ else
         {
             if (IsNewTaskList)
             {
-                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items, _formModel.IsGroup));
+                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
             {
-                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items, _formModel.IsGroup));
+                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -616,6 +636,9 @@ else
     {
         public string Title { get; set; } = string.Empty;
         public bool IsGroup { get; set; }
+
+        /// <summary>Encrypt this list so only its owner can read it - see PrivateContentSealer.</summary>
+        public bool IsPrivate { get; set; }
         public List<TaskItemFormModel> Items { get; set; } = [];
     }
 

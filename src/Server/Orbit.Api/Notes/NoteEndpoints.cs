@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Orbit.Contracts;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -41,7 +42,7 @@ public static class NoteEndpoints
             CreateNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var id = await dispatcher.SendAsync(
-                new CreateNoteCommand(GetUserId(user), request.Title, ToDomainContent(request.Content)), cancellationToken);
+                new CreateNoteCommand(GetUserId(user), request.Title, ToDomainContent(request.Content), request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
             return Results.Created($"/api/notes/{id}", id);
         });
 
@@ -49,7 +50,7 @@ public static class NoteEndpoints
             Guid id, UpdateNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new UpdateNoteCommand(GetUserId(user), id, request.Title, ToDomainContent(request.Content)), cancellationToken);
+                new UpdateNoteCommand(GetUserId(user), id, request.Title, ToDomainContent(request.Content), request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
             return ToApiResult(outcome);
         });
 
@@ -126,9 +127,18 @@ public static class NoteEndpoints
     private static NoteContentLineDto ToDto(NoteContentLine line)
         => new(line.Text, line.IsChecklistItem, line.IsChecked);
 
+
+    /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>
+    private static EncryptedPayload? ToDomainPayload(EncryptedContentDto? encryptedContent)
+        => encryptedContent is null ? null : new EncryptedPayload(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
+    private static EncryptedContentDto? ToDto(EncryptedPayload? encryptedContent)
+        => encryptedContent is null ? null : new EncryptedContentDto(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
     private static NoteDto ToDto(Note note)
         => new(
-            note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.CreatedAtUtc, note.UpdatedAtUtc,
+            note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.IsPrivate, ToDto(note.EncryptedContent),
+            note.CreatedAtUtc, note.UpdatedAtUtc,
             note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>

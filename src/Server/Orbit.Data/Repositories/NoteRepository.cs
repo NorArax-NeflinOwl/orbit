@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Data.Entities;
 
@@ -63,10 +64,16 @@ public sealed class NoteRepository : INoteRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>Both columns are written together or not at all, so either alone means no sealed content.</summary>
+    private static EncryptedPayload? ToEncryptedPayload(string? ciphertext, string? nonce)
+        => ciphertext is not null && nonce is not null ? new EncryptedPayload(ciphertext, nonce) : null;
+
     private static Note ToDomain(NoteEntity entity)
         => Note.FromPersistence(
             entity.Id, entity.UserId, entity.Title,
             JsonSerializer.Deserialize<List<NoteContentLine>>(entity.ContentJson) ?? [],
+            entity.IsPrivate,
+            ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
             entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc);
 
@@ -77,6 +84,9 @@ public sealed class NoteRepository : INoteRepository
             UserId = note.UserId,
             Title = note.Title,
             ContentJson = JsonSerializer.Serialize(note.Content),
+            IsPrivate = note.IsPrivate,
+            EncryptedCiphertext = note.EncryptedContent?.Ciphertext,
+            EncryptedNonce = note.EncryptedContent?.Nonce,
             LockedByUserId = note.LockedByUserId,
             LockedByUserName = note.LockedByUserName,
             LockExpiresAtUtc = note.LockExpiresAtUtc,

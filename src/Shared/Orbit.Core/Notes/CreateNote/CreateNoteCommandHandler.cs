@@ -13,7 +13,7 @@ public sealed class CreateNoteCommandHandler : IRequestHandler<CreateNoteCommand
 
     public async Task<Guid> HandleAsync(CreateNoteCommand request, CancellationToken cancellationToken)
     {
-        var note = Note.Create(request.UserId, request.Title, request.Content);
+        var note = Note.Create(request.UserId, request.Title, request.Content, request.IsPrivate, request.EncryptedContent);
         await _noteRepository.AddAsync(note, cancellationToken);
         return note.Id;
     }

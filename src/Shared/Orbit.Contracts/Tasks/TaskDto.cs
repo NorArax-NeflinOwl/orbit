@@ -1,3 +1,4 @@
+using Orbit.Contracts;
 namespace Orbit.Contracts.Tasks;
 
 /// <summary>
@@ -6,5 +7,6 @@ namespace Orbit.Contracts.Tasks;
 /// </summary>
 public sealed record TaskDto(
     Guid Id, string Title, IReadOnlyList<TaskItemDto> Items, bool IsCompleted, bool IsGroup,
+    bool IsPrivate, EncryptedContentDto? EncryptedContent,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
     bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId);

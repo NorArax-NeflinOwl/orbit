@@ -73,9 +73,9 @@ public sealed class LinkedTaskCompletionResolverTests
         // TaskListLinkValidator is what normally prevents this from ever being saved - this constructs
         // the scenario directly to confirm the resolver itself has a defensive backstop.
         var listX = TaskList.FromPersistence(
-            listXId, userId, "X", [TaskItem.Create("Depends on Y", null, false, listYId)], isGroup: false, now, now, null, null, null);
+            listXId, userId, "X", [TaskItem.Create("Depends on Y", null, false, listYId)], isGroup: false, isPrivate: false, encryptedContent: null, now, now, null, null, null);
         var listY = TaskList.FromPersistence(
-            listYId, userId, "Y", [TaskItem.Create("Depends on X", null, false, listXId)], isGroup: false, now, now, null, null, null);
+            listYId, userId, "Y", [TaskItem.Create("Depends on X", null, false, listXId)], isGroup: false, isPrivate: false, encryptedContent: null, now, now, null, null, null);
 
         var resolved = _resolver.ResolveAll([listX, listY]);
 

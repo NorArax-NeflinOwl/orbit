@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Notifications;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Data.Entities;
 
@@ -75,6 +76,9 @@ public sealed class TaskRepository : ITaskRepository
         entity.Title = taskList.Title;
         entity.IsCompleted = taskList.IsCompleted;
         entity.IsGroup = taskList.IsGroup;
+        entity.IsPrivate = taskList.IsPrivate;
+        entity.EncryptedCiphertext = taskList.EncryptedContent?.Ciphertext;
+        entity.EncryptedNonce = taskList.EncryptedContent?.Nonce;
         entity.LockedByUserId = taskList.LockedByUserId;
         entity.LockedByUserName = taskList.LockedByUserName;
         entity.LockExpiresAtUtc = taskList.LockExpiresAtUtc;
@@ -108,6 +112,10 @@ public sealed class TaskRepository : ITaskRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>Both columns are written together or not at all, so either alone means no sealed content.</summary>
+    private static EncryptedPayload? ToEncryptedPayload(string? ciphertext, string? nonce)
+        => ciphertext is not null && nonce is not null ? new EncryptedPayload(ciphertext, nonce) : null;
+
     private static TaskList ToDomain(TaskEntity entity)
         => TaskList.FromPersistence(
             entity.Id,
@@ -115,6 +123,8 @@ public sealed class TaskRepository : ITaskRepository
             entity.Title,
             entity.Items.Select(ToItemDomain).ToList(),
             entity.IsGroup,
+            entity.IsPrivate,
+            ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
             entity.CreatedAtUtc,
             entity.UpdatedAtUtc,
             entity.LockedByUserId,
@@ -141,6 +151,9 @@ public sealed class TaskRepository : ITaskRepository
             Title = taskList.Title,
             IsCompleted = taskList.IsCompleted,
             IsGroup = taskList.IsGroup,
+            IsPrivate = taskList.IsPrivate,
+            EncryptedCiphertext = taskList.EncryptedContent?.Ciphertext,
+            EncryptedNonce = taskList.EncryptedContent?.Nonce,
             LockedByUserId = taskList.LockedByUserId,
             LockedByUserName = taskList.LockedByUserName,
             LockExpiresAtUtc = taskList.LockExpiresAtUtc,
