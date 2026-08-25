@@ -16,15 +16,22 @@ public sealed class InventoryExpiryNotificationRepository : IInventoryExpiryNoti
 
     public async Task<IReadOnlyList<DueExpiryReminder>> GetItemsNearingExpiryAsync(DateTimeOffset thresholdUtc, CancellationToken cancellationToken)
     {
-        var entities = await _dbContext.InventoryItems
+        // Joined to Warehouses because an item has no owner of its own any more - the warning goes to
+        // the warehouse's owner, not to everyone it happens to be shared with.
+        var rows = await _dbContext.InventoryItems
             .AsNoTracking()
             .Where(item => item.ExpiryDate != null && item.ExpiryDate <= thresholdUtc && item.ExpiryNotificationChannel != "None")
+            .Join(
+                _dbContext.Warehouses.AsNoTracking(),
+                item => item.WarehouseId,
+                warehouse => warehouse.Id,
+                (item, warehouse) => new { Item = item, warehouse.UserId })
             .ToListAsync(cancellationToken);
 
-        return entities
-            .Select(entity => new DueExpiryReminder(
-                entity.Id, entity.UserId, entity.Name, entity.ExpiryDate!.Value,
-                Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true)))
+        return rows
+            .Select(row => new DueExpiryReminder(
+                row.Item.Id, row.UserId, row.Item.Name, row.Item.ExpiryDate!.Value,
+                Enum.Parse<NotificationChannel>(row.Item.ExpiryNotificationChannel, ignoreCase: true)))
             .ToList();
     }
 

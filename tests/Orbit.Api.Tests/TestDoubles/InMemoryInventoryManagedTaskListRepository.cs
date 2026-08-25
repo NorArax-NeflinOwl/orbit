@@ -5,14 +5,14 @@ namespace Orbit.Api.Tests.TestDoubles;
 /// <summary>In-memory <see cref="IInventoryManagedTaskListRepository"/> stub for unit tests.</summary>
 internal sealed class InMemoryInventoryManagedTaskListRepository : IInventoryManagedTaskListRepository
 {
-    private readonly Dictionary<Guid, Guid> _taskListIdByUserId = [];
+    private readonly Dictionary<Guid, Guid> _taskListIdByWarehouseId = [];
 
-    public Task<Guid?> GetTaskListIdAsync(Guid userId, CancellationToken cancellationToken)
-        => Task.FromResult(_taskListIdByUserId.TryGetValue(userId, out var taskListId) ? taskListId : (Guid?)null);
+    public Task<Guid?> GetTaskListIdAsync(Guid warehouseId, CancellationToken cancellationToken)
+        => Task.FromResult(_taskListIdByWarehouseId.TryGetValue(warehouseId, out var taskListId) ? taskListId : (Guid?)null);
 
-    public Task SetTaskListIdAsync(Guid userId, Guid taskListId, CancellationToken cancellationToken)
+    public Task SetTaskListIdAsync(Guid warehouseId, Guid taskListId, CancellationToken cancellationToken)
     {
-        _taskListIdByUserId[userId] = taskListId;
+        _taskListIdByWarehouseId[warehouseId] = taskListId;
         return Task.CompletedTask;
     }
 }

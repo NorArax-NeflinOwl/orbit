@@ -4,17 +4,17 @@ namespace Orbit.Api.Tests.TestDoubles;
 
 /// <summary>
 /// In-memory <see cref="IInventoryRepository"/> stub for unit tests that need real add/lookup/update
-/// behavior, including per-user ownership scoping, without spinning up Postgres.
+/// behavior, including per-warehouse scoping, without spinning up Postgres.
 /// </summary>
 internal sealed class InMemoryInventoryRepository : IInventoryRepository
 {
     private readonly List<InventoryItem> _items = [];
 
-    public Task<IReadOnlyList<InventoryItem>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<InventoryItem>>(_items.Where(item => item.UserId == userId).ToList());
+    public Task<IReadOnlyList<InventoryItem>> GetAllAsync(Guid warehouseId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<InventoryItem>>(_items.Where(item => item.WarehouseId == warehouseId).ToList());
 
-    public Task<InventoryItem?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
-        => Task.FromResult(_items.FirstOrDefault(item => item.Id == id && item.UserId == userId));
+    public Task<InventoryItem?> GetByIdAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
+        => Task.FromResult(_items.FirstOrDefault(item => item.Id == id && item.WarehouseId == warehouseId));
 
     public Task AddAsync(InventoryItem item, CancellationToken cancellationToken)
     {
@@ -29,9 +29,15 @@ internal sealed class InMemoryInventoryRepository : IInventoryRepository
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    public Task DeleteAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
     {
-        _items.RemoveAll(item => item.Id == id && item.UserId == userId);
+        _items.RemoveAll(item => item.Id == id && item.WarehouseId == warehouseId);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAllInWarehouseAsync(Guid warehouseId, CancellationToken cancellationToken)
+    {
+        _items.RemoveAll(item => item.WarehouseId == warehouseId);
         return Task.CompletedTask;
     }
 }

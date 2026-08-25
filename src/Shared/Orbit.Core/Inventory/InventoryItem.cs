@@ -3,14 +3,15 @@ using Orbit.Core.Notifications;
 namespace Orbit.Core.Inventory;
 
 /// <summary>
-/// A single product tracked in a user's stock, owned by exactly one user for its entire lifetime - no
-/// sharing/locking concept, unlike Note/TaskList/CalendarEvent, since that was never requested and
-/// would be pure scope creep on top of an already large feature.
+/// A single product tracked in stock. Belongs to a <see cref="Warehouse"/> rather than directly to a
+/// user: who may read or change this item is entirely decided by who may read or change its warehouse
+/// (see WarehouseAccessResolver), so an item carries no owner and no access level of its own. Has no
+/// edit-lock concept, unlike Note/TaskList/CalendarEvent - see Warehouse's class comment.
 /// </summary>
 public sealed class InventoryItem
 {
     public Guid Id { get; private set; }
-    public Guid UserId { get; private set; }
+    public Guid WarehouseId { get; private set; }
     public string Name { get; private set; }
     public string ProductType { get; private set; }
     public string Category { get; private set; }
@@ -37,12 +38,12 @@ public sealed class InventoryItem
     public bool IsBelowMinimum => MinimumQuantity is { } minimumQuantity && Quantity <= minimumQuantity;
 
     private InventoryItem(
-        Guid id, Guid userId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
+        Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, Guid? pendingRestockTaskListId,
         Guid? pendingRestockTaskItemId, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
     {
         Id = id;
-        UserId = userId;
+        WarehouseId = warehouseId;
         Name = name;
         ProductType = productType;
         Category = category;
@@ -57,22 +58,22 @@ public sealed class InventoryItem
     }
 
     public static InventoryItem Create(
-        Guid userId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
+        Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel)
     {
         var now = DateTimeOffset.UtcNow;
         return new InventoryItem(
-            Guid.NewGuid(), userId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
+            Guid.NewGuid(), warehouseId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
             pendingRestockTaskListId: null, pendingRestockTaskItemId: null, now, now);
     }
 
     /// <summary>Rebuilds an inventory item from already-persisted values, bypassing creation rules.</summary>
     public static InventoryItem FromPersistence(
-        Guid id, Guid userId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
+        Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, Guid? pendingRestockTaskListId,
         Guid? pendingRestockTaskItemId, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
         => new(
-            id, userId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
+            id, warehouseId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
             pendingRestockTaskListId, pendingRestockTaskItemId, createdAtUtc, updatedAtUtc);
 
     public void Update(

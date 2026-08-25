@@ -48,6 +48,8 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
         services.AddScoped<IOverdueTaskNotificationRepository, OverdueTaskNotificationRepository>();
         services.AddScoped<IDailyTaskReminderRepository, DailyTaskReminderRepository>();
+        services.AddScoped<IWarehouseRepository, WarehouseRepository>();
+        services.AddScoped<IWarehouseShareRepository, WarehouseShareRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IInventoryManagedTaskListRepository, InventoryManagedTaskListRepository>();
         services.AddScoped<IInventoryExpiryNotificationRepository, InventoryExpiryNotificationRepository>();

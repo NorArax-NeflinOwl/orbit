@@ -2,4 +2,4 @@ using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Inventory.GetInventoryItemById;
 
-public sealed record GetInventoryItemByIdQuery(Guid UserId, Guid Id) : IRequest<InventoryItem?>;
+public sealed record GetInventoryItemByIdQuery(Guid UserId, Guid WarehouseId, Guid Id) : IRequest<InventoryItem?>;

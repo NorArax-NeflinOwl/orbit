@@ -5,18 +5,30 @@ namespace Orbit.Core.Inventory.UpdateInventoryItem;
 public sealed class UpdateInventoryItemCommandHandler : IRequestHandler<UpdateInventoryItemCommand, EditOutcome>
 {
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly WarehouseAccessResolver _warehouseAccessResolver;
     private readonly InventoryTaskListCoordinator _taskListCoordinator;
 
-    public UpdateInventoryItemCommandHandler(IInventoryRepository inventoryRepository, InventoryTaskListCoordinator taskListCoordinator)
+    public UpdateInventoryItemCommandHandler(
+        IInventoryRepository inventoryRepository, WarehouseAccessResolver warehouseAccessResolver,
+        InventoryTaskListCoordinator taskListCoordinator)
     {
         _inventoryRepository = inventoryRepository;
+        _warehouseAccessResolver = warehouseAccessResolver;
         _taskListCoordinator = taskListCoordinator;
     }
 
-    /// <summary>No locking/access-level concept here, unlike Note/TaskList/CalendarEvent - Inventory has no sharing, so NotFound is the only failure this can return.</summary>
+    /// <summary>
+    /// Items have no lock of their own (see Warehouse's class comment), so NotFound is the only failure
+    /// this returns - including for a caller whose grant on the warehouse is read-only.
+    /// </summary>
     public async Task<EditOutcome> HandleAsync(UpdateInventoryItemCommand request, CancellationToken cancellationToken)
     {
-        var item = await _inventoryRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
+        if (await _warehouseAccessResolver.ResolveForEditAsync(request.UserId, request.WarehouseId, cancellationToken) is null)
+        {
+            return EditOutcome.NotFound;
+        }
+
+        var item = await _inventoryRepository.GetByIdAsync(request.WarehouseId, request.Id, cancellationToken);
         if (item is null)
         {
             return EditOutcome.NotFound;

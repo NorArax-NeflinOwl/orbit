@@ -335,12 +335,12 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid>("WarehouseId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("WarehouseId");
 
                     b.ToTable("InventoryItems");
                 });
@@ -354,12 +354,12 @@ namespace Orbit.Data.Migrations
                     b.Property<Guid>("TaskListId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid>("WarehouseId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId")
+                    b.HasIndex("WarehouseId")
                         .IsUnique();
 
                     b.ToTable("InventoryManagedTaskLists");
@@ -804,6 +804,68 @@ namespace Orbit.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.WarehouseEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Warehouses");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.WarehouseShareEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AccessLevel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SourceWarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.HasIndex("SourceWarehouseId", "RecipientUserId");
+
+                    b.ToTable("WarehouseShares");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemEntity", b =>
