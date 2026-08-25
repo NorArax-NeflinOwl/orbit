@@ -35,4 +35,20 @@ public sealed class NotificationFeedState
 
     /// <summary>Unread messages from one specific chat partner, for the avatar badges in Chat's contact list.</summary>
     public int CountForChatWith(Guid otherUserId) => CountForSection($"/chat/{otherUserId}");
+
+    /// <summary>
+    /// Whether anything unread points at exactly this page - checked before asking the server to mark
+    /// them read on arrival, so an ordinary click around the app costs no request at all.
+    /// </summary>
+    public bool HasUnreadFor(string url)
+        => _unreadEntries.Any(entry => string.Equals(entry.Url, url, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Drops the entries pointing at url, matching what the server was just told. Applied locally rather
+    /// than by re-fetching, so the badge clears as the page opens instead of on the next poll.
+    /// </summary>
+    public void MarkReadFor(string url)
+        => Set(_unreadEntries
+            .Where(entry => !string.Equals(entry.Url, url, StringComparison.OrdinalIgnoreCase))
+            .ToList());
 }

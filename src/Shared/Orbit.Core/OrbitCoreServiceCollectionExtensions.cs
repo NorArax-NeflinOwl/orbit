@@ -58,6 +58,8 @@ using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
 using Orbit.Core.Notifications.GetUnreadNotificationEntries;
 using Orbit.Core.Notifications.ClearNotifications;
+using Orbit.Core.Notifications.GetNotificationHistory;
+using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Sharing;
 using Orbit.Core.Sharing.ClaimPublicShareLink;
 using Orbit.Core.Sharing.CreatePublicShareLink;
@@ -235,6 +237,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetUnreadNotificationEntriesQuery, IReadOnlyList<NotificationEntry>>, GetUnreadNotificationEntriesQueryHandler>();
         services.AddScoped<IRequestHandler<ClearNotificationsCommand, bool>, ClearNotificationsCommandHandler>();
         services.AddScoped<IRequestHandler<MarkAllNotificationsReadCommand, bool>, MarkAllNotificationsReadCommandHandler>();
+        services.AddScoped<IRequestHandler<MarkNotificationsAtUrlReadCommand, bool>, MarkNotificationsAtUrlReadCommandHandler>();
+        services.AddScoped<IRequestHandler<GetNotificationHistoryQuery, IReadOnlyList<NotificationEntry>>, GetNotificationHistoryQueryHandler>();
 
         services.AddScoped<PublicSharedItemReader>();
         services.AddScoped<IRequestHandler<CreatePublicShareLinkCommand, PublicShareLink?>, CreatePublicShareLinkCommandHandler>();

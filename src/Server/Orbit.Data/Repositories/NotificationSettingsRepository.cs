@@ -41,6 +41,7 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
             entity.AllowShareNotifications = settings.AllowShareNotifications;
             entity.BannerVisibleSeconds = settings.BannerTiming.VisibleSeconds;
             entity.BannerMinimumGapSeconds = settings.BannerTiming.MinimumGapSeconds;
+            entity.RetentionDays = settings.RetentionDays;
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -50,7 +51,7 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
         => NotificationSettings.FromPersistence(
             entity.UserId, entity.AllowNotifications, entity.AllowPush, entity.AllowEmail, entity.AllowMobileBanner, entity.ShowExceptionDetails,
             entity.AllowShareNotifications,
-            new BannerTiming(entity.BannerVisibleSeconds, entity.BannerMinimumGapSeconds));
+            new BannerTiming(entity.BannerVisibleSeconds, entity.BannerMinimumGapSeconds), entity.RetentionDays);
 
     private static NotificationSettingsEntity ToEntity(NotificationSettings settings)
         => new()
@@ -64,6 +65,7 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
             ShowExceptionDetails = settings.ShowExceptionDetails,
             AllowShareNotifications = settings.AllowShareNotifications,
             BannerVisibleSeconds = settings.BannerTiming.VisibleSeconds,
-            BannerMinimumGapSeconds = settings.BannerTiming.MinimumGapSeconds
+            BannerMinimumGapSeconds = settings.BannerTiming.MinimumGapSeconds,
+            RetentionDays = settings.RetentionDays
         };
 }

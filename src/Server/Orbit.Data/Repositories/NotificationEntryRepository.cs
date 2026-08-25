@@ -23,6 +23,18 @@ public sealed class NotificationEntryRepository : INotificationEntryRepository
     {
         var entities = await _dbContext.NotificationEntries
             .AsNoTracking()
+            .Where(entity => entity.UserId == userId && entity.DismissedAtUtc == null)
+            .OrderByDescending(entity => entity.CreatedAtUtc)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
+    public async Task<IReadOnlyList<NotificationEntry>> GetHistoryAsync(Guid userId, int take, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.NotificationEntries
+            .AsNoTracking()
             .Where(entity => entity.UserId == userId)
             .OrderByDescending(entity => entity.CreatedAtUtc)
             .Take(take)
@@ -57,24 +69,57 @@ public sealed class NotificationEntryRepository : INotificationEntryRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteAllAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task MarkReadByUrlAsync(Guid userId, string url, DateTimeOffset nowUtc, CancellationToken cancellationToken)
+        => await _dbContext.NotificationEntries
+            .Where(entity => entity.UserId == userId && entity.ReadAtUtc == null && entity.Url == url)
+            .ExecuteUpdateAsync(entity => entity.SetProperty(row => row.ReadAtUtc, nowUtc), cancellationToken);
+
+    public async Task DismissAllAsync(Guid userId, DateTimeOffset nowUtc, CancellationToken cancellationToken)
+        => await _dbContext.NotificationEntries
+            .Where(entity => entity.UserId == userId && entity.DismissedAtUtc == null)
+            .ExecuteUpdateAsync(
+                entity => entity
+                    .SetProperty(row => row.DismissedAtUtc, nowUtc)
+                    // Dismissed implies read - see NotificationEntry.Dismiss for why the badge must not
+                    // outlive the panel it points at.
+                    .SetProperty(row => row.ReadAtUtc, row => row.ReadAtUtc ?? nowUtc),
+                cancellationToken);
+
+    /// <summary>
+    /// Grouped by retention window rather than run per user: readers who chose the same number of days
+    /// share one cutoff, so this stays a handful of deletes however many accounts exist.
+    /// </summary>
+    public async Task<int> DeleteExpiredAsync(DateTimeOffset nowUtc, TimeSpan defaultRetention, CancellationToken cancellationToken)
     {
-        var entities = await _dbContext.NotificationEntries
-            .Where(entity => entity.UserId == userId)
+        var configuredRetentions = await _dbContext.NotificationSettings
+            .AsNoTracking()
+            .Select(settings => new { settings.UserId, settings.RetentionDays })
             .ToListAsync(cancellationToken);
-        if (entities.Count == 0)
+
+        var deletedCount = 0;
+        foreach (var retentionGroup in configuredRetentions.GroupBy(settings => settings.RetentionDays))
         {
-            return;
+            var userIds = retentionGroup.Select(settings => settings.UserId).ToList();
+            var cutoffUtc = nowUtc.AddDays(-retentionGroup.Key);
+            deletedCount += await _dbContext.NotificationEntries
+                .Where(entry => userIds.Contains(entry.UserId) && entry.CreatedAtUtc < cutoffUtc)
+                .ExecuteDeleteAsync(cancellationToken);
         }
 
-        _dbContext.NotificationEntries.RemoveRange(entities);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        // Everyone else has never saved notification settings, so the default window applies to them.
+        var configuredUserIds = configuredRetentions.Select(settings => settings.UserId).ToList();
+        var defaultCutoffUtc = nowUtc - defaultRetention;
+        deletedCount += await _dbContext.NotificationEntries
+            .Where(entry => !configuredUserIds.Contains(entry.UserId) && entry.CreatedAtUtc < defaultCutoffUtc)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        return deletedCount;
     }
 
     private static NotificationEntry ToDomain(NotificationEntryEntity entity)
         => NotificationEntry.FromPersistence(
             entity.Id, entity.UserId, Enum.Parse<NotificationEntryKind>(entity.Kind, ignoreCase: true),
-            entity.Title, entity.Body, entity.Url, entity.CreatedAtUtc, entity.ReadAtUtc);
+            entity.Title, entity.Body, entity.Url, entity.CreatedAtUtc, entity.ReadAtUtc, entity.DismissedAtUtc);
 
     private static NotificationEntryEntity ToEntity(NotificationEntry entry)
         => new()
@@ -86,6 +131,7 @@ public sealed class NotificationEntryRepository : INotificationEntryRepository
             Body = entry.Body,
             Url = entry.Url,
             CreatedAtUtc = entry.CreatedAtUtc,
-            ReadAtUtc = entry.ReadAtUtc
+            ReadAtUtc = entry.ReadAtUtc,
+            DismissedAtUtc = entry.DismissedAtUtc
         };
 }
