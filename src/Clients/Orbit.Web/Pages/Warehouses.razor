@@ -96,6 +96,10 @@ else
                             <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
                                 <option value="ReadOnly">Read-only</option>
                                 <option value="Share">Can share</option>
+                                @if (CanGrantEditOnly(warehouse))
+                                {
+                                    <option value="EditOnly">Can edit, but not share editing</option>
+                                }
                                 @if (CanGrantCanEdit(warehouse))
                                 {
                                     <option value="CanEdit">Can edit</option>
@@ -181,18 +185,18 @@ else
     /// only lead to a refusal. Matches the same rule for notes and task lists.
     /// </summary>
     private static bool CanShare(WarehouseDto warehouse)
-        => !warehouse.IsPrivate && (!warehouse.IsShared || warehouse.AccessLevel is "CanEdit" or "Share");
+        => !warehouse.IsPrivate && SharedItemAccess.For(warehouse.IsShared, warehouse.AccessLevel).CanShare;
 
     /// <summary>A re-share can never grant more than the re-sharer holds - again matching the server.</summary>
     private static bool CanGrantCanEdit(WarehouseDto warehouse)
-        => !warehouse.IsShared || warehouse.AccessLevel == "CanEdit";
+        => SharedItemAccess.For(warehouse.IsShared, warehouse.AccessLevel).CanGrantCanEdit;
 
-    private static string AccessDescription(string accessLevel) => accessLevel switch
-    {
-        "CanEdit" => "you can edit it",
-        "Share" => "you can share it further, but not edit it",
-        _ => "read-only"
-    };
+    /// <summary>An EditOnly holder can pass on neither this nor CanEdit - see ShareAccess.CanGrant.</summary>
+    private static bool CanGrantEditOnly(WarehouseDto warehouse)
+        => SharedItemAccess.For(warehouse.IsShared, warehouse.AccessLevel).CanGrantEditOnly;
+
+    private static string AccessDescription(string accessLevel)
+        => SharedItemAccess.For(isShared: true, accessLevel).Description;
 
     private void StartCreating()
     {

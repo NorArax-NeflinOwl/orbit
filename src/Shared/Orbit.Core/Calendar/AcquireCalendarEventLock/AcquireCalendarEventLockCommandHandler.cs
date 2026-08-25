@@ -23,7 +23,7 @@ public sealed class AcquireCalendarEventLockCommandHandler : IRequestHandler<Acq
     public async Task<EditOutcome> HandleAsync(AcquireCalendarEventLockCommand request, CancellationToken cancellationToken)
     {
         var calendarEvent = await _calendarEventAccessResolver.ResolveAsync(request.UserId, request.CalendarEventId, cancellationToken);
-        if (calendarEvent is null || calendarEvent.AccessLevel != ShareAccessLevel.CanEdit)
+        if (calendarEvent is null || !calendarEvent.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
         }

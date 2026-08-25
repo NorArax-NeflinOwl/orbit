@@ -88,6 +88,7 @@ public sealed class TaskList
         Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
         bool isPrivate = false, EncryptedPayload? encryptedContent = null, TaskListPriority priority = TaskListPriority.Normal)
     {
+        EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         var now = DateTimeOffset.UtcNow;
         return new TaskList(
             Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, now, now,
@@ -127,11 +128,21 @@ public sealed class TaskList
         string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         TaskListPriority priority = TaskListPriority.Normal)
     {
+        EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(Items);
         Priority = priority;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Mirrors Note.EnsureSealedWhenPrivate - see its comment for why rebuilding a stored row deliberately skips this.</summary>
+    private static void EnsureSealedWhenPrivate(bool isPrivate, EncryptedPayload? encryptedContent)
+    {
+        if (isPrivate && encryptedContent is null)
+        {
+            throw new InvalidRequestException("A private task list must arrive already encrypted.");
+        }
     }
 
     /// <summary>
@@ -170,11 +181,7 @@ public sealed class TaskList
             return (title, items, false, null);
         }
 
-        if (encryptedContent is null)
-        {
-            throw new InvalidRequestException("A private task list must arrive already encrypted.");
-        }
-
+        // No check for a missing payload here - see EnsureSealedWhenPrivate for where that lives and why.
         return (string.Empty, [], true, encryptedContent);
     }
 

@@ -74,7 +74,12 @@ public sealed class WarehouseRepository : IWarehouseRepository
 
     /// <summary>Both columns are written together or not at all, so either alone means no sealed content.</summary>
     private static EncryptedPayload? ToEncryptedPayload(string? ciphertext, string? nonce)
-        => ciphertext is not null && nonce is not null ? new EncryptedPayload(ciphertext, nonce) : null;
+        // Blank counts as absent, not just null: a row half-written before EncryptedPayload started
+        // checking its own parts would otherwise fail inside that check while being read, which is the
+        // one place a stored row must never throw.
+        => !string.IsNullOrWhiteSpace(ciphertext) && !string.IsNullOrWhiteSpace(nonce)
+            ? new EncryptedPayload(ciphertext, nonce)
+            : null;
 
     private static Warehouse ToDomain(WarehouseEntity entity)
         => Warehouse.FromPersistence(

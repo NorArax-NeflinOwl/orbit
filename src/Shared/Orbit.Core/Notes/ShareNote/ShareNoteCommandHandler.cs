@@ -9,15 +9,15 @@ namespace Orbit.Core.Notes.ShareNote;
 /// allowed to re-share it and at what level:
 /// <list type="bullet">
 /// <item>The owner can share at any level, to anyone except themselves.</item>
-/// <item>A recipient can re-share it only if their own access is <see cref="ShareAccessLevel.Share"/> or
-/// <see cref="ShareAccessLevel.CanEdit"/> - never <see cref="ShareAccessLevel.ReadOnly"/> - and never at
-/// a level higher than their own, so a re-share can never grant more access than the re-sharer holds.</item>
+/// <item>A recipient can re-share it only within what their own level permits - see
+/// <see cref="ShareAccess.CanGrant"/>, which holds that rule for all four kinds of item at once.</item>
 /// <item>Nobody, owner included, can share back to the note's owner (<see cref="Note.UserId"/>) - they
 /// already have full access to their own note, so offering it back to them would be meaningless at best
 /// and a way to bypass the level cap above at worst.</item>
 /// </list>
 /// A second offer to a recipient who already has one (accepted or still pending) doesn't create a
-/// duplicate row - see <see cref="ShareOutcome.AlreadyShared"/>.
+/// duplicate row - see <see cref="ShareOutcome.AlreadyShared"/> - but it does raise what that offer
+/// grants if the new level is higher, which is how a request for edit access gets answered.
 /// </summary>
 public sealed class ShareNoteCommandHandler : IRequestHandler<ShareNoteCommand, ShareOutcome?>
 {
@@ -53,7 +53,7 @@ public sealed class ShareNoteCommandHandler : IRequestHandler<ShareNoteCommand, 
             return null;
         }
 
-        if (note.IsShared && (note.AccessLevel < ShareAccessLevel.Share || request.AccessLevel > note.AccessLevel))
+        if (note.IsShared && !note.AccessLevel.CanGrant(request.AccessLevel))
         {
             return null;
         }
@@ -61,7 +61,16 @@ public sealed class ShareNoteCommandHandler : IRequestHandler<ShareNoteCommand, 
         var existingShare = await _noteShareRepository.FindExistingAsync(note.Id, request.RecipientUserId, cancellationToken);
         if (existingShare is not null)
         {
-            return new ShareOutcome(existingShare.Id, AlreadyShared: true);
+            // Sharing again at a higher level raises the existing offer rather than being a no-op:
+            // that is how an owner answers a request for edit access (see RequestEditAccess), and
+            // "share it with them again, but with more" is what they mean by doing it.
+            var accessLevelRaised = existingShare.RaiseAccessLevelTo(request.AccessLevel);
+            if (accessLevelRaised)
+            {
+                await _noteShareRepository.UpdateAsync(existingShare, cancellationToken);
+            }
+
+            return new ShareOutcome(existingShare.Id, AlreadyShared: true, accessLevelRaised);
         }
 
         var share = NoteShare.Create(note.Id, note.UserId, request.RecipientUserId, request.AccessLevel);

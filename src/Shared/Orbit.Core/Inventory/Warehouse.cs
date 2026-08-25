@@ -71,6 +71,7 @@ public sealed class Warehouse
 
     public static Warehouse Create(Guid userId, string name, bool isPrivate = false, EncryptedPayload? encryptedContent = null)
     {
+        EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         var now = DateTimeOffset.UtcNow;
         return new Warehouse(
             Guid.NewGuid(), userId, name, isPrivate, encryptedContent, now, now,
@@ -103,6 +104,7 @@ public sealed class Warehouse
     /// </summary>
     public void Update(string name, bool isPrivate, EncryptedPayload? encryptedContent)
     {
+        EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Name, IsPrivate, EncryptedContent) = ReadableOrSealed(name, isPrivate, encryptedContent);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
@@ -112,6 +114,15 @@ public sealed class Warehouse
     /// name, an ordinary one the reverse. Enforced rather than trusted, because a private warehouse that
     /// still carried a readable name would break the only promise this makes.
     /// </summary>
+    /// <summary>Mirrors Note.EnsureSealedWhenPrivate - see its comment for why rebuilding a stored row deliberately skips this.</summary>
+    private static void EnsureSealedWhenPrivate(bool isPrivate, EncryptedPayload? encryptedContent)
+    {
+        if (isPrivate && encryptedContent is null)
+        {
+            throw new InvalidRequestException("A private warehouse must arrive already encrypted.");
+        }
+    }
+
     private static (string Name, bool IsPrivate, EncryptedPayload? EncryptedContent) ReadableOrSealed(
         string name, bool isPrivate, EncryptedPayload? encryptedContent)
     {
@@ -120,11 +131,7 @@ public sealed class Warehouse
             return (name, false, null);
         }
 
-        if (encryptedContent is null)
-        {
-            throw new InvalidRequestException("A private warehouse must arrive already encrypted.");
-        }
-
+        // No check for a missing payload here - see EnsureSealedWhenPrivate for where that lives and why.
         return (string.Empty, true, encryptedContent);
     }
 

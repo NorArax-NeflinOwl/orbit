@@ -68,6 +68,7 @@ public sealed class Note
     public static Note Create(
         Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate = false, EncryptedPayload? encryptedContent = null)
     {
+        EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         var now = DateTimeOffset.UtcNow;
         return new Note(
             Guid.NewGuid(), userId, title, content, isPrivate, encryptedContent, now, now,
@@ -101,6 +102,7 @@ public sealed class Note
     /// </summary>
     public void Update(string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent)
     {
+        EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Title, Content, IsPrivate, EncryptedContent) = ReadableOrSealed(title, content, isPrivate, encryptedContent);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
@@ -111,6 +113,22 @@ public sealed class Note
     /// than trusted from callers, because a private note that still carried a readable title would break
     /// the only promise this feature makes.
     /// </summary>
+    /// <summary>
+    /// Refuses a private note arriving with nothing sealed inside it. Called from Create and Update
+    /// only - never when rebuilding a stored row, which is deliberate: this rule exists to stop a bad
+    /// write, and once such a row exists, throwing while reading it protects nothing and instead makes
+    /// every good row alongside it unreachable. A stored row that says private but carries no payload
+    /// therefore rebuilds as what it actually is - a private note nobody can open - which its owner
+    /// can see and delete.
+    /// </summary>
+    private static void EnsureSealedWhenPrivate(bool isPrivate, EncryptedPayload? encryptedContent)
+    {
+        if (isPrivate && encryptedContent is null)
+        {
+            throw new InvalidRequestException("A private note must arrive already encrypted.");
+        }
+    }
+
     private static (string Title, IReadOnlyList<NoteContentLine> Content, bool IsPrivate, EncryptedPayload? EncryptedContent) ReadableOrSealed(
         string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent)
     {
@@ -119,11 +137,7 @@ public sealed class Note
             return (title, content, false, null);
         }
 
-        if (encryptedContent is null)
-        {
-            throw new InvalidRequestException("A private note must arrive already encrypted.");
-        }
-
+        // No check for a missing payload here - see EnsureSealedWhenPrivate for where that lives and why.
         return (string.Empty, [], true, encryptedContent);
     }
 
