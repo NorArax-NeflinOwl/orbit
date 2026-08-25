@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
+using Orbit.Core.Notifications;
 using Orbit.Core.Notes.ShareNote;
 using Xunit;
 
@@ -8,8 +9,52 @@ namespace Orbit.Api.Tests.Notes;
 
 public sealed class ShareNoteCommandHandlerTests
 {
-    private static ShareNoteCommandHandler CreateHandler(InMemoryNoteRepository noteRepository, InMemoryNoteShareRepository noteShareRepository)
-        => new(new NoteAccessResolver(noteRepository, noteShareRepository, new InMemoryUserRepository()), noteShareRepository);
+    private static ShareNoteCommandHandler CreateHandler(
+        InMemoryNoteRepository noteRepository, InMemoryNoteShareRepository noteShareRepository,
+        RecordingSharedItemNotifier? sharedItemNotifier = null)
+        => new(
+            new NoteAccessResolver(noteRepository, noteShareRepository, new InMemoryUserRepository()), noteShareRepository,
+            sharedItemNotifier ?? new RecordingSharedItemNotifier());
+
+    [Fact]
+    public async Task HandleAsync_tells_the_recipient_a_note_has_been_shared_with_them()
+    {
+        var noteRepository = new InMemoryNoteRepository();
+        var sharedItemNotifier = new RecordingSharedItemNotifier();
+        var handler = CreateHandler(noteRepository, new InMemoryNoteShareRepository(), sharedItemNotifier);
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var note = Note.Create(ownerId, "Shopping list", [NoteContentLine.PlainText("Milk, eggs")]);
+        await noteRepository.AddAsync(note, CancellationToken.None);
+
+        await handler.HandleAsync(new ShareNoteCommand(ownerId, note.Id, recipientId), CancellationToken.None);
+
+        var announcement = Assert.Single(sharedItemNotifier.Announced);
+        Assert.Equal(recipientId, announcement.RecipientUserId);
+        Assert.Equal(ownerId, announcement.SharerUserId);
+        Assert.Equal(SharedItemKind.Note, announcement.Kind);
+        Assert.Equal("Shopping list", announcement.ItemTitle);
+    }
+
+    [Fact]
+    public async Task HandleAsync_does_not_announce_a_share_that_already_existed()
+    {
+        var noteRepository = new InMemoryNoteRepository();
+        var shareRepository = new InMemoryNoteShareRepository();
+        var sharedItemNotifier = new RecordingSharedItemNotifier();
+        var handler = CreateHandler(noteRepository, shareRepository, sharedItemNotifier);
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var note = Note.Create(ownerId, "Shopping list", [NoteContentLine.PlainText("Milk, eggs")]);
+        await noteRepository.AddAsync(note, CancellationToken.None);
+        await handler.HandleAsync(new ShareNoteCommand(ownerId, note.Id, recipientId), CancellationToken.None);
+
+        await handler.HandleAsync(new ShareNoteCommand(ownerId, note.Id, recipientId), CancellationToken.None);
+
+        // Sharing the same note twice is a no-op that returns the existing share, so it has nothing new
+        // to tell anyone - the invitation from the first time is still sitting in their feed.
+        Assert.Single(sharedItemNotifier.Announced);
+    }
 
     [Fact]
     public async Task HandleAsync_creates_a_share_for_a_note_owned_by_the_requesting_user()

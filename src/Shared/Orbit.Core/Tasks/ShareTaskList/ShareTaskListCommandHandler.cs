@@ -1,5 +1,7 @@
 using Orbit.Core.Abstractions;
 
+using Orbit.Core.Notifications;
+
 namespace Orbit.Core.Tasks.ShareTaskList;
 
 /// <summary>Mirrors Orbit.Core.Notes.ShareNote.ShareNoteCommandHandler - see its class comment for the permission rules enforced here.</summary>
@@ -7,11 +9,13 @@ public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListC
 {
     private readonly TaskListAccessResolver _taskListAccessResolver;
     private readonly ITaskListShareRepository _taskListShareRepository;
+    private readonly ISharedItemNotifier _sharedItemNotifier;
 
-    public ShareTaskListCommandHandler(TaskListAccessResolver taskListAccessResolver, ITaskListShareRepository taskListShareRepository)
+    public ShareTaskListCommandHandler(TaskListAccessResolver taskListAccessResolver, ITaskListShareRepository taskListShareRepository, ISharedItemNotifier sharedItemNotifier)
     {
         _taskListAccessResolver = taskListAccessResolver;
         _taskListShareRepository = taskListShareRepository;
+        _sharedItemNotifier = sharedItemNotifier;
     }
 
     public async Task<ShareOutcome?> HandleAsync(ShareTaskListCommand request, CancellationToken cancellationToken)
@@ -48,6 +52,8 @@ public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListC
 
         var share = TaskListShare.Create(taskList.Id, taskList.UserId, request.RecipientUserId, request.AccessLevel);
         await _taskListShareRepository.AddAsync(share, cancellationToken);
+        await _sharedItemNotifier.NotifyAsync(
+            request.RecipientUserId, request.OwnerUserId, SharedItemKind.TaskList, taskList.Title, cancellationToken);
         return new ShareOutcome(share.Id, AlreadyShared: false);
     }
 }

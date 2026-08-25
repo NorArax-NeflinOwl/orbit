@@ -149,7 +149,7 @@ public sealed class PrivateTaskListTests
                     CancellationToken.None);
 
         public Task<ShareOutcome?> ShareAsync(Guid taskListId, Guid recipientId)
-            => new ShareTaskListCommandHandler(Resolver, TaskListShareRepository)
+            => new ShareTaskListCommandHandler(Resolver, TaskListShareRepository, new RecordingSharedItemNotifier())
                 .HandleAsync(new ShareTaskListCommand(OwnerId, taskListId, recipientId, ShareAccessLevel.ReadOnly), CancellationToken.None);
 
         public Task<EditOutcome> MoveItemAsync(Guid sourceTaskListId, Guid itemId, Guid targetTaskListId)

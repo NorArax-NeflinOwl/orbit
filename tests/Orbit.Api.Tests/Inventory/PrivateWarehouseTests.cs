@@ -175,7 +175,7 @@ public sealed class PrivateWarehouseTests
                     CancellationToken.None);
 
         public Task<ShareOutcome?> ShareAsync(Guid warehouseId, Guid recipientId)
-            => new ShareWarehouseCommandHandler(_inventory.AccessResolver, _inventory.WarehouseShareRepository)
+            => new ShareWarehouseCommandHandler(_inventory.AccessResolver, _inventory.WarehouseShareRepository, new RecordingSharedItemNotifier())
                 .HandleAsync(new ShareWarehouseCommand(OwnerId, warehouseId, recipientId, ShareAccessLevel.ReadOnly), CancellationToken.None);
 
         public async Task ShareAndAcceptAsync(Guid warehouseId, Guid recipientId)

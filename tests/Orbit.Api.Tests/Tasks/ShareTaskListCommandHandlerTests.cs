@@ -1,5 +1,6 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.ShareTaskList;
 using Xunit;
@@ -8,8 +9,32 @@ namespace Orbit.Api.Tests.Tasks;
 
 public sealed class ShareTaskListCommandHandlerTests
 {
-    private static ShareTaskListCommandHandler CreateHandler(InMemoryTaskRepository taskRepository, InMemoryTaskListShareRepository taskListShareRepository)
-        => new(new TaskListAccessResolver(taskRepository, taskListShareRepository, new InMemoryUserRepository()), taskListShareRepository);
+    private static ShareTaskListCommandHandler CreateHandler(
+        InMemoryTaskRepository taskRepository, InMemoryTaskListShareRepository taskListShareRepository,
+        RecordingSharedItemNotifier? sharedItemNotifier = null)
+        => new(
+            new TaskListAccessResolver(taskRepository, taskListShareRepository, new InMemoryUserRepository()), taskListShareRepository,
+            sharedItemNotifier ?? new RecordingSharedItemNotifier());
+
+    [Fact]
+    public async Task HandleAsync_tells_the_recipient_a_task_list_has_been_shared_with_them()
+    {
+        var taskRepository = new InMemoryTaskRepository();
+        var sharedItemNotifier = new RecordingSharedItemNotifier();
+        var handler = CreateHandler(taskRepository, new InMemoryTaskListShareRepository(), sharedItemNotifier);
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var taskList = TaskList.Create(ownerId, "Errands", []);
+        await taskRepository.AddAsync(taskList, CancellationToken.None);
+
+        await handler.HandleAsync(new ShareTaskListCommand(ownerId, taskList.Id, recipientId), CancellationToken.None);
+
+        var announcement = Assert.Single(sharedItemNotifier.Announced);
+        Assert.Equal(recipientId, announcement.RecipientUserId);
+        Assert.Equal(ownerId, announcement.SharerUserId);
+        Assert.Equal(SharedItemKind.TaskList, announcement.Kind);
+        Assert.Equal("Errands", announcement.ItemTitle);
+    }
 
     [Fact]
     public async Task HandleAsync_creates_a_share_for_a_task_list_owned_by_the_requesting_user()

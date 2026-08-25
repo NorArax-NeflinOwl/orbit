@@ -1,5 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Chat;
+using Orbit.Core.Notifications;
 
 namespace Orbit.Core.Location.ShareLocation;
 
@@ -7,11 +8,15 @@ public sealed class ShareLocationCommandHandler : IRequestHandler<ShareLocationC
 {
     private readonly ISharedLocationRepository _sharedLocationRepository;
     private readonly IContactRepository _contactRepository;
+    private readonly ISharedItemNotifier _sharedItemNotifier;
 
-    public ShareLocationCommandHandler(ISharedLocationRepository sharedLocationRepository, IContactRepository contactRepository)
+    public ShareLocationCommandHandler(
+        ISharedLocationRepository sharedLocationRepository, IContactRepository contactRepository,
+        ISharedItemNotifier sharedItemNotifier)
     {
         _sharedLocationRepository = sharedLocationRepository;
         _contactRepository = contactRepository;
+        _sharedItemNotifier = sharedItemNotifier;
     }
 
     public async Task<bool> HandleAsync(ShareLocationCommand request, CancellationToken cancellationToken)
@@ -30,6 +35,11 @@ public sealed class ShareLocationCommandHandler : IRequestHandler<ShareLocationC
             var sharedLocation = SharedLocation.Create(
                 request.SharerUserId, request.RecipientUserId, request.CiphertextBase64, request.NonceBase64, request.IsContinuous);
             await _sharedLocationRepository.AddAsync(sharedLocation, cancellationToken);
+
+            // Only the first time. A live share refreshes once a minute, and announcing each refresh
+            // would turn one act of sharing into a notification every minute.
+            await _sharedItemNotifier.NotifyAsync(
+                request.RecipientUserId, request.SharerUserId, SharedItemKind.Location, itemTitle: null, cancellationToken);
             return true;
         }
 

@@ -43,6 +43,24 @@ public sealed class WarehouseSharingTests
     }
 
     [Fact]
+    public async Task Sharing_a_warehouse_tells_the_recipient_about_it()
+    {
+        var context = new InventoryTestContext();
+        var ownerUserId = Guid.NewGuid();
+        var recipientUserId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(ownerUserId, "Kitchen");
+        var sharedItemNotifier = new RecordingSharedItemNotifier();
+
+        await ShareAsync(context, ownerUserId, warehouseId, recipientUserId, ShareAccessLevel.ReadOnly, sharedItemNotifier);
+
+        var announcement = Assert.Single(sharedItemNotifier.Announced);
+        Assert.Equal(recipientUserId, announcement.RecipientUserId);
+        Assert.Equal(ownerUserId, announcement.SharerUserId);
+        Assert.Equal(SharedItemKind.Warehouse, announcement.Kind);
+        Assert.Equal("Kitchen", announcement.ItemTitle);
+    }
+
+    [Fact]
     public async Task Sharing_the_same_warehouse_twice_reuses_the_existing_offer()
     {
         var context = new InventoryTestContext();
@@ -168,8 +186,10 @@ public sealed class WarehouseSharingTests
     }
 
     private static Task<ShareOutcome?> ShareAsync(
-        InventoryTestContext context, Guid callerId, Guid warehouseId, Guid recipientUserId, ShareAccessLevel accessLevel)
-        => new ShareWarehouseCommandHandler(context.AccessResolver, context.WarehouseShareRepository)
+        InventoryTestContext context, Guid callerId, Guid warehouseId, Guid recipientUserId, ShareAccessLevel accessLevel,
+        RecordingSharedItemNotifier? sharedItemNotifier = null)
+        => new ShareWarehouseCommandHandler(
+                context.AccessResolver, context.WarehouseShareRepository, sharedItemNotifier ?? new RecordingSharedItemNotifier())
             .HandleAsync(new ShareWarehouseCommand(callerId, warehouseId, recipientUserId, accessLevel), CancellationToken.None);
 
     private static Task<IReadOnlyList<Warehouse>> ListWarehousesAsync(InventoryTestContext context, Guid userId)

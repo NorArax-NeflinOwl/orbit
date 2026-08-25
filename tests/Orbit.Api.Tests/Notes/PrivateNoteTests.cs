@@ -159,7 +159,7 @@ public sealed class PrivateNoteTests
                 .HandleAsync(new UpdateNoteCommand(OwnerId, noteId, title, content, isPrivate, encryptedContent), CancellationToken.None);
 
         public Task<ShareOutcome?> ShareAsync(Guid noteId, Guid recipientId)
-            => new ShareNoteCommandHandler(Resolver, NoteShareRepository)
+            => new ShareNoteCommandHandler(Resolver, NoteShareRepository, new RecordingSharedItemNotifier())
                 .HandleAsync(new ShareNoteCommand(OwnerId, noteId, recipientId, ShareAccessLevel.ReadOnly), CancellationToken.None);
 
         public async Task ShareAndAcceptAsync(Guid noteId, Guid recipientId)

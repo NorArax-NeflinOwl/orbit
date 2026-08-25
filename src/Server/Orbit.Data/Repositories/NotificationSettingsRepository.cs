@@ -38,6 +38,7 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
             entity.AllowEmail = settings.AllowEmail;
             entity.AllowMobileBanner = settings.AllowMobileBanner;
             entity.ShowExceptionDetails = settings.ShowExceptionDetails;
+            entity.AllowShareNotifications = settings.AllowShareNotifications;
             entity.BannerVisibleSeconds = settings.BannerTiming.VisibleSeconds;
             entity.BannerMinimumGapSeconds = settings.BannerTiming.MinimumGapSeconds;
         }
@@ -48,6 +49,7 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
     private static NotificationSettings ToDomain(NotificationSettingsEntity entity)
         => NotificationSettings.FromPersistence(
             entity.UserId, entity.AllowNotifications, entity.AllowPush, entity.AllowEmail, entity.AllowMobileBanner, entity.ShowExceptionDetails,
+            entity.AllowShareNotifications,
             new BannerTiming(entity.BannerVisibleSeconds, entity.BannerMinimumGapSeconds));
 
     private static NotificationSettingsEntity ToEntity(NotificationSettings settings)
@@ -60,6 +62,7 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
             AllowEmail = settings.AllowEmail,
             AllowMobileBanner = settings.AllowMobileBanner,
             ShowExceptionDetails = settings.ShowExceptionDetails,
+            AllowShareNotifications = settings.AllowShareNotifications,
             BannerVisibleSeconds = settings.BannerTiming.VisibleSeconds,
             BannerMinimumGapSeconds = settings.BannerTiming.MinimumGapSeconds
         };

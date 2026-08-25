@@ -1,5 +1,7 @@
 using Orbit.Core.Abstractions;
 
+using Orbit.Core.Notifications;
+
 namespace Orbit.Core.Notes.ShareNote;
 
 /// <summary>
@@ -21,11 +23,13 @@ public sealed class ShareNoteCommandHandler : IRequestHandler<ShareNoteCommand, 
 {
     private readonly NoteAccessResolver _noteAccessResolver;
     private readonly INoteShareRepository _noteShareRepository;
+    private readonly ISharedItemNotifier _sharedItemNotifier;
 
-    public ShareNoteCommandHandler(NoteAccessResolver noteAccessResolver, INoteShareRepository noteShareRepository)
+    public ShareNoteCommandHandler(NoteAccessResolver noteAccessResolver, INoteShareRepository noteShareRepository, ISharedItemNotifier sharedItemNotifier)
     {
         _noteAccessResolver = noteAccessResolver;
         _noteShareRepository = noteShareRepository;
+        _sharedItemNotifier = sharedItemNotifier;
     }
 
     public async Task<ShareOutcome?> HandleAsync(ShareNoteCommand request, CancellationToken cancellationToken)
@@ -62,6 +66,8 @@ public sealed class ShareNoteCommandHandler : IRequestHandler<ShareNoteCommand, 
 
         var share = NoteShare.Create(note.Id, note.UserId, request.RecipientUserId, request.AccessLevel);
         await _noteShareRepository.AddAsync(share, cancellationToken);
+        await _sharedItemNotifier.NotifyAsync(
+            request.RecipientUserId, request.OwnerUserId, SharedItemKind.Note, note.Title, cancellationToken);
         return new ShareOutcome(share.Id, AlreadyShared: false);
     }
 }

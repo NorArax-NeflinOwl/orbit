@@ -34,7 +34,7 @@ public sealed class NotificationSettingsTests
 
         settings.Update(
             allowNotifications: true, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true,
-            new BannerTiming(visibleSeconds: 12, minimumGapSeconds: 45));
+            allowShareNotifications: false, new BannerTiming(visibleSeconds: 12, minimumGapSeconds: 45));
 
         Assert.Equal(12, settings.BannerTiming.VisibleSeconds);
         Assert.Equal(45, settings.BannerTiming.MinimumGapSeconds);
@@ -45,7 +45,7 @@ public sealed class NotificationSettingsTests
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
 
-        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, BannerTiming.Default);
+        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, allowShareNotifications: false, BannerTiming.Default);
 
         Assert.False(settings.AllowNotifications);
         // Turning the master off must not erase what the user had chosen for each channel - otherwise
@@ -61,7 +61,7 @@ public sealed class NotificationSettingsTests
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
 
-        settings.Update(allowNotifications: true, allowPush: false, allowEmail: true, allowMobileBanner: false, showExceptionDetails: false, BannerTiming.Default);
+        settings.Update(allowNotifications: true, allowPush: false, allowEmail: true, allowMobileBanner: false, showExceptionDetails: false, allowShareNotifications: false, BannerTiming.Default);
 
         Assert.True(settings.AllowNotifications);
         Assert.False(settings.AllowPush);
@@ -74,7 +74,7 @@ public sealed class NotificationSettingsTests
     public void FilterChannel_strips_a_globally_disabled_channel_out_of_the_requested_channel()
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
-        settings.Update(allowNotifications: true, allowPush: false, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, BannerTiming.Default);
+        settings.Update(allowNotifications: true, allowPush: false, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, allowShareNotifications: false, BannerTiming.Default);
 
         var filtered = settings.FilterChannel(NotificationChannel.Both);
 
@@ -95,7 +95,7 @@ public sealed class NotificationSettingsTests
     public void FilterChannel_strips_everything_when_the_master_switch_is_off_even_if_child_switches_are_on()
     {
         var settings = NotificationSettings.Default(Guid.NewGuid());
-        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, BannerTiming.Default);
+        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, allowShareNotifications: false, BannerTiming.Default);
 
         var filtered = settings.FilterChannel(NotificationChannel.Both);
 

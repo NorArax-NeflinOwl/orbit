@@ -252,6 +252,22 @@
             </div>
             <div class="options-row options-row-child">
                 <div>
+                    <div class="options-row-title">Tell me when something is shared with me</div>
+                    <div class="options-row-desc">
+                        A note, task list, event, warehouse, or someone's location. The invitation always
+                        appears in your notifications either way - this adds a push notification or email
+                        on top, so you hear about it straight away rather than next time you look.
+                    </div>
+                </div>
+                <button type="button" class="switch @(_notificationSettings.AllowShareNotifications ? "on" : "")" role="switch"
+                        aria-checked="@_notificationSettings.AllowShareNotifications"
+                        disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
+                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowShareNotifications = !_notificationSettings.AllowShareNotifications })">
+                    <span class="switch-knob"></span>
+                </button>
+            </div>
+            <div class="options-row options-row-child">
+                <div>
                     <div class="options-row-title">Allow email</div>
                     <div class="options-row-desc">Lets any calendar event, task, or inventory item's own email setting actually send an email.</div>
                 </div>
@@ -447,7 +463,7 @@
             _notificationSettings = await NotificationsApiClient.UpdateSettingsAsync(
                 new UpdateNotificationSettingsRequest(
                     updated.AllowNotifications, updated.AllowPush, updated.AllowEmail, updated.AllowMobileBanner, updated.ShowExceptionDetails,
-                    updated.BannerVisibleSeconds, updated.BannerMinimumGapSeconds));
+                    updated.BannerVisibleSeconds, updated.BannerMinimumGapSeconds, updated.AllowShareNotifications));
         }
         catch (HttpRequestException exception)
         {

@@ -1,5 +1,7 @@
 using Orbit.Core.Abstractions;
 
+using Orbit.Core.Notifications;
+
 namespace Orbit.Core.Inventory.ShareWarehouse;
 
 /// <summary>
@@ -13,12 +15,14 @@ public sealed class ShareWarehouseCommandHandler : IRequestHandler<ShareWarehous
 {
     private readonly WarehouseAccessResolver _warehouseAccessResolver;
     private readonly IWarehouseShareRepository _warehouseShareRepository;
+    private readonly ISharedItemNotifier _sharedItemNotifier;
 
     public ShareWarehouseCommandHandler(
-        WarehouseAccessResolver warehouseAccessResolver, IWarehouseShareRepository warehouseShareRepository)
+        WarehouseAccessResolver warehouseAccessResolver, IWarehouseShareRepository warehouseShareRepository, ISharedItemNotifier sharedItemNotifier)
     {
         _warehouseAccessResolver = warehouseAccessResolver;
         _warehouseShareRepository = warehouseShareRepository;
+        _sharedItemNotifier = sharedItemNotifier;
     }
 
     public async Task<ShareOutcome?> HandleAsync(ShareWarehouseCommand request, CancellationToken cancellationToken)
@@ -55,6 +59,8 @@ public sealed class ShareWarehouseCommandHandler : IRequestHandler<ShareWarehous
 
         var share = WarehouseShare.Create(warehouse.Id, warehouse.UserId, request.RecipientUserId, request.AccessLevel);
         await _warehouseShareRepository.AddAsync(share, cancellationToken);
+        await _sharedItemNotifier.NotifyAsync(
+            request.RecipientUserId, request.OwnerUserId, SharedItemKind.Warehouse, warehouse.Name, cancellationToken);
         return new ShareOutcome(share.Id, AlreadyShared: false);
     }
 }

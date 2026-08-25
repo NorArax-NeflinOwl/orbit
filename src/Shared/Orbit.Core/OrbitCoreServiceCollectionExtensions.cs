@@ -235,6 +235,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // by each of the four reminder background services, the same way they already call
         // PushNotificationDispatcher directly.
         services.AddScoped<NotificationRecorder>();
+        services.AddScoped<ISharedItemNotifier, SharedItemNotifier>();
 
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
         services.AddScoped<PendingRestockTaskResolver>();

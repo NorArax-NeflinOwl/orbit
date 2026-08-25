@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Location;
+using Orbit.Core.Notifications;
 using Orbit.Core.Location.GetSharedLocations;
 using Orbit.Core.Location.ShareLocation;
 using Orbit.Core.Location.StopSharingLocation;
@@ -126,6 +127,45 @@ public sealed class SharedLocationTests
     }
 
     [Fact]
+    public async Task Sharing_a_position_tells_the_person_it_was_shared_with()
+    {
+        var context = new SharedLocationTestContext();
+
+        await context.ShareAsync(context.SharerId, context.FriendId, "point-one", isContinuous: false);
+
+        var announcement = Assert.Single(context.SharedItemNotifier.Announced);
+        Assert.Equal(context.FriendId, announcement.RecipientUserId);
+        Assert.Equal(context.SharerId, announcement.SharerUserId);
+        Assert.Equal(SharedItemKind.Location, announcement.Kind);
+    }
+
+    [Fact]
+    public async Task A_live_share_announces_itself_once_rather_than_on_every_refresh()
+    {
+        var context = new SharedLocationTestContext();
+
+        await context.ShareAsync(context.SharerId, context.FriendId, "point-one", isContinuous: true);
+        await context.ShareAsync(context.SharerId, context.FriendId, "point-two", isContinuous: true);
+        await context.ShareAsync(context.SharerId, context.FriendId, "point-three", isContinuous: true);
+
+        // A live share refreshes every minute for as long as the sharer has the page open. Announcing
+        // each refresh would be a notification a minute - the news is that sharing started.
+        Assert.Single(context.SharedItemNotifier.Announced);
+    }
+
+    [Fact]
+    public async Task Sharing_again_after_stopping_is_news_again()
+    {
+        var context = new SharedLocationTestContext();
+        await context.ShareAsync(context.SharerId, context.FriendId, "point-one", isContinuous: true);
+        await context.StopSharingAsync(context.SharerId, context.FriendId);
+
+        await context.ShareAsync(context.SharerId, context.FriendId, "point-two", isContinuous: true);
+
+        Assert.Equal(2, context.SharedItemNotifier.Announced.Count);
+    }
+
+    [Fact]
     public async Task Sharing_with_someone_you_have_no_chat_with_is_refused()
     {
         var context = new SharedLocationTestContext();
@@ -150,6 +190,8 @@ public sealed class SharedLocationTests
         private readonly InMemorySharedLocationRepository _sharedLocationRepository = new();
         private readonly InMemoryContactRepository _contactRepository = new();
 
+        public RecordingSharedItemNotifier SharedItemNotifier { get; } = new();
+
         public Guid SharerId { get; } = Guid.NewGuid();
         public Guid FriendId { get; } = Guid.NewGuid();
         public Guid OtherUserId { get; } = Guid.NewGuid();
@@ -164,7 +206,7 @@ public sealed class SharedLocationTests
         }
 
         public Task<bool> ShareAsync(Guid sharerId, Guid recipientId, string ciphertext, bool isContinuous)
-            => new ShareLocationCommandHandler(_sharedLocationRepository, _contactRepository)
+            => new ShareLocationCommandHandler(_sharedLocationRepository, _contactRepository, SharedItemNotifier)
                 .HandleAsync(new ShareLocationCommand(sharerId, recipientId, ciphertext, "nonce", isContinuous), CancellationToken.None);
 
         public Task<bool> StopSharingAsync(Guid sharerId, Guid? recipientUserId)
