@@ -82,6 +82,22 @@ public sealed class UpdateWarehouseCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_raises_no_restock_task_for_an_item_sitting_exactly_at_its_minimum()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+
+        await CreateHandler(context).HandleAsync(
+            new UpdateWarehouseCommand(userId, warehouseId, "Kitchen", [NewItem("Milk", quantity: 1m, minimumQuantity: 1m)]),
+            CancellationToken.None);
+
+        // The minimum is the level to keep, not one that already needs restocking - 1 of 1 is fine.
+        var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
+        Assert.Null(stored.PendingRestockTaskItemId);
+    }
+
+    [Fact]
     public async Task HandleAsync_keeps_an_open_restock_task_when_an_item_is_edited_while_still_low()
     {
         var context = new InventoryTestContext();
