@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Orbit.Api;
 using Orbit.Api.Auth;
+using Orbit.GoogleIntegration;
 using Orbit.Api.Calendar;
 using Orbit.Api.Chat;
 using Orbit.Api.Config;
@@ -19,6 +20,7 @@ using Orbit.Api.Users;
 using Orbit.Core;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
+using Orbit.Core.Users;
 using Orbit.Data;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
@@ -107,6 +109,9 @@ try
     builder.Services.AddSingleton<TokenService>();
     builder.Services.AddScoped<RefreshTokenService>();
     builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
+    builder.Services.AddSingleton<IVerificationCodeGenerator, VerificationCodeGenerator>();
+    builder.Services.Configure<GoogleAuthSettings>(builder.Configuration.GetSection(GoogleAuthSettings.SectionName));
+    builder.Services.AddSingleton<IGoogleIdentityVerifier, GoogleIdentityVerifier>();
 
     // Fails fast on startup instead of on the first login attempt if the signing key was never
     // configured, or is too short to be a usable HMAC-SHA256 key - see JwtSettings for where it's

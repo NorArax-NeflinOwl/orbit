@@ -39,6 +39,8 @@
     <p class="error">@_errorMessage</p>
 }
 
+<GoogleSignInButton OnCredential="SignInWithGoogleAsync" ShowDivider="true" />
+
 <p>Don't have an account? <a href="/register">Register</a></p>
 
 @code {
@@ -116,5 +118,37 @@
     {
         public string EmailOrUserName { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// One handler for both signing in and registering with Google: the browser gesture is identical and
+    /// the server decides whether this identity is new (see SignInWithGoogleCommandHandler).
+    /// </summary>
+    private async Task SignInWithGoogleAsync(string idToken)
+    {
+        _errorMessage = null;
+        AuthResult result;
+        try
+        {
+            result = await AuthApiClient.SignInWithGoogleAsync(idToken);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Google sign-in failed");
+            _errorMessage = "Couldn't sign in with Google. Try again.";
+            return;
+        }
+
+        if (result.Outcome != AuthOutcome.Success)
+        {
+            _errorMessage = "Couldn't sign in with Google. Try again.";
+            return;
+        }
+
+        // Deliberately no UnlockOrCreateAsync here, unlike the password paths: a Google account may have
+        // no password at all, so there is nothing to wrap a chat key with yet. Chat asks for one when it
+        // is actually needed - see Chat.razor's password gate.
+        AuthenticationStateProvider.NotifyAuthenticationStateChanged();
+        NavigationManager.NavigateTo("/");
     }
 }

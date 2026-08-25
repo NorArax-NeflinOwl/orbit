@@ -1,0 +1,84 @@
+@using Orbit.Web.Services
+@implements IDisposable
+@inject ClientFlagsApiClient ClientFlagsApiClient
+@inject IJSRuntime JSRuntime
+@inject ILogger<GoogleSignInButton> Logger
+
+@* Renders nothing at all unless this deployment configured a Google client id, so an unconfigured
+   install never shows a button that could only fail - see ClientFlagsDto.GoogleClientId. *@
+@if (_clientId.Length > 0)
+{
+    @if (ShowDivider)
+    {
+        <div class="auth-divider"><span>or</span></div>
+    }
+    <div id="@_containerId" class="google-signin-button"></div>
+}
+
+@code {
+    /// <summary>Receives the Google ID token once the user completes the Google prompt.</summary>
+    [Parameter]
+    public EventCallback<string> OnCredential { get; set; }
+
+    /// <summary>
+    /// Whether to draw an "or" rule above the button. Owned by this component rather than the page so the
+    /// rule can't survive on its own when Google isn't configured and the button renders nothing.
+    /// </summary>
+    [Parameter]
+    public bool ShowDivider { get; set; }
+
+    private string _clientId = string.Empty;
+    private DotNetObjectReference<GoogleSignInButton>? _selfReference;
+
+    /// <summary>Google's library draws the button once; asking it again on every later render would stack duplicates.</summary>
+    private bool _isButtonRendered;
+
+    /// <summary>Unique per instance so two buttons on one page (login and account settings) can't collide.</summary>
+    private readonly string _containerId = $"googleSignIn-{Guid.NewGuid():N}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _clientId = await ClientFlagsApiClient.GetGoogleClientIdAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            // Treated as "not configured" - the rest of the page still works without Google.
+            Logger.LogWarning(exception, "Failed to read the Google client id");
+        }
+    }
+
+    /// <summary>
+    /// Rendered from JS rather than as markup: Google's library draws the button itself, which is what
+    /// keeps it recognisable and is what Google's terms expect.
+    ///
+    /// Deliberately not keyed on firstRender: the client id arrives from an HTTP call, so the first
+    /// render happens while it's still empty and the container isn't in the DOM yet. The render that can
+    /// actually be acted on is the one *after* that call completes, which is never the first.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_clientId.Length == 0 || _isButtonRendered)
+        {
+            return;
+        }
+
+        _isButtonRendered = true;
+        _selfReference = DotNetObjectReference.Create(this);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("OrbitGoogleSignIn.renderButton", _containerId, _clientId, _selfReference);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Failed to render the Google sign-in button");
+        }
+    }
+
+    /// <summary>Public and [JSInvokable] only because JS interop requires it - nothing in C# calls this directly.</summary>
+    [JSInvokable]
+    public Task OnGoogleCredential(string credential) => OnCredential.InvokeAsync(credential);
+
+    public void Dispose() => _selfReference?.Dispose();
+}

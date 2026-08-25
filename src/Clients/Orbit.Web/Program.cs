@@ -90,6 +90,7 @@ builder.Services.AddHttpClient<PushNotificationApiClient>(httpClient => httpClie
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<NotificationsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<ClientFlagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress));
 builder.Services.AddScoped<OwnEncryptionKeyProvider>();
 builder.Services.AddScoped<EncryptedChatMessageSender>();
 builder.Services.AddScoped<PushNotificationManager>();

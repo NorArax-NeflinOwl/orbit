@@ -43,12 +43,9 @@ else if (_encryptionUnavailable)
 }
 else if (_encryptionKeyLocked)
 {
-    <p>
-        This browser doesn't have a local copy of your encryption key - most likely because the key was
-        generated in a different browser, or local data was cleared. Log in again to recover it from your
-        password-encrypted backup.
-        <button type="button" class="btn-secondary" @onclick="ReauthenticateAsync">Log out and log back in</button>
-    </p>
+    @* Replaces what used to be a dead end ("log out and log back in"): the password is all that's needed
+       to restore the key, so it's asked for here instead of sending the user around the login page. *@
+    <ChatPasswordGate OnUnlocked="OnEncryptionKeyUnlockedAsync" />
 }
 else if (_otherUser is null)
 {
@@ -496,6 +493,19 @@ else
     /// OwnEncryptionKeyProvider.UnlockOrCreateAsync with the password needed to restore this browser's
     /// private key from its server-side backup.
     /// </summary>
+    /// <summary>
+    /// Called by the password gate once this browser holds a usable key again - clears the lock and lets
+    /// the normal load path run, so the user lands straight in the conversation instead of reloading.
+    /// </summary>
+    private async Task OnEncryptionKeyUnlockedAsync()
+    {
+        _encryptionKeyLocked = false;
+        // Cleared so the guard in LoadConversationForCurrentUserAsync doesn't treat this conversation as
+        // already loaded and skip the load that the lock previously aborted.
+        _loadedUserId = Guid.Empty;
+        await LoadConversationForCurrentUserAsync();
+    }
+
     private async Task ReauthenticateAsync()
     {
         await AuthApiClient.LogoutAsync();

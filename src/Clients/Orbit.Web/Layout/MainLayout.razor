@@ -10,6 +10,7 @@
 @inject TokenRefreshService TokenRefreshService
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject NotificationsApiClient NotificationsApiClient
+@inject ClientFlagsApiClient ClientFlagsApiClient
 @inject NotificationFeedState NotificationFeedState
 @inject ClientExceptionLog ClientExceptionLog
 @inject ThemeService ThemeService
@@ -689,7 +690,7 @@
     /// </summary>
     private async Task LoadClientExceptionEntriesAsync()
     {
-        var exceptionDetailsAllowedByServer = await NotificationsApiClient.GetExceptionDetailsAllowedAsync();
+        var exceptionDetailsAllowedByServer = await ClientFlagsApiClient.GetExceptionDetailsAllowedAsync();
         _showExceptionsSection = exceptionDetailsAllowedByServer && _notificationSettings.ShowExceptionDetails;
         if (!_showExceptionsSection)
         {

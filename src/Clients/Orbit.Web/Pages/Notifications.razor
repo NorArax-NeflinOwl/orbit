@@ -3,6 +3,7 @@
 @using Orbit.Contracts.Notifications
 @using Orbit.Web.Services
 @inject NotificationsApiClient NotificationsApiClient
+@inject ClientFlagsApiClient ClientFlagsApiClient
 @inject NotificationFeedState NotificationFeedState
 @inject ClientExceptionLog ClientExceptionLog
 @inject NavigationManager NavigationManager
@@ -62,7 +63,7 @@
     private async Task LoadExceptionEntriesAsync()
     {
         var settings = await NotificationsApiClient.GetSettingsAsync();
-        var allowedByServer = await NotificationsApiClient.GetExceptionDetailsAllowedAsync();
+        var allowedByServer = await ClientFlagsApiClient.GetExceptionDetailsAllowedAsync();
         _exceptionEntries = allowedByServer && settings.ShowExceptionDetails
             ? await ClientExceptionLog.GetRecentErrorsAsync()
             : [];

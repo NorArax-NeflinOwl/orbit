@@ -49,11 +49,4 @@ public sealed class NotificationsApiClient
         var response = await _httpClient.PostAsync("api/notifications/read", content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
-
-    /// <summary>Unauthenticated - see ConfigEndpoints.MapConfigEndpoints. Defaults to "not allowed" if the call itself fails, matching the fail-closed intent of the flag.</summary>
-    public async Task<bool> GetExceptionDetailsAllowedAsync(CancellationToken cancellationToken = default)
-    {
-        var response = await _httpClient.GetFromJsonAsync<ClientFlagsDto>("api/config/client-flags", cancellationToken);
-        return response?.ExceptionDetailsAllowed ?? false;
-    }
 }

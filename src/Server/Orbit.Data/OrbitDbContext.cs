@@ -16,6 +16,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<RefreshTokenEntity> RefreshTokens => Set<RefreshTokenEntity>();
+    public DbSet<UserVerificationCodeEntity> UserVerificationCodes => Set<UserVerificationCodeEntity>();
     public DbSet<EventReminderDeliveryEntity> EventReminderDeliveries => Set<EventReminderDeliveryEntity>();
     public DbSet<ContactEntity> Contacts => Set<ContactEntity>();
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
@@ -113,13 +114,27 @@ public sealed class OrbitDbContext : DbContext
             entity.HasIndex(share => new { share.SourceTaskListId, share.RecipientUserId });
         });
 
+        modelBuilder.Entity<UserVerificationCodeEntity>(entity =>
+        {
+            entity.HasKey(code => code.Id);
+            entity.Property(code => code.Purpose).IsRequired().HasMaxLength(30);
+            entity.Property(code => code.CodeHash).IsRequired().HasMaxLength(200);
+            entity.Property(code => code.EmailAddress).IsRequired().HasMaxLength(320);
+            // Every lookup is "the newest usable code of this purpose for this user" - see
+            // UserVerificationCodeRepository.FindActiveAsync.
+            entity.HasIndex(code => new { code.UserId, code.Purpose });
+        });
+
         modelBuilder.Entity<UserEntity>(entity =>
         {
             entity.HasKey(user => user.Id);
             entity.Property(user => user.Email).IsRequired().HasMaxLength(320);
             entity.Property(user => user.UserName).IsRequired().HasMaxLength(64);
             entity.Property(user => user.DisplayName).IsRequired().HasMaxLength(200);
-            entity.Property(user => user.PasswordHash).IsRequired();
+            // Nullable: a Google account has no password until it sets one.
+            entity.Property(user => user.GoogleSubjectId).HasMaxLength(64);
+            // Signing in with Google looks an account up by subject, so this is the index that makes it fast.
+            entity.HasIndex(user => user.GoogleSubjectId);
             // A P-256 ECDH public key (raw, uncompressed) base64-encodes to about 88 characters; 200
             // leaves comfortable headroom without being unbounded.
             entity.Property(user => user.PublicKeyBase64).HasMaxLength(200);

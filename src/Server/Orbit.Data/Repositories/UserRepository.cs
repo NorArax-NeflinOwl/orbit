@@ -52,10 +52,19 @@ public sealed class UserRepository : IUserRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<User?> GetByGoogleSubjectIdAsync(string googleSubjectId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(user => user.GoogleSubjectId == googleSubjectId, cancellationToken);
+
+        return entity is null ? null : ToDomain(entity);
+    }
+
     private static User ToDomain(UserEntity entity)
         => User.FromPersistence(
             entity.Id, entity.Email, entity.UserName, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc,
-            entity.PublicKeyBase64, ToWrappedPrivateKey(entity));
+            entity.PublicKeyBase64, ToWrappedPrivateKey(entity), entity.EmailVerifiedAtUtc, entity.GoogleSubjectId);
 
     private static UserEntity ToEntity(User user)
         => new()
@@ -65,7 +74,9 @@ public sealed class UserRepository : IUserRepository
             UserName = user.UserName,
             DisplayName = user.DisplayName,
             PasswordHash = user.PasswordHash,
+            GoogleSubjectId = user.GoogleSubjectId,
             CreatedAtUtc = user.CreatedAtUtc,
+            EmailVerifiedAtUtc = user.EmailVerifiedAtUtc,
             PublicKeyBase64 = user.PublicKeyBase64,
             WrappedPrivateKeyBase64 = user.WrappedPrivateKey?.CiphertextBase64,
             PrivateKeyWrapNonceBase64 = user.WrappedPrivateKey?.NonceBase64,

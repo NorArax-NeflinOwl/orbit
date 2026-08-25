@@ -10,8 +10,15 @@ public sealed class UserEntity
     public string Email { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
-    public string PasswordHash { get; set; } = string.Empty;
+    /// <summary>Null for a Google account that hasn't set a password - see Orbit.Core.Users.User.PasswordHash.</summary>
+    public string? PasswordHash { get; set; }
+
+    /// <summary>Google's stable subject id, once the account is linked - see Orbit.Core.Users.User.GoogleSubjectId.</summary>
+    public string? GoogleSubjectId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
+    /// <summary>When the user last confirmed a code sent to Email, or null if never - see Orbit.Core.Users.User.EmailVerifiedAtUtc.</summary>
+    public DateTimeOffset? EmailVerifiedAtUtc { get; set; }
+
     public string? PublicKeyBase64 { get; set; }
 
     // Together, a password-encrypted backup of the private key matching PublicKeyBase64 - see
