@@ -1,0 +1,318 @@
+@page "/inventory"
+@attribute [Authorize]
+@using System.Text.Json
+@using Orbit.Contracts.Chat
+@using Orbit.Contracts.Inventory
+@using Orbit.Web.Services
+@inject InventoryApiClient InventoryApiClient
+@inject ChatApiClient ChatApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ILogger<Warehouses> Logger
+
+<PageTitle>Orbit — Inventory</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Inventory</h1>
+        <p class="page-subtitle">Keep separate stocks in separate warehouses, and share one with someone over chat.</p>
+    </div>
+    <button class="btn-primary" @onclick="StartCreating">Add warehouse</button>
+</div>
+
+@if (_isCreating)
+{
+    <div class="card warehouse-create-row">
+        <input id="newWarehouseNameInput" placeholder="Warehouse name" @bind="_newWarehouseName" @bind:event="oninput"
+               @onkeydown="OnNewWarehouseKeyDownAsync" />
+        <button class="btn-primary" disabled="@(_isSaving || _newWarehouseName.Trim().Length == 0)" @onclick="CreateWarehouseAsync">Create</button>
+        <button class="btn-secondary" @onclick="CancelCreating">Cancel</button>
+    </div>
+}
+
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+
+@if (_warehouses is null)
+{
+    <p>Loading…</p>
+}
+else if (_warehouses.Count == 0)
+{
+    <p>No warehouses yet. Create one to start tracking stock.</p>
+}
+else
+{
+    <ul class="warehouse-list">
+        @foreach (var warehouse in _warehouses)
+        {
+            <li class="card warehouse-card">
+                <div class="warehouse-card-main">
+                    <button type="button" class="warehouse-name" @onclick="() => OpenWarehouse(warehouse.Id)">@warehouse.Name</button>
+                    @if (warehouse.IsShared)
+                    {
+                        <span class="warehouse-shared-badge">Shared by @warehouse.SharedByUserName · @AccessDescription(warehouse.AccessLevel)</span>
+                    }
+                    @if (warehouse.LockedByUserName is { } lockedBy)
+                    {
+                        <span class="warehouse-shared-badge">@lockedBy is editing it right now</span>
+                    }
+                </div>
+                <div class="warehouse-card-actions">
+                    @if (CanShare(warehouse))
+                    {
+                        <button class="btn-secondary" @onclick="() => ToggleSharePanel(warehouse.Id)">Share</button>
+                    }
+                    @if (!warehouse.IsShared)
+                    {
+                        <button class="btn-secondary" @onclick="() => DeleteWarehouseAsync(warehouse)">Delete</button>
+                    }
+                </div>
+
+                @if (_sharePanelWarehouseId == warehouse.Id)
+                {
+                    <div class="warehouse-share-panel">
+                        @if (ShareableContacts(warehouse).Count == 0)
+                        {
+                            <p>No contacts to share with yet - start a conversation first.</p>
+                        }
+                        else
+                        {
+                            <select id="shareContactSelect" @bind="_selectedContactUserId">
+                                <option value="">-- select a contact --</option>
+                                @foreach (var contact in ShareableContacts(warehouse))
+                                {
+                                    <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                                }
+                            </select>
+                            <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
+                                <option value="ReadOnly">Read-only</option>
+                                <option value="Share">Can share</option>
+                                @if (CanGrantCanEdit(warehouse))
+                                {
+                                    <option value="CanEdit">Can edit</option>
+                                }
+                            </select>
+                            <button id="shareWarehouseButton" class="btn-primary" disabled="@_isSharing"
+                                    @onclick="() => ShareAsync(warehouse)">Share</button>
+                        }
+                        @if (_shareErrorMessage is not null)
+                        {
+                            <p class="error">@_shareErrorMessage</p>
+                        }
+                        @if (_shareInfoMessage is not null)
+                        {
+                            <p class="info">@_shareInfoMessage</p>
+                        }
+                    </div>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private IReadOnlyList<WarehouseDto>? _warehouses;
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private Guid _ownUserId;
+    private string? _errorMessage;
+
+    private bool _isCreating;
+    private string _newWarehouseName = string.Empty;
+    private bool _isSaving;
+
+    /// <summary>Which warehouse's inline share panel is open, if any - only one at a time.</summary>
+    private Guid? _sharePanelWarehouseId;
+
+    private string _selectedContactUserId = string.Empty;
+    private string _selectedAccessLevel = "ReadOnly";
+    private bool _isSharing;
+    private string? _shareErrorMessage;
+    private string? _shareInfoMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync();
+        if (currentUserId is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        _ownUserId = currentUserId.Value;
+
+        try
+        {
+            _warehouses = await InventoryApiClient.GetWarehousesAsync();
+            _contacts = await ChatApiClient.GetContactsAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load warehouses");
+            _errorMessage = "Couldn't load your warehouses. Check your connection and try again.";
+            _warehouses = [];
+        }
+    }
+
+    /// <summary>
+    /// Keeps the warehouse's true owner out of a re-sharer's recipient picker - sharing back to them is
+    /// always rejected server-side (see ShareWarehouseCommandHandler), so offering the option would only
+    /// ever produce an error. Mirrors NoteEditor's _shareableContacts.
+    /// </summary>
+    private IReadOnlyList<ContactDto> ShareableContacts(WarehouseDto warehouse)
+        => warehouse.OriginalOwnerUserId is { } ownerUserId
+            ? _contacts.Where(contact => contact.UserId != ownerUserId).ToList()
+            : _contacts;
+
+    /// <summary>Mirrors ShareWarehouseCommandHandler's own rule, so the button isn't offered for a share that would be rejected.</summary>
+    private static bool CanShare(WarehouseDto warehouse)
+        => !warehouse.IsShared || warehouse.AccessLevel is "CanEdit" or "Share";
+
+    /// <summary>A re-share can never grant more than the re-sharer holds - again matching the server.</summary>
+    private static bool CanGrantCanEdit(WarehouseDto warehouse)
+        => !warehouse.IsShared || warehouse.AccessLevel == "CanEdit";
+
+    private static string AccessDescription(string accessLevel) => accessLevel switch
+    {
+        "CanEdit" => "you can edit it",
+        "Share" => "you can share it further, but not edit it",
+        _ => "read-only"
+    };
+
+    private void StartCreating()
+    {
+        _isCreating = true;
+        _newWarehouseName = string.Empty;
+    }
+
+    private void CancelCreating()
+    {
+        _isCreating = false;
+        _newWarehouseName = string.Empty;
+    }
+
+    private async Task OnNewWarehouseKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && _newWarehouseName.Trim().Length > 0)
+        {
+            await CreateWarehouseAsync();
+        }
+    }
+
+    private async Task CreateWarehouseAsync()
+    {
+        _isSaving = true;
+        _errorMessage = null;
+        try
+        {
+            await InventoryApiClient.CreateWarehouseAsync(new SaveWarehouseRequest(_newWarehouseName.Trim(), []));
+            _warehouses = await InventoryApiClient.GetWarehousesAsync();
+            CancelCreating();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to create a warehouse");
+            _errorMessage = "Failed to create the warehouse. Try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void OpenWarehouse(Guid warehouseId) => NavigationManager.NavigateTo($"/inventory/{warehouseId}");
+
+    private void ToggleSharePanel(Guid warehouseId)
+    {
+        _sharePanelWarehouseId = _sharePanelWarehouseId == warehouseId ? null : warehouseId;
+        _selectedContactUserId = string.Empty;
+        _selectedAccessLevel = "ReadOnly";
+        _shareErrorMessage = null;
+        _shareInfoMessage = null;
+    }
+
+    /// <summary>
+    /// Creates the share server-side, then notifies the recipient with an encrypted chat message
+    /// carrying its id - exactly the flow NoteEditor.razor uses, so a warehouse share shows up in Chat
+    /// with an "Accept" button like every other kind of share.
+    /// </summary>
+    private async Task ShareAsync(WarehouseDto warehouse)
+    {
+        if (!Guid.TryParse(_selectedContactUserId, out var recipientUserId))
+        {
+            return;
+        }
+
+        _shareErrorMessage = null;
+        _shareInfoMessage = null;
+        _isSharing = true;
+        try
+        {
+            var result = await InventoryApiClient.ShareWarehouseAsync(warehouse.Id, recipientUserId, _selectedAccessLevel);
+            if (result is null)
+            {
+                _shareErrorMessage = "Failed to share the warehouse.";
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(new WarehouseShareMessagePayload(result.ShareId, warehouse.Name));
+            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+            _shareInfoMessage = result.AlreadyShared
+                ? "Already shared with that contact - sent a reminder."
+                : "Shared - they'll see it in your chat.";
+            _selectedContactUserId = string.Empty;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to share warehouse {WarehouseId} with user {RecipientUserId}", warehouse.Id, recipientUserId);
+            _shareErrorMessage = "Failed to share the warehouse.";
+        }
+        finally
+        {
+            _isSharing = false;
+        }
+    }
+
+    private async Task DeleteWarehouseAsync(WarehouseDto warehouse)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm", $"Delete \"{warehouse.Name}\" and everything in it?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            await InventoryApiClient.DeleteWarehouseAsync(warehouse.Id);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to delete warehouse {WarehouseId}", warehouse.Id);
+            _errorMessage = "Failed to delete the warehouse. Try again.";
+            return;
+        }
+
+        _warehouses = _warehouses!.Where(existing => existing.Id != warehouse.Id).ToList();
+    }
+}

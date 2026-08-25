@@ -14,11 +14,11 @@ public sealed class InventoryRepository : IInventoryRepository
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<InventoryItem>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<InventoryItem>> GetAllAsync(Guid warehouseId, CancellationToken cancellationToken)
     {
         var entities = await _dbContext.InventoryItems
             .AsNoTracking()
-            .Where(entity => entity.UserId == userId)
+            .Where(entity => entity.WarehouseId == warehouseId)
             .ToListAsync(cancellationToken);
 
         return entities
@@ -27,11 +27,11 @@ public sealed class InventoryRepository : IInventoryRepository
             .ToList();
     }
 
-    public async Task<InventoryItem?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    public async Task<InventoryItem?> GetByIdAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryItems
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id && item.WarehouseId == warehouseId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
     }
@@ -65,10 +65,10 @@ public sealed class InventoryRepository : IInventoryRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryItems
-            .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id && item.WarehouseId == warehouseId, cancellationToken);
         if (entity is null)
         {
             return;
@@ -78,9 +78,23 @@ public sealed class InventoryRepository : IInventoryRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeleteAllInWarehouseAsync(Guid warehouseId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.InventoryItems
+            .Where(item => item.WarehouseId == warehouseId)
+            .ToListAsync(cancellationToken);
+        if (entities.Count == 0)
+        {
+            return;
+        }
+
+        _dbContext.InventoryItems.RemoveRange(entities);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private static InventoryItem ToDomain(InventoryItemEntity entity)
         => InventoryItem.FromPersistence(
-            entity.Id, entity.UserId, entity.Name, entity.ProductType, entity.Category, entity.Quantity, entity.MinimumQuantity,
+            entity.Id, entity.WarehouseId, entity.Name, entity.ProductType, entity.Category, entity.Quantity, entity.MinimumQuantity,
             entity.ExpiryDate, Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true),
             entity.PendingRestockTaskListId, entity.PendingRestockTaskItemId, entity.CreatedAtUtc, entity.UpdatedAtUtc);
 
@@ -88,7 +102,7 @@ public sealed class InventoryRepository : IInventoryRepository
         => new()
         {
             Id = item.Id,
-            UserId = item.UserId,
+            WarehouseId = item.WarehouseId,
             Name = item.Name,
             ProductType = item.ProductType,
             Category = item.Category,

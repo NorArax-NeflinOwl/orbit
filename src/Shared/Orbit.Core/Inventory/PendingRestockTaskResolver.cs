@@ -13,10 +13,12 @@ namespace Orbit.Core.Inventory;
 public sealed class PendingRestockTaskResolver
 {
     private readonly ITaskRepository _taskRepository;
+    private readonly IWarehouseRepository _warehouseRepository;
 
-    public PendingRestockTaskResolver(ITaskRepository taskRepository)
+    public PendingRestockTaskResolver(ITaskRepository taskRepository, IWarehouseRepository warehouseRepository)
     {
         _taskRepository = taskRepository;
+        _warehouseRepository = warehouseRepository;
     }
 
     /// <summary>
@@ -32,7 +34,10 @@ public sealed class PendingRestockTaskResolver
             return item;
         }
 
-        var taskList = await _taskRepository.GetByIdAsync(item.UserId, taskListId, cancellationToken);
+        // The managed task list belongs to the warehouse's owner, not to whoever is currently looking
+        // at the item - a share recipient resolving this must still find the owner's list.
+        var ownerUserId = await _warehouseRepository.GetOwnerUserIdAsync(item.WarehouseId, cancellationToken);
+        var taskList = ownerUserId is null ? null : await _taskRepository.GetByIdAsync(ownerUserId.Value, taskListId, cancellationToken);
         var taskItem = taskList?.Items.FirstOrDefault(candidate => candidate.Id == taskItemId);
         if (taskItem is null || taskItem.IsCompleted)
         {

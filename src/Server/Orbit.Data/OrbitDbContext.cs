@@ -24,6 +24,8 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<PushSubscriptionEntity> PushSubscriptions => Set<PushSubscriptionEntity>();
     public DbSet<TaskOverdueNotificationDeliveryEntity> TaskOverdueNotificationDeliveries => Set<TaskOverdueNotificationDeliveryEntity>();
     public DbSet<TaskDailyReminderDeliveryEntity> TaskDailyReminderDeliveries => Set<TaskDailyReminderDeliveryEntity>();
+    public DbSet<WarehouseEntity> Warehouses => Set<WarehouseEntity>();
+    public DbSet<WarehouseShareEntity> WarehouseShares => Set<WarehouseShareEntity>();
     public DbSet<InventoryItemEntity> InventoryItems => Set<InventoryItemEntity>();
     public DbSet<InventoryManagedTaskListEntity> InventoryManagedTaskLists => Set<InventoryManagedTaskListEntity>();
     public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
@@ -228,17 +230,37 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(item => item.ProductType).HasMaxLength(100);
             entity.Property(item => item.Category).HasMaxLength(100);
             entity.Property(item => item.ExpiryNotificationChannel).HasMaxLength(20);
-            // Every inventory query is scoped to a single user's items; this is the index that makes
-            // those lookups fast instead of scanning the whole table.
-            entity.HasIndex(item => item.UserId);
+            // Every inventory query is scoped to a single warehouse's items; this is the index that
+            // makes those lookups fast instead of scanning the whole table.
+            entity.HasIndex(item => item.WarehouseId);
+        });
+
+        modelBuilder.Entity<WarehouseEntity>(entity =>
+        {
+            entity.HasKey(warehouse => warehouse.Id);
+            entity.Property(warehouse => warehouse.Name).IsRequired().HasMaxLength(200);
+            // Matches UserEntity.UserName's max length, since this is always copied from there.
+            entity.Property(warehouse => warehouse.LockedByUserName).HasMaxLength(64);
+            // Listing a user's own warehouses is the most common warehouse query.
+            entity.HasIndex(warehouse => warehouse.UserId);
+        });
+
+        modelBuilder.Entity<WarehouseShareEntity>(entity =>
+        {
+            entity.HasKey(share => share.Id);
+            entity.Property(share => share.AccessLevel).IsRequired().HasMaxLength(20);
+            // Mirrors NoteShareEntity: one lookup per (warehouse, recipient) pair for the duplicate
+            // check and the accepted-grant read, plus a recipient-wide scan for "shared with me".
+            entity.HasIndex(share => new { share.SourceWarehouseId, share.RecipientUserId });
+            entity.HasIndex(share => share.RecipientUserId);
         });
 
         modelBuilder.Entity<InventoryManagedTaskListEntity>(entity =>
         {
             entity.HasKey(row => row.Id);
-            // At most one managed task list per user - IInventoryManagedTaskListRepository relies on
-            // this to decide insert-vs-update.
-            entity.HasIndex(row => row.UserId).IsUnique();
+            // At most one managed task list per warehouse - IInventoryManagedTaskListRepository relies
+            // on this to decide insert-vs-update.
+            entity.HasIndex(row => row.WarehouseId).IsUnique();
         });
 
         modelBuilder.Entity<InventoryExpiryNotificationDeliveryEntity>(entity =>

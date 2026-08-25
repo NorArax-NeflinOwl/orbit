@@ -13,26 +13,26 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
         _dbContext = dbContext;
     }
 
-    public async Task<Guid?> GetTaskListIdAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<Guid?> GetTaskListIdAsync(Guid warehouseId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryManagedTaskLists
             .AsNoTracking()
-            .FirstOrDefaultAsync(row => row.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(row => row.WarehouseId == warehouseId, cancellationToken);
 
         return entity?.TaskListId;
     }
 
-    public async Task SetTaskListIdAsync(Guid userId, Guid taskListId, CancellationToken cancellationToken)
+    public async Task SetTaskListIdAsync(Guid warehouseId, Guid taskListId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryManagedTaskLists
-            .FirstOrDefaultAsync(row => row.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(row => row.WarehouseId == warehouseId, cancellationToken);
 
         if (entity is null)
         {
             _dbContext.InventoryManagedTaskLists.Add(new InventoryManagedTaskListEntity
             {
                 Id = Guid.NewGuid(),
-                UserId = userId,
+                WarehouseId = warehouseId,
                 TaskListId = taskListId
             });
         }

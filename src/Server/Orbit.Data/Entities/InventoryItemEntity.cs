@@ -8,7 +8,7 @@ namespace Orbit.Data.Entities;
 public sealed class InventoryItemEntity
 {
     public Guid Id { get; set; }
-    public Guid UserId { get; set; }
+    public Guid WarehouseId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string ProductType { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;

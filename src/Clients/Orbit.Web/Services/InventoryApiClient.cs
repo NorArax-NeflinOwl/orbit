@@ -1,12 +1,14 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 
 namespace Orbit.Web.Services;
 
 /// <summary>
-/// Thin wrapper around Orbit.Api's /api/inventory endpoints, keeping HTTP and JSON details out of the pages.
+/// Thin wrapper around Orbit.Api's /api/warehouses endpoints, keeping HTTP and JSON details out of the
+/// pages. Items are always addressed through their warehouse, matching the API - see InventoryEndpoints.
 /// </summary>
 public sealed class InventoryApiClient
 {
@@ -17,44 +19,125 @@ public sealed class InventoryApiClient
         _httpClient = httpClient;
     }
 
-    public async Task<IReadOnlyList<InventoryItemDto>> GetInventoryItemsAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<InventoryItemDto>>("api/inventory", cancellationToken) ?? [];
+    public async Task<IReadOnlyList<WarehouseDto>> GetWarehousesAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<WarehouseDto>>("api/warehouses", cancellationToken) ?? [];
 
-    public async Task<InventoryItemDto?> GetInventoryItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<WarehouseDto?> GetWarehouseByIdAsync(Guid warehouseId, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.GetAsync($"api/inventory/{id}", cancellationToken);
+        var response = await _httpClient.GetAsync($"api/warehouses/{warehouseId}", cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return null;
         }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<InventoryItemDto>(cancellationToken: cancellationToken);
+        return await response.Content.ReadFromJsonAsync<WarehouseDto>(cancellationToken: cancellationToken);
     }
 
-    public async Task<Guid> CreateInventoryItemAsync(CreateInventoryItemRequest request, CancellationToken cancellationToken = default)
+    public async Task<Guid> CreateWarehouseAsync(SaveWarehouseRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/inventory", request, cancellationToken);
+        var response = await _httpClient.PostAsJsonAsync("api/warehouses", request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
     }
 
-    /// <summary>NotFound covers the item being missing or not owned by the caller - Inventory has no sharing/locking, so those are the only two outcomes this ever returns.</summary>
-    public async Task<EditOutcome> UpdateInventoryItemAsync(Guid id, UpdateInventoryItemRequest request, CancellationToken cancellationToken = default)
+    /// <summary>Saves the warehouse and its whole item list in one request - see SaveWarehouseRequest.</summary>
+    public async Task<EditOutcome> UpdateWarehouseAsync(
+        Guid warehouseId, SaveWarehouseRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PutAsJsonAsync($"api/inventory/{id}", request, cancellationToken);
+        var response = await _httpClient.PutAsJsonAsync($"api/warehouses/{warehouseId}", request, cancellationToken);
+        return await ToEditOutcomeAsync(response, cancellationToken);
+    }
+
+    /// <summary>Mirrors TasksApiClient.AcquireTaskListLockAsync - see its comment.</summary>
+    public async Task<EditOutcome> AcquireWarehouseLockAsync(Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/warehouses/{warehouseId}/lock", content: null, cancellationToken);
+        return await ToEditOutcomeAsync(response, cancellationToken);
+    }
+
+    /// <summary>Mirrors TasksApiClient.ReleaseTaskListLockAsync - see its comment.</summary>
+    public async Task ReleaseWarehouseLockAsync(Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/warehouses/{warehouseId}/lock", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return EditOutcome.NotFound;
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
+            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? "another user");
         }
 
         response.EnsureSuccessStatusCode();
         return EditOutcome.Success;
     }
 
-    public async Task DeleteInventoryItemAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteWarehouseAsync(Guid warehouseId, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.DeleteAsync($"api/inventory/{id}", cancellationToken);
+        var response = await _httpClient.DeleteAsync($"api/warehouses/{warehouseId}", cancellationToken);
         response.EnsureSuccessStatusCode();
     }
+
+    /// <summary>Null when the warehouse can't be shared by this caller - see ShareWarehouseCommandHandler for the rules.</summary>
+    public async Task<ShareResultDto?> ShareWarehouseAsync(
+        Guid warehouseId, Guid recipientUserId, string accessLevel, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/warehouses/{warehouseId}/shares", new ShareWarehouseRequest(recipientUserId, accessLevel), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<ShareResultDto>(cancellationToken: cancellationToken);
+    }
+
+    public async Task<bool> AcceptWarehouseShareAsync(Guid shareId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/warehouses/shares/{shareId}/accept", content: null, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>Null when the share doesn't exist or wasn't offered to the caller; otherwise whether it's already accepted.</summary>
+    public async Task<bool?> GetWarehouseShareStatusAsync(Guid shareId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync($"api/warehouses/shares/{shareId}/status", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<bool>(cancellationToken: cancellationToken);
+    }
+
+    /// <summary>Null when the caller has no access to that warehouse at all, as opposed to an empty list for one with no items.</summary>
+    public async Task<IReadOnlyList<InventoryItemDto>?> GetInventoryItemsAsync(
+        Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync($"api/warehouses/{warehouseId}/items", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<InventoryItemDto>>(cancellationToken: cancellationToken) ?? [];
+    }
+
 }

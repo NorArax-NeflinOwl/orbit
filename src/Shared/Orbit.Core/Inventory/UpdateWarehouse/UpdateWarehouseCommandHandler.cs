@@ -1,0 +1,105 @@
+using Orbit.Core.Abstractions;
+
+namespace Orbit.Core.Inventory.UpdateWarehouse;
+
+public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseCommand, EditOutcome>
+{
+    private readonly WarehouseAccessResolver _warehouseAccessResolver;
+    private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IInventoryRepository _inventoryRepository;
+    private readonly InventoryTaskListCoordinator _taskListCoordinator;
+
+    public UpdateWarehouseCommandHandler(
+        WarehouseAccessResolver warehouseAccessResolver, IWarehouseRepository warehouseRepository,
+        IInventoryRepository inventoryRepository, InventoryTaskListCoordinator taskListCoordinator)
+    {
+        _warehouseAccessResolver = warehouseAccessResolver;
+        _warehouseRepository = warehouseRepository;
+        _inventoryRepository = inventoryRepository;
+        _taskListCoordinator = taskListCoordinator;
+    }
+
+    /// <summary>
+    /// Mirrors UpdateTaskListCommandHandler: a read-only grantee gets NotFound, and someone else holding
+    /// the edit lock gets Locked. Items are reconciled rather than replaced wholesale - an inventory item
+    /// carries state the editor never sees (its open restock task), so a delete-and-reinsert would drop
+    /// that and re-raise a restock task the user already has.
+    /// </summary>
+    public async Task<EditOutcome> HandleAsync(UpdateWarehouseCommand request, CancellationToken cancellationToken)
+    {
+        var warehouse = await _warehouseAccessResolver.ResolveAsync(request.UserId, request.WarehouseId, cancellationToken);
+        if (warehouse is null || warehouse.AccessLevel != ShareAccessLevel.CanEdit)
+        {
+            return EditOutcome.NotFound;
+        }
+
+        var nowUtc = DateTimeOffset.UtcNow;
+        if (warehouse.IsLockedByAnotherUser(request.UserId, nowUtc))
+        {
+            return EditOutcome.LockedBy(warehouse.LockedByUserName!);
+        }
+
+        warehouse.Update(request.Name);
+        await _warehouseRepository.UpdateAsync(warehouse, cancellationToken);
+        await SaveItemsAsync(request, cancellationToken);
+
+        // The standing "keep your stock updated" reminder should exist from the first item this
+        // warehouse ever holds, exactly as it did when items were added one at a time.
+        if (request.Items.Count > 0)
+        {
+            await _taskListCoordinator.EnsureManagedTaskListAsync(request.WarehouseId, cancellationToken);
+        }
+
+        return EditOutcome.Success;
+    }
+
+    private async Task SaveItemsAsync(UpdateWarehouseCommand request, CancellationToken cancellationToken)
+    {
+        var existingItems = await _inventoryRepository.GetAllAsync(request.WarehouseId, cancellationToken);
+        var keptItemIds = request.Items.Where(item => item.Id is not null).Select(item => item.Id!.Value).ToHashSet();
+
+        foreach (var removed in existingItems.Where(item => !keptItemIds.Contains(item.Id)))
+        {
+            await _inventoryRepository.DeleteAsync(request.WarehouseId, removed.Id, cancellationToken);
+        }
+
+        foreach (var input in request.Items)
+        {
+            var existing = input.Id is { } id ? existingItems.FirstOrDefault(item => item.Id == id) : null;
+            if (existing is null)
+            {
+                await AddItemAsync(request.WarehouseId, input, cancellationToken);
+                continue;
+            }
+
+            existing.Update(
+                input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
+                input.ExpiryDate, input.ExpiryNotificationChannel);
+            await SaveWithRestockTaskAsync(existing, cancellationToken);
+        }
+    }
+
+    private async Task AddItemAsync(Guid warehouseId, WarehouseItemInput input, CancellationToken cancellationToken)
+    {
+        var item = InventoryItem.Create(
+            warehouseId, input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
+            input.ExpiryDate, input.ExpiryNotificationChannel);
+        await _inventoryRepository.AddAsync(item, cancellationToken);
+        await SaveWithRestockTaskAsync(item, cancellationToken);
+    }
+
+    /// <summary>
+    /// Raises a restock task for an item that just went low, or clears a now-irrelevant reference for one
+    /// that recovered - the same rule the per-item handlers applied before editing moved into this bulk save.
+    /// </summary>
+    private async Task SaveWithRestockTaskAsync(InventoryItem item, CancellationToken cancellationToken)
+    {
+        item = await _taskListCoordinator.EnsureRestockTaskAsync(item, cancellationToken);
+        if (!item.IsBelowMinimum)
+        {
+            item.ClearPendingRestockTask();
+        }
+
+        await _inventoryRepository.UpdateAsync(item, cancellationToken);
+    }
+}

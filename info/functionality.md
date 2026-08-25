@@ -250,10 +250,42 @@ minimumQuantity, expiryDate, expiryNotificationChannel }` — `productType` and 
 "1.5 kg" are representable, and `minimumQuantity`/`expiryDate` are both optional: not every product
 needs a restock threshold or an expiry date. `GET /api/inventory` and `GET /api/inventory/{id}` return
 the same shape back plus `id`, `isBelowMinimum` and `hasPendingRestockTask` (both derived, computed
-server-side so the client never reimplements the comparison), and `createdAtUtc`/`updatedAtUtc`. Each
-item is owned by exactly one user — unlike Notes/Tasks/Calendar events, there is no sharing or editing
-lock on inventory items, since neither was requested and both would be pure scope creep on top of an
-already large feature.
+server-side so the client never reimplements the comparison), and `createdAtUtc`/`updatedAtUtc`.
+
+**Items live in warehouses, and the warehouse is what sharing understands.** An `InventoryItem` carries
+a `WarehouseId` rather than an owner of its own, so "may this caller read/change this item" is answered
+entirely by `WarehouseAccessResolver` — the same owner-or-accepted-grant lookup `NoteAccessResolver`
+does, with `ResolveForEditAsync` on top for the write paths so a read-only grantee can list a shared
+warehouse's stock without being able to touch it. `Warehouse`/`WarehouseShare` mirror `Note`/`NoteShare`
+including the re-share rules (who may re-share, and never above their own level), and a share is offered
+over chat exactly like every other kind: `WarehouseShareMessagePayload` carries the share id inside an
+ordinary end-to-end encrypted message, and Chat renders it with the same "Accept" action.
+
+**Editing works the way a task list does.** A warehouse and its whole item list are edited in one form
+and saved in one request (`UpdateWarehouseCommand`), so items have no routes of their own — exactly as
+task items only exist through their task list. Items missing from a save are deleted, which makes the
+request the full intended contents rather than a patch.
+
+Items are *reconciled* by id rather than replaced wholesale: a row arriving without an `Id` is new, one
+with an `Id` updates in place. That matters because an inventory item carries state the editor never sees
+— its open restock task — so a delete-and-reinsert would drop it and re-raise a restock task the user
+already has. The restock rule itself is unchanged, just applied per item during the save: an item that
+just went below its minimum raises a task, one that recovered has its reference cleared.
+
+Because the whole warehouse is now saved in one go, it carries the same **edit lock** Note/TaskList/
+CalendarEvent do (`POST`/`DELETE /api/warehouses/{id}/lock`, a 60-second lease refreshed by a 20-second
+heartbeat from the editor) — without it two people editing at once would silently overwrite each other.
+A save attempted while someone else holds the lock comes back `409` with their name.
+
+**Only the owner may delete** a warehouse — not even a `CanEdit` grantee, since that would let a
+recipient destroy the owner's data wholesale rather than just edit it; its items go with it, because
+nothing could reach them afterwards. Accepted shares of a deleted warehouse are left as dangling grants,
+which the resolver already reads as "not found".
+
+Every route names the warehouse (`/api/warehouses/{warehouseId}/...`) — there is deliberately no route
+that reaches an item without it, since the warehouse is what authorizes the request. On the client,
+`/inventory` is the warehouse list (`Warehouses.razor`, where sharing lives) and `/inventory/{id}` is the
+editor (`WarehouseEditor.razor`).
 
 **Low stock creates a real Task, not a separate notification.** Whenever a saved item's `quantity` is at
 or below its `minimumQuantity`, `InventoryTaskListCoordinator` appends a `TaskItem` ("Restock:
@@ -265,15 +297,17 @@ Create/Update handlers right after saving (`CreateInventoryItemCommandHandler`/
 because the user just edited it, so there's no "time passing" trigger to poll for the way overdue tasks
 or calendar reminders have.
 
-The managed task list is created lazily, once per user, the first time they add *any* inventory item —
+The managed task list is created lazily, once per **warehouse**, the first time any item lands in it —
 independent of whether that first item happens to be low — and comes pre-seeded with one standing item,
 "Update stock levels", with `RemindDaily` turned on. This is the "recurring reminder to keep stock
 updated" the feature calls for: Tasks has no engine for a task that recreates itself after being
 completed, but `RemindDaily` already nags daily until checked off, and unchecking it re-arms the daily
 nag — treated here as close enough to "recurring" without building a second recurrence engine on top of
 Tasks' existing one (Calendar's). Since `TaskList` has no field to mark itself "system-managed", a
-separate one-row-per-user table (`InventoryManagedTaskListEntity`) tracks which `TaskListId` Inventory
-created, entirely outside the Tasks schema.
+separate one-row-per-warehouse table (`InventoryManagedTaskListEntity`) tracks which `TaskListId`
+Inventory created, entirely outside the Tasks schema. The list itself belongs to the warehouse's *owner*,
+never to whoever happens to be looking — otherwise a share recipient's own `/tasks` would fill up with
+someone else's restock chores. Expiry warnings go to the owner for the same reason.
 
 **Not re-triggering while a restock task is still open.** Each `InventoryItem` remembers the
 `TaskListId`/`TaskItemId` of its own open restock task, if any (`PendingRestockTaskListId`/

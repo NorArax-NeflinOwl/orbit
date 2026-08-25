@@ -5,12 +5,16 @@ namespace Orbit.Core.Inventory;
 
 /// <summary>
 /// Creates and maintains the single, system-managed TaskList ("Restock supplies") that Inventory uses
-/// for both the standing "keep your stock updated" reminder and every per-product restock task - see
+/// for both the standing "keep your stock updated" reminder and every per-product restock task - one
+/// such list per warehouse, so two warehouses don't pile their restock tasks into the same list. See
 /// IInventoryManagedTaskListRepository for why this is tracked outside the Tasks schema entirely.
+///
+/// The list itself belongs to the warehouse's *owner*, since a TaskList is owned by a user - this looks
+/// that owner up itself rather than making every caller pass it alongside the warehouse id.
 /// </summary>
 public sealed class InventoryTaskListCoordinator
 {
-    /// <summary>Title of the system-managed task list this coordinator creates/reuses per user.</summary>
+    /// <summary>Title of the system-managed task list this coordinator creates/reuses per warehouse.</summary>
     public const string ManagedTaskListTitle = "Restock supplies";
 
     /// <summary>
@@ -23,29 +27,36 @@ public sealed class InventoryTaskListCoordinator
 
     private readonly ITaskRepository _taskRepository;
     private readonly IInventoryManagedTaskListRepository _managedTaskListRepository;
+    private readonly IWarehouseRepository _warehouseRepository;
     private readonly PendingRestockTaskResolver _pendingRestockTaskResolver;
 
     public InventoryTaskListCoordinator(
         ITaskRepository taskRepository, IInventoryManagedTaskListRepository managedTaskListRepository,
-        PendingRestockTaskResolver pendingRestockTaskResolver)
+        IWarehouseRepository warehouseRepository, PendingRestockTaskResolver pendingRestockTaskResolver)
     {
         _taskRepository = taskRepository;
         _managedTaskListRepository = managedTaskListRepository;
+        _warehouseRepository = warehouseRepository;
         _pendingRestockTaskResolver = pendingRestockTaskResolver;
     }
 
     /// <summary>
-    /// Ensures userId has a managed TaskList (creating it, with the standing reminder item, the first
-    /// time it's needed) and returns its id. Also re-creates it if the previously tracked list was
+    /// Ensures warehouseId has a managed TaskList (creating it, with the standing reminder item, the
+    /// first time it's needed) and returns its id. Also re-creates it if the previously tracked list was
     /// deleted out from under this tracking - the missing-list case is treated the same as never having
-    /// had one, not an error.
+    /// had one, not an error. Returns null when the warehouse itself is gone.
     /// </summary>
-    public async Task<Guid> EnsureManagedTaskListAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<Guid?> EnsureManagedTaskListAsync(Guid warehouseId, CancellationToken cancellationToken)
     {
-        var trackedTaskListId = await _managedTaskListRepository.GetTaskListIdAsync(userId, cancellationToken);
+        if (await _warehouseRepository.GetOwnerUserIdAsync(warehouseId, cancellationToken) is not { } ownerUserId)
+        {
+            return null;
+        }
+
+        var trackedTaskListId = await _managedTaskListRepository.GetTaskListIdAsync(warehouseId, cancellationToken);
         if (trackedTaskListId is { } existingId)
         {
-            var existingTaskList = await _taskRepository.GetByIdAsync(userId, existingId, cancellationToken);
+            var existingTaskList = await _taskRepository.GetByIdAsync(ownerUserId, existingId, cancellationToken);
             if (existingTaskList is not null)
             {
                 return existingId;
@@ -55,16 +66,16 @@ public sealed class InventoryTaskListCoordinator
         var reminderItem = TaskItem.Create(
             UpdateStockReminderDescription, dueDateUtc: null, isCompleted: false,
             remindDaily: true, dailyReminderNotificationChannel: NotificationChannel.Push);
-        var taskList = TaskList.Create(userId, ManagedTaskListTitle, [reminderItem]);
+        var taskList = TaskList.Create(ownerUserId, ManagedTaskListTitle, [reminderItem]);
         await _taskRepository.AddAsync(taskList, cancellationToken);
-        await _managedTaskListRepository.SetTaskListIdAsync(userId, taskList.Id, cancellationToken);
+        await _managedTaskListRepository.SetTaskListIdAsync(warehouseId, taskList.Id, cancellationToken);
         return taskList.Id;
     }
 
     /// <summary>
     /// Resolves item's pending-task state, then - if it's below minimum and nothing is already open -
-    /// appends a fresh restock TaskItem to the managed list. Returns the (possibly mutated) item;
-    /// callers are responsible for persisting it if <see cref="InventoryItem.PendingRestockTaskListId"/>
+    /// appends a fresh restock TaskItem to its warehouse's managed list. Returns the (possibly mutated)
+    /// item; callers are responsible for persisting it if <see cref="InventoryItem.PendingRestockTaskListId"/>
     /// changed. A no-op, beyond the resolve step, when item isn't below minimum or already has an open
     /// restock task.
     /// </summary>
@@ -76,9 +87,15 @@ public sealed class InventoryTaskListCoordinator
             return item;
         }
 
-        var taskListId = await EnsureManagedTaskListAsync(item.UserId, cancellationToken);
-        var taskList = await _taskRepository.GetByIdAsync(item.UserId, taskListId, cancellationToken)
-            ?? throw new InvalidOperationException($"Managed task list {taskListId} for user {item.UserId} disappeared between ensuring it and using it.");
+        if (await EnsureManagedTaskListAsync(item.WarehouseId, cancellationToken) is not { } taskListId)
+        {
+            return item;
+        }
+
+        var ownerUserId = await _warehouseRepository.GetOwnerUserIdAsync(item.WarehouseId, cancellationToken)
+            ?? throw new InvalidOperationException($"Warehouse {item.WarehouseId} disappeared between ensuring its task list and using it.");
+        var taskList = await _taskRepository.GetByIdAsync(ownerUserId, taskListId, cancellationToken)
+            ?? throw new InvalidOperationException($"Managed task list {taskListId} for warehouse {item.WarehouseId} disappeared between ensuring it and using it.");
 
         var restockItem = TaskItem.Create($"Restock: {item.Name}", dueDateUtc: null, isCompleted: false);
         taskList.Update(taskList.Title, [.. taskList.Items, restockItem]);

@@ -10,6 +10,7 @@
 @inject CalendarApiClient CalendarApiClient
 @inject NotesApiClient NotesApiClient
 @inject TasksApiClient TasksApiClient
+@inject InventoryApiClient InventoryApiClient
 @inject UsersApiClient UsersApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
@@ -928,8 +929,8 @@ else
 
     /// <summary>
     /// A decrypted message's plaintext is ordinary user-typed text unless it happens to parse as one of
-    /// the three structured share shapes (see EventShareMessagePayload/NoteShareMessagePayload/
-    /// TaskListShareMessagePayload) - anything else, including JSON that just doesn't match any of them,
+    /// the four structured share shapes (see EventShareMessagePayload/NoteShareMessagePayload/
+    /// TaskListShareMessagePayload/WarehouseShareMessagePayload) - anything else, including JSON that just doesn't match any of them,
     /// is treated as plain text rather than surfacing a parse error.
     /// </summary>
     private ShareNotice? TryParseShare(string plainText)
@@ -956,6 +957,14 @@ else
                 taskListShare.ShareId, $"Shared a task list: {taskListShare.TaskListTitle}",
                 () => TasksApiClient.GetTaskListShareStatusAsync(taskListShare.ShareId),
                 () => TasksApiClient.AcceptTaskListShareAsync(taskListShare.ShareId));
+        }
+
+        if (TryDeserialize<WarehouseShareMessagePayload>(plainText) is { Type: WarehouseShareMessagePayload.MessageType } warehouseShare)
+        {
+            return new ShareNotice(
+                warehouseShare.ShareId, $"Shared a warehouse: {warehouseShare.WarehouseName}",
+                () => InventoryApiClient.GetWarehouseShareStatusAsync(warehouseShare.ShareId),
+                () => InventoryApiClient.AcceptWarehouseShareAsync(warehouseShare.ShareId));
         }
 
         return null;
