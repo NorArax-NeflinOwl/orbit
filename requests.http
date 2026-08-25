@@ -1,6 +1,10 @@
 ### Orbit.Api manual test requests.
 ### Works with Visual Studio's built-in .http endpoint explorer and VS Code's "REST Client" extension.
 ### Run against the Docker Compose stack (`docker compose up --build`) unless you change @baseUrl below.
+###
+### Deliberately short: one working example per resource, plus the checks that say something a unit
+### test can't. Listing a resource again just to watch it appear is left out - the create response
+### already carries the id, and the automated suite covers the round trip.
 
 @baseUrl = http://localhost:8081
 
@@ -32,11 +36,14 @@ Content-Type: application/json
 ### Everything below requires a token from register/login above.
 @token = {{login.response.body.$.token}}
 
-### Should be empty ([]) the first time.
+### Without a token this returns 401 - worth running by hand, since it is the one thing that goes
+### wrong silently: an endpoint mapped outside the authorized group serves everyone's data.
 GET {{baseUrl}}/api/notes
-Authorization: Bearer {{token}}
 
-### Create a note.
+### Create a note. Content is a list of lines rather than a string: each line is either plain text or a
+### checklist item with its own checked state. isPrivate/encryptedContent are how a private note
+### travels - the browser seals title and content into encryptedContent and sends both readable fields
+### empty, so leave them as they are here unless you are testing that path.
 # @name createNote
 POST {{baseUrl}}/api/notes
 Authorization: Bearer {{token}}
@@ -44,22 +51,23 @@ Content-Type: application/json
 
 {
   "title": "First note",
-  "content": "Created through requests.http"
+  "content": [
+    { "text": "Created through requests.http", "isChecklistItem": false, "isChecked": false },
+    { "text": "A checklist line", "isChecklistItem": true, "isChecked": false }
+  ],
+  "isPrivate": false,
+  "encryptedContent": null
 }
 
-### List notes again - the one just created should be the only entry.
-GET {{baseUrl}}/api/notes
-Authorization: Bearer {{token}}
-
-### Without a token at all, this should now return 401 (previously it returned notes for everyone).
-GET {{baseUrl}}/api/notes
-
-### Should be empty ([]) the first time.
-GET {{baseUrl}}/api/tasks
+### Fetch it by id (VS Code's REST Client picks the id up via {{createNote.response.body.$}}; if your
+### tool doesn't support that, paste it in by hand).
+@noteId = {{createNote.response.body.$}}
+GET {{baseUrl}}/api/notes/{{noteId}}
 Authorization: Bearer {{token}}
 
 ### Create a task list. isCompleted on the task list itself is derived server-side from whether every
 ### item is completed, so it's ignored here even if you set it - see the "Tasks" section in README.md.
+### Each item carries its own notification settings; "None" for both channels means it never notifies.
 # @name createTaskList
 POST {{baseUrl}}/api/tasks
 Authorization: Bearer {{token}}
@@ -68,22 +76,32 @@ Content-Type: application/json
 {
   "title": "Groceries",
   "items": [
-    { "description": "Buy milk", "dueDateUtc": "2026-08-20T18:00:00Z", "isCompleted": false },
-    { "description": "Buy bread", "dueDateUtc": null, "isCompleted": false }
+    {
+      "description": "Buy milk",
+      "dueDateUtc": "2026-08-20T18:00:00Z",
+      "isCompleted": false,
+      "linkedTaskListId": null,
+      "overdueNotificationChannel": "None",
+      "remindDaily": false,
+      "dailyReminderNotificationChannel": "None",
+      "dailyReminderTimeOfDay": "09:00:00"
+    },
+    {
+      "description": "Buy bread",
+      "dueDateUtc": null,
+      "isCompleted": false,
+      "linkedTaskListId": null,
+      "overdueNotificationChannel": "None",
+      "remindDaily": false,
+      "dailyReminderNotificationChannel": "None",
+      "dailyReminderTimeOfDay": "09:00:00"
+    }
   ]
 }
 
-### List task lists again - the one just created should be the only entry.
-GET {{baseUrl}}/api/tasks
-Authorization: Bearer {{token}}
-
-### Fetch it by id (VS Code's REST Client can pick the id up automatically via
-### {{createTaskList.response.body.$}}; if your tool doesn't support that, paste it in by hand).
 @taskListId = {{createTaskList.response.body.$}}
-GET {{baseUrl}}/api/tasks/{{taskListId}}
-Authorization: Bearer {{token}}
 
-### Update it - checking off both items should flip isCompleted to true on the task list itself.
+### Check off both items - isCompleted on the list itself should come back true.
 PUT {{baseUrl}}/api/tasks/{{taskListId}}
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -91,11 +109,46 @@ Content-Type: application/json
 {
   "title": "Groceries",
   "items": [
-    { "description": "Buy milk", "dueDateUtc": "2026-08-20T18:00:00Z", "isCompleted": true },
-    { "description": "Buy bread", "dueDateUtc": null, "isCompleted": true }
+    {
+      "description": "Buy milk",
+      "dueDateUtc": "2026-08-20T18:00:00Z",
+      "isCompleted": true,
+      "linkedTaskListId": null,
+      "overdueNotificationChannel": "None",
+      "remindDaily": false,
+      "dailyReminderNotificationChannel": "None",
+      "dailyReminderTimeOfDay": "09:00:00"
+    },
+    {
+      "description": "Buy bread",
+      "dueDateUtc": null,
+      "isCompleted": true,
+      "linkedTaskListId": null,
+      "overdueNotificationChannel": "None",
+      "remindDaily": false,
+      "dailyReminderNotificationChannel": "None",
+      "dailyReminderTimeOfDay": "09:00:00"
+    }
   ]
 }
 
 ### Fetch it again - isCompleted should now be true.
 GET {{baseUrl}}/api/tasks/{{taskListId}}
 Authorization: Bearer {{token}}
+
+### Notification settings. allowShareNotifications starts false: being told what was shared with you
+### always appears in the feed, and this switch only adds a push or e-mail on top.
+GET {{baseUrl}}/api/notifications/settings
+Authorization: Bearer {{token}}
+
+### The notification feed itself - what the bell shows.
+GET {{baseUrl}}/api/notifications
+Authorization: Bearer {{token}}
+
+### Liveness, as the container's HEALTHCHECK runs it: reports only whether the process answers, so a
+### database that is down does not restart the API.
+GET {{baseUrl}}/health/live
+
+### Readiness, with every dependency's own result in the body - the one to read when something is
+### wrong. /health adds the configuration check on top, which reports missing SMTP or VAPID settings.
+GET {{baseUrl}}/health/ready

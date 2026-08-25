@@ -38,18 +38,37 @@ var applicationInsightsConnectionString = Environment.GetEnvironmentVariable("AP
 const string serviceName = "Orbit.Api";
 
 // Read directly rather than waiting for WebApplicationBuilder (built below), since this logger needs
-// to exist before that - matches the env var ASPNETCORE_ENVIRONMENT itself sets. Verbose is invaluable
-// for local development (every EF Core query, every connection open/close) but far too noisy for a
-// production log stream - it drowns out the handful of lines that actually matter (e.g. a failed
-// login) under a constant flood from background services and health probes.
+// to exist before that - matches the env var ASPNETCORE_ENVIRONMENT itself sets. Development keeps the
+// detail that helps locally (every EF Core query, with the SQL and how long it took); production keeps
+// only what someone would read after the fact, so the handful of lines that matter - a failed login, a
+// dropped e-mail - aren't buried under a constant flood from background services and health probes.
 var isDevelopment = string.Equals(
     Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Is(isDevelopment ? LogEventLevel.Verbose : LogEventLevel.Information)
+    .MinimumLevel.Is(isDevelopment ? LogEventLevel.Debug : LogEventLevel.Information)
+    // EF Core narrates each query in around ten lines - creating a command, opening a connection,
+    // executing, disposing the reader, closing again - and prints the SQL twice, once before and once
+    // after. Only the "Executed DbCommand" line carries anything (the SQL plus its duration), and only
+    // locally: in production it is one flood per request answering a question nobody asked.
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .MinimumLevel.Override(
+        "Microsoft.EntityFrameworkCore.Database.Command",
+        isDevelopment ? LogEventLevel.Information : LogEventLevel.Warning)
+    // UseSerilogRequestLogging (below) already writes one line per request with its method, path,
+    // status and duration. The framework's own "Request starting", "Executing endpoint", "Executed
+    // endpoint", "Setting HTTP status code" and "Request finished" repeat that five more times.
+    .MinimumLevel.Override("Microsoft.AspNetCore.Hosting", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore.Routing", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore.Http", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.File("logs/orbit-api-.log", rollingInterval: RollingInterval.Day)
+    // Bounded on purpose: an unbounded daily file reached 493 MB in a single day of local use, which
+    // is both unreadable and a directory nobody notices filling their disk. Rolling on size as well as
+    // by day keeps any one file openable, and 14 files is more history than anyone reads locally.
+    .WriteTo.File(
+        "logs/orbit-api-.log", rollingInterval: RollingInterval.Day,
+        fileSizeLimitBytes: 50 * 1024 * 1024, rollOnFileSizeLimit: true, retainedFileCountLimit: 14)
     .WriteTo.OpenTelemetry(options =>
     {
         options.Endpoint = otlpEndpoint;
@@ -65,7 +84,7 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
     builder.Host.UseSerilog();
-    builder.Logging.SetMinimumLevel(builder.Environment.IsDevelopment() ? LogLevel.Trace : LogLevel.Information);
+    builder.Logging.SetMinimumLevel(builder.Environment.IsDevelopment() ? LogLevel.Debug : LogLevel.Information);
 
     // Comma-separated list, configurable via the WebClientOrigins environment variable, since the
     // Blazor client's origin is different for `dotnet run` (fixed dev ports) vs. its nginx container
@@ -206,7 +225,23 @@ try
         dbContext.Database.Migrate();
     }
 
-    app.UseSerilogRequestLogging();
+    app.UseSerilogRequestLogging(options =>
+    {
+        // The container probes /health/live every ten seconds for as long as it runs. A probe that
+        // succeeded is not news, so it drops below both environments' minimum level and disappears; one
+        // that failed says something, and stays.
+        options.GetLevel = (httpContext, _, exception) =>
+        {
+            if (exception is not null || httpContext.Response.StatusCode >= StatusCodes.Status500InternalServerError)
+            {
+                return LogEventLevel.Error;
+            }
+
+            return httpContext.Request.Path.StartsWithSegments("/health")
+                ? LogEventLevel.Verbose
+                : LogEventLevel.Information;
+        };
+    });
 
     // Inside the request logging above on purpose: a refused request is turned into its 400 before
     // Serilog writes the access log line, so the log records the 400 the caller actually got rather
