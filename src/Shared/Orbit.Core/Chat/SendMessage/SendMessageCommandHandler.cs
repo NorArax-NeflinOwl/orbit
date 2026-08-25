@@ -60,7 +60,10 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
         await _contactRepository.EnsureContactAsync(request.SenderUserId, request.RecipientUserId, message.SentAtUtc, cancellationToken);
         await _contactRepository.EnsureContactAsync(request.RecipientUserId, request.SenderUserId, message.SentAtUtc, cancellationToken);
 
-        await NotifyRecipientAsync(request, cancellationToken);
+        if (!request.IsShareInvitation)
+        {
+            await NotifyRecipientAsync(request, cancellationToken);
+        }
 
         return SendMessageResult.Success(message);
     }

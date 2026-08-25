@@ -21,6 +21,14 @@ public sealed class NotificationSettings
     public bool AllowMobileBanner { get; private set; }
 
     /// <summary>
+    /// Whether being shared something - a note, task list, event, warehouse, or someone's position -
+    /// also pushes or emails, on top of the entry that always appears in the notification feed.
+    /// Off by default, unlike every other switch here: an invitation is worth seeing when you next look,
+    /// but interrupting someone for one is a choice they should make rather than have made for them.
+    /// </summary>
+    public bool AllowShareNotifications { get; private set; }
+
+    /// <summary>
     /// Whether a caught client-side exception's full details (with a copy-to-clipboard action) are
     /// shown to this user - always subject to the server's own environment gate too (see
     /// ClientFlagsDto.ExceptionDetailsAllowed), so this alone doesn't expose stack traces in Production
@@ -33,7 +41,7 @@ public sealed class NotificationSettings
 
     private NotificationSettings(
         Guid userId, bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
-        BannerTiming bannerTiming)
+        bool allowShareNotifications, BannerTiming bannerTiming)
     {
         UserId = userId;
         AllowNotifications = allowNotifications;
@@ -41,19 +49,24 @@ public sealed class NotificationSettings
         AllowEmail = allowEmail;
         AllowMobileBanner = allowMobileBanner;
         ShowExceptionDetails = showExceptionDetails;
+        AllowShareNotifications = allowShareNotifications;
         BannerTiming = bannerTiming;
     }
 
-    /// <summary>Every switch defaults to on - this is what a user who has never touched the settings page gets.</summary>
+    /// <summary>
+    /// What a user who has never touched the settings page gets: every switch on, except being pushed
+    /// or emailed about a share - see AllowShareNotifications for why that one starts off.
+    /// </summary>
     public static NotificationSettings Default(Guid userId)
         => new(
             userId, allowNotifications: true, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true,
-            BannerTiming.Default);
+            allowShareNotifications: false, BannerTiming.Default);
 
     public static NotificationSettings FromPersistence(
         Guid userId, bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
-        BannerTiming bannerTiming)
-        => new(userId, allowNotifications, allowPush, allowEmail, allowMobileBanner, showExceptionDetails, bannerTiming);
+        bool allowShareNotifications, BannerTiming bannerTiming)
+        => new(userId, allowNotifications, allowPush, allowEmail, allowMobileBanner, showExceptionDetails,
+            allowShareNotifications, bannerTiming);
 
     /// <summary>
     /// The three delivery/display switches are stored exactly as the caller set them, independent of the
@@ -64,15 +77,24 @@ public sealed class NotificationSettings
     /// </summary>
     public void Update(
         bool allowNotifications, bool allowPush, bool allowEmail, bool allowMobileBanner, bool showExceptionDetails,
-        BannerTiming bannerTiming)
+        bool allowShareNotifications, BannerTiming bannerTiming)
     {
         AllowNotifications = allowNotifications;
         AllowPush = allowPush;
         AllowEmail = allowEmail;
         AllowMobileBanner = allowMobileBanner;
         ShowExceptionDetails = showExceptionDetails;
+        AllowShareNotifications = allowShareNotifications;
         BannerTiming = bannerTiming;
     }
+
+    /// <summary>
+    /// Which channels a share should go out on for this user: none unless they asked to be told, and
+    /// then only the ones they have on anyway (FilterChannel applies the master and per-channel
+    /// switches). The feed entry is recorded either way - see NotificationEntryKind.SharedWithYou.
+    /// </summary>
+    public NotificationChannel ChannelForShares()
+        => AllowShareNotifications ? FilterChannel(NotificationChannel.Both) : NotificationChannel.None;
 
     /// <summary>
     /// Strips any channel this user has globally disabled out of a per-item NotificationChannel before a

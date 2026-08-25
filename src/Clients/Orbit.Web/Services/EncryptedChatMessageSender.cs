@@ -30,7 +30,9 @@ public sealed class EncryptedChatMessageSender
     /// (no public key on file) - callers should catch this and show the same "hasn't logged in yet"
     /// message Chat.razor shows when opening a conversation with such a user.
     /// </summary>
-    public async Task SendAsync(Guid ownUserId, Guid recipientUserId, string plainTextContent, CancellationToken cancellationToken = default)
+    public async Task SendAsync(
+        Guid ownUserId, Guid recipientUserId, string plainTextContent, bool isShareInvitation = false,
+        CancellationToken cancellationToken = default)
     {
         var recipient = await _usersApiClient.GetUserAsync(recipientUserId, cancellationToken);
         if (recipient?.PublicKeyBase64 is null)
@@ -44,7 +46,7 @@ public sealed class EncryptedChatMessageSender
             "encryptMessage", ownUserId, recipient.PublicKeyBase64, plainTextContent);
 
         await _chatApiClient.SendMessageAsync(
-            new SendMessageRequest(recipientUserId, payload.CiphertextBase64, payload.NonceBase64), cancellationToken);
+            new SendMessageRequest(recipientUserId, payload.CiphertextBase64, payload.NonceBase64, isShareInvitation), cancellationToken);
     }
 
 

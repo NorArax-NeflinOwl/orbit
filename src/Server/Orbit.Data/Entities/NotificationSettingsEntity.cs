@@ -10,6 +10,9 @@ public sealed class NotificationSettingsEntity
     public bool AllowEmail { get; set; }
     public bool AllowMobileBanner { get; set; }
     public bool ShowExceptionDetails { get; set; }
+
+    /// <summary>Whether a share also pushes or emails - see Orbit.Core.Notifications.NotificationSettings.AllowShareNotifications.</summary>
+    public bool AllowShareNotifications { get; set; }
     public int BannerVisibleSeconds { get; set; }
     public int BannerMinimumGapSeconds { get; set; }
 }

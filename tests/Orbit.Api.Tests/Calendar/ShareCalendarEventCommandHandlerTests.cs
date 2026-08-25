@@ -14,10 +14,50 @@ public sealed class ShareCalendarEventCommandHandlerTests
         CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.None);
 
     private static ShareCalendarEventCommandHandler CreateHandler(
-        InMemoryCalendarEventRepository calendarEventRepository, InMemoryCalendarEventShareRepository calendarEventShareRepository)
+        InMemoryCalendarEventRepository calendarEventRepository, InMemoryCalendarEventShareRepository calendarEventShareRepository,
+        RecordingSharedItemNotifier? sharedItemNotifier = null)
         => new(
             new CalendarEventAccessResolver(calendarEventRepository, calendarEventShareRepository, new InMemoryUserRepository()),
-            calendarEventShareRepository);
+            calendarEventShareRepository, sharedItemNotifier ?? new RecordingSharedItemNotifier());
+
+    [Fact]
+    public async Task HandleAsync_invites_the_guest_it_shared_the_event_with()
+    {
+        var calendarEventRepository = new InMemoryCalendarEventRepository();
+        var sharedItemNotifier = new RecordingSharedItemNotifier();
+        var handler = CreateHandler(calendarEventRepository, new InMemoryCalendarEventShareRepository(), sharedItemNotifier);
+        var ownerId = Guid.NewGuid();
+        var guestId = Guid.NewGuid();
+        var calendarEvent = CalendarEvent.Create(ownerId, DefaultDetails with { Title = "Dentist" });
+        await calendarEventRepository.AddAsync(calendarEvent, CancellationToken.None);
+
+        await handler.HandleAsync(new ShareCalendarEventCommand(ownerId, calendarEvent.Id, guestId), CancellationToken.None);
+
+        // A guest used to find out about an event only by opening Orbit and noticing it. The invitation
+        // is what makes being added to someone's event something you hear about.
+        var announcement = Assert.Single(sharedItemNotifier.Announced);
+        Assert.Equal(guestId, announcement.RecipientUserId);
+        Assert.Equal(ownerId, announcement.SharerUserId);
+        Assert.Equal(SharedItemKind.CalendarEvent, announcement.Kind);
+        Assert.Equal("Dentist", announcement.ItemTitle);
+    }
+
+    [Fact]
+    public async Task HandleAsync_does_not_invite_a_guest_who_was_already_invited()
+    {
+        var calendarEventRepository = new InMemoryCalendarEventRepository();
+        var sharedItemNotifier = new RecordingSharedItemNotifier();
+        var handler = CreateHandler(calendarEventRepository, new InMemoryCalendarEventShareRepository(), sharedItemNotifier);
+        var ownerId = Guid.NewGuid();
+        var guestId = Guid.NewGuid();
+        var calendarEvent = CalendarEvent.Create(ownerId, DefaultDetails);
+        await calendarEventRepository.AddAsync(calendarEvent, CancellationToken.None);
+        await handler.HandleAsync(new ShareCalendarEventCommand(ownerId, calendarEvent.Id, guestId), CancellationToken.None);
+
+        await handler.HandleAsync(new ShareCalendarEventCommand(ownerId, calendarEvent.Id, guestId), CancellationToken.None);
+
+        Assert.Single(sharedItemNotifier.Announced);
+    }
 
     [Fact]
     public async Task HandleAsync_creates_a_share_for_an_event_owned_by_the_requesting_user()
