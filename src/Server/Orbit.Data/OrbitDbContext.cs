@@ -342,6 +342,14 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(row => row.BannerMinimumGapSeconds).HasDefaultValue(5);
         });
 
+        modelBuilder.Entity<TaskEntity>(entity =>
+        {
+            // Matches TaskListPriority.Normal, so rows written before this column existed read back as
+            // the default a new list gets rather than as an unparseable empty string.
+            entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
+                .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskListPriority.Normal));
+        });
+
         modelBuilder.Entity<NotificationEntryEntity>(entity =>
         {
             entity.HasKey(entry => entry.Id);

@@ -113,6 +113,92 @@ public sealed class TasksTests : TestContext
         Assert.Empty(cut.FindAll(".task-list-card"));
     }
 
+    [Fact]
+    public void Every_status_gets_a_filter_showing_how_many_are_in_it()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", "Normal", "Overdue", DateTimeOffset.UtcNow),
+            TaskList("Bathroom", "Normal", "Overdue", DateTimeOffset.UtcNow),
+            TaskList("Garden", "Normal", "Done", DateTimeOffset.UtcNow)]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Contains("Overdue", cut.Markup);
+        Assert.Equal(5, cut.FindAll(".filter-chip").Count);
+    }
+
+    [Fact]
+    public void Filtering_by_a_status_hides_the_rest()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", "Normal", "Overdue", DateTimeOffset.UtcNow),
+            TaskList("Garden", "Normal", "Completed", DateTimeOffset.UtcNow)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Overdue")).Click();
+
+        Assert.Contains("Kitchen", cut.Markup);
+        Assert.DoesNotContain("Garden", cut.Find(".card-grid").InnerHtml);
+    }
+
+    [Fact]
+    public void Sorting_by_priority_puts_the_high_ones_first()
+    {
+        RegisterTasksApiClient([
+            TaskList("Low one", "Low", "New", DateTimeOffset.UtcNow),
+            TaskList("High one", "High", "New", DateTimeOffset.UtcNow),
+            TaskList("Normal one", "Normal", "New", DateTimeOffset.UtcNow)]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // Priority is the default order: it is the one the reader set themselves.
+        // StartsWith rather than Equal: the title cell also carries the status and priority badges.
+        var titles = CardTitles(cut);
+        Assert.StartsWith("High one", titles[0]);
+        Assert.StartsWith("Low one", titles[^1]);
+    }
+
+    [Fact]
+    public void Sorting_alphabetically_orders_by_title()
+    {
+        RegisterTasksApiClient([
+            TaskList("Zebra", "Normal", "New", DateTimeOffset.UtcNow),
+            TaskList("Apple", "Normal", "New", DateTimeOffset.UtcNow)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".list-sort select").Change("Alphabetical");
+
+        Assert.StartsWith("Apple", CardTitles(cut)[0]);
+    }
+
+    [Fact]
+    public void Sorting_by_oldest_starts_with_the_oldest()
+    {
+        RegisterTasksApiClient([
+            TaskList("Recent", "Normal", "New", DateTimeOffset.UtcNow),
+            TaskList("Ancient", "Normal", "New", DateTimeOffset.UtcNow.AddYears(-1))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".list-sort select").Change("Oldest");
+
+        Assert.StartsWith("Ancient", CardTitles(cut)[0]);
+    }
+
+    [Fact]
+    public void A_filter_that_matches_nothing_says_so_rather_than_showing_an_empty_grid()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", "Normal", "New", DateTimeOffset.UtcNow)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Done")).Click();
+
+        Assert.Contains("No lists are", cut.Markup);
+    }
+
+    /// <summary>The card titles in the order they render, each still carrying its badges' text after the title itself.</summary>
+    private static string[] CardTitles(IRenderedFragment cut)
+        => cut.FindAll(".card-title").Select(title => title.TextContent.Trim()).ToArray();
+
     private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
     {
         var handler = new StubHttpMessageHandler(_ =>
@@ -121,10 +207,15 @@ public sealed class TasksTests : TestContext
     }
 
     private static TaskDto TaskList(string title, params TaskItemDto[] items)
+        => TaskList(title, "Normal", "New", DateTimeOffset.UtcNow, items);
+
+    private static TaskDto TaskList(
+        string title, string priority, string status, DateTimeOffset createdAtUtc, params TaskItemDto[] items)
         => new(
             Guid.NewGuid(), title, items, IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+            createdAtUtc, createdAtUtc,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
+            Priority: priority, Status: status);
 
     private static TaskItemDto Item(string description, bool isCompleted = false)
         => new(

@@ -81,6 +81,16 @@ else
             </small>
         </div>
 
+        <div class="field">
+            <label for="taskListPrioritySelect">Priority</label>
+            <InputSelect id="taskListPrioritySelect" @bind-Value="_formModel.Priority">
+                <option value="Low">Low</option>
+                <option value="Normal">Normal</option>
+                <option value="High">High</option>
+            </InputSelect>
+            <small>Sorts this list against the others on the Tasks page. Where it has got to is worked out from its items.</small>
+        </div>
+
         <h2>Items</h2>
         @foreach (var item in _formModel.Items)
         {
@@ -326,6 +336,7 @@ else
                         Title = taskList.Title,
                         IsGroup = taskList.IsGroup,
                         IsPrivate = taskList.IsPrivate,
+                        Priority = taskList.Priority,
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
@@ -472,12 +483,12 @@ else
         {
             if (IsNewTaskList)
             {
-                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate));
+                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate, Priority: _formModel.Priority));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
             {
-                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate));
+                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate, Priority: _formModel.Priority));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -668,6 +679,9 @@ else
     {
         public string Title { get; set; } = string.Empty;
         public bool IsGroup { get; set; }
+
+        /// <summary>One of "Low", "Normal", "High" - kept as the wire's own string so the form binds straight to it.</summary>
+        public string Priority { get; set; } = "Normal";
 
         /// <summary>Encrypt this list so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }
