@@ -9,6 +9,7 @@
 @inject NotificationsApiClient NotificationsApiClient
 @inject ClientFlagsApiClient ClientFlagsApiClient
 @inject UsersApiClient UsersApiClient
+@inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
@@ -95,6 +96,29 @@
                 {
                     <p class="@(_emailFailed ? "error" : "info")">@_emailMessage</p>
                 }
+            </div>
+
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">
+                        Google extras
+                        @if (_account is not null && GoogleIntegrationAccess.Qualifies(_account))
+                        {
+                            <span class="verified-badge">On</span>
+                        }
+                        else
+                        {
+                            <span class="unverified-badge">Not available yet</span>
+                        }
+                    </div>
+                    <div class="options-row-desc">
+                        With a confirmed email address or a connected Google account, Orbit offers links that
+                        hand something off to Google: adding a calendar event or a task's deadline to Google
+                        Calendar, opening an address in Google Maps, and getting directions to it. The links
+                        open Google with everything filled in - Orbit never writes to your calendar itself and
+                        asks for no access to it.
+                    </div>
+                </div>
             </div>
 
             <div class="options-row options-row-stacked">
@@ -618,6 +642,7 @@
             if (confirmed)
             {
                 _emailForm.Clear();
+                GoogleIntegrationAccess.Forget();
                 await LoadAccountAsync();
             }
         }
@@ -753,6 +778,7 @@
             var error = await UsersApiClient.LinkGoogleAsync(idToken);
             _googleFailed = error is not null;
             _googleMessage = error ?? "Google connected.";
+            GoogleIntegrationAccess.Forget();
             await LoadAccountAsync();
         }
         catch (HttpRequestException exception)
@@ -776,6 +802,7 @@
             var error = await UsersApiClient.UnlinkGoogleAsync();
             _googleFailed = error is not null;
             _googleMessage = error ?? "Google disconnected.";
+            GoogleIntegrationAccess.Forget();
             await LoadAccountAsync();
         }
         catch (HttpRequestException exception)

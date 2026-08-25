@@ -2643,3 +2643,25 @@ input.note-editor-title {
 .share-location-card {
     flex: 0 0 auto;
 }
+
+/* Links that hand something off to Google - see GoogleCalendarEventLink / GoogleMapsLink. Marked out
+   from ordinary text so it is obvious the click leaves Orbit. */
+.google-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.google-link:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}

@@ -50,6 +50,15 @@ A Blazor WebAssembly client, currently the only client, served as static files t
 Docker image. Unlike Orbit.Api, it only logs errors to the browser console. A MAUI client is planned
 but not started — see [Future Plan](future-plan.md#planned-features).
 
+Two things it does that the API deliberately has no part in:
+
+- **Encryption.** Chat messages, private notes/task lists/warehouses, and shared positions are sealed and
+  opened here, never on the server — see
+  [Functionality](functionality.md#private-notes-and-task-lists).
+- **The Google hand-off links.** `GoogleCalendarEventLink` and `GoogleMapsLink` build ordinary URLs in the
+  browser. No Google API is called from anywhere in Orbit, and `Orbit.GoogleIntegration` on the server
+  does nothing but verify a sign-in token.
+
 ## `src/Shared`
 
 ### Orbit.Core

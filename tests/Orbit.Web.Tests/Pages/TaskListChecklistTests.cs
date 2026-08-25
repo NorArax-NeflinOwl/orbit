@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Tasks;
+using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -21,7 +22,17 @@ public sealed class TaskListChecklistTests : TestContext
     private readonly List<HttpRequestMessage> _requests = [];
     private readonly List<string> _requestBodies = [];
 
-    public TaskListChecklistTests() => Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+    /// <summary>
+    /// Whether the account the gate sees qualifies for the Google links. Set before rendering; the gate
+    /// asks once and caches, and xUnit builds a fresh instance of this class per test.
+    /// </summary>
+    private bool _googleExtrasAvailable;
+
+    public TaskListChecklistTests()
+    {
+        Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        RegisterGoogleIntegrationAccess();
+    }
 
     [Fact]
     public void Every_item_on_the_list_is_rendered_as_a_tickable_row()
@@ -156,6 +167,65 @@ public sealed class TaskListChecklistTests : TestContext
         Assert.Empty(cut.FindAll(".checklist-card"));
     }
 
+
+    [Fact]
+    public void A_due_item_offers_to_go_into_google_calendar()
+    {
+        _googleExtrasAvailable = true;
+        var taskList = TaskList("Admin", Item("File the return", dueDateUtc: new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.Zero)));
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        var link = cut.Find("a.google-link");
+        Assert.Contains("calendar.google.com", link.GetAttribute("href"));
+        // Opens away from Orbit, and without handing Google a referrer that names the page.
+        Assert.Equal("_blank", link.GetAttribute("target"));
+        Assert.Equal("noopener", link.GetAttribute("rel"));
+    }
+
+    [Fact]
+    public void An_account_without_the_google_extras_is_offered_none()
+    {
+        // The default for these tests - see RegisterGoogleIntegrationAccess.
+        var taskList = TaskList("Admin", Item("File the return", dueDateUtc: new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.Zero)));
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Empty(cut.FindAll("a.google-link"));
+    }
+
+    [Fact]
+    public void An_item_with_no_due_date_has_nothing_to_put_in_a_calendar()
+    {
+        _googleExtrasAvailable = true;
+        var taskList = TaskList("Admin", Item("Someday"));
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Empty(cut.FindAll("a.google-link"));
+    }
+
+    /// <summary>
+    /// The pages inject this to decide whether to offer the Google links. Registered over a stubbed
+    /// account rather than a live one: a real HttpClient here would spend wall-clock time on a DNS
+    /// lookup bUnit's synchronous render doesn't wait out.
+    /// </summary>
+    private void RegisterGoogleIntegrationAccess()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new AccountDto(
+                Guid.NewGuid(), "owner@example.com", "owner", "Owner",
+                IsEmailVerified: _googleExtrasAvailable, HasPassword: true, IsGoogleLinked: false))
+        });
+        Services.AddSingleton(new GoogleIntegrationAccess(
+            new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
+            NullLogger<GoogleIntegrationAccess>.Instance));
+    }
+
     private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
     {
         var handler = new StubHttpMessageHandler(request =>
@@ -175,9 +245,10 @@ public sealed class TaskListChecklistTests : TestContext
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
-    private static TaskItemDto Item(string description, bool isCompleted = false, Guid? linkedTaskListId = null)
+    private static TaskItemDto Item(
+        string description, bool isCompleted = false, Guid? linkedTaskListId = null, DateTimeOffset? dueDateUtc = null)
         => new(
-            Guid.NewGuid(), description, DueDateUtc: null, isCompleted, linkedTaskListId,
+            Guid.NewGuid(), description, dueDateUtc, isCompleted, linkedTaskListId,
             OverdueNotificationChannel: "None", RemindDaily: false,
             DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: default);
 }

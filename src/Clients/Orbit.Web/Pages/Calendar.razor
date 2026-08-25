@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using System.Globalization
 @using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Users
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Web.Services
@@ -10,6 +11,7 @@
 @inject TasksApiClient TasksApiClient
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
+@inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject IJSRuntime JSRuntime
 @inject ILogger<Calendar> Logger
 
@@ -97,7 +99,27 @@
                                     <div class="editor-item-details">
                                         @if (calendarEvent.Details.Location is { } location)
                                         {
-                                            <span><strong>Location:</strong> @FormatLocation(location)</span>
+                                            <span>
+                                                <strong>Location:</strong>
+                                                @* The address itself is the link, so the place is one click away rather than
+                                                   something to copy out - see GoogleMapsLink. *@
+                                                @if (_hasGoogleExtras)
+                                                {
+                                                    <a href="@GoogleMapsLink.ToPlace(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@FormatLocation(location)</a>
+                                                    <a class="google-link" href="@GoogleMapsLink.ToDirections(location.Latitude, location.Longitude)" target="_blank" rel="noopener">Directions</a>
+                                                }
+                                                else
+                                                {
+                                                    @FormatLocation(location)
+                                                }
+                                            </span>
+                                        }
+                                        @if (_hasGoogleExtras)
+                                        {
+                                            <span class="field-break"></span>
+                                            <a class="google-link" href="@GoogleCalendarLinkFor(calendarEvent)" target="_blank" rel="noopener">
+                                                Add to Google Calendar
+                                            </a>
                                         }
                                         @if (calendarEvent.Details.Recurrence is { } recurrence)
                                         {
@@ -221,6 +243,10 @@
         {
             _events = await CalendarApiClient.GetCalendarEventsAsync();
             _contacts = await ChatApiClient.GetContactsAsync();
+
+            // Best-effort: the page works without the Google links, so neither call is allowed to stop
+            // it loading.
+            _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
             _dueTasks = await LoadDueTasksAsync();
             await ResolveMissingGuestDisplayNamesAsync();
         }
@@ -377,6 +403,17 @@
         => details.IsAllDay
             ? $"{details.StartUtc.LocalDateTime:dd.MM.yyyy} (all day)"
             : $"{details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm} – {details.EndUtc.LocalDateTime:dd.MM.yyyy HH:mm}";
+
+    /// <summary>
+    /// Whether to offer the Google links at all - see GoogleIntegrationAccess for who qualifies and why.
+    /// </summary>
+    private bool _hasGoogleExtras;
+
+    private string GoogleCalendarLinkFor(CalendarEventDto calendarEvent)
+        => GoogleCalendarEventLink.ForEvent(
+            calendarEvent.Details.Title, calendarEvent.Details.StartUtc, calendarEvent.Details.EndUtc,
+            calendarEvent.Details.IsAllDay, calendarEvent.Details.Description,
+            calendarEvent.Details.Location is { } location ? FormatLocation(location) : null);
 
     private static string FormatLocation(EventLocationDto location)
         => string.IsNullOrWhiteSpace(location.Address)

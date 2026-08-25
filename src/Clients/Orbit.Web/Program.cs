@@ -95,6 +95,7 @@ builder.Services.AddScoped<OwnEncryptionKeyProvider>();
 builder.Services.AddScoped<EncryptedChatMessageSender>();
 builder.Services.AddScoped<EncryptedChatMessageReader>();
 builder.Services.AddScoped<SharedLocationSender>();
+builder.Services.AddScoped<GoogleIntegrationAccess>();
 builder.Services.AddScoped<PrivateContentSealer>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
