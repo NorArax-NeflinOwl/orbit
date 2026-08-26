@@ -67,6 +67,40 @@ public sealed class AccountClient
     }
 
     /// <summary>
+    /// The signed-in account as its owner sees it. The chat key gate needs three things from it: whether
+    /// this account has a password at all (a Google account may not), the address a reset code would go
+    /// to, and whether that address has been confirmed.
+    /// </summary>
+    public Task<AccountDto?> GetAccountAsync(CancellationToken cancellationToken = default)
+        => _httpClient.GetFromJsonAsync<AccountDto>("api/users/me", cancellationToken);
+
+    /// <summary>
+    /// The first password on an account that has none - a Google account reaching chat. Separate from a
+    /// change because there is no current password to prove.
+    /// </summary>
+    public Task<AccountOperationResult> SetFirstPasswordAsync(
+        string newPassword, CancellationToken cancellationToken = default)
+        => SendAsync(
+            HttpMethod.Post, "api/users/me/password", new SetPasswordRequest(newPassword),
+            "This account already has a password - enter it instead.", cancellationToken);
+
+    /// <summary>
+    /// Asks for a reset code by email. Always succeeds as far as the caller can tell, whether or not
+    /// that account exists - the server refuses to be an account-existence oracle.
+    /// </summary>
+    public Task<AccountOperationResult> RequestPasswordResetAsync(
+        string emailOrUserName, CancellationToken cancellationToken = default)
+        => SendAsync(
+            HttpMethod.Post, "api/auth/password-reset", new RequestPasswordResetRequest(emailOrUserName),
+            "Couldn't send a reset code.", cancellationToken);
+
+    public Task<AccountOperationResult> ResetPasswordAsync(
+        string emailOrUserName, string code, string newPassword, CancellationToken cancellationToken = default)
+        => SendAsync(
+            HttpMethod.Post, "api/auth/password-reset/confirm", new ResetPasswordRequest(emailOrUserName, code, newPassword),
+            "That code isn't valid any more. Request a new one.", cancellationToken);
+
+    /// <summary>
     /// Changes the username, which is one of the things the user signs in with - so only the server can
     /// say whether it is still free, and it has to say so before the change counts.
     /// </summary>

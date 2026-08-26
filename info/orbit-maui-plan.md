@@ -221,10 +221,17 @@ the server has confirmed there is nothing to replace.
 2. Likewise when a backup exists but the password does not open it, which means it was wrapped under an
    older password. The key inside is still the account's real one.
 
-**Still to do here:** the equivalent of the web's `ChatPasswordGate` — the screen that handles a Google
-account with no password, a known password on a new device, and a forgotten password (reset, which
-starts chat over). Until it exists, a phone in the "still locked" state has no way to offer the password
-again short of signing out and back in.
+**The gate is built too.** `ChatKeyGatePage` mirrors the web's `ChatPasswordGate`, keeping the same
+three situations in one place because they differ only in which secret unlocks the key: a Google account
+with no password sets one, a known password on a new device restores the backup, and a forgotten
+password resets by email code.
+
+The reset path is where the two departures above have to be answered rather than merely stated. Orbit.Web
+gets a working reset for free, because it generates a fresh key whenever a backup will not open; the
+mobile provider refuses that by default, so a reset would otherwise leave chat locked forever - the old
+backup can never be opened by anyone again, including its owner. So the gate calls
+`ReplaceAfterPasswordResetAsync` explicitly. That keeps the rule intact and names it precisely: not
+"never replace a key", but "never replace one without being asked".
 
 ### 4.2 Push notifications: Web Push, APNs, and FCM are three different things
 

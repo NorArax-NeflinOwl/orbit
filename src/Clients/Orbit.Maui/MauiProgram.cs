@@ -3,6 +3,7 @@ using Orbit.Core.Mobile;
 using Orbit.Maui.Configuration;
 using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
+using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Startup;
 using Orbit.Maui.Platform;
@@ -119,6 +120,8 @@ public static class MauiProgram
 		services.AddTransient<RegisterViewModel>();
 		services.AddTransient<AccountPage>();
 		services.AddTransient<AccountViewModel>();
+		services.AddTransient<ChatKeyGatePage>();
+		services.AddTransient<ChatKeyGateViewModel>();
 		services.AddTransient<NotesPage>();
 		services.AddTransient<NotesViewModel>();
 	}

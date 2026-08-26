@@ -77,6 +77,13 @@ public sealed class OwnEncryptionKeyProvider
         return ChatIdentity.FromPrivateKeyJwk(privateKeyJwk);
     }
 
+    /// <summary>
+    /// Whether this device already holds a key, without opening it. What the gate asks before deciding
+    /// whether to ask for a password at all.
+    /// </summary>
+    public async Task<bool> HasKeyAsync(CancellationToken cancellationToken = default)
+        => await _keyStorage.ReadPrivateKeyJwkAsync(await RequireSignedInUserIdAsync()) is not null;
+
     /// <summary>The signed-in user's public key, as other people need it to reach them.</summary>
     /// <exception cref="EncryptionKeyLockedException">This device holds no key for the signed-in user.</exception>
     public async Task<string> EnsurePublicKeyAsync(CancellationToken cancellationToken = default)
@@ -139,6 +146,24 @@ public sealed class OwnEncryptionKeyProvider
             identity.PublicKeyBase64, identity.WrapWithPassword(newPassword), cancellationToken);
 
         return EncryptionKeyOutcome.Unlocked;
+    }
+
+    /// <summary>
+    /// Replaces the key outright, publishing a fresh one under <paramref name="newPassword"/>.
+    ///
+    /// The one path allowed to discard a key the account still has, because it is the one the user
+    /// deliberately chose: after a password reset, nobody - including them - can ever open the old
+    /// backup again, so refusing to replace it would leave chat permanently locked instead of merely
+    /// starting over. Every other path refuses on purpose (see the class remarks); this is why that
+    /// refusal is "not without being asked" rather than "never".
+    ///
+    /// The caller must have told the user that their existing messages become unreadable.
+    /// </summary>
+    public async Task<EncryptionKeyOutcome> ReplaceAfterPasswordResetAsync(
+        string newPassword, CancellationToken cancellationToken = default)
+    {
+        var userId = await RequireSignedInUserIdAsync();
+        return await CreateAndPublishAsync(userId, newPassword, cancellationToken);
     }
 
     private async Task<EncryptionKeyOutcome> RestoreOrCreateAsync(

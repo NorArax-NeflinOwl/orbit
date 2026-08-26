@@ -131,7 +131,7 @@ public sealed partial class AccountViewModel : ObservableObject
 			if (outcome is EncryptionKeyOutcome.StillLocked)
 			{
 				Message = "Password changed, but your chat key backup couldn't be updated. " +
-					"Sign in again while online to fix it, or older messages may not open on a new device.";
+					"Open \"Chat key\" to fix it, or older messages may not open on a new device.";
 			}
 		}
 		catch (Exception exception) when (exception is not OperationCanceledException)
@@ -142,6 +142,9 @@ public sealed partial class AccountViewModel : ObservableObject
 			System.Diagnostics.Debug.WriteLine($"Could not re-wrap the chat key backup: {exception}");
 		}
 	}
+
+	[RelayCommand]
+	private void GoToChatKey() => _navigator.ShowChatKeyGate();
 
 	[RelayCommand]
 	private void GoBack() => _navigator.ShowNotes();

@@ -150,6 +150,35 @@ public sealed class OwnEncryptionKeyProviderTests
     }
 
     [Fact]
+    public async Task A_password_reset_replaces_the_key_the_user_can_no_longer_reach()
+    {
+        var context = new KeyContext();
+        using var unreachable = ChatIdentity.Create();
+        context.Server.StoredBackup = unreachable.WrapWithPassword("the password they have forgotten");
+
+        var outcome = await context.Provider.ReplaceAfterPasswordResetAsync("the new password");
+
+        // The one path allowed to discard a key the account still has, because the user chose it: after a
+        // reset nobody can ever open that backup again, so refusing would lock chat permanently rather
+        // than starting it over.
+        Assert.Equal(EncryptionKeyOutcome.Created, outcome);
+        Assert.NotEqual(unreachable.PublicKeyBase64, await context.LocalPublicKeyAsync());
+        Assert.NotNull(ChatIdentity.FromBackup(context.Server.StoredBackup!, "the new password"));
+    }
+
+    [Fact]
+    public async Task Only_the_reset_path_replaces_a_key_a_password_could_not_open()
+    {
+        var context = new KeyContext();
+        using var original = ChatIdentity.Create();
+        context.Server.StoredBackup = original.WrapWithPassword("an older password");
+
+        // Same starting position as the reset test above; the difference is entirely that nobody asked.
+        Assert.Equal(EncryptionKeyOutcome.StillLocked, await context.Provider.UnlockOrCreateAsync("today's password"));
+        Assert.NotNull(ChatIdentity.FromBackup(context.Server.StoredBackup!, "an older password"));
+    }
+
+    [Fact]
     public async Task Opening_a_key_this_device_does_not_have_is_a_locked_state_not_a_new_key()
     {
         var context = new KeyContext();

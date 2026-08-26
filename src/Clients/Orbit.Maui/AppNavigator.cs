@@ -1,5 +1,6 @@
 using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
+using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Notes;
 using Orbit.Mobile.Authentication;
 
@@ -38,6 +39,8 @@ public sealed class AppNavigator
 	public void ShowRegister() => ShowAsRoot<RegisterPage>();
 
 	public void ShowAccount() => ShowAsRoot<AccountPage>();
+
+	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>();
 
 	public void ShowNotes() => ShowAsRoot<NotesPage>();
 

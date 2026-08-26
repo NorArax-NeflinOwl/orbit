@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Chat.ChatKeyGatePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
+    x:DataType="chat:ChatKeyGateViewModel"
+    Title="Chat key">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="16">
+
+            <!-- A Google account that never set a password: there is nothing to wrap the key with yet. -->
+            <VerticalStackLayout Spacing="12" IsVisible="{Binding IsSettingFirstPassword}">
+                <Label Text="Set a password to use chat" FontSize="24" FontAttributes="Bold" />
+                <Label LineBreakMode="WordWrap"
+                       Text="Chat is end-to-end encrypted and your key is protected with a password. This account signs in with Google and doesn't have one yet, so pick one now - it's also what lets you read your messages on another device." />
+                <Label Text="Nobody can recover it for you: forget it and your chat history becomes unreadable."
+                       TextColor="{StaticResource Magenta}" LineBreakMode="WordWrap" />
+                <Entry Placeholder="Password" Text="{Binding Password}" IsPassword="True" />
+                <Entry Placeholder="Repeat password" Text="{Binding RepeatPassword}" IsPassword="True" />
+                <Button Text="Set password" Command="{Binding SetFirstPasswordCommand}" />
+            </VerticalStackLayout>
+
+            <!-- The ordinary case: the account has a password, this device just hasn't got the key. -->
+            <VerticalStackLayout Spacing="12" IsVisible="{Binding IsEnteringPassword}">
+                <Label Text="Unlock chat" FontSize="24" FontAttributes="Bold" />
+                <Label LineBreakMode="WordWrap"
+                       Text="This device doesn't have a copy of your encryption key yet. Enter your password to restore it from your encrypted backup - it never leaves this device." />
+                <Entry Placeholder="Password" Text="{Binding Password}" IsPassword="True"
+                       ReturnType="Go" ReturnCommand="{Binding UnlockCommand}" />
+                <Button Text="Unlock" Command="{Binding UnlockCommand}" />
+                <Button Text="I forgot my password"
+                        Command="{Binding StartResetCommand}"
+                        IsVisible="{Binding CanReset}"
+                        BackgroundColor="Transparent"
+                        TextColor="{StaticResource Primary}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="12" IsVisible="{Binding IsResetting}">
+                <Label Text="Reset your password" FontSize="24" FontAttributes="Bold" />
+                <!-- Said before the code is even sent: this is the one path that throws a key away. -->
+                <Label Text="Setting a new password starts your chat over: messages encrypted under the old one stay unreadable, because Orbit's servers never had the key to them."
+                       TextColor="{StaticResource Magenta}" LineBreakMode="WordWrap" />
+
+                <VerticalStackLayout Spacing="12" IsVisible="{Binding AwaitingCodeRequest}">
+                    <Label Text="{Binding EmailAddress, StringFormat='We will email a code to {0}.'}"
+                           LineBreakMode="WordWrap" />
+                    <Button Text="Send code" Command="{Binding SendResetCodeCommand}" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="12" IsVisible="{Binding CodeSent}">
+                    <Entry Placeholder="Code from the email" Text="{Binding Code}" Keyboard="Numeric" />
+                    <Entry Placeholder="New password" Text="{Binding Password}" IsPassword="True" />
+                    <Entry Placeholder="Repeat new password" Text="{Binding RepeatPassword}" IsPassword="True" />
+                    <Button Text="Set password and start chat over" Command="{Binding ResetPasswordCommand}" />
+                </VerticalStackLayout>
+                <Button Text="Back" Command="{Binding CancelResetCommand}"
+                        BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="12" IsVisible="{Binding IsUnlocked}">
+                <Label Text="Chat is unlocked" FontSize="24" FontAttributes="Bold" />
+                <Label Text="This device now holds your encryption key." LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                   TextColor="{StaticResource Magenta}" LineBreakMode="WordWrap" />
+
+            <Button Text="Back to notes" Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
