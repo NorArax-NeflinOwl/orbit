@@ -6,7 +6,10 @@ using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Startup;
 using Orbit.Maui.Platform;
 using Orbit.Mobile.Api;
+using Microsoft.EntityFrameworkCore;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Data;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Update;
 
 namespace Orbit.Maui;
@@ -25,6 +28,7 @@ public static class MauiProgram
 			});
 
 		RegisterPlatformServices(builder.Services);
+		RegisterLocalStore(builder.Services);
 		RegisterHttpClients(builder.Services, OrbitApiSettings.Development);
 		RegisterScreens(builder.Services);
 
@@ -32,13 +36,31 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
-		return builder.Build();
+		var app = builder.Build();
+		LocalDatabase.EnsureCreated(app.Services);
+		return app;
+	}
+
+	/// <summary>
+	/// The offline half of the app (info/orbit-maui-plan.md §5). Screens read notes from here and never
+	/// from the API; the synchroniser is what keeps the two in step.
+	/// </summary>
+	private static void RegisterLocalStore(IServiceCollection services)
+	{
+		// A factory rather than a context: there is no request to scope one to, and a context living as
+		// long as a screen holds every entity it ever loaded and a SQLite connection behind it.
+		services.AddDbContextFactory<OrbitLocalDbContext>(options => options.UseSqlite(LocalDatabase.ConnectionString));
+		services.AddSingleton(TimeProvider.System);
+		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
+		services.AddSingleton<LocalNoteRepository>();
+		services.AddSingleton<NoteSynchronizer>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)
 	{
 		services.AddSingleton(SecureStorage.Default);
 		services.AddSingleton(Preferences.Default);
+		services.AddSingleton(Connectivity.Current);
 		services.AddSingleton<ISessionStorage, SecureSessionStorage>();
 		services.AddSingleton<IVersionVerdictCache, PreferencesVersionVerdictCache>();
 		services.AddSingleton<SessionStore>();

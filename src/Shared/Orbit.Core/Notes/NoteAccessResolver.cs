@@ -29,6 +29,8 @@ public sealed class NoteAccessResolver
         var ownedNote = await _noteRepository.GetByIdAsync(callerId, noteId, cancellationToken);
         if (ownedNote is not null)
         {
+            var sharedOut = await _noteShareRepository.GetSharedOutNoteIdsAsync(callerId, cancellationToken);
+            ownedNote.SetSharedWithOthers(sharedOut.Contains(noteId));
             return ownedNote;
         }
 
@@ -60,6 +62,13 @@ public sealed class NoteAccessResolver
     {
         var owned = await _noteRepository.GetAllAsync(callerId, cancellationToken);
         var grants = await _noteShareRepository.GetAcceptedGrantsForRecipientAsync(callerId, cancellationToken);
+
+        // Asked once for the whole list rather than per note - see GetSharedOutNoteIdsAsync.
+        var sharedOut = await _noteShareRepository.GetSharedOutNoteIdsAsync(callerId, cancellationToken);
+        foreach (var note in owned)
+        {
+            note.SetSharedWithOthers(sharedOut.Contains(note.Id));
+        }
 
         var granted = new List<Note>();
         foreach (var grant in grants)

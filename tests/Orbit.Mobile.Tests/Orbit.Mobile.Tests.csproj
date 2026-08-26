@@ -13,6 +13,14 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="coverlet.collector" Version="10.0.1" />
+    <!-- Sync is decided by timestamps and cursors, so the tests need to say what time it is rather
+         than race the clock. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.10.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- HttpUtility.ParseQueryString, for reading the change-feed cursor back out in FakeNotesServer. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>

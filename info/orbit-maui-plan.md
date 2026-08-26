@@ -337,7 +337,7 @@ entity type — see `Orbit.Core.Sync.SyncTombstone`. The cursor comes back as an
 ending in `Z`, safe to drop straight into the next URL, and `since` is inclusive so a change landing
 mid-request is re-sent rather than lost.
 
-### 5.4 Pushing changes, and conflicts
+### 5.4 Pushing changes, and conflicts (built for notes)
 
 Local mutations go into an **outbox** and replay in order when connectivity returns. The conflict
 question is where Orbit's existing design bites.
@@ -542,7 +542,7 @@ phase behind it, mostly for free apart from the platform-specific work.
 | --- | --- | --- |
 | **0. Server prerequisites** (built) | Version-gate endpoint (§7), diagnostic-log endpoint and table (§8), push transports (§4.2), multi-audience Google (§4.3), delta + tombstones for sync (§5.3), optionally the shared API-client project (§4.4) | Merged into `main`, web client unaffected |
 | **1. Walking skeleton** (built) | `Orbit.Maui` project, `Orbit.Contracts` referenced, auth + `SecureStorage` + single-flight refresh, **version gate on startup (§7)**, sign in/out, one real screen | A real account signs in on a device and an out-of-date build is stopped on the splash screen |
-| **2. Local store and sync spine** | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
+| **2. Local store and sync spine** (built) | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
 | **3. Crypto spine** | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
 | **4. The content features** | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
 | **5. The rest of chat** | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
@@ -601,12 +601,17 @@ least from being started early.
 
 These change the plan materially and are worth answering before the phase they land in:
 
-1. ~~**Offline conflict policy** (§5.4)~~ — **settled: restrictive.** What it still needs is a way for
-   an owner to know an item is shared out (§5.4's last paragraph); until the API says so, the client
-   cannot tell a private item from one someone else may be editing.
-2. **Is the local database encrypted?** (§5.1) Plain SQLite in app-private storage, or SQLCipher with
-   the key in the platform keystore. Needed before phase 2, and it is a security decision rather than
-   a technical one.
+1. ~~**Offline conflict policy** (§5.4)~~ — **settled and built: restrictive.** The owner-side gap is
+   closed too: `NoteDto.IsSharedWithOthers` now tells an owner that somebody holds accepted access, so
+   the client can tell a private note from one another person may be editing. Only notes carry it -
+   tasks, calendar events, and warehouses need the same treatment when they join the spine.
+2. **Is the local database encrypted?** (§5.1) ~~Needed before phase 2~~ — **still open, and now
+   load-bearing.** Phase 2 shipped plain SQLite in app-private storage, relying on platform disk
+   encryption. That is a deliberate deferral rather than an answer: private notes are client-encrypted
+   so the server cannot read them, and the phone now caches them decrypted. Everything needed to change
+   it is in `Orbit.Maui/Platform/LocalDatabase.cs` and one provider registration, so switching to
+   SQLCipher stays cheap - but it does not get cheaper by waiting, and more entity types arriving makes
+   the exposure wider rather than the change harder.
 3. **Does Orbit.Web keep evolving during this build?** Full parity with a moving target is a very
    different project from parity with a frozen one. Right now the answer looks like yes, which argues
    for §4.4's shared-API-client option so parity work happens once rather than twice.

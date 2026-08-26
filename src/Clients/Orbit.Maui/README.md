@@ -4,14 +4,19 @@ The mobile client: one .NET MAUI project producing both the **iOS** and **Androi
 is the reference device. See [`info/orbit-maui-plan.md`](../../../info/orbit-maui-plan.md) for the plan
 this is being built against.
 
-Phase 1 is built: the version gate, sign in/out with the session in the Keychain, and one real
-screen reading the signed-in user's notes. Everything else is still ahead — see the plan's phasing.
+Phases 1 and 2 are built: the version gate, sign in/out with the session in the Keychain, and a notes
+screen that reads a local SQLite database and works with no connection — changes queue in an outbox and
+replay when the network returns. Everything else is still ahead — see the plan's phasing.
+
+The local database is **not encrypted**. It sits in app-private storage and relies on the platform's
+disk encryption, which is a deliberate deferral rather than a decision — see §5.1 and open question 2
+of the plan, and `Platform/LocalDatabase.cs`, which is the one place that would change.
 
 ## Where the code lives, and why it is split
 
 | Project | Target | In `Orbit.sln`? |
 | --- | --- | --- |
-| `Orbit.Mobile` | `net10.0` | **Yes** — everything decided without a device: the version gate, auth, and from phase 2 the sync spine |
+| `Orbit.Mobile` | `net10.0` | **Yes** — everything decided without a device: the version gate, auth, the local store and the sync spine |
 | `Orbit.Mobile.Tests` | `net10.0` | **Yes** — ordinary xUnit against the above |
 | `Orbit.Maui` | `net10.0-ios`, `net10.0-android` | **No** — the two app heads: XAML, view models, platform services |
 

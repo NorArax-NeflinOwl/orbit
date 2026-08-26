@@ -12,6 +12,16 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <!-- The local store (info/orbit-maui-plan.md §5.1). EF Core rather than the lighter sqlite-net
+    because the same shapes are already written against EF Core on the server, and migrations are a
+    solved problem there. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <!-- EF Core's SQLite provider still resolves SQLitePCLRaw 2.1.11, which carries a known high-severity
+    advisory (GHSA-2m69-gcr7-jv3q). Pinned directly to the first patched release so the resolved version
+    clears the NuGet audit check - the same treatment AngleSharp gets in Orbit.Web.Tests. Remove once the
+    provider's own floor moves past it. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
   </ItemGroup>
 
   <ItemGroup>

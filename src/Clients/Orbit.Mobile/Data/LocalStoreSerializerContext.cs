@@ -1,0 +1,12 @@
+using System.Text.Json.Serialization;
+using Orbit.Contracts.Notes;
+
+namespace Orbit.Mobile.Data;
+
+/// <summary>
+/// Source-generated serialization for what the local store keeps as JSON. Release builds of the app
+/// trim and AOT-compile, which strips the reflection System.Text.Json would otherwise need - a column
+/// that round-trips in Debug and silently fails to in the shipped build is found late and painfully.
+/// </summary>
+[JsonSerializable(typeof(IReadOnlyList<NoteContentLineDto>))]
+internal sealed partial class LocalStoreSerializerContext : JsonSerializerContext;

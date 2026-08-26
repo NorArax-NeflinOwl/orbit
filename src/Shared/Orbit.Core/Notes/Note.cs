@@ -47,6 +47,14 @@ public sealed class Note
     /// <summary>The owner's login, whenever IsShared is true. Null otherwise.</summary>
     public string? SharedByUserName { get; private set; }
 
+    /// <summary>
+    /// True when somebody else holds accepted access to this note. Only ever meaningful to the owner -
+    /// the recipient's side of the same relationship is <see cref="IsShared"/>. A mobile client uses
+    /// this to know an item is not safely editable offline; without it an owner's copy of a note
+    /// another person can edit is indistinguishable from a private one.
+    /// </summary>
+    public bool IsSharedWithOthers { get; private set; }
+
     /// <summary>The current caller's access level - always CanEdit for the owner, and whatever their share grants otherwise.</summary>
     public ShareAccessLevel AccessLevel { get; private set; } = ShareAccessLevel.CanEdit;
 
@@ -94,6 +102,13 @@ public sealed class Note
         SharedByUserName = sharedByUserName;
         AccessLevel = accessLevel;
     }
+
+    /// <summary>
+    /// Tells the owner that somebody else holds accepted access to this note. The mirror image of
+    /// <see cref="IsShared"/>, which says the caller is on the receiving end - both are stamped by
+    /// NoteAccessResolver rather than stored, because both depend on who is asking.
+    /// </summary>
+    public void SetSharedWithOthers(bool isSharedWithOthers) => IsSharedWithOthers = isSharedWithOthers;
 
     /// <summary>
     /// Callers are expected to have already checked <see cref="AccessLevel"/> is CanEdit and that

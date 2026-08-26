@@ -29,4 +29,15 @@ public interface INoteShareRepository
 
     /// <summary>Every note recipientUserId has accepted access to, regardless of which owner shared it - see NoteAccessResolver.ResolveAllAsync.</summary>
     Task<IReadOnlyList<NoteShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which of ownerUserId's own notes somebody else currently holds accepted access to - the owner's
+    /// side of the relationship, which nothing else exposes: IsShared on a DTO says "shared *with* me",
+    /// and an owner's copy of a note two people can edit otherwise looks exactly like a private one.
+    ///
+    /// A whole set in one query rather than a question per note, because the caller asks it of every
+    /// note in a list. See NoteAccessResolver and info/orbit-maui-plan.md §5.4, which needs this to
+    /// decide what may be edited offline.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> GetSharedOutNoteIdsAsync(Guid ownerUserId, CancellationToken cancellationToken);
 }
