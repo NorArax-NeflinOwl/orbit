@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Maui.Features.Account;
@@ -15,6 +16,7 @@ namespace Orbit.Maui.Features.Account;
 public sealed partial class AccountViewModel : ObservableObject
 {
 	private readonly AccountClient _accountClient;
+	private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
 	private readonly INetworkStatus _networkStatus;
 	private readonly SessionStore _sessionStore;
 	private readonly AppNavigator _navigator;
@@ -44,9 +46,11 @@ public sealed partial class AccountViewModel : ObservableObject
 	private bool _messageIsFailure;
 
 	public AccountViewModel(
-		AccountClient accountClient, INetworkStatus networkStatus, SessionStore sessionStore, AppNavigator navigator)
+		AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
+		SessionStore sessionStore, AppNavigator navigator)
 	{
 		_accountClient = accountClient;
+		_encryptionKeyProvider = encryptionKeyProvider;
 		_networkStatus = networkStatus;
 		_sessionStore = sessionStore;
 		_navigator = navigator;
@@ -89,17 +93,53 @@ public sealed partial class AccountViewModel : ObservableObject
 			() => _accountClient.ConfirmEmailAddressAsync(EmailConfirmationCode.Trim(), cancellationToken),
 			"Email address confirmed.");
 
+	/// <summary>
+	/// Changes the password, then re-wraps the chat key backup under it. Skipping the second half is not
+	/// a cosmetic omission: the backup would stay wrapped under the old password, so the next device to
+	/// restore it would fail, generate a fresh key, and leave every earlier message unreadable there.
+	/// </summary>
 	[RelayCommand]
 	private async Task ChangePasswordAsync(CancellationToken cancellationToken)
 	{
+		var currentPassword = CurrentPassword;
+		var newPassword = NewPassword;
+
 		await RunAsync(
-			() => _accountClient.ChangePasswordAsync(CurrentPassword, NewPassword, cancellationToken),
+			() => _accountClient.ChangePasswordAsync(currentPassword, newPassword, cancellationToken),
 			"Password changed.");
 
-		if (!MessageIsFailure)
+		if (MessageIsFailure)
 		{
-			CurrentPassword = string.Empty;
-			NewPassword = string.Empty;
+			return;
+		}
+
+		CurrentPassword = string.Empty;
+		NewPassword = string.Empty;
+		await RewrapChatKeyAsync(currentPassword, newPassword, cancellationToken);
+	}
+
+	/// <summary>
+	/// Deliberately not fatal: the password has already changed by this point, so a device that could not
+	/// re-wrap should say so rather than pretend the change failed. It does have to say so, though - a
+	/// silent failure here is exactly what costs someone their history later.
+	/// </summary>
+	private async Task RewrapChatKeyAsync(string currentPassword, string newPassword, CancellationToken cancellationToken)
+	{
+		try
+		{
+			var outcome = await _encryptionKeyProvider.RewrapAsync(currentPassword, newPassword, cancellationToken);
+			if (outcome is EncryptionKeyOutcome.StillLocked)
+			{
+				Message = "Password changed, but your chat key backup couldn't be updated. " +
+					"Sign in again while online to fix it, or older messages may not open on a new device.";
+			}
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			MessageIsFailure = true;
+			Message = "Password changed, but your chat key backup couldn't be updated. " +
+				"Sign in again while online to fix it.";
+			System.Diagnostics.Debug.WriteLine($"Could not re-wrap the chat key backup: {exception}");
 		}
 	}
 

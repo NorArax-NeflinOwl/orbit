@@ -119,14 +119,21 @@ public sealed class ChatIdentity : IDisposable
     public string? DecryptForSelf(EncryptedText encrypted) => Decrypt(PublicKeyBase64, encrypted);
 
     /// <summary>
+    /// The private key as JWK - how this device stores it, and what the backup carries. The same format
+    /// the browser exports, so a key written by either side can be read by the other.
+    /// </summary>
+    public string ExportPrivateKeyJwk()
+        => JsonSerializer.Serialize(
+            JsonWebKey.FromPrivateKey(_keyPair.ExportParameters(includePrivateParameters: true)));
+
+    /// <summary>
     /// Exports the private key and seals it under the account password, so the server can hold a backup
     /// it can never read. This is how a fresh phone gets an existing chat identity at all.
     /// </summary>
     public WrappedPrivateKeyDto WrapWithPassword(string password)
     {
-        var jwk = JsonWebKey.FromPrivateKey(_keyPair.ExportParameters(includePrivateParameters: true));
         var salt = RandomNumberGenerator.GetBytes(16);
-        var sealedKey = Seal(DeriveWrappingKey(password, salt, Pbkdf2IterationCount), JsonSerializer.Serialize(jwk));
+        var sealedKey = Seal(DeriveWrappingKey(password, salt, Pbkdf2IterationCount), ExportPrivateKeyJwk());
 
         return new WrappedPrivateKeyDto(
             sealedKey.CiphertextBase64, sealedKey.NonceBase64, Convert.ToBase64String(salt), Pbkdf2IterationCount);

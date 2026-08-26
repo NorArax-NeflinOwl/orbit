@@ -9,6 +9,7 @@ using Orbit.Maui.Platform;
 using Orbit.Mobile.Api;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Update;
@@ -54,7 +55,11 @@ public static class MauiProgram
 		services.AddSingleton(TimeProvider.System);
 		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
 		services.AddSingleton<LocalNoteRepository>();
-		services.AddSingleton<NoteSynchronizer>();
+
+		// Transient, not singleton: both take a typed HttpClient, and holding one for the life of the app
+		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
+		services.AddTransient<OwnEncryptionKeyProvider>();
+		services.AddTransient<NoteSynchronizer>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)
@@ -63,6 +68,7 @@ public static class MauiProgram
 		services.AddSingleton(Preferences.Default);
 		services.AddSingleton(Connectivity.Current);
 		services.AddSingleton<ISessionStorage, SecureSessionStorage>();
+		services.AddSingleton<IChatKeyStorage, SecureChatKeyStorage>();
 		services.AddSingleton<IVersionVerdictCache, PreferencesVersionVerdictCache>();
 		services.AddSingleton<SessionStore>();
 
@@ -95,6 +101,8 @@ public static class MauiProgram
 		// Registering has no token to attach, and the rest are guarded by the server checking the current
 		// password rather than by this client - see AccountClient.
 		services.AddHttpClient<AccountClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<EncryptionKeyClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
 	}

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Maui.Features.Authentication;
@@ -13,6 +14,7 @@ namespace Orbit.Maui.Features.Authentication;
 public sealed partial class RegisterViewModel : ObservableObject
 {
 	private readonly AccountClient _accountClient;
+	private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
 	private readonly INetworkStatus _networkStatus;
 	private readonly AppNavigator _navigator;
 
@@ -31,9 +33,12 @@ public sealed partial class RegisterViewModel : ObservableObject
 	[ObservableProperty]
 	private string _errorMessage = string.Empty;
 
-	public RegisterViewModel(AccountClient accountClient, INetworkStatus networkStatus, AppNavigator navigator)
+	public RegisterViewModel(
+		AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider,
+		INetworkStatus networkStatus, AppNavigator navigator)
 	{
 		_accountClient = accountClient;
+		_encryptionKeyProvider = encryptionKeyProvider;
 		_networkStatus = networkStatus;
 		_navigator = navigator;
 	}
@@ -71,6 +76,17 @@ public sealed partial class RegisterViewModel : ObservableObject
 		{
 			ErrorMessage = result.Message ?? "Couldn't create that account.";
 			return;
+		}
+
+		// A brand-new account has no backup to restore, so this generates the key and publishes it while
+		// the password is still on hand - the only time it can be wrapped at all.
+		try
+		{
+			await _encryptionKeyProvider.UnlockOrCreateAsync(Password, cancellationToken);
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			System.Diagnostics.Debug.WriteLine($"Could not create the chat key after registering: {exception}");
 		}
 
 		Password = string.Empty;

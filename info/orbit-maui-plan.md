@@ -202,6 +202,30 @@ restoring the password-wrapped backup at sign-in — which means **sign-in must 
 and a Google-only account (no password set) therefore cannot read chat on a new device until it sets
 one. Orbit.Web already handles this exact case; the mobile client must too, not discover it late.
 
+**Built, following Orbit.Web's shape deliberately.** `OwnEncryptionKeyProvider` mirrors the web client's
+split: `EnsurePublicKeyAsync`/`OpenAsync` never create or restore anything, and only
+`UnlockOrCreateAsync` — called right after signing in or registering, while the plaintext password
+exists — may. A password change re-wraps the backup through `RewrapAsync`, without which the backup
+stays readable only under the old password and the next device silently starts a fresh key, losing every
+earlier message.
+
+**Two deliberate departures from the web client**, both the same principle: never replace a key unless
+the server has confirmed there is nothing to replace.
+
+1. Orbit.Web treats a *failed* backup lookup as "no backup exists" and generates a fresh key, so a
+   browser is never locked out of chat. On a phone, losing the network mid-sign-in is ordinary rather
+   than rare, and the same rule would discard the user's real key for the length of a tunnel. The API
+   already distinguishes the two — it answers 204 for "no backup", deliberately, rather than 404 — so
+   the mobile client acts only on that answer, and a lookup it could not make leaves chat locked.
+   Locked is recoverable; generated is not.
+2. Likewise when a backup exists but the password does not open it, which means it was wrapped under an
+   older password. The key inside is still the account's real one.
+
+**Still to do here:** the equivalent of the web's `ChatPasswordGate` — the screen that handles a Google
+account with no password, a known password on a new device, and a forgotten password (reset, which
+starts chat over). Until it exists, a phone in the "still locked" state has no way to offer the password
+again short of signing out and back in.
+
 ### 4.2 Push notifications: Web Push, APNs, and FCM are three different things
 
 This is the largest server-side change the mobile client forces, and going cross-platform makes it
@@ -557,7 +581,7 @@ phase behind it, mostly for free apart from the platform-specific work.
 | **0. Server prerequisites** (built) | Version-gate endpoint (§7), diagnostic-log endpoint and table (§8), push transports (§4.2), multi-audience Google (§4.3), delta + tombstones for sync (§5.3), optionally the shared API-client project (§4.4) | Merged into `main`, web client unaffected |
 | **1. Walking skeleton** (built) | `Orbit.Maui` project, `Orbit.Contracts` referenced, auth + `SecureStorage` + single-flight refresh, **version gate on startup (§7)**, sign in/out, one real screen | A real account signs in on a device and an out-of-date build is stopped on the splash screen |
 | **2. Local store and sync spine** (built) | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
-| **3. Crypto spine** (interop built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
+| **3. Crypto spine** (interop + key handling built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
 | **4. The content features** | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
 | **5. The rest of chat** | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
 | **6. Location and maps** | Geolocation, maps, recording, sharing, viewing shared | Location parity |

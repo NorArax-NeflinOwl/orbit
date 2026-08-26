@@ -1,12 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Crypto;
 
 namespace Orbit.Maui.Features.Authentication;
 
 public sealed partial class SignInViewModel : ObservableObject
 {
 	private readonly AuthenticationClient _authenticationClient;
+	private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
 	private readonly AppNavigator _navigator;
 
 	[ObservableProperty]
@@ -20,9 +22,12 @@ public sealed partial class SignInViewModel : ObservableObject
 	[ObservableProperty]
 	private string _errorMessage = string.Empty;
 
-	public SignInViewModel(AuthenticationClient authenticationClient, AppNavigator navigator)
+	public SignInViewModel(
+		AuthenticationClient authenticationClient, OwnEncryptionKeyProvider encryptionKeyProvider,
+		AppNavigator navigator)
 	{
 		_authenticationClient = authenticationClient;
+		_encryptionKeyProvider = encryptionKeyProvider;
 		_navigator = navigator;
 	}
 
@@ -54,8 +59,24 @@ public sealed partial class SignInViewModel : ObservableObject
 			return;
 		}
 
+		// The one moment the plaintext password exists - see OwnEncryptionKeyProvider. Best-effort:
+		// failing here leaves chat locked, which the user can recover from, and must not block sign-in.
+		await TryUnlockChatKeyAsync(Password, cancellationToken);
+
 		Password = string.Empty;
 		_navigator.ShowNotes();
+	}
+
+	private async Task TryUnlockChatKeyAsync(string password, CancellationToken cancellationToken)
+	{
+		try
+		{
+			await _encryptionKeyProvider.UnlockOrCreateAsync(password, cancellationToken);
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			System.Diagnostics.Debug.WriteLine($"Could not unlock the chat key after signing in: {exception}");
+		}
 	}
 
 	[RelayCommand]
