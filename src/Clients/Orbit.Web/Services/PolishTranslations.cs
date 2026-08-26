@@ -701,5 +701,11 @@ internal static class PolishTranslations
         ["Remove from my list"] = "Usuń z mojej listy",
         ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
+        ["Info"] = "Info",
+        ["Who has read this"] = "Kto to przeczytał",
+        ["Close"] = "Zamknij",
+        ["Delivered"] = "Dostarczone",
+        ["Read by everyone"] = "Przeczytane przez wszystkich",
+        ["Read {0}"] = "Przeczytane {0}",
     };
 }

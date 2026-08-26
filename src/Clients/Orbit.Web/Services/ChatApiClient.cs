@@ -160,6 +160,22 @@ public sealed class ChatApiClient
         return true;
     }
 
+    /// <summary>Who one group message reached, and which of them have read it - see GroupMessageReceiptDto.</summary>
+    public async Task<IReadOnlyList<GroupMessageReceiptDto>> GetGroupMessageReceiptsAsync(
+        Guid groupId, Guid groupMessageId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<GroupMessageReceiptDto>>(
+            $"api/chat/groups/{groupId}/messages/{groupMessageId}/receipts", cancellationToken) ?? [];
+
+    /// <summary>
+    /// Marks everything addressed to this reader in the group as read. Called while the group is open,
+    /// the same coarse stand-in the one-to-one conversation uses.
+    /// </summary>
+    public async Task MarkGroupConversationAsReadAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsync($"api/chat/groups/{groupId}/read", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task AddGroupMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(
