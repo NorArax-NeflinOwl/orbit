@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Orbit.Mobile.Chat;
 using Xunit;
 
 namespace Orbit.Mobile.Tests.Chat;
@@ -102,6 +103,39 @@ public sealed class EncryptedChatMessageTests
         // A refusal the server will repeat is not worth queueing forever.
         Assert.Equal(1, result.GivenUp);
         Assert.Empty(await context.Repository.GetQueuedAsync());
+
+        // Dropped, so the screen has to be able to say why: the text is gone from the compose box and
+        // nothing else would explain where it went.
+        Assert.Equal(ChatSendRefusal.WaitingToBeAccepted, result.Refusal);
+    }
+
+    [Fact]
+    public async Task Accepting_a_chat_request_is_what_lets_a_reply_through()
+    {
+        using var context = new ChatContext();
+        context.GiveTheOtherPartyAPublishedKey();
+        context.Server.RefuseSendsWith = HttpStatusCode.Forbidden;
+        Assert.Equal(1, (await context.Sender.SendAsync(context.OtherUserId, "Hello?")).GivenUp);
+
+        Assert.True(await context.ChatClient.ApproveConversationAsync(context.OtherUserId));
+        var result = await context.Sender.SendAsync(context.OtherUserId, "Hello again");
+
+        Assert.Equal(1, result.Sent);
+        Assert.Equal(ChatSendRefusal.None, result.Refusal);
+        Assert.Equal("Hello again", context.OpenAsTheOtherParty(context.Server.Messages.Single()));
+    }
+
+    [Fact]
+    public async Task Somebody_with_no_chat_key_is_reported_rather_than_logged_and_forgotten()
+    {
+        using var context = new ChatContext();
+        // A contact who has never signed in has no published key, so there is nothing to encrypt with.
+        context.Server.AddContact(context.OtherUserId, publicKeyBase64: null);
+
+        var result = await context.Sender.SendAsync(context.OtherUserId, "Hello?");
+
+        Assert.Equal(1, result.GivenUp);
+        Assert.Equal(ChatSendRefusal.SomebodyHasNoChatKey, result.Refusal);
     }
 
     [Fact]

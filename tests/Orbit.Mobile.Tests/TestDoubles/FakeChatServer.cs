@@ -41,7 +41,10 @@ internal sealed class FakeChatServer : HttpMessageHandler
     /// <summary>Set to make the server refuse sends - 403 is "they haven't approved this conversation".</summary>
     public HttpStatusCode? RefuseSendsWith { get; set; }
 
-    public ContactDto AddContact(Guid userId, string publicKeyBase64)
+    /// <summary>Everyone this caller has allowed to chat with them, as approving records.</summary>
+    public List<Guid> ApprovedConversations { get; } = [];
+
+    public ContactDto AddContact(Guid userId, string? publicKeyBase64)
     {
         var contact = new ContactDto(
             userId, "someone", "Someone", "someone@orbit.example", publicKeyBase64,
@@ -117,6 +120,19 @@ internal sealed class FakeChatServer : HttpMessageHandler
         if (segments[^1] == "contacts")
         {
             return Json(Contacts);
+        }
+
+        if (segments[^1] == "approve")
+        {
+            var otherUserId = Guid.Parse(segments[^2]);
+            if (Contacts.All(contact => contact.UserId != otherUserId))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            ApprovedConversations.Add(otherUserId);
+            RefuseSendsWith = null;
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
         if (request.Method == HttpMethod.Post)

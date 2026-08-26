@@ -69,6 +69,25 @@ public sealed class ChatClient
         return await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatMessageDto>>(path, cancellationToken) ?? [];
     }
 
+    /// <summary>
+    /// Lets the party who did not start a conversation allow it. Until they do, the server refuses
+    /// anything they try to send - see SendMessageCommandHandler - so this is what unblocks replying.
+    /// </summary>
+    /// <returns>False when there is no such request to approve, which a stale screen can produce.</returns>
+    public async Task<bool> ApproveConversationAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/chat/conversations/{otherUserId}/approve", content: null, cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
     /// <summary>Every group the signed-in user is in, with its current membership.</summary>
     public async Task<IReadOnlyList<ChatGroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatGroupDto>>("api/chat/groups", cancellationToken) ?? [];

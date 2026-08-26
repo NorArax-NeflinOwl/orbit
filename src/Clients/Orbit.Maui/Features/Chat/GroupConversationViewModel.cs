@@ -18,6 +18,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 {
 	private readonly EncryptedChatMessageReader _reader;
 	private readonly EncryptedChatMessageSender _sender;
+	private readonly ChatRepository _chatRepository;
 	private readonly ChatSynchronizer _synchronizer;
 	private readonly AppNavigator _navigator;
 
@@ -46,11 +47,12 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 	private bool _isRefreshing;
 
 	public GroupConversationViewModel(
-		EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, ChatSynchronizer synchronizer,
-		AppNavigator navigator)
+		EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, ChatRepository chatRepository,
+		ChatSynchronizer synchronizer, AppNavigator navigator)
 	{
 		_reader = reader;
 		_sender = sender;
+		_chatRepository = chatRepository;
 		_synchronizer = synchronizer;
 		_navigator = navigator;
 	}
@@ -65,7 +67,9 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 	/// </summary>
 	public bool CanWrite => _group is { } group && group.Members.Count > 1;
 
-	public void Open(LocalChatGroup group)
+	public void Open(LocalChatGroup group) => Show(group);
+
+	private void Show(LocalChatGroup group)
 	{
 		_group = group;
 		Title = group.Name;
@@ -82,7 +86,27 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 		}
 
 		await ShowStoredConversationAsync(cancellationToken);
+		await RefreshMembershipAsync(cancellationToken);
 		await SynchroniseAsync(cancellationToken);
+	}
+
+	/// <summary>
+	/// Brings the group itself up to date, not just its messages. Done when the screen opens rather than
+	/// on every poll, because it costs a lookup per member - but it has to happen somewhere: the cached
+	/// keys are what opens a group message, so a member who joined since this phone last looked would
+	/// have everything they write show up as unopenable.
+	/// </summary>
+	private async Task RefreshMembershipAsync(CancellationToken cancellationToken)
+	{
+		if (_group is null || !await _synchronizer.SynchroniseGroupsAsync(cancellationToken))
+		{
+			return;
+		}
+
+		if (await _chatRepository.FindGroupAsync(_group.Id, cancellationToken) is { } refreshed)
+		{
+			Show(refreshed);
+		}
 	}
 
 	[RelayCommand(CanExecute = nameof(CanSend))]
@@ -99,7 +123,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 		try
 		{
 			var result = await _sender.SendToGroupAsync(_group.Id, text, cancellationToken);
-			Status = result.ReachedTheServer ? string.Empty : "Offline - your message is saved and will send later";
+			Status = Describe(result);
 		}
 		catch (EncryptionKeyLockedException)
 		{
@@ -211,6 +235,17 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 		{
 			IsRefreshing = false;
 		}
+	}
+
+	/// <summary>See ConversationViewModel for why a refusal has to be said out loud.</summary>
+	private static string Describe(ChatSendResult result)
+	{
+		if (!result.ReachedTheServer)
+		{
+			return "Offline - your message is saved and will send later";
+		}
+
+		return result.GivenUp > 0 ? ChatRefusalMessage.For(result.Refusal) : string.Empty;
 	}
 
 	partial void OnDraftChanged(string value) => SendCommand.NotifyCanExecuteChanged();

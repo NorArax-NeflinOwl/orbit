@@ -10,6 +10,12 @@ public partial class ContactsPage : ContentPage
 		BindingContext = _viewModel = viewModel;
 	}
 
+	/// <summary>
+	/// Typed so the row template's binding back up to the page can be compiled - see the comment in the
+	/// XAML about why it goes through the page rather than naming the view model directly.
+	/// </summary>
+	public ContactsViewModel ViewModel => _viewModel;
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();

@@ -21,10 +21,8 @@
                             SelectionChangedCommand="{Binding OpenGroupCommand}"
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
-                <CollectionView.EmptyView>
-                    <Label Text="No groups yet." Padding="24" HorizontalTextAlignment="Center" />
-                </CollectionView.EmptyView>
-
+                <!-- No EmptyView: the label above already says why the list is empty, and a second
+                     copy of the same sentence read as a bug. -->
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="data:LocalChatGroup">
                         <VerticalStackLayout Padding="0,12" Spacing="2">

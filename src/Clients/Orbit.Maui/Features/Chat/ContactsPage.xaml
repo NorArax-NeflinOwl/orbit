@@ -34,6 +34,14 @@
                             <Label Text="Wants to chat with you"
                                    IsVisible="{Binding RequiresApprovalFromCurrentUser}"
                                    FontSize="12" TextColor="{StaticResource Primary}" />
+                            <!-- The command lives on the page's view model, not on the row, and a
+                                 RelativeSource walks the *visual* tree - so this names the page and
+                                 goes through its typed ViewModel property. -->
+                            <Button Text="Accept"
+                                    IsVisible="{Binding RequiresApprovalFromCurrentUser}"
+                                    HorizontalOptions="Start" Padding="16,4" FontSize="13"
+                                    Command="{Binding ViewModel.AcceptCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
+                                    CommandParameter="{Binding .}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

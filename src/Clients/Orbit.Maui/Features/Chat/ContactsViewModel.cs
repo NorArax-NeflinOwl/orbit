@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Sync;
@@ -15,6 +16,7 @@ namespace Orbit.Maui.Features.Chat;
 public sealed partial class ContactsViewModel : ObservableObject
 {
 	private readonly ChatRepository _chatRepository;
+	private readonly ChatClient _chatClient;
 	private readonly ChatSynchronizer _synchronizer;
 	private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
 	private readonly AppNavigator _navigator;
@@ -26,10 +28,11 @@ public sealed partial class ContactsViewModel : ObservableObject
 	private bool _isRefreshing;
 
 	public ContactsViewModel(
-		ChatRepository chatRepository, ChatSynchronizer synchronizer,
+		ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
 		OwnEncryptionKeyProvider encryptionKeyProvider, AppNavigator navigator)
 	{
 		_chatRepository = chatRepository;
+		_chatClient = chatClient;
 		_synchronizer = synchronizer;
 		_encryptionKeyProvider = encryptionKeyProvider;
 		_navigator = navigator;
@@ -97,6 +100,36 @@ public sealed partial class ContactsViewModel : ObservableObject
 		{
 			_navigator.ShowConversation(contact);
 		}
+	}
+
+	/// <summary>
+	/// Allows a conversation somebody else started. Until this happens the server refuses everything sent
+	/// back, so without it a chat request that arrived from another device could be read and never
+	/// answered. Needs a connection: it is the server's record of consent, not the phone's.
+	/// </summary>
+	[RelayCommand]
+	private async Task AcceptAsync(LocalContact? contact, CancellationToken cancellationToken)
+	{
+		if (contact is null)
+		{
+			return;
+		}
+
+		try
+		{
+			await _chatClient.ApproveConversationAsync(contact.UserId, cancellationToken);
+		}
+		catch (HttpRequestException)
+		{
+			Message = "Accepting a chat request needs a connection.";
+			return;
+		}
+		catch (OperationCanceledException)
+		{
+			return;
+		}
+
+		await LoadAsync(cancellationToken);
 	}
 
 	[RelayCommand]

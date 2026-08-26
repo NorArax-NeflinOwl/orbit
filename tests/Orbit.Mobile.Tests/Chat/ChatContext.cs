@@ -52,14 +52,14 @@ internal sealed class ChatContext : IDisposable
             sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance);
 
         Repository = new ChatRepository(_localStore, Clock);
-        var chatClient = new ChatClient(Server.ToHttpClient());
+        ChatClient = new ChatClient(Server.ToHttpClient());
         var usersClient = new UsersClient(Users.ToHttpClient());
         Sender = new EncryptedChatMessageSender(
-            Repository, chatClient, usersClient, encryptionKeyProvider, sessionStore,
+            Repository, ChatClient, usersClient, encryptionKeyProvider, sessionStore,
             NullLogger<EncryptedChatMessageSender>.Instance);
         Reader = new EncryptedChatMessageReader(Repository, encryptionKeyProvider, sessionStore);
         Synchronizer = new ChatSynchronizer(
-            Repository, chatClient, usersClient, Sender, NullLogger<ChatSynchronizer>.Instance);
+            Repository, ChatClient, usersClient, Sender, NullLogger<ChatSynchronizer>.Instance);
     }
 
     public FakeTimeProvider Clock { get; }
@@ -74,6 +74,7 @@ internal sealed class ChatContext : IDisposable
     public ChatIdentity OtherIdentity { get; }
     public ChatIdentity ThirdIdentity { get; }
     public ChatRepository Repository { get; }
+    public ChatClient ChatClient { get; }
     public EncryptedChatMessageSender Sender { get; }
     public EncryptedChatMessageReader Reader { get; }
     public ChatSynchronizer Synchronizer { get; }

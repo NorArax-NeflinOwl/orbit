@@ -98,7 +98,7 @@ public sealed partial class ConversationViewModel : ObservableObject
 		try
 		{
 			var result = await _sender.SendAsync(_contact.UserId, text, cancellationToken);
-			Status = result.ReachedTheServer ? string.Empty : "Offline - your message is saved and will send later";
+			Status = Describe(result);
 		}
 		catch (EncryptionKeyLockedException)
 		{
@@ -217,6 +217,20 @@ public sealed partial class ConversationViewModel : ObservableObject
 		{
 			IsRefreshing = false;
 		}
+	}
+
+	/// <summary>
+	/// A refused message is dropped, so saying nothing would leave the text gone and unexplained. Offline
+	/// is the opposite case - it is kept - and the two must not read alike.
+	/// </summary>
+	private static string Describe(ChatSendResult result)
+	{
+		if (!result.ReachedTheServer)
+		{
+			return "Offline - your message is saved and will send later";
+		}
+
+		return result.GivenUp > 0 ? ChatRefusalMessage.For(result.Refusal) : string.Empty;
 	}
 
 	partial void OnDraftChanged(string value) => SendCommand.NotifyCanExecuteChanged();

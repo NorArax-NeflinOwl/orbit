@@ -7,8 +7,33 @@ using Orbit.Mobile.Data;
 
 namespace Orbit.Mobile.Chat;
 
+/// <summary>
+/// Why a message was dropped rather than sent. Carried out to the screen because the alternative -
+/// what this used to do - was to log it and let the text disappear with nothing said.
+/// </summary>
+public enum ChatSendRefusal
+{
+    None,
+
+    /// <summary>The other party started this conversation and has not been accepted yet, so the server
+    /// refuses anything sent back until they are - see ChatClient.ApproveConversationAsync.</summary>
+    WaitingToBeAccepted,
+
+    /// <summary>Somebody it had to be sealed for has no chat key published, so there is nothing to
+    /// encrypt with. In a group that stops the whole message: a partial fan-out is refused by design.</summary>
+    SomebodyHasNoChatKey,
+
+    /// <summary>The recipient's account, or the group, is gone - or this account was removed from it.</summary>
+    NoLongerThere
+}
+
 /// <summary>What one attempt to flush the outgoing queue did.</summary>
-public sealed record ChatSendResult(int Sent, int GivenUp, bool ReachedTheServer);
+/// <param name="Refusal">
+/// Why the most recent drop happened, when one did. <see cref="ChatSendRefusal.None"/> whenever
+/// <paramref name="GivenUp"/> is zero.
+/// </param>
+public sealed record ChatSendResult(
+    int Sent, int GivenUp, bool ReachedTheServer, ChatSendRefusal Refusal = ChatSendRefusal.None);
 
 /// <summary>
 /// Queues what the user typed and sends it when it can. The counterpart of Orbit.Web's class of the same
@@ -175,7 +200,7 @@ public sealed class EncryptedChatMessageSender
                 ? await SendToGroupAsync(identity, directory, groupId, message, cancellationToken)
                 : await SendToPersonAsync(identity, directory, message, cancellationToken);
 
-            if (outcome is QueuedSendOutcome.WorthAnotherAttempt)
+            if (outcome.IsWorthAnotherAttempt)
             {
                 // The server was reached and said no in a way the next flush may not hit - it re-reads
                 // the membership - so this is a delay rather than an outage.
@@ -184,13 +209,13 @@ public sealed class EncryptedChatMessageSender
                 return;
             }
 
-            if (outcome is QueuedSendOutcome.Sent)
+            if (outcome.IsSent)
             {
                 progress.Sent++;
             }
             else
             {
-                progress.GivenUp++;
+                progress.GiveUp(outcome.Refusal);
             }
 
             await _chatRepository.RemoveQueuedAsync(message.Id, cancellationToken);
@@ -211,7 +236,7 @@ public sealed class EncryptedChatMessageSender
         {
             // No published key means nothing can be encrypted for them - waiting will not change it.
             _logger.LogWarning("No public key for {RecipientUserId}; dropping a queued message", recipientUserId);
-            return QueuedSendOutcome.GivenUp;
+            return QueuedSendOutcome.GiveUp(ChatSendRefusal.SomebodyHasNoChatKey);
         }
 
         var sealedText = identity.Encrypt(recipientPublicKey, message.Text);
@@ -222,7 +247,9 @@ public sealed class EncryptedChatMessageSender
         if (result.Outcome is not SendMessageOutcome.Sent)
         {
             _logger.LogInformation("The server refused a queued message: {Outcome}", result.Outcome);
-            return QueuedSendOutcome.GivenUp;
+            return QueuedSendOutcome.GiveUp(result.Outcome is SendMessageOutcome.NotApproved
+                ? ChatSendRefusal.WaitingToBeAccepted
+                : ChatSendRefusal.NoLongerThere);
         }
 
         // Stored straight away so the conversation shows it as sent without waiting for the next pull.
@@ -231,7 +258,7 @@ public sealed class EncryptedChatMessageSender
             await _chatRepository.StoreAsync(recipientUserId, [accepted], cancellationToken);
         }
 
-        return QueuedSendOutcome.Sent;
+        return QueuedSendOutcome.WasSent;
     }
 
     /// <summary>
@@ -246,7 +273,7 @@ public sealed class EncryptedChatMessageSender
         if (!directory.OtherMembersByGroupId.TryGetValue(groupId, out var otherMembers))
         {
             _logger.LogWarning("Group {GroupId} is gone, or this account is no longer in it; dropping a queued message", groupId);
-            return QueuedSendOutcome.GivenUp;
+            return QueuedSendOutcome.GiveUp(ChatSendRefusal.NoLongerThere);
         }
 
         if (otherMembers.Count == 0)
@@ -254,7 +281,7 @@ public sealed class EncryptedChatMessageSender
             // Nobody left to encrypt for. The server stores a copy per recipient and none for the sender,
             // so posting this would be accepted and keep nothing - there is no message to be had.
             _logger.LogWarning("Group {GroupId} has no other members; dropping a queued message", groupId);
-            return QueuedSendOutcome.GivenUp;
+            return QueuedSendOutcome.GiveUp(ChatSendRefusal.NoLongerThere);
         }
 
         var copies = new List<GroupMessageCopyDto>(otherMembers.Count);
@@ -267,7 +294,7 @@ public sealed class EncryptedChatMessageSender
                 // never publish one and everything behind this would wait forever.
                 _logger.LogWarning(
                     "No public key for {MemberUserId} in group {GroupId}; dropping a queued message", memberUserId, groupId);
-                return QueuedSendOutcome.GivenUp;
+                return QueuedSendOutcome.GiveUp(ChatSendRefusal.SomebodyHasNoChatKey);
             }
 
             var sealedText = identity.Encrypt(memberPublicKey, message.Text);
@@ -278,10 +305,12 @@ public sealed class EncryptedChatMessageSender
         if (outcome is GroupSendOutcome.MembershipChanged)
         {
             _logger.LogInformation("Group {GroupId} changed while a message was going out; it will be sent again", groupId);
-            return QueuedSendOutcome.WorthAnotherAttempt;
+            return QueuedSendOutcome.TryAgain;
         }
 
-        return outcome is GroupSendOutcome.Sent ? QueuedSendOutcome.Sent : QueuedSendOutcome.GivenUp;
+        return outcome is GroupSendOutcome.Sent
+            ? QueuedSendOutcome.WasSent
+            : QueuedSendOutcome.GiveUp(ChatSendRefusal.NoLongerThere);
     }
 
     private async Task RecordFailedAttemptAsync(
@@ -295,7 +324,7 @@ public sealed class EncryptedChatMessageSender
 
         _logger.LogWarning("Giving up on a queued message after {Attempts} attempts", message.FailedAttempts + 1);
         await _chatRepository.RemoveQueuedAsync(message.Id, cancellationToken);
-        progress.GivenUp++;
+        progress.GiveUp(ChatSendRefusal.NoLongerThere);
     }
 
     private async Task<Guid> RequireSignedInUserIdAsync()
@@ -321,15 +350,21 @@ public sealed class EncryptedChatMessageSender
         };
     }
 
-    private enum QueuedSendOutcome
+    /// <summary>
+    /// What became of one queued message. <see cref="Refusal"/> is what the screen needs and the log
+    /// alone could not give it.
+    /// </summary>
+    private sealed record QueuedSendOutcome(bool IsWorthAnotherAttempt, ChatSendRefusal Refusal)
     {
-        Sent,
+        public static readonly QueuedSendOutcome WasSent = new(IsWorthAnotherAttempt: false, ChatSendRefusal.None);
+
+        /// <summary>Refused for something the next flush may find resolved - the membership it read moved on.</summary>
+        public static readonly QueuedSendOutcome TryAgain = new(IsWorthAnotherAttempt: true, ChatSendRefusal.None);
 
         /// <summary>Refused in a way that will not change, so the message is dropped rather than retried.</summary>
-        GivenUp,
+        public static QueuedSendOutcome GiveUp(ChatSendRefusal refusal) => new(IsWorthAnotherAttempt: false, refusal);
 
-        /// <summary>Refused for something the next flush may find resolved.</summary>
-        WorthAnotherAttempt
+        public bool IsSent => !IsWorthAnotherAttempt && Refusal is ChatSendRefusal.None;
     }
 
     private sealed record ChatDirectory(
@@ -341,12 +376,20 @@ public sealed class EncryptedChatMessageSender
     {
         public int Sent { get; set; }
 
-        public int GivenUp { get; set; }
+        public int GivenUp { get; private set; }
+
+        public ChatSendRefusal Refusal { get; private set; } = ChatSendRefusal.None;
 
         public bool ReachedTheServer { get; set; } = true;
 
         public bool KeepGoing { get; set; } = true;
 
-        public ChatSendResult ToResult() => new(Sent, GivenUp, ReachedTheServer);
+        public void GiveUp(ChatSendRefusal refusal)
+        {
+            GivenUp++;
+            Refusal = refusal;
+        }
+
+        public ChatSendResult ToResult() => new(Sent, GivenUp, ReachedTheServer, Refusal);
     }
 }
