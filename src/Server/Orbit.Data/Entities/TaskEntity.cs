@@ -26,6 +26,7 @@ public sealed class TaskEntity
 
     /// <summary>Stored by name, like every other enum here - see Orbit.Core.Tasks.TaskListPriority.</summary>
     public string Priority { get; set; } = nameof(Orbit.Core.Tasks.TaskListPriority.Normal);
+    public bool IsPinned { get; set; }
 
     /// <summary>The user id currently holding the edit lock, if any - see Orbit.Core.Tasks.TaskList.LockedByUserId.</summary>
     public Guid? LockedByUserId { get; set; }

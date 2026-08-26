@@ -10,4 +10,4 @@ public sealed record TaskDto(
     bool IsPrivate, EncryptedContentDto? EncryptedContent,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
     bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId,
-    string Priority = "Normal", string Status = "New");
+    string Priority = "Normal", string Status = "New", bool IsPinned = false);
