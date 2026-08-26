@@ -87,8 +87,14 @@ else
                 <p class="error">@_saveErrorMessage</p>
             }
             <div class="form-actions">
-                <button type="submit" class="btn-primary">@T["Save"]</button>
+                @* Disabled rather than left to fail on the server: an empty note is a mistake to catch
+                   while it is still being made, and the hint beside it says what is missing. *@
+                <button type="submit" class="btn-primary" disabled="@(!HasSomethingToSave)">@T["Save"]</button>
                 <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
+                @if (!HasSomethingToSave)
+                {
+                    <span class="form-hint">@T["Give it a title, or write something in it."]</span>
+                }
             </div>
         </fieldset>
     </EditForm>
@@ -250,6 +256,15 @@ else
 
         _isLoading = false;
     }
+
+    /// <summary>
+    /// Mirrors Note.EnsureSomethingToRead, which is what actually refuses the save - a title on its own
+    /// is a whole note, and a private one is exempt because its readable fields travel empty by design.
+    /// </summary>
+    private bool HasSomethingToSave
+        => _formModel.IsPrivate
+            || !string.IsNullOrWhiteSpace(_formModel.Title)
+            || _formModel.Content.Any(line => !string.IsNullOrWhiteSpace(line.Text));
 
     private async Task SaveAsync()
     {
