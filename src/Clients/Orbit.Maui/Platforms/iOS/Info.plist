@@ -37,5 +37,9 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<!-- Shown verbatim in the system prompt, so it says what Orbit does with a position rather than
+	     asking for permission in the abstract. "When in use" only: see PhoneLocation. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Orbit uses your location to record where you are and to share it with people you choose. It is encrypted for them before it leaves your phone.</string>
 </dict>
 </plist>

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Location.MapPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
+    xmlns:mobile="clr-namespace:Orbit.Mobile.Location;assembly=Orbit.Mobile"
+    xmlns:location="clr-namespace:Orbit.Maui.Features.Location"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Location;assembly=Orbit.Mobile"
+    x:DataType="screens:MapViewModel"
+    Title="Location">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="12">
+
+            <Label Text="Location" FontSize="26" FontAttributes="Bold" />
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                   FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+
+            <Label Text="Where you are" FontAttributes="Bold" />
+            <Label Text="{Binding OwnPositionDescription}" LineBreakMode="WordWrap" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsNotChoosing}">
+                <Button Grid.Column="0" Text="Read my position" Command="{Binding ReadMyPositionCommand}" />
+                <Button Grid.Column="1" Text="Share it" Command="{Binding StartSharingCommand}"
+                        IsEnabled="{Binding HasOwnPosition}" />
+            </Grid>
+
+            <!-- Choosing who to share with replaces the buttons above rather than stacking under them. -->
+            <VerticalStackLayout Spacing="8" IsVisible="{Binding IsChoosingWhoToShareWith}">
+                <Label Text="Share with" FontAttributes="Bold" />
+                <CollectionView ItemsSource="{Binding Candidates}" HeightRequest="200">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="data:LocalContact">
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{Binding DisplayName}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Text="Share" FontSize="13" Padding="14,4"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ShareWithCommand, x:DataType=location:MapPage}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                <Button Text="Cancel" Command="{Binding CancelSharingCommand}"
+                        BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+            </VerticalStackLayout>
+
+            <Label Text="Who can see you" FontAttributes="Bold" Margin="0,12,0,0" />
+            <CollectionView ItemsSource="{Binding SharingWith}" HeightRequest="180">
+                <CollectionView.EmptyView>
+                    <Label Text="Nobody." FontSize="12" TextColor="{StaticResource Gray500}" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="screens:SharingWithRow">
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+                            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding DisplayName}" FontSize="16" />
+                                <Label Text="{Binding Detail}" FontSize="11" TextColor="{StaticResource Gray500}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="Stop" FontSize="13" Padding="14,4"
+                                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StopSharingWithCommand, x:DataType=location:MapPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Label Text="Shared with you" FontAttributes="Bold" Margin="0,12,0,0" />
+            <CollectionView ItemsSource="{Binding SharedWithMe}" HeightRequest="200">
+                <CollectionView.EmptyView>
+                    <Label Text="Nobody is sharing their position with you." FontSize="12"
+                           TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="mobile:ReceivedPosition">
+                        <VerticalStackLayout Padding="0,10" Spacing="2">
+                            <Label Text="{Binding SharerDisplayName}" FontSize="16" FontAttributes="Bold" />
+                            <Label Text="{Binding Position.Address}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding Position.RecordedAtUtc, StringFormat='{0:g}'}"
+                                   FontSize="11" TextColor="{StaticResource Gray500}" />
+                            <!-- Listed rather than dropped: that somebody is sharing and it cannot be
+                                 opened is worth seeing. -->
+                            <Label Text="This position can't be opened on this device."
+                                   IsVisible="{Binding CannotBeOpened}"
+                                   FontSize="12" TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Button Text="Back to notes" Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

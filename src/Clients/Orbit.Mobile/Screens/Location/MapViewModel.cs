@@ -1,0 +1,278 @@
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Orbit.Mobile.Api;
+using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Data;
+using Orbit.Mobile.Location;
+using Orbit.Mobile.Sync;
+
+namespace Orbit.Mobile.Screens.Location;
+
+/// <summary>
+/// Where the reader is, who they are letting see it, and where the people sharing with them are.
+///
+/// Nothing here is offline-capable, and that is the honest shape rather than a gap. A position is only
+/// worth anything while it is current: showing yesterday's point on a map is worse than showing none,
+/// because it looks exactly like today's. So this asks the device and the server each time and says so
+/// when it cannot.
+/// </summary>
+public sealed partial class MapViewModel : ObservableObject
+{
+    private readonly IDeviceLocation _deviceLocation;
+    private readonly LocationClient _locationClient;
+    private readonly SharedLocations _sharedLocations;
+    private readonly UsersClient _usersClient;
+    private readonly ChatRepository _chatRepository;
+    private readonly ChatSynchronizer _synchronizer;
+    private readonly IScreenNavigator _navigator;
+
+    private SharedPosition? _ownPosition;
+
+    [ObservableProperty]
+    private string _ownPositionDescription = "Not read yet.";
+
+    [ObservableProperty]
+    private string _message = string.Empty;
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    [ObservableProperty]
+    private bool _isChoosingWhoToShareWith;
+
+    public MapViewModel(
+        IDeviceLocation deviceLocation, LocationClient locationClient, SharedLocations sharedLocations,
+        UsersClient usersClient, ChatRepository chatRepository, ChatSynchronizer synchronizer,
+        IScreenNavigator navigator)
+    {
+        _deviceLocation = deviceLocation;
+        _locationClient = locationClient;
+        _sharedLocations = sharedLocations;
+        _usersClient = usersClient;
+        _chatRepository = chatRepository;
+        _synchronizer = synchronizer;
+        _navigator = navigator;
+    }
+
+    /// <summary>People whose position the reader can currently see.</summary>
+    public ObservableCollection<ReceivedPosition> SharedWithMe { get; } = [];
+
+    /// <summary>People who can currently see the reader's.</summary>
+    public ObservableCollection<SharingWithRow> SharingWith { get; } = [];
+
+    /// <summary>Who a position could be shared with: the people this phone has conversations with.</summary>
+    public ObservableCollection<LocalContact> Candidates { get; } = [];
+
+    public bool HasMessage => Message.Length > 0;
+
+    public bool HasOwnPosition => _ownPosition is not null;
+
+    public bool IsNotChoosing => !IsChoosingWhoToShareWith;
+
+    [RelayCommand]
+    private async Task LoadAsync(CancellationToken cancellationToken)
+    {
+        Message = string.Empty;
+        IsBusy = true;
+        try
+        {
+            await ShowWhoIsSharingAsync(cancellationToken);
+            await ShowWhoCanSeeMeAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            // See ContactsViewModel: refused rather than unreachable, and it must not escape a command
+            // nobody is awaiting.
+            Message = "Couldn't reach Orbit just now.";
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            _navigator.ShowChatKeyGate();
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-load.
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Reads where the phone is and records it against the account. Recording and sharing are separate
+    /// on purpose: knowing where you are is the reader's own business, and nobody else sees it until
+    /// they say who.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReadMyPositionAsync(CancellationToken cancellationToken)
+    {
+        Message = string.Empty;
+        IsBusy = true;
+        try
+        {
+            var reading = await _deviceLocation.ReadAsync(cancellationToken);
+            if (reading.Outcome is not DeviceLocationOutcome.Found)
+            {
+                Message = reading.Outcome is DeviceLocationOutcome.NotPermitted
+                    ? "Orbit needs permission to use your location. Turn it on in Settings."
+                    : "Couldn't get a position - try again outdoors.";
+                return;
+            }
+
+            _ownPosition = new SharedPosition(
+                reading.Latitude, reading.Longitude, reading.Address, DateTimeOffset.UtcNow);
+            OwnPositionDescription = Describe(_ownPosition);
+            OnPropertyChanged(nameof(HasOwnPosition));
+
+            await _locationClient.SaveOwnAsync(
+                reading.Latitude, reading.Longitude, reading.Address, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            Message = "Read your position, but couldn't save it - Orbit is out of reach.";
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-read.
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task StartSharingAsync(CancellationToken cancellationToken)
+    {
+        Message = string.Empty;
+        if (_ownPosition is null)
+        {
+            Message = "Read your position first.";
+            return;
+        }
+
+        Candidates.Clear();
+        foreach (var contact in await _chatRepository.GetContactsAsync(cancellationToken))
+        {
+            if (contact.PublicKeyBase64 is not null)
+            {
+                Candidates.Add(contact);
+            }
+        }
+
+        if (Candidates.Count == 0)
+        {
+            // Sealing needs their key, and a key only exists once they have used Orbit.
+            Message = "Nobody to share with yet - start a conversation first.";
+            return;
+        }
+
+        IsChoosingWhoToShareWith = true;
+    }
+
+    [RelayCommand]
+    private void CancelSharing()
+    {
+        IsChoosingWhoToShareWith = false;
+        Message = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task ShareWithAsync(LocalContact? contact, CancellationToken cancellationToken)
+    {
+        if (contact is null || _ownPosition is null)
+        {
+            return;
+        }
+
+        IsChoosingWhoToShareWith = false;
+        try
+        {
+            Message = await _sharedLocations.ShareAsync(contact.UserId, _ownPosition, isContinuous: false, cancellationToken)
+                ? $"Shared with {contact.DisplayName}."
+                : $"{contact.DisplayName} hasn't set up Orbit's encryption yet, so there is nothing to share to.";
+
+            await ShowWhoCanSeeMeAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            Message = "Sharing a position needs a connection.";
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            _navigator.ShowChatKeyGate();
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-share.
+        }
+    }
+
+    [RelayCommand]
+    private async Task StopSharingWithAsync(SharingWithRow? row, CancellationToken cancellationToken)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _locationClient.StopSharingAsync(row.UserId, cancellationToken);
+            Message = $"{row.DisplayName} can no longer see where you are.";
+            await ShowWhoCanSeeMeAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            Message = "Stopping needs a connection - they can still see you until it goes through.";
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-stop.
+        }
+    }
+
+    [RelayCommand]
+    private void GoBack() => _navigator.ShowNotes();
+
+    private async Task ShowWhoIsSharingAsync(CancellationToken cancellationToken)
+    {
+        var received = await _sharedLocations.ReadSharedWithMeAsync(cancellationToken);
+        SharedWithMe.Clear();
+        foreach (var position in received)
+        {
+            SharedWithMe.Add(position);
+        }
+    }
+
+    private async Task ShowWhoCanSeeMeAsync(CancellationToken cancellationToken)
+    {
+        // The contact cache names most of them; anybody it misses is looked up, because somebody can be
+        // shared with without a conversation having happened since.
+        await _synchronizer.SynchroniseContactsAsync(cancellationToken);
+        var contacts = (await _chatRepository.GetContactsAsync(cancellationToken))
+            .ToDictionary(contact => contact.UserId, contact => contact.DisplayName);
+
+        var shares = await _locationClient.GetOwnSharesAsync(cancellationToken);
+        SharingWith.Clear();
+        foreach (var share in shares)
+        {
+            var displayName = contacts.GetValueOrDefault(share.RecipientUserId)
+                ?? (await _usersClient.FindAsync(share.RecipientUserId, cancellationToken))?.DisplayName
+                ?? "Someone";
+
+            SharingWith.Add(new SharingWithRow(share.RecipientUserId, displayName, share.IsContinuous, share.UpdatedAtUtc));
+        }
+    }
+
+    private static string Describe(SharedPosition position)
+        => position.Address is { Length: > 0 } address
+            ? address
+            : $"{position.Latitude:F5}, {position.Longitude:F5}";
+
+    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+
+    partial void OnIsChoosingWhoToShareWithChanged(bool value) => OnPropertyChanged(nameof(IsNotChoosing));
+}

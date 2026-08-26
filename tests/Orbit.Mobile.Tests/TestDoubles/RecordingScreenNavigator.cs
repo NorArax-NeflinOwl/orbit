@@ -44,5 +44,7 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowInventory() => _destinations.Add(nameof(ShowInventory));
 
+    public void ShowMap() => _destinations.Add(nameof(ShowMap));
+
     public void ShowWarehouse(Guid localId) => _destinations.Add(nameof(ShowWarehouse));
 }

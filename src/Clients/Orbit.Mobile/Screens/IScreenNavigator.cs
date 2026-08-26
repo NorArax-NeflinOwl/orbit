@@ -40,5 +40,7 @@ public interface IScreenNavigator
 
     void ShowInventory();
 
+    void ShowMap();
+
     void ShowWarehouse(Guid localId);
 }

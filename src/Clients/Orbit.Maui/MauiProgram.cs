@@ -7,6 +7,8 @@ using Orbit.Mobile.Screens.Authentication;
 using Orbit.Mobile.Screens.Calendar;
 using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Screens.Inventory;
+using Orbit.Mobile.Screens.Location;
+using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Startup;
 using Orbit.Mobile.Screens.Tasks;
@@ -15,6 +17,7 @@ using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Inventory;
+using Orbit.Maui.Features.Location;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Tasks;
 using Orbit.Maui.Features.Startup;
@@ -89,6 +92,8 @@ public static class MauiProgram
 		services.AddTransient<ChatDirectoryReader>();
 		services.AddTransient<EncryptedChatMessageEditor>();
 		services.AddTransient<MessageForwarder>();
+		services.AddTransient<SharedLocations>();
+		services.AddSingleton<IDeviceLocation, PhoneLocation>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)
@@ -143,6 +148,8 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<UsersClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<LocationClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
 	}
 
@@ -182,6 +189,8 @@ public static class MauiProgram
 		services.AddTransient<TaskListDetailViewModel>();
 		services.AddTransient<CalendarPage>();
 		services.AddTransient<CalendarViewModel>();
+		services.AddTransient<MapPage>();
+		services.AddTransient<MapViewModel>();
 		services.AddTransient<InventoryPage>();
 		services.AddTransient<InventoryViewModel>();
 		services.AddTransient<WarehouseDetailPage>();

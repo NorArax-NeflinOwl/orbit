@@ -92,6 +92,12 @@ running the server" is not the same address from each:
 | Android emulator | `http://10.0.2.2:5080` — the emulator's fixed alias for its host |
 | A physical device | Neither. Use the Mac's LAN address, and note iOS refuses plaintext HTTP to it |
 
+**A change to `Platforms/iOS/Info.plist` does not always survive an incremental build.** A permission
+string added there was missing from the built `.app` until `bin`/`obj` for `net10.0-ios` were deleted -
+and iOS answers a permission request with an instant refusal when the string is absent, with no prompt
+and nothing in the log, which looks exactly like the reader saying no. Delete the iOS output after
+editing that file.
+
 iOS blocks cleartext HTTP by default. `Platforms/iOS/Info.plist` carries `NSAllowsLocalNetworking`,
 which permits it for local and loopback hosts only — a LAN address needs HTTPS or its own exception.
 
