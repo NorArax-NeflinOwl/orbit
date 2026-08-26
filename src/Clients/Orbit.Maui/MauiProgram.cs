@@ -5,6 +5,7 @@ using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Notes;
+using Orbit.Maui.Features.Tasks;
 using Orbit.Maui.Features.Startup;
 using Orbit.Maui.Platform;
 using Orbit.Mobile.Api;
@@ -57,11 +58,13 @@ public static class MauiProgram
 		services.AddSingleton(TimeProvider.System);
 		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
 		services.AddSingleton<LocalNoteRepository>();
+		services.AddSingleton<LocalTaskListRepository>();
 
 		// Transient, not singleton: both take a typed HttpClient, and holding one for the life of the app
 		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
 		services.AddTransient<OwnEncryptionKeyProvider>();
 		services.AddTransient<NoteSynchronizer>();
+		services.AddTransient<TaskListSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<EncryptedChatMessageReader>();
 		services.AddTransient<EncryptedChatMessageSender>();
@@ -101,6 +104,8 @@ public static class MauiProgram
 
 		services.AddHttpClient<NotesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<TasksClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 
 		services.AddHttpClient<TokenRefreshService>(client => client.BaseAddress = apiSettings.BaseAddress);
 		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress);
@@ -135,5 +140,7 @@ public static class MauiProgram
 		services.AddTransient<ConversationViewModel>();
 		services.AddTransient<NotesPage>();
 		services.AddTransient<NotesViewModel>();
+		services.AddTransient<TasksPage>();
+		services.AddTransient<TasksViewModel>();
 	}
 }

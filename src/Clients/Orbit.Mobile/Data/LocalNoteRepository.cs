@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Contracts.Notes;
+using Orbit.Core.Sync;
 
 namespace Orbit.Mobile.Data;
 
@@ -42,7 +43,8 @@ public sealed class LocalNoteRepository
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var localIds = await dbContext.Outbox
-            .Select(entry => entry.NoteLocalId)
+            .Where(entry => entry.EntityType == SyncEntityType.Note)
+            .Select(entry => entry.LocalId)
             .Distinct()
             .ToListAsync(cancellationToken);
 
@@ -110,7 +112,8 @@ public sealed class LocalNoteRepository
         // stops replay from creating the note the user has just thrown away.
         if (note.ServerId is null)
         {
-            dbContext.Outbox.RemoveRange(dbContext.Outbox.Where(entry => entry.NoteLocalId == localId));
+            dbContext.Outbox.RemoveRange(dbContext.Outbox.Where(
+                entry => entry.EntityType == SyncEntityType.Note && entry.LocalId == localId));
         }
         else
         {
@@ -126,8 +129,9 @@ public sealed class LocalNoteRepository
         Guid? noteServerId = null)
         => dbContext.Outbox.Add(new OutboxEntry
         {
-            NoteLocalId = noteLocalId,
-            NoteServerId = noteServerId,
+            EntityType = SyncEntityType.Note,
+            LocalId = noteLocalId,
+            ServerId = noteServerId,
             Operation = operation,
             QueuedAtUtc = queuedAtUtc
         });

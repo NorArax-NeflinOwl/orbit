@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Orbit.Mobile.Data;
 
@@ -10,9 +11,11 @@ using Orbit.Mobile.Data;
 namespace Orbit.Mobile.Data.Migrations
 {
     [DbContext(typeof(OrbitLocalDbContext))]
-    partial class OrbitLocalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826134105_OneOutboxForEveryEntityType")]
+    partial class OneOutboxForEveryEntityType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -136,80 +139,6 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasFilter("\"ServerId\" IS NOT NULL");
 
                     b.ToTable("Notes");
-                });
-
-            modelBuilder.Entity("Orbit.Mobile.Data.LocalTaskList", b =>
-                {
-                    b.Property<Guid>("LocalId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AccessLevel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("CreatedAtUtc")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("EncryptedCiphertext")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("EncryptedNonce")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsCompleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsGroup")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsPinned")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsPrivate")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsShared")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsSharedWithOthers")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Items")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long?>("LastSyncedAtUtc")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Priority")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("ServerId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SharedByUserName")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("UpdatedAtUtc")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("LocalId");
-
-                    b.HasIndex("ServerId")
-                        .IsUnique()
-                        .HasFilter("\"ServerId\" IS NOT NULL");
-
-                    b.ToTable("TaskLists");
                 });
 
             modelBuilder.Entity("Orbit.Mobile.Data.OutboxEntry", b =>

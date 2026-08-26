@@ -10,7 +10,7 @@ namespace Orbit.Mobile.Data;
 /// structural rather than an optimisation: a screen written against the API cannot be given offline
 /// support later without rewriting it.
 /// </summary>
-public sealed class LocalNote
+public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
 {
     /// <summary>
     /// The key on this device, generated here and never changing. Distinct from <see cref="ServerId"/>

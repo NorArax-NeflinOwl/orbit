@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Orbit.Contracts.Notes;
+using Orbit.Contracts.Tasks;
 
 namespace Orbit.Mobile.Data;
 
@@ -9,4 +10,5 @@ namespace Orbit.Mobile.Data;
 /// that round-trips in Debug and silently fails to in the shipped build is found late and painfully.
 /// </summary>
 [JsonSerializable(typeof(IReadOnlyList<NoteContentLineDto>))]
+[JsonSerializable(typeof(IReadOnlyList<TaskItemDto>))]
 internal sealed partial class LocalStoreSerializerContext : JsonSerializerContext;

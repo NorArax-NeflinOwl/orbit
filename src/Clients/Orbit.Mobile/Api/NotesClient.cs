@@ -6,24 +6,6 @@ using Orbit.Contracts.Sync;
 namespace Orbit.Mobile.Api;
 
 /// <summary>
-/// What the server did with a write the phone had already applied locally.
-/// </summary>
-public enum NoteWriteOutcome
-{
-    Applied,
-
-    /// <summary>
-    /// Somebody else held the edit lock. Under the offline policy this should be rare - shared notes
-    /// are not editable offline - but sharing can change while the phone is away, so it has to be
-    /// handled rather than assumed impossible.
-    /// </summary>
-    Refused,
-
-    /// <summary>The note is gone server-side. Nothing queued against it can ever succeed.</summary>
-    Gone
-}
-
-/// <summary>
 /// The notes half of the API. Only the synchroniser calls this - screens read the local database, and
 /// the sync layer is what keeps the two in step (see info/orbit-maui-plan.md §5).
 /// </summary>
@@ -56,34 +38,34 @@ public sealed class NotesClient
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
     }
 
-    public async Task<NoteWriteOutcome> UpdateAsync(Guid noteId, UpdateNoteRequest request, CancellationToken cancellationToken = default)
+    public async Task<WriteOutcome> UpdateAsync(Guid noteId, UpdateNoteRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync($"api/notes/{noteId}", request, cancellationToken);
         return ReadOutcome(response);
     }
 
-    public async Task<NoteWriteOutcome> DeleteAsync(Guid noteId, CancellationToken cancellationToken = default)
+    public async Task<WriteOutcome> DeleteAsync(Guid noteId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/notes/{noteId}", cancellationToken);
         // A note already gone is the outcome the caller wanted, not a failure to retry.
-        return response.StatusCode is HttpStatusCode.NotFound ? NoteWriteOutcome.Applied : ReadOutcome(response);
+        return response.StatusCode is HttpStatusCode.NotFound ? WriteOutcome.Applied : ReadOutcome(response);
     }
 
     /// <summary>
     /// Anything not named here - a server error, a gateway timeout - throws, so the queued change stays
     /// queued and is tried again. Only a refusal the server will repeat is worth giving up on.
     /// </summary>
-    private static NoteWriteOutcome ReadOutcome(HttpResponseMessage response)
+    private static WriteOutcome ReadOutcome(HttpResponseMessage response)
     {
         switch (response.StatusCode)
         {
             case HttpStatusCode.Conflict:
-                return NoteWriteOutcome.Refused;
+                return WriteOutcome.Refused;
             case HttpStatusCode.NotFound:
-                return NoteWriteOutcome.Gone;
+                return WriteOutcome.Gone;
             default:
                 response.EnsureSuccessStatusCode();
-                return NoteWriteOutcome.Applied;
+                return WriteOutcome.Applied;
         }
     }
 }

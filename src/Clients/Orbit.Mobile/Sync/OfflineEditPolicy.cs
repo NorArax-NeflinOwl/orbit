@@ -1,6 +1,16 @@
-using Orbit.Mobile.Data;
-
 namespace Orbit.Mobile.Sync;
+
+/// <summary>
+/// The two facts that decide whether something may be changed offline: whether it reached this user
+/// through somebody else's share, and whether they shared it out to somebody else. Every syncable thing
+/// that can be shared answers both, which is why the policy takes this rather than one entity type.
+/// </summary>
+public interface ISharedState
+{
+    bool IsShared { get; }
+
+    bool IsSharedWithOthers { get; }
+}
 
 /// <summary>Why a note cannot be changed right now, or <see cref="None"/> when it can.</summary>
 public enum OfflineEditRefusal
@@ -28,21 +38,21 @@ public enum OfflineEditRefusal
 /// </summary>
 public static class OfflineEditPolicy
 {
-    public static OfflineEditRefusal Evaluate(LocalNote note, INetworkStatus networkStatus)
+    public static OfflineEditRefusal Evaluate(ISharedState item, INetworkStatus networkStatus)
     {
         if (networkStatus.IsOnline)
         {
             return OfflineEditRefusal.None;
         }
 
-        if (note.IsShared)
+        if (item.IsShared)
         {
             return OfflineEditRefusal.SharedWithYou;
         }
 
-        return note.IsSharedWithOthers ? OfflineEditRefusal.SharedWithOthers : OfflineEditRefusal.None;
+        return item.IsSharedWithOthers ? OfflineEditRefusal.SharedWithOthers : OfflineEditRefusal.None;
     }
 
-    public static bool IsAllowed(LocalNote note, INetworkStatus networkStatus)
-        => Evaluate(note, networkStatus) is OfflineEditRefusal.None;
+    public static bool IsAllowed(ISharedState item, INetworkStatus networkStatus)
+        => Evaluate(item, networkStatus) is OfflineEditRefusal.None;
 }

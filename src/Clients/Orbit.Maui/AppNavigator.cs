@@ -2,6 +2,7 @@ using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Notes;
+using Orbit.Maui.Features.Tasks;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Authentication;
 
@@ -44,6 +45,8 @@ public sealed class AppNavigator
 	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>();
 
 	public void ShowContacts() => ShowAsRoot<ContactsPage>();
+
+	public void ShowTasks() => ShowAsRoot<TasksPage>();
 
 	/// <summary>
 	/// A conversation needs to know whose it is, and these screens are resolved from the container rather

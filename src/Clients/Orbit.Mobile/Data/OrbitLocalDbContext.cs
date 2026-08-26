@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Orbit.Contracts.Notes;
+using Orbit.Contracts.Tasks;
 
 namespace Orbit.Mobile.Data;
 
@@ -18,6 +19,8 @@ public sealed class OrbitLocalDbContext : DbContext
     }
 
     public DbSet<LocalNote> Notes => Set<LocalNote>();
+
+    public DbSet<LocalTaskList> TaskLists => Set<LocalTaskList>();
 
     public DbSet<OutboxEntry> Outbox => Set<OutboxEntry>();
 
@@ -51,11 +54,23 @@ public sealed class OrbitLocalDbContext : DbContext
                 .Metadata.SetValueComparer(ContentComparer);
         });
 
+        modelBuilder.Entity<LocalTaskList>(taskList =>
+        {
+            taskList.HasKey(entity => entity.LocalId);
+            // Same filtered-unique rule as notes: every list created offline has no server id yet, and
+            // they would otherwise all collide with each other.
+            taskList.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
+            taskList.Property(entity => entity.Items)
+                .HasConversion(ItemsConverter)
+                .Metadata.SetValueComparer(ItemsComparer);
+        });
+
         modelBuilder.Entity<OutboxEntry>(entry =>
         {
             entry.HasKey(entity => entity.Id);
-            // Replay reads this in queue order, which is the only order that reconstructs what happened.
-            entry.HasIndex(entity => entity.Id);
+            // Replay reads one entity type's changes in queue order, which is the only order that
+            // reconstructs what happened.
+            entry.HasIndex(entity => new { entity.EntityType, entity.Id });
         });
 
         modelBuilder.Entity<SyncCursor>(cursor => cursor.HasKey(entity => entity.EntityType));
@@ -93,6 +108,20 @@ public sealed class OrbitLocalDbContext : DbContext
         (left, right) => left!.SequenceEqual(right!),
         content => content.Aggregate(0, (hash, line) => HashCode.Combine(hash, line.GetHashCode())),
         content => content.ToList());
+
+    /// <summary>
+    /// A task list's items are a list, and SQLite has no list column - the same problem a note's lines
+    /// have, and the same answer: JSON in one column, because nothing ever queries an individual item.
+    /// </summary>
+    private static readonly ValueConverter<IReadOnlyList<TaskItemDto>, string> ItemsConverter = new(
+        items => JsonSerializer.Serialize(items, LocalStoreSerializerContext.Default.IReadOnlyListTaskItemDto),
+        stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListTaskItemDto) ?? new List<TaskItemDto>());
+
+    /// <summary>Without this an edited item list is compared by reference and saved unchanged.</summary>
+    private static readonly ValueComparer<IReadOnlyList<TaskItemDto>> ItemsComparer = new(
+        (left, right) => left!.SequenceEqual(right!),
+        items => items.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
+        items => items.ToList());
 
     /// <summary>
     /// Everything stored here is UTC - the server sends UTC and the app stamps UTC - so the offset
