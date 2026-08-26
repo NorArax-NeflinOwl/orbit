@@ -135,7 +135,7 @@ else
             {
                 @foreach (var row in _reminderRows)
                 {
-                    <div class="field-row reminder-row">
+                    <div class="field-row reminder-row" id="reminderRows">
                         <select @bind="row.PresetSelection">
                             @foreach (var preset in ReminderPresets)
                             {
@@ -170,13 +170,13 @@ else
             </label>
         </div>
         <div class="field">
-            <label>@T["Notification as the event approaches"]<select @bind="_formModel.ReminderNotificationChannel">
-                    @foreach (var option in NotificationChannelOption.All)
-                    {
-                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                    }
-                </select>
-            </label>
+            <label for="reminderChannelSelect">@T["Notification as the event approaches"]</label>
+            <select id="reminderChannelSelect" @bind="_formModel.ReminderNotificationChannel">
+                @foreach (var option in NotificationChannelOption.All)
+                {
+                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                }
+            </select>
         </div>
 
     </fieldset>
@@ -329,9 +329,15 @@ else
     /// </summary>
     private readonly Dictionary<Guid, string> _resolvedGuestUserNames = [];
 
-    /// <summary>Common reminder offsets, mirroring Google Calendar's reminder picker.</summary>
+    /// <summary>
+    /// Common reminder offsets, mirroring Google Calendar's reminder picker. Zero is one of them: an
+    /// event beginning is worth hearing about, and being told only that it will begin in five minutes
+    /// leaves the moment itself unannounced. EventReminderPushContent already words a zero lead time as
+    /// "starts now" - the picker was the only place it could not be chosen.
+    /// </summary>
     private static readonly (int Minutes, string Label)[] ReminderPresets =
     [
+        (0, "When it starts"),
         (5, "5 minutes before"),
         (10, "10 minutes before"),
         (15, "15 minutes before"),
@@ -404,6 +410,11 @@ else
             else
             {
                 Logger.LogInformation("Calendar event editor opened for a new event");
+                // A reminder to go with the channel above. Without one the channel has nothing to fire,
+                // so a new event still told nobody anything - and ten minutes is what the Add button
+                // reaches for too. Only for a new event: an existing one keeps whatever it was given,
+                // including deliberately having none.
+                _formModel.ReminderMinutesBeforeStart = [DefaultReminderMinutesBeforeStart];
             }
 
             _reminderRows = _formModel.ReminderMinutesBeforeStart.Select(ReminderRow.FromMinutes).ToList();
@@ -473,7 +484,9 @@ else
         }
     }
 
-    private void AddReminderRow() => _reminderRows.Add(ReminderRow.FromMinutes(10));
+    private const int DefaultReminderMinutesBeforeStart = 10;
+
+    private void AddReminderRow() => _reminderRows.Add(ReminderRow.FromMinutes(DefaultReminderMinutesBeforeStart));
 
     private void RemoveReminderRow(ReminderRow row) => _reminderRows.Remove(row);
 
@@ -872,8 +885,18 @@ else
         public DateOnly? RecurrenceUntil { get; set; }
         public List<Guid> GuestUserIds { get; set; } = [];
         public List<int> ReminderMinutesBeforeStart { get; set; } = [];
+        /// <summary>
+        /// Confirming something the reader just did themselves is noise, so this stays off unless asked
+        /// for - unlike the reminder below, which is about a moment they are not present for.
+        /// </summary>
         public string CreationNotificationChannel { get; set; } = "None";
-        public string ReminderNotificationChannel { get; set; } = "None";
+
+        /// <summary>
+        /// Push by default, matching a task's overdue reminder and an inventory item's expiry. A new
+        /// event used to arrive with no reminder and no channel, so an event created without opening
+        /// either dropdown could never notify anyone - which reads, fairly, as reminders being broken.
+        /// </summary>
+        public string ReminderNotificationChannel { get; set; } = "Push";
 
         /// <summary>
         /// Defaults a new event to start now and end an hour later. Start and end are each derived from

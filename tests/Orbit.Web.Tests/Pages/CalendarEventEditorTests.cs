@@ -152,6 +152,35 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         Assert.DoesNotContain("Delete event", cut.Markup);
     }
 
+    [Fact]
+    public void A_new_event_arrives_with_a_reminder_that_will_actually_fire()
+    {
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        // A new event used to arrive with no reminder and both channels set to None, so creating one
+        // without opening either dropdown could never notify anybody - which reads, fairly, as event
+        // reminders being broken. Tasks and inventory items have defaulted to Push all along.
+        var reminderSelect = cut.Find("#reminderRows select");
+        Assert.Equal("10", reminderSelect.GetAttribute("value"));
+
+        var reminderChannel = cut.Find("#reminderChannelSelect");
+        Assert.Equal("Push", reminderChannel.GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_reminder_can_be_asked_for_at_the_moment_the_event_begins()
+    {
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        // The wording for a zero lead time already existed ("starts now"); the picker was the only
+        // place it could not be chosen, so an event beginning went unannounced.
+        Assert.Contains("When it starts", cut.Find("#reminderRows select").InnerHtml);
+    }
+
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(contacts))) { BaseAddress = new Uri("https://example.test/") };

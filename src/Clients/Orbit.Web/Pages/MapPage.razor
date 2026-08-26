@@ -10,6 +10,7 @@
 @inject GeocodingApiClient GeocodingApiClient
 @inject ChatApiClient ChatApiClient
 @inject SharedLocationSender SharedLocationSender
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject EncryptedChatMessageReader EncryptedChatMessageReader
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
@@ -94,6 +95,19 @@
                 @T["Nothing recorded yet. Recording asks your browser for your position - it will ask your permission first, and nothing is read until you press the button. Orbit keeps one point and no history: recording again replaces it, and forgetting it leaves nothing behind."]
             </p>
         </div>
+        @* Somebody else's position does not wait on the reader having recorded their own. Without this
+           the map was drawn only for people who had, so a notification saying someone had shared their
+           location led to a page that showed nothing of it. *@
+        @if (_receivedPositions.Count > 0)
+        {
+            <div class="card location-card">
+                <div class="card-header">
+                    <span class="card-title">@T["Shared with you"]</span>
+                    <span class="card-count">@_receivedPositions.Count</span>
+                </div>
+                <div id="@MapElementId" class="location-map"></div>
+            </div>
+        }
     }
     else
     {
@@ -173,7 +187,9 @@
     {
         // Deliberately not keyed on firstRender: the location arrives from an HTTP call, so the render
         // that has the map element in it is never the first one.
-        if (_location is null || _isMapDrawnFor)
+        // Drawn as soon as there is anything to put on it - the reader's own point is one of the points,
+        // not the condition for having a map at all.
+        if ((_location is null && _receivedPositions.Count == 0) || _isMapDrawnFor)
         {
             return;
         }
@@ -184,10 +200,12 @@
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
 
             // One map for everyone on it: the viewer's own position plus anyone sharing with them.
-            var points = new List<object>
+            var points = new List<object>();
+            if (_location is { } own)
             {
-                new { latitude = _location.Latitude, longitude = _location.Longitude, label = _location.Address ?? "You" }
-            };
+                points.Add(new { latitude = own.Latitude, longitude = own.Longitude, label = own.Address ?? "You" });
+            }
+
             points.AddRange(_receivedPositions.Select(received => (object)new
             {
                 latitude = received.Position.Latitude,
@@ -411,10 +429,21 @@
         _hasFailed = false;
         try
         {
+            // Checked before sharing, because sharing again with the same person overwrites the row
+            // rather than adding one - and the chat message should mark the act of sharing, not every
+            // time the position behind it moves. The refresh timer never comes through here at all.
+            var isNewShare = _ownShares.All(share => share.RecipientUserId != recipientUserId);
+
             await SharedLocationSender.ShareAsync(
                 _ownUserId, recipientUserId,
                 new SharedLocationSender.SharedPosition(location.Latitude, location.Longitude, location.Address, location.RecordedAtUtc),
                 isContinuous);
+
+            if (isNewShare)
+            {
+                await AnnounceShareInChatAsync(recipientUserId, isContinuous);
+            }
+
             _shareWithUserId = string.Empty;
             await LoadAsync();
             _message = isContinuous
@@ -517,6 +546,24 @@
         catch (Exception exception) when (exception is HttpRequestException or JSException or InvalidOperationException)
         {
             Logger.LogWarning(exception, "A location refresh tick did not complete");
+        }
+    }
+
+    /// <summary>
+    /// Puts the share in the conversation with whoever received it, the way sharing a note or an event
+    /// already does. Best-effort: the position has been shared by the time this runs, and failing to
+    /// mention it is not a reason to report the share itself as failed.
+    /// </summary>
+    private async Task AnnounceShareInChatAsync(Guid recipientUserId, bool isContinuous)
+    {
+        try
+        {
+            var payloadJson = JsonSerializer.Serialize(new LocationShareMessagePayload(isContinuous));
+            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Shared a location but could not announce it in the chat with {RecipientUserId}", recipientUserId);
         }
     }
 
