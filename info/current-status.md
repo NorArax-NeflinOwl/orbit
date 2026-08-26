@@ -4,8 +4,9 @@ Orbit is a working prototype. Accounts (including Google sign-in and full self-s
 management), notes, tasks, calendar, an inventory planner, and end-to-end-encrypted chat — one-to-one
 and group — are implemented end to end, including the Blazor WebAssembly web client, still the only
 client. Locations can now be recorded, seen on a map, and shared with a contact under the same
-encryption chat uses. The .NET MAUI client, and a real two-way Google Calendar sync as opposed to the
-hand-off links Orbit builds today, are what remain unbuilt of the product's stated scope.
+encryption chat uses. A mobile client (`Orbit.Maui`, planned in detail but not started) and a real
+two-way Google Calendar sync, as opposed to the hand-off links Orbit builds today, are what remain
+unbuilt of the product's stated scope.
 
 ## Implemented vs. planned
 
@@ -27,7 +28,7 @@ hand-off links Orbit builds today, are what remain unbuilt of the product's stat
 | Sharing a location with another user | Implemented | [Functionality](functionality.md#sharing-a-position-with-a-contact) |
 | Google Calendar and Maps links (verified/Google accounts) | Implemented | [Functionality](functionality.md#handing-something-off-to-google) |
 | Two-way Google Calendar sync | Not started | [Future Plan](future-plan.md#what-real-google-calendar-sync-would-take) |
-| A mobile client (.NET MAUI, or native iOS) | Not started, and the two plans compete | [Orbit.iOS — Plan](orbit-ios-plan.md) |
+| Mobile client (`Orbit.Maui`, iOS + Android) | Not started, planned in detail | [Orbit.Maui — Plan](orbit-maui-plan.md) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Password manager and password generator | Not started | [Future Plan](future-plan.md#planned-features) |
 
@@ -61,11 +62,11 @@ the push half needs the user to approve browser notifications first — see
 
 ## Not yet implemented
 
-- **A mobile client.** The Blazor WebAssembly web client is still the only one. Two plans exist for
-  this and only one should survive: the original .NET MAUI client (`src/Clients/Orbit.Maui` is an
-  empty folder that isn't part of the solution — a reservation, not a stub), and
-  [Orbit.iOS — Plan](orbit-ios-plan.md), a native Swift/SwiftUI client for iPhone 15 Pro carrying the
-  full feature set. Neither has been started; the choice between them is open.
+- **A mobile client.** The Blazor WebAssembly web client is still the only one.
+  [Orbit.Maui — Plan](orbit-maui-plan.md) covers one .NET MAUI project building both the iOS and
+  Android apps, with iPhone 15 Pro as the target device, full parity with the web client, offline
+  operation, a forced-update gate, and uploadable diagnostic logs. Nothing has been built yet —
+  `src/Clients/Orbit.Maui` is still an empty folder outside the solution.
 - **Two-way Google Calendar sync** — writing an event onto a recipient's real Google Calendar. What
   ships today is link-based hand-off, which needs no Google API at all — see
   [Functionality](functionality.md#these-are-links-not-an-api-integration).
