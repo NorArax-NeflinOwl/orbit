@@ -179,6 +179,40 @@ public sealed class NoteEditorTests : TestContext
         Assert.True(cut.Find("fieldset").HasAttribute("disabled"));
     }
 
+    [Fact]
+    public void A_new_note_cannot_be_saved_until_it_has_something_in_it()
+    {
+        RegisterApiClients(note: null);
+
+        var cut = RenderComponent<NoteEditor>();
+
+        // Caught while the mistake is still being made, rather than left to fail on the server.
+        Assert.True(cut.Find("button[type=submit]").HasAttribute("disabled"));
+        Assert.Contains("Give it a title", cut.Markup);
+    }
+
+    [Fact]
+    public void A_title_is_enough_to_save()
+    {
+        RegisterApiClients(note: null);
+        var cut = RenderComponent<NoteEditor>();
+
+        cut.Find(".note-editor-title").Change("Dentist on Tuesday");
+
+        Assert.False(cut.Find("button[type=submit]").HasAttribute("disabled"));
+        Assert.DoesNotContain("Give it a title", cut.Markup);
+    }
+
+    [Fact]
+    public void An_existing_note_with_content_saves_normally()
+    {
+        RegisterApiClients(Note("Shopping"));
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, Note("Shopping").Id));
+
+        Assert.False(cut.Find("button[type=submit]").HasAttribute("disabled"));
+    }
+
     /// <summary>
     /// Answers the editor's whole load sequence from one place: the note itself, the lock it tries to
     /// take, and the contacts the sharing picker offers.

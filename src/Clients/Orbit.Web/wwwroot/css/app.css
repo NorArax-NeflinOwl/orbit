@@ -2976,6 +2976,13 @@ input.note-editor-title {
     color: var(--accent);
 }
 
+/* Says what is missing beside a disabled Save (NoteEditor.razor). */
+.form-hint {
+    align-self: center;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
 /* ---- Replying to a particular message (Chat.razor) ---- */
 
 .chat-reply-strip {
