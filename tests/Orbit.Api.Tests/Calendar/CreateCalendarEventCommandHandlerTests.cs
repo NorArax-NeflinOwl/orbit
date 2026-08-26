@@ -140,8 +140,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
             repository,
             userRepository ?? new InMemoryUserRepository(),
             emailSender ?? new RecordingEmailSender(),
-            new PushNotificationDispatcher(
-                new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(),
+            new PushNotificationDispatcher(new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
                 NullLogger<PushNotificationDispatcher>.Instance),
             new NotificationRecorder(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository()),
             NullLogger<CreateCalendarEventCommandHandler>.Instance);

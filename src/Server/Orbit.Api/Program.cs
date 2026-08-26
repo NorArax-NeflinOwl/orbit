@@ -126,6 +126,13 @@ try
     builder.Services.Configure<VapidSettings>(builder.Configuration.GetSection("Vapid"));
     builder.Services.AddSingleton<WebPush.WebPushClient>();
     builder.Services.AddSingleton<IPushNotificationSender, VapidPushNotificationSender>();
+    // Firebase reaches the Orbit.Maui apps; PushNotificationDispatcher picks between the two by
+    // transport. Unconfigured, it logs and skips exactly as the VAPID sender does.
+    builder.Services.Configure<FirebaseSettings>(builder.Configuration.GetSection(FirebaseSettings.SectionName));
+    builder.Services.AddHttpClient<FirebaseAccessTokenProvider>();
+    builder.Services.AddHttpClient<FirebasePushNotificationSender>();
+    builder.Services.AddSingleton<IPushNotificationSender>(services =>
+        services.GetRequiredService<FirebasePushNotificationSender>());
     builder.Services.AddHostedService<OverdueTaskNotificationBackgroundService>();
     builder.Services.AddHostedService<DailyTaskReminderBackgroundService>();
     builder.Services.AddHostedService<InventoryExpiryReminderBackgroundService>();

@@ -70,6 +70,7 @@ using Orbit.Core.Transfer.ExportArchive;
 using Orbit.Core.Transfer.ImportArchive;
 using Orbit.Core.Notifications.MarkAllNotificationsRead;
 using Orbit.Core.Notifications.UpdateNotificationSettings;
+using Orbit.Core.PushNotifications.SubscribeDeviceToPush;
 using Orbit.Core.PushNotifications.SubscribeToPush;
 using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 using Orbit.Core.Tasks;
@@ -230,6 +231,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<ApproveConversationCommand, bool>, ApproveConversationCommandHandler>();
 
         services.AddScoped<IRequestHandler<SubscribeToPushCommand, bool>, SubscribeToPushCommandHandler>();
+        services.AddScoped<IRequestHandler<SubscribeDeviceToPushCommand, bool>, SubscribeDeviceToPushCommandHandler>();
         services.AddScoped<IRequestHandler<UnsubscribeFromPushCommand, bool>, UnsubscribeFromPushCommandHandler>();
         // Depends on IPushSubscriptionRepository (scoped, backed by the DbContext), so it must be scoped
         // too - called directly (not through IDispatcher) by SendMessageCommandHandler above and, in

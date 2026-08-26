@@ -18,7 +18,7 @@ public sealed class SubscribeToPushCommandHandlerTests
 
         Assert.True(result);
         var stored = Assert.Single(await repository.GetForUserAsync(userId, CancellationToken.None));
-        Assert.Equal("https://push.example/a", stored.Endpoint);
+        Assert.Equal("https://push.example/a", stored.WebPush!.Endpoint);
     }
 
     [Fact]
@@ -34,6 +34,6 @@ public sealed class SubscribeToPushCommandHandlerTests
             new SubscribeToPushCommand(userId, "https://push.example/a", "new-p256dh", "new-auth"), CancellationToken.None);
 
         var stored = Assert.Single(await repository.GetForUserAsync(userId, CancellationToken.None));
-        Assert.Equal("new-p256dh", stored.P256dhBase64);
+        Assert.Equal("new-p256dh", stored.WebPush!.P256dhBase64);
     }
 }

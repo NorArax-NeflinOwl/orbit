@@ -253,13 +253,13 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<PushSubscriptionEntity>(entity =>
         {
             entity.HasKey(subscription => subscription.Id);
-            entity.Property(subscription => subscription.Endpoint).IsRequired();
-            entity.Property(subscription => subscription.P256dhBase64).IsRequired();
-            entity.Property(subscription => subscription.AuthBase64).IsRequired();
-            // A browser's subscription endpoint is unique across all users - this is what
-            // PushSubscriptionRepository.AddOrReplaceAsync relies on to decide insert-vs-update, and
-            // also the index that makes "who does this endpoint belong to" fast.
+            entity.Property(subscription => subscription.Transport).IsRequired().HasMaxLength(20);
+            entity.Property(subscription => subscription.DevicePlatform).HasMaxLength(20);
+            // Both identify one destination, and re-registering the same one must update rather than
+            // duplicate (see PushSubscriptionRepository.AddOrReplaceAsync). Unique with nulls allowed,
+            // since a row only ever carries one of the two.
             entity.HasIndex(subscription => subscription.Endpoint).IsUnique();
+            entity.HasIndex(subscription => subscription.DeviceToken).IsUnique();
             // Every "notify this user" fan-out (see PushNotificationDispatcher) looks up subscriptions
             // by UserId; this index makes that fast instead of scanning the whole table.
             entity.HasIndex(subscription => subscription.UserId);

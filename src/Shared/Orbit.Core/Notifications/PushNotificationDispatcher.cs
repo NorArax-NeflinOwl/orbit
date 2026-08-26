@@ -17,16 +17,20 @@ namespace Orbit.Core.Notifications;
 public sealed class PushNotificationDispatcher
 {
     private readonly IPushSubscriptionRepository _pushSubscriptionRepository;
-    private readonly IPushNotificationSender _pushNotificationSender;
+    private readonly IReadOnlyDictionary<PushTransport, IPushNotificationSender> _sendersByTransport;
     private readonly ILogger<PushNotificationDispatcher> _logger;
 
     public PushNotificationDispatcher(
         IPushSubscriptionRepository pushSubscriptionRepository,
-        IPushNotificationSender pushNotificationSender,
+        IEnumerable<IPushNotificationSender> pushNotificationSenders,
         ILogger<PushNotificationDispatcher> logger)
     {
         _pushSubscriptionRepository = pushSubscriptionRepository;
-        _pushNotificationSender = pushNotificationSender;
+        // Last registration for a transport wins, so a deployment can substitute one without also
+        // having to remove the default.
+        _sendersByTransport = pushNotificationSenders
+            .GroupBy(sender => sender.Transport)
+            .ToDictionary(group => group.Key, group => group.Last());
         _logger = logger;
     }
 
@@ -35,9 +39,20 @@ public sealed class PushNotificationDispatcher
         var subscriptions = await _pushSubscriptionRepository.GetForUserAsync(userId, cancellationToken);
         foreach (var subscription in subscriptions)
         {
+            if (!_sendersByTransport.TryGetValue(subscription.Transport, out var sender))
+            {
+                // A subscription of a transport this deployment has no sender for - e.g. a phone
+                // registered against a build that has since dropped Firebase. Not an error worth
+                // shouting about, and certainly not worth failing the caller's own work over.
+                _logger.LogDebug(
+                    "No push sender configured for {Transport}; skipping subscription {SubscriptionId}",
+                    subscription.Transport, subscription.Id);
+                continue;
+            }
+
             try
             {
-                await _pushNotificationSender.SendAsync(subscription, payload, cancellationToken);
+                await sender.SendAsync(subscription, payload, cancellationToken);
             }
             catch (PushSubscriptionExpiredException)
             {
