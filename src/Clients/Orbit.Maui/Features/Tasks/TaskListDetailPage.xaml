@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Tasks.TaskListDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:tasks="clr-namespace:Orbit.Maui.Features.Tasks"
+    x:DataType="tasks:TaskListDetailViewModel"
+    Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+
+        <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
+
+        <Label Grid.Row="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+               FontSize="12" TextColor="{StaticResource Primary}" LineBreakMode="WordWrap" />
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
+            <Entry Grid.Column="0" Placeholder="New item" Text="{Binding NewItemDescription}"
+                   ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
+            <Button Grid.Column="1" Text="Add" Command="{Binding AddItemCommand}" />
+        </Grid>
+
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Items}">
+
+            <CollectionView.EmptyView>
+                <Label Text="Nothing on this list yet." Padding="24" HorizontalTextAlignment="Center" />
+            </CollectionView.EmptyView>
+
+            <!-- RelativeSource walks the *visual* tree, so the ancestor named here has to be an element:
+                 the page, whose BindingContext is the view model. Naming the view model type instead
+                 compiles and then silently binds to nothing. -->
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="tasks:TaskItemRow">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="0,10">
+                        <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="44"
+                                BackgroundColor="Transparent" TextColor="{StaticResource Primary}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleItemCommand, x:DataType=tasks:TaskListDetailPage}"
+                                CommandParameter="{Binding .}" />
+                        <Label Grid.Column="1" Text="{Binding Description}" VerticalOptions="Center"
+                               LineBreakMode="WordWrap" />
+                        <Button Grid.Column="2" Text="✕" WidthRequest="44"
+                                BackgroundColor="Transparent" TextColor="{StaticResource Gray500}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveItemCommand, x:DataType=tasks:TaskListDetailPage}"
+                                CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+        </CollectionView>
+
+        <Grid Grid.Row="4" ColumnDefinitions="*,*" ColumnSpacing="12">
+            <Button Grid.Column="0" Text="Back" Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+            <Button Grid.Column="1" Text="Delete list" Command="{Binding DeleteListCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Magenta}"
+                    IsVisible="{Binding CanEdit}" />
+        </Grid>
+
+    </Grid>
+
+</ContentPage>

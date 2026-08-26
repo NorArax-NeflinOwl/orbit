@@ -20,20 +20,28 @@ public sealed class TaskListSynchronizer
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly TasksClient _tasksClient;
     private readonly TimeProvider _timeProvider;
+    private readonly SyncGate _syncGate;
     private readonly ILogger<TaskListSynchronizer> _logger;
 
     public TaskListSynchronizer(
         IDbContextFactory<OrbitLocalDbContext> dbContextFactory, TasksClient tasksClient,
-        TimeProvider timeProvider, ILogger<TaskListSynchronizer> logger)
+        TimeProvider timeProvider, SyncGate syncGate, ILogger<TaskListSynchronizer> logger)
     {
         _dbContextFactory = dbContextFactory;
         _tasksClient = tasksClient;
         _timeProvider = timeProvider;
+        _syncGate = syncGate;
         _logger = logger;
     }
 
     /// <summary>Never throws for being offline - see NoteSynchronizer for why that is a rule here.</summary>
-    public async Task<SyncResult> SynchroniseAsync(CancellationToken cancellationToken = default)
+    public Task<SyncResult> SynchroniseAsync(CancellationToken cancellationToken = default)
+        // A run already in flight is asking the server the same question - see SyncGate for why a second
+        // one is dropped rather than queued.
+        => _syncGate.RunAsync(
+            SyncEntityType.TaskList, () => RunAsync(cancellationToken), SyncResult.AlreadyRunning);
+
+    private async Task<SyncResult> RunAsync(CancellationToken cancellationToken)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var push = await OutboxReplay.RunAsync(

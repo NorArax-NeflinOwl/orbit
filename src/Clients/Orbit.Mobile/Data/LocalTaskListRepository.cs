@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Sync;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Data;
 
@@ -14,11 +15,14 @@ public sealed class LocalTaskListRepository
 {
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
+    private readonly INetworkStatus _networkStatus;
 
-    public LocalTaskListRepository(IDbContextFactory<OrbitLocalDbContext> dbContextFactory, TimeProvider timeProvider)
+    public LocalTaskListRepository(
+        IDbContextFactory<OrbitLocalDbContext> dbContextFactory, TimeProvider timeProvider, INetworkStatus networkStatus)
     {
         _dbContextFactory = dbContextFactory;
         _timeProvider = timeProvider;
+        _networkStatus = networkStatus;
     }
 
     public async Task<IReadOnlyList<LocalTaskList>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -37,6 +41,20 @@ public sealed class LocalTaskListRepository
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await dbContext.TaskLists.AsNoTracking()
             .FirstOrDefaultAsync(taskList => taskList.LocalId == localId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Whether this list may be changed right now - the same question <see cref="UpdateAsync"/> asks
+    /// before writing, so a screen and the write it leads to can never disagree. Asking by attempting a
+    /// write would queue one, which is the opposite of what a read-only check is for.
+    /// </summary>
+    public async Task<bool> CanEditAsync(Guid localId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var taskList = await dbContext.TaskLists.AsNoTracking()
+            .FirstOrDefaultAsync(list => list.LocalId == localId, cancellationToken);
+
+        return taskList is not null && OfflineEditPolicy.IsAllowed(taskList, _networkStatus);
     }
 
     /// <summary>Which lists still have changes waiting to go out, so the screen can mark them.</summary>
@@ -73,14 +91,19 @@ public sealed class LocalTaskListRepository
         return taskList;
     }
 
-    /// <summary>False when the list is not there - it was deleted underneath the caller.</summary>
-    public async Task<bool> UpdateAsync(
+    /// <summary>Refuses rather than queues when the offline policy forbids it - see LocalWriteOutcome.</summary>
+    public async Task<LocalWriteOutcome> UpdateAsync(
         Guid localId, string title, IReadOnlyList<TaskItemDto> items, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         if (await dbContext.TaskLists.FirstOrDefaultAsync(list => list.LocalId == localId, cancellationToken) is not { } taskList)
         {
-            return false;
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(taskList, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
         }
 
         var now = _timeProvider.GetUtcNow();
@@ -92,15 +115,20 @@ public sealed class LocalTaskListRepository
 
         Enqueue(dbContext, localId, OutboxOperation.Update, now);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return LocalWriteOutcome.Applied;
     }
 
-    public async Task<bool> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)
+    public async Task<LocalWriteOutcome> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         if (await dbContext.TaskLists.FirstOrDefaultAsync(list => list.LocalId == localId, cancellationToken) is not { } taskList)
         {
-            return false;
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(taskList, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
         }
 
         dbContext.TaskLists.Remove(taskList);
@@ -118,7 +146,7 @@ public sealed class LocalTaskListRepository
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return LocalWriteOutcome.Applied;
     }
 
     private static void Enqueue(

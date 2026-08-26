@@ -23,6 +23,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public bool IsUnreachable { get; set; }
 
+    /// <summary>Set to hold every request open, so a test can make two runs genuinely overlap.</summary>
+    public TaskCompletionSource? HoldRequestsUntil { get; set; }
+
     public IReadOnlyCollection<TaskDto> TaskLists => _taskLists.Values;
 
     public TaskDto AddTaskList(string title, bool isShared = false, bool isSharedWithOthers = false)
@@ -49,6 +52,11 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     {
         var path = request.RequestUri!.AbsolutePath;
         ReceivedRequests.Add($"{request.Method} {path}");
+
+        if (HoldRequestsUntil is { } held)
+        {
+            await held.Task;
+        }
 
         if (IsUnreachable)
         {

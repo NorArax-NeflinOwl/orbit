@@ -59,7 +59,9 @@ public sealed class LocalNoteRepositoryTests
     {
         using var context = new RepositoryContext();
 
-        Assert.False(await context.Repository.UpdateAsync(Guid.NewGuid(), "Ghost", SomeContent));
+        Assert.Equal(
+            LocalWriteOutcome.NotFound,
+            await context.Repository.UpdateAsync(Guid.NewGuid(), "Ghost", SomeContent));
     }
 
     [Fact]
@@ -117,7 +119,7 @@ public sealed class LocalNoteRepositoryTests
     {
         private readonly LocalStore _localStore = new();
 
-        public RepositoryContext() => Repository = new LocalNoteRepository(_localStore, Clock);
+        public RepositoryContext() => Repository = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online);
 
         public FakeTimeProvider Clock { get; } = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         public LocalNoteRepository Repository { get; }

@@ -57,6 +57,8 @@ public static class MauiProgram
 		services.AddDbContextFactory<OrbitLocalDbContext>(options => options.UseSqlite(LocalDatabase.ConnectionString));
 		services.AddSingleton(TimeProvider.System);
 		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
+		// Shared, because the synchronisers are transient and the thing being guarded is the database.
+		services.AddSingleton<SyncGate>();
 		services.AddSingleton<LocalNoteRepository>();
 		services.AddSingleton<LocalTaskListRepository>();
 
@@ -142,5 +144,7 @@ public static class MauiProgram
 		services.AddTransient<NotesViewModel>();
 		services.AddTransient<TasksPage>();
 		services.AddTransient<TasksViewModel>();
+		services.AddTransient<TaskListDetailPage>();
+		services.AddTransient<TaskListDetailViewModel>();
 	}
 }

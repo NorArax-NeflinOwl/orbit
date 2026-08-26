@@ -1,4 +1,6 @@
+using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Tests.TestDoubles;
 using Orbit.Mobile.Sync;
 using Xunit;
 
@@ -51,9 +53,119 @@ public sealed class OfflineEditPolicyTests
         Assert.True(OfflineEditPolicy.IsAllowed(note, Online));
     }
 
-    private static INetworkStatus Offline => new FixedNetworkStatus(false);
+    private static INetworkStatus Offline => Orbit.Mobile.Tests.TestDoubles.FixedNetworkStatus.Offline;
 
-    private static INetworkStatus Online => new FixedNetworkStatus(true);
+    private static INetworkStatus Online => Orbit.Mobile.Tests.TestDoubles.FixedNetworkStatus.Online;
+}
 
-    private sealed record FixedNetworkStatus(bool IsOnline) : INetworkStatus;
+/// <summary>
+/// The policy is only worth anything if it is enforced where writes happen. Displaying it on a screen
+/// leaves every future screen free to forget - and the outbox is where forgetting would do the damage,
+/// because a queued edit to a shared item is exactly what the policy exists to prevent.
+/// </summary>
+public sealed class OfflineEditEnforcementTests
+{
+    private static readonly IReadOnlyList<TaskItemDto> SomeItems =
+    [
+        new(Guid.NewGuid(), "Buy milk", null, false, null, "None", false, "None", new TimeOnly(9, 0))
+    ];
+
+    [Fact]
+    public async Task Editing_a_shared_list_offline_is_refused_by_the_store_not_only_hidden_on_screen()
+    {
+        using var store = new LocalStore();
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var taskList = await SharedListAsync(store);
+
+        var outcome = await repository.UpdateAsync(taskList.LocalId, "Edited anyway", SomeItems);
+
+        Assert.Equal(LocalWriteOutcome.RefusedWhileOffline, outcome);
+    }
+
+    [Fact]
+    public async Task A_refused_edit_leaves_nothing_in_the_queue()
+    {
+        using var store = new LocalStore();
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var taskList = await SharedListAsync(store);
+
+        await repository.UpdateAsync(taskList.LocalId, "Edited anyway", SomeItems);
+
+        // Nothing queued means nothing will be replayed over somebody else's work later.
+        Assert.Empty(await repository.GetPendingLocalIdsAsync());
+    }
+
+    [Fact]
+    public async Task Deleting_a_shared_list_offline_is_refused_too()
+    {
+        using var store = new LocalStore();
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var taskList = await SharedListAsync(store);
+
+        Assert.Equal(LocalWriteOutcome.RefusedWhileOffline, await repository.DeleteAsync(taskList.LocalId));
+    }
+
+    [Fact]
+    public async Task Online_the_same_edit_goes_through_because_the_server_can_hold_a_lock()
+    {
+        using var store = new LocalStore();
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Online);
+        var taskList = await SharedListAsync(store);
+
+        Assert.Equal(LocalWriteOutcome.Applied, await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems));
+    }
+
+    [Fact]
+    public async Task A_list_nobody_else_can_touch_is_editable_offline()
+    {
+        using var store = new LocalStore();
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var taskList = await repository.CreateAsync("Mine alone", SomeItems);
+
+        Assert.Equal(LocalWriteOutcome.Applied, await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems));
+    }
+
+    [Fact]
+    public async Task Asking_whether_a_list_can_be_edited_does_not_edit_it()
+    {
+        using var store = new LocalStore();
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var taskList = await repository.CreateAsync("Mine alone", SomeItems);
+
+        await repository.CanEditAsync(taskList.LocalId);
+
+        // The obvious shortcut - probe by attempting a write - would queue one, which is the opposite of
+        // what a read-only check is for. Only the create should be waiting here.
+        Assert.Single(await repository.GetPendingLocalIdsAsync());
+    }
+
+    [Fact]
+    public async Task The_screen_and_the_write_agree_about_a_shared_list()
+    {
+        using var store = new LocalStore();
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var taskList = await SharedListAsync(store);
+
+        Assert.False(await repository.CanEditAsync(taskList.LocalId));
+        Assert.Equal(
+            LocalWriteOutcome.RefusedWhileOffline,
+            await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems));
+    }
+
+    /// <summary>A list the owner shared out - somebody else may be editing it right now.</summary>
+    private static async Task<LocalTaskList> SharedListAsync(LocalStore store)
+    {
+        await using var dbContext = store.CreateDbContext();
+        var taskList = new LocalTaskList
+        {
+            LocalId = Guid.NewGuid(),
+            ServerId = Guid.NewGuid(),
+            Title = "Shared",
+            IsSharedWithOthers = true
+        };
+
+        dbContext.TaskLists.Add(taskList);
+        await dbContext.SaveChangesAsync();
+        return taskList;
+    }
 }

@@ -62,6 +62,15 @@ public sealed partial class TasksViewModel : ObservableObject
 	private bool CanAddList => NewListTitle.Trim().Length > 0;
 
 	[RelayCommand]
+	private void OpenList(TaskListRow? row)
+	{
+		if (row is not null)
+		{
+			_navigator.ShowTaskList(row.LocalId);
+		}
+	}
+
+	[RelayCommand]
 	private void GoBack() => _navigator.ShowNotes();
 
 	private async Task ShowStoredListsAsync(CancellationToken cancellationToken)

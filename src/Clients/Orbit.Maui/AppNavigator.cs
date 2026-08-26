@@ -48,6 +48,9 @@ public sealed class AppNavigator
 
 	public void ShowTasks() => ShowAsRoot<TasksPage>();
 
+	public void ShowTaskList(Guid localId)
+		=> ShowAsRoot<TaskListDetailPage>(page => ((TaskListDetailViewModel)page.BindingContext).Open(localId));
+
 	/// <summary>
 	/// A conversation needs to know whose it is, and these screens are resolved from the container rather
 	/// than constructed - so the page is told after it exists, before it is shown.

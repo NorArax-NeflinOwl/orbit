@@ -18,6 +18,13 @@ namespace Orbit.Mobile.Sync;
 public sealed record SyncResult(int Sent, int Received, int RemovedLocally, int GivenUp, bool ReachedTheServer)
 {
     public static SyncResult NeverGotThrough(int givenUp) => new(0, 0, 0, givenUp, ReachedTheServer: false);
+
+    /// <summary>
+    /// Another run was already in flight, so this one did nothing. Reported as having reached the server
+    /// because the run in flight is doing exactly that - saying "offline" here would be a lie the screen
+    /// would show for no reason.
+    /// </summary>
+    public static SyncResult AlreadyRunning { get; } = new(0, 0, 0, 0, ReachedTheServer: true);
 }
 
 /// <summary>
@@ -38,6 +45,7 @@ public sealed class NoteSynchronizer
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly NotesClient _notesClient;
     private readonly TimeProvider _timeProvider;
+    private readonly SyncGate _syncGate;
     private readonly ILogger<NoteSynchronizer> _logger;
 
     /// <summary>
@@ -46,11 +54,12 @@ public sealed class NoteSynchronizer
     /// </summary>
     public NoteSynchronizer(
         IDbContextFactory<OrbitLocalDbContext> dbContextFactory, NotesClient notesClient,
-        TimeProvider timeProvider, ILogger<NoteSynchronizer> logger)
+        TimeProvider timeProvider, SyncGate syncGate, ILogger<NoteSynchronizer> logger)
     {
         _dbContextFactory = dbContextFactory;
         _notesClient = notesClient;
         _timeProvider = timeProvider;
+        _syncGate = syncGate;
         _logger = logger;
     }
 
@@ -59,7 +68,13 @@ public sealed class NoteSynchronizer
     /// and on a pull-to-refresh, and on a phone "there is no network" is an ordinary state rather than
     /// an error - making every caller wrap this in a try/catch would guarantee one of them forgets.
     /// </summary>
-    public async Task<SyncResult> SynchroniseAsync(CancellationToken cancellationToken = default)
+    public Task<SyncResult> SynchroniseAsync(CancellationToken cancellationToken = default)
+        // A run already in flight is asking the server the same question - see SyncGate for why a second
+        // one is dropped rather than queued.
+        => _syncGate.RunAsync(
+            SyncEntityType.Note, () => RunAsync(cancellationToken), SyncResult.AlreadyRunning);
+
+    private async Task<SyncResult> RunAsync(CancellationToken cancellationToken)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var push = await OutboxReplay.RunAsync(

@@ -16,9 +16,9 @@ internal sealed class SyncContext : IDisposable
     {
         Clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         Server = new FakeNotesServer(Clock);
-        Notes = new LocalNoteRepository(_localStore, Clock);
+        Notes = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online);
         Synchronizer = new NoteSynchronizer(
-            _localStore, new NotesClient(Server.ToHttpClient()), Clock,
+            _localStore, new NotesClient(Server.ToHttpClient()), Clock, new SyncGate(),
             NullLogger<NoteSynchronizer>.Instance);
     }
 

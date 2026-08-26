@@ -148,6 +148,58 @@ public sealed class TaskListSyncTests
     }
 
     [Fact]
+    public async Task Two_runs_at_once_do_not_create_the_same_list_twice()
+    {
+        using var context = new TaskContext();
+        context.GoOffline();
+        await context.TaskLists.CreateAsync("Groceries", SomeItems);
+        context.ComeBackOnline();
+
+        // Both runs load the outbox into their own context, so without a gate both would find the row's
+        // server id still null and both would send the create - two lists on the server out of one.
+        var held = new TaskCompletionSource();
+        context.Server.HoldRequestsUntil = held;
+        var first = context.SynchroniseAsync();
+        var second = context.SynchroniseAsync();
+        held.SetResult();
+        await Task.WhenAll(first, second);
+
+        Assert.Single(context.Server.TaskLists);
+        Assert.Single(context.WriteRequests());
+    }
+
+    [Fact]
+    public async Task A_run_dropped_because_another_was_in_flight_does_not_claim_to_be_offline()
+    {
+        using var context = new TaskContext();
+        var held = new TaskCompletionSource();
+        context.Server.HoldRequestsUntil = held;
+        var first = context.SynchroniseAsync();
+        var second = context.SynchroniseAsync();
+        held.SetResult();
+        await Task.WhenAll(first, second);
+
+        // The run in flight is reaching the server; saying "offline" would put a lie on the screen.
+        Assert.True((await second).ReachedTheServer);
+    }
+
+    [Fact]
+    public async Task A_queue_entry_that_outlived_the_create_it_describes_does_not_create_a_second_list()
+    {
+        using var context = new TaskContext();
+        var taskList = await context.TaskLists.CreateAsync("Groceries", SomeItems);
+        await context.SynchroniseAsync();
+
+        // What a crash between "the server accepted this" and "the queue entry is gone" leaves behind.
+        // The row's server id is saved first precisely so the replay that follows is a no-op; before
+        // that ordering, this produced two lists on the server out of one.
+        await context.RequeueCreateAsync(taskList.LocalId);
+        await context.SynchroniseAsync();
+
+        Assert.Single(context.Server.TaskLists);
+    }
+
+    [Fact]
     public async Task Syncing_offline_reports_it_rather_than_throwing()
     {
         using var context = new TaskContext();
@@ -181,10 +233,10 @@ public sealed class TaskListSyncTests
         {
             Clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
             Server = new FakeTasksServer(Clock);
-            TaskLists = new LocalTaskListRepository(_localStore, Clock);
-            Notes = new LocalNoteRepository(_localStore, Clock);
+            TaskLists = new LocalTaskListRepository(_localStore, Clock, FixedNetworkStatus.Online);
+            Notes = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online);
             Synchronizer = new TaskListSynchronizer(
-                _localStore, new TasksClient(Server.ToHttpClient()), Clock,
+                _localStore, new TasksClient(Server.ToHttpClient()), Clock, new SyncGate(),
                 NullLogger<TaskListSynchronizer>.Instance);
         }
 
@@ -198,6 +250,21 @@ public sealed class TaskListSyncTests
 
         public IReadOnlyList<string> WriteRequests()
             => Server.ReceivedRequests.Where(request => !request.Contains("/changes")).ToList();
+
+        /// <summary>Puts back a create the server has already accepted - see the crash it stands in for.</summary>
+        public async Task RequeueCreateAsync(Guid localId)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            dbContext.Outbox.Add(new OutboxEntry
+            {
+                EntityType = SyncEntityType.TaskList,
+                LocalId = localId,
+                Operation = OutboxOperation.Create,
+                QueuedAtUtc = Clock.GetUtcNow()
+            });
+
+            await dbContext.SaveChangesAsync();
+        }
 
         public async Task<int> CountQueuedAsync(string entityType)
         {

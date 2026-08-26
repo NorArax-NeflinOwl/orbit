@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Contracts.Notes;
 using Orbit.Core.Sync;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Data;
 
@@ -14,16 +15,19 @@ public sealed class LocalNoteRepository
 {
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
+    private readonly INetworkStatus _networkStatus;
 
     /// <summary>
     /// Takes a factory rather than a context because there is no request to scope one to: screens come
     /// and go, and a context held for the life of a screen accumulates every entity it ever loaded and
     /// keeps a SQLite connection open behind it.
     /// </summary>
-    public LocalNoteRepository(IDbContextFactory<OrbitLocalDbContext> dbContextFactory, TimeProvider timeProvider)
+    public LocalNoteRepository(
+        IDbContextFactory<OrbitLocalDbContext> dbContextFactory, TimeProvider timeProvider, INetworkStatus networkStatus)
     {
         _dbContextFactory = dbContextFactory;
         _timeProvider = timeProvider;
+        _networkStatus = networkStatus;
     }
 
     public async Task<IReadOnlyList<LocalNote>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -78,14 +82,19 @@ public sealed class LocalNoteRepository
         return note;
     }
 
-    /// <summary>False when the note is not there - it was deleted underneath the caller.</summary>
-    public async Task<bool> UpdateAsync(
+    /// <summary>Refuses rather than queues when the offline policy forbids it - see LocalWriteOutcome.</summary>
+    public async Task<LocalWriteOutcome> UpdateAsync(
         Guid localId, string title, IReadOnlyList<NoteContentLineDto> content, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        if (await dbContext.Notes.FirstOrDefaultAsync(note => note.LocalId == localId, cancellationToken) is not { } note)
+        if (await dbContext.Notes.FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken) is not { } note)
         {
-            return false;
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(note, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
         }
 
         var now = _timeProvider.GetUtcNow();
@@ -95,15 +104,20 @@ public sealed class LocalNoteRepository
 
         Enqueue(dbContext, localId, OutboxOperation.Update, now);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return LocalWriteOutcome.Applied;
     }
 
-    public async Task<bool> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)
+    public async Task<LocalWriteOutcome> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        if (await dbContext.Notes.FirstOrDefaultAsync(note => note.LocalId == localId, cancellationToken) is not { } note)
+        if (await dbContext.Notes.FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken) is not { } note)
         {
-            return false;
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(note, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
         }
 
         dbContext.Notes.Remove(note);
@@ -121,7 +135,7 @@ public sealed class LocalNoteRepository
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return LocalWriteOutcome.Applied;
     }
 
     private static void Enqueue(

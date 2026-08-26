@@ -18,7 +18,10 @@
         </Grid>
 
         <RefreshView Grid.Row="2" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
-            <CollectionView ItemsSource="{Binding TaskLists}">
+            <CollectionView ItemsSource="{Binding TaskLists}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenListCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
                     <Label Text="No task lists yet." Padding="24" HorizontalTextAlignment="Center" />

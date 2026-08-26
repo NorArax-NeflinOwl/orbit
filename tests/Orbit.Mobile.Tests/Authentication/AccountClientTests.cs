@@ -159,7 +159,5 @@ public sealed class AccountClientTests
         public InMemorySessionStorage Storage { get; }
         public SessionStore SessionStore { get; }
         public AccountClient Client { get; }
-
-        private sealed record FixedNetworkStatus(bool IsOnline) : INetworkStatus;
     }
 }

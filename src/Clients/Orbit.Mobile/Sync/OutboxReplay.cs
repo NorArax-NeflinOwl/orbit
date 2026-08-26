@@ -71,8 +71,11 @@ public static class OutboxReplay
                 givenUp++;
             }
 
-            dbContext.Outbox.Remove(entry);
+            // Whatever the send changed on the row itself - a server id, a synced-at stamp - is saved
+            // before the queue entry goes, so a crash in between replays a change that is now a no-op
+            // rather than losing one.
             await dbContext.SaveChangesAsync(cancellationToken);
+            await RemoveAsync(dbContext, entry.Id, cancellationToken);
         }
 
         return new ReplayResult(sent, givenUp);
@@ -90,11 +93,23 @@ public static class OutboxReplay
             logger.LogWarning(
                 "Giving up on a queued {Operation} for {EntityType} {LocalId} after {Attempts} attempts",
                 entry.Operation, entry.EntityType, entry.LocalId, entry.FailedAttempts);
-            dbContext.Outbox.Remove(entry);
             givenUp = 1;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        if (givenUp == 1)
+        {
+            await RemoveAsync(dbContext, entry.Id, cancellationToken);
+        }
+
         return givenUp;
     }
+
+    /// <summary>
+    /// Deleted by id rather than through the change tracker, so an entry another run already removed is
+    /// simply not there instead of throwing "expected to affect 1 row, affected 0". SyncGate should stop
+    /// that happening at all; this makes it harmless when something slips past.
+    /// </summary>
+    private static Task RemoveAsync(OrbitLocalDbContext dbContext, long entryId, CancellationToken cancellationToken)
+        => dbContext.Outbox.Where(entry => entry.Id == entryId).ExecuteDeleteAsync(cancellationToken);
 }
