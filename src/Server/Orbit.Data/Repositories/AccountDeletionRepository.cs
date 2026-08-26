@@ -43,6 +43,7 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
         await _dbContext.PushSubscriptions.Where(subscription => subscription.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.NotificationSettings.Where(settings => settings.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.NotificationEntries.Where(entry => entry.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.DiagnosticLogEntries.Where(entry => entry.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.UserVerificationCodes.Where(code => code.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.Users.Where(user => user.Id == userId).ExecuteDeleteAsync(cancellationToken);
 

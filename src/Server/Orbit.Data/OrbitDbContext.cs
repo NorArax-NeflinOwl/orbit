@@ -35,6 +35,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
     public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
+    public DbSet<DiagnosticLogEntryEntity> DiagnosticLogEntries => Set<DiagnosticLogEntryEntity>();
     public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -365,6 +366,21 @@ public sealed class OrbitDbContext : DbContext
             entity.HasIndex(link => link.Token).IsUnique();
             // GetLiveForItemAsync's exact filter: one live link per item per owner.
             entity.HasIndex(link => new { link.OwnerUserId, link.ItemType, link.ItemId });
+        });
+
+        modelBuilder.Entity<DiagnosticLogEntryEntity>(entity =>
+        {
+            entity.HasKey(entry => entry.Id);
+            entity.Property(entry => entry.Level).IsRequired().HasMaxLength(20);
+            entity.Property(entry => entry.Message).IsRequired().HasMaxLength(1000);
+            entity.Property(entry => entry.Detail).HasMaxLength(4000);
+            entity.Property(entry => entry.AppVersion).IsRequired().HasMaxLength(40);
+            entity.Property(entry => entry.Platform).IsRequired().HasMaxLength(20);
+            entity.Property(entry => entry.OperatingSystemVersion).IsRequired().HasMaxLength(40);
+            entity.Property(entry => entry.DeviceModel).IsRequired().HasMaxLength(80);
+            // Reads are "this user's most recent report"; retention sweeps by ReceivedAtUtc alone.
+            entity.HasIndex(entry => new { entry.UserId, entry.ReceivedAtUtc });
+            entity.HasIndex(entry => entry.ReceivedAtUtc);
         });
 
         modelBuilder.Entity<NotificationEntryEntity>(entity =>
