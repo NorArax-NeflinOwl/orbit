@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.JSInterop;
 
 namespace Orbit.Web.Services;
@@ -11,10 +12,13 @@ namespace Orbit.Web.Services;
 /// rather than editing every call site. The cost is that changing the English means updating the
 /// dictionaries - which is the same work as changing a key, said once instead of twice.
 ///
-/// Deliberately does not touch <see cref="System.Globalization.CultureInfo"/>. Several pages format
-/// dates against a fixed culture on purpose (see Dashboard's DisplayCulture and its siblings), and
-/// switching the thread's culture would silently change all of those too. Translating the words is this
-/// class's job; how a date is written is a separate decision.
+/// Also decides how a date is written, through <see cref="DisplayCulture"/>. Reading an interface in
+/// Polish and being told "Monday, March 3" is only half a translation.
+///
+/// It deliberately does not set the thread's culture to do that. Coordinates in a Google Maps URL, the
+/// date stamps in a Google Calendar link, aria attributes and CSS values are all formatted against
+/// InvariantCulture on purpose - a Polish decimal comma in a URL sends the reader somewhere else
+/// entirely. Those stay invariant; only text a person reads follows the language.
 /// </summary>
 public sealed class Translations
 {
@@ -31,6 +35,17 @@ public sealed class Translations
     public event Action? Changed;
 
     public AppLanguage Language { get; private set; } = AppLanguage.English;
+
+    /// <summary>
+    /// The culture dates and day names are written in - never used for anything a machine parses back.
+    /// A page formatting a coordinate or a URL keeps InvariantCulture, which is what stops a decimal
+    /// comma from turning a link into a different place.
+    /// </summary>
+    public CultureInfo DisplayCulture
+        => Language == AppLanguage.Polish ? PolishCulture : EnglishCulture;
+
+    private static readonly CultureInfo EnglishCulture = CultureInfo.GetCultureInfo("en-US");
+    private static readonly CultureInfo PolishCulture = CultureInfo.GetCultureInfo("pl-PL");
 
     /// <summary>
     /// The text for this language, or the English key itself when there is no translation for it. A

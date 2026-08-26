@@ -45,8 +45,7 @@ else
 }
 
 @code {
-    /// <summary>Matches Dashboard/Calendar/Chat's own DisplayCulture - keeps month names English regardless of the browser's locale.</summary>
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
 
     [Parameter]
     public bool IsLoading { get; set; }
@@ -68,6 +67,6 @@ else
     [Parameter]
     public bool ShowsDismissed { get; set; }
 
-    private static string FormatEntryTime(DateTimeOffset timestampUtc)
-        => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", DisplayCulture);
+    private string FormatEntryTime(DateTimeOffset timestampUtc)
+        => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", T.DisplayCulture);
 }

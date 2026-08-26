@@ -76,6 +76,39 @@ public sealed class TranslationsTests
     }
 
     [Fact]
+    public void English_writes_dates_in_English()
+    {
+        var translations = new Translations(new StubJSRuntime());
+
+        Assert.Equal("Monday", new DateTime(2026, 3, 2).ToString("dddd", translations.DisplayCulture));
+    }
+
+    [Fact]
+    public async Task Polish_writes_dates_in_Polish()
+    {
+        var translations = new Translations(new StubJSRuntime());
+
+        await translations.SetLanguageAsync(AppLanguage.Polish);
+
+        // Reading an interface in Polish and being told "Monday, March 2" is only half a translation.
+        Assert.Equal("poniedziałek", new DateTime(2026, 3, 2).ToString("dddd", translations.DisplayCulture));
+        Assert.Equal("marzec", translations.DisplayCulture.DateTimeFormat.GetMonthName(3));
+    }
+
+    [Fact]
+    public async Task The_display_culture_is_never_used_for_a_number_a_machine_reads()
+    {
+        var translations = new Translations(new StubJSRuntime());
+        await translations.SetLanguageAsync(AppLanguage.Polish);
+
+        // Polish writes 50,06 with a comma. That is right for a person and wrong for a URL, which is why
+        // coordinates and link stamps format against InvariantCulture instead - see MapPage's
+        // CoordinateCulture and GoogleMapsLink.
+        Assert.Equal("50,06", 50.06.ToString("F2", translations.DisplayCulture));
+        Assert.Equal("50.06", 50.06.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public void No_translation_is_an_empty_string()
     {
         // An entry that translated to nothing would render as a hole on the page, which is worse than

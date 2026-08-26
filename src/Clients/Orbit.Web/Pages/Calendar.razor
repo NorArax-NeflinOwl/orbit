@@ -171,7 +171,7 @@
                 <button @onclick="GoToPreviousPeriod">‹</button>
                 <button @onclick="GoToToday">@T["Today"]</button>
                 <button @onclick="GoToNextPeriod">›</button>
-                <h2 class="calendar-period-label">@_viewState.PeriodLabel</h2>
+                <h2 class="calendar-period-label">@_viewState.PeriodLabel(T.DisplayCulture)</h2>
             </div>
             <div class="calendar-view-switch">
                 <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">@T["Day"]</button>
@@ -450,8 +450,6 @@
     /// </summary>
     private sealed class CalendarViewState
     {
-        private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
-
         public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
         public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
         /// <summary>Hidden by default, like <see cref="IsTaskListVisible"/> - the calendar grid is the primary view; both side lists are opt-in per visit.</summary>
@@ -466,10 +464,15 @@
         /// </summary>
         public bool ShowDueTasksInYearView { get; set; } = true;
 
-        public string PeriodLabel => ViewMode switch
+        /// <summary>
+        /// Takes the culture rather than holding one: which period is showing is this object's business,
+        /// what language it is written in is the page's. The year is invariant on purpose - a year is a
+        /// number, and no culture should give it a thousands separator.
+        /// </summary>
+        public string PeriodLabel(CultureInfo displayCulture) => ViewMode switch
         {
-            CalendarViewMode.Day => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("d MMMM yyyy", DisplayCulture),
-            CalendarViewMode.Month => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", DisplayCulture),
+            CalendarViewMode.Day => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("d MMMM yyyy", displayCulture),
+            CalendarViewMode.Month => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", displayCulture),
             CalendarViewMode.Year => ReferenceDate.Year.ToString(CultureInfo.InvariantCulture),
             _ => string.Empty
         };

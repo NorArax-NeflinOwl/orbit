@@ -130,7 +130,12 @@
     private const int PositionTimeoutMs = 15000;
 
     /// <summary>Matches the rest of the app's date formatting - see Dashboard.razor.</summary>
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+    /// <summary>
+    /// Coordinates stay invariant whatever the interface language is: a Polish decimal comma turns a
+    /// pair anyone might copy into a maps URL into a different place entirely. Dates beside them follow
+    /// the language, through Translations.DisplayCulture.
+    /// </summary>
+    private static readonly CultureInfo CoordinateCulture = CultureInfo.InvariantCulture;
 
     private UserLocationDto? _location;
     private Guid _ownUserId;
@@ -517,10 +522,10 @@
     private sealed record ReceivedPosition(Guid SharerUserId, bool IsContinuous, SharedLocationSender.SharedPosition Position);
 
     private static string FormatCoordinates(UserLocationDto location)
-        => $"{location.Latitude.ToString("F5", DisplayCulture)}, {location.Longitude.ToString("F5", DisplayCulture)}";
+        => $"{location.Latitude.ToString("F5", CoordinateCulture)}, {location.Longitude.ToString("F5", CoordinateCulture)}";
 
-    private static string FormatRecordedAt(DateTimeOffset recordedAtUtc)
-        => recordedAtUtc.ToLocalTime().ToString("d MMM yyyy, HH:mm", DisplayCulture);
+    private string FormatRecordedAt(DateTimeOffset recordedAtUtc)
+        => recordedAtUtc.ToLocalTime().ToString("d MMM yyyy, HH:mm", T.DisplayCulture);
 
     public async ValueTask DisposeAsync()
     {

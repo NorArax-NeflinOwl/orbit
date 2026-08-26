@@ -1,5 +1,6 @@
 @using System.Globalization
 @using Orbit.Web.Services
+@inject Translations T
 
 <div class="calendar-year-grid">
     @foreach (var month in Months)
@@ -12,7 +13,7 @@
 </div>
 
 @code {
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
 
     [Parameter, EditorRequired]
     public IReadOnlyList<YearGridMonth> Months { get; set; } = [];
@@ -20,7 +21,8 @@
     [Parameter]
     public EventCallback<DateOnly> OnDaySelected { get; set; }
 
-    private static string MonthName(int month) => Capitalize(DisplayCulture.DateTimeFormat.GetMonthName(month));
+    private string MonthName(int month) => Capitalize(T.DisplayCulture.DateTimeFormat.GetMonthName(month));
 
-    private static string Capitalize(string text) => text.Length == 0 ? text : char.ToUpper(text[0], DisplayCulture) + text[1..];
+    /// <summary>Polish writes month names lower-case; a grid of headings reads better with each capitalised, the same as the English ones already are.</summary>
+    private string Capitalize(string text) => text.Length == 0 ? text : char.ToUpper(text[0], T.DisplayCulture) + text[1..];
 }

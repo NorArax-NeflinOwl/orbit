@@ -170,8 +170,7 @@
 @code {
     private const string SidebarCollapsedStorageKey = "orbit.sidebarCollapsed";
 
-    /// <summary>Matches Dashboard.razor/Calendar.razor's own DisplayCulture - keeps notification timestamps English regardless of the browser's locale.</summary>
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
 
     private bool _sidebarCollapsed;
     private bool _avatarMenuOpen;
@@ -758,7 +757,7 @@
 
     private static string FormatUnreadCount(int count) => count > 9 ? "9+" : count.ToString(CultureInfo.InvariantCulture);
 
-    private static string FormatEntryTime(DateTimeOffset timestampUtc) => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", DisplayCulture);
+    private string FormatEntryTime(DateTimeOffset timestampUtc) => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", T.DisplayCulture);
 
     /// <summary>
     /// Bound to a click anywhere in the main content area, so clicking outside the dropdown closes it

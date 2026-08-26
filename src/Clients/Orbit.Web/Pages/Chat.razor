@@ -265,8 +265,7 @@ else
 }
 
 @code {
-    /// <summary>Matches Dashboard.razor/Calendar.razor's own DisplayCulture - keeps day/month names English regardless of the browser's locale.</summary>
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
 
     [Parameter]
     public Guid UserId { get; set; }
@@ -876,22 +875,22 @@ else
         => _otherPartyReadUpToUtc is { } readUpToUtc && message.SentAtUtc <= readUpToUtc;
 
     /// <summary>The label shown on a day-separator row between messages sent on different calendar days - "Today" / "Yesterday" / a weekday name within the last week / a full date otherwise.</summary>
-    private static string FormatDaySeparatorLabel(DateTime localDate)
+    private string FormatDaySeparatorLabel(DateTime localDate)
     {
         var today = DateTime.Today;
         if (localDate == today)
         {
-            return "Today";
+            return T["Today"];
         }
         if (localDate == today.AddDays(-1))
         {
-            return "Yesterday";
+            return T["Yesterday"];
         }
         if (localDate > today.AddDays(-7))
         {
-            return localDate.ToString("dddd", DisplayCulture);
+            return localDate.ToString("dddd", T.DisplayCulture);
         }
-        return localDate.ToString("MMMM d, yyyy", DisplayCulture);
+        return localDate.ToString("d MMMM yyyy", T.DisplayCulture);
     }
 
     private async Task LoadConversationAccessAsync()

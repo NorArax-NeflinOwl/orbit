@@ -39,7 +39,7 @@ else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _co
 else
 {
     <div class="today-strip">
-        <span class="today-strip-date">@DateTime.Today.ToString("dddd, MMMM d", DisplayCulture)</span>
+        <span class="today-strip-date">@DateTime.Today.ToString("dddd, d MMMM", T.DisplayCulture)</span>
         <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong> tasks due today</span>
         <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong> events today</span>
         <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong> new chat requests</span>
