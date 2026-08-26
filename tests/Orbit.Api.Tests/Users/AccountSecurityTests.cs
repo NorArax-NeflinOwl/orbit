@@ -1,6 +1,7 @@
 using Orbit.Api.Auth;
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Users;
+using Orbit.Core.Chat.Groups;
 using Orbit.Core.Users.ChangePassword;
 using Orbit.Core.Users.DeleteAccount;
 using Orbit.Core.Users.ConfirmEmailVerification;
@@ -155,7 +156,7 @@ public sealed class AccountSecurityTests
     {
         var context = new AccountTestContext();
         var user = await context.AddUserAsync("alice@example.com", "alice", password: "original");
-        var handler = new DeleteAccountCommandHandler(context.UserRepository, context.PasswordHasher, context.AccountDeletionRepository);
+        var handler = context.DeleteAccountHandler();
 
         var wrongPassword = await handler.HandleAsync(new DeleteAccountCommand(user.Id, "not-the-password"), CancellationToken.None);
         Assert.False(wrongPassword);
@@ -172,7 +173,7 @@ public sealed class AccountSecurityTests
         var context = new AccountTestContext();
         var user = User.CreateFromGoogle("alice@example.com", "alice", "Alice", "google-subject-id");
         await context.UserRepository.AddAsync(user, CancellationToken.None);
-        var handler = new DeleteAccountCommandHandler(context.UserRepository, context.PasswordHasher, context.AccountDeletionRepository);
+        var handler = context.DeleteAccountHandler();
 
         var deleted = await handler.HandleAsync(new DeleteAccountCommand(user.Id, string.Empty), CancellationToken.None);
 
@@ -181,10 +182,64 @@ public sealed class AccountSecurityTests
     }
 
     [Fact]
+    public async Task Deleting_an_account_takes_it_out_of_its_chat_groups()
+    {
+        // Left behind, the membership makes every later message in that group impossible to send: the
+        // server wants one ciphertext copy per current member and nobody can encrypt for an account
+        // whose public key is gone. See DeleteAccountCommandHandler.LeaveEveryChatGroupAsync.
+        var context = new AccountTestContext();
+        var leaving = await context.AddUserAsync("leaving@example.com", "leaving");
+        var staying = await context.AddUserAsync("staying@example.com", "staying");
+        var group = ChatGroup.Create(staying.Id, "Team");
+        group.AddMember(staying.Id, leaving.Id);
+        await context.ChatGroupRepository.AddAsync(group, CancellationToken.None);
+
+        var deleted = await context.DeleteAccountHandler()
+            .HandleAsync(new DeleteAccountCommand(leaving.Id, "password"), CancellationToken.None);
+
+        Assert.True(deleted);
+        Assert.False(group.IsMember(leaving.Id));
+        Assert.True(group.IsMember(staying.Id));
+    }
+
+    [Fact]
+    public async Task Deleting_the_only_admins_account_leaves_the_group_with_a_new_one()
+    {
+        var context = new AccountTestContext();
+        var admin = await context.AddUserAsync("admin@example.com", "admin");
+        var member = await context.AddUserAsync("member@example.com", "member");
+        var group = ChatGroup.Create(admin.Id, "Team");
+        group.AddMember(admin.Id, member.Id);
+        await context.ChatGroupRepository.AddAsync(group, CancellationToken.None);
+
+        await context.DeleteAccountHandler()
+            .HandleAsync(new DeleteAccountCommand(admin.Id, "password"), CancellationToken.None);
+
+        // Refusing the deletion to protect the group would trade an account nobody can close for a
+        // group nobody can manage; promoting the survivor avoids both.
+        Assert.True(group.IsAdmin(member.Id));
+    }
+
+    [Fact]
+    public async Task Deleting_the_last_members_account_removes_the_group_entirely()
+    {
+        var context = new AccountTestContext();
+        var onlyMember = await context.AddUserAsync("alone@example.com", "alone");
+        var group = ChatGroup.Create(onlyMember.Id, "Just me");
+        await context.ChatGroupRepository.AddAsync(group, CancellationToken.None);
+
+        await context.DeleteAccountHandler()
+            .HandleAsync(new DeleteAccountCommand(onlyMember.Id, "password"), CancellationToken.None);
+
+        // A group nobody is in can never be posted to, read, or joined again.
+        Assert.Empty(context.ChatGroupRepository.Groups);
+    }
+
+    [Fact]
     public async Task Deleting_an_unknown_account_fails_without_wiping_anything()
     {
         var context = new AccountTestContext();
-        var handler = new DeleteAccountCommandHandler(context.UserRepository, context.PasswordHasher, context.AccountDeletionRepository);
+        var handler = context.DeleteAccountHandler();
 
         var deleted = await handler.HandleAsync(new DeleteAccountCommand(Guid.NewGuid(), "whatever"), CancellationToken.None);
 
@@ -224,6 +279,7 @@ public sealed class AccountSecurityTests
     {
         public InMemoryUserRepository UserRepository { get; } = new();
         public InMemoryAccountDeletionRepository AccountDeletionRepository { get; } = new();
+        public InMemoryChatGroupRepository ChatGroupRepository { get; } = new();
         public InMemoryUserVerificationCodeRepository CodeRepository { get; } = new();
         public TestVerificationCodeGenerator CodeGenerator { get; } = new();
         public RecordingEmailSender EmailSender { get; } = new();
@@ -235,6 +291,9 @@ public sealed class AccountSecurityTests
             await UserRepository.AddAsync(user, CancellationToken.None);
             return user;
         }
+
+        public DeleteAccountCommandHandler DeleteAccountHandler()
+            => new(UserRepository, PasswordHasher, AccountDeletionRepository, ChatGroupRepository);
 
         public Task<EmailVerificationRequestResult> RequestEmailVerificationAsync(Guid userId, string emailAddress)
             => new RequestEmailVerificationCommandHandler(UserRepository, CodeRepository, CodeGenerator, EmailSender)
