@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
 using Orbit.Web.Services;
 using Xunit;
@@ -16,7 +15,7 @@ public sealed class DevicePreferencesTests
     [Fact]
     public async Task Location_is_off_until_someone_says_otherwise()
     {
-        var preferences = new DevicePreferences(new RecordingJSRuntime(), NullLogger<DevicePreferences>.Instance);
+        var preferences = new DevicePreferences(new RecordingJSRuntime());
 
         await preferences.InitializeAsync();
 
@@ -27,7 +26,7 @@ public sealed class DevicePreferencesTests
     [Fact]
     public async Task The_log_keeps_warnings_and_worse_by_default()
     {
-        var preferences = new DevicePreferences(new RecordingJSRuntime(), NullLogger<DevicePreferences>.Instance);
+        var preferences = new DevicePreferences(new RecordingJSRuntime());
 
         await preferences.InitializeAsync();
 
@@ -37,7 +36,7 @@ public sealed class DevicePreferencesTests
     [Fact]
     public async Task Diagnostics_start_out_of_the_way()
     {
-        var preferences = new DevicePreferences(new RecordingJSRuntime(), NullLogger<DevicePreferences>.Instance);
+        var preferences = new DevicePreferences(new RecordingJSRuntime());
 
         await preferences.InitializeAsync();
 
@@ -56,7 +55,7 @@ public sealed class DevicePreferencesTests
                 ["orbit-minimum-log-level"] = "Trace"
             }
         };
-        var preferences = new DevicePreferences(jsRuntime, NullLogger<DevicePreferences>.Instance);
+        var preferences = new DevicePreferences(jsRuntime);
 
         await preferences.InitializeAsync();
 
@@ -74,7 +73,7 @@ public sealed class DevicePreferencesTests
         {
             Stored = { ["orbit-minimum-log-level"] = "Chatty", ["orbit-diagnostics-mode"] = "Whatever" }
         };
-        var preferences = new DevicePreferences(jsRuntime, NullLogger<DevicePreferences>.Instance);
+        var preferences = new DevicePreferences(jsRuntime);
 
         await preferences.InitializeAsync();
 
@@ -86,7 +85,7 @@ public sealed class DevicePreferencesTests
     public async Task Setting_something_writes_it_and_announces_it()
     {
         var jsRuntime = new RecordingJSRuntime();
-        var preferences = new DevicePreferences(jsRuntime, NullLogger<DevicePreferences>.Instance);
+        var preferences = new DevicePreferences(jsRuntime);
         var announced = 0;
         preferences.Changed += () => announced++;
 
@@ -102,7 +101,7 @@ public sealed class DevicePreferencesTests
     {
         // Private windows and embedded webviews throw on localStorage outright. The page has to open
         // anyway, and the defaults are the right answer - "don't ask for the location" the safe way round.
-        var preferences = new DevicePreferences(new ThrowingJSRuntime(), NullLogger<DevicePreferences>.Instance);
+        var preferences = new DevicePreferences(new ThrowingJSRuntime());
 
         await preferences.InitializeAsync();
 
@@ -113,7 +112,7 @@ public sealed class DevicePreferencesTests
     [Fact]
     public async Task A_setting_still_applies_for_this_session_when_it_cannot_be_stored()
     {
-        var preferences = new DevicePreferences(new ThrowingJSRuntime(), NullLogger<DevicePreferences>.Instance);
+        var preferences = new DevicePreferences(new ThrowingJSRuntime());
 
         await preferences.SetAllowLocationAsync(true);
 
