@@ -458,6 +458,7 @@ else
         var items = _formModel.Items
             .Select(item => new TaskItemRequest(
                 item.Description,
+                item.Id,
                 ToDueDateUtc(item),
                 item.IsCompleted,
                 ToLinkedTaskListId(item),

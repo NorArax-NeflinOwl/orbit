@@ -105,6 +105,11 @@ public sealed class DailyTaskReminderBackgroundService : BackgroundService
             return;
         }
 
+        // Brought back before the reminder goes out, so the notification is about something still to
+        // do. A daily reminder that stayed finished after the first tick was daily exactly once - which
+        // is what left the inventory's standing "Update stock levels" dead from the day it was checked.
+        await dailyTaskReminderRepository.ReopenAsync(dueReminder.TaskItemId, cancellationToken);
+
         // Built unconditionally (not just inside the Push branch below) since the in-app feed entry
         // reuses the same title/body/url a push notification would use, independent of whether push
         // delivery itself ends up allowed.

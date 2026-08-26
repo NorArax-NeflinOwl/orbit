@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using System.Net.Http.Json;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -137,9 +138,18 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         var body = _requestBodies[_requests.IndexOf(update)];
         // The untouched item keeps its state, and the list's own title and grouping ride along - the
         // endpoint replaces the list wholesale, so anything left out would be erased.
-        Assert.Contains("\"description\":\"Buy milk\",\"dueDateUtc\":null,\"isCompleted\":false", body);
-        Assert.Contains("\"description\":\"Post parcel\",\"dueDateUtc\":null,\"isCompleted\":true", body);
-        Assert.Contains("\"title\":\"Errands\"", body);
+        var items = JsonDocument.Parse(body).RootElement.GetProperty("items");
+        Assert.Equal("Buy milk", items[0].GetProperty("description").GetString());
+        Assert.False(items[0].GetProperty("isCompleted").GetBoolean());
+        Assert.Equal("Post parcel", items[1].GetProperty("description").GetString());
+        Assert.True(items[1].GetProperty("isCompleted").GetBoolean());
+        Assert.Equal("Errands", JsonDocument.Parse(body).RootElement.GetProperty("title").GetString());
+
+        // And each entry goes back under the id it already had. Without this the server minted new ones
+        // on every save, cutting loose everything that points at an entry by id - an inventory item's
+        // restock task most visibly, which then grew a duplicate.
+        Assert.Equal(taskList.Items[0].Id, items[0].GetProperty("id").GetGuid());
+        Assert.Equal(taskList.Items[1].Id, items[1].GetProperty("id").GetGuid());
     }
 
     [Fact]

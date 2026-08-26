@@ -58,19 +58,17 @@ public sealed class GetInventoryItemsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_clears_a_pending_restock_reference_once_the_linked_task_is_completed()
+    public async Task HandleAsync_clears_a_pending_restock_reference_once_the_linked_task_is_gone()
     {
         var context = new InventoryTestContext();
         var handler = CreateHandler(context);
         var userId = Guid.NewGuid();
         var warehouseId = context.AddWarehouse(userId);
 
-        var restockItem = TaskItem.Create("Restock: Milk", dueDateUtc: null, isCompleted: true);
-        var taskList = TaskList.Create(userId, "Restock supplies", [restockItem]);
-        await context.TaskRepository.AddAsync(taskList, CancellationToken.None);
-
+        // The list the reference points at was deleted; completing the task no longer counts as losing
+        // it, since that is what let a second "Restock: Milk" appear beside the finished one.
         var item = InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 0m, 1m, null, NotificationChannel.Push);
-        item.SetPendingRestockTask(taskList.Id, restockItem.Id);
+        item.SetPendingRestockTask(Guid.NewGuid(), Guid.NewGuid());
         await context.InventoryRepository.AddAsync(item, CancellationToken.None);
 
         var results = await handler.HandleAsync(new GetInventoryItemsQuery(userId, warehouseId), CancellationToken.None);

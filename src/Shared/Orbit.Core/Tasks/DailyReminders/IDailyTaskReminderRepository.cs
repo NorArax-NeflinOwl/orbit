@@ -9,7 +9,9 @@ namespace Orbit.Core.Tasks.DailyReminders;
 public interface IDailyTaskReminderRepository
 {
     /// <summary>
-    /// Every incomplete task item with RemindDaily enabled and a non-"None" daily reminder channel.
+    /// Every task item with RemindDaily enabled and a non-"None" daily reminder channel - finished ones
+    /// included, because a daily reminder that stopped the first time it was ticked off was daily only
+    /// once. A finished item is reopened when its reminder fires (see <see cref="ReopenAsync"/>).
     /// Deliberately excludes an item that links to another task list (see
     /// <see cref="TaskItem.LinkedTaskListId"/>), for the same reason
     /// <see cref="Orbit.Core.Tasks.OverdueNotifications.IOverdueTaskNotificationRepository.GetIncompleteWithDueDateAsync"/>
@@ -18,6 +20,12 @@ public interface IDailyTaskReminderRepository
     Task<IReadOnlyList<DailyTaskReminderCandidate>> GetEligibleAsync(CancellationToken cancellationToken);
 
     Task<bool> HasBeenSentAsync(Guid taskItemId, DateOnly reminderDate, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Marks the item as not done again, so the day's reminder is about something still to do. A no-op
+    /// for an item that was already open.
+    /// </summary>
+    Task ReopenAsync(Guid taskItemId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Atomically reserves a single (task item, local date) reminder for the caller to send, using a
