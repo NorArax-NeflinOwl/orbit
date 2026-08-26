@@ -137,6 +137,7 @@ try
     builder.Services.AddSingleton<IVerificationCodeGenerator, VerificationCodeGenerator>();
     builder.Services.Configure<GoogleAuthSettings>(builder.Configuration.GetSection(GoogleAuthSettings.SectionName));
     builder.Services.AddSingleton<IGoogleIdentityVerifier, GoogleIdentityVerifier>();
+    builder.Services.Configure<MobileVersionSettings>(builder.Configuration.GetSection(MobileVersionSettings.SectionName));
 
     // Fails fast on startup instead of on the first login attempt if the signing key was never
     // configured, or is too short to be a usable HMAC-SHA256 key - see JwtSettings for where it's
