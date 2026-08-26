@@ -83,19 +83,32 @@ public sealed class ChatGroup
     }
 
     /// <summary>
-    /// Removing the last admin is refused: it would leave a group nobody can add to, remove from, or
-    /// promote in. An admin removing themselves is fine as long as another one remains.
+    /// Takes somebody out of the group - or shows themselves out, which is not the same act and does not
+    /// need the same standing. Removing another member is an admin's to do; leaving is anybody's, and
+    /// requiring admin for both left an ordinary member with no way out of a group at all.
+    ///
+    /// Removing the last admin is still refused while anyone remains: it would strand a group nobody can
+    /// add to, remove from, or promote in. The last person out is let go, emptying the group - the same
+    /// end <see cref="RemoveDeletedAccount"/> reaches, and refusing there would strand them instead.
     /// </summary>
     public void RemoveMember(Guid actorUserId, Guid userId)
     {
-        RequireAdmin(actorUserId);
+        if (actorUserId != userId)
+        {
+            RequireAdmin(actorUserId);
+        }
+        else if (!IsMember(actorUserId))
+        {
+            throw new InvalidRequestException("You aren't in this group.");
+        }
+
         var member = FindMember(userId);
         if (member is null)
         {
             return;
         }
 
-        if (member.Role == ChatGroupRole.Admin && AdminCount == 1)
+        if (member.Role == ChatGroupRole.Admin && AdminCount == 1 && _members.Count > 1)
         {
             throw new InvalidRequestException("A group needs at least one admin - promote someone else first.");
         }

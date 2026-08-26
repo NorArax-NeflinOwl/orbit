@@ -696,5 +696,7 @@ internal static class PolishTranslations
         ["Search chats"] = "Szukaj rozmów",
         ["Search groups"] = "Szukaj grup",
         ["Nothing matches that."] = "Nic nie pasuje.",
+        ["Leave group"] = "Opuść grupę",
+        ["You aren't in this group."] = "Nie należysz do tej grupy.",
     };
 }
