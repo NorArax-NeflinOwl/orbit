@@ -141,6 +141,25 @@ public sealed class ChatApiClient
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// Rewrites every copy of one group message. Takes the whole fan-out again, for the same reason
+    /// sending does - the server holds ciphertext it cannot open, so only this browser can produce the
+    /// new text for each member. False when the message is gone or was somebody else's to edit.
+    /// </summary>
+    public async Task<bool> EditGroupMessageAsync(
+        Guid groupId, Guid groupMessageId, IReadOnlyList<GroupMessageCopyDto> copies, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/chat/groups/{groupId}/messages/{groupMessageId}", new SendGroupMessageRequest(copies), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
     public async Task AddGroupMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(

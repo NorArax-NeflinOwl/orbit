@@ -8,9 +8,10 @@ public enum AuthOutcome
 {
     Success,
     InvalidCredentials,
-    // The API reports a taken email address and a taken username identically (409, message-only body),
-    // so the client can't tell them apart without parsing that message - this covers both.
-    EmailOrUserNameAlreadyTaken,
+    // Told apart rather than lumped together: refusing a registration is only useful if the reader
+    // learns which of the two fields to change (see RegistrationConflictDto).
+    EmailAlreadyTaken,
+    UserNameAlreadyTaken,
     UnexpectedError
 }
 
@@ -30,7 +31,9 @@ public sealed class AuthResult
 
     public static AuthResult InvalidCredentials() => new(AuthOutcome.InvalidCredentials);
 
-    public static AuthResult EmailOrUserNameAlreadyTaken() => new(AuthOutcome.EmailOrUserNameAlreadyTaken);
+    public static AuthResult EmailAlreadyTaken() => new(AuthOutcome.EmailAlreadyTaken);
+
+    public static AuthResult UserNameAlreadyTaken() => new(AuthOutcome.UserNameAlreadyTaken);
 
     public static AuthResult UnexpectedError() => new(AuthOutcome.UnexpectedError);
 }

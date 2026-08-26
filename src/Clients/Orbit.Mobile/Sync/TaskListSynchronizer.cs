@@ -203,12 +203,17 @@ public sealed class TaskListSynchronizer
     }
 
     /// <summary>
-    /// An item as the server takes it back. The only difference from what came down is that a request
-    /// carries no id - the server assigns those - so a round trip is not lossless by accident.
+    /// An item as the server takes it back, <b>including its existing id</b>. That is not a detail: other
+    /// things point at a task entry by id - an inventory item's open restock task, a daily reminder's
+    /// "already sent today" record, an overdue notification - so a save that minted fresh ids would cut
+    /// every one of them loose. See TaskItemRequest.Id, which exists for exactly this.
+    ///
+    /// Null for an entry added on this phone, which has no server id yet: <see cref="Guid.Empty"/> is
+    /// what the local store writes for one, and sending it would be claiming an id nothing has.
     /// </summary>
     private static IReadOnlyList<TaskItemRequest> ToRequests(IReadOnlyList<TaskItemDto> items)
         => items.Select(item => new TaskItemRequest(
-            item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
-            item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-            item.DailyReminderTimeOfDay)).ToList();
+            item.Description, item.Id == Guid.Empty ? null : item.Id, item.DueDateUtc, item.IsCompleted,
+            item.LinkedTaskListId, item.OverdueNotificationChannel, item.RemindDaily,
+            item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay)).ToList();
 }

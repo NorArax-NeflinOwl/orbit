@@ -3,6 +3,7 @@
 @inject ClientFlagsApiClient ClientFlagsApiClient
 @inject IJSRuntime JSRuntime
 @inject ILogger<GoogleSignInButton> Logger
+@inject Translations T
 
 @* Renders nothing at all unless this deployment configured a Google client id, so an unconfigured
    install never shows a button that could only fail - see ClientFlagsDto.GoogleClientId. *@
@@ -10,7 +11,7 @@
 {
     @if (ShowDivider)
     {
-        <div class="auth-divider"><span>or</span></div>
+        <div class="auth-divider"><span>@T["or"]</span></div>
     }
     <div id="@_containerId" class="google-signin-button"></div>
 }

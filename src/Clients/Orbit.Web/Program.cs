@@ -120,4 +120,13 @@ builder.Services.AddScoped<ClientExceptionLog>();
 builder.Services.AddHttpClient<GeocodingApiClient>(
     httpClient => httpClient.BaseAddress = new Uri("https://nominatim.openstreetmap.org/"));
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+
+// Read before the first render, not from a component's OnInitializedAsync. A page that rendered in
+// English and corrected itself afterwards would flash, and a routed page whose parameters never change
+// may not re-render at all when the layout above it does - which is exactly what left the log-in page
+// in English while the stored choice said Polish. Same reasoning as index.html's anti-flash theme
+// script: what the first paint needs has to be known before it happens.
+await host.Services.GetRequiredService<Translations>().InitializeAsync();
+
+await host.RunAsync();

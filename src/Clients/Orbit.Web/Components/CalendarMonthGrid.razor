@@ -1,5 +1,6 @@
 @using Orbit.Contracts.Calendar
 @using Orbit.Web.Services
+@inject Translations T
 
 <div class="calendar-month-grid @(IsCompact ? "calendar-month-grid-compact" : "")">
     <div class="calendar-month-grid-weekday-row">
@@ -56,7 +57,7 @@
                             }
                             @if (day.Events.Count > MaxVisibleEvents)
                             {
-                                <span class="calendar-month-grid-day-overflow">+@(day.Events.Count - MaxVisibleEvents) more</span>
+                                <span class="calendar-month-grid-day-overflow">@T.Format("+{0} more", day.Events.Count - MaxVisibleEvents)</span>
                             }
                             @foreach (var dueTask in day.DueTasks.Take(MaxVisibleDueTasks))
                             {
@@ -68,7 +69,7 @@
                             }
                             @if (day.DueTasks.Count > MaxVisibleDueTasks)
                             {
-                                <span class="calendar-month-grid-day-overflow">+@(day.DueTasks.Count - MaxVisibleDueTasks) more</span>
+                                <span class="calendar-month-grid-day-overflow">@T.Format("+{0} more", day.DueTasks.Count - MaxVisibleDueTasks)</span>
                             }
                         </div>
                     }
@@ -83,7 +84,23 @@
     private const int MaxVisibleDueTasks = 4;
     private const int MaxCompactDots = 3;
 
-    private static readonly string[] WeekdayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+    /// <summary>
+    /// Day names taken from the reader's language rather than written out here - a Polish calendar
+    /// headed Mo/Tu/We is the same half-translation as a Polish page dating itself in English. Starts
+    /// at Monday because the grid does; ShortestDayNames is indexed by DayOfWeek, which starts at
+    /// Sunday, and gives the two-letter form both languages use here.
+    /// </summary>
+    private IEnumerable<string> WeekdayNames
+    {
+        get
+        {
+            var shortestDayNames = T.DisplayCulture.DateTimeFormat.ShortestDayNames;
+            for (var day = 0; day < 7; day++)
+            {
+                yield return shortestDayNames[(day + (int)DayOfWeek.Monday) % 7];
+            }
+        }
+    }
 
     [Parameter, EditorRequired]
     public IReadOnlyList<MonthGridWeek> Weeks { get; set; } = [];

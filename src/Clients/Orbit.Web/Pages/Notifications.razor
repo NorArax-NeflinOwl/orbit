@@ -10,7 +10,7 @@
 @inject ILogger<Notifications> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Notifications</PageTitle>
+<PageTitle>@T["Orbit — Notifications"]</PageTitle>
 
 @* The full record, not just the panel's view: this lists entries already cleared out of the panel too,
    so clearing is somewhere to put things rather than somewhere they are destroyed. Reached from the
@@ -20,9 +20,9 @@
     <div>
         <h1>@T["Notifications"]</h1>
         <p class="page-subtitle">
-            Everything from the last @_retentionDays @(_retentionDays == 1 ? "day" : "days"), newest first
-            — cleared ones included. Older than that and they are deleted; change how long in
-            <a href="/options">@T["Options"]</a>.
+            @T.Format(
+                "Everything from the last {0}, newest first — cleared ones included. Older than that and they are deleted; change how long in",
+                $"{_retentionDays} {(_retentionDays == 1 ? T["day"] : T["days"])}")@Space<a href="/options">@T["Options"]</a>.
         </p>
     </div>
     <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">@T["Clear"]</button>

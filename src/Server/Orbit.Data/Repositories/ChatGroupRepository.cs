@@ -58,6 +58,21 @@ public sealed class ChatGroupRepository : IChatGroupRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeleteAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.ChatGroups
+            .Include(candidate => candidate.Members)
+            .FirstOrDefaultAsync(candidate => candidate.Id == groupId, cancellationToken);
+        if (entity is null)
+        {
+            return;
+        }
+
+        _dbContext.ChatGroupMembers.RemoveRange(entity.Members);
+        _dbContext.ChatGroups.Remove(entity);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private static ChatGroup ToDomain(ChatGroupEntity entity)
         => ChatGroup.FromPersistence(
             entity.Id, entity.Name, entity.CreatedByUserId, entity.CreatedAtUtc,

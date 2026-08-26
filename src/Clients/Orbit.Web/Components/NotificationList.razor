@@ -25,7 +25,7 @@ else
                     @entry.Title
                     @if (ShowsDismissed && entry.IsDismissed)
                     {
-                        <span class="notifications-panel-item-tag">Cleared</span>
+                        <span class="notifications-panel-item-tag">@T["Cleared"]</span>
                     }
                 </span>
                 <span class="notifications-panel-item-body">@entry.Body</span>
@@ -35,10 +35,10 @@ else
         @foreach (var exceptionEntry in ExceptionEntries)
         {
             <li class="notifications-panel-item notifications-panel-item-exception">
-                <span class="notifications-panel-item-title">Frontend error</span>
+                <span class="notifications-panel-item-title">@T["Frontend error"]</span>
                 <span class="notifications-panel-item-body">@exceptionEntry.Message</span>
                 <span class="notifications-panel-item-time">@FormatEntryTime(exceptionEntry.TimestampUtc)</span>
-                <button type="button" class="btn-secondary" @onclick="() => ClientExceptionLog.CopyToClipboardAsync(exceptionEntry)">Copy</button>
+                <button type="button" class="btn-secondary" @onclick="() => ClientExceptionLog.CopyToClipboardAsync(exceptionEntry)">@T["Copy"]</button>
             </li>
         }
     </ul>

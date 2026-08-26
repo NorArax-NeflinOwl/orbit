@@ -23,12 +23,12 @@
 @inject ILogger<Chat> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Chat</PageTitle>
+<PageTitle>@T["Orbit — Chat"]</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1>Messages</h1>
-        <p class="page-subtitle">End-to-end encrypted conversations.</p>
+        <h1>@T["Messages"]</h1>
+        <p class="page-subtitle">@T["End-to-end encrypted conversations."]</p>
     </div>
 </div>
 
@@ -39,8 +39,7 @@
 else if (_encryptionUnavailable)
 {
     <p>
-        Chat requires a secure connection (an address starting with "https://", or "http://localhost").
-        Open Orbit at such an address and try again.
+        @T["Chat requires a secure connection (an address starting with \"https://\", or \"http://localhost\"). Open Orbit at such an address and try again."]
     </p>
 }
 else if (_encryptionKeyLocked)
@@ -59,7 +58,7 @@ else
         <div class="chat-list-backdrop @(_isDrawerOpen ? "open" : "")" @onclick="CloseDrawer"></div>
         <div class="chat-list @(_isDrawerOpen ? "open" : "") @(_isContactListCollapsed ? "collapsed" : "")">
             <div class="chat-list-header">
-                <button type="button" class="icon-btn" title="@(_isContactListCollapsed ? "Show names" : "Hide names")" @onclick="ToggleContactListCollapsed">
+                <button type="button" class="icon-btn" title="@(_isContactListCollapsed ? T["Show names"] : T["Hide names"])" @onclick="ToggleContactListCollapsed">
                     @if (_isContactListCollapsed)
                     {
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
@@ -69,19 +68,37 @@ else
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
                     }
                 </button>
+                @* Hidden when the list is collapsed to initials: there is no room for it, and nothing
+                   to read in the results either. *@
+                @if (!_isContactListCollapsed)
+                {
+                    <input class="chat-list-search" type="search" @bind="_chatSearch" @bind:event="oninput"
+                           placeholder="@(T["Search chats"])" aria-label="@(T["Search chats"])" />
+                }
             </div>
-            @foreach (var contact in _establishedChats)
+            @if (!_matchingChats.Any())
             {
-                <button type="button" class="chat-list-item @(contact.UserId == UserId ? "active" : "")" title="@contact.DisplayName" @onclick="() => SwitchContact(contact.UserId)">
+                <p class="empty-hint chat-list-empty">@T["Nothing matches that."]</p>
+            }
+            @foreach (var contact in _matchingChats)
+            {
+                @* The badge counts the messages themselves, not entries in the notification panel:
+                   clearing that panel is tidying, not reading, and it used to take the only sign that
+                   somebody had written with it. *@
+                <button type="button" class="chat-list-item @(contact.UserId == UserId ? "active" : "") @(UnreadFrom(contact) > 0 ? "unread" : "")" title="@contact.DisplayName" @onclick="() => SwitchContact(contact.UserId)">
                     <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">
                         @AvatarHelper.GetInitials(contact.DisplayName)
-                        @if (NotificationFeedState.CountForChatWith(contact.UserId) is > 0 and var unreadFromContact)
+                        @if (UnreadFrom(contact) is > 0 and var unreadFromContact)
                         {
                             <span class="notif-badge">@FormatUnreadCount(unreadFromContact)</span>
                         }
                     </span>
                     <span class="chat-list-meta">
                         <span class="chat-list-name">@contact.DisplayName</span>
+                        @if (UnreadFrom(contact) is > 0 and var waiting)
+                        {
+                            <span class="chat-list-preview">@T.Format("{0} new", waiting)</span>
+                        }
                     </span>
                 </button>
             }
@@ -89,7 +106,7 @@ else
 
         <div class="chat-thread">
             <div class="chat-thread-header">
-                <button type="button" class="icon-btn chat-list-toggle" title="Conversations" @onclick="ToggleDrawer">
+                <button type="button" class="icon-btn chat-list-toggle" title="@(T["Conversations"])" @onclick="ToggleDrawer">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
                 </button>
                 <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(_otherUser.Id);width:34px;height:34px;font-size:12.5px;">@AvatarHelper.GetInitials(_otherUser.DisplayName)</span>
@@ -101,8 +118,7 @@ else
             @if (_otherUser.PublicKeyBase64 is null)
             {
                 <p>
-                    @_otherUser.DisplayName hasn't set up encryption yet - they need to log in in their own
-                    browser first before you can message them.
+                    @T.Format("{0} hasn't set up encryption yet - they need to log in in their own browser first before you can message them.", _otherUser.DisplayName)
                 </p>
             }
             else
@@ -110,15 +126,13 @@ else
                 @if (RequiresApprovalFromMe)
                 {
                     <p class="chat-request-banner">
-                        @_otherUser.DisplayName wants to chat with you.
-                        <button type="button" class="btn-primary" disabled="@_isApprovingConversation" @onclick="ApproveConversationAsync">
-                            Allow chatting
-                        </button>
+                        @T.Format("{0} wants to chat with you.", _otherUser.DisplayName)
+                        <button type="button" class="btn-primary" disabled="@_isApprovingConversation" @onclick="ApproveConversationAsync">@T["Allow chatting"]</button>
                     </p>
                 }
                 else if (IsPendingApprovalFromOtherParty)
                 {
-                    <p class="chat-request-banner">Message is waiting for @_otherUser.DisplayName to approve.</p>
+                    <p class="chat-request-banner">@T.Format("Message is waiting for {0} to approve.", _otherUser.DisplayName)</p>
                 }
 
                 <div class="chat-messages" @ref="_messageListElement" @onclick="CloseMessageMenu">
@@ -158,7 +172,7 @@ else
                                        id="@MessageElementId(message.Id)">
                                         @if (_forwardedFromByMessageId.TryGetValue(message.Id, out var forwardedFromDisplayName))
                                         {
-                                            <span class="chat-bubble-forwarded-label">Forwarded from @forwardedFromDisplayName</span>
+                                            <span class="chat-bubble-forwarded-label">@T.Format("Forwarded from {0}", forwardedFromDisplayName)</span>
                                         }
                                         @if (_replyToByMessageId.TryGetValue(message.Id, out var quoted))
                                         {
@@ -170,7 +184,7 @@ else
                                                 @quoted.Preview
                                             </button>
                                         }
-                                        @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[couldn't decrypt]")
+                                        @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
                                     </p>
                                     @if (canEdit || canForward)
                                     {
@@ -218,11 +232,11 @@ else
                                     @message.SentAtUtc.ToLocalTime().ToString("HH:mm")
                                     @if (message.IsEdited)
                                     {
-                                        <text> · Edited</text>
+                                        <text>@T["· Edited"]</text>
                                     }
                                     @if (message.SenderUserId == _ownUserId)
                                     {
-                                        @(IsReadByOtherParty(message) ? " · Read" : " · Sent")
+                                        @(IsReadByOtherParty(message) ? T[" · Read"] : T[" · Sent"])
                                     }
                                 </span>
                                 @if (_forwardErrorMessage is not null && _forwardErrorMessageForMessageId == message.Id)
@@ -258,7 +272,7 @@ else
                     }
                     @if (_isJumpToNewestVisible)
                     {
-                        <button type="button" class="chat-jump-to-newest" title="Jump to newest message"
+                        <button type="button" class="chat-jump-to-newest" title="@(T["Jump to newest message"])"
                                 @onclick="ScrollToNewestMessageAsync" @onclick:stopPropagation="true">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M10 4v12M5 11l5 5 5-5" />
@@ -369,6 +383,30 @@ else
     private IEnumerable<ContactDto> _establishedChats
         => _contacts.Where(contact => !contact.RequiresApprovalFromCurrentUser).OrderByDescending(contact => contact.LastMessageAtUtc);
 
+    /// <summary>What the reader has typed into the drawer's search box.</summary>
+    private string _chatSearch = string.Empty;
+
+    /// <summary>
+    /// The conversations left after the search box. Filtered here rather than on the server: the drawer
+    /// already holds every contact, and a list short enough to scroll is short enough to filter.
+    /// Matches the display name and the login, since either is what someone might type.
+    /// </summary>
+    private IEnumerable<ContactDto> _matchingChats
+    {
+        get
+        {
+            var query = _chatSearch.Trim();
+            if (query.Length == 0)
+            {
+                return _establishedChats;
+            }
+
+            return _establishedChats.Where(contact =>
+                contact.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || contact.UserName.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+        }
+    }
+
     /// <summary>
     /// Populated for a message that decrypts to one of the three share payload shapes (calendar event,
     /// note, or task list - see EventShareMessagePayload/NoteShareMessagePayload/TaskListShareMessagePayload),
@@ -437,7 +475,7 @@ else
             // initial load should too, instead of crashing the whole WASM renderer over what a retry
             // might resolve on its own.
             Logger.LogError(exception, "Failed to load chat");
-            _loadErrorMessage = "Couldn't load chat. Check your connection and try again.";
+            _loadErrorMessage = T["Couldn't load chat. Check your connection and try again."];
             return;
         }
         catch (JSException exception)
@@ -530,7 +568,7 @@ else
             // Mirrors OnInitializedAsync's own catch above - no status code at all (API unreachable,
             // DNS, a dropped connection, ...) shouldn't crash the page when switching contacts either.
             Logger.LogError(exception, "Failed to load conversation with {UserId}", UserId);
-            _loadErrorMessage = "Couldn't load this conversation. Check your connection and try again.";
+            _loadErrorMessage = T["Couldn't load this conversation. Check your connection and try again."];
             return;
         }
 
@@ -801,7 +839,7 @@ else
         {
             Logger.LogWarning(
                 exception, "Failed to forward chat message {MessageId} to user {TargetUserId}", message.Id, targetContact.UserId);
-            _forwardErrorMessage = "Couldn't forward the message.";
+            _forwardErrorMessage = T["Couldn't forward the message."];
             _forwardErrorMessageForMessageId = message.Id;
         }
         finally
@@ -891,6 +929,22 @@ else
         }
     }
 
+    /// <summary>
+    /// Appends a message unless the list already holds it, and says whether it did. The one place that
+    /// decides this: sending and polling can each learn about the same message first, and either
+    /// adding it without asking puts it on screen twice.
+    /// </summary>
+    private bool AddMessageIfNew(ChatMessageDto message)
+    {
+        if (_messages.Any(existing => existing.Id == message.Id))
+        {
+            return false;
+        }
+
+        _messages.Add(message);
+        return true;
+    }
+
     private async Task LoadNewMessagesAsync()
     {
         var sinceUtc = _messages.Count > 0 ? _messages[^1].SentAtUtc : (DateTimeOffset?)null;
@@ -902,14 +956,12 @@ else
         foreach (var message in newMessages)
         {
             // GetConversationAsync's "since" filter can re-return the very message that was just added
-            // optimistically by SendMessageAsync (same SentAtUtc as the "since" cursor) - skipping an
-            // id already present keeps a poll tick from duplicating it in the list.
-            if (_messages.Any(existing => existing.Id == message.Id))
+            // by SendMessageAsync (same SentAtUtc as the "since" cursor).
+            if (!AddMessageIfNew(message))
             {
                 continue;
             }
 
-            _messages.Add(message);
             addedAnyMessage = true;
             await DecryptAndCacheAsync(message);
         }
@@ -1035,6 +1087,16 @@ else
             return;
         }
 
+        // No ShareId and nothing to accept, so it never becomes a ShareNotice: a shared position is
+        // already visible on the map to whoever it was sealed for. It reads as what happened.
+        if (TryDeserialize<LocationShareMessagePayload>(plainText) is { Type: LocationShareMessagePayload.MessageType } locationShare)
+        {
+            _decryptedContentByMessageId[message.Id] = locationShare.IsContinuous
+                ? T["Shared their location, and keeps it up to date."]
+                : T["Shared where they are right now."];
+            return;
+        }
+
         if (TryDeserialize<ReplyMessagePayload>(plainText) is { Type: ReplyMessagePayload.MessageType } reply)
         {
             _decryptedContentByMessageId[message.Id] = reply.Content;
@@ -1123,12 +1185,12 @@ else
 
     private static async Task<bool> GrantAsync<T>(Task<T?> shareTask) where T : class => await shareTask is not null;
 
-    private static string DescribeItemType(string itemType) => itemType switch
+    private string DescribeItemType(string itemType) => itemType switch
     {
-        "Note" => "a note",
-        "TaskList" => "a task list",
-        "CalendarEvent" => "an event",
-        _ => "a warehouse"
+        "Note" => T["a note"],
+        "TaskList" => T["a task list"],
+        "CalendarEvent" => T["an event"],
+        _ => T["a warehouse"]
     };
 
     private async Task GrantEditAccessAsync(Guid messageId, EditAccessRequestNotice notice)
@@ -1237,7 +1299,11 @@ else
             var sent = await ChatApiClient.SendMessageAsync(
                 new SendMessageRequest(UserId, payload.CiphertextBase64, payload.NonceBase64));
 
-            _messages.Add(sent);
+            // A poll tick that overlapped this send may already have picked the message up: the server
+            // had stored it before this await returned, so both paths can hold it. Adding it blind is
+            // what showed the first message of a conversation twice, where an empty list makes the poll
+            // fetch everything and the overlap is near-certain.
+            AddMessageIfNew(sent);
             _decryptedContentByMessageId[sent.Id] = _draftMessage;
             if (_replyingTo is { } answered)
             {
@@ -1268,6 +1334,14 @@ else
     }
 
     /// <summary>Matches MainLayout's own badge formatting - 1-9 as-is, "9+" above that.</summary>
+    /// <summary>
+    /// Unread messages waiting from this contact. Comes from the conversation itself (ContactDto), so
+    /// it survives clearing the notification panel and disappears only once the conversation is opened.
+    /// The one exception is the conversation on screen, which the poll loop is marking read as it goes -
+    /// showing a count beside it would flicker against a list refreshed a moment later.
+    /// </summary>
+    private int UnreadFrom(ContactDto contact) => contact.UserId == UserId ? 0 : contact.UnreadCount;
+
     private static string FormatUnreadCount(int count) => count > 9 ? "9+" : count.ToString(CultureInfo.InvariantCulture);
 
     private void OnNotificationFeedChanged() => InvokeAsync(StateHasChanged);

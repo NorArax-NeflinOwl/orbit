@@ -28,6 +28,15 @@ internal sealed class InMemoryDailyTaskReminderRepository : IDailyTaskReminderRe
         // else claimed this first" signal TryClaimAsync needs - no separate lookup required.
         => Task.FromResult(_claimed.Add((taskItemId, reminderDate)));
 
+    /// <summary>Which items the reminder loop brought back, so a test can check it happened.</summary>
+    public List<Guid> Reopened { get; } = [];
+
+    public Task ReopenAsync(Guid taskItemId, CancellationToken cancellationToken)
+    {
+        Reopened.Add(taskItemId);
+        return Task.CompletedTask;
+    }
+
     public Task ReleaseClaimAsync(Guid taskItemId, DateOnly reminderDate, CancellationToken cancellationToken)
     {
         _claimed.Remove((taskItemId, reminderDate));

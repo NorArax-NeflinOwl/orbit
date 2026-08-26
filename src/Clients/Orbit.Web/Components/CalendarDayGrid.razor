@@ -1,12 +1,13 @@
 @using System.Globalization
 @using Orbit.Contracts.Calendar
 @using Orbit.Web.Services
+@inject Translations T
 
 <div class="calendar-day-grid">
     @if (Grid.AllDayEvents.Count > 0)
     {
         <div class="calendar-day-grid-all-day">
-            <span class="calendar-day-grid-all-day-label">All day</span>
+            <span class="calendar-day-grid-all-day-label">@T["All day"]</span>
             @foreach (var calendarEvent in Grid.AllDayEvents)
             {
                 <button type="button" class="calendar-event-chip" style="border-left-color:@EventColor(calendarEvent);"

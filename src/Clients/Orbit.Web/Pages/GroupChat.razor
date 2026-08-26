@@ -1,6 +1,7 @@
 @page "/chat/groups"
 @page "/chat/groups/{GroupId:guid}"
 @attribute [Authorize]
+@using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
@@ -12,16 +13,16 @@
 @inject ILogger<GroupChat> Logger
 @inject Translations T
 
-<PageTitle>@(_selectedGroup?.Name ?? "Groups")</PageTitle>
+<PageTitle>@(_selectedGroup?.Name ?? T["Groups"])</PageTitle>
 
 <div class="page-header">
     <div>
         <h1>@T["Groups"]</h1>
-        <p class="page-subtitle">Chats with more than one other person, encrypted the same way one-to-one chats are.</p>
+        <p class="page-subtitle">@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</p>
     </div>
     <div class="page-header-actions">
         <button type="button" class="btn-secondary" @onclick="GoToContacts">@T["Contacts"]</button>
-        <button type="button" class="btn-primary" @onclick="StartCreating">New group</button>
+        <button type="button" class="btn-primary" @onclick="StartCreating">@T["New group"]</button>
     </div>
 </div>
 
@@ -34,14 +35,14 @@
 {
     <div class="card group-create-card">
         <div class="field">
-            <label for="groupNameInput">Group name</label>
-            <input id="groupNameInput" @bind="_newGroupName" placeholder="Weekend trip" />
+            <label for="groupNameInput">@T["Group name"]</label>
+            <input id="groupNameInput" @bind="_newGroupName" placeholder="@(T["Weekend trip"])" />
         </div>
         <div class="field">
-            <label>Who's in it</label>
+            <label>@T["Who's in it"]</label>
             @if (_contacts.Count == 0)
             {
-                <p class="empty-hint">You need at least one contact to start a group.</p>
+                <p class="empty-hint">@T["You need at least one contact to start a group."]</p>
             }
             else
             {
@@ -64,14 +65,23 @@
 
 <div class="group-layout">
     <div class="card group-list">
-        <div class="card-header"><span class="card-title">Your groups</span><span class="card-count">@_groups.Count</span></div>
+        <div class="card-header"><span class="card-title">@T["Your groups"]</span><span class="card-count">@_groups.Count</span></div>
+        @if (_groups.Count > 0)
+        {
+            <input class="chat-list-search" type="search" @bind="_groupSearch" @bind:event="oninput"
+                   placeholder="@(T["Search groups"])" aria-label="@(T["Search groups"])" />
+        }
         @if (_groups.Count == 0)
         {
-            <p class="empty-hint">No groups yet.</p>
+            <p class="empty-hint">@T["No groups yet."]</p>
+        }
+        else if (!_matchingGroups.Any())
+        {
+            <p class="empty-hint">@T["Nothing matches that."]</p>
         }
         else
         {
-            @foreach (var group in _groups)
+            @foreach (var group in _matchingGroups)
             {
                 <button type="button" class="list-row list-row-button @(group.Id == GroupId ? "active" : "")"
                         @onclick="() => OpenGroup(group.Id)">
@@ -91,25 +101,35 @@
         <div class="card group-conversation">
             <div class="card-header">
                 <span class="card-title">@selectedGroup.Name</span>
-                <span class="card-count">@selectedGroup.Members.Count members</span>
+                @* The roster folds away, because the conversation is what the page is for. Expanded by
+                   default it filled the screen above the messages - one row per member, each carrying
+                   two buttons for an admin - and left the chat itself below the fold. *@
+                <button type="button" class="group-members-toggle" aria-expanded="@(_areMembersVisible ? "true" : "false")"
+                        @onclick="() => _areMembersVisible = !_areMembersVisible">
+                    @T.Format("{0} members", selectedGroup.Members.Count)
+                    <svg class="@(_areMembersVisible ? "open" : "")" width="12" height="12" viewBox="0 0 20 20" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M5 7.5 10 12.5 15 7.5" />
+                    </svg>
+                </button>
             </div>
 
             @* Membership is only editable by an admin - see ChatGroup, which refuses it server-side too. *@
-            <div class="group-members">
+            <div class="group-members @(_areMembersVisible ? "" : "hidden")">
                 @foreach (var member in selectedGroup.Members)
                 {
-                    <div class="list-row">
+                    <div class="list-row group-member-row">
                         <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(member.UserId)">@AvatarHelper.GetInitials(DisplayNameFor(member.UserId))</span>
                         <span class="row-title">@DisplayNameFor(member.UserId)</span>
                         @if (member.Role == AdminRole)
                         {
-                            <span class="card-badge">@T["Admin"]</span>
+                            <span class="card-badge group-member-badge">@T["Admin"]</span>
                         }
                         @if (IsOwnAdmin && member.UserId != _ownUserId)
                         {
                             <button type="button" class="btn-secondary" disabled="@_isBusy"
                                     @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
-                                @(member.Role == AdminRole ? "Demote" : "Make admin")
+                                @(member.Role == AdminRole ? T["Demote"] : T["Make admin"])
                             </button>
                             <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
                         }
@@ -120,7 +140,7 @@
                 {
                     <div class="field-row">
                         <select @bind="_contactToAddId">
-                            <option value="">Add someone…</option>
+                            <option value="">@T["Add someone…"]</option>
                             @foreach (var contact in _addableContacts)
                             {
                                 <option value="@contact.UserId">@contact.DisplayName</option>
@@ -134,26 +154,60 @@
             <div class="group-messages">
                 @if (_messages.Count == 0)
                 {
-                    <p class="empty-hint">Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you.</p>
+                    <p class="empty-hint">@T["Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you."]</p>
                 }
                 @foreach (var message in _messages)
                 {
                     <div class="list-row group-message @(message.SenderUserId == _ownUserId ? "own" : "")">
+                        @* Sender and text as two elements rather than two lines of markup: Razor drops
+                           the whitespace between them, which ran the name straight into the message. *@
                         <span class="row-title">
-                            <strong>@DisplayNameFor(message.SenderUserId)</strong>
-                            @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? "…")
+                            <strong class="group-message-sender">@DisplayNameFor(message.SenderUserId)</strong>
+                            <span class="group-message-text">@(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? "…")</span>
                         </span>
-                        <span class="row-meta">@message.SentAtUtc.LocalDateTime.ToString("dd.MM HH:mm")</span>
-                        @if (CanDelete(message))
-                        {
-                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
-                        }
+                        <span class="row-meta">@message.SentAtUtc.LocalDateTime.ToString("dd.MM HH:mm")@(message.IsEdited ? T["· Edited"] : "")</span>
+                        @* The same three things a one-to-one message offers. Editing is the sender's
+                           alone - deleting a message an admin can also do, but putting different words
+                           in somebody's mouth is not something moderation should reach. *@
+                        <span class="group-message-actions">
+                            @if (CanEdit(message))
+                            {
+                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StartEditing(message)">@T["Edit"]</button>
+                            }
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
+                            @if (CanDelete(message))
+                            {
+                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
+                            }
+                        </span>
                     </div>
+                    @if (_editingMessageId == message.Id)
+                    {
+                        <div class="field-row group-message-edit">
+                            <input @bind="_editDraft" aria-label="@(T["Edit"])" />
+                            <button type="button" class="btn-primary" disabled="@(_isBusy || _editDraft.Trim().Length == 0)" @onclick="() => SaveEditAsync(message)">@T["Save"]</button>
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="CancelEditing">@T["Cancel"]</button>
+                        </div>
+                    }
+                    @if (_forwardingMessageId == message.Id)
+                    {
+                        <div class="field-row group-message-edit">
+                            <select @bind="_forwardToUserId" aria-label="@(T["Forward"])">
+                                <option value="">@T["Pick a contact…"]</option>
+                                @foreach (var contact in _contacts)
+                                {
+                                    <option value="@contact.UserId">@contact.DisplayName</option>
+                                }
+                            </select>
+                            <button type="button" class="btn-primary" disabled="@(_isBusy || _forwardToUserId.Length == 0)" @onclick="() => ForwardAsync(message)">@T["Forward"]</button>
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="CancelForwarding">@T["Cancel"]</button>
+                        </div>
+                    }
                 }
             </div>
 
             <div class="field-row">
-                <input @bind="_draft" placeholder="Write to the group" @onkeydown="OnDraftKeyDownAsync" />
+                <input @bind="_draft" placeholder="@(T["Write to the group"])" @onkeydown="OnDraftKeyDownAsync" />
                 <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">@T["Send"]</button>
             </div>
         </div>
@@ -181,6 +235,24 @@
     private string _draft = string.Empty;
     private bool _isCreating;
     private bool _isBusy;
+
+    /// <summary>Whether the roster is unfolded. Closed to begin with: the messages are what the reader came for.</summary>
+    private bool _areMembersVisible;
+
+    /// <summary>What the reader has typed into the group search box.</summary>
+    private string _groupSearch = string.Empty;
+
+    /// <summary>The groups left after the search box - filtered here, since the page already holds them all.</summary>
+    private IEnumerable<ChatGroupDto> _matchingGroups
+        => _groupSearch.Trim() is { Length: > 0 } query
+            ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            : _groups;
+
+    /// <summary>Which message is open for editing or forwarding, and what is being typed into it.</summary>
+    private Guid? _editingMessageId;
+    private string _editDraft = string.Empty;
+    private Guid? _forwardingMessageId;
+    private string _forwardToUserId = string.Empty;
     private string? _errorMessage;
 
     private ChatGroupDto? _selectedGroup => _groups.FirstOrDefault(group => group.Id == GroupId);
@@ -216,7 +288,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to load groups");
-            _errorMessage = "Couldn't load your groups. Check your connection and try again.";
+            _errorMessage = T["Couldn't load your groups. Check your connection and try again."];
         }
     }
 
@@ -237,7 +309,7 @@
             var otherPartyUserId = message.SenderUserId == _ownUserId ? message.RecipientUserId : message.SenderUserId;
             var plainText = await EncryptedChatMessageReader.TryDecryptFromAsync(
                 _ownUserId, otherPartyUserId, message.CiphertextBase64, message.NonceBase64);
-            _plainTextByMessageId[message.Id] = plainText ?? "(can't be opened on this device)";
+            _plainTextByMessageId[message.Id] = plainText ?? T["(can't be opened on this device)"];
         }
     }
 
@@ -305,12 +377,92 @@
     private bool CanDelete(ChatMessageDto message)
         => message.SenderUserId == _ownUserId || IsOwnAdmin;
 
+    /// <summary>
+    /// Editing needs both the sender's own hand and something to address every copy by - a message
+    /// stored before GroupMessageId existed has no way to reach its siblings.
+    /// </summary>
+    private bool CanEdit(ChatMessageDto message)
+        => message.SenderUserId == _ownUserId && message.GroupMessageId is not null;
+
+    private void StartEditing(ChatMessageDto message)
+    {
+        _forwardingMessageId = null;
+        _editingMessageId = message.Id;
+        _editDraft = _plainTextByMessageId.GetValueOrDefault(message.Id) ?? string.Empty;
+    }
+
+    private void CancelEditing()
+    {
+        _editingMessageId = null;
+        _editDraft = string.Empty;
+    }
+
+    private async Task SaveEditAsync(ChatMessageDto message)
+        => await RunAsync(async () =>
+        {
+            var newText = _editDraft.Trim();
+            var otherMemberIds = _selectedGroup!.Members
+                .Select(member => member.UserId)
+                .Where(userId => userId != _ownUserId)
+                .ToList();
+
+            if (!await EncryptedChatMessageSender.EditGroupMessageAsync(
+                    _ownUserId, GroupId!.Value, message.GroupMessageId!.Value, otherMemberIds, newText))
+            {
+                _errorMessage = T["That message is no longer yours to edit."];
+                return;
+            }
+
+            // Replaced locally as well, so the edit shows before the next load rather than after it.
+            _plainTextByMessageId[message.Id] = newText;
+            CancelEditing();
+            await LoadAsync();
+        });
+
+    private void StartForwarding(ChatMessageDto message)
+    {
+        _editingMessageId = null;
+        _forwardingMessageId = message.Id;
+        _forwardToUserId = string.Empty;
+    }
+
+    private void CancelForwarding()
+    {
+        _forwardingMessageId = null;
+        _forwardToUserId = string.Empty;
+    }
+
+    /// <summary>
+    /// Forwards into a one-to-one conversation, carrying who wrote it - the group is not a place a
+    /// message can be forwarded to, since everyone in it already has it.
+    /// </summary>
+    private async Task ForwardAsync(ChatMessageDto message)
+        => await RunAsync(async () =>
+        {
+            if (!Guid.TryParse(_forwardToUserId, out var recipientUserId))
+            {
+                return;
+            }
+
+            var content = _plainTextByMessageId.GetValueOrDefault(message.Id);
+            if (string.IsNullOrEmpty(content))
+            {
+                _errorMessage = T["Couldn't forward the message."];
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(new ForwardedMessagePayload(
+                message.SenderUserId, DisplayNameFor(message.SenderUserId), content));
+            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson);
+            CancelForwarding();
+        });
+
     private async Task DeleteMessageAsync(ChatMessageDto message)
         => await RunAsync(async () =>
         {
             if (!await ChatApiClient.DeleteMessageAsync(message.Id))
             {
-                _errorMessage = "That message is no longer yours to delete.";
+                _errorMessage = T["That message is no longer yours to delete."];
                 return;
             }
 
@@ -360,7 +512,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "A group action failed");
-            _errorMessage = "That didn't work. Reload the group and try again.";
+            _errorMessage = T["That didn't work. Reload the group and try again."];
         }
         finally
         {

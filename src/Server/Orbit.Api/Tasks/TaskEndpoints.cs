@@ -163,18 +163,34 @@ public static class TaskEndpoints
         return Guid.Parse(subject);
     }
 
+    /// <summary>
+    /// An entry that came back with an id keeps it; one without is new and gets a fresh one. Rebuilding
+    /// every entry from scratch is what let an inventory item's restock task, a daily reminder's
+    /// once-a-day record, and an overdue notification all point at rows that no longer existed after the
+    /// reader so much as ticked a box.
+    /// </summary>
     private static IReadOnlyList<TaskItem> ToDomainItems(IReadOnlyList<TaskItemRequest> items)
-        => items
-            .Select(item => TaskItem.Create(
-                item.Description,
-                item.DueDateUtc,
-                item.IsCompleted,
-                item.LinkedTaskListId,
-                RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel"),
-                item.RemindDaily,
-                RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel"),
-                item.DailyReminderTimeOfDay))
-            .ToList();
+        => items.Select(ToDomainItem).ToList();
+
+    private static TaskItem ToDomainItem(TaskItemRequest item)
+    {
+        var overdueChannel = RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel");
+        var dailyChannel = RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel");
+
+        if (item.Id is not { } existingId)
+        {
+            return TaskItem.Create(
+                item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+                overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay);
+        }
+
+        // Same override Create applies: a linked entry's completion follows the list it links to, so a
+        // value sent for it is ignored rather than briefly believed - see LinkedTaskCompletionResolver.
+        return TaskItem.FromPersistence(
+            existingId, item.Description, item.DueDateUtc,
+            item.LinkedTaskListId is null && item.IsCompleted, item.LinkedTaskListId,
+            overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay);
+    }
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>

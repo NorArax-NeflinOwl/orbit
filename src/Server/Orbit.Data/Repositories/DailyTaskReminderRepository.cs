@@ -22,7 +22,9 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
         var rows = await (
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
-            where item.RemindDaily && !item.IsCompleted && item.LinkedTaskListId == null
+            // No !IsCompleted here on purpose: a finished item is due again tomorrow, and is reopened
+            // by ReopenAsync when its reminder fires.
+            where item.RemindDaily && item.LinkedTaskListId == null
                 && item.DailyReminderNotificationChannel != "None"
             select new
             {
@@ -105,5 +107,22 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
     /// event's StartUtc, per CalendarEventEditor.razor's ToDateTimeOffset) are anchored to local midnight
     /// rather than UTC midnight.
     /// </summary>
-    private static DateTimeOffset ToStorageDate(DateOnly reminderDate) => new(reminderDate.ToDateTime(TimeOnly.MinValue));
+    public async Task ReopenAsync(Guid taskItemId, CancellationToken cancellationToken)
+    {
+        await _dbContext.Set<TaskItemEntity>()
+            .Where(item => item.Id == taskItemId && item.IsCompleted)
+            .ExecuteUpdateAsync(update => update.SetProperty(item => item.IsCompleted, false), cancellationToken);
+    }
+
+    /// <summary>
+    /// The local calendar date as a key, pinned to UTC midnight.
+    ///
+    /// The offset has to be zero: DateOnly.ToDateTime gives a DateTime with Kind=Unspecified, which
+    /// DateTimeOffset then stamps with the machine's local offset - and Npgsql refuses to write anything
+    /// but UTC to a "timestamp with time zone", so every poll on a server not running at UTC threw
+    /// before it could send a single reminder. Zero is also the only offset that keeps the stored key
+    /// comparable across a daylight-saving change.
+    /// </summary>
+    private static DateTimeOffset ToStorageDate(DateOnly reminderDate)
+        => new(reminderDate.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 }

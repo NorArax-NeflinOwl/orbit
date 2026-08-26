@@ -8,7 +8,7 @@
 @inject ILogger<Notes> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Notes</PageTitle>
+<PageTitle>@T["Orbit — Notes"]</PageTitle>
 
 @* TODO(Orbit.Web.UI): still the pre-redesign markup - plain <ul>/<li>/<button>, no design-system
    classes. Restyle onto the tokens/components in wwwroot/css/app.css (.page-header, .card, .card-grid,
@@ -37,11 +37,27 @@ else
     <ul>
         @foreach (var note in _notes)
         {
-            <li>
-                <strong>@note.Title</strong>
-                <p>@ContentPreview(note)</p>
-                <small>Created: @note.CreatedAtUtc.LocalDateTime</small><br>
-                <small>Last updated: @note.UpdatedAtUtc.LocalDateTime</small><br>
+            <li class="note-row">
+                <strong class="note-row-title">@note.Title</strong>
+                @* One line, not the whole note - enough to recognise which note this is, with the
+                   editor one click away for reading it. A checklist line shows whether it is done, the
+                   same mark the task list preview uses. *@
+                @if (FirstLine(note) is { } firstLine)
+                {
+                    <p class="note-preview-line @(firstLine.IsChecklistItem && firstLine.IsChecked ? "completed" : "")">
+                        @if (firstLine.IsChecklistItem)
+                        {
+                            <span class="task-preview-mark">@(firstLine.IsChecked ? "✓" : "")</span>
+                        }
+                        <span class="note-preview-text">@firstLine.Text</span>
+                        @if (note.Content.Count > 1)
+                        {
+                            <span class="row-meta">@T.Format("+{0} more", note.Content.Count - 1)</span>
+                        }
+                    </p>
+                }
+                <small>@T["Created:"] @note.CreatedAtUtc.LocalDateTime</small><br>
+                <small>@T["Last updated:"] @note.UpdatedAtUtc.LocalDateTime</small><br>
                 <button @onclick="() => GoToEditNote(note.Id)">@T["Edit"]</button>
                 <button @onclick="() => DeleteNoteAsync(note)">@T["Delete"]</button>
             </li>
@@ -53,8 +69,12 @@ else
     private IReadOnlyList<NoteDto>? _notes;
 
     /// <summary>Joins a note's lines back into a single line of text for the list preview, since Content is now structured rather than a flat string.</summary>
-    private static string ContentPreview(NoteDto note)
-        => string.Join(' ', note.Content.Select(line => line.Text)).Trim();
+    /// <summary>
+    /// The first line that has anything on it, or null for a note with nothing written in it yet. Used
+    /// instead of the whole body glued together: a preview that prints everything is not a preview.
+    /// </summary>
+    private static NoteContentLineDto? FirstLine(NoteDto note)
+        => note.Content.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line.Text));
 
     protected override async Task OnInitializedAsync()
     {

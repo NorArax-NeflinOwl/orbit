@@ -141,4 +141,29 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             IsEdited = message.IsEdited,
             EditedAtUtc = message.EditedAtUtc
         };
+    public async Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(
+        Guid readerUserId, CancellationToken cancellationToken)
+    {
+        // GroupId == null keeps group traffic out: a group's unread state belongs to the group row, not
+        // to the one-to-one conversation with whoever happened to post in it.
+        var counts = await _dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message =>
+                message.RecipientUserId == readerUserId && message.ReadAtUtc == null && message.GroupId == null)
+            .GroupBy(message => message.SenderUserId)
+            .Select(bySender => new { SenderUserId = bySender.Key, Count = bySender.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(entry => entry.SenderUserId, entry => entry.Count);
+    }
+    public async Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(
+        Guid groupMessageId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.GroupMessageId == groupMessageId)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
 }

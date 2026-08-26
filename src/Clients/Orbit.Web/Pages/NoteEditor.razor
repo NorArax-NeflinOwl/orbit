@@ -15,13 +15,13 @@
 @inject ILogger<NoteEditor> Logger
 @inject Translations T
 
-<PageTitle>@(IsNewNote ? "New note" : "Edit note")</PageTitle>
+<PageTitle>@(IsNewNote ? T["New note"] : T["Edit note"])</PageTitle>
 
 @* TODO(Orbit.Web.UI): still plain unstyled form markup. Restyle onto app.css's .page-header/.card/
    .btn-primary/.btn-secondary once Notes.razor (the list page) gets the same treatment - do them
    together, since this editor's "Back"/"Save"/"Delete" affordances should match whatever button/card
    pattern the list ends up using. *@
-<h1>@(IsNewNote ? "New note" : "Edit note")</h1>
+<h1>@(IsNewNote ? T["New note"] : T["Edit note"])</h1>
 
 @if (_isLoading)
 {
@@ -31,8 +31,7 @@ else
 {
     @if (_isShared)
     {
-        <p class="shared-note-banner">
-            This note was shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.
+        <p class="shared-note-banner">@T["This note was shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.
         </p>
         @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
         {
@@ -45,14 +44,14 @@ else
     @if (_lockedByUserName is not null)
     {
         <p class="lock-banner">
-            <strong>@_lockedByUserName</strong> is currently editing this note - you can't edit it right now.
+            @T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName)
         </p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
         <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
             <div class="field">
-                <label>Title</label>
+                <label>@T["Title"]</label>
                 <InputText @bind-Value="_formModel.Title" class="note-editor-title" />
             </div>
             @* Only the owner may turn this on: a note reached through a share belongs to someone else,
@@ -63,21 +62,16 @@ else
                     <label>
                         <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                     <small>
-                        Encrypted in this browser before it is saved, so Orbit's servers hold something they
-                        can't read. A private note can't be shared, and any share of it stops working while
-                        it stays private. Losing your password means losing it - a reset replaces the key it
-                        was encrypted with, exactly as it does for chat history.
+                        @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."]
                     </small>
                 </div>
             }
 
             <div class="field">
-                <label>Content</label>
+                <label>@T["Content"]</label>
                 <div class="note-editor-toolbar">
                     <button type="button" class="btn-secondary" @onclick="InsertChecklistItemAsync">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
-                        Checklist item
-                    </button>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>@T["Checklist item"]</button>
                 </div>
                 <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content" @bind-Lines="_formModel.Content" />
             </div>
@@ -110,13 +104,13 @@ else
         <h2>@T["Sharing"]</h2>
         @if (_shareableContacts.Count == 0)
         {
-            <p>No contacts. A contact will appear here once you start a chat with someone.</p>
+            <p>@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
         }
         else
         {
             <div class="field-row">
                 <select id="shareContactSelect" @bind="_selectedContactUserId">
-                    <option value="">-- select a contact --</option>
+                    <option value="">@T["-- select a contact --"]</option>
                     @foreach (var contact in _shareableContacts)
                     {
                         <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
@@ -198,7 +192,7 @@ else
             : _contacts;
 
     /// <summary>Explains what the current user can do with this shared copy, for the "shared by X" banner.</summary>
-    private string SharedAccessDescription => _access.Description;
+    private string SharedAccessDescription => T[_access.Description];
 
     protected override async Task OnInitializedAsync()
     {
@@ -290,13 +284,13 @@ else
                 {
                     _lockedByUserName = outcome.LockedByUserName;
                     StopLockHeartbeat();
-                    _saveErrorMessage = $"{outcome.LockedByUserName} is currently editing this note - try again in a moment.";
+                    _saveErrorMessage = T.Format("{0} is currently editing this note - try again in a moment.", outcome.LockedByUserName);
                     return;
                 }
 
                 if (outcome.Kind == EditOutcomeKind.NotFound)
                 {
-                    _saveErrorMessage = "Failed to save the note. Try again.";
+                    _saveErrorMessage = T["Failed to save the note. Try again."];
                     return;
                 }
 
@@ -312,7 +306,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to {Mode} note {NoteId}", IsNewNote ? "create" : "update", Id);
-            _saveErrorMessage = "Failed to save the note. Try again.";
+            _saveErrorMessage = T["Failed to save the note. Try again."];
             return;
         }
         finally
@@ -344,13 +338,13 @@ else
             var result = await NotesApiClient.ShareNoteAsync(noteId, recipientUserId, _selectedAccessLevel);
             if (result is null)
             {
-                _shareErrorMessage = "Failed to share the note.";
+                _shareErrorMessage = T["Failed to share the note."];
                 return;
             }
 
             var payloadJson = JsonSerializer.Serialize(new NoteShareMessagePayload(result.ShareId, _formModel.Title));
             await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
-            _shareInfoMessage = result.AlreadyShared ? "Already shared with that contact - sent a reminder." : null;
+            _shareInfoMessage = result.AlreadyShared ? T["Already shared with that contact - sent a reminder."] : null;
             _selectedContactUserId = string.Empty;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -360,7 +354,7 @@ else
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogWarning(exception, "Failed to share note {NoteId} with user {RecipientUserId}", noteId, recipientUserId);
-            _shareErrorMessage = "Failed to share the note.";
+            _shareErrorMessage = T["Failed to share the note."];
         }
         finally
         {

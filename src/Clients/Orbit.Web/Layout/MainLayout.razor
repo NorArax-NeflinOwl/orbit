@@ -31,7 +31,7 @@
     @if (_isAuthenticated)
     {
             <aside class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
-                <div class="sidebar-logo" role="button" tabindex="0" title="Collapse sidebar"
+                <div class="sidebar-logo" role="button" tabindex="0" title="@(T["Collapse sidebar"])"
                      @onclick="OnLogoClickAsync" @onkeydown="OnLogoKeyDown">
                     <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
                         <circle cx="13" cy="13" r="3" fill="var(--accent)" />
@@ -238,9 +238,9 @@
         // theme applies to the login/register pages too.
         await ThemeService.InitializeAsync();
         await DevicePreferences.InitializeAsync();
-        await T.InitializeAsync();
-        // The layout owns every page below it, so re-rendering here is what makes a language change take
-        // effect everywhere at once instead of on the next navigation.
+        // Translations is already loaded - Program.cs reads it before the first render, so the very
+        // first paint is in the right language. This only subscribes, so that changing it in Options
+        // re-renders every page below this layout at once instead of on the next navigation.
         T.Changed += OnLanguageChanged;
         await EnsureEncryptionKeyIfAuthenticatedAsync();
         StartSessionHeartbeat();

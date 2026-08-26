@@ -20,14 +20,14 @@
 @inject ILogger<CalendarEventEditor> Logger
 @inject Translations T
 
-<PageTitle>@(IsNewEvent ? "New event" : "Edit event")</PageTitle>
+<PageTitle>@(IsNewEvent ? T["New event"] : T["Edit event"])</PageTitle>
 
 @* TODO(Orbit.Web.UI): still plain unstyled form markup (this is the biggest of the three editors -
    recurrence, reminders, location/map picker, guests). Restyle together with Calendar.razor (see its own
    TODO) onto app.css's .card/.btn-primary vocabulary; the map picker (wwwroot/js/mapPicker.js/Leaflet)
    and the color swatch picker will need their own component-specific styling on top of that, not just
    class renames. *@
-<h1>@(IsNewEvent ? "New event" : "Edit event")</h1>
+<h1>@(IsNewEvent ? T["New event"] : T["Edit event"])</h1>
 
 @if (_isLoading)
 {
@@ -37,37 +37,36 @@ else
 {
     @if (_isShared)
     {
-        <p class="shared-event-banner">
-            This event was shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.
+        <p class="shared-event-banner">@T["This event was shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.
         </p>
     }
 
     @if (_lockedByUserName is not null)
     {
         <p class="lock-banner">
-            <strong>@_lockedByUserName</strong> is currently editing this event - you can't edit it right now.
+            @T.Format("{0} is currently editing this event - you can't edit it right now.", _lockedByUserName)
         </p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
     <fieldset disabled="@(!_canEditContent || _lockedByUserName is not null || _isSaving)">
         <div class="field">
-            <label>Title</label>
+            <label>@T["Title"]</label>
             <InputText @bind-Value="_formModel.Title" />
         </div>
         <div class="field">
-            <label>Description</label>
+            <label>@T["Description"]</label>
             <InputTextArea @bind-Value="_formModel.Description" />
         </div>
         <div class="field">
             <label>@T["Location"]</label>
-            <InputText @bind-Value="_formModel.LocationAddress" placeholder="Pick a point on the map to set an address" />
+            <InputText @bind-Value="_formModel.LocationAddress" placeholder="@(T["Pick a point on the map to set an address"])" />
             <div class="field-row">
-                <button type="button" class="btn-secondary" @onclick="ToggleMapAsync">@(_isMapVisible ? "Hide map" : "Pick on map")</button>
+                <button type="button" class="btn-secondary" @onclick="ToggleMapAsync">@(_isMapVisible ? T["Hide map"] : T["Pick on map"])</button>
                 @if (_formModel.LocationLatitude is { } latitude && _formModel.LocationLongitude is { } longitude)
                 {
-                    <span>Coordinates: @latitude.ToString("F5") , @longitude.ToString("F5")</span>
-                    <button type="button" class="btn-secondary" @onclick="ClearLocation">Remove location</button>
+                    <span>@T.Format("Coordinates: {0}, {1}", latitude.ToString("F5"), longitude.ToString("F5"))</span>
+                    <button type="button" class="btn-secondary" @onclick="ClearLocation">@T["Remove location"]</button>
                 }
             </div>
             @if (_isMapVisible)
@@ -76,17 +75,15 @@ else
             }
         </div>
         <div class="field">
-            <label>Color</label>
+            <label>@T["Color"]</label>
             <input type="color" @bind="_formModel.Color" />
         </div>
         <div class="field field-checkbox">
             <label>
-                <InputCheckbox @bind-Value="_formModel.IsAllDay" />
-                All-day event
-            </label>
+                <InputCheckbox @bind-Value="_formModel.IsAllDay" />@T["All-day event"]</label>
         </div>
         <div class="field">
-            <label>Start</label>
+            <label>@T["Start"]</label>
             <div class="field-row">
                 <InputDate @bind-Value="_formModel.StartDate" @bind-Value:after="OnStartChanged" />
                 @if (!_formModel.IsAllDay)
@@ -96,7 +93,7 @@ else
             </div>
         </div>
         <div class="field">
-            <label>End</label>
+            <label>@T["End"]</label>
             <div class="field-row">
                 <InputDate @bind-Value="_formModel.EndDate" @bind-Value:after="OnEndChanged" />
                 @if (!_formModel.IsAllDay)
@@ -107,85 +104,79 @@ else
         </div>
         <div class="field field-checkbox">
             <label>
-                <InputCheckbox @bind-Value="_formModel.IsRecurring" />
-                Recurring event
-            </label>
+                <InputCheckbox @bind-Value="_formModel.IsRecurring" />@T["Recurring event"]</label>
         </div>
         @if (_formModel.IsRecurring)
         {
             <div class="field">
-                <label>Frequency</label>
+                <label>@T["Frequency"]</label>
                 <InputSelect @bind-Value="_formModel.RecurrenceFrequency">
-                    <option value="Daily">Daily</option>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Monthly">Monthly</option>
+                    <option value="Daily">@T["Daily"]</option>
+                    <option value="Weekly">@T["Weekly"]</option>
+                    <option value="Monthly">@T["Monthly"]</option>
                 </InputSelect>
             </div>
             <div class="field">
-                <label>Every</label>
+                <label>@T["Every"]</label>
                 <InputNumber @bind-Value="_formModel.RecurrenceIntervalCount" />
             </div>
             <div class="field">
-                <label>Repeat until (optional)</label>
+                <label>@T["Repeat until (optional)"]</label>
                 <InputDate @bind-Value="_formModel.RecurrenceUntil" />
             </div>
         }
         <div class="field">
-            <label>Reminders</label>
+            <label>@T["Reminders"]</label>
             @if (_reminderRows.Count == 0)
             {
-                <p>No reminders.</p>
+                <p>@T["No reminders."]</p>
             }
             else
             {
                 @foreach (var row in _reminderRows)
                 {
-                    <div class="field-row reminder-row">
+                    <div class="field-row reminder-row" id="reminderRows">
                         <select @bind="row.PresetSelection">
                             @foreach (var preset in ReminderPresets)
                             {
-                                <option value="@preset.Minutes">@preset.Label</option>
+                                <option value="@preset.Minutes">@T[preset.Label]</option>
                             }
-                            <option value="custom">Custom</option>
+                            <option value="custom">@T["Custom"]</option>
                         </select>
                         @if (row.IsCustom)
                         {
                             <InputNumber @bind-Value="row.CustomAmount" @bind-Value:after="row.RecomputeFromCustom" min="1" />
                             <select @bind="row.CustomUnit" @bind:after="row.RecomputeFromCustom">
-                                <option value="minutes">minutes</option>
-                                <option value="hours">hours</option>
-                                <option value="days">days</option>
-                                <option value="weeks">weeks</option>
+                                <option value="minutes">@T["minutes"]</option>
+                                <option value="hours">@T["hours"]</option>
+                                <option value="days">@T["days"]</option>
+                                <option value="weeks">@T["weeks"]</option>
                             </select>
-                            <span>before</span>
+                            <span>@T["before"]</span>
                         }
                         <button type="button" class="btn-secondary" @onclick="() => RemoveReminderRow(row)">@T["Remove"]</button>
                     </div>
                 }
             }
-            <button type="button" class="btn-secondary" @onclick="AddReminderRow">Add reminder</button>
+            <button type="button" class="btn-secondary" @onclick="AddReminderRow">@T["Add reminder"]</button>
         </div>
         <div class="field">
-            <label>
-                Notification when the event is created
-                <select @bind="_formModel.CreationNotificationChannel">
+            <label>@T["Notification when the event is created"]<select @bind="_formModel.CreationNotificationChannel">
                     @foreach (var option in NotificationChannelOption.All)
                     {
-                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
+                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
                     }
                 </select>
             </label>
         </div>
         <div class="field">
-            <label>
-                Notification as the event approaches
-                <select @bind="_formModel.ReminderNotificationChannel">
-                    @foreach (var option in NotificationChannelOption.All)
-                    {
-                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
-                    }
-                </select>
-            </label>
+            <label for="reminderChannelSelect">@T["Notification as the event approaches"]</label>
+            <select id="reminderChannelSelect" @bind="_formModel.ReminderNotificationChannel">
+                @foreach (var option in NotificationChannelOption.All)
+                {
+                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                }
+            </select>
         </div>
 
     </fieldset>
@@ -197,7 +188,7 @@ else
                 <label>@T["Guests"]</label>
                 @if (_formModel.GuestUserIds.Count == 0)
                 {
-                    <p>No guests.</p>
+                    <p>@T["No guests."]</p>
                 }
                 else
                 {
@@ -213,16 +204,16 @@ else
                 }
             </div>
             <div class="field">
-                <label>Add a guest from contacts</label>
+                <label>@T["Add a guest from contacts"]</label>
                 @if (_shareableContacts.Count == 0)
                 {
-                    <p>No contacts. A contact will appear here once you start a chat with someone.</p>
+                    <p>@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
                 }
                 else
                 {
                     <div class="field-row">
                         <select id="guestContactSelect" @bind="_selectedContactUserId">
-                            <option value="">-- select a contact --</option>
+                            <option value="">@T["-- select a contact --"]</option>
                             @foreach (var contact in _shareableContacts)
                             {
                                 <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
@@ -320,7 +311,7 @@ else
             : _contacts;
 
     /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
-    private string SharedAccessDescription => _access.Description;
+    private string SharedAccessDescription => T[_access.Description];
 
     /// <summary>
     /// Contacts added as a guest via the picker during this editing session (not guests already present
@@ -338,9 +329,15 @@ else
     /// </summary>
     private readonly Dictionary<Guid, string> _resolvedGuestUserNames = [];
 
-    /// <summary>Common reminder offsets, mirroring Google Calendar's reminder picker.</summary>
+    /// <summary>
+    /// Common reminder offsets, mirroring Google Calendar's reminder picker. Zero is one of them: an
+    /// event beginning is worth hearing about, and being told only that it will begin in five minutes
+    /// leaves the moment itself unannounced. EventReminderPushContent already words a zero lead time as
+    /// "starts now" - the picker was the only place it could not be chosen.
+    /// </summary>
     private static readonly (int Minutes, string Label)[] ReminderPresets =
     [
+        (0, "When it starts"),
         (5, "5 minutes before"),
         (10, "10 minutes before"),
         (15, "15 minutes before"),
@@ -413,6 +410,11 @@ else
             else
             {
                 Logger.LogInformation("Calendar event editor opened for a new event");
+                // A reminder to go with the channel above. Without one the channel has nothing to fire,
+                // so a new event still told nobody anything - and ten minutes is what the Add button
+                // reaches for too. Only for a new event: an existing one keeps whatever it was given,
+                // including deliberately having none.
+                _formModel.ReminderMinutesBeforeStart = [DefaultReminderMinutesBeforeStart];
             }
 
             _reminderRows = _formModel.ReminderMinutesBeforeStart.Select(ReminderRow.FromMinutes).ToList();
@@ -482,7 +484,9 @@ else
         }
     }
 
-    private void AddReminderRow() => _reminderRows.Add(ReminderRow.FromMinutes(10));
+    private const int DefaultReminderMinutesBeforeStart = 10;
+
+    private void AddReminderRow() => _reminderRows.Add(ReminderRow.FromMinutes(DefaultReminderMinutesBeforeStart));
 
     private void RemoveReminderRow(ReminderRow row) => _reminderRows.Remove(row);
 
@@ -600,7 +604,7 @@ else
         {
             // Also enforced server-side (CalendarEvent.ValidateTimeRange) - this just gives the user an
             // inline message instead of letting the request fail with an unhandled 500.
-            _errorMessage = "The event's end can't be before its start.";
+            _errorMessage = T["The event's end can't be before its start."];
             return;
         }
         _errorMessage = null;
@@ -635,13 +639,13 @@ else
                         {
                             _lockedByUserName = outcome.LockedByUserName;
                             StopLockHeartbeat();
-                            _errorMessage = $"{outcome.LockedByUserName} is currently editing this event - try again in a moment.";
+                            _errorMessage = T.Format("{0} is currently editing this event - try again in a moment.", outcome.LockedByUserName);
                             return;
                         }
 
                         if (outcome.Kind == EditOutcomeKind.NotFound)
                         {
-                            _errorMessage = "Failed to save the event. Try again.";
+                            _errorMessage = T["Failed to save the event. Try again."];
                             return;
                         }
 
@@ -658,7 +662,7 @@ else
             catch (HttpRequestException exception)
             {
                 Logger.LogError(exception, "Failed to {Mode} calendar event {EventId}", IsNewEvent ? "create" : "update", Id);
-                _errorMessage = "Failed to save the event. Try again.";
+                _errorMessage = T["Failed to save the event. Try again."];
                 return;
             }
 
@@ -732,7 +736,7 @@ else
     /// </summary>
     private async Task DeleteAsync()
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Delete this event? This can't be undone."))
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", T["Delete this event? This can't be undone."]))
         {
             return;
         }
@@ -747,7 +751,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogWarning(exception, "Failed to delete calendar event {EventId}", Id);
-            _errorMessage = "Couldn't delete the event. Try again.";
+            _errorMessage = T["Couldn't delete the event. Try again."];
         }
         finally
         {
@@ -881,8 +885,18 @@ else
         public DateOnly? RecurrenceUntil { get; set; }
         public List<Guid> GuestUserIds { get; set; } = [];
         public List<int> ReminderMinutesBeforeStart { get; set; } = [];
+        /// <summary>
+        /// Confirming something the reader just did themselves is noise, so this stays off unless asked
+        /// for - unlike the reminder below, which is about a moment they are not present for.
+        /// </summary>
         public string CreationNotificationChannel { get; set; } = "None";
-        public string ReminderNotificationChannel { get; set; } = "None";
+
+        /// <summary>
+        /// Push by default, matching a task's overdue reminder and an inventory item's expiry. A new
+        /// event used to arrive with no reminder and no channel, so an event created without opening
+        /// either dropdown could never notify anyone - which reads, fairly, as reminders being broken.
+        /// </summary>
+        public string ReminderNotificationChannel { get; set; } = "Push";
 
         /// <summary>
         /// Defaults a new event to start now and end an hour later. Start and end are each derived from

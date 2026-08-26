@@ -1,5 +1,6 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Inventory;
+using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
 using Xunit;
 
@@ -103,5 +104,66 @@ public sealed class InventoryTaskListCoordinatorTests
         Assert.NotNull(result.PendingRestockTaskItemId);
         var taskList = await context.TaskRepository.GetByIdAsync(userId, result.PendingRestockTaskListId!.Value, CancellationToken.None);
         Assert.Contains(taskList!.Items, taskItem => taskItem.Id == result.PendingRestockTaskItemId && taskItem.Description == "Restock: Milk");
+    }
+    [Fact]
+    public async Task A_product_that_is_still_low_reopens_its_task_instead_of_growing_a_second_one()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+        var item = InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 0m, 1m, null, NotificationChannel.Push);
+        item = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
+
+        // The reader restocks, ticks the task off - and the product is still under its minimum.
+        var taskListId = item.PendingRestockTaskListId!.Value;
+        var taskList = await context.TaskRepository.GetByIdAsync(userId, taskListId, CancellationToken.None);
+        var completed = taskList!.Items.Select(existing => existing.Id == item.PendingRestockTaskItemId
+            ? TaskItem.FromPersistence(existing.Id, existing.Description, existing.DueDateUtc, isCompleted: true,
+                existing.LinkedTaskListId, existing.OverdueNotificationChannel, existing.RemindDaily,
+                existing.DailyReminderNotificationChannel, existing.DailyReminderTimeOfDay)
+            : existing).ToList();
+        taskList.Update(taskList.Title, completed, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
+        await context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
+
+        var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
+
+        // One entry, brought back - not a fresh one beside the finished one, which is how a product that
+        // stayed low grew a new "Restock: Milk" on every save.
+        var afterwards = await context.TaskRepository.GetByIdAsync(userId, taskListId, CancellationToken.None);
+        var restockEntries = afterwards!.Items.Where(taskItem => taskItem.Description == "Restock: Milk").ToList();
+        Assert.Single(restockEntries);
+        Assert.False(restockEntries[0].IsCompleted);
+        Assert.Equal(item.PendingRestockTaskItemId, result.PendingRestockTaskItemId);
+    }
+
+    [Fact]
+    public async Task An_open_restock_task_is_left_exactly_as_it_is()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+        var item = InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 0m, 1m, null, NotificationChannel.Push);
+        item = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
+
+        var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
+
+        var taskList = await context.TaskRepository.GetByIdAsync(userId, result.PendingRestockTaskListId!.Value, CancellationToken.None);
+        Assert.Single(taskList!.Items.Where(taskItem => taskItem.Description == "Restock: Milk"));
+    }
+
+    [Fact]
+    public async Task The_standing_reminder_comes_back_at_a_waking_hour()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(warehouseId, CancellationToken.None);
+
+        var taskList = await context.TaskRepository.GetByIdAsync(userId, taskListId!.Value, CancellationToken.None);
+        var reminder = Assert.Single(taskList!.Items);
+        // A bare TimeOnly defaults to midnight, which is a reminder nobody is awake to act on.
+        Assert.True(reminder.RemindDaily);
+        Assert.Equal(new TimeOnly(9, 0), reminder.DailyReminderTimeOfDay);
     }
 }

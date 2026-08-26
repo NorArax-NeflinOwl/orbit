@@ -19,12 +19,19 @@ public sealed class InventoryTaskListCoordinator
     public const string ManagedTaskListTitle = "Restock supplies";
 
     /// <summary>
-    /// Description of the standing, never-recreated reminder task - RemindDaily nags about it every day
-    /// until the user checks it off, and unchecking it re-arms that daily nag. This is the "recurring
-    /// reminder to keep stock updated" the feature asked for; Tasks has no recurrence engine to build a
-    /// self-recreating task on top of, and RemindDaily already covers the same intent without one.
+    /// Description of the standing, never-recreated reminder task. RemindDaily brings it back every day
+    /// at its own time of day, whether or not the reader ticked it off yesterday - which is what makes
+    /// one task enough, instead of a new one appearing each morning. Tasks has no recurrence engine to
+    /// build a self-recreating task on top of, and this covers the same intent without one.
     /// </summary>
     public const string UpdateStockReminderDescription = "Update stock levels";
+
+    /// <summary>
+    /// When the standing reminder comes back and says so. Morning rather than the midnight a bare
+    /// TimeOnly would default to - a stock reminder arriving while everyone is asleep is one nobody
+    /// acts on. The reader can move it: it is an ordinary daily-reminder time on an ordinary task.
+    /// </summary>
+    private static readonly TimeOnly UpdateStockReminderTimeOfDay = new(9, 0);
 
     private readonly ITaskRepository _taskRepository;
     private readonly IInventoryManagedTaskListRepository _managedTaskListRepository;
@@ -66,7 +73,8 @@ public sealed class InventoryTaskListCoordinator
 
         var reminderItem = TaskItem.Create(
             UpdateStockReminderDescription, dueDateUtc: null, isCompleted: false,
-            remindDaily: true, dailyReminderNotificationChannel: NotificationChannel.Push);
+            remindDaily: true, dailyReminderNotificationChannel: NotificationChannel.Push,
+            dailyReminderTimeOfDay: UpdateStockReminderTimeOfDay);
         // Pinned from the moment it exists: this is the one list Orbit maintains rather than the reader,
         // and it is only useful if it is where they will see it.
         var taskList = TaskList.Create(ownerUserId, ManagedTaskListTitle, [reminderItem], isPinned: true);
@@ -76,16 +84,19 @@ public sealed class InventoryTaskListCoordinator
     }
 
     /// <summary>
-    /// Resolves item's pending-task state, then - if it's below minimum and nothing is already open -
-    /// appends a fresh restock TaskItem to its warehouse's managed list. Returns the (possibly mutated)
+    /// Makes sure an item that is below its minimum has exactly one restock task: reopening the one it
+    /// already has if the reader finished it, and creating one otherwise. Returns the (possibly mutated)
     /// item; callers are responsible for persisting it if <see cref="InventoryItem.PendingRestockTaskListId"/>
-    /// changed. A no-op, beyond the resolve step, when item isn't below minimum or already has an open
-    /// restock task.
+    /// changed. A no-op, beyond the resolve step, when the item isn't below minimum.
+    ///
+    /// One task rather than one per save is the whole point: this used to append a second "Restock: X"
+    /// as soon as the first was ticked off, so a product that stayed low grew a new entry every time the
+    /// warehouse was saved.
     /// </summary>
     public async Task<InventoryItem> EnsureRestockTaskAsync(InventoryItem item, CancellationToken cancellationToken)
     {
         item = await _pendingRestockTaskResolver.ResolveAsync(item, cancellationToken);
-        if (!item.IsBelowMinimum || item.PendingRestockTaskItemId is not null)
+        if (!item.IsBelowMinimum)
         {
             return item;
         }
@@ -100,7 +111,21 @@ public sealed class InventoryTaskListCoordinator
         var taskList = await _taskRepository.GetByIdAsync(ownerUserId, taskListId, cancellationToken)
             ?? throw new InvalidOperationException($"Managed task list {taskListId} for warehouse {item.WarehouseId} disappeared between ensuring it and using it.");
 
-        var restockItem = TaskItem.Create($"Restock: {item.Name}", dueDateUtc: null, isCompleted: false);
+        if (item.PendingRestockTaskItemId is { } trackedTaskItemId)
+        {
+            var tracked = taskList.Items.First(candidate => candidate.Id == trackedTaskItemId);
+            if (!tracked.IsCompleted)
+            {
+                return item;
+            }
+
+            // Still low after being restocked once, so the same entry comes back rather than a new one
+            // appearing beside the finished one.
+            tracked.Reopen();
+            await _taskRepository.UpdateAsync(taskList, cancellationToken);
+            return item;
+        }
+
         if (taskList.IsPrivate)
         {
             // The list's items are sealed in the owner's browser, so appending here would either be
@@ -110,6 +135,7 @@ public sealed class InventoryTaskListCoordinator
                 $"The restock list for this warehouse is private, so Orbit can't add \"{item.Name}\" to it. Turn privacy off for that list first.");
         }
 
+        var restockItem = TaskItem.Create($"Restock: {item.Name}", dueDateUtc: null, isCompleted: false);
         taskList.Update(taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 

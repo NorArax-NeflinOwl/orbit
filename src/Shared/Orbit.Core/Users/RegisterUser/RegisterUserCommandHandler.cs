@@ -22,12 +22,12 @@ public sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserCom
 
         if (await _userRepository.GetByEmailAsync(email, cancellationToken) is not null)
         {
-            return RegisterUserResult.Failure("An account with this email address already exists.");
+            return RegisterUserResult.Rejected(RegistrationRejection.EmailTaken);
         }
 
         if (await _userRepository.GetByUserNameAsync(userName, cancellationToken) is not null)
         {
-            return RegisterUserResult.Failure("This username is already taken.");
+            return RegisterUserResult.Rejected(RegistrationRejection.UserNameTaken);
         }
 
         var passwordHash = _passwordHasher.Hash(request.Password);

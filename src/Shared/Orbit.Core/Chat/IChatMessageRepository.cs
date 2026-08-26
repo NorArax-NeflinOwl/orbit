@@ -32,6 +32,13 @@ public interface IChatMessageRepository
     Task UpdateContentAsync(Guid messageId, string ciphertextBase64, string nonceBase64, DateTimeOffset editedAtUtc, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Every stored copy of one group message - what a group message really is (see
+    /// ChatMessage.GroupMessageId). Editing has to reach all of them, since each is separately
+    /// encrypted and leaving one behind would show different members different words.
+    /// </summary>
+    Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(Guid groupMessageId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Marks every not-yet-read message that otherUserId sent to readerUserId as read as of readAtUtc.
     /// A no-op for messages already marked read, so it's safe to call on every poll tick rather than
     /// only once.
@@ -44,4 +51,10 @@ public interface IChatMessageRepository
     /// checkmark without transferring per-message read state.
     /// </summary>
     Task<DateTimeOffset?> GetReadUpToUtcAsync(Guid senderUserId, Guid recipientUserId, CancellationToken cancellationToken);
+    /// <summary>
+    /// How many messages each sender has waiting unread for this reader, keyed by sender - one-to-one
+    /// conversations only. Answered in a single query rather than per contact, because the chat list
+    /// asks for all of them on every poll tick.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(Guid readerUserId, CancellationToken cancellationToken);
 }

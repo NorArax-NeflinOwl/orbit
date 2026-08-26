@@ -23,19 +23,19 @@
 @inject DevicePreferences DevicePreferences
 @inject ILogger<Options> Logger
 
-<PageTitle>Orbit — Options</PageTitle>
+<PageTitle>@T["Orbit — Options"]</PageTitle>
 
 <div class="page-header">
     <div>
         <h1>@T["Options"]</h1>
-        <p class="page-subtitle">Your account, appearance, and notification preferences.</p>
+        <p class="page-subtitle">@T["Your account, appearance, and notification preferences."]</p>
     </div>
 </div>
 
 <div class="options-page">
     <div class="options-section">
-        <h2 class="options-heading">Account</h2>
-        <p class="options-subtext">Your profile, sign-in address, and password.</p>
+        <h2 class="options-heading">@T["Account"]</h2>
+        <p class="options-subtext">@T["Your profile, sign-in address, and password."]</p>
         <div class="options-card">
             <div class="options-row options-row-stacked">
                 <div class="field">
@@ -48,24 +48,23 @@
                 </div>
                 <div class="field">
                     <label for="emailInput">
-                        Email address
+                        @T["Email address"]
                         @if (_account?.IsEmailVerified == true)
                         {
-                            <span class="verified-badge">Verified</span>
+                            <span class="verified-badge">@T["Verified"]</span>
                         }
                         else
                         {
-                            <span class="unverified-badge">Not verified</span>
+                            <span class="unverified-badge">@T["Not verified"]</span>
                         }
                     </label>
                     <input id="emailInput" type="email" @bind="_profileForm.EmailAddress" />
                     <div class="options-row-desc">
-                        Saving a different address doesn't move the account to it on its own - that only happens
-                        once you confirm the code sent to the new address.
+                        @T["Saving a different address doesn't move the account to it on its own - that only happens once you confirm the code sent to the new address."]
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn-primary" disabled="@_isSavingProfile" @onclick="SaveProfileAsync">Save profile</button>
+                    <button type="button" class="btn-primary" disabled="@_isSavingProfile" @onclick="SaveProfileAsync">@T["Save profile"]</button>
                 </div>
                 @if (_profileMessage is not null)
                 {
@@ -75,27 +74,25 @@
 
             <div class="options-row options-row-stacked">
                 <div>
-                    <div class="options-row-title">Email verification</div>
-                    <div class="options-row-desc">
-                        A verified address is what a password reset is sent to, so it has to be one you can read.
-                    </div>
+                    <div class="options-row-title">@T["Email verification"]</div>
+                    <div class="options-row-desc">@T["A verified address is what a password reset is sent to, so it has to be one you can read."]</div>
                 </div>
                 @if (_emailForm.IsCodePending)
                 {
                     <div class="field">
-                        <label for="emailCodeInput">Code sent to <strong>@_emailForm.SentToAddress</strong></label>
+                        <label for="emailCodeInput">@T["Code sent to"]@Space<strong>@_emailForm.SentToAddress</strong></label>
                         <input id="emailCodeInput" inputmode="numeric" autocomplete="one-time-code" @bind="_emailForm.Code" />
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn-primary" disabled="@_isConfirmingCode" @onclick="ConfirmEmailCodeAsync">Confirm</button>
-                        <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">Send again</button>
+                        <button type="button" class="btn-primary" disabled="@_isConfirmingCode" @onclick="ConfirmEmailCodeAsync">@T["Confirm"]</button>
+                        <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">@T["Send again"]</button>
                     </div>
                 }
                 else
                 {
-                    <div class="options-row-desc">The code goes to <strong>@VerificationTargetAddress</strong>.</div>
+                    <div class="options-row-desc">@T["The code goes to"]@Space<strong>@VerificationTargetAddress</strong>.</div>
                     <div class="form-actions">
-                        <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">Send code</button>
+                        <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">@T["Send code"]</button>
                     </div>
                 }
                 @if (_emailMessage is not null)
@@ -107,22 +104,18 @@
             <div class="options-row options-row-stacked">
                 <div>
                     <div class="options-row-title">
-                        Google extras
+                        @T["Google extras"]
                         @if (_account is not null && GoogleIntegrationAccess.Qualifies(_account))
                         {
-                            <span class="verified-badge">On</span>
+                            <span class="verified-badge">@T["On"]</span>
                         }
                         else
                         {
-                            <span class="unverified-badge">Not available yet</span>
+                            <span class="unverified-badge">@T["Not available yet"]</span>
                         }
                     </div>
                     <div class="options-row-desc">
-                        With a confirmed email address or a connected Google account, Orbit offers links that
-                        hand something off to Google: adding a calendar event or a task's deadline to Google
-                        Calendar, opening an address in Google Maps, and getting directions to it. The links
-                        open Google with everything filled in - Orbit never writes to your calendar itself and
-                        asks for no access to it.
+                        @T["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."]
                     </div>
                 </div>
             </div>
@@ -133,21 +126,21 @@
                         Google
                         @if (_account?.IsGoogleLinked == true)
                         {
-                            <span class="verified-badge">Connected</span>
+                            <span class="verified-badge">@T["Connected"]</span>
                         }
                     </div>
                     <div class="options-row-desc">
-                        Connecting Google lets you sign in with it as well as with your password.
+                        @T["Connecting Google lets you sign in with it as well as with your password."]
                         @if (_account?.HasPassword == false)
                         {
-                            <text>Your account has no password yet, so Google is currently the only way in - set one below before disconnecting.</text>
+                            <text>@T["Your account has no password yet, so Google is currently the only way in - set one below before disconnecting."]</text>
                         }
                     </div>
                 </div>
                 @if (_account?.IsGoogleLinked == true)
                 {
                     <div class="form-actions">
-                        <button type="button" class="btn-secondary" disabled="@_isChangingGoogleLink" @onclick="UnlinkGoogleAsync">Disconnect</button>
+                        <button type="button" class="btn-secondary" disabled="@_isChangingGoogleLink" @onclick="UnlinkGoogleAsync">@T["Disconnect"]</button>
                     </div>
                 }
                 else
@@ -163,24 +156,22 @@
             <div class="options-row options-row-stacked">
                 <div>
                     <div class="options-row-title">@T["Password"]</div>
-                    <div class="options-row-desc">
-                        Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere.
-                    </div>
+                    <div class="options-row-desc">@T["Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere."]</div>
                 </div>
                 <div class="field">
-                    <label for="currentPasswordInput">Current password</label>
+                    <label for="currentPasswordInput">@T["Current password"]</label>
                     <input type="password" id="currentPasswordInput" @bind="_passwordForm.CurrentPassword" />
                 </div>
                 <div class="field">
-                    <label for="newPasswordInput">New password</label>
+                    <label for="newPasswordInput">@T["New password"]</label>
                     <input type="password" id="newPasswordInput" @bind="_passwordForm.NewPassword" />
                 </div>
                 <div class="field">
-                    <label for="repeatNewPasswordInput">Repeat new password</label>
+                    <label for="repeatNewPasswordInput">@T["Repeat new password"]</label>
                     <input type="password" id="repeatNewPasswordInput" @bind="_passwordForm.RepeatNewPassword" />
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn-primary" disabled="@_isChangingPassword" @onclick="ChangePasswordAsync">Change password</button>
+                    <button type="button" class="btn-primary" disabled="@_isChangingPassword" @onclick="ChangePasswordAsync">@T["Change password"]</button>
                 </div>
                 @if (_passwordMessage is not null)
                 {
@@ -192,7 +183,7 @@
 
     <div class="options-section">
         <h2 class="options-heading">@T["Appearance"]</h2>
-        <p class="options-subtext">Choose how Orbit looks on this device.</p>
+        <p class="options-subtext">@T["Choose how Orbit looks on this device."]</p>
         <div class="theme-picker">
             <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Light ? "active" : "")"
                     @onclick="() => SetThemeAsync(ThemePreference.Light)">
@@ -217,12 +208,12 @@
         <div class="options-card">
             <div class="options-row">
                 <div>
-                    <div class="options-row-title">Push notifications</div>
-                    <div class="options-row-desc">Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open.</div>
+                    <div class="options-row-title">@T["Push notifications"]</div>
+                    <div class="options-row-desc">@T["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."]</div>
                 </div>
                 @if (_pushNotificationsSupported == false)
                 {
-                    <span class="options-row-desc">Not supported in this browser</span>
+                    <span class="options-row-desc">@T["Not supported in this browser"]</span>
                 }
                 else
                 {
@@ -236,7 +227,7 @@
             <div class="options-row">
                 <div>
                     <div class="options-row-title">@T["Allow notifications"]</div>
-                    <div class="options-row-desc">Master switch for the three settings below and for anything showing up in the Notifications panel/badge/banner at all.</div>
+                    <div class="options-row-desc">@T["Master switch for everything below, and for the notifications panel itself."]</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowNotifications ? "on" : "")" role="switch"
                         aria-checked="@_notificationSettings.AllowNotifications" disabled="@_isSavingNotificationSettings"
@@ -247,7 +238,7 @@
             <div class="options-row options-row-child">
                 <div>
                     <div class="options-row-title">@T["Allow push"]</div>
-                    <div class="options-row-desc">Lets any calendar event, task, or inventory item's own push setting actually send a push notification.</div>
+                    <div class="options-row-desc">@T["Lets any calendar event, task, or inventory item's own push setting actually send a push notification."]</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowPush ? "on" : "")" role="switch"
                         aria-checked="@_notificationSettings.AllowPush"
@@ -260,9 +251,7 @@
                 <div>
                     <div class="options-row-title">@T["Tell me when something is shared with me"]</div>
                     <div class="options-row-desc">
-                        A note, task list, event, warehouse, or someone's location. The invitation always
-                        appears in your notifications either way - this adds a push notification or email
-                        on top, so you hear about it straight away rather than next time you look.
+                        @T["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."]
                     </div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowShareNotifications ? "on" : "")" role="switch"
@@ -275,7 +264,7 @@
             <div class="options-row options-row-child">
                 <div>
                     <div class="options-row-title">@T["Allow email"]</div>
-                    <div class="options-row-desc">Lets any calendar event, task, or inventory item's own email setting actually send an email.</div>
+                    <div class="options-row-desc">@T["Lets any calendar event, task, or inventory item's own email setting actually send an email."]</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowEmail ? "on" : "")" role="switch"
                         aria-checked="@_notificationSettings.AllowEmail"
@@ -286,8 +275,8 @@
             </div>
             <div class="options-row options-row-child">
                 <div>
-                    <div class="options-row-title">Allow mobile notification</div>
-                    <div class="options-row-desc">Shows a short banner at the top of the page when a new notification arrives while Orbit is open.</div>
+                    <div class="options-row-title">@T["Allow mobile notification"]</div>
+                    <div class="options-row-desc">@T["Shows a short banner at the top of the page when a new notification arrives while Orbit is open."]</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowMobileBanner ? "on" : "")" role="switch"
                         aria-checked="@_notificationSettings.AllowMobileBanner"
@@ -299,7 +288,7 @@
             <div class="options-row options-row-child">
                 <div>
                     <div class="options-row-title">@T["Banner duration (seconds)"]</div>
-                    <div class="options-row-desc">How long a notification banner stays on screen (1-30).</div>
+                    <div class="options-row-desc">@T["How long a notification banner stays on screen (1-30)."]</div>
                 </div>
                 <input type="number" id="bannerVisibleSecondsInput" class="options-number-input" min="1" max="30"
                        value="@_notificationSettings.BannerVisibleSeconds"
@@ -309,7 +298,7 @@
             <div class="options-row options-row-child">
                 <div>
                     <div class="options-row-title">@T["Banner interval (seconds)"]</div>
-                    <div class="options-row-desc">Minimum quiet time before the next banner may appear (1-300).</div>
+                    <div class="options-row-desc">@T["Minimum quiet time before the next banner may appear (1-300)."]</div>
                 </div>
                 <input type="number" id="bannerMinimumGapSecondsInput" class="options-number-input" min="1" max="300"
                        value="@_notificationSettings.BannerMinimumGapSeconds"
@@ -319,10 +308,7 @@
             <div class="options-row options-row-child">
                 <div>
                     <div class="options-row-title">@T["Keep notifications for (days)"]</div>
-                    <div class="options-row-desc">
-                        How long a notification stays on the
-                        <a href="/notifications">notifications page</a> before it is deleted for good (1-90).
-                        Clearing the panel only tidies them out of the way; this is what actually removes them.
+                    <div class="options-row-desc">@T["How long a notification stays on the"]@Space<a href="/notifications">@T["notifications page"]</a> @T["before it is deleted for good (1-90). Clearing the panel only tidies them out of the way; this is what actually removes them."]
                     </div>
                 </div>
                 <input type="number" id="retentionDaysInput" class="options-number-input" min="1" max="90"
@@ -343,15 +329,13 @@
 
     <div class="options-section">
         <h2 class="options-heading">@T["Location"]</h2>
-        <p class="options-subtext">Kept on this device - a browser grants location per device, so the answer is given per device too.</p>
+        <p class="options-subtext">@T["Kept on this device, because a browser grants location per device."]</p>
         <div class="options-card">
             <div class="options-row options-row-stacked">
                 <div>
                     <div class="options-row-title">@T["Use my location"]</div>
                     <div class="options-row-desc">
-                        Lets Orbit ask this browser where you are, for the map and for sharing your position
-                        with someone. Until you turn this on, nothing asks - not even the browser's own
-                        permission prompt. Turning it on doesn't send anything anywhere by itself.
+                        @T["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."]
                     </div>
                 </div>
                 <button type="button" class="switch @(DevicePreferences.AllowLocation ? "on" : "")" role="switch"
@@ -365,16 +349,13 @@
 
     <div class="options-section">
         <h2 class="options-heading">@T["Debugger"]</h2>
-        <p class="options-subtext">What this browser reports about Orbit itself. Kept on this device.</p>
+        <p class="options-subtext">@T["What this browser reports about Orbit itself. Kept on this device."]</p>
         <div class="options-card">
             <div class="options-row options-row-stacked">
                 <div>
                     <div class="options-row-title">@T["Mode"]</div>
                     <div class="options-row-desc">
-                        Debug shows what the app can tell you about itself - the captured log, and detail
-                        behind an error rather than just "something went wrong". Release keeps it out of
-                        the way. This is a choice about what you are shown, not the build Orbit was
-                        compiled as, which was fixed long before this page opened.
+                        @T["Debug shows the captured log and the detail behind an error. Release hides both."]
                     </div>
                 </div>
                 <select id="diagnosticsModeSelect" class="options-select"
@@ -388,9 +369,7 @@
                 <div>
                     <div class="options-row-title">@T["Frontend log level"]</div>
                     <div class="options-row-desc">
-                        The least severe line this browser keeps in its own log. Warning by default:
-                        anything lower fills the buffer with routine noise long before an actual failure
-                        needs the space. Takes effect straight away.
+                        @T["The least severe line this browser keeps. Warning by default, so routine noise doesn't crowd out a real failure."]
                     </div>
                 </div>
                 <select id="frontendLogLevelSelect" class="options-select"
@@ -409,12 +388,12 @@
     {
         <div class="options-section">
             <h2 class="options-heading">@T["Diagnostics"]</h2>
-            <p class="options-subtext">Only shown in non-production environments.</p>
+            <p class="options-subtext">@T["Only shown in non-production environments."]</p>
             <div class="options-card">
                 <div class="options-row">
                     <div>
                         <div class="options-row-title">@T["Show exceptions"]</div>
-                        <div class="options-row-desc">Lets the Notifications panel list this browser's own recent errors, each with a "Copy" button for reporting a bug.</div>
+                        <div class="options-row-desc">@T["Lets the Notifications panel list this browser's own recent errors, each with a \"Copy\" button for reporting a bug."]</div>
                     </div>
                     <button type="button" class="switch @(_notificationSettings.ShowExceptionDetails ? "on" : "")" role="switch"
                             aria-checked="@_notificationSettings.ShowExceptionDetails" disabled="@_isSavingNotificationSettings"
@@ -435,7 +414,10 @@
                     <div class="options-row-title">@T["Language"]</div>
                 </div>
                 <select id="languageSelect" class="options-select" value="@T.Language" @onchange="OnLanguageChangedAsync">
-                    <option value="@AppLanguage.English">@T["English"]</option>
+                    @* Each language named in its own language, the way a language picker is read: the
+                       list means the same thing whichever one you are currently in. Translating only
+                       one of the two gave "angielski" beside "Polski". *@
+                    <option value="@AppLanguage.English">English</option>
                     <option value="@AppLanguage.Polish">Polski</option>
                 </select>
             </div>
@@ -444,29 +426,24 @@
 
     <div class="options-section">
         <h2 class="options-heading">@T["Your data"]</h2>
-        <p class="options-subtext">
-            Everything you own — notes, task lists, events and storages — as one JSON file, and back again.
-        </p>
+        <p class="options-subtext">@T["Everything you own — notes, task lists, events and storages — as one JSON file, and back again."]</p>
         <div class="options-card">
             <div class="options-row options-row-stacked">
                 <div>
                     <div class="options-row-title">@T["Export"]</div>
                     <div class="options-row-desc">
-                        Downloads a file holding everything in your account. Things other people shared with
-                        you stay theirs and are left out. A private item travels sealed: import it back here
-                        and it opens again, import it into another account and nobody there can read it.
+                        @T["Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed."]
                     </div>
                 </div>
                 <button type="button" class="btn-secondary" disabled="@_isExporting" @onclick="ExportAsync">
-                    @(_isExporting ? "Preparing…" : "Export everything")
+                    @(_isExporting ? T["Preparing…"] : T["Export everything"])
                 </button>
             </div>
             <div class="options-row options-row-stacked">
                 <div>
                     <div class="options-row-title">@T["Import"]</div>
                     <div class="options-row-desc">
-                        Adds everything in a file to this account. Nothing is replaced or matched up with what
-                        you already have, so importing the same file twice leaves two copies of everything.
+                        @T["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."]
                     </div>
                 </div>
                 <InputFile OnChange="ImportAsync" accept=".json,application/json" disabled="@_isImporting" />
@@ -484,14 +461,13 @@
 
     <div class="options-section">
         <h2 class="options-heading">@T["Danger zone"]</h2>
-        <p class="options-subtext">Deleting your account is permanent and cannot be undone.</p>
+        <p class="options-subtext">@T["Deleting your account is permanent and cannot be undone."]</p>
         <div class="options-card options-card-danger">
             <div class="options-row options-row-stacked">
                 <div>
-                    <div class="options-row-title">Delete account</div>
+                    <div class="options-row-title">@T["Delete account"]</div>
                     <div class="options-row-desc">
-                        Permanently deletes your account and everything in it - notes, tasks, calendar events,
-                        inventory, and chat history. This cannot be undone.
+                        @T["Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]
                     </div>
                 </div>
                 @if (_account?.HasPassword == true)
@@ -502,7 +478,7 @@
                     </div>
                 }
                 <div class="form-actions">
-                    <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">Delete account</button>
+                    <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">@T["Delete account"]</button>
                 </div>
                 @if (_deleteAccountMessage is not null)
                 {
@@ -561,7 +537,7 @@
             var archive = await TransferApiClient.ExportAsync();
             if (archive is null)
             {
-                _transferErrorMessage = "Couldn't build the export. Try again.";
+                _transferErrorMessage = T["Couldn't build the export. Try again."];
                 return;
             }
 
@@ -570,13 +546,14 @@
             await downloadModule.InvokeVoidAsync(
                 "downloadText", $"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", "application/json", json);
 
-            _transferMessage = $"Exported {archive.Notes.Count} notes, {archive.TaskLists.Count} task lists, "
-                + $"{archive.CalendarEvents.Count} events and {archive.Warehouses.Count} storages.";
+            _transferMessage = T.Format(
+                "Exported {0} notes, {1} task lists, {2} events and {3} storages.",
+                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count, archive.Warehouses.Count);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogWarning(exception, "Failed to export the account archive");
-            _transferErrorMessage = "Couldn't build the export. Try again.";
+            _transferErrorMessage = T["Couldn't build the export. Try again."];
         }
         finally
         {
@@ -596,30 +573,31 @@
                 stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (archive is null)
             {
-                _transferErrorMessage = "That file didn't contain an Orbit export.";
+                _transferErrorMessage = T["That file didn't contain an Orbit export."];
                 return;
             }
 
             var result = await TransferApiClient.ImportAsync(archive);
             if (result is null)
             {
-                _transferErrorMessage = "Orbit couldn't read that file. It may have been written by a different version.";
+                _transferErrorMessage = T["Orbit couldn't read that file. It may have been written by a different version."];
                 return;
             }
 
-            _transferMessage = $"Imported {result.Notes} notes, {result.TaskLists} task lists, "
-                + $"{result.CalendarEvents} events and {result.Warehouses} storages.";
+            _transferMessage = T.Format(
+                "Imported {0} notes, {1} task lists, {2} events and {3} storages.",
+                result.Notes, result.TaskLists, result.CalendarEvents, result.Warehouses);
         }
         catch (JsonException)
         {
             // A file that isn't JSON at all, or is JSON of some other shape - the same message either
             // way, since neither is something the reader can act on differently.
-            _transferErrorMessage = "That file didn't contain an Orbit export.";
+            _transferErrorMessage = T["That file didn't contain an Orbit export."];
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogWarning(exception, "Failed to import an account archive");
-            _transferErrorMessage = "Couldn't import that file. Try again.";
+            _transferErrorMessage = T["Couldn't import that file. Try again."];
         }
         finally
         {
@@ -688,7 +666,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to load notification settings");
-            _notificationSettingsErrorMessage = "Failed to load notification settings. Try reloading the page.";
+            _notificationSettingsErrorMessage = T["Failed to load notification settings. Try reloading the page."];
         }
     }
 
@@ -723,7 +701,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to update notification settings");
-            _notificationSettingsErrorMessage = "Failed to update notification settings. Try again.";
+            _notificationSettingsErrorMessage = T["Failed to update notification settings. Try again."];
         }
         finally
         {
@@ -783,7 +761,7 @@
                     // permission or Orbit.Api has no VAPID key configured - both silent by design up to
                     // this point, so without this the switch would otherwise just do nothing visible.
                     _pushNotificationErrorMessage =
-                        "Failed to enable push notifications. Check your browser permissions and try again.";
+                        T["Failed to enable push notifications. Check your browser permissions and try again."];
                 }
             }
         }
@@ -792,7 +770,7 @@
             // Registering/removing the subscription with Orbit.Api failed (API unreachable, expired
             // session, ...) - logged rather than surfaced as a crash.
             Logger.LogError(exception, "Failed to update the push notification subscription");
-            _pushNotificationErrorMessage = "Failed to update the push notification subscription. Try again.";
+            _pushNotificationErrorMessage = T["Failed to update the push notification subscription. Try again."];
         }
         catch (JSException exception)
         {
@@ -800,7 +778,7 @@
             // can pass (the browser APIs exist) while actually subscribing still fails outside a secure
             // context, or a push service rejects the subscription outright.
             Logger.LogError(exception, "Failed to update the push notification subscription");
-            _pushNotificationErrorMessage = "Failed to update the push notification subscription. Try again.";
+            _pushNotificationErrorMessage = T["Failed to update the push notification subscription. Try again."];
         }
         finally
         {
@@ -844,7 +822,7 @@
         {
             var error = await UsersApiClient.UpdateProfileAsync(_profileForm.DisplayName, _profileForm.UserName);
             _profileFailed = error is not null;
-            _profileMessage = error ?? "Profile saved.";
+            _profileMessage = error is null ? T["Profile saved."] : T[error];
             if (error is not null)
             {
                 return;
@@ -865,7 +843,7 @@
         {
             Logger.LogError(exception, "Failed to save the account profile");
             _profileFailed = true;
-            _profileMessage = "Couldn't save your profile. Try again.";
+            _profileMessage = T["Couldn't save your profile. Try again."];
         }
         finally
         {
@@ -887,13 +865,15 @@
             var error = await UsersApiClient.RequestEmailVerificationAsync(targetAddress);
             _emailFailed = error is not null;
             _emailForm.SentToAddress = error is null ? targetAddress : string.Empty;
-            _emailMessage = error ?? $"Code sent to {targetAddress}. It expires in 15 minutes.";
+            _emailMessage = error is null
+                ? T.Format("Code sent to {0}. It expires in 15 minutes.", targetAddress)
+                : T[error];
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to request an email verification code");
             _emailFailed = true;
-            _emailMessage = "Couldn't send the code. Try again.";
+            _emailMessage = T["Couldn't send the code. Try again."];
         }
         finally
         {
@@ -907,10 +887,10 @@
         _emailMessage = null;
         try
         {
-            var confirmed = await UsersApiClient.ConfirmEmailVerificationAsync(_emailForm.Code);
-            _emailFailed = !confirmed;
-            _emailMessage = confirmed ? "Email address confirmed." : "That code isn't valid any more. Request a new one.";
-            if (confirmed)
+            var error = await UsersApiClient.ConfirmEmailVerificationAsync(_emailForm.Code);
+            _emailFailed = error is not null;
+            _emailMessage = error is null ? T["Email address confirmed."] : T[error];
+            if (error is null)
             {
                 _emailForm.Clear();
                 GoogleIntegrationAccess.Forget();
@@ -921,7 +901,7 @@
         {
             Logger.LogError(exception, "Failed to confirm an email verification code");
             _emailFailed = true;
-            _emailMessage = "Couldn't confirm the code. Try again.";
+            _emailMessage = T["Couldn't confirm the code. Try again."];
         }
         finally
         {
@@ -939,7 +919,7 @@
         if (_passwordForm.NewPassword != _passwordForm.RepeatNewPassword)
         {
             _passwordFailed = true;
-            _passwordMessage = "The two new passwords don't match.";
+            _passwordMessage = T["The two new passwords don't match."];
             return;
         }
 
@@ -951,19 +931,19 @@
             _passwordFailed = !changed;
             if (!changed)
             {
-                _passwordMessage = "That current password isn't right.";
+                _passwordMessage = T["That current password isn't right."];
                 return;
             }
 
             await RewrapChatKeyAsync();
-            _passwordMessage = "Password changed.";
+            _passwordMessage = T["Password changed."];
             _passwordForm.Clear();
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to change the password");
             _passwordFailed = true;
-            _passwordMessage = "Couldn't change your password. Try again.";
+            _passwordMessage = T["Couldn't change your password. Try again."];
         }
         finally
         {
@@ -1000,13 +980,13 @@
         if (_account?.HasPassword == true && string.IsNullOrEmpty(_deleteAccountForm.Password))
         {
             _deleteAccountFailed = true;
-            _deleteAccountMessage = "Enter your password to confirm.";
+            _deleteAccountMessage = T["Enter your password to confirm."];
             return;
         }
 
         var confirmed = await JSRuntime.InvokeAsync<bool>(
             "confirm",
-            "Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.");
+            T["Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]);
         if (!confirmed)
         {
             return;
@@ -1020,7 +1000,7 @@
             if (!deleted)
             {
                 _deleteAccountFailed = true;
-                _deleteAccountMessage = "That password isn't right.";
+                _deleteAccountMessage = T["That password isn't right."];
                 return;
             }
 
@@ -1032,7 +1012,7 @@
         {
             Logger.LogError(exception, "Failed to delete the account");
             _deleteAccountFailed = true;
-            _deleteAccountMessage = "Couldn't delete your account. Try again.";
+            _deleteAccountMessage = T["Couldn't delete your account. Try again."];
         }
         finally
         {
@@ -1048,7 +1028,7 @@
         {
             var error = await UsersApiClient.LinkGoogleAsync(idToken);
             _googleFailed = error is not null;
-            _googleMessage = error ?? "Google connected.";
+            _googleMessage = error is null ? T["Google connected."] : T[error];
             GoogleIntegrationAccess.Forget();
             await LoadAccountAsync();
         }
@@ -1056,7 +1036,7 @@
         {
             Logger.LogError(exception, "Failed to connect Google");
             _googleFailed = true;
-            _googleMessage = "Couldn't connect Google. Try again.";
+            _googleMessage = T["Couldn't connect Google. Try again."];
         }
         finally
         {
@@ -1072,7 +1052,7 @@
         {
             var error = await UsersApiClient.UnlinkGoogleAsync();
             _googleFailed = error is not null;
-            _googleMessage = error ?? "Google disconnected.";
+            _googleMessage = error is null ? T["Google disconnected."] : T[error];
             GoogleIntegrationAccess.Forget();
             await LoadAccountAsync();
         }
@@ -1080,7 +1060,7 @@
         {
             Logger.LogError(exception, "Failed to disconnect Google");
             _googleFailed = true;
-            _googleMessage = "Couldn't disconnect Google. Try again.";
+            _googleMessage = T["Couldn't disconnect Google. Try again."];
         }
         finally
         {

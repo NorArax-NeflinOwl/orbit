@@ -57,6 +57,14 @@ public sealed class Translations
             ? polish
             : english;
 
+    /// <summary>
+    /// A translated sentence with values dropped into it. The key keeps the whole sentence together
+    /// with {0}-style placeholders rather than being glued from fragments, because word order differs
+    /// between languages and a sentence assembled from pieces can only come out in English's.
+    /// </summary>
+    public string Format(string english, params object?[] arguments)
+        => string.Format(this[english], arguments);
+
     public async Task InitializeAsync()
     {
         try

@@ -1,7 +1,6 @@
 @page "/"
 @attribute [Authorize]
 @implements IDisposable
-@using System.Globalization
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
@@ -15,7 +14,7 @@
 @inject ILogger<Dashboard> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Dashboard</PageTitle>
+<PageTitle>@T["Orbit — Dashboard"]</PageTitle>
 
 <div class="page-header">
     <div>
@@ -40,9 +39,9 @@ else
 {
     <div class="today-strip">
         <span class="today-strip-date">@DateTime.Today.ToString("dddd, d MMMM", T.DisplayCulture)</span>
-        <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong> tasks due today</span>
-        <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong> events today</span>
-        <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong> new chat requests</span>
+        <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong>@T["tasks due today"]</span>
+        <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong>@T["events today"]</span>
+        <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong>@T["new chat requests"]</span>
     </div>
 
     <div class="card-grid">
@@ -63,7 +62,7 @@ else
         @if (_taskLists.Count > 0)
         {
             <div class="card">
-                <div class="card-header"><span class="card-title">@T["Tasks"]</span><span class="card-count">@_taskLists.Count lists</span></div>
+                <div class="card-header"><span class="card-title">@T["Tasks"]</span><span class="card-count">@T.Format("{0} lists", _taskLists.Count)</span></div>
                 @foreach (var taskList in _taskLists)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToTaskList(taskList.Id)">
@@ -91,7 +90,7 @@ else
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditEvent(calendarEvent.Id)">
                         <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
                         <span class="row-title">
-                            @calendarEvent.Details.Title @(calendarEvent.IsShared ? "(shared)" : "")
+                            @calendarEvent.Details.Title @(calendarEvent.IsShared ? T["(shared)"] : "")
                         </span>
                         <span class="row-meta">@FormatEventMeta(calendarEvent.Details)</span>
                     </button>
@@ -147,14 +146,6 @@ else
 }
 
 @code {
-    /// <summary>
-    /// The UI copy is English throughout, but Blazor WASM derives CultureInfo.CurrentCulture from the
-    /// browser's own locale by default - pinning en-US here keeps the day name in sync with the rest of
-    /// the page instead of leaking whatever language the visitor's browser is set to (mirrors
-    /// Calendar.razor's own DisplayCulture).
-    /// </summary>
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
-
     private IReadOnlyList<NoteDto>? _notes;
     private IReadOnlyList<TaskDto>? _taskLists;
     private IReadOnlyList<CalendarEventDto>? _events;
@@ -216,7 +207,7 @@ else
             // treats the same failure as transient (see its own matching catch below); the initial load
             // should too, showing an error instead of taking the whole page down.
             Logger.LogError(exception, "Failed to load the dashboard");
-            _loadErrorMessage = "Couldn't load the dashboard. Check your connection and try again.";
+            _loadErrorMessage = T["Couldn't load the dashboard. Check your connection and try again."];
             return;
         }
         Logger.LogInformation(
@@ -286,7 +277,7 @@ else
         => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);
 
     /// <summary>A short, human "when" label for a card row - "2h ago" / "Yesterday" / "Wed" / "Aug 12".</summary>
-    private static string FormatRelative(DateTimeOffset valueUtc)
+    private string FormatRelative(DateTimeOffset valueUtc)
     {
         var value = valueUtc.ToLocalTime();
         var now = DateTimeOffset.Now;
@@ -294,33 +285,35 @@ else
 
         if (diff < TimeSpan.FromMinutes(1))
         {
-            return "just now";
+            return T["just now"];
         }
         if (diff < TimeSpan.FromHours(1))
         {
-            return $"{(int)diff.TotalMinutes}m ago";
+            return T.Format("{0}m ago", (int)diff.TotalMinutes);
         }
         if (value.Date == now.Date)
         {
-            return $"{(int)diff.TotalHours}h ago";
+            return T.Format("{0}h ago", (int)diff.TotalHours);
         }
         if (value.Date == now.Date.AddDays(-1))
         {
-            return "Yesterday";
+            return T["Yesterday"];
         }
         if (diff < TimeSpan.FromDays(7))
         {
-            return value.ToString("ddd");
+            return value.ToString("ddd", T.DisplayCulture);
         }
-        return value.ToString("MMM d");
+        return value.ToString("MMM d", T.DisplayCulture);
     }
 
     /// <summary>A compact "when" label for an upcoming event row - "Today 10:00" / "Tomorrow 15:30" / "Fri 19:00".</summary>
-    private static string FormatEventMeta(CalendarEventDetailsDto details)
+    private string FormatEventMeta(CalendarEventDetailsDto details)
     {
         var start = details.StartUtc.ToLocalTime();
         var today = DateTime.Today;
-        var dayLabel = start.Date == today ? "Today" : start.Date == today.AddDays(1) ? "Tomorrow" : start.ToString("ddd d");
+        var dayLabel = start.Date == today ? T["Today"]
+            : start.Date == today.AddDays(1) ? T["Tomorrow"]
+            : start.ToString("ddd d", T.DisplayCulture);
         return details.IsAllDay ? dayLabel : $"{dayLabel} {start:HH:mm}";
     }
 

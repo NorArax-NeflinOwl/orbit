@@ -16,7 +16,7 @@
 @inject ILogger<Calendar> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Calendar</PageTitle>
+<PageTitle>@T["Orbit — Calendar"]</PageTitle>
 
 @* TODO(Orbit.Web.UI): still the pre-redesign markup/CSS (the old .calendar-* classes further down in
    app.css - .calendar-month-grid-day, .calendar-event-chip, etc). The approved concept mockup restyled
@@ -36,7 +36,7 @@
 
 <div class="calendar-toolbar">
     <button type="button" class="icon-btn @(_viewState.IsEventListVisible ? "active" : "")"
-            title="@(_viewState.IsEventListVisible ? "Hide event list" : "Show event list")"
+            title="@(_viewState.IsEventListVisible ? T["Hide event list"] : T["Show event list"])"
             aria-pressed="@AriaBool(_viewState.IsEventListVisible)" @onclick="ToggleEventListVisibility">
         @if (_viewState.IsEventListVisible)
         {
@@ -48,7 +48,7 @@
         }
     </button>
     <button type="button" class="icon-btn @(_viewState.IsTaskListVisible ? "active" : "")"
-            title="@(_viewState.IsTaskListVisible ? "Hide task list" : "Show task list")"
+            title="@(_viewState.IsTaskListVisible ? T["Hide task list"] : T["Show task list"])"
             aria-pressed="@AriaBool(_viewState.IsTaskListVisible)" @onclick="ToggleTaskListVisibility">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
     </button>
@@ -82,7 +82,7 @@
                                         <span class="event-title">@calendarEvent.Details.Title</span>
                                         @if (calendarEvent.IsShared)
                                         {
-                                            <span class="card-badge">Shared by @calendarEvent.SharedByUserName</span>
+                                            <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
                                         }
                                         <span class="row-meta event-when">@FormatTimeRange(calendarEvent.Details)</span>
                                     </span>
@@ -90,13 +90,13 @@
                                         @if (HasDetails(calendarEvent.Details))
                                         {
                                             <button type="button" class="editor-item-toggle @(IsEventExpanded(calendarEvent.Id) ? "open" : "")"
-                                                    title="@(IsEventExpanded(calendarEvent.Id) ? "Hide details" : "Show details")"
+                                                    title="@(IsEventExpanded(calendarEvent.Id) ? T["Hide details"] : T["Show details"])"
                                                     aria-expanded="@(IsEventExpanded(calendarEvent.Id) ? "true" : "false")"
                                                     @onclick="() => ToggleEventExpanded(calendarEvent.Id)">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
                                             </button>
                                         }
-                                        <button type="button" class="btn-secondary" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "View" : "Edit")</button>
+                                        <button type="button" class="btn-secondary" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : "Edit")</button>
                                         <button type="button" class="btn-secondary" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
                                     </span>
                                 </div>
@@ -107,7 +107,7 @@
                                         @if (calendarEvent.Details.Location is { } location)
                                         {
                                             <span>
-                                                <strong>Location:</strong>
+                                                <strong>@T["Location:"]</strong>
                                                 @* The address itself is the link, so the place is one click away rather than
                                                    something to copy out - see GoogleMapsLink. *@
                                                 @if (_hasGoogleExtras)
@@ -128,11 +128,11 @@
                                         }
                                         @if (calendarEvent.Details.Recurrence is { } recurrence)
                                         {
-                                            <span><strong>Repeats:</strong> @FormatRecurrence(recurrence)</span>
+                                            <span><strong>@T["Repeats:"]</strong> @FormatRecurrence(recurrence)</span>
                                         }
                                         @if (calendarEvent.Details.Guests.Count > 0)
                                         {
-                                            <span><strong>Guests:</strong> @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</span>
+                                            <span><strong>@T["Guests:"]</strong> @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</span>
                                         }
                                     </div>
                                 }
@@ -205,9 +205,7 @@
 {
     <div class="calendar-year-view-options">
         <label>
-            <input id="showDueTasksInYearView" type="checkbox" checked="@_viewState.ShowDueTasksInYearView" @onchange="ToggleShowDueTasksInYearView" />
-            Show tasks in year view
-        </label>
+            <input id="showDueTasksInYearView" type="checkbox" checked="@_viewState.ShowDueTasksInYearView" @onchange="ToggleShowDueTasksInYearView" />@T["Show tasks in year view"]</label>
     </div>
 }
 
@@ -420,7 +418,7 @@
             calendarEvent.Details.IsAllDay, calendarEvent.Details.Description,
             calendarEvent.Details.Location is { } location ? FormatLocation(location) : null);
 
-    private static string FormatLocation(EventLocationDto location)
+    private string FormatLocation(EventLocationDto location)
         => string.IsNullOrWhiteSpace(location.Address)
             // Invariant culture, not the browser/thread's current culture: these are coordinates meant
             // to be pasted into a map, so they must always use a period as the decimal separator
@@ -428,13 +426,13 @@
             ? $"{location.Latitude.ToString("F5", CultureInfo.InvariantCulture)}, {location.Longitude.ToString("F5", CultureInfo.InvariantCulture)}"
             : location.Address;
 
-    private static string FormatRecurrence(RecurrenceDto recurrence)
+    private string FormatRecurrence(RecurrenceDto recurrence)
     {
         var frequencyLabel = recurrence.Frequency switch
         {
-            "Daily" => "daily",
-            "Weekly" => "weekly",
-            "Monthly" => "monthly",
+            "Daily" => T["daily"],
+            "Weekly" => T["weekly"],
+            "Monthly" => T["monthly"],
             _ => recurrence.Frequency
         };
         var intervalLabel = recurrence.IntervalCount > 1 ? $"{frequencyLabel} (every {recurrence.IntervalCount})" : frequencyLabel;

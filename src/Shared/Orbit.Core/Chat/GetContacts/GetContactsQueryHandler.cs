@@ -8,14 +8,16 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
     private readonly IContactRepository _contactRepository;
     private readonly IUserRepository _userRepository;
     private readonly IChatConversationAccessRepository _chatConversationAccessRepository;
+    private readonly IChatMessageRepository _chatMessageRepository;
 
     public GetContactsQueryHandler(
         IContactRepository contactRepository, IUserRepository userRepository,
-        IChatConversationAccessRepository chatConversationAccessRepository)
+        IChatConversationAccessRepository chatConversationAccessRepository, IChatMessageRepository chatMessageRepository)
     {
         _contactRepository = contactRepository;
         _userRepository = userRepository;
         _chatConversationAccessRepository = chatConversationAccessRepository;
+        _chatMessageRepository = chatMessageRepository;
     }
 
     /// <summary>
@@ -27,6 +29,10 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
     public async Task<IReadOnlyList<ContactSummary>> HandleAsync(GetContactsQuery request, CancellationToken cancellationToken)
     {
         var contacts = await _contactRepository.GetAllForUserAsync(request.UserId, cancellationToken);
+        // Counted from the messages themselves rather than from the notification feed: clearing
+        // notifications is tidying, not reading, and a conversation the reader has not opened stays
+        // unread however often they clear the panel.
+        var unreadCounts = await _chatMessageRepository.GetUnreadCountsBySenderAsync(request.UserId, cancellationToken);
         var summaries = new List<ContactSummary>();
 
         foreach (var contact in contacts)
@@ -40,7 +46,9 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
             var access = await _chatConversationAccessRepository.GetAsync(request.UserId, contact.ContactUserId, cancellationToken);
             var requiresApprovalFromCurrentUser = access is { IsApproved: false } && access.InitiatedByUserId != request.UserId;
             var isPendingApprovalFromOtherParty = access is { IsApproved: false } && access.InitiatedByUserId == request.UserId;
-            summaries.Add(new ContactSummary(otherUser, contact.LastMessageAtUtc, requiresApprovalFromCurrentUser, isPendingApprovalFromOtherParty));
+            summaries.Add(new ContactSummary(
+                otherUser, contact.LastMessageAtUtc, requiresApprovalFromCurrentUser, isPendingApprovalFromOtherParty,
+                unreadCounts.GetValueOrDefault(otherUser.Id)));
         }
 
         return summaries;

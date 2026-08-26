@@ -1,6 +1,7 @@
 using Orbit.Api.Auth;
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Users;
+using Orbit.Core.Chat.Groups;
 using Orbit.Core.Users.ChangePassword;
 using Orbit.Core.Users.DeleteAccount;
 using Orbit.Core.Users.ConfirmEmailVerification;
@@ -43,7 +44,7 @@ public sealed class AccountSecurityTests
 
         var confirmed = await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode);
 
-        Assert.True(confirmed);
+        Assert.Equal(EmailVerificationConfirmResult.Confirmed, confirmed);
         Assert.Equal("new@example.com", user.Email);
         Assert.True(user.IsEmailVerified);
     }
@@ -70,11 +71,11 @@ public sealed class AccountSecurityTests
 
         for (var attempt = 0; attempt < UserVerificationCode.MaxFailedAttempts; attempt++)
         {
-            Assert.False(await context.ConfirmEmailVerificationAsync(user.Id, "000000"));
+            Assert.Equal(EmailVerificationConfirmResult.InvalidCode, await context.ConfirmEmailVerificationAsync(user.Id, "000000"));
         }
 
         // Even the right code is refused now - this is what keeps a six-digit code from being guessable.
-        Assert.False(await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode));
+        Assert.Equal(EmailVerificationConfirmResult.InvalidCode, await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode));
         Assert.False(user.IsEmailVerified);
     }
 
@@ -90,7 +91,7 @@ public sealed class AccountSecurityTests
 
         // Both codes read the same in this stub, so what's being pinned is that the *newest* one wins:
         // the account lands on the address from the second request, not the first.
-        Assert.True(confirmed);
+        Assert.Equal(EmailVerificationConfirmResult.Confirmed, confirmed);
         Assert.Equal("second@example.com", user.Email);
     }
 
@@ -155,7 +156,7 @@ public sealed class AccountSecurityTests
     {
         var context = new AccountTestContext();
         var user = await context.AddUserAsync("alice@example.com", "alice", password: "original");
-        var handler = new DeleteAccountCommandHandler(context.UserRepository, context.PasswordHasher, context.AccountDeletionRepository);
+        var handler = context.DeleteAccountHandler();
 
         var wrongPassword = await handler.HandleAsync(new DeleteAccountCommand(user.Id, "not-the-password"), CancellationToken.None);
         Assert.False(wrongPassword);
@@ -172,7 +173,7 @@ public sealed class AccountSecurityTests
         var context = new AccountTestContext();
         var user = User.CreateFromGoogle("alice@example.com", "alice", "Alice", "google-subject-id");
         await context.UserRepository.AddAsync(user, CancellationToken.None);
-        var handler = new DeleteAccountCommandHandler(context.UserRepository, context.PasswordHasher, context.AccountDeletionRepository);
+        var handler = context.DeleteAccountHandler();
 
         var deleted = await handler.HandleAsync(new DeleteAccountCommand(user.Id, string.Empty), CancellationToken.None);
 
@@ -181,10 +182,64 @@ public sealed class AccountSecurityTests
     }
 
     [Fact]
+    public async Task Deleting_an_account_takes_it_out_of_its_chat_groups()
+    {
+        // Left behind, the membership makes every later message in that group impossible to send: the
+        // server wants one ciphertext copy per current member and nobody can encrypt for an account
+        // whose public key is gone. See DeleteAccountCommandHandler.LeaveEveryChatGroupAsync.
+        var context = new AccountTestContext();
+        var leaving = await context.AddUserAsync("leaving@example.com", "leaving");
+        var staying = await context.AddUserAsync("staying@example.com", "staying");
+        var group = ChatGroup.Create(staying.Id, "Team");
+        group.AddMember(staying.Id, leaving.Id);
+        await context.ChatGroupRepository.AddAsync(group, CancellationToken.None);
+
+        var deleted = await context.DeleteAccountHandler()
+            .HandleAsync(new DeleteAccountCommand(leaving.Id, "password"), CancellationToken.None);
+
+        Assert.True(deleted);
+        Assert.False(group.IsMember(leaving.Id));
+        Assert.True(group.IsMember(staying.Id));
+    }
+
+    [Fact]
+    public async Task Deleting_the_only_admins_account_leaves_the_group_with_a_new_one()
+    {
+        var context = new AccountTestContext();
+        var admin = await context.AddUserAsync("admin@example.com", "admin");
+        var member = await context.AddUserAsync("member@example.com", "member");
+        var group = ChatGroup.Create(admin.Id, "Team");
+        group.AddMember(admin.Id, member.Id);
+        await context.ChatGroupRepository.AddAsync(group, CancellationToken.None);
+
+        await context.DeleteAccountHandler()
+            .HandleAsync(new DeleteAccountCommand(admin.Id, "password"), CancellationToken.None);
+
+        // Refusing the deletion to protect the group would trade an account nobody can close for a
+        // group nobody can manage; promoting the survivor avoids both.
+        Assert.True(group.IsAdmin(member.Id));
+    }
+
+    [Fact]
+    public async Task Deleting_the_last_members_account_removes_the_group_entirely()
+    {
+        var context = new AccountTestContext();
+        var onlyMember = await context.AddUserAsync("alone@example.com", "alone");
+        var group = ChatGroup.Create(onlyMember.Id, "Just me");
+        await context.ChatGroupRepository.AddAsync(group, CancellationToken.None);
+
+        await context.DeleteAccountHandler()
+            .HandleAsync(new DeleteAccountCommand(onlyMember.Id, "password"), CancellationToken.None);
+
+        // A group nobody is in can never be posted to, read, or joined again.
+        Assert.Empty(context.ChatGroupRepository.Groups);
+    }
+
+    [Fact]
     public async Task Deleting_an_unknown_account_fails_without_wiping_anything()
     {
         var context = new AccountTestContext();
-        var handler = new DeleteAccountCommandHandler(context.UserRepository, context.PasswordHasher, context.AccountDeletionRepository);
+        var handler = context.DeleteAccountHandler();
 
         var deleted = await handler.HandleAsync(new DeleteAccountCommand(Guid.NewGuid(), "whatever"), CancellationToken.None);
 
@@ -219,11 +274,79 @@ public sealed class AccountSecurityTests
         Assert.Equal("Alice Cooper", user.DisplayName);
     }
 
+    [Fact]
+    public async Task An_address_taken_while_the_code_was_in_flight_is_refused_rather_than_written()
+    {
+        var context = new AccountTestContext();
+        var user = await context.AddUserAsync("alice@example.com", "alice");
+        await context.RequestEmailVerificationAsync(user.Id, "wanted@example.com");
+
+        // Free when the code was issued, somebody else's by the time it comes back - a window as long as
+        // the code lives. Checking only at the start let this reach the unique index on Users.Email and
+        // come back as a 500 nobody could act on.
+        await context.AddUserAsync("wanted@example.com", "bob");
+
+        var result = await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode);
+
+        Assert.Equal(EmailVerificationConfirmResult.EmailTaken, result);
+        Assert.Equal("alice@example.com", user.Email);
+        Assert.False(user.IsEmailVerified);
+    }
+
+    [Fact]
+    public async Task A_code_refused_for_a_taken_address_still_works_once_the_address_is_free()
+    {
+        var context = new AccountTestContext();
+        var user = await context.AddUserAsync("alice@example.com", "alice");
+        await context.RequestEmailVerificationAsync(user.Id, "wanted@example.com");
+        var squatter = await context.AddUserAsync("wanted@example.com", "bob");
+        await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode);
+
+        // Nothing was wrong with the code, so it is not spent - the reader can finish the moment the
+        // collision is resolved, instead of starting over for someone else's mistake.
+        squatter.SetVerifiedEmail("bob@example.com");
+        await context.UserRepository.UpdateAsync(squatter, CancellationToken.None);
+        var result = await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode);
+
+        Assert.Equal(EmailVerificationConfirmResult.Confirmed, result);
+        Assert.Equal("wanted@example.com", user.Email);
+    }
+
+    [Fact]
+    public async Task Changing_a_username_only_in_its_case_is_still_your_own_username()
+    {
+        var context = new AccountTestContext();
+        var user = await context.AddUserAsync("alice@example.com", "alice");
+        var handler = new UpdateProfileCommandHandler(context.UserRepository);
+
+        var result = await handler.HandleAsync(new UpdateProfileCommand(user.Id, "Alice", "ALICE"), CancellationToken.None);
+
+        // Normalized down, so "ALICE" is not a second account's worth of name - and not a collision with
+        // the reader's own, either.
+        Assert.Equal(UpdateProfileResult.Success, result);
+        Assert.Equal("alice", user.UserName);
+    }
+
+    [Fact]
+    public async Task A_username_taken_in_a_different_case_is_still_taken()
+    {
+        var context = new AccountTestContext();
+        await context.AddUserAsync("bob@example.com", "bob");
+        var user = await context.AddUserAsync("alice@example.com", "alice");
+        var handler = new UpdateProfileCommandHandler(context.UserRepository);
+
+        var result = await handler.HandleAsync(new UpdateProfileCommand(user.Id, "Alice", "BOB"), CancellationToken.None);
+
+        Assert.Equal(UpdateProfileResult.UserNameTaken, result);
+        Assert.Equal("alice", user.UserName);
+    }
+
     /// <summary>The collaborator graph these flows need, wired the same way DI wires the real one.</summary>
     private sealed class AccountTestContext
     {
         public InMemoryUserRepository UserRepository { get; } = new();
         public InMemoryAccountDeletionRepository AccountDeletionRepository { get; } = new();
+        public InMemoryChatGroupRepository ChatGroupRepository { get; } = new();
         public InMemoryUserVerificationCodeRepository CodeRepository { get; } = new();
         public TestVerificationCodeGenerator CodeGenerator { get; } = new();
         public RecordingEmailSender EmailSender { get; } = new();
@@ -236,11 +359,14 @@ public sealed class AccountSecurityTests
             return user;
         }
 
+        public DeleteAccountCommandHandler DeleteAccountHandler()
+            => new(UserRepository, PasswordHasher, AccountDeletionRepository, ChatGroupRepository);
+
         public Task<EmailVerificationRequestResult> RequestEmailVerificationAsync(Guid userId, string emailAddress)
             => new RequestEmailVerificationCommandHandler(UserRepository, CodeRepository, CodeGenerator, EmailSender)
                 .HandleAsync(new RequestEmailVerificationCommand(userId, emailAddress), CancellationToken.None);
 
-        public Task<bool> ConfirmEmailVerificationAsync(Guid userId, string code)
+        public Task<EmailVerificationConfirmResult> ConfirmEmailVerificationAsync(Guid userId, string code)
             => new ConfirmEmailVerificationCommandHandler(UserRepository, CodeRepository, CodeGenerator)
                 .HandleAsync(new ConfirmEmailVerificationCommand(userId, code), CancellationToken.None);
 

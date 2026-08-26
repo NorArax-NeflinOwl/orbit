@@ -1,3 +1,4 @@
+using Orbit.Core.Abstractions;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Xunit;
@@ -121,14 +122,53 @@ public sealed class TranslationsTests
     {
         // A few are deliberately the same word in both languages - anything else is an entry someone
         // added and forgot to translate.
-        var deliberatelyIdentical = new[] { "Min", "Debugger", "Release", "Debug", "Import", "Export" };
-
         var untranslated = PolishTranslationsUnderTest()
-            .Where(pair => pair.Key == pair.Value && !deliberatelyIdentical.Contains(pair.Key))
+            .Where(pair => pair.Key == pair.Value && !DeliberatelyIdentical.Contains(pair.Key))
             .Select(pair => pair.Key)
             .ToList();
 
         Assert.Empty(untranslated);
+    }
+
+    [Fact]
+    public void Every_label_a_dropdown_holds_is_translated()
+    {
+        AssertAllTranslated(NotificationChannelOption.All.Select(option => option.Label));
+    }
+
+    [Fact]
+    public void Every_way_a_share_can_be_worded_is_translated()
+    {
+        AssertAllTranslated(Enum.GetValues<ShareAccessLevel>()
+            .Select(level => SharedItemAccess.For(isShared: true, level.ToString()).Description));
+    }
+
+    [Fact]
+    public void Every_stand_in_an_api_client_substitutes_is_translated()
+    {
+        // The API clients put these in front of the reader in place of something that can't be read or
+        // named. By the time a page renders one it looks like any other title, so it has to be
+        // translated where it is substituted - see NotesApiClient.Translated.
+        AssertAllTranslated([
+            NotesApiClient.UnreadableNoteTitle,
+            TasksApiClient.UnreadableTaskListTitle,
+            InventoryApiClient.UnreadableWarehouseName,
+            "another user",
+            "another list"
+        ]);
+    }
+
+    [Fact]
+    public async Task A_sentence_with_a_value_in_it_is_translated_whole()
+    {
+        var translations = new Translations(new StubJSRuntime());
+        await translations.SetLanguageAsync(AppLanguage.Polish);
+
+        // The placeholder travels with the sentence rather than the sentence being glued together
+        // around it, because Polish does not put the pieces in English's order.
+        Assert.Equal(
+            "Ala właśnie edytuje tę notatkę — spróbuj za chwilę.",
+            translations.Format("{0} is currently editing this note - try again in a moment.", "Ala"));
     }
 
     private static IReadOnlyList<KeyValuePair<string, string>> PolishTranslationsUnderTest()
@@ -139,6 +179,27 @@ public sealed class TranslationsTests
         translations.SetLanguageAsync(AppLanguage.Polish).GetAwaiter().GetResult();
 
         return KnownKeys.Select(key => new KeyValuePair<string, string>(key, translations[key])).ToList();
+    }
+
+    /// <summary>Words Polish spells exactly as English does - anything else matching its key is an
+    /// entry someone added and forgot to translate.</summary>
+    private static readonly string[] DeliberatelyIdentical =
+        ["Min", "Debugger", "Release", "Debug", "Import", "Export", "Push"];
+
+    /// <summary>
+    /// Asserts each of these reads as Polish. Written as one helper because all three callers hold keys
+    /// that reach T[...] as a variable rather than as a literal - nothing reading the source can tell
+    /// they are keys at all, so a missing one shows English inside an otherwise Polish page and no
+    /// source sweep would ever find it.
+    /// </summary>
+    private static void AssertAllTranslated(IEnumerable<string> keys)
+    {
+        var translations = new Translations(new StubJSRuntime());
+        translations.SetLanguageAsync(AppLanguage.Polish).GetAwaiter().GetResult();
+
+        Assert.All(
+            keys.Where(key => !DeliberatelyIdentical.Contains(key)),
+            key => Assert.NotEqual(key, translations[key]));
     }
 
     /// <summary>A spread of keys from each part of the app, so a whole section going missing is noticed.</summary>

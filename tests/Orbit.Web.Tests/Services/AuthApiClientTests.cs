@@ -66,15 +66,37 @@ public sealed class AuthApiClientTests
         Assert.Equal("a-refresh-token", await tokenStore.GetRefreshTokenAsync());
     }
 
+    [Theory]
+    [InlineData("EmailTaken", AuthOutcome.EmailAlreadyTaken)]
+    [InlineData("UserNameTaken", AuthOutcome.UserNameAlreadyTaken)]
+    public async Task RegisterAsync_reports_which_field_was_taken_without_storing_a_token(
+        string reason, AuthOutcome expected)
+    {
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        var client = new AuthApiClient(
+            CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+            {
+                Content = JsonContent.Create(new RegistrationConflictDto(reason, "taken"))
+            }),
+            tokenStore);
+
+        var result = await client.RegisterAsync("taken@example.com", "takenname", "Someone", "password");
+
+        Assert.Equal(expected, result.Outcome);
+        Assert.Null(await tokenStore.GetTokenAsync());
+    }
+
     [Fact]
-    public async Task RegisterAsync_reports_email_or_username_already_taken_without_storing_a_token()
+    public async Task RegisterAsync_falls_back_to_the_email_being_taken_when_the_reason_is_missing()
     {
         var tokenStore = new TokenStore(new StubJSRuntime());
         var client = new AuthApiClient(CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict)), tokenStore);
 
+        // A 409 with nothing to read is still a refusal; guessing the more common of the two beats
+        // showing nothing, and either way no token is stored.
         var result = await client.RegisterAsync("taken@example.com", "takenname", "Someone", "password");
 
-        Assert.Equal(AuthOutcome.EmailOrUserNameAlreadyTaken, result.Outcome);
+        Assert.Equal(AuthOutcome.EmailAlreadyTaken, result.Outcome);
         Assert.Null(await tokenStore.GetTokenAsync());
     }
 

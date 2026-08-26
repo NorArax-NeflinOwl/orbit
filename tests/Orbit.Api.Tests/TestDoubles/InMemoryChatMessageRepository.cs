@@ -97,4 +97,21 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         _messages.RemoveAll(message => message.GroupMessageId == groupMessageId);
         return Task.CompletedTask;
     }
+    public Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(
+        Guid readerUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<Guid, int> counts = _messages
+            .Where(message =>
+                message.RecipientUserId == readerUserId
+                && !_readAtUtcByMessageId.ContainsKey(message.Id)
+                && message.GroupId is null)
+            .GroupBy(message => message.SenderUserId)
+            .ToDictionary(bySender => bySender.Key, bySender => bySender.Count());
+
+        return Task.FromResult(counts);
+    }
+    public Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(
+        Guid groupMessageId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<ChatMessage>>(
+            _messages.Where(message => message.GroupMessageId == groupMessageId).ToList());
 }

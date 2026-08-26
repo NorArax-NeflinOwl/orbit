@@ -11,4 +11,4 @@ namespace Orbit.Contracts.Chat;
 /// </param>
 public sealed record ContactDto(
     Guid UserId, string UserName, string DisplayName, string Email, string? PublicKeyBase64, DateTimeOffset LastMessageAtUtc,
-    bool RequiresApprovalFromCurrentUser, bool IsPendingApprovalFromOtherParty);
+    bool RequiresApprovalFromCurrentUser, bool IsPendingApprovalFromOtherParty, int UnreadCount = 0);
