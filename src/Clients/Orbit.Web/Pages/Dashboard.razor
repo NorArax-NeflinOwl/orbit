@@ -65,7 +65,7 @@ else
                 <div class="card-header"><span class="card-title">Tasks</span><span class="card-count">@_taskLists.Count lists</span></div>
                 @foreach (var taskList in _taskLists)
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToEditTaskList(taskList.Id)">
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToTaskList(taskList.Id)">
                         <span class="row-title">@taskList.Title</span>
                         @if (taskList.Items.Count > 0)
                         {
@@ -347,10 +347,15 @@ else
         NavigationManager.NavigateTo($"/notes/{noteId}");
     }
 
-    private void GoToEditTaskList(Guid taskListId)
+    /// <summary>
+    /// Opens the checklist rather than the full editor. Clicking a list on the dashboard means "let me
+    /// get on with it", which is ticking things off - reworking the list's own settings is a deliberate
+    /// trip to the editor, one click further on from there.
+    /// </summary>
+    private void GoToTaskList(Guid taskListId)
     {
         Logger.LogInformation("User clicked a task list on the dashboard ({TaskListId})", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}");
+        NavigationManager.NavigateTo($"/tasks/{taskListId}/checklist");
     }
 
     private void GoToEditEvent(Guid eventId)
