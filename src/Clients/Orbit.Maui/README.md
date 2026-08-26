@@ -4,20 +4,49 @@ The mobile client: one .NET MAUI project producing both the **iOS** and **Androi
 is the reference device. See [`info/orbit-maui-plan.md`](../../../info/orbit-maui-plan.md) for the plan
 this is being built against.
 
-Nothing here works yet beyond the template — this is the phase 1 skeleton.
+Phase 1 is built: the version gate, sign in/out with the session in the Keychain, and one real
+screen reading the signed-in user's notes. Everything else is still ahead — see the plan's phasing.
 
-## It is deliberately not in `Orbit.sln`
+## Where the code lives, and why it is split
 
-CI builds `Orbit.sln` on `ubuntu-latest` (see `.github/workflows/ci.yml`). An `ubuntu` runner cannot
-build `net10.0-ios` at all — that needs macOS and Xcode — so adding this project to the solution would
-fail every pull request. Build it explicitly instead:
+| Project | Target | In `Orbit.sln`? |
+| --- | --- | --- |
+| `Orbit.Mobile` | `net10.0` | **Yes** — everything decided without a device: the version gate, auth, and from phase 2 the sync spine |
+| `Orbit.Mobile.Tests` | `net10.0` | **Yes** — ordinary xUnit against the above |
+| `Orbit.Maui` | `net10.0-ios`, `net10.0-android` | **No** — the two app heads: XAML, view models, platform services |
+
+The split exists so the interesting logic can be unit-tested. A MAUI head cannot be referenced by a
+normal test project, so anything left inside it is only ever verified by running the app.
+
+`Orbit.Maui` stays out of the solution because CI builds `Orbit.sln` on `ubuntu-latest` (see
+`.github/workflows/ci.yml`), which cannot build `net10.0-ios` at all — that needs macOS and Xcode — and
+cannot build `net10.0-android` without the Android SDK. Build the heads explicitly instead:
 
 ```bash
 dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android
 dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-ios
 ```
 
-The server and web client keep building and testing through `Orbit.sln` exactly as before.
+The server, web client, and `Orbit.Mobile` keep building and testing through `Orbit.sln` as before.
+
+## Running it against a local server
+
+The API address is `OrbitApiSettings.Development`, and it differs per platform because "the machine
+running the server" is not the same address from each:
+
+| Running on | Reaches the Mac's `localhost:5080` as |
+| --- | --- |
+| iOS simulator | `http://localhost:5080` — it shares the Mac's loopback |
+| Android emulator | `http://10.0.2.2:5080` — the emulator's fixed alias for its host |
+| A physical device | Neither. Use the Mac's LAN address, and note iOS refuses plaintext HTTP to it |
+
+iOS blocks cleartext HTTP by default. `Platforms/iOS/Info.plist` carries `NSAllowsLocalNetworking`,
+which permits it for local and loopback hosts only — a LAN address needs HTTPS or its own exception.
+
+```bash
+dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64
+xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app
+```
 
 ## Prerequisites
 

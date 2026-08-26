@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Notes.NotesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:contracts="clr-namespace:Orbit.Contracts.Notes;assembly=Orbit.Contracts"
+    xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
+    x:DataType="notes:NotesViewModel"
+    Title="Notes">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20" RowSpacing="12">
+
+        <Label Grid.Row="0" Text="{Binding Greeting}" FontSize="14" TextColor="{StaticResource Gray500}" />
+
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Notes}">
+
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Padding="24" Spacing="8">
+                        <Label Text="No notes yet." HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               TextColor="{StaticResource Magenta}"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="contracts:NoteDto">
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                            <Label Text="{Binding UpdatedAtUtc, StringFormat='Updated {0:g}'}"
+                                   FontSize="12"
+                                   TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+        <Button Grid.Row="2" Text="Sign out" Command="{Binding SignOutCommand}" />
+
+    </Grid>
+
+</ContentPage>

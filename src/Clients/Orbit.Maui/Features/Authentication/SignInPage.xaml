@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Authentication.SignInPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:authentication="clr-namespace:Orbit.Maui.Features.Authentication"
+    x:DataType="authentication:SignInViewModel"
+    Title="Sign in">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="32" Spacing="20" VerticalOptions="Center">
+
+            <Label Text="Orbit" FontSize="40" FontAttributes="Bold" HorizontalOptions="Center" />
+
+            <Entry Placeholder="Email or username"
+                   Text="{Binding EmailOrUserName}"
+                   Keyboard="Email"
+                   IsSpellCheckEnabled="False"
+                   ReturnType="Next" />
+
+            <Entry Placeholder="Password"
+                   Text="{Binding Password}"
+                   IsPassword="True"
+                   ReturnType="Go"
+                   ReturnCommand="{Binding SignInCommand}" />
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{StaticResource Magenta}"
+                   LineBreakMode="WordWrap" />
+
+            <Button Text="Sign in" Command="{Binding SignInCommand}" />
+
+            <ActivityIndicator IsRunning="{Binding SignInCommand.IsRunning}"
+                               IsVisible="{Binding SignInCommand.IsRunning}"
+                               HorizontalOptions="Center" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

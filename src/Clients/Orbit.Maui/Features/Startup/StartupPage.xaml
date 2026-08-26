@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Startup.StartupPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:startup="clr-namespace:Orbit.Maui.Features.Startup"
+    x:DataType="startup:StartupViewModel">
+
+    <Grid RowDefinitions="*,Auto,*" Padding="32">
+        <VerticalStackLayout Grid.Row="1" Spacing="24" HorizontalOptions="Center">
+
+            <Label Text="Orbit" FontSize="44" FontAttributes="Bold" HorizontalOptions="Center" />
+
+            <ActivityIndicator IsRunning="{Binding IsChecking}"
+                               IsVisible="{Binding IsChecking}"
+                               HorizontalOptions="Center" />
+
+            <!-- The whole blocked state. There is no navigation away from this page, by design. -->
+            <VerticalStackLayout Spacing="16" IsVisible="{Binding IsBlocked}">
+                <Label Text="{Binding BlockedMessage}"
+                       HorizontalTextAlignment="Center"
+                       LineBreakMode="WordWrap" />
+                <Button Text="Update Orbit"
+                        Command="{Binding OpenUpdateCommand}"
+                        IsVisible="{Binding CanOpenUpdate}" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </Grid>
+
+</ContentPage>

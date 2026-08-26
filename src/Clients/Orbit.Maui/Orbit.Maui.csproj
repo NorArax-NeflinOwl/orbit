@@ -50,7 +50,6 @@
 
 		<!-- Images -->
 		<MauiImage Include="Resources\Images\*" />
-		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
 		
 		<!-- Custom Fonts -->
 		<MauiFont Include="Resources\Fonts\*" />
@@ -62,6 +61,12 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<!-- Property change notification and commands, so view models are the shape MVVM expects without
+		hand-writing INotifyPropertyChanged on every one of them. -->
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<!-- IHttpClientFactory: three clients with different handler pipelines (see MauiProgram), which is
+		the part that has to stay straight - only one of them may carry the access token. -->
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -69,6 +74,10 @@
 		hand-written mirror of them. This is the reason the client is MAUI rather than native: a contract
 		change breaks this build at compile time instead of failing on a device in the field. -->
 		<ProjectReference Include="..\..\Shared\Orbit.Contracts\Orbit.Contracts.csproj" />
+		<!-- Everything decided without a device - the version gate, auth, and from phase 2 the sync spine.
+		It is a separate project so an ordinary test project can reference it; a MAUI head cannot be
+		unit-tested that way. -->
+		<ProjectReference Include="..\Orbit.Mobile\Orbit.Mobile.csproj" />
 	</ItemGroup>
 
 </Project>

@@ -2,6 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- App Transport Security refuses plaintext HTTP, which is what a development server on the Mac
+	speaks. NSAllowsLocalNetworking is the narrow exception for that: it permits local and loopback
+	hosts only, and leaves the refusal of plaintext to anything on the public internet in place.
+	NSAllowsArbitraryLoads would have done the job by removing the protection entirely. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIDeviceFamily</key>

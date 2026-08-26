@@ -540,8 +540,8 @@ phase behind it, mostly for free apart from the platform-specific work.
 
 | Phase | Contains | Done when |
 | --- | --- | --- |
-| **0. Server prerequisites** | Version-gate endpoint (§7), diagnostic-log endpoint and table (§8), push transports (§4.2), multi-audience Google (§4.3), delta + tombstones for sync (§5.3), optionally the shared API-client project (§4.4) | Merged into `main`, web client unaffected |
-| **1. Walking skeleton** | `Orbit.Maui` project, `Orbit.Contracts` referenced, auth + `SecureStorage` + single-flight refresh, **version gate on startup (§7)**, sign in/out, one real screen | A real account signs in on a device and an out-of-date build is stopped on the splash screen |
+| **0. Server prerequisites** (built) | Version-gate endpoint (§7), diagnostic-log endpoint and table (§8), push transports (§4.2), multi-audience Google (§4.3), delta + tombstones for sync (§5.3), optionally the shared API-client project (§4.4) | Merged into `main`, web client unaffected |
+| **1. Walking skeleton** (built) | `Orbit.Maui` project, `Orbit.Contracts` referenced, auth + `SecureStorage` + single-flight refresh, **version gate on startup (§7)**, sign in/out, one real screen | A real account signs in on a device and an out-of-date build is stopped on the splash screen |
 | **2. Local store and sync spine** | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
 | **3. Crypto spine** | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
 | **4. The content features** | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
@@ -620,11 +620,23 @@ These change the plan materially and are worth answering before the phase they l
    day-to-day workflow completely.
 6. **Diagnostic log retention** (§8) — how long uploaded logs are kept before deletion.
 
-## 13. Not started yet
+## 13. What exists so far
 
-Deliberately, nothing has been created: `src/Clients/Orbit.Maui` is still the empty folder it was, and
-is still absent from `Orbit.sln`. It should become a real project when phase 1 begins, not be
-scaffolded in advance — an empty directory that reads as work-in-progress already needed an explicit
-note in [Current Status](current-status.md) once to stop confusing people.
+Phases 0 and 1 are built. `src/Clients/` now holds two mobile projects rather than one:
 
-Now that the name is settled, that folder is the plan's home rather than a competing reservation.
+- **`Orbit.Mobile`** (`net10.0`) — everything decided without a device: the version gate, the session
+  store, single-flight refresh, the authorization handler. In `Orbit.sln`, so `dotnet test` covers it.
+- **`Orbit.Maui`** (`net10.0-ios`, `net10.0-android`) — the two app heads. Deliberately *not* in
+  `Orbit.sln`: CI runs on `ubuntu-latest`, which can build neither head.
+
+That split was not in the architecture sketch in §6, and is worth stating plainly: a MAUI head cannot
+be referenced by an ordinary test project, so anything left inside it can only be checked by running
+the app. With the sync spine named as the largest risk in the plan (§11), it needs to be somewhere a
+test can reach it. The view models are the part still on the wrong side of that line — they hold real
+behaviour and currently depend on MAUI's `Launcher` and page navigation. Worth moving before phase 4
+adds five features' worth of them.
+
+**Verified on a simulator, not merely compiled:** an account signs in, the session survives relaunch
+from the Keychain, notes load through the token handler, and an out-of-date build stops on the splash
+screen — including with the server switched off entirely, from the cached verdict, which is the rule
+in §7 that matters most.
