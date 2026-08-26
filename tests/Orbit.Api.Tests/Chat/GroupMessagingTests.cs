@@ -1,4 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
+using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Core.Users;
+using Orbit.Core.Notifications;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.DeleteMessage;
@@ -62,7 +65,7 @@ public sealed class GroupMessagingTests
     }
 
     [Fact]
-    public async Task Each_member_reads_only_the_copies_they_can_decrypt()
+    public async Task Each_member_reads_one_row_per_message_rather_than_one_per_copy()
     {
         var context = new GroupMessagingTestContext();
         await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
@@ -70,10 +73,41 @@ public sealed class GroupMessagingTests
         var senderView = await context.ReadAsync(context.AdminId);
         var memberView = await context.ReadAsync(context.MemberId);
 
-        // The sender sees both copies they sent; a member sees only the one encrypted for them, since
-        // the other is ciphertext they hold no key for.
-        Assert.Equal(2, senderView.Count);
+        // One post, one row - for the sender too. This used to assert the sender saw both of their own
+        // copies, which is the same thing as the group conversation showing their message twice; it only
+        // looked harmless because a group of two stores a single copy.
+        Assert.Single(senderView);
+        // A member still sees only the copy encrypted for them: the other is ciphertext they hold no
+        // key for, and never reaches them.
         Assert.Equal(context.MemberId, Assert.Single(memberView).RecipientUserId);
+    }
+
+    [Fact]
+    public async Task A_group_message_is_not_repeated_once_per_extra_member()
+    {
+        var context = new GroupMessagingTestContext();
+
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        await context.SendAsync(context.MemberId, [context.AdminId, context.SecondMemberId]);
+
+        // Two posts in a group of three - six stored copies between them, and two messages to read.
+        Assert.Equal(2, (await context.ReadAsync(context.AdminId)).Count);
+        Assert.Equal(2, (await context.ReadAsync(context.MemberId)).Count);
+        Assert.Equal(2, (await context.ReadAsync(context.SecondMemberId)).Count);
+    }
+
+    [Fact]
+    public async Task The_same_copy_of_a_message_is_chosen_on_every_read()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+
+        var first = await context.ReadAsync(context.AdminId);
+        var second = await context.ReadAsync(context.AdminId);
+
+        // The browser caches decrypted text against the copy's id, so a choice that wandered between
+        // polls would throw that cache away on every tick.
+        Assert.Equal(first.Select(message => message.Id), second.Select(message => message.Id));
     }
 
     [Fact]
@@ -149,11 +183,49 @@ public sealed class GroupMessagingTests
         Assert.True(added);
     }
 
+    [Fact]
+    public async Task Being_added_to_a_group_tells_the_person_it_happened_to()
+    {
+        var groupRepository = new InMemoryChatGroupRepository();
+        var userRepository = new InMemoryUserRepository();
+        var contactRepository = new InMemoryContactRepository();
+        var entryRepository = new InMemoryNotificationEntryRepository();
+
+        var admin = User.Create("admin@example.com", "admin", "Admin", "hash");
+        var invitee = User.Create("invitee@example.com", "invitee", "Invitee", "hash");
+        await userRepository.AddAsync(admin, CancellationToken.None);
+        await userRepository.AddAsync(invitee, CancellationToken.None);
+        await contactRepository.EnsureContactAsync(admin.Id, invitee.Id, DateTimeOffset.UtcNow, CancellationToken.None);
+
+        var group = ChatGroup.Create(admin.Id, "Weekend trip");
+        await groupRepository.AddAsync(group, CancellationToken.None);
+
+        var added = await new AddChatGroupMemberCommandHandler(
+                groupRepository, contactRepository, userRepository,
+                new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository),
+                new PushNotificationDispatcher(
+                    new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(),
+                    NullLogger<PushNotificationDispatcher>.Instance))
+            .HandleAsync(new AddChatGroupMemberCommand(admin.Id, group.Id, invitee.Id), CancellationToken.None);
+
+        // Joining a group is the one thing that happens to a member without them doing anything, so
+        // without an entry it happened silently - the group just turned up in the list.
+        Assert.True(added);
+        var entry = Assert.Single(await entryRepository.GetRecentAsync(invitee.Id, 10, CancellationToken.None));
+        Assert.Contains("Weekend trip", entry.Body);
+        Assert.Contains("Admin", entry.Body);
+        Assert.Equal($"/chat/groups/{group.Id}", entry.Url);
+    }
+
     /// <summary>A group of three, wired the way DI wires the real thing.</summary>
     private sealed class GroupMessagingTestContext
     {
         public InMemoryChatMessageRepository MessageRepository { get; } = new();
         public InMemoryChatGroupRepository GroupRepository { get; } = new();
+        public InMemoryUserRepository UserRepository { get; } = new();
+        public InMemoryContactRepository ContactRepository { get; } = new();
+        public InMemoryNotificationEntryRepository NotificationEntryRepository { get; } = new();
+        public RecordingPushNotificationSender PushSender { get; } = new();
         public Guid AdminId { get; } = Guid.NewGuid();
         public Guid MemberId { get; } = Guid.NewGuid();
         public Guid SecondMemberId { get; } = Guid.NewGuid();
@@ -181,8 +253,13 @@ public sealed class GroupMessagingTests
                 .HandleAsync(new GetGroupConversationQuery(callerId, GroupId), CancellationToken.None);
 
         public Task<bool> AddMemberAsync(Guid actorId, Guid userId)
-            => new AddChatGroupMemberCommandHandler(GroupRepository, new InMemoryContactRepository())
+            => new AddChatGroupMemberCommandHandler(
+                    GroupRepository, ContactRepository, UserRepository,
+                    new NotificationRecorder(new InMemoryNotificationSettingsRepository(), NotificationEntryRepository),
+                    new PushNotificationDispatcher(
+                        new InMemoryPushSubscriptionRepository(), PushSender, NullLogger<PushNotificationDispatcher>.Instance))
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
+
 
         public Task<bool> DeleteAsync(Guid actorId, Guid messageId)
             => new DeleteChatMessageCommandHandler(MessageRepository, GroupRepository)

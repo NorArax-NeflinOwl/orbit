@@ -219,7 +219,8 @@ public static class ChatEndpoints
     private static ContactDto ToDto(ContactSummary contact)
         => new(
             contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64,
-            contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty);
+            contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty,
+            contact.UnreadCount);
 
     private static ChatMessageDto ToDto(ChatMessage message)
         => new(

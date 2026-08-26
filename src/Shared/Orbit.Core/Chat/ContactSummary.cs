@@ -18,4 +18,4 @@ namespace Orbit.Core.Chat;
 /// </param>
 public sealed record ContactSummary(
     Orbit.Core.Users.User User, DateTimeOffset LastMessageAtUtc, bool RequiresApprovalFromCurrentUser,
-    bool IsPendingApprovalFromOtherParty);
+    bool IsPendingApprovalFromOtherParty, int UnreadCount);

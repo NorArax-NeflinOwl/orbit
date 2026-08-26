@@ -1,4 +1,6 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
+using Orbit.Core.Users;
 
 namespace Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 
@@ -12,11 +14,19 @@ public sealed class AddChatGroupMemberCommandHandler : IRequestHandler<AddChatGr
 {
     private readonly IChatGroupRepository _chatGroupRepository;
     private readonly IContactRepository _contactRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly NotificationRecorder _notificationRecorder;
+    private readonly PushNotificationDispatcher _pushNotificationDispatcher;
 
-    public AddChatGroupMemberCommandHandler(IChatGroupRepository chatGroupRepository, IContactRepository contactRepository)
+    public AddChatGroupMemberCommandHandler(
+        IChatGroupRepository chatGroupRepository, IContactRepository contactRepository, IUserRepository userRepository,
+        NotificationRecorder notificationRecorder, PushNotificationDispatcher pushNotificationDispatcher)
     {
         _chatGroupRepository = chatGroupRepository;
         _contactRepository = contactRepository;
+        _userRepository = userRepository;
+        _notificationRecorder = notificationRecorder;
+        _pushNotificationDispatcher = pushNotificationDispatcher;
     }
 
     public async Task<bool> HandleAsync(AddChatGroupMemberCommand request, CancellationToken cancellationToken)
@@ -44,7 +54,34 @@ public sealed class AddChatGroupMemberCommandHandler : IRequestHandler<AddChatGr
 
         group.AddMember(request.ActorUserId, request.UserId);
         await _chatGroupRepository.UpdateAsync(group, cancellationToken);
+        await NotifyAddedMemberAsync(request, group, cancellationToken);
         return true;
+    }
+
+    /// <summary>
+    /// Being put into a group is the one thing that happens to a member without them doing anything, so
+    /// without this it happened silently: the group simply appeared in the list, if they went looking.
+    /// Best-effort, like the message notification it mirrors - a group they are already in is not undone
+    /// by nobody being able to tell them about it.
+    /// </summary>
+    private async Task NotifyAddedMemberAsync(
+        AddChatGroupMemberCommand request, ChatGroup group, CancellationToken cancellationToken)
+    {
+        var actor = await _userRepository.GetByIdAsync(request.ActorUserId, cancellationToken);
+        if (actor is null)
+        {
+            return;
+        }
+
+        var payload = ChatGroupInvitationPushContent.Build(group.Id, group.Name, actor.DisplayName);
+        var recordResult = await _notificationRecorder.RecordAndFilterAsync(
+            request.UserId, NotificationChannel.Push, NotificationEntryKind.SharedWithYou,
+            payload.Title, payload.Body, payload.Url, cancellationToken);
+
+        if (recordResult.AllowedChannel.HasFlag(NotificationChannel.Push))
+        {
+            await _pushNotificationDispatcher.NotifyUserAsync(request.UserId, payload, cancellationToken);
+        }
     }
 }
 
