@@ -201,6 +201,7 @@ else
         var items = taskList.Items
             .Select((existingItem, index) => new TaskItemRequest(
                 existingItem.Description,
+                existingItem.Id,
                 existingItem.DueDateUtc,
                 index == toggledIndex ? isCompleted : existingItem.IsCompleted,
                 existingItem.LinkedTaskListId,

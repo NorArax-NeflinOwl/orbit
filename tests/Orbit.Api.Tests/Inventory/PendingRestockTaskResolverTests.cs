@@ -40,7 +40,7 @@ public sealed class PendingRestockTaskResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_clears_the_reference_when_the_linked_task_is_completed()
+    public async Task ResolveAsync_keeps_the_reference_when_the_linked_task_is_merely_completed()
     {
         var context = new InventoryTestContext();
         var taskRepository = context.TaskRepository;
@@ -55,8 +55,11 @@ public sealed class PendingRestockTaskResolverTests
 
         var result = await resolver.ResolveAsync(item, CancellationToken.None);
 
-        Assert.Null(result.PendingRestockTaskListId);
-        Assert.Null(result.PendingRestockTaskItemId);
+        // This used to clear the reference, which is what made the next save append a second
+        // "Restock: Milk" beside the finished one - and a third the day after. A finished task is still
+        // this item's task; it is reopened rather than duplicated.
+        Assert.Equal(taskList.Id, result.PendingRestockTaskListId);
+        Assert.Equal(restockItem.Id, result.PendingRestockTaskItemId);
     }
 
     [Fact]

@@ -24,9 +24,9 @@ public sealed class TaskItem
     public NotificationChannel OverdueNotificationChannel { get; private set; }
 
     /// <summary>
-    /// When set, an incomplete item with a due date is reminded about once a day (at
-    /// <see cref="DailyReminderTimeOfDay"/>, on <see cref="DailyReminderNotificationChannel"/>) until it's
-    /// completed or the user turns this back off - see
+    /// When set, this item is reminded about once a day (at <see cref="DailyReminderTimeOfDay"/>, on
+    /// <see cref="DailyReminderNotificationChannel"/>) until the user turns it back off - and comes back
+    /// as something still to do each time, so finishing it today does not end it. See
     /// <see cref="Orbit.Core.Tasks.DailyReminders.DailyTaskReminderScheduler"/>.
     /// </summary>
     public bool RemindDaily { get; private set; }
@@ -51,6 +51,22 @@ public sealed class TaskItem
         RemindDaily = remindDaily;
         DailyReminderNotificationChannel = dailyReminderNotificationChannel;
         DailyReminderTimeOfDay = dailyReminderTimeOfDay;
+    }
+
+    /// <summary>
+    /// Brings a finished entry back as something still to do, keeping its identity - the same row the
+    /// reader already knows, rather than a second one beside it. Used where a task is meant to recur:
+    /// an inventory item that is low again, and a daily reminder coming round.
+    ///
+    /// A linked entry is left alone: its completion follows the list it links to, and forcing it here
+    /// would be overwritten by the next resolve anyway.
+    /// </summary>
+    public void Reopen()
+    {
+        if (LinkedTaskListId is null)
+        {
+            IsCompleted = false;
+        }
     }
 
     /// <summary>
