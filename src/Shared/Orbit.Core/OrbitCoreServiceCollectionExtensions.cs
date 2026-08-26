@@ -95,6 +95,7 @@ using Orbit.Core.Location.StopSharingLocation;
 using Orbit.Core.Location.ShareLocation;
 using Orbit.Core.Location;
 using Orbit.Core.Users.GetUserById;
+using Orbit.Core.Users.GetUsersByIds;
 using Orbit.Core.Users.GetWrappedPrivateKey;
 using Orbit.Core.Users.Login;
 using Orbit.Core.Users.RegisterUser;
@@ -199,6 +200,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<LoginQuery, User?>, LoginQueryHandler>();
         services.AddScoped<IRequestHandler<SearchUserQuery, User?>, SearchUserQueryHandler>();
         services.AddScoped<IRequestHandler<GetUserByIdQuery, User?>, GetUserByIdQueryHandler>();
+        services.AddScoped<IRequestHandler<GetUsersByIdsQuery, IReadOnlyList<User>>, GetUsersByIdsQueryHandler>();
         services.AddScoped<IRequestHandler<SetPublicKeyCommand, bool>, SetPublicKeyCommandHandler>();
         services.AddScoped<IRequestHandler<SetEncryptionKeyCommand, bool>, SetEncryptionKeyCommandHandler>();
         services.AddScoped<IRequestHandler<GetWrappedPrivateKeyQuery, WrappedPrivateKey?>, GetWrappedPrivateKeyQueryHandler>();

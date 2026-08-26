@@ -48,4 +48,10 @@ internal sealed class InMemoryCalendarEventShareRepository : ICalendarEventShare
         IReadOnlyList<CalendarEventShare> grants = _shares.Where(share => share.RecipientUserId == recipientUserId && share.IsAccepted).ToList();
         return Task.FromResult(grants);
     }
+    public Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        _shares.RemoveAll(share =>
+            share.SourceCalendarEventId == sourceId && share.RecipientUserId == recipientUserId && share.IsAccepted);
+        return Task.CompletedTask;
+    }
 }

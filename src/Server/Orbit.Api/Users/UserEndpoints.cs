@@ -10,6 +10,7 @@ using Orbit.Core.Location.StopSharingLocation;
 using Orbit.Core.Location.ShareLocation;
 using Orbit.Core.Location;
 using Orbit.Core.Users.GetUserById;
+using Orbit.Core.Users.GetUsersByIds;
 using Orbit.Core.Users.GetWrappedPrivateKey;
 using Orbit.Core.Users.SearchUser;
 using Orbit.Core.Users.ChangePassword;
@@ -191,6 +192,17 @@ public static class UserEndpoints
         {
             var result = await dispatcher.SendAsync(new SearchUserQuery(GetUserId(user), query), cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(ToDto(result));
+        });
+
+        // Several profiles in one request, for a caller that needs a whole roster - see
+        // GetUsersByIdsQueryHandler. Ids repeat rather than being comma-separated
+        // ("?ids=<a>&ids=<b>"), which is what minimal APIs bind an array from; a comma-separated list
+        // is refused as a malformed query, the same as any other unparseable parameter.
+        users.MapGet("/", async (
+            [FromQuery(Name = "ids")] Guid[] ids, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var results = await dispatcher.SendAsync(new GetUsersByIdsQuery(ids), cancellationToken);
+            return Results.Ok(results.Select(ToDto).ToList());
         });
 
         users.MapGet("/{id:guid}", async (Guid id, IDispatcher dispatcher, CancellationToken cancellationToken) =>

@@ -116,4 +116,18 @@ public sealed class UserRepository : IUserRepository
             entity.WrappedPrivateKeyBase64, entity.PrivateKeyWrapNonceBase64, entity.PrivateKeySaltBase64,
             entity.PrivateKeyDerivationIterations.Value);
     }
+    public async Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var entities = await _dbContext.Users
+            .AsNoTracking()
+            .Where(user => ids.Contains(user.Id))
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
 }

@@ -17,7 +17,8 @@ public interface IChatMessageRepository
     /// and the ones they sent - oldest first. See GetGroupConversationQueryHandler for why the rest are
     /// left out.
     /// </summary>
-    Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(Guid groupId, Guid userId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(
+        Guid groupId, Guid userId, DateTimeOffset? sinceUtc, CancellationToken cancellationToken);
 
     /// <summary>Removes one message row. No-op when it no longer exists.</summary>
     Task DeleteAsync(Guid messageId, CancellationToken cancellationToken);

@@ -89,4 +89,10 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc
         };
+    public async Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        await _dbContext.CalendarEventShares
+            .Where(share => share.SourceCalendarEventId == sourceId && share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }

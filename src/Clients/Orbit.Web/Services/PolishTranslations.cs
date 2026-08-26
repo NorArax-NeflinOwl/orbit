@@ -698,5 +698,8 @@ internal static class PolishTranslations
         ["Nothing matches that."] = "Nic nie pasuje.",
         ["Leave group"] = "Opuść grupę",
         ["You aren't in this group."] = "Nie należysz do tej grupy.",
+        ["Remove from my list"] = "Usuń z mojej listy",
+        ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
+        ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
     };
 }

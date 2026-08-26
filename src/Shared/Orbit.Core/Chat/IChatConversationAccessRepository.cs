@@ -9,6 +9,12 @@ public interface IChatConversationAccessRepository
     Task<ChatConversationAccess?> GetAsync(Guid userId, Guid otherUserId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Every conversation userId takes part in, keyed by the other party. The contacts list needs all of
+    /// them at once, and asked one at a time before this.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, ChatConversationAccess>> GetAllForUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Creates the row the moment two users' very first message is sent, with initiatedByUserId as the
     /// party who does not need approval - a no-op if a row for this pair already exists, since only the
     /// first message should ever decide who the initiator was.
