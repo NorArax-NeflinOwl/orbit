@@ -121,4 +121,32 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         Guid groupMessageId, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<ChatMessage>>(
             _messages.Where(message => message.GroupMessageId == groupMessageId).ToList());
+    public Task MarkGroupConversationAsReadAsync(
+        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
+    {
+        foreach (var message in _messages.Where(message =>
+                     message.GroupId == groupId && message.RecipientUserId == readerUserId))
+        {
+            _readAtUtcByMessageId.TryAdd(message.Id, readAtUtc);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>>> GetGroupReceiptsAsync(
+        IReadOnlyCollection<Guid> groupMessageIds, CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>> byMessage = _messages
+            .Where(message => message.GroupMessageId is { } id && groupMessageIds.Contains(id))
+            .GroupBy(message => message.GroupMessageId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<GroupMessageReceipt>)group
+                    .Select(message => new GroupMessageReceipt(
+                        message.RecipientUserId,
+                        _readAtUtcByMessageId.TryGetValue(message.Id, out var readAt) ? readAt : null))
+                    .ToList());
+
+        return Task.FromResult(byMessage);
+    }
 }

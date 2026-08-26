@@ -946,6 +946,26 @@ input.note-editor-title {
     color: var(--text-tertiary);
 }
 
+/* One tick means the server has it for everyone; two mean everyone has read it. Muted until then, so a
+   glance down the conversation shows what has landed without reading the marks one by one. */
+.group-message-ticks {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    letter-spacing: -1px;
+}
+
+.group-message-ticks.read {
+    color: var(--accent);
+}
+
+.group-message-info {
+    margin: 0 0 8px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-subtle);
+}
+
 .icon-btn {
     width: 30px;
     height: 30px;

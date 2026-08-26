@@ -176,10 +176,23 @@
                         @* The same three things a one-to-one message offers. Editing is the sender's
                            alone - deleting a message an admin can also do, but putting different words
                            in somebody's mouth is not something moderation should reach. *@
+                        @* Two ticks only once every other member has read it - one member still behind
+                           and the sender should not be told the message landed. *@
+                        @if (message.SenderUserId == _ownUserId && message.ReadByEveryone is { } readByEveryone)
+                        {
+                            <span class="group-message-ticks @(readByEveryone ? "read" : "")"
+                                  title="@(readByEveryone ? T["Read by everyone"] : T["Delivered"])">
+                                @(readByEveryone ? "✓✓" : "✓")
+                            </span>
+                        }
                         <span class="group-message-actions">
                             @if (CanEdit(message))
                             {
                                 <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StartEditing(message)">@T["Edit"]</button>
+                            }
+                            @if (message.GroupMessageId is not null)
+                            {
+                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
                             }
                             <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
                             @if (CanDelete(message))
@@ -188,6 +201,29 @@
                             }
                         </span>
                     </div>
+                    @if (_infoMessageId == message.Id)
+                    {
+                        <div class="group-message-info">
+                            <div class="card-header">
+                                <span class="card-title">@T["Who has read this"]</span>
+                                <button type="button" class="btn-secondary" @onclick="CloseInfo">@T["Close"]</button>
+                            </div>
+                            @* Every member the message actually reached. Somebody who joined afterwards
+                               is absent rather than shown as not having read it: nothing was addressed
+                               to them, which is the same reason they cannot open it. *@
+                            @foreach (var receipt in _infoReceipts)
+                            {
+                                <div class="list-row">
+                                    <span class="row-title">@DisplayNameFor(receipt.RecipientUserId)</span>
+                                    <span class="row-meta">
+                                        @(receipt.ReadAtUtc is { } readAt
+                                            ? T.Format("Read {0}", readAt.LocalDateTime.ToString("dd.MM HH:mm"))
+                                            : T["Delivered"])
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
                     @if (_editingMessageId == message.Id)
                     {
                         <div class="field-row group-message-edit">
@@ -255,6 +291,10 @@
             ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
             : _groups;
 
+    /// <summary>Which message has its info panel open, and what that panel is showing.</summary>
+    private Guid? _infoMessageId;
+    private IReadOnlyList<GroupMessageReceiptDto> _infoReceipts = [];
+
     /// <summary>Which message is open for editing or forwarding, and what is being typed into it.</summary>
     private Guid? _editingMessageId;
     private string _editDraft = string.Empty;
@@ -286,6 +326,9 @@
             {
                 _messages = await ChatApiClient.GetGroupConversationAsync(groupId);
                 await DecryptMessagesAsync();
+                // Having the group open is what counts as reading it - the same coarse stand-in the
+                // one-to-one conversation uses, and what the senders' ticks are drawn from.
+                await ChatApiClient.MarkGroupConversationAsReadAsync(groupId);
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -403,8 +446,29 @@
     private bool CanEdit(ChatMessageDto message)
         => message.SenderUserId == _ownUserId && message.GroupMessageId is not null;
 
+    /// <summary>
+    /// Opens the per-member view of what became of one message. Fetched when asked for rather than
+    /// alongside the conversation: it is opened for one message at a time, and drawing it for every
+    /// message would be a query per message on every load.
+    /// </summary>
+    private async Task ShowInfoAsync(ChatMessageDto message)
+        => await RunAsync(async () =>
+        {
+            _editingMessageId = null;
+            _forwardingMessageId = null;
+            _infoMessageId = message.Id;
+            _infoReceipts = await ChatApiClient.GetGroupMessageReceiptsAsync(GroupId!.Value, message.GroupMessageId!.Value);
+        });
+
+    private void CloseInfo()
+    {
+        _infoMessageId = null;
+        _infoReceipts = [];
+    }
+
     private void StartEditing(ChatMessageDto message)
     {
+        _infoMessageId = null;
         _forwardingMessageId = null;
         _editingMessageId = message.Id;
         _editDraft = _plainTextByMessageId.GetValueOrDefault(message.Id) ?? string.Empty;

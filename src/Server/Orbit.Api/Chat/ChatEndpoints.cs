@@ -9,6 +9,8 @@ using Orbit.Core.Chat.Groups.SendGroupMessage;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.Groups.EditGroupMessage;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
+using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
+using Orbit.Core.Chat.Groups.GetGroupMessageReceipts;
 using Orbit.Core.Chat.Groups.GetChatGroups;
 using Orbit.Core.Chat.Groups.CreateChatGroup;
 using Orbit.Core.Chat.Groups;
@@ -165,7 +167,28 @@ public static class ChatEndpoints
         {
             var messages = await dispatcher.SendAsync(
                 new GetGroupConversationQuery(GetUserId(user), groupId, sinceUtc), cancellationToken);
-            return Results.Ok(messages.Select(ToDto));
+            return Results.Ok(messages.Select(ToDto).ToList());
+        });
+
+        // Who this message reached and who has read it, for the message's own info view. Separate from
+        // the conversation because it is opened per message, not drawn for every one of them.
+        chat.MapGet("/groups/{groupId:guid}/messages/{groupMessageId:guid}/receipts", async (
+            Guid groupId, Guid groupMessageId, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var receipts = await dispatcher.SendAsync(
+                new GetGroupMessageReceiptsQuery(GetUserId(user), groupId, groupMessageId), cancellationToken);
+            return Results.Ok(receipts.Select(ToDto).ToList());
+        });
+
+        // Marks everything addressed to this reader in the group as read - the group counterpart of the
+        // one-to-one route above.
+        chat.MapPut("/groups/{groupId:guid}/read", async (
+            Guid groupId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var marked = await dispatcher.SendAsync(
+                new MarkGroupConversationAsReadCommand(GetUserId(user), groupId), cancellationToken);
+            return marked ? Results.NoContent() : Results.NotFound();
         });
 
         chat.MapPost("/groups/{groupId:guid}/messages", async (
@@ -238,6 +261,12 @@ public static class ChatEndpoints
             contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64,
             contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty,
             contact.UnreadCount);
+
+    private static ChatMessageDto ToDto(GroupConversationEntry entry)
+        => ToDto(entry.Message) with { ReadByEveryone = entry.ReadByEveryone };
+
+    private static GroupMessageReceiptDto ToDto(GroupMessageReceipt receipt)
+        => new(receipt.RecipientUserId, receipt.ReadAtUtc);
 
     private static ChatMessageDto ToDto(ChatMessage message)
         => new(
