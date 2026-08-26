@@ -1,3 +1,6 @@
+@using Orbit.Web.Services
+@inject Translations T
+
 <Router AppAssembly="@typeof(Program).Assembly">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
@@ -5,12 +8,12 @@
                 <RedirectToLogin />
             </NotAuthorized>
             <Authorizing>
-                <p>Checking permissions…</p>
+                <p>@T["Checking permissions…"]</p>
             </Authorizing>
         </AuthorizeRouteView>
     </Found>
     <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <p>This page doesn't exist.</p>
+        <PageTitle>@T["Orbit — Not found"]</PageTitle>
+        <p>@T["This page doesn't exist."]</p>
     </NotFound>
 </Router>

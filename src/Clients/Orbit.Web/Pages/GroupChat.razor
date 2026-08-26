@@ -12,16 +12,16 @@
 @inject ILogger<GroupChat> Logger
 @inject Translations T
 
-<PageTitle>@(_selectedGroup?.Name ?? "Groups")</PageTitle>
+<PageTitle>@(_selectedGroup?.Name ?? T["Groups"])</PageTitle>
 
 <div class="page-header">
     <div>
         <h1>@T["Groups"]</h1>
-        <p class="page-subtitle">Chats with more than one other person, encrypted the same way one-to-one chats are.</p>
+        <p class="page-subtitle">@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</p>
     </div>
     <div class="page-header-actions">
         <button type="button" class="btn-secondary" @onclick="GoToContacts">@T["Contacts"]</button>
-        <button type="button" class="btn-primary" @onclick="StartCreating">New group</button>
+        <button type="button" class="btn-primary" @onclick="StartCreating">@T["New group"]</button>
     </div>
 </div>
 
@@ -34,14 +34,14 @@
 {
     <div class="card group-create-card">
         <div class="field">
-            <label for="groupNameInput">Group name</label>
-            <input id="groupNameInput" @bind="_newGroupName" placeholder="Weekend trip" />
+            <label for="groupNameInput">@T["Group name"]</label>
+            <input id="groupNameInput" @bind="_newGroupName" placeholder="@(T["Weekend trip"])" />
         </div>
         <div class="field">
-            <label>Who's in it</label>
+            <label>@T["Who's in it"]</label>
             @if (_contacts.Count == 0)
             {
-                <p class="empty-hint">You need at least one contact to start a group.</p>
+                <p class="empty-hint">@T["You need at least one contact to start a group."]</p>
             }
             else
             {
@@ -64,10 +64,10 @@
 
 <div class="group-layout">
     <div class="card group-list">
-        <div class="card-header"><span class="card-title">Your groups</span><span class="card-count">@_groups.Count</span></div>
+        <div class="card-header"><span class="card-title">@T["Your groups"]</span><span class="card-count">@_groups.Count</span></div>
         @if (_groups.Count == 0)
         {
-            <p class="empty-hint">No groups yet.</p>
+            <p class="empty-hint">@T["No groups yet."]</p>
         }
         else
         {
@@ -91,7 +91,7 @@
         <div class="card group-conversation">
             <div class="card-header">
                 <span class="card-title">@selectedGroup.Name</span>
-                <span class="card-count">@selectedGroup.Members.Count members</span>
+                <span class="card-count">@T.Format("{0} members", selectedGroup.Members.Count)</span>
             </div>
 
             @* Membership is only editable by an admin - see ChatGroup, which refuses it server-side too. *@
@@ -109,7 +109,7 @@
                         {
                             <button type="button" class="btn-secondary" disabled="@_isBusy"
                                     @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
-                                @(member.Role == AdminRole ? "Demote" : "Make admin")
+                                @(member.Role == AdminRole ? T["Demote"] : T["Make admin"])
                             </button>
                             <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
                         }
@@ -120,7 +120,7 @@
                 {
                     <div class="field-row">
                         <select @bind="_contactToAddId">
-                            <option value="">Add someone…</option>
+                            <option value="">@T["Add someone…"]</option>
                             @foreach (var contact in _addableContacts)
                             {
                                 <option value="@contact.UserId">@contact.DisplayName</option>
@@ -134,7 +134,7 @@
             <div class="group-messages">
                 @if (_messages.Count == 0)
                 {
-                    <p class="empty-hint">Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you.</p>
+                    <p class="empty-hint">@T["Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you."]</p>
                 }
                 @foreach (var message in _messages)
                 {
@@ -153,7 +153,7 @@
             </div>
 
             <div class="field-row">
-                <input @bind="_draft" placeholder="Write to the group" @onkeydown="OnDraftKeyDownAsync" />
+                <input @bind="_draft" placeholder="@(T["Write to the group"])" @onkeydown="OnDraftKeyDownAsync" />
                 <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">@T["Send"]</button>
             </div>
         </div>
@@ -216,7 +216,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to load groups");
-            _errorMessage = "Couldn't load your groups. Check your connection and try again.";
+            _errorMessage = T["Couldn't load your groups. Check your connection and try again."];
         }
     }
 
@@ -237,7 +237,7 @@
             var otherPartyUserId = message.SenderUserId == _ownUserId ? message.RecipientUserId : message.SenderUserId;
             var plainText = await EncryptedChatMessageReader.TryDecryptFromAsync(
                 _ownUserId, otherPartyUserId, message.CiphertextBase64, message.NonceBase64);
-            _plainTextByMessageId[message.Id] = plainText ?? "(can't be opened on this device)";
+            _plainTextByMessageId[message.Id] = plainText ?? T["(can't be opened on this device)"];
         }
     }
 
@@ -310,7 +310,7 @@
         {
             if (!await ChatApiClient.DeleteMessageAsync(message.Id))
             {
-                _errorMessage = "That message is no longer yours to delete.";
+                _errorMessage = T["That message is no longer yours to delete."];
                 return;
             }
 
@@ -360,7 +360,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "A group action failed");
-            _errorMessage = "That didn't work. Reload the group and try again.";
+            _errorMessage = T["That didn't work. Reload the group and try again."];
         }
         finally
         {

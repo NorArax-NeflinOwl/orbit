@@ -9,7 +9,7 @@
 @inject ILogger<Register> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Register</PageTitle>
+<PageTitle>@T["Orbit — Register"]</PageTitle>
 
 @* TODO(Orbit.Web.UI): still plain unstyled <div>/<label>/<input> - see Login.razor's matching TODO,
    same dedicated auth-card layout should cover both pages together rather than being built twice. *@
@@ -63,7 +63,7 @@
         // property of the form, not of the account being created.
         if (_formModel.Password != _formModel.RepeatPassword)
         {
-            _errorMessage = "The two passwords don't match.";
+            _errorMessage = T["The two passwords don't match."];
             return;
         }
 
@@ -83,7 +83,7 @@
             // client-side timeout, for instance - so a failure here always shows the same inline error
             // message instead of crashing the whole page.
             Logger.LogActionFailed(ClientActionCategory.Registration, "Registration", exception);
-            _errorMessage = "Failed to connect to the server. Check your connection and try again.";
+            _errorMessage = T["Failed to connect to the server. Check your connection and try again."];
             _isSubmitting = false;
             return;
         }
@@ -103,8 +103,8 @@
 
         _errorMessage = result.Outcome switch
         {
-            AuthOutcome.EmailOrUserNameAlreadyTaken => "That email or username is already taken.",
-            _ => "An error occurred while registering. Try again."
+            AuthOutcome.EmailOrUserNameAlreadyTaken => T["That email or username is already taken."],
+            _ => T["An error occurred while registering. Try again."]
         };
         _isSubmitting = false;
     }
@@ -156,13 +156,13 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Google sign-in failed");
-            _errorMessage = "Couldn't sign in with Google. Try again.";
+            _errorMessage = T["Couldn't sign in with Google. Try again."];
             return;
         }
 
         if (result.Outcome != AuthOutcome.Success)
         {
-            _errorMessage = "Couldn't sign in with Google. Try again.";
+            _errorMessage = T["Couldn't sign in with Google. Try again."];
             return;
         }
 

@@ -11,7 +11,7 @@
 <div class="request-edit-access">
     @if (_sent)
     {
-        <p class="request-edit-access-sent">Asked @OwnerDisplayName. They'll see it in your chat.</p>
+        <p class="request-edit-access-sent">@T.Format("Asked {0}. They'll see it in your chat.", OwnerDisplayName)</p>
     }
     else
     {
@@ -70,12 +70,12 @@
         {
             // The owner has never signed in on a browser that made them a key, so there is nothing to
             // encrypt for - the same wall Chat itself hits with such a user.
-            _errorMessage = "They haven't set up encryption yet, so they can't receive this.";
+            _errorMessage = T["They haven't set up encryption yet, so they can't receive this."];
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogWarning(exception, "Failed to ask for edit access to {ItemType} {ItemId}", ItemType, ItemId);
-            _errorMessage = "Couldn't send the request. Try again.";
+            _errorMessage = T["Couldn't send the request. Try again."];
         }
         finally
         {

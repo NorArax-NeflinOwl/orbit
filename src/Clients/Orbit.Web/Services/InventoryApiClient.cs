@@ -13,18 +13,20 @@ namespace Orbit.Web.Services;
 public sealed class InventoryApiClient
 {
     private readonly HttpClient _httpClient;
+    private readonly Translations? _translations;
 
     private readonly PrivateContentSealer? _privateContentSealer;
 
     /// <summary>Shown in place of a private warehouse nobody can open any more - see PrivateContentSealer.OpenAsync.</summary>
     public const string UnreadableWarehouseName = "Unreadable - encrypted with an older key";
 
-    // The sealer defaults to absent so existing call sites (including every test that constructs this
-    // with just an HttpClient) keep compiling unchanged; only the DI-resolved instance handles private
-    // warehouses.
-    public InventoryApiClient(HttpClient httpClient, PrivateContentSealer? privateContentSealer = null)
+    // The sealer and translations default to absent so existing call sites (including every test that
+    // constructs this with just an HttpClient) keep compiling unchanged; only the DI-resolved instance
+    // handles private warehouses or speaks the reader's language.
+    public InventoryApiClient(HttpClient httpClient, PrivateContentSealer? privateContentSealer = null, Translations? translations = null)
     {
         _httpClient = httpClient;
+        _translations = translations;
         _privateContentSealer = privateContentSealer;
     }
 
@@ -38,7 +40,7 @@ public sealed class InventoryApiClient
         var content = await OpenContentAsync(warehouse, cancellationToken);
         if (content is null)
         {
-            return warehouse.IsPrivate ? warehouse with { Name = UnreadableWarehouseName } : warehouse;
+            return warehouse.IsPrivate ? warehouse with { Name = Translated(UnreadableWarehouseName) } : warehouse;
         }
 
         return warehouse with { Name = content.Name };
@@ -130,7 +132,7 @@ public sealed class InventoryApiClient
         response.EnsureSuccessStatusCode();
     }
 
-    private static async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -140,7 +142,7 @@ public sealed class InventoryApiClient
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
             var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
-            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? "another user");
+            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? Translated("another user"));
         }
 
         response.EnsureSuccessStatusCode();
@@ -251,4 +253,11 @@ public sealed class InventoryApiClient
     private static bool IsBelowMinimum(WarehouseItemDto item)
         => item.MinimumQuantity is { } minimumQuantity && item.Quantity < minimumQuantity;
 
+    /// <summary>
+    /// The reader's language for text this client substitutes in - English when there is no
+    /// Translations to ask, which is every test that builds this client by hand. Translated here
+    /// rather than where it is rendered, because by then a stand-in title is indistinguishable from
+    /// a real one the reader wrote.
+    /// </summary>
+    private string Translated(string english) => _translations?[english] ?? english;
 }

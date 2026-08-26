@@ -8,7 +8,7 @@
 @inject ILogger<Notes> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Notes</PageTitle>
+<PageTitle>@T["Orbit — Notes"]</PageTitle>
 
 @* TODO(Orbit.Web.UI): still the pre-redesign markup - plain <ul>/<li>/<button>, no design-system
    classes. Restyle onto the tokens/components in wwwroot/css/app.css (.page-header, .card, .card-grid,
@@ -40,8 +40,8 @@ else
             <li>
                 <strong>@note.Title</strong>
                 <p>@ContentPreview(note)</p>
-                <small>Created: @note.CreatedAtUtc.LocalDateTime</small><br>
-                <small>Last updated: @note.UpdatedAtUtc.LocalDateTime</small><br>
+                <small>@T["Created:"] @note.CreatedAtUtc.LocalDateTime</small><br>
+                <small>@T["Last updated:"] @note.UpdatedAtUtc.LocalDateTime</small><br>
                 <button @onclick="() => GoToEditNote(note.Id)">@T["Edit"]</button>
                 <button @onclick="() => DeleteNoteAsync(note)">@T["Delete"]</button>
             </li>

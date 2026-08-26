@@ -17,13 +17,13 @@
 @inject ILogger<TaskEditor> Logger
 @inject Translations T
 
-<PageTitle>@(IsNewTaskList ? "New task list" : "Edit task list")</PageTitle>
+<PageTitle>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</PageTitle>
 
 @* TODO(Orbit.Web.UI): still plain unstyled form markup. Restyle together with Tasks.razor (see its own
    TODO) onto the .task-list-card/.checklist/.check-row pattern from the approved concept mockup - the
    checkbox/priority-dot/due-date row layout there was designed to double as this editor's item list,
    not just the summary view. *@
-<h1>@(IsNewTaskList ? "New task list" : "Edit task list")</h1>
+<h1>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</h1>
 
 @if (_isLoading)
 {
@@ -33,8 +33,7 @@ else
 {
     @if (_isShared)
     {
-        <p class="shared-task-list-banner">
-            This task list was shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.
+        <p class="shared-task-list-banner">@T["This task list was shared by"]<strong>@_sharedByUserName</strong> - @SharedAccessDescription.
         </p>
         @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
         {
@@ -47,14 +46,14 @@ else
     @if (_lockedByUserName is not null)
     {
         <p class="lock-banner">
-            <strong>@_lockedByUserName</strong> is currently editing this task list - you can't edit it right now.
+            @T.Format("{0} is currently editing this task list - you can't edit it right now.", _lockedByUserName)
         </p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
     <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
         <div class="field">
-            <label>Title</label>
+            <label>@T["Title"]</label>
             <InputText @bind-Value="_formModel.Title" />
         </div>
 
@@ -66,11 +65,7 @@ else
                 <label>
                     <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                 <small>
-                    Encrypted in this browser before it is saved, so Orbit's servers hold something they
-                    can't read. A private list can't be shared, and any share of it stops working while it
-                    stays private. Because the server can no longer read a due date, a private list gets no
-                    overdue or daily reminders - and losing your password loses the list, exactly as a reset
-                    loses chat history.
+                    @T["Encrypted in this browser before it is saved, so Orbit's servers hold something they can't read. A private list can't be shared, and any share of it stops working while it stays private. Because the server can no longer read a due date, a private list gets no overdue or daily reminders - and losing your password loses the list, exactly as a reset loses chat history."]
                 </small>
             </div>
         }
@@ -79,8 +74,7 @@ else
             <label>
                 <InputCheckbox @bind-Value="_formModel.IsGroup" />@T["Group list"]</label>
             <small>
-                The checklist view of a group list also shows every list its items link to, so the whole
-                group can be worked through on one screen.
+                @T["The checklist view of a group list also shows every list its items link to, so the whole group can be worked through on one screen."]
             </small>
         </div>
 
@@ -91,7 +85,7 @@ else
                 <option value="Normal">@T["Normal"]</option>
                 <option value="High">@T["High"]</option>
             </InputSelect>
-            <small>Sorts this list against the others on the Tasks page. Where it has got to is worked out from its items.</small>
+            <small>@T["Sorts this list against the others on the Tasks page. Where it has got to is worked out from its items."]</small>
         </div>
 
         <h2>@T["Items"]</h2>
@@ -103,19 +97,19 @@ else
                 <div class="editor-item-summary">
                     @if (string.IsNullOrEmpty(item.LinkedTaskListId))
                     {
-                        <InputCheckbox @bind-Value="item.IsCompleted" title="Completed" />
+                        <InputCheckbox @bind-Value="item.IsCompleted" title="@(T["Completed"])" />
                     }
                     else
                     {
                         <input type="checkbox" checked="@item.IsCompleted" disabled
-                               title="Completed - follows the linked list, can't be set by hand" />
+                               title="@(T["Completed - follows the linked list, can't be set by hand"])" />
                     }
-                    <InputText class="editor-item-main" @bind-Value="item.Description" placeholder="Item description" />
+                    <InputText class="editor-item-main" @bind-Value="item.Description" placeholder="@(T["Item description"])" />
                     <span class="editor-item-aside">
                         <InputDate @bind-Value="item.DueDate" />
                         <input type="time" @bind="item.DueTime" />
                         <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
-                                title="@(IsExpanded(item) ? "Hide this item's other settings" : "Show this item's other settings")"
+                                title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
                                 aria-expanded="@(IsExpanded(item) ? "true" : "false")"
                                 @onclick="() => ToggleExpanded(item)">
                             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
@@ -127,10 +121,8 @@ else
                 @if (IsExpanded(item))
                 {
                     <div class="editor-item-details">
-                        <label>
-                            Link to list
-                            <select @bind="item.LinkedTaskListId">
-                                <option value="">None</option>
+                        <label>@T["Link to list"]<select @bind="item.LinkedTaskListId">
+                                <option value="">@T["None"]</option>
                                 @foreach (var linkableTaskList in _linkableTaskLists)
                                 {
                                     <option value="@linkableTaskList.Id">@linkableTaskList.Title</option>
@@ -139,10 +131,8 @@ else
                         </label>
                         @if (item.Id is { } persistedItemId && _linkableTaskLists.Count > 0)
                         {
-                            <label>
-                                Move to list
-                                <select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
-                                    <option value="">Move to…</option>
+                            <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
+                                    <option value="">@T["Move to…"]</option>
                                     @foreach (var targetTaskList in _linkableTaskLists)
                                     {
                                         <option value="@targetTaskList.Id">@targetTaskList.Title</option>
@@ -150,39 +140,31 @@ else
                                 </select>
                             </label>
                         }
-                        <label>
-                            Overdue notification
-                            <select @bind="item.OverdueNotificationChannel">
+                        <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
                                 @foreach (var option in NotificationChannelOption.All)
                                 {
-                                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
+                                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
                                 }
                             </select>
                         </label>
                         <label>
-                            <InputCheckbox @bind-Value="item.RemindDaily" />
-                            Remind daily
-                        </label>
+                            <InputCheckbox @bind-Value="item.RemindDaily" />@T["Remind daily"]</label>
                         @if (item.RemindDaily)
                         {
-                            <label>
-                                Daily reminder channel
-                                <select @bind="item.DailyReminderNotificationChannel">
+                            <label>@T["Daily reminder channel"]<select @bind="item.DailyReminderNotificationChannel">
                                     @foreach (var option in NotificationChannelOption.All)
                                     {
-                                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
+                                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
                                     }
                                 </select>
                             </label>
-                            <label>
-                                Daily reminder time
-                                <input type="time" @bind="item.DailyReminderTimeOfDay" />
+                            <label>@T["Daily reminder time"]<input type="time" @bind="item.DailyReminderTimeOfDay" />
                             </label>
                         }
                         @if (!string.IsNullOrEmpty(item.LinkedTaskListId))
                         {
                             <span class="field-break"></span>
-                            <small>Completion follows the linked list, so it can't be ticked by hand.</small>
+                            <small>@T["Completion follows the linked list, so it can't be ticked by hand."]</small>
                         }
                         @if (_moveErrorMessage is not null && item.Id is { } movedItemId && _moveErrorMessageForItemId == movedItemId)
                         {
@@ -194,7 +176,7 @@ else
             </div>
         }
         <div>
-            <button type="button" class="btn-secondary" @onclick="AddItem">Add item</button>
+            <button type="button" class="btn-secondary" @onclick="AddItem">@T["Add item"]</button>
         </div>
 
         @if (_saveErrorMessage is not null)
@@ -219,13 +201,13 @@ else
         <h2>@T["Sharing"]</h2>
         @if (_shareableContacts.Count == 0)
         {
-            <p>No contacts. A contact will appear here once you start a chat with someone.</p>
+            <p>@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
         }
         else
         {
             <div class="field-row">
                 <select id="shareContactSelect" @bind="_selectedContactUserId">
-                    <option value="">-- select a contact --</option>
+                    <option value="">@T["-- select a contact --"]</option>
                     @foreach (var contact in _shareableContacts)
                     {
                         <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
@@ -306,7 +288,7 @@ else
             : _contacts;
 
     /// <summary>Mirrors NoteEditor's property of the same name - see its comment.</summary>
-    private string SharedAccessDescription => _access.Description;
+    private string SharedAccessDescription => T[_access.Description];
 
     protected override async Task OnInitializedAsync()
     {
@@ -458,7 +440,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to move task item {ItemId} to task list {TargetTaskListId}", itemId, targetTaskListId);
-            _moveErrorMessage = "Failed to move this item. Try again.";
+            _moveErrorMessage = T["Failed to move this item. Try again."];
             _moveErrorMessageForItemId = itemId;
         }
         finally
@@ -503,13 +485,13 @@ else
                 {
                     _lockedByUserName = outcome.LockedByUserName;
                     StopLockHeartbeat();
-                    _saveErrorMessage = $"{outcome.LockedByUserName} is currently editing this task list - try again in a moment.";
+                    _saveErrorMessage = T.Format("{0} is currently editing this task list - try again in a moment.", outcome.LockedByUserName);
                     return;
                 }
 
                 if (outcome.Kind == EditOutcomeKind.NotFound)
                 {
-                    _saveErrorMessage = "Failed to save the task list. Try again.";
+                    _saveErrorMessage = T["Failed to save the task list. Try again."];
                     return;
                 }
 
@@ -525,7 +507,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to {Mode} task list {TaskListId}", IsNewTaskList ? "create" : "update", Id);
-            _saveErrorMessage = "Failed to save the task list. Try again.";
+            _saveErrorMessage = T["Failed to save the task list. Try again."];
             return;
         }
         finally
@@ -649,13 +631,13 @@ else
             var result = await TasksApiClient.ShareTaskListAsync(taskListId, recipientUserId, _selectedAccessLevel);
             if (result is null)
             {
-                _shareErrorMessage = "Failed to share the task list.";
+                _shareErrorMessage = T["Failed to share the task list."];
                 return;
             }
 
             var payloadJson = JsonSerializer.Serialize(new TaskListShareMessagePayload(result.ShareId, _formModel.Title));
             await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
-            _shareInfoMessage = result.AlreadyShared ? "Already shared with that contact - sent a reminder." : null;
+            _shareInfoMessage = result.AlreadyShared ? T["Already shared with that contact - sent a reminder."] : null;
             _selectedContactUserId = string.Empty;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -665,7 +647,7 @@ else
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogWarning(exception, "Failed to share task list {TaskListId} with user {RecipientUserId}", taskListId, recipientUserId);
-            _shareErrorMessage = "Failed to share the task list.";
+            _shareErrorMessage = T["Failed to share the task list."];
         }
         finally
         {

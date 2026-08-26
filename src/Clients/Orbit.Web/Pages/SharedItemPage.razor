@@ -6,7 +6,7 @@
 @inject ILogger<SharedItemPage> Logger
 @inject Translations T
 
-<PageTitle>@(_item is null ? "Orbit — Shared" : $"Orbit — {_item.Title}")</PageTitle>
+<PageTitle>@(_item is null ? T["Orbit — Shared"] : $"Orbit — {_item.Title}")</PageTitle>
 
 @* Deliberately has no [Authorize]: this is the one page a reader with no account is meant to reach.
    Everything it shows comes from PublicSharedItem, which is a projection rather than the item itself -
@@ -21,8 +21,7 @@
         <div class="card shared-item-card">
             <h1>@T["This link doesn't work"]</h1>
             <p class="page-subtitle">
-                It may have been turned off by whoever shared it, or the thing it pointed at may be gone.
-                Ask them for a new one.
+                @T["It may have been turned off by whoever shared it, or the thing it pointed at may be gone. Ask them for a new one."]
             </p>
         </div>
     }
@@ -36,12 +35,12 @@
                 {
                     <p class="page-subtitle">@_item.Subtitle</p>
                 }
-                <p class="shared-item-owner">Shared by @_item.OwnerDisplayName</p>
+                <p class="shared-item-owner">@T["Shared by"] @_item.OwnerDisplayName</p>
             </div>
 
             @if (_item.Lines.Count == 0)
             {
-                <p class="page-subtitle">Nothing in it yet.</p>
+                <p class="page-subtitle">@T["Nothing in it yet."]</p>
             }
             else
             {
@@ -75,7 +74,7 @@
                     <AuthorizeView>
                         <Authorized>
                             <button type="button" class="btn-primary" disabled="@_isClaiming" @onclick="ClaimAsync">@T["Save to my account"]</button>
-                            <p class="page-subtitle">You'll get your own read-only copy. Nothing you do changes theirs.</p>
+                            <p class="page-subtitle">@T["You'll get your own read-only copy. Nothing you do changes theirs."]</p>
                         </Authorized>
                         <NotAuthorized>
                             <button type="button" class="btn-primary" @onclick="SignInToClaim">@T["Sign in to save this"]</button>
@@ -128,15 +127,15 @@
         {
             var result = await PublicShareApiClient.ClaimAsync(Token);
             _claimMessage = result is null
-                ? "Couldn't save it. The link may have been turned off."
+                ? T["Couldn't save it. The link may have been turned off."]
                 : result.AlreadyHeld
-                    ? "You already have this."
-                    : "Saved. It's in your account now.";
+                    ? T["You already have this."]
+                    : T["Saved. It's in your account now."];
         }
         catch (HttpRequestException exception)
         {
             Logger.LogWarning(exception, "Failed to claim a shared item");
-            _claimMessage = "Couldn't save it. Try again.";
+            _claimMessage = T["Couldn't save it. Try again."];
         }
         finally
         {
@@ -144,11 +143,11 @@
         }
     }
 
-    private static string DescribeKind(string itemType) => itemType switch
+    private string DescribeKind(string itemType) => itemType switch
     {
-        "Note" => "Note",
-        "TaskList" => "Task list",
-        "CalendarEvent" => "Event",
-        _ => "Storage"
+        "Note" => T["Note"],
+        "TaskList" => T["Task list"],
+        "CalendarEvent" => T["Event"],
+        _ => T["Storage"]
     };
 }

@@ -9,7 +9,7 @@
 @inject ILogger<Contacts> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Contacts</PageTitle>
+<PageTitle>@T["Orbit — Contacts"]</PageTitle>
 
 <div class="page-header">
     <div>
@@ -144,7 +144,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogWarning(exception, "Failed to load contacts");
-            _loadError = "Failed to load contacts. Check your connection and try again.";
+            _loadError = T["Failed to load contacts. Check your connection and try again."];
         }
     }
 
@@ -165,7 +165,7 @@ else
             _searchResult = await UsersApiClient.SearchUserAsync(identifier);
             if (_searchResult is null)
             {
-                _searchError = "No user found with that email address or username.";
+                _searchError = T["No user found with that email address or username."];
             }
         }
         finally

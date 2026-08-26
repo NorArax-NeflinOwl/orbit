@@ -11,14 +11,14 @@
 <div class="share-link">
     <div class="share-link-actions">
         <button type="button" class="btn-secondary share-link-button" disabled="@_isWorking" @onclick="CreateOrCopyAsync"
-                title="@(_token is null ? "Create a link anyone can open" : "Copy the link")">
+                title="@(_token is null ? T["Create a link anyone can open"] : T["Copy the link"])">
             <svg class="share-link-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="15" height="15"
                  fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M6.5 9.5 9.5 6.5" />
                 <path d="M7 4.5 8.5 3a2.8 2.8 0 0 1 4 4L11 8.5" />
                 <path d="M9 11.5 7.5 13a2.8 2.8 0 0 1-4-4L5 7.5" />
             </svg>
-            @(_token is null ? "Share link" : _copied ? "Copied" : "Copy link")
+            @(_token is null ? T["Share link"] : _copied ? T["Copied"] : T["Copy link"])
         </button>
         @if (_token is not null)
         {
@@ -28,8 +28,7 @@
     @if (_token is not null)
     {
         <p class="share-link-note">
-            Anyone with this link can read it without an account. They can't change it, and they can save
-            their own read-only copy by signing in.
+            @T["Anyone with this link can read it without an account. They can't change it, and they can save their own read-only copy by signing in."]
         </p>
         @* Shown as well as copied: the clipboard is denied outright in some mobile browsers and
            webviews, and a link nobody can read is no link at all. *@
@@ -85,7 +84,7 @@
             _token ??= (await PublicShareApiClient.CreateLinkAsync(ItemType, ItemId))?.Token;
             if (_token is null)
             {
-                _errorMessage = "This can't be shared with a link. Private items stay private.";
+                _errorMessage = T["This can't be shared with a link. Private items stay private."];
                 return;
             }
 
@@ -94,7 +93,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogWarning(exception, "Failed to create a share link for {ItemType} {ItemId}", ItemType, ItemId);
-            _errorMessage = "Couldn't create the link. Try again.";
+            _errorMessage = T["Couldn't create the link. Try again."];
         }
         finally
         {
@@ -133,7 +132,7 @@
         catch (HttpRequestException exception)
         {
             Logger.LogWarning(exception, "Failed to revoke the share link for {ItemType} {ItemId}", ItemType, ItemId);
-            _errorMessage = "Couldn't stop sharing. Try again.";
+            _errorMessage = T["Couldn't stop sharing. Try again."];
         }
         finally
         {
