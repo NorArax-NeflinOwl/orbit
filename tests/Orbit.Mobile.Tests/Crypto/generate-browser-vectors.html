@@ -1,0 +1,80 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Orbit E2EE vector generator</title>
+<pre id="output">running…</pre>
+<script type="module">
+import * as e2ee from './e2eeChat.js';
+
+const output = document.getElementById('output');
+const toBase64 = buffer => btoa(String.fromCharCode(...new Uint8Array(buffer)));
+const fromBase64 = value => Uint8Array.from(atob(value), c => c.charCodeAt(0));
+
+async function generate() {
+    // Two accounts in the same browser; e2eeChat namespaces keys by user id, so both can exist at once.
+    const alice = 'aaaaaaaa-0000-4000-8000-000000000001';
+    const bob = 'bbbbbbbb-0000-4000-8000-000000000002';
+
+    const alicePublicKeyBase64 = await e2ee.ensureOwnPublicKey(alice);
+    const bobPublicKeyBase64 = await e2ee.ensureOwnPublicKey(bob);
+
+    // The private keys, so the .NET side can load exactly these and reproduce the same agreement.
+    const password = 'correct horse battery staple';
+    const aliceBackup = await e2ee.wrapOwnPrivateKeyWithPassword(alice, password);
+    const bobBackup = await e2ee.wrapOwnPrivateKeyWithPassword(bob, password);
+
+    // Real messages, through the app's own functions.
+    const messagePlainText = 'Cześć! ECDH bez KDF — zażółć gęślą jaźń. 🔐';
+    const aliceToBob = await e2ee.encryptMessage(alice, bobPublicKeyBase64, messagePlainText);
+    const bobToAlice = await e2ee.encryptMessage(bob, alicePublicKeyBase64, 'Reply from the other side.');
+    const privateNotePlainText = 'A private note, sealed for one reader.';
+    const aliceToSelf = await e2ee.encryptForSelf(alice, privateNotePlainText);
+
+    // The claim the whole interop rests on: deriveKey(ECDH -> AES-GCM 256) uses the raw shared secret
+    // with no KDF. Proven here rather than asserted - deriveBits gives the raw secret, and a key
+    // imported from it decrypts what the module's deriveKey encrypted.
+    const sharedSecret = await deriveRawSharedSecret(aliceBackup, password, bobPublicKeyBase64);
+    const decryptedWithRawSecret = await decryptWithRawKey(sharedSecret, aliceToBob);
+
+    output.textContent = JSON.stringify({
+        rawSharedSecretEqualsAesKey: decryptedWithRawSecret === messagePlainText,
+        alice: { userId: alice, publicKeyBase64: alicePublicKeyBase64, backup: aliceBackup },
+        bob: { userId: bob, publicKeyBase64: bobPublicKeyBase64, backup: bobBackup },
+        backupPassword: password,
+        sharedSecretBase64: toBase64(sharedSecret),
+        aliceToBob: { ...aliceToBob, plainText: messagePlainText },
+        bobToAlice: { ...bobToAlice, plainText: 'Reply from the other side.' },
+        aliceToSelf: { ...aliceToSelf, plainText: privateNotePlainText }
+    }, null, 2);
+}
+
+async function unwrapPrivateKeyJwk(backup, password) {
+    const baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+    const wrappingKey = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: fromBase64(backup.saltBase64), iterations: backup.iterations, hash: 'SHA-256' },
+        baseKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: fromBase64(backup.nonceBase64) }, wrappingKey, fromBase64(backup.ciphertextBase64));
+    return JSON.parse(new TextDecoder().decode(plain));
+}
+
+async function deriveRawSharedSecret(ownBackup, password, otherPublicKeyBase64) {
+    const jwk = await unwrapPrivateKeyJwk(ownBackup, password);
+    // The exported JWK carries key_ops: ["deriveKey"], which refuses a deriveBits import. Dropping the
+    // constraint is the only difference - the key material is identical.
+    const { key_ops, ...jwkForDeriveBits } = jwk;
+    const privateKey = await crypto.subtle.importKey(
+        'jwk', jwkForDeriveBits, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+    const publicKey = await crypto.subtle.importKey(
+        'raw', fromBase64(otherPublicKeyBase64), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+    return new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: publicKey }, privateKey, 256));
+}
+
+async function decryptWithRawKey(rawSecret, encrypted) {
+    const key = await crypto.subtle.importKey('raw', rawSecret, { name: 'AES-GCM' }, false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: fromBase64(encrypted.nonceBase64) }, key, fromBase64(encrypted.ciphertextBase64));
+    return new TextDecoder().decode(plain);
+}
+
+generate().catch(error => { output.textContent = 'ERROR: ' + error; });
+</script>
