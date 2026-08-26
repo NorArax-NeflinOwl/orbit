@@ -11,24 +11,25 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Warehouses> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Inventory</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1>Inventory</h1>
-        <p class="page-subtitle">Keep separate stocks in separate warehouses, and share one with someone over chat.</p>
+        <h1>@T["Inventory"]</h1>
+        <p class="page-subtitle">@T["Keep separate stocks in separate warehouses, and share one with someone over chat."]</p>
     </div>
-    <button class="btn-primary" @onclick="StartCreating">Add warehouse</button>
+    <button class="btn-primary" @onclick="StartCreating">@T["Add warehouse"]</button>
 </div>
 
 @if (_isCreating)
 {
     <div class="card warehouse-create-row">
-        <input id="newWarehouseNameInput" placeholder="Warehouse name" @bind="_newWarehouseName" @bind:event="oninput"
+        <input id="newWarehouseNameInput" placeholder="@(T["Warehouse name"])" @bind="_newWarehouseName" @bind:event="oninput"
                @onkeydown="OnNewWarehouseKeyDownAsync" />
-        <button class="btn-primary" disabled="@(_isSaving || _newWarehouseName.Trim().Length == 0)" @onclick="CreateWarehouseAsync">Create</button>
-        <button class="btn-secondary" @onclick="CancelCreating">Cancel</button>
+        <button class="btn-primary" disabled="@(_isSaving || _newWarehouseName.Trim().Length == 0)" @onclick="CreateWarehouseAsync">@T["Create"]</button>
+        <button class="btn-secondary" @onclick="CancelCreating">@T["Cancel"]</button>
     </div>
 }
 
@@ -39,11 +40,11 @@
 
 @if (_warehouses is null)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else if (_warehouses.Count == 0)
 {
-    <p>No warehouses yet. Create one to start tracking stock.</p>
+    <p>@T["No warehouses yet. Create one to start tracking stock."]</p>
 }
 else
 {
@@ -57,7 +58,7 @@ else
                     <h2 class="warehouse-name">@warehouse.Name</h2>
                     @if (warehouse.IsPrivate)
                     {
-                        <span class="warehouse-shared-badge">Private - encrypted, and only you can read it</span>
+                        <span class="warehouse-shared-badge">@T["Private - encrypted, and only you can read it"]</span>
                     }
                     @if (warehouse.IsShared)
                     {
@@ -69,14 +70,14 @@ else
                     }
                 </div>
                 <div class="warehouse-card-actions">
-                    <button class="btn-primary" @onclick="() => OpenWarehouse(warehouse.Id)">Open</button>
+                    <button class="btn-primary" @onclick="() => OpenWarehouse(warehouse.Id)">@T["Open"]</button>
                     @if (CanShare(warehouse))
                     {
-                        <button class="btn-secondary" @onclick="() => ToggleSharePanel(warehouse.Id)">Share</button>
+                        <button class="btn-secondary" @onclick="() => ToggleSharePanel(warehouse.Id)">@T["Share"]</button>
                     }
                     @if (!warehouse.IsShared)
                     {
-                        <button class="btn-secondary" @onclick="() => DeleteWarehouseAsync(warehouse)">Delete</button>
+                        <button class="btn-secondary" @onclick="() => DeleteWarehouseAsync(warehouse)">@T["Delete"]</button>
                     }
                 </div>
 
@@ -97,19 +98,19 @@ else
                                 }
                             </select>
                             <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
-                                <option value="ReadOnly">Read-only</option>
-                                <option value="Share">Can share</option>
+                                <option value="ReadOnly">@T["Read-only"]</option>
+                                <option value="Share">@T["Can share"]</option>
                                 @if (CanGrantEditOnly(warehouse))
                                 {
-                                    <option value="EditOnly">Can edit, but not share editing</option>
+                                    <option value="EditOnly">@T["Can edit, but not share editing"]</option>
                                 }
                                 @if (CanGrantCanEdit(warehouse))
                                 {
-                                    <option value="CanEdit">Can edit</option>
+                                    <option value="CanEdit">@T["Can edit"]</option>
                                 }
                             </select>
                             <button id="shareWarehouseButton" class="btn-primary" disabled="@_isSharing"
-                                    @onclick="() => ShareAsync(warehouse)">Share</button>
+                                    @onclick="() => ShareAsync(warehouse)">@T["Share"]</button>
                         }
                         @if (_shareErrorMessage is not null)
                         {

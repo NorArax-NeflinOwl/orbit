@@ -21,6 +21,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ILogger<Chat> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Chat</PageTitle>
 
@@ -50,7 +51,7 @@ else if (_encryptionKeyLocked)
 }
 else if (_otherUser is null)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else
 {
@@ -144,11 +145,9 @@ else
                                 <div class="chat-bubble-edit" @onclick:stopPropagation="true">
                                     <input class="chat-input" @bind="_editDraftText" @bind:event="oninput" />
                                     <div class="chat-bubble-edit-actions">
-                                        <button type="button" class="btn-secondary" @onclick="CancelEdit">Cancel</button>
+                                        <button type="button" class="btn-secondary" @onclick="CancelEdit">@T["Cancel"]</button>
                                         <button type="button" class="btn-primary" disabled="@(_isSavingEdit || _editDraftText.Trim().Length == 0)"
-                                                @onclick="() => SaveEditAsync(message)">
-                                            Save
-                                        </button>
+                                                @onclick="() => SaveEditAsync(message)">@T["Save"]</button>
                                     </div>
                                 </div>
                             }
@@ -176,7 +175,7 @@ else
                                     @if (canEdit || canForward)
                                     {
                                         <div class="chat-bubble-menu">
-                                            <button type="button" class="icon-btn chat-bubble-menu-trigger" title="Message options"
+                                            <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
                                                     @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
                                             </button>
@@ -185,19 +184,19 @@ else
                                                 <div class="chat-bubble-menu-dropdown" @onclick:stopPropagation="true">
                                                     @if (canEdit)
                                                     {
-                                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartEdit(message)">Edit</button>
+                                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartEdit(message)">@T["Edit"]</button>
                                                     }
                                                     @if (canForward)
                                                     {
-                                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartReply(message)">Reply</button>
-                                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartForward(message)">Forward</button>
+                                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartReply(message)">@T["Reply"]</button>
+                                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartForward(message)">@T["Forward"]</button>
                                                     }
                                                 </div>
                                             }
                                             @if (_forwardingMessageId == message.Id)
                                             {
                                                 <div class="chat-bubble-menu-dropdown chat-forward-picker" @onclick:stopPropagation="true">
-                                                    <div class="chat-forward-picker-title">Forward to…</div>
+                                                    <div class="chat-forward-picker-title">@T["Forward to…"]</div>
                                                     @foreach (var forwardTarget in _forwardableContacts)
                                                     {
                                                         <button type="button" class="avatar-dropdown-item" disabled="@_isForwarding"
@@ -207,9 +206,9 @@ else
                                                     }
                                                     @if (!_forwardableContacts.Any())
                                                     {
-                                                        <span class="chat-forward-picker-empty">No other chats yet.</span>
+                                                        <span class="chat-forward-picker-empty">@T["No other chats yet."]</span>
                                                     }
-                                                    <button type="button" class="avatar-dropdown-item" @onclick="CancelForward">Cancel</button>
+                                                    <button type="button" class="avatar-dropdown-item" @onclick="CancelForward">@T["Cancel"]</button>
                                                 </div>
                                             }
                                         </div>
@@ -236,28 +235,24 @@ else
                         {
                             @if (_grantedEditAccessMessageIds.Contains(message.Id))
                             {
-                                <p class="event-share-status">They can edit it now.</p>
+                                <p class="event-share-status">@T["They can edit it now."]</p>
                             }
                             else
                             {
                                 <button type="button" class="btn-secondary" disabled="@_grantingEditAccessMessageIds.Contains(message.Id)"
-                                        @onclick="() => GrantEditAccessAsync(message.Id, editAccessRequest)">
-                                    Allow editing
-                                </button>
+                                        @onclick="() => GrantEditAccessAsync(message.Id, editAccessRequest)">@T["Allow editing"]</button>
                             }
                         }
                         @if (message.SenderUserId != _ownUserId && _shareNoticeByMessageId.TryGetValue(message.Id, out var shareNotice))
                         {
                             @if (_acceptedShareIds.Contains(shareNotice.ShareId))
                             {
-                                <p class="event-share-status">Accepted - added to your account.</p>
+                                <p class="event-share-status">@T["Accepted - added to your account."]</p>
                             }
                             else
                             {
                                 <button type="button" class="btn-secondary" disabled="@_acceptingShareIds.Contains(shareNotice.ShareId)"
-                                        @onclick="() => AcceptShareAsync(shareNotice)">
-                                    Accept
-                                </button>
+                                        @onclick="() => AcceptShareAsync(shareNotice)">@T["Accept"]</button>
                             }
                         }
                     }
@@ -275,18 +270,18 @@ else
                 @if (_replyingTo is { } replyTarget)
                 {
                     <div class="chat-reply-strip">
-                        <span class="chat-reply-strip-label">Replying to</span>
+                        <span class="chat-reply-strip-label">@T["Replying to"]</span>
                         <span class="chat-reply-strip-preview">
                             @ReplyMessagePayload.Preview(_decryptedContentByMessageId.GetValueOrDefault(replyTarget.Id) ?? string.Empty)
                         </span>
-                        <button type="button" class="icon-btn" title="Stop replying" @onclick="CancelReply">✕</button>
+                        <button type="button" class="icon-btn" title="@(T["Stop replying"])" @onclick="CancelReply">✕</button>
                     </div>
                 }
 
                 <div class="chat-input-bar">
-                    <input class="chat-input" @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="Write a message…"
+                    <input class="chat-input" @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="@(T["Write a message…"])"
                            disabled="@RequiresApprovalFromMe" />
-                    <button type="button" class="btn-primary" @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">Send</button>
+                    <button type="button" class="btn-primary" @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">@T["Send"]</button>
                 </div>
             }
         </div>
@@ -294,8 +289,7 @@ else
 }
 
 @code {
-    /// <summary>Matches Dashboard.razor/Calendar.razor's own DisplayCulture - keeps day/month names English regardless of the browser's locale.</summary>
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
 
     [Parameter]
     public Guid UserId { get; set; }
@@ -966,22 +960,22 @@ else
         => _otherPartyReadUpToUtc is { } readUpToUtc && message.SentAtUtc <= readUpToUtc;
 
     /// <summary>The label shown on a day-separator row between messages sent on different calendar days - "Today" / "Yesterday" / a weekday name within the last week / a full date otherwise.</summary>
-    private static string FormatDaySeparatorLabel(DateTime localDate)
+    private string FormatDaySeparatorLabel(DateTime localDate)
     {
         var today = DateTime.Today;
         if (localDate == today)
         {
-            return "Today";
+            return T["Today"];
         }
         if (localDate == today.AddDays(-1))
         {
-            return "Yesterday";
+            return T["Yesterday"];
         }
         if (localDate > today.AddDays(-7))
         {
-            return localDate.ToString("dddd", DisplayCulture);
+            return localDate.ToString("dddd", T.DisplayCulture);
         }
-        return localDate.ToString("MMMM d, yyyy", DisplayCulture);
+        return localDate.ToString("d MMMM yyyy", T.DisplayCulture);
     }
 
     private async Task LoadConversationAccessAsync()

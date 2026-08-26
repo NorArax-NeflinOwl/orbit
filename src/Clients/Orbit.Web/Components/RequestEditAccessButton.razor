@@ -3,6 +3,7 @@
 @using Orbit.Web.Services
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject ILogger<RequestEditAccessButton> Logger
+@inject Translations T
 
 @* Shown to someone holding read-only access to something that isn't theirs. Only the owner can widen
    access, so this asks rather than does: it sends them an encrypted chat message carrying an "Allow
@@ -14,9 +15,7 @@
     }
     else
     {
-        <button type="button" class="btn-secondary" disabled="@_isSending" @onclick="RequestAsync">
-            Ask to edit this
-        </button>
+        <button type="button" class="btn-secondary" disabled="@_isSending" @onclick="RequestAsync">@T["Ask to edit this"]</button>
     }
     @if (_errorMessage is not null)
     {

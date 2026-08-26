@@ -27,7 +27,7 @@ hand-off links Orbit builds today, are what remain unbuilt of the product's stat
 | Sharing a location with another user | Implemented | [Functionality](functionality.md#sharing-a-position-with-a-contact) |
 | Google Calendar and Maps links (verified/Google accounts) | Implemented | [Functionality](functionality.md#handing-something-off-to-google) |
 | Two-way Google Calendar sync | Not started | [Future Plan](future-plan.md#what-real-google-calendar-sync-would-take) |
-| .NET MAUI client (mobile and desktop) | Not started | [Future Plan](future-plan.md#planned-features) |
+| A mobile client (.NET MAUI, or native iOS) | Not started, and the two plans compete | [Orbit.iOS — Plan](orbit-ios-plan.md) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Password manager and password generator | Not started | [Future Plan](future-plan.md#planned-features) |
 
@@ -61,14 +61,16 @@ the push half needs the user to approve browser notifications first — see
 
 ## Not yet implemented
 
-- **Sharing a location with another user** — recording your own location and viewing it on a map works
-  today, but there is no way to share it with someone else, one-off or live. This is the half of
-  "location sharing" from the top-level [README](../README.md) that is still missing.
-- **.NET MAUI client** (mobile and desktop) — planned but not started. `src/Clients/Orbit.Maui` exists
-  as an empty folder that isn't part of the solution; the Blazor WebAssembly web client is the only
-  client today.
-- **Google Calendar / Contacts sync** — writing a shared event onto a recipient's real Google Calendar,
-  and turning a saved location into Google Maps directions.
+- **A mobile client.** The Blazor WebAssembly web client is still the only one. Two plans exist for
+  this and only one should survive: the original .NET MAUI client (`src/Clients/Orbit.Maui` is an
+  empty folder that isn't part of the solution — a reservation, not a stub), and
+  [Orbit.iOS — Plan](orbit-ios-plan.md), a native Swift/SwiftUI client for iPhone 15 Pro carrying the
+  full feature set. Neither has been started; the choice between them is open.
+- **Two-way Google Calendar sync** — writing an event onto a recipient's real Google Calendar. What
+  ships today is link-based hand-off, which needs no Google API at all — see
+  [Functionality](functionality.md#these-are-links-not-an-api-integration).
+- **Google Contacts sync** — not started.
+- **Password manager and password generator** — not started.
 
 See [Future Plan](future-plan.md) for the fuller list of planned work, known scope cuts, and testing
 gaps.

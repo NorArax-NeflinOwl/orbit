@@ -4,6 +4,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<ShareLinkButton> Logger
+@inject Translations T
 
 @* Used by every editor that can publish its item, so a link means the same thing and looks the same
    whether it points at a note, a task list, an event or a warehouse. *@
@@ -21,9 +22,7 @@
         </button>
         @if (_token is not null)
         {
-            <button type="button" class="btn-secondary share-link-revoke" disabled="@_isWorking" @onclick="RevokeAsync">
-                Stop sharing
-            </button>
+            <button type="button" class="btn-secondary share-link-revoke" disabled="@_isWorking" @onclick="RevokeAsync">@T["Stop sharing"]</button>
         }
     </div>
     @if (_token is not null)

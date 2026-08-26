@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -15,7 +16,7 @@ namespace Orbit.Web.Tests.Pages;
 /// Covers the task list overview: one card per list showing enough to recognise it, rather than every
 /// item of every list at once.
 /// </summary>
-public sealed class TasksTests : TestContext
+public sealed class TasksTests : OrbitTestContext
 {
     public TasksTests() => Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
 

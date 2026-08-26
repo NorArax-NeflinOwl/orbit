@@ -17,13 +17,14 @@
 @inject DevicePreferences DevicePreferences
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Map</PageTitle>
 
 <div class="map-page">
     <div class="page-header">
         <div>
-            <h1>Map</h1>
+            <h1>@T["Map"]</h1>
             <p class="page-subtitle">The one location you've recorded for yourself, and where it is.</p>
         </div>
         <div class="page-header-actions">
@@ -32,7 +33,7 @@
             </button>
             @if (_location is not null)
             {
-                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="ClearLocationAsync">Forget it</button>
+                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="ClearLocationAsync">@T["Forget it"]</button>
             }
         </div>
     </div>
@@ -46,7 +47,7 @@
     {
         <div class="card share-location-card">
             <div class="card-header">
-                <span class="card-title">Share where you are</span>
+                <span class="card-title">@T["Share where you are"]</span>
                 @if (_ownShares.Count > 0)
                 {
                     <span class="card-count">@_ownShares.Count sharing</span>
@@ -60,8 +61,8 @@
                         <option value="@contact.UserId">@contact.DisplayName</option>
                     }
                 </select>
-                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: false)">Send once</button>
-                <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: true)">Keep sharing</button>
+                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: false)">@T["Send once"]</button>
+                <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: true)">@T["Keep sharing"]</button>
             </div>
 
             @foreach (var share in _ownShares)
@@ -69,7 +70,7 @@
                 <div class="list-row">
                     <span class="row-title">@DisplayNameFor(share.SharerUserId == _ownUserId ? share.RecipientUserId : share.SharerUserId)</span>
                     <span class="row-meta">@(share.IsContinuous ? "live" : "sent once") · @FormatRecordedAt(share.UpdatedAtUtc)</span>
-                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StopSharingAsync(share.RecipientUserId)">Stop</button>
+                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StopSharingAsync(share.RecipientUserId)">@T["Stop"]</button>
                 </div>
             }
 
@@ -85,7 +86,7 @@
 
     @if (_isLoading)
     {
-        <p>Loading…</p>
+        <p>@T["Loading…"]</p>
     }
     else if (_location is null)
     {
@@ -130,7 +131,12 @@
     private const int PositionTimeoutMs = 15000;
 
     /// <summary>Matches the rest of the app's date formatting - see Dashboard.razor.</summary>
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+    /// <summary>
+    /// Coordinates stay invariant whatever the interface language is: a Polish decimal comma turns a
+    /// pair anyone might copy into a maps URL into a different place entirely. Dates beside them follow
+    /// the language, through Translations.DisplayCulture.
+    /// </summary>
+    private static readonly CultureInfo CoordinateCulture = CultureInfo.InvariantCulture;
 
     private UserLocationDto? _location;
     private Guid _ownUserId;
@@ -527,10 +533,10 @@
     private sealed record ReceivedPosition(Guid SharerUserId, bool IsContinuous, SharedLocationSender.SharedPosition Position);
 
     private static string FormatCoordinates(UserLocationDto location)
-        => $"{location.Latitude.ToString("F5", DisplayCulture)}, {location.Longitude.ToString("F5", DisplayCulture)}";
+        => $"{location.Latitude.ToString("F5", CoordinateCulture)}, {location.Longitude.ToString("F5", CoordinateCulture)}";
 
-    private static string FormatRecordedAt(DateTimeOffset recordedAtUtc)
-        => recordedAtUtc.ToLocalTime().ToString("d MMM yyyy, HH:mm", DisplayCulture);
+    private string FormatRecordedAt(DateTimeOffset recordedAtUtc)
+        => recordedAtUtc.ToLocalTime().ToString("d MMM yyyy, HH:mm", T.DisplayCulture);
 
     public async ValueTask DisposeAsync()
     {

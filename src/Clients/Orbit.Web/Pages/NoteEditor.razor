@@ -13,6 +13,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<NoteEditor> Logger
+@inject Translations T
 
 <PageTitle>@(IsNewNote ? "New note" : "Edit note")</PageTitle>
 
@@ -24,7 +25,7 @@
 
 @if (_isLoading)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else
 {
@@ -60,9 +61,7 @@ else
             {
                 <div class="field">
                     <label>
-                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />
-                        Private
-                    </label>
+                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                     <small>
                         Encrypted in this browser before it is saved, so Orbit's servers hold something they
                         can't read. A private note can't be shared, and any share of it stops working while
@@ -90,11 +89,11 @@ else
             <div class="form-actions">
                 @* Disabled rather than left to fail on the server: an empty note is a mistake to catch
                    while it is still being made, and the hint beside it says what is missing. *@
-                <button type="submit" class="btn-primary" disabled="@(!HasSomethingToSave)">Save</button>
-                <button type="button" class="btn-secondary" @onclick="CancelAsync">Cancel</button>
+                <button type="submit" class="btn-primary" disabled="@(!HasSomethingToSave)">@T["Save"]</button>
+                <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
                 @if (!HasSomethingToSave)
                 {
-                    <span class="form-hint">Give it a title, or write something in it.</span>
+                    <span class="form-hint">@T["Give it a title, or write something in it."]</span>
                 }
             </div>
         </fieldset>
@@ -102,13 +101,13 @@ else
 
     @if (!IsNewNote && !_formModel.IsPrivate && Id is { } noteId)
     {
-        <h2>Link</h2>
+        <h2>@T["Link"]</h2>
         <ShareLinkButton ItemType="Note" ItemId="noteId" />
     }
 
     @if (!IsNewNote && _canShare && !_formModel.IsPrivate)
     {
-        <h2>Sharing</h2>
+        <h2>@T["Sharing"]</h2>
         @if (_shareableContacts.Count == 0)
         {
             <p>No contacts. A contact will appear here once you start a chat with someone.</p>
@@ -124,18 +123,18 @@ else
                     }
                 </select>
                 <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
-                    <option value="ReadOnly">Read-only</option>
-                    <option value="Share">Can share</option>
+                    <option value="ReadOnly">@T["Read-only"]</option>
+                    <option value="Share">@T["Can share"]</option>
                     @if (_canGrantEditOnly)
                     {
-                        <option value="EditOnly">Can edit, but not share editing</option>
+                        <option value="EditOnly">@T["Can edit, but not share editing"]</option>
                     }
                     @if (_canGrantCanEdit)
                     {
-                        <option value="CanEdit">Can edit</option>
+                        <option value="CanEdit">@T["Can edit"]</option>
                     }
                 </select>
-                <button type="button" id="shareNoteButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
+                <button type="button" id="shareNoteButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">@T["Share"]</button>
             </div>
         }
         @if (_shareErrorMessage is not null)

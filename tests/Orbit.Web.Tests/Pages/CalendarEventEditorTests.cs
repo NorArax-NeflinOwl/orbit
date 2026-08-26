@@ -13,11 +13,12 @@ using Orbit.Contracts.Notifications;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
 
-public sealed class CalendarEventEditorTests : TestContext
+public sealed class CalendarEventEditorTests : OrbitTestContext
 {
     private static readonly Guid ContactUserId = Guid.NewGuid();
     private static readonly Guid OwnUserId = Guid.NewGuid();

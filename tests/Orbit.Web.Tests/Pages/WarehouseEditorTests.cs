@@ -9,6 +9,7 @@ using Orbit.Contracts.Notifications;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -17,7 +18,7 @@ namespace Orbit.Web.Tests.Pages;
 /// Covers what an inventory row tells you at a glance: how much of something there is, and whether that
 /// is little enough to do something about.
 /// </summary>
-public sealed class WarehouseEditorTests : TestContext
+public sealed class WarehouseEditorTests : OrbitTestContext
 {
     private static readonly Guid WarehouseId = Guid.NewGuid();
 

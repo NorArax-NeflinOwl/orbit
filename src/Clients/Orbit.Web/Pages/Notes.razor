@@ -6,6 +6,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Notes> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Notes</PageTitle>
 
@@ -15,21 +16,21 @@
    of introducing new one-off classes. *@
 <div class="page-header">
     <div>
-        <h1>Notes</h1>
-        <p class="page-subtitle">Everything you have written down, and anything shared with you.</p>
+        <h1>@T["Notes"]</h1>
+        <p class="page-subtitle">@T["Everything you have written down, and anything shared with you."]</p>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn-primary" @onclick="GoToAddNote">Add note</button>
+        <button type="button" class="btn-primary" @onclick="GoToAddNote">@T["Add note"]</button>
     </div>
 </div>
 
 @if (_notes is null)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else if (_notes.Count == 0)
 {
-    <p>No notes.</p>
+    <p>@T["No notes."]</p>
 }
 else
 {
@@ -41,8 +42,8 @@ else
                 <p>@ContentPreview(note)</p>
                 <small>Created: @note.CreatedAtUtc.LocalDateTime</small><br>
                 <small>Last updated: @note.UpdatedAtUtc.LocalDateTime</small><br>
-                <button @onclick="() => GoToEditNote(note.Id)">Edit</button>
-                <button @onclick="() => DeleteNoteAsync(note)">Delete</button>
+                <button @onclick="() => GoToEditNote(note.Id)">@T["Edit"]</button>
+                <button @onclick="() => DeleteNoteAsync(note)">@T["Delete"]</button>
             </li>
         }
     </ul>

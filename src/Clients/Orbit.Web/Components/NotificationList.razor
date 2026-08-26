@@ -2,15 +2,16 @@
 @using Orbit.Contracts.Notifications
 @using Orbit.Web.Services
 @inject ClientExceptionLog ClientExceptionLog
+@inject Translations T
 
 @* Shared by MainLayout's desktop popup and the mobile Notifications page, so the two can never drift. *@
 @if (IsLoading)
 {
-    <p class="notifications-panel-empty">Loading…</p>
+    <p class="notifications-panel-empty">@T["Loading…"]</p>
 }
 else if (Entries.Count == 0 && ExceptionEntries.Count == 0)
 {
-    <p class="notifications-panel-empty">Nothing yet.</p>
+    <p class="notifications-panel-empty">@T["Nothing yet."]</p>
 }
 else
 {
@@ -44,8 +45,7 @@ else
 }
 
 @code {
-    /// <summary>Matches Dashboard/Calendar/Chat's own DisplayCulture - keeps month names English regardless of the browser's locale.</summary>
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("en-US");
+
 
     [Parameter]
     public bool IsLoading { get; set; }
@@ -67,6 +67,6 @@ else
     [Parameter]
     public bool ShowsDismissed { get; set; }
 
-    private static string FormatEntryTime(DateTimeOffset timestampUtc)
-        => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", DisplayCulture);
+    private string FormatEntryTime(DateTimeOffset timestampUtc)
+        => timestampUtc.ToLocalTime().ToString("MMM d, HH:mm", T.DisplayCulture);
 }

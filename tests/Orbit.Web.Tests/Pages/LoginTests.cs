@@ -12,11 +12,12 @@ using Orbit.Web.Pages;
 using Orbit.Contracts.Config;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
 
-public sealed class LoginTests : TestContext
+public sealed class LoginTests : OrbitTestContext
 {
     private readonly TokenStore _tokenStore = new(new StubJSRuntime());
 

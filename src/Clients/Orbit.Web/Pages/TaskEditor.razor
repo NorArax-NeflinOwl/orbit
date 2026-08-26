@@ -15,6 +15,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<TaskEditor> Logger
+@inject Translations T
 
 <PageTitle>@(IsNewTaskList ? "New task list" : "Edit task list")</PageTitle>
 
@@ -26,7 +27,7 @@
 
 @if (_isLoading)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else
 {
@@ -63,9 +64,7 @@ else
         {
             <div class="field">
                 <label>
-                    <InputCheckbox @bind-Value="_formModel.IsPrivate" />
-                    Private
-                </label>
+                    <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                 <small>
                     Encrypted in this browser before it is saved, so Orbit's servers hold something they
                     can't read. A private list can't be shared, and any share of it stops working while it
@@ -78,9 +77,7 @@ else
 
         <div class="field">
             <label>
-                <InputCheckbox @bind-Value="_formModel.IsGroup" />
-                Group list
-            </label>
+                <InputCheckbox @bind-Value="_formModel.IsGroup" />@T["Group list"]</label>
             <small>
                 The checklist view of a group list also shows every list its items link to, so the whole
                 group can be worked through on one screen.
@@ -88,16 +85,16 @@ else
         </div>
 
         <div class="field">
-            <label for="taskListPrioritySelect">Priority</label>
+            <label for="taskListPrioritySelect">@T["Priority"]</label>
             <InputSelect id="taskListPrioritySelect" @bind-Value="_formModel.Priority">
-                <option value="Low">Low</option>
-                <option value="Normal">Normal</option>
-                <option value="High">High</option>
+                <option value="Low">@T["Low"]</option>
+                <option value="Normal">@T["Normal"]</option>
+                <option value="High">@T["High"]</option>
             </InputSelect>
             <small>Sorts this list against the others on the Tasks page. Where it has got to is worked out from its items.</small>
         </div>
 
-        <h2>Items</h2>
+        <h2>@T["Items"]</h2>
         @foreach (var item in _formModel.Items)
         {
             <div class="editor-item" @key="item">
@@ -123,7 +120,7 @@ else
                                 @onclick="() => ToggleExpanded(item)">
                             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
                         </button>
-                        <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
+                        <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">@T["Remove"]</button>
                     </span>
                 </div>
 
@@ -205,21 +202,21 @@ else
             <p class="error">@_saveErrorMessage</p>
         }
         <div class="form-actions">
-            <button type="submit" class="btn-primary">Save</button>
-            <button type="button" class="btn-secondary" @onclick="CancelAsync">Cancel</button>
+            <button type="submit" class="btn-primary">@T["Save"]</button>
+            <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
         </div>
     </fieldset>
     </EditForm>
 
     @if (!IsNewTaskList && !_formModel.IsPrivate && Id is { } taskListId)
     {
-        <h2>Link</h2>
+        <h2>@T["Link"]</h2>
         <ShareLinkButton ItemType="TaskList" ItemId="taskListId" />
     }
 
     @if (!IsNewTaskList && _canShare && !_formModel.IsPrivate)
     {
-        <h2>Sharing</h2>
+        <h2>@T["Sharing"]</h2>
         @if (_shareableContacts.Count == 0)
         {
             <p>No contacts. A contact will appear here once you start a chat with someone.</p>
@@ -235,18 +232,18 @@ else
                     }
                 </select>
                 <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
-                    <option value="ReadOnly">Read-only</option>
-                    <option value="Share">Can share</option>
+                    <option value="ReadOnly">@T["Read-only"]</option>
+                    <option value="Share">@T["Can share"]</option>
                     @if (_canGrantEditOnly)
                     {
-                        <option value="EditOnly">Can edit, but not share editing</option>
+                        <option value="EditOnly">@T["Can edit, but not share editing"]</option>
                     }
                     @if (_canGrantCanEdit)
                     {
-                        <option value="CanEdit">Can edit</option>
+                        <option value="CanEdit">@T["Can edit"]</option>
                     }
                 </select>
-                <button type="button" id="shareTaskListButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">Share</button>
+                <button type="button" id="shareTaskListButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">@T["Share"]</button>
             </div>
         }
         @if (_shareErrorMessage is not null)

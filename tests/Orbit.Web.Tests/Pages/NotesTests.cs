@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Notes;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -17,7 +18,7 @@ namespace Orbit.Web.Tests.Pages;
 /// Covers the notes overview: what it lists, what it shows of each note, and what deleting one does -
 /// including the confirmation that stands in front of it.
 /// </summary>
-public sealed class NotesTests : TestContext
+public sealed class NotesTests : OrbitTestContext
 {
     private readonly List<HttpRequestMessage> _requests = [];
 

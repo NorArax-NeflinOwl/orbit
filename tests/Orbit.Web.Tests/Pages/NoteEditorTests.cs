@@ -12,6 +12,7 @@ using Orbit.Contracts.Notes;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -21,7 +22,7 @@ namespace Orbit.Web.Tests.Pages;
 /// be shared, and the interaction between privacy and sharing - the rules the server also enforces, so
 /// the page never offers something that would only come back refused.
 /// </summary>
-public sealed class NoteEditorTests : TestContext
+public sealed class NoteEditorTests : OrbitTestContext
 {
     private static readonly Guid OwnUserId = Guid.NewGuid();
     private static readonly Guid ContactUserId = Guid.NewGuid();

@@ -7,26 +7,27 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Tasks> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Tasks</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1>Tasks</h1>
-        <p class="page-subtitle">Every list you own or someone shared with you.</p>
+        <h1>@T["Tasks"]</h1>
+        <p class="page-subtitle">@T["Every list you own or someone shared with you."]</p>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn-primary" @onclick="GoToAddTaskList">Add task list</button>
+        <button type="button" class="btn-primary" @onclick="GoToAddTaskList">@T["Add task list"]</button>
     </div>
 </div>
 
 @if (_taskLists is null)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else if (_taskLists.Count == 0)
 {
-    <p class="empty-hint">No task lists yet.</p>
+    <p class="empty-hint">@T["No task lists yet."]</p>
 }
 else
 {
@@ -35,8 +36,7 @@ else
             @* "All" is a filter like the rest rather than a way of clearing them, so there is always
                exactly one answer to "what am I looking at". *@
             <button type="button" class="filter-chip @(_statusFilter is null ? "on" : "")"
-                    @onclick="() => SetStatusFilter(null)">
-                All <span class="filter-chip-count">@_taskLists.Count</span>
+                    @onclick="() => SetStatusFilter(null)">@T["All"]<span class="filter-chip-count">@_taskLists.Count</span>
             </button>
             @foreach (var status in StatusFilters)
             {
@@ -47,13 +47,13 @@ else
             }
         </div>
         <label class="list-sort">
-            Sort
+            @T["Sort"]
             <select @bind="_sortOrder" @bind:after="OnSortChanged">
-                <option value="@TaskListSortOrder.Priority">Priority</option>
-                <option value="@TaskListSortOrder.Newest">Newest first</option>
-                <option value="@TaskListSortOrder.Oldest">Oldest first</option>
-                <option value="@TaskListSortOrder.Alphabetical">A to Z</option>
-                <option value="@TaskListSortOrder.ReverseAlphabetical">Z to A</option>
+                <option value="@TaskListSortOrder.Priority">@T["Priority"]</option>
+                <option value="@TaskListSortOrder.Newest">@T["Newest first"]</option>
+                <option value="@TaskListSortOrder.Oldest">@T["Oldest first"]</option>
+                <option value="@TaskListSortOrder.Alphabetical">@T["A to Z"]</option>
+                <option value="@TaskListSortOrder.ReverseAlphabetical">@T["Z to A"]</option>
             </select>
         </label>
     </div>
@@ -72,11 +72,11 @@ else
                         @taskList.Title
                         @if (taskList.IsGroup)
                         {
-                            <span class="card-badge">Group</span>
+                            <span class="card-badge">@T["Group"]</span>
                         }
                         @if (taskList.IsShared)
                         {
-                            <span class="card-badge">Shared</span>
+                            <span class="card-badge">@T["Shared"]</span>
                         }
                         @if (taskList.Priority != "Normal")
                         {
@@ -85,7 +85,7 @@ else
                         <span class="card-badge card-badge-status-@taskList.Status.ToLowerInvariant()">@DescribeStatus(ParseStatus(taskList))</span>
                         @if (taskList.IsPinned)
                         {
-                            <span class="card-badge card-badge-pinned">Pinned</span>
+                            <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
                         }
                     </span>
                     <span class="card-count">@CompletionSummary(taskList)</span>
@@ -116,21 +116,21 @@ else
                 }
                 @if (taskList.Items.Count == 0)
                 {
-                    <p class="empty-hint">No items on this list.</p>
+                    <p class="empty-hint">@T["No items on this list."]</p>
                 }
 
                 <div class="card-actions">
-                    <button type="button" class="btn-primary" @onclick="() => GoToChecklist(taskList.Id)">Open checklist</button>
+                    <button type="button" class="btn-primary" @onclick="() => GoToChecklist(taskList.Id)">@T["Open checklist"]</button>
                     @if (!taskList.IsShared)
                     {
                         @* Only for a list you own: pinning moves the card on its owner's page, so a
                            recipient pinning a shared list would be rearranging someone else's. *@
                         <button type="button" class="btn-secondary" @onclick="() => TogglePinnedAsync(taskList)">
-                            @(taskList.IsPinned ? "Unpin" : "Pin")
+                            @(taskList.IsPinned ? T["Unpin"] : T["Pin"])
                         </button>
                     }
-                    <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(taskList.Id)">Edit</button>
-                    <button type="button" class="btn-secondary" @onclick="() => DeleteTaskListAsync(taskList)">Delete</button>
+                    <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
+                    <button type="button" class="btn-secondary" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
                 </div>
             </div>
         }

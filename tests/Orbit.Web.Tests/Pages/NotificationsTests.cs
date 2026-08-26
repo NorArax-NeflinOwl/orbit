@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Notifications;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -15,7 +16,7 @@ namespace Orbit.Web.Tests.Pages;
 /// Covers what the notifications page is for now that clearing no longer destroys anything: it reads
 /// the full record rather than the panel's view, and says which of those entries were cleared away.
 /// </summary>
-public sealed class NotificationsTests : TestContext
+public sealed class NotificationsTests : OrbitTestContext
 {
     private readonly List<string> _requestedPaths = [];
 

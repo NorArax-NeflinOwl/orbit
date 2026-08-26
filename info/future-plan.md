@@ -13,6 +13,12 @@ picture of what's left.
   only client, and MAUI work has not started — `src/Clients/Orbit.Maui` exists as an empty folder that
   isn't part of `Orbit.sln`, so it builds nothing and is a reservation rather than a stub. See
   [Architecture — Orbit.Web](architecture.md#orbitweb).
+
+  **This plan is now contested.** [Orbit.iOS — Plan](orbit-ios-plan.md) proposes a native
+  Swift/SwiftUI client for iPhone 15 Pro instead, carrying the same full feature set, and argues MAUI
+  buys nothing if only one platform is being built. The two shouldn't both be half-built: whichever
+  wins, the other's reservation should be removed. That decision is open — see
+  [Orbit.iOS — Open questions](orbit-ios-plan.md#9-open-questions).
 - **Writing to a real Google Calendar.** `Orbit.GoogleIntegration` (`src/Server`) holds the ID-token
   verification behind Google sign-in (`GoogleIdentityVerifier`, `GoogleAuthSettings`) — that is
   authentication only, and no calendar data is read or written. What ships today is the link-based

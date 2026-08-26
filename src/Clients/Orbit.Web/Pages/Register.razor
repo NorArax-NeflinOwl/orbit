@@ -7,38 +7,39 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<Register> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Register</PageTitle>
 
 @* TODO(Orbit.Web.UI): still plain unstyled <div>/<label>/<input> - see Login.razor's matching TODO,
    same dedicated auth-card layout should cover both pages together rather than being built twice. *@
-<h1>Register</h1>
+<h1>@T["Register"]</h1>
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync" class="editor-form">
     <div class="field">
-        <label>Email</label>
+        <label>@T["Email"]</label>
         <InputText id="email" @bind-Value="_formModel.Email" />
     </div>
     <div class="field">
-        <label>Username</label>
+        <label>@T["Username"]</label>
         <InputText id="userName" @bind-Value="_formModel.UserName" />
     </div>
     <div class="field">
-        <label>Display name</label>
+        <label>@T["Display name"]</label>
         <InputText id="displayName" @bind-Value="_formModel.DisplayName" />
     </div>
     <div class="field">
-        <label>Password</label>
+        <label>@T["Password"]</label>
         <!-- InputText always renders type="text" regardless of splatted attributes, so a real masked
              password field needs a plain <input> with a manual two-way binding instead. -->
         <input type="password" id="password" @bind="_formModel.Password" />
     </div>
     <div class="field">
-        <label>Repeat password</label>
+        <label>@T["Repeat password"]</label>
         <input type="password" id="repeatPassword" @bind="_formModel.RepeatPassword" />
     </div>
     <div class="form-actions">
-        <button type="submit" class="btn-primary" disabled="@_isSubmitting">Register</button>
+        <button type="submit" class="btn-primary" disabled="@_isSubmitting">@T["Register"]</button>
     </div>
 </EditForm>
 
@@ -49,7 +50,7 @@
 
 <GoogleSignInButton OnCredential="SignInWithGoogleAsync" ShowDivider="true" />
 
-<p>Already have an account? <a href="/login">Log in</a></p>
+<p>@T["Already have an account? "]<a href="/login">@T["Log in"]</a></p>
 
 @code {
     private readonly RegisterFormModel _formModel = new();
