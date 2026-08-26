@@ -83,6 +83,10 @@ else
                             <span class="card-badge card-badge-priority-@taskList.Priority.ToLowerInvariant()">@taskList.Priority</span>
                         }
                         <span class="card-badge card-badge-status-@taskList.Status.ToLowerInvariant()">@DescribeStatus(ParseStatus(taskList))</span>
+                        @if (taskList.IsPinned)
+                        {
+                            <span class="card-badge card-badge-pinned">Pinned</span>
+                        }
                     </span>
                     <span class="card-count">@CompletionSummary(taskList)</span>
                 </div>
@@ -117,6 +121,14 @@ else
 
                 <div class="card-actions">
                     <button type="button" class="btn-primary" @onclick="() => GoToChecklist(taskList.Id)">Open checklist</button>
+                    @if (!taskList.IsShared)
+                    {
+                        @* Only for a list you own: pinning moves the card on its owner's page, so a
+                           recipient pinning a shared list would be rearranging someone else's. *@
+                        <button type="button" class="btn-secondary" @onclick="() => TogglePinnedAsync(taskList)">
+                            @(taskList.IsPinned ? "Unpin" : "Pin")
+                        </button>
+                    }
                     <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(taskList.Id)">Edit</button>
                     <button type="button" class="btn-secondary" @onclick="() => DeleteTaskListAsync(taskList)">Delete</button>
                 </div>
@@ -155,22 +167,51 @@ else
         }
     }
 
-    private static IReadOnlyList<TaskDto> Sort(IReadOnlyList<TaskDto> taskLists, TaskListSortOrder sortOrder) => sortOrder switch
+    /// <summary>
+    /// Pinned lists lead whatever the reader is sorting by - that is what pinning is for, and a pin that
+    /// only held under one sort order would not be worth setting.
+    /// </summary>
+    private static IReadOnlyList<TaskDto> Sort(IReadOnlyList<TaskDto> taskLists, TaskListSortOrder sortOrder)
+        => SortWithinPinning(taskLists, sortOrder)
+            .OrderByDescending(taskList => taskList.IsPinned)
+            .ToList();
+
+    private static IEnumerable<TaskDto> SortWithinPinning(IReadOnlyList<TaskDto> taskLists, TaskListSortOrder sortOrder) => sortOrder switch
     {
         // Within a priority, newest first: two lists that matter equally are most usefully ordered by
         // which was touched last.
         TaskListSortOrder.Priority => taskLists
             .OrderByDescending(taskList => ParsePriority(taskList))
-            .ThenByDescending(taskList => taskList.UpdatedAtUtc)
-            .ToList(),
-        TaskListSortOrder.Newest => taskLists.OrderByDescending(taskList => taskList.CreatedAtUtc).ToList(),
-        TaskListSortOrder.Oldest => taskLists.OrderBy(taskList => taskList.CreatedAtUtc).ToList(),
-        TaskListSortOrder.Alphabetical => taskLists.OrderBy(taskList => taskList.Title, StringComparer.CurrentCultureIgnoreCase).ToList(),
-        _ => taskLists.OrderByDescending(taskList => taskList.Title, StringComparer.CurrentCultureIgnoreCase).ToList()
+            .ThenByDescending(taskList => taskList.UpdatedAtUtc),
+        TaskListSortOrder.Newest => taskLists.OrderByDescending(taskList => taskList.CreatedAtUtc),
+        TaskListSortOrder.Oldest => taskLists.OrderBy(taskList => taskList.CreatedAtUtc),
+        TaskListSortOrder.Alphabetical => taskLists.OrderBy(taskList => taskList.Title, StringComparer.CurrentCultureIgnoreCase),
+        _ => taskLists.OrderByDescending(taskList => taskList.Title, StringComparer.CurrentCultureIgnoreCase)
     };
 
     private int CountWithStatus(TaskListStatus status)
         => _taskLists?.Count(taskList => ParseStatus(taskList) == status) ?? 0;
+
+    /// <summary>
+    /// Re-reads the lists afterwards rather than editing the one in hand: the server decides what a list
+    /// looks like now, and the page has to re-sort around the change anyway.
+    /// </summary>
+    private async Task TogglePinnedAsync(TaskDto taskList)
+    {
+        Logger.LogInformation(
+            "User clicked '{Action}' for task list {TaskListId}", taskList.IsPinned ? "Unpin" : "Pin", taskList.Id);
+        try
+        {
+            if (await TasksApiClient.SetPinnedAsync(taskList.Id, !taskList.IsPinned))
+            {
+                _taskLists = await TasksApiClient.GetTaskListsAsync();
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to change whether task list {TaskListId} is pinned", taskList.Id);
+        }
+    }
 
     private void SetStatusFilter(TaskListStatus? status)
     {
