@@ -163,7 +163,8 @@ public static class InventoryEndpoints
             warehouse.IsLockedByAnotherUser(callerId, DateTimeOffset.UtcNow) ? warehouse.LockedByUserName : null,
             warehouse.IsShared ? warehouse.UserId : null,
             warehouse.IsPrivate,
-            ToDto(warehouse.EncryptedContent));
+            ToDto(warehouse.EncryptedContent),
+            warehouse.IsSharedWithOthers);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>

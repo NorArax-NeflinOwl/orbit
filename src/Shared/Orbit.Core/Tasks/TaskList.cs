@@ -68,6 +68,14 @@ public sealed class TaskList
     /// <summary>The owner's login, whenever IsShared is true. Null otherwise.</summary>
     public string? SharedByUserName { get; private set; }
 
+    /// <summary>
+    /// True when somebody else holds accepted access to this. Only ever meaningful to the owner - the
+    /// recipient's side of the same relationship is <see cref="IsShared"/>. Stamped by the access
+    /// resolver rather than stored, because it depends on who is asking. See NoteDto for why a mobile
+    /// client needs it.
+    /// </summary>
+    public bool IsSharedWithOthers { get; private set; }
+
     /// <summary>The current caller's access level - always CanEdit for the owner, and whatever their share grants otherwise.</summary>
     public ShareAccessLevel AccessLevel { get; private set; } = ShareAccessLevel.CanEdit;
 
@@ -120,6 +128,9 @@ public sealed class TaskList
             lockedByUserId, lockedByUserName, lockExpiresAtUtc);
 
     /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
+    /// <summary>Tells the owner that somebody else holds accepted access - the mirror of <see cref="IsShared"/>.</summary>
+    public void SetSharedWithOthers(bool isSharedWithOthers) => IsSharedWithOthers = isSharedWithOthers;
+
     public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
     {
         IsShared = isShared;

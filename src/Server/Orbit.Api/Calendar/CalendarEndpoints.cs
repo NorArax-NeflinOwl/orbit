@@ -176,7 +176,8 @@ public static class CalendarEndpoints
         return new CalendarEventDto(
             calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,
             calendarEvent.IsShared, calendarEvent.SharedByUserName, calendarEvent.AccessLevel.ToString(),
-            calendarEvent.IsShared ? calendarEvent.UserId : null);
+            calendarEvent.IsShared ? calendarEvent.UserId : null,
+            calendarEvent.IsSharedWithOthers);
     }
 
     private static EventLocationDto? ToLocationDto(EventLocation? location)

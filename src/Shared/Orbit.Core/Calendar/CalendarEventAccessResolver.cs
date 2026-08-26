@@ -23,6 +23,8 @@ public sealed class CalendarEventAccessResolver
         var ownedEvent = await _calendarEventRepository.GetByIdAsync(callerId, calendarEventId, cancellationToken);
         if (ownedEvent is not null)
         {
+            var sharedOut = await _calendarEventShareRepository.GetSharedOutCalendarEventIdsAsync(callerId, cancellationToken);
+            ownedEvent.SetSharedWithOthers(sharedOut.Contains(calendarEventId));
             return ownedEvent;
         }
 
@@ -48,6 +50,13 @@ public sealed class CalendarEventAccessResolver
     {
         var owned = await _calendarEventRepository.GetAllAsync(callerId, cancellationToken);
         var grants = await _calendarEventShareRepository.GetAcceptedGrantsForRecipientAsync(callerId, cancellationToken);
+
+        // Asked once for the whole list rather than per item - see GetSharedOutCalendarEventIdsAsync.
+        var sharedOutIds = await _calendarEventShareRepository.GetSharedOutCalendarEventIdsAsync(callerId, cancellationToken);
+        foreach (var item in owned)
+        {
+            item.SetSharedWithOthers(sharedOutIds.Contains(item.Id));
+        }
 
         var granted = new List<CalendarEvent>();
         foreach (var grant in grants)

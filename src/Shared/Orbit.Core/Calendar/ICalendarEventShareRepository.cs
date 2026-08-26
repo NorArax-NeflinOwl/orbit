@@ -33,4 +33,14 @@ public interface ICalendarEventShareRepository
 
     /// <summary>Every event recipientUserId has accepted access to, regardless of which owner shared it - see CalendarEventAccessResolver.ResolveAllAsync.</summary>
     Task<IReadOnlyList<CalendarEventShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which of ownerUserId's own calendar events somebody else currently holds accepted access to - the owner's
+    /// side of the relationship, which nothing else exposes. Mirrors INoteShareRepository's method of the
+    /// same shape, and exists for the same reason: a mobile client cannot hold an edit lock, so anything
+    /// another person can change is read-only while offline (info/orbit-maui-plan.md §5.4).
+    ///
+    /// A whole set in one query, because the caller asks it of every calendar event in a list.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> GetSharedOutCalendarEventIdsAsync(Guid ownerUserId, CancellationToken cancellationToken);
 }

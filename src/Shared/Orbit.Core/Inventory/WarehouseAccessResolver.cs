@@ -30,6 +30,8 @@ public sealed class WarehouseAccessResolver
         var owned = await _warehouseRepository.GetByIdAsync(callerId, warehouseId, cancellationToken);
         if (owned is not null)
         {
+            var sharedOut = await _warehouseShareRepository.GetSharedOutWarehouseIdsAsync(callerId, cancellationToken);
+            owned.SetSharedWithOthers(sharedOut.Contains(warehouseId));
             return owned;
         }
 
@@ -59,6 +61,13 @@ public sealed class WarehouseAccessResolver
     {
         var owned = await _warehouseRepository.GetAllAsync(callerId, cancellationToken);
         var grants = await _warehouseShareRepository.GetAcceptedGrantsForRecipientAsync(callerId, cancellationToken);
+
+        // Asked once for the whole list rather than per item - see GetSharedOutWarehouseIdsAsync.
+        var sharedOutIds = await _warehouseShareRepository.GetSharedOutWarehouseIdsAsync(callerId, cancellationToken);
+        foreach (var item in owned)
+        {
+            item.SetSharedWithOthers(sharedOutIds.Contains(item.Id));
+        }
 
         var granted = new List<Warehouse>();
         foreach (var grant in grants)

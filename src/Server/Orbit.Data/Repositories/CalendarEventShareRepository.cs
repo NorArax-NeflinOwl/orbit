@@ -73,6 +73,18 @@ public sealed class CalendarEventShareRepository : ICalendarEventShareRepository
         return entities.Select(ToDomain).ToList();
     }
 
+    public async Task<IReadOnlySet<Guid>> GetSharedOutCalendarEventIdsAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        var ids = await _dbContext.CalendarEventShares
+            .AsNoTracking()
+            .Where(share => share.OwnerUserId == ownerUserId && share.AcceptedAtUtc != null)
+            .Select(share => share.SourceCalendarEventId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return ids.ToHashSet();
+    }
+
     private static CalendarEventShare ToDomain(CalendarEventShareEntity entity)
         => CalendarEventShare.FromPersistence(
             entity.Id, entity.SourceCalendarEventId, entity.OwnerUserId, entity.RecipientUserId,

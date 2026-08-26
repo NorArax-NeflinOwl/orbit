@@ -661,10 +661,9 @@ least from being started early.
 
 These change the plan materially and are worth answering before the phase they land in:
 
-1. ~~**Offline conflict policy** (§5.4)~~ — **settled and built: restrictive.** The owner-side gap is
-   closed too: `NoteDto.IsSharedWithOthers` now tells an owner that somebody holds accepted access, so
-   the client can tell a private note from one another person may be editing. Only notes carry it -
-   tasks, calendar events, and warehouses need the same treatment when they join the spine.
+1. ~~**Offline conflict policy** (§5.4)~~ — **settled and built: restrictive**, and the owner-side gap
+   is closed for all four shareable types. `IsSharedWithOthers` tells an owner that somebody holds
+   accepted access, so the client can tell a private item from one another person may be editing.
 2. **Is the local database encrypted?** (§5.1) ~~Needed before phase 2~~ — **still open, and now
    load-bearing.** Phase 2 shipped plain SQLite in app-private storage, relying on platform disk
    encryption. That is a deliberate deferral rather than an answer: private notes are client-encrypted

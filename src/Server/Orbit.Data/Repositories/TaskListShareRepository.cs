@@ -65,6 +65,18 @@ public sealed class TaskListShareRepository : ITaskListShareRepository
         return entities.Select(ToDomain).ToList();
     }
 
+    public async Task<IReadOnlySet<Guid>> GetSharedOutTaskListIdsAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        var ids = await _dbContext.TaskShares
+            .AsNoTracking()
+            .Where(share => share.OwnerUserId == ownerUserId && share.AcceptedAtUtc != null)
+            .Select(share => share.SourceTaskListId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return ids.ToHashSet();
+    }
+
     private static TaskListShare ToDomain(TaskShareEntity entity)
         => TaskListShare.FromPersistence(
             entity.Id, entity.SourceTaskListId, entity.OwnerUserId, entity.RecipientUserId,

@@ -212,7 +212,8 @@ public static class TaskEndpoints
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
             taskList.Status.ToString(),
-            taskList.IsPinned);
+            taskList.IsPinned,
+            taskList.IsSharedWithOthers);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

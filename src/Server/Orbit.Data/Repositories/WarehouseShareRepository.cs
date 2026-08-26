@@ -66,6 +66,18 @@ public sealed class WarehouseShareRepository : IWarehouseShareRepository
         return entities.Select(ToDomain).ToList();
     }
 
+    public async Task<IReadOnlySet<Guid>> GetSharedOutWarehouseIdsAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        var ids = await _dbContext.WarehouseShares
+            .AsNoTracking()
+            .Where(share => share.OwnerUserId == ownerUserId && share.AcceptedAtUtc != null)
+            .Select(share => share.SourceWarehouseId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return ids.ToHashSet();
+    }
+
     private static WarehouseShare ToDomain(WarehouseShareEntity entity)
         => WarehouseShare.FromPersistence(
             entity.Id, entity.SourceWarehouseId, entity.OwnerUserId, entity.RecipientUserId,
