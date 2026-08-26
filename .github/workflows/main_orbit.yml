@@ -109,6 +109,17 @@ jobs:
 
       # az acr build (ACR Tasks) is blocked on Azure Free Trial subscriptions regardless of role
       # assignments, so images are built here on the runner instead and pushed with plain docker push.
+      # The cheapest gate there is, and the one that was missing: this workflow built and deployed
+      # without running a single test. A dependency cycle in the client's service graph reached
+      # production that way (see PR #70), and ClientServiceGraphTests would have stopped it here.
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run the test suite
+        run: dotnet test orbit.sln --configuration Release
+
       - name: Log in to Azure Container Registry
         run: az acr login --name ${{ env.registryName }}
 
@@ -198,6 +209,28 @@ jobs:
             exit 1
           fi
           echo "orbit-web smoke test passed."
+
+      # Serving a page is not the same as running. nginx answers 200 for every path (it falls back to
+      # index.html), so the check above passes even when the client is dead on arrival - which is
+      # exactly how a broken build reached production in PR #70. Booting it in a browser is the only
+      # thing that tells those two apart from outside.
+      - name: Verify the orbit-web image actually boots
+        run: |
+          docker run -d --name orbit-web-boot-test -p 18081:80 \
+            ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }}
+
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+          if ! node ci/verify-app-boots.mjs http://localhost:18081/ 60000; then
+            echo "--- orbit-web boot test container logs ---"
+            docker logs orbit-web-boot-test
+            docker rm -f orbit-web-boot-test > /dev/null
+            echo "::error::The orbit-web image serves pages but the app does not start - aborting before push/deploy."
+            exit 1
+          fi
+
+          docker rm -f orbit-web-boot-test > /dev/null
 
       - name: Push orbit-api image
         run: |
@@ -324,3 +357,41 @@ jobs:
             exit 1
           fi
           echo "orbit-web revision $NEW_REVISION is healthy."
+
+      # "Healthy" here means Container Apps' probes are satisfied - which they are, because nginx is
+      # serving. It says nothing about whether the app inside the page runs. The deployment that broke
+      # production reported Healthy the entire time it was rendering nothing but "Loading…", so this
+      # loads the real URL in a browser and rolls back if the app does not start.
+      #
+      # Retried rather than judged on one attempt: a revision needs a moment to start taking traffic,
+      # and rolling production back over a request that arrived too early would be its own outage.
+      - name: Verify the deployed app boots, roll back otherwise
+        run: |
+          APP_URL="https://$(az containerapp show \
+            --name orbit-web \
+            --resource-group ${{ env.resourceGroupName }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)"
+          echo "Booting $APP_URL..."
+
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+          booted=false
+          for i in $(seq 1 3); do
+            echo "Boot attempt $i/3..."
+            if node ci/verify-app-boots.mjs "$APP_URL" 60000; then
+              booted=true
+              break
+            fi
+            sleep 15
+          done
+
+          if [ "$booted" != "true" ]; then
+            echo "::error::The deployed app does not start - it serves pages but never renders. Rolling back to ${{ steps.current_web_image.outputs.image }}."
+            az containerapp update \
+              --name orbit-web \
+              --resource-group ${{ env.resourceGroupName }} \
+              --image "${{ steps.current_web_image.outputs.image }}"
+            exit 1
+          fi
+          echo "The deployed app boots."

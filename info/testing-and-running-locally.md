@@ -39,7 +39,31 @@ outgoing requests and transparently refreshes it after a 401; `AuthApiClient`;
 (including `CalendarEventEditor`), `Dashboard`, `Tasks`, and `TaskListChecklist` pages themselves,
 rendered with [bUnit](https://bunit.dev).
 
-### What is not covered by an automated test today
+### What the deploy pipeline checks
+
+`.github/workflows/main_orbit.yml` gates every push to `main`, in this order, so a failure costs as
+little as possible:
+
+1. **Every required Azure environment variable is present** - before spending minutes on image builds.
+2. **The full test suite runs.** It did not, until a dependency cycle in the client's service graph
+   reached production; `ClientServiceGraphTests` builds the container and would have stopped it here.
+3. **`orbit-api` is smoke tested against a real PostgreSQL** and must report `/health/ready`.
+4. **`orbit-web` must serve a page**, and then **must actually boot in a browser**
+   (`ci/verify-app-boots.mjs`). These are not the same check: nginx falls back to `index.html` for every
+   path, so a client that dies on startup still answers `200`. Only loading it in a browser and waiting
+   for `#app` to stop saying "Loading…" tells the two apart.
+5. **After deploying**, both revisions must report `Healthy`, and the **deployed URL must boot** - same
+   script, three attempts, against the real ingress. Container Apps reports `Healthy` when nginx is
+   serving, which it does whether or not the app inside the page runs.
+
+Anything failing after the deploy step rolls the affected app back to the image that was running a
+moment before, and fails the run. Running it by hand:
+
+```bash
+node ci/verify-app-boots.mjs https://your-orbit-web-url/ 60000
+```
+
+## What is not covered by an automated test today
 
 See [Future Plan — Testing gaps](future-plan.md#testing-gaps) for the reasoning behind each of these
 and what closing them would take:
