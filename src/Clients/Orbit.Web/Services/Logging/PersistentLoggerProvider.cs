@@ -1,5 +1,6 @@
 using Microsoft.JSInterop;
 
+
 namespace Orbit.Web.Services.Logging;
 
 /// <summary>
@@ -13,13 +14,15 @@ namespace Orbit.Web.Services.Logging;
 public sealed class PersistentLoggerProvider : ILoggerProvider
 {
     private readonly IJSRuntime _jsRuntime;
+    private readonly DevicePreferences _devicePreferences;
 
-    public PersistentLoggerProvider(IJSRuntime jsRuntime)
+    public PersistentLoggerProvider(IJSRuntime jsRuntime, DevicePreferences devicePreferences)
     {
         _jsRuntime = jsRuntime;
+        _devicePreferences = devicePreferences;
     }
 
-    public ILogger CreateLogger(string categoryName) => new PersistentLogger(categoryName, _jsRuntime);
+    public ILogger CreateLogger(string categoryName) => new PersistentLogger(categoryName, _jsRuntime, _devicePreferences);
 
     public void Dispose()
     {
@@ -29,18 +32,22 @@ public sealed class PersistentLoggerProvider : ILoggerProvider
     {
         private readonly string _categoryName;
         private readonly IJSRuntime _jsRuntime;
+        private readonly DevicePreferences _devicePreferences;
 
-        public PersistentLogger(string categoryName, IJSRuntime jsRuntime)
+        public PersistentLogger(string categoryName, IJSRuntime jsRuntime, DevicePreferences devicePreferences)
         {
             _categoryName = categoryName;
             _jsRuntime = jsRuntime;
+            _devicePreferences = devicePreferences;
         }
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-        // Only warnings and errors are worth persisting - Trace/Debug/Information volume would fill the
-        // ring buffer with routine noise long before an actual failure needed it.
-        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
+        // Read on every call rather than captured once: changing the level in Options has to take effect
+        // there and then, not on the next reload. Warning is the default for the reason it used to be the
+        // only answer - anything lower fills the ring buffer with routine noise long before an actual
+        // failure needs the space.
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= _devicePreferences.MinimumLogLevel;
 
         public void Log<TState>(
             LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
