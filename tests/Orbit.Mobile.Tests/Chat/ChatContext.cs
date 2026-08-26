@@ -106,8 +106,8 @@ internal sealed class ChatContext : IDisposable
     public string? OpenAsTheThirdParty(Orbit.Contracts.Chat.ChatMessageDto message)
         => ThirdIdentity.Decrypt(OwnPublicKeyBase64, new EncryptedText(message.CiphertextBase64, message.NonceBase64));
 
-    public Task<IReadOnlyList<ReadableChatMessage>> ReadConversationAsync()
-        => Reader.ReadAsync(OtherUserId, OtherPublicKeyBase64, CancellationToken.None);
+    public Task<IReadOnlyList<ReadableChatMessage>> ReadConversationAsync(DateTimeOffset? theyReadUpToUtc = null)
+        => Reader.ReadAsync(OtherUserId, OtherPublicKeyBase64, theyReadUpToUtc, CancellationToken.None);
 
     public void Dispose()
     {

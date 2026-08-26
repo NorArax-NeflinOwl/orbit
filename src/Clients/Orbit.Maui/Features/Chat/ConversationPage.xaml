@@ -34,6 +34,9 @@
                                    FontSize="11" TextColor="{StaticResource Gray500}" />
                             <Label Text="Waiting to send" IsVisible="{Binding IsWaitingToSend}"
                                    FontSize="11" TextColor="{StaticResource Primary}" />
+                            <!-- Only ever on the reader's own messages - see ReadableChatMessage. -->
+                            <Label Text="Read" IsVisible="{Binding IsReadByThem}"
+                                   FontSize="11" TextColor="{StaticResource Primary}" />
                             <!-- Only on the reader's own messages, and only once the server has one -
                                  see ReadableChatMessage.CanBeChanged. The commands live on the page's
                                  view model, so these go through the page's typed ViewModel property. -->

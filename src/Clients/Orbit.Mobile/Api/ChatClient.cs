@@ -88,6 +88,29 @@ public sealed class ChatClient
     }
 
     /// <summary>
+    /// Marks everything the other party has sent as read, as of now. Called while their conversation is
+    /// actually in front of somebody - that is the whole definition of "read" Orbit has.
+    /// </summary>
+    public async Task MarkConversationAsReadAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsync($"api/chat/messages/{otherUserId}/read", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// How far the other party has read: the send-time of the newest message of the caller's that they
+    /// have seen, or null if none. One timestamp for the whole conversation rather than a flag per
+    /// message - see GetReadUpToUtcAsync.
+    /// </summary>
+    public async Task<DateTimeOffset?> GetReadReceiptAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        var receipt = await _httpClient.GetFromJsonAsync<ReadReceiptDto>(
+            $"api/chat/messages/{otherUserId}/read-receipt", cancellationToken);
+
+        return receipt?.ReadUpToUtc;
+    }
+
+    /// <summary>
     /// Lets the party who did not start a conversation allow it. Until they do, the server refuses
     /// anything they try to send - see SendMessageCommandHandler - so this is what unblocks replying.
     /// </summary>

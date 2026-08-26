@@ -36,6 +36,13 @@ public sealed partial class ConversationViewModel : ObservableObject
 
     /// <summary>The message the compose box is currently rewriting, if it is rewriting one.</summary>
     private ReadableChatMessage? _beingEdited;
+
+    /// <summary>
+    /// How far the other party has read, as of the last sync that reached the server. Kept rather than
+    /// cleared when a later sync cannot ask: "not known any more" would show as "not read", which is a
+    /// worse answer than the one from a minute ago.
+    /// </summary>
+    private DateTimeOffset? _theyReadUpToUtc;
     /// <summary>
     /// True while <see cref="Status"/> is explaining something the reader just did - a message refused,
     /// an edit that could not go through. The poll runs every few seconds and would otherwise wipe the
@@ -260,7 +267,7 @@ public sealed partial class ConversationViewModel : ObservableObject
 
         try
         {
-            var conversation = await _reader.ReadAsync(_contact.UserId, otherPublicKey, cancellationToken);
+            var conversation = await _reader.ReadAsync(_contact.UserId, otherPublicKey, _theyReadUpToUtc, cancellationToken);
             Messages.Clear();
             foreach (var message in conversation)
             {
@@ -288,12 +295,19 @@ public sealed partial class ConversationViewModel : ObservableObject
         try
         {
             var result = await _synchronizer.SynchroniseConversationAsync(_contact.UserId, cancellationToken);
+            var readStateMoved = result.TheyReadUpToUtc != _theyReadUpToUtc;
+            if (result.ReachedTheServer)
+            {
+                _theyReadUpToUtc = result.TheyReadUpToUtc;
+            }
             if (!_statusExplainsTheLastAction)
             {
                 Status = result.ReachedTheServer ? string.Empty : "Offline - showing what's on this phone";
             }
 
-            if (result.Sent + result.Received > 0)
+            // Redrawn when somebody has now read something too, not only when messages moved - otherwise
+            // the ticks would appear whenever the next message happened to arrive.
+            if (result.Sent + result.Received > 0 || (result.ReachedTheServer && readStateMoved))
             {
                 await ShowStoredConversationAsync(cancellationToken);
             }

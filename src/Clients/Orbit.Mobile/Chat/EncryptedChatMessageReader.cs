@@ -33,8 +33,15 @@ public sealed class EncryptedChatMessageReader
     /// This device has no chat key, so nothing here can be opened. The caller sends the user to the key
     /// gate rather than showing an empty conversation.
     /// </exception>
+    /// <param name="theyReadUpToUtc">
+    /// How far the other party has read, from the server. Null when nothing of the reader's has been
+    /// seen, or when this device has not managed to ask - which is why it is passed in rather than
+    /// stored: it is live information, and a remembered one would claim something was read when the
+    /// answer is simply unknown.
+    /// </param>
     public async Task<IReadOnlyList<ReadableChatMessage>> ReadAsync(
-        Guid otherUserId, string otherPartyPublicKeyBase64, CancellationToken cancellationToken = default)
+        Guid otherUserId, string otherPartyPublicKeyBase64, DateTimeOffset? theyReadUpToUtc = null,
+        CancellationToken cancellationToken = default)
     {
         using var identity = await _encryptionKeyProvider.OpenAsync(cancellationToken);
         var stored = await _chatRepository.GetConversationAsync(otherUserId, cancellationToken);
@@ -43,13 +50,16 @@ public sealed class EncryptedChatMessageReader
         var conversation = new List<ReadableChatMessage>(stored.Count + queued.Count);
         foreach (var message in stored)
         {
+            var isMine = message.SenderUserId != otherUserId;
             conversation.Add(new ReadableChatMessage(
-                IsMine: message.SenderUserId != otherUserId,
+                isMine,
                 Text: identity.Decrypt(otherPartyPublicKeyBase64, new EncryptedText(message.CiphertextBase64, message.NonceBase64)),
                 message.SentAtUtc,
                 message.IsEdited,
                 IsWaitingToSend: false,
-                MessageId: message.Id));
+                MessageId: message.Id,
+                // Read up to a point, so everything sent at or before it has been seen.
+                IsReadByThem: isMine && theyReadUpToUtc is { } readUpTo && message.SentAtUtc <= readUpTo));
         }
 
         foreach (var message in queued)

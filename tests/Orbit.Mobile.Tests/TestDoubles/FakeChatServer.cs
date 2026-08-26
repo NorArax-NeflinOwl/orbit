@@ -19,6 +19,7 @@ internal sealed class FakeChatServer : HttpMessageHandler
     private readonly TimeProvider _timeProvider;
     private readonly List<ChatMessageDto> _messages = [];
     private readonly List<GroupMessage> _groupMessages = [];
+    private readonly HashSet<Guid> _readMessageIds = [];
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
     public FakeChatServer(TimeProvider timeProvider) => _timeProvider = timeProvider;
@@ -133,6 +134,12 @@ internal sealed class FakeChatServer : HttpMessageHandler
             ApprovedConversations.Add(otherUserId);
             RefuseSendsWith = null;
             return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        if (segments.Length == 5 && segments[2] == "messages" && segments[4] is "read" or "read-receipt")
+        {
+            var otherUserId = Guid.Parse(segments[3]);
+            return segments[4] == "read" ? MarkAsRead(otherUserId) : Json(new ReadReceiptDto(ReadUpToUtcFor(otherUserId)));
         }
 
         if (segments.Length == 4 && segments[2] == "messages" && Guid.TryParse(segments[3], out var messageId))
@@ -360,6 +367,61 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
         _messages.Add(message);
         return Json(message);
+    }
+
+    /// <summary>
+    /// Everything the other party sent the caller counts as read from now on - reading is per
+    /// conversation, stamped at the moment somebody looks, exactly as MarkConversationAsReadCommandHandler
+    /// does it.
+    /// </summary>
+    private HttpResponseMessage MarkAsRead(Guid otherUserId)
+    {
+        for (var index = 0; index < _messages.Count; index++)
+        {
+            if (_messages[index] is { } message
+                && message.SenderUserId == otherUserId && message.RecipientUserId == CallerUserId)
+            {
+                _readMessageIds.Add(message.Id);
+            }
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    /// <summary>
+    /// How far they have read: the send-time of the newest message of the caller's that has been marked,
+    /// or null when none has. One timestamp for the conversation, not a flag per message.
+    /// </summary>
+    private DateTimeOffset? ReadUpToUtcFor(Guid otherUserId)
+    {
+        var read = _messages
+            .Where(message => message.SenderUserId == CallerUserId
+                && message.RecipientUserId == otherUserId
+                && _readMessageIds.Contains(message.Id))
+            .Select(message => message.SentAtUtc)
+            .ToList();
+
+        return read.Count == 0 ? null : read.Max();
+    }
+
+    /// <summary>What the other party's own client would see as their read receipt - the mirror image.</summary>
+    public DateTimeOffset? ReadUpToUtcForTheOtherParty(Guid callersUserId)
+    {
+        var read = _messages
+            .Where(message => message.RecipientUserId == callersUserId && _readMessageIds.Contains(message.Id))
+            .Select(message => message.SentAtUtc)
+            .ToList();
+
+        return read.Count == 0 ? null : read.Max();
+    }
+
+    /// <summary>Marks what the other party has read, as the recipient's own client would.</summary>
+    public void TheOtherPartyReadEverything(Guid otherUserId)
+    {
+        foreach (var message in _messages.Where(message => message.RecipientUserId == otherUserId))
+        {
+            _readMessageIds.Add(message.Id);
+        }
     }
 
     /// <summary>

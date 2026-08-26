@@ -23,9 +23,14 @@ namespace Orbit.Mobile.Chat;
 /// Shared by every copy of one group posting, null for a one-to-one message. An edit has to name the
 /// whole posting rather than the single copy this device happens to hold.
 /// </param>
+/// <param name="IsReadByThem">
+/// True when the other party has seen this one. Only ever set on the reader's own messages in a
+/// one-to-one conversation: the server tracks reading per conversation, not per message, and offers it
+/// for groups not at all.
+/// </param>
 public sealed record ReadableChatMessage(
     bool IsMine, string? Text, DateTimeOffset SentAtUtc, bool IsEdited, bool IsWaitingToSend,
-    string? SenderName = null, Guid? MessageId = null, Guid? GroupMessageId = null)
+    string? SenderName = null, Guid? MessageId = null, Guid? GroupMessageId = null, bool IsReadByThem = false)
 {
     /// <summary>True when this device could not open it - the screen shows a placeholder in its place.</summary>
     public bool CannotBeOpened => Text is null;

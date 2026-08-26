@@ -8,7 +8,13 @@ using Orbit.Mobile.Data;
 namespace Orbit.Mobile.Sync;
 
 /// <summary>What one pass over a conversation did.</summary>
-public sealed record ChatSyncResult(int Sent, int Received, bool ReachedTheServer);
+/// <param name="TheyReadUpToUtc">
+/// How far the other party has read, when the server could be asked. Null for a group - reading is
+/// tracked per conversation and groups have no equivalent - and null when offline, which is not the
+/// same as "nothing read" and is why the screen keeps whatever it last knew.
+/// </param>
+public sealed record ChatSyncResult(
+    int Sent, int Received, bool ReachedTheServer, DateTimeOffset? TheyReadUpToUtc = null);
 
 /// <summary>
 /// Brings one conversation up to date: send what is queued, then take what arrived elsewhere. Same order
@@ -155,9 +161,15 @@ public sealed class ChatSynchronizer
         {
             var since = await _chatRepository.LatestMessageAtAsync(otherUserId, cancellationToken);
             var messages = await _chatClient.GetConversationAsync(otherUserId, since, cancellationToken);
-            await _chatRepository.StoreAsync(otherUserId, messages, cancellationToken);
+            var stored = await _chatRepository.StoreAsync(otherUserId, messages, cancellationToken);
 
-            return new ChatSyncResult(push.Sent, messages.Count, ReachedTheServer: true);
+            // Reading is what this screen being open *is*, so it is marked on the way past rather than
+            // by anything the reader has to do. Then asked the other way round, for the reader's own
+            // messages - one round trip each, on a screen that is already talking to the server.
+            await _chatClient.MarkConversationAsReadAsync(otherUserId, cancellationToken);
+            var theyReadUpToUtc = await _chatClient.GetReadReceiptAsync(otherUserId, cancellationToken);
+
+            return new ChatSyncResult(push.Sent, stored, ReachedTheServer: true, theyReadUpToUtc);
         }
         catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))
         {
