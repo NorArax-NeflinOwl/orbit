@@ -9,11 +9,31 @@
     x:DataType="screens:ContactsViewModel"
     Title="Chat">
 
-    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
 
         <Label Grid.Row="0" Text="Chat" FontSize="26" FontAttributes="Bold" />
 
-        <RefreshView Grid.Row="1" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <!-- The list below only holds people already spoken to, so without this there is no way to
+             start a conversation at all from this device. -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry Grid.Column="0" Placeholder="Email address or username"
+                   Text="{Binding SearchQuery}" Keyboard="Email"
+                   ReturnType="Search" ReturnCommand="{Binding SearchCommand}" />
+            <Button Grid.Column="1" Text="Find" Command="{Binding SearchCommand}" />
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasFoundSomebody}">
+            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                <Label Text="{Binding FoundPerson.DisplayName}" FontSize="17" FontAttributes="Bold" />
+                <Label Text="{Binding FoundPerson.UserName, StringFormat='@{0}'}" FontSize="12"
+                       TextColor="{StaticResource Gray500}" />
+            </VerticalStackLayout>
+            <Button Grid.Column="1" Text="Message" VerticalOptions="Center"
+                    Command="{Binding OpenConversationCommand}"
+                    CommandParameter="{Binding FoundPerson}" />
+        </Grid>
+
+        <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Contacts}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenConversationCommand}"
@@ -50,9 +70,9 @@
             </CollectionView>
         </RefreshView>
 
-        <Button Grid.Row="2" Text="Groups" Command="{Binding OpenGroupsCommand}" />
+        <Button Grid.Row="4" Text="Groups" Command="{Binding OpenGroupsCommand}" />
 
-        <Button Grid.Row="3" Text="Back to notes" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="5" Text="Back to notes" Command="{Binding GoBackCommand}"
                 BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
 
     </Grid>

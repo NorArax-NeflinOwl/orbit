@@ -34,6 +34,13 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
     /// <summary>The message the compose box is currently rewriting, if it is rewriting one.</summary>
     private ReadableChatMessage? _beingEdited;
+    /// <summary>
+    /// True while <see cref="Status"/> is explaining something the reader just did - a message refused,
+    /// an edit that could not go through. The poll runs every few seconds and would otherwise wipe the
+    /// explanation before it had been read, leaving the text gone and unaccounted for again.
+    /// </summary>
+    private bool _statusExplainsTheLastAction;
+
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -138,7 +145,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         try
         {
             var result = await _sender.SendToGroupAsync(_group.Id, text, cancellationToken);
-            Status = Describe(result);
+            SayWhatHappened(Describe(result));
         }
         catch (EncryptionKeyLockedException)
         {
@@ -188,7 +195,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
         try
         {
-            Status = ChatEditMessage.For(await _editor.DeleteAsync(messageId, cancellationToken));
+            SayWhatHappened(ChatEditMessage.For(await _editor.DeleteAsync(messageId, cancellationToken)));
         }
         catch (OperationCanceledException)
         {
@@ -209,8 +216,8 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
         try
         {
-            Status = ChatEditMessage.For(
-                await _editor.EditGroupMessageAsync(_group!.Id, groupMessageId, text, cancellationToken));
+            SayWhatHappened(ChatEditMessage.For(
+                await _editor.EditGroupMessageAsync(_group!.Id, groupMessageId, text, cancellationToken)));
         }
         catch (EncryptionKeyLockedException)
         {
@@ -302,7 +309,10 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         try
         {
             var result = await _synchronizer.SynchroniseGroupConversationAsync(_group.Id, cancellationToken);
-            Status = result.ReachedTheServer ? string.Empty : "Offline - showing what's on this phone";
+            if (!_statusExplainsTheLastAction)
+            {
+                Status = result.ReachedTheServer ? string.Empty : "Offline - showing what's on this phone";
+            }
 
             if (result.Sent + result.Received > 0)
             {
@@ -334,7 +344,20 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         return result.GivenUp > 0 ? ChatRefusalMessage.For(result.Refusal) : string.Empty;
     }
 
-    partial void OnDraftChanged(string value) => SendCommand.NotifyCanExecuteChanged();
+    partial void OnDraftChanged(string value)
+    {
+        // Typing is the reader moving on, so the explanation has served its purpose.
+        _statusExplainsTheLastAction = false;
+        SendCommand.NotifyCanExecuteChanged();
+    }
+
+
+    /// <summary>Says something about what the reader just did, and keeps the poll from wiping it.</summary>
+    private void SayWhatHappened(string status)
+    {
+        Status = status;
+        _statusExplainsTheLastAction = status.Length > 0;
+    }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 }

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Web;
 using Orbit.Contracts.Users;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
@@ -27,12 +28,40 @@ internal sealed class FakeUsersServer : HttpMessageHandler
             throw new HttpRequestException("No such host is known.");
         }
 
+        if (request.RequestUri!.AbsolutePath.EndsWith("/search", StringComparison.Ordinal))
+        {
+            return Task.FromResult(Search(HttpUtility.ParseQueryString(request.RequestUri.Query)["query"]!));
+        }
+
         LookupCount++;
         var userId = Guid.Parse(request.RequestUri!.Segments[^1]);
         return Task.FromResult(_users.TryGetValue(userId, out var user)
             ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(user) }
             : new HttpResponseMessage(HttpStatusCode.NotFound));
     }
+
+    /// <summary>
+    /// Exact match on the username or the email address, and never the searcher themselves - the rule
+    /// SearchUserQueryHandler enforces so the search cannot be used to enumerate accounts. A fake that
+    /// matched loosely would let a client that leaked that ability pass its tests.
+    /// </summary>
+    private HttpResponseMessage Search(string identifier)
+    {
+        var wanted = identifier.Trim().ToLowerInvariant();
+        var found = _users.Values.FirstOrDefault(user =>
+            user.Id != SearcherUserId
+            && (user.UserName.Equals(wanted, StringComparison.OrdinalIgnoreCase)
+                || EmailFor(user).Equals(wanted, StringComparison.OrdinalIgnoreCase)));
+
+        return found is null
+            ? new HttpResponseMessage(HttpStatusCode.NotFound)
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(found) };
+    }
+
+    /// <summary>Whoever is searching, so the server can refuse to hand them back themselves.</summary>
+    public Guid SearcherUserId { get; set; }
+
+    private static string EmailFor(UserSearchResultDto user) => $"{user.UserName}@orbit.example";
 
     public HttpClient ToHttpClient() => new(this, disposeHandler: false) { BaseAddress = new Uri("https://orbit.example/") };
 }

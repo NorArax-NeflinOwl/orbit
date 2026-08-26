@@ -12,6 +12,22 @@ namespace Orbit.Mobile.Data;
 /// </summary>
 public sealed class LocalContact
 {
+    /// <summary>
+    /// Somebody found by searching, who this phone has no contact row for yet - there has been no
+    /// conversation to make one. Deliberately not stored: the server decides who is a contact, and it
+    /// does that when the first message is sent. Writing this down would put them in the list before any
+    /// conversation existed, and the next refresh - which replaces the list wholesale - would drop them
+    /// again.
+    /// </summary>
+    public static LocalContact ForSomebodyNotYetSpokenTo(Guid userId, string userName, string displayName, string? publicKeyBase64)
+        => new()
+        {
+            UserId = userId,
+            UserName = userName,
+            DisplayName = displayName,
+            PublicKeyBase64 = publicKeyBase64
+        };
+
     public Guid UserId { get; set; }
 
     public string UserName { get; set; } = string.Empty;

@@ -51,18 +51,21 @@ public sealed class ChatDirectoryReader
         _sessionStore = sessionStore;
     }
 
-    /// <param name="includeContacts">
-    /// Whether anything here is addressed to a person rather than a group. Skipped when nothing is, so a
-    /// group-only flush does not fetch a contact list it will not read.
+    /// <param name="recipientUserIds">
+    /// The people written to directly. The contact list is fetched when there are any - one call that
+    /// usually covers them all - and anybody it misses is looked up by id, because a conversation can be
+    /// started with somebody this account has never spoken to and who is therefore not a contact yet.
     /// </param>
     /// <param name="groupIds">The groups whose membership and members' keys are needed - usually one.</param>
     public async Task<ChatDirectory> ReadAsync(
-        bool includeContacts, IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken = default)
+        IReadOnlyCollection<Guid> recipientUserIds, IReadOnlyCollection<Guid> groupIds,
+        CancellationToken cancellationToken = default)
     {
         var publicKeys = new Dictionary<Guid, string>();
         var otherMembers = new Dictionary<Guid, IReadOnlyList<Guid>>();
+        var wanted = new HashSet<Guid>(recipientUserIds);
 
-        if (includeContacts)
+        if (wanted.Count > 0)
         {
             foreach (var contact in await _chatClient.GetContactsAsync(cancellationToken))
             {
@@ -75,6 +78,7 @@ public sealed class ChatDirectoryReader
 
         if (groupIds.Count == 0)
         {
+            await LookUpMissingKeysAsync(wanted, publicKeys, cancellationToken);
             return new ChatDirectory(publicKeys, otherMembers);
         }
 
@@ -90,9 +94,22 @@ public sealed class ChatDirectoryReader
             }
         }
 
-        // A group can hold people the sender has never had a conversation with, so the contact list does
-        // not cover them and each has to be looked up by id.
-        foreach (var userId in otherMembers.Values.SelectMany(members => members).Distinct())
+        wanted.UnionWith(otherMembers.Values.SelectMany(members => members));
+        await LookUpMissingKeysAsync(wanted, publicKeys, cancellationToken);
+        return new ChatDirectory(publicKeys, otherMembers);
+    }
+
+    /// <summary>
+    /// Fills in whoever the contact list did not cover. Both kinds of conversation need this and for the
+    /// same reason: a group can hold people this account has never spoken to, and so - since the chat
+    /// list gained a search - can a one-to-one conversation. The contact list only holds people the
+    /// server already counts as contacts, and it only counts them once a message has been sent, so
+    /// without this the very first message to somebody new could never be encrypted.
+    /// </summary>
+    private async Task LookUpMissingKeysAsync(
+        IEnumerable<Guid> userIds, Dictionary<Guid, string> publicKeys, CancellationToken cancellationToken)
+    {
+        foreach (var userId in userIds.Distinct())
         {
             if (publicKeys.ContainsKey(userId))
             {
@@ -104,8 +121,6 @@ public sealed class ChatDirectoryReader
                 publicKeys[userId] = publicKey;
             }
         }
-
-        return new ChatDirectory(publicKeys, otherMembers);
     }
 
     private async Task<Guid> RequireSignedInUserIdAsync()

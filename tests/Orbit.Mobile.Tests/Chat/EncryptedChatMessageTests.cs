@@ -139,6 +139,22 @@ public sealed class EncryptedChatMessageTests
     }
 
     [Fact]
+    public async Task A_first_message_to_somebody_never_spoken_to_is_encrypted_and_sent()
+    {
+        // The contact list holds only people the server already counts as contacts, and it counts them
+        // once a message has been sent - so the very first message to somebody found by searching has
+        // nobody in that list to take a key from. Looked up by id instead, exactly as a group member is.
+        using var context = new ChatContext();
+        context.Users.Add(context.OtherUserId, "Bob", context.OtherPublicKeyBase64);
+
+        var result = await context.Sender.SendAsync(context.OtherUserId, "first message");
+
+        Assert.Equal(1, result.Sent);
+        Assert.Equal(ChatSendRefusal.None, result.Refusal);
+        Assert.Equal("first message", context.OpenAsTheOtherParty(context.Server.Messages.Single()));
+    }
+
+    [Fact]
     public async Task A_message_from_the_other_side_is_readable_here()
     {
         using var context = new ChatContext();

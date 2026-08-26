@@ -63,7 +63,7 @@ public sealed class EncryptedChatMessageEditor
 
         try
         {
-            var directory = await _directoryReader.ReadAsync(includeContacts: true, [], cancellationToken);
+            var directory = await _directoryReader.ReadAsync([otherUserId], [], cancellationToken);
             if (directory.FindPublicKey(otherUserId) is not { } otherPublicKey)
             {
                 return ChatEditOutcome.SomebodyHasNoChatKey;
@@ -96,7 +96,7 @@ public sealed class EncryptedChatMessageEditor
 
         try
         {
-            var directory = await _directoryReader.ReadAsync(includeContacts: false, [groupId], cancellationToken);
+            var directory = await _directoryReader.ReadAsync([], [groupId], cancellationToken);
             if (directory.FindOtherMembers(groupId) is not { } otherMembers)
             {
                 return ChatEditOutcome.NotAllowed;

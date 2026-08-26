@@ -127,7 +127,7 @@ public sealed class EncryptedChatMessageSender
     private Task<ChatDirectory> ReadDirectoryAsync(
         IReadOnlyList<OutgoingChatMessage> queued, CancellationToken cancellationToken)
         => _directoryReader.ReadAsync(
-            queued.Any(message => message.RecipientUserId is not null),
+            queued.Where(message => message.RecipientUserId is not null).Select(message => message.RecipientUserId!.Value).ToHashSet(),
             queued.Where(message => message.GroupId is not null).Select(message => message.GroupId!.Value).ToHashSet(),
             cancellationToken);
 

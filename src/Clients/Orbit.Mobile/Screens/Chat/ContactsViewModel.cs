@@ -17,6 +17,7 @@ public sealed partial class ContactsViewModel : ObservableObject
 {
     private readonly ChatRepository _chatRepository;
     private readonly ChatClient _chatClient;
+    private readonly UsersClient _usersClient;
     private readonly ChatSynchronizer _synchronizer;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly IScreenNavigator _navigator;
@@ -27,12 +28,20 @@ public sealed partial class ContactsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRefreshing;
 
+    [ObservableProperty]
+    private string _searchQuery = string.Empty;
+
+    /// <summary>Whoever the last search turned up, or null when it found nobody or none has run.</summary>
+    [ObservableProperty]
+    private LocalContact? _foundPerson;
+
     public ContactsViewModel(
-        ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
-        OwnEncryptionKeyProvider encryptionKeyProvider, IScreenNavigator navigator)
+        ChatRepository chatRepository, ChatClient chatClient, UsersClient usersClient,
+        ChatSynchronizer synchronizer, OwnEncryptionKeyProvider encryptionKeyProvider, IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
+        _usersClient = usersClient;
         _synchronizer = synchronizer;
         _encryptionKeyProvider = encryptionKeyProvider;
         _navigator = navigator;
@@ -41,6 +50,49 @@ public sealed partial class ContactsViewModel : ObservableObject
     public ObservableCollection<LocalContact> Contacts { get; } = [];
 
     public bool HasMessage => Message.Length > 0;
+
+    public bool HasFoundSomebody => FoundPerson is not null;
+
+    /// <summary>
+    /// Looks somebody up so a conversation can be started with them, which is otherwise impossible from
+    /// this device: the list below only holds people already spoken to.
+    ///
+    /// The whole address has to be typed - the server matches an email address or a username exactly, so
+    /// that the search cannot be used to enumerate accounts. The message below says so, because a
+    /// partial name silently finding nobody would otherwise read as "they are not on Orbit".
+    /// </summary>
+    [RelayCommand]
+    private async Task SearchAsync(CancellationToken cancellationToken)
+    {
+        FoundPerson = null;
+        Message = string.Empty;
+
+        var identifier = SearchQuery.Trim();
+        if (identifier.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _usersClient.SearchAsync(identifier, cancellationToken) is not { } found)
+            {
+                Message = "Nobody has that email address or username. It has to match exactly.";
+                return;
+            }
+
+            FoundPerson = LocalContact.ForSomebodyNotYetSpokenTo(
+                found.Id, found.UserName, found.DisplayName, found.PublicKeyBase64);
+        }
+        catch (HttpRequestException)
+        {
+            Message = "Finding somebody new needs a connection.";
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-search.
+        }
+    }
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
@@ -96,10 +148,14 @@ public sealed partial class ContactsViewModel : ObservableObject
     [RelayCommand]
     private void OpenConversation(LocalContact? contact)
     {
-        if (contact is not null)
+        if (contact is null)
         {
-            _navigator.ShowConversation(contact);
+            return;
         }
+
+        SearchQuery = string.Empty;
+        FoundPerson = null;
+        _navigator.ShowConversation(contact);
     }
 
     /// <summary>
@@ -139,4 +195,6 @@ public sealed partial class ContactsViewModel : ObservableObject
     private void GoBack() => _navigator.ShowNotes();
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+
+    partial void OnFoundPersonChanged(LocalContact? value) => OnPropertyChanged(nameof(HasFoundSomebody));
 }
