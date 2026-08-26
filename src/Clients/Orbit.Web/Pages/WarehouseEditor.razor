@@ -247,14 +247,14 @@ else
     }
 
     /// <summary>
-    /// Warns once the amount has reached the minimum, not only once it has gone under: a minimum is the
-    /// level at which something needs restocking, so being exactly at it is already the moment to say
-    /// so. Note this is deliberately one step earlier than InventoryItem.IsBelowMinimum, which raises
-    /// the actual restock task on a strict "less than" - an item sitting exactly on its minimum is
-    /// flagged here while no task has been raised for it yet.
+    /// The same condition InventoryItem.IsBelowMinimum uses to raise the restock task, said out loud
+    /// while someone is looking at the row rather than only after a background service has been round.
+    /// Kept identical on purpose: a warning that appeared one step earlier than the task would leave an
+    /// item flagged with nothing having been raised for it, which reads as the app disagreeing with
+    /// itself.
     /// </summary>
     private static bool NeedsRestocking(WarehouseItemFormModel item)
-        => item.MinimumQuantity is { } minimum && item.Quantity <= minimum;
+        => item.MinimumQuantity is { } minimum && item.Quantity < minimum;
 
     private bool IsExpanded(WarehouseItemFormModel item) => ReferenceEquals(_expandedItem, item);
 

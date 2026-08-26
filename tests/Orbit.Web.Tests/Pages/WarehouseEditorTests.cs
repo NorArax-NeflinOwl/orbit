@@ -45,11 +45,23 @@ public sealed class WarehouseEditorTests : TestContext
     }
 
     [Fact]
-    public void An_item_sitting_exactly_on_its_minimum_is_flagged_too()
+    public void An_item_sitting_exactly_on_its_minimum_is_not_flagged()
     {
-        // A minimum is the level at which something needs restocking, so reaching it is already the
-        // moment to say so - one step earlier than the restock task itself is raised.
+        // The same line the restock task is raised on. Flagging here while no task had been raised
+        // would read as the app disagreeing with itself.
         RegisterApiClients([Item("Flour", quantity: 5, minimum: 5)]);
+
+        var cut = RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
+
+        Assert.Empty(cut.FindAll(".item-warning"));
+    }
+
+    [Fact]
+    public void A_hair_under_the_minimum_is_flagged()
+    {
+        // The boundary from the other side, so "not flagged at the minimum" can't be satisfied by never
+        // flagging anything near it.
+        RegisterApiClients([Item("Flour", quantity: 4.99m, minimum: 5)]);
 
         var cut = RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
 
@@ -84,10 +96,12 @@ public sealed class WarehouseEditorTests : TestContext
         RegisterApiClients([
             Item("Flour", quantity: 1, minimum: 5),
             Item("Sugar", quantity: 10, minimum: 5),
-            Item("Salt", quantity: 2, minimum: 2)]);
+            Item("Salt", quantity: 2, minimum: 2),
+            Item("Pepper", quantity: 0, minimum: 1)]);
 
         var cut = RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
 
+        // Flour and Pepper are under; Sugar has plenty and Salt is exactly on its minimum.
         Assert.Equal(2, cut.FindAll(".item-warning").Count);
     }
 
