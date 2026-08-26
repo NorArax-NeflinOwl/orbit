@@ -306,10 +306,24 @@ deliberately, not defaulted.
 | Notes, tasks, calendar, inventory — read and edit | Chat history | User search (`/api/users/search`) |
 | Recording your own location | Notification feed | Share links, export/import |
 | Composing chat messages (queued, see §5.5) | Contacts | Viewing others' shared locations |
-| | | Sign-in, account changes, Google linking |
+| | | Sign-in, Google linking |
+| | | **Registering an account** |
+| | | **Changing the username, email address, or password** |
 | | | **Deleting the account** |
 
 Anything requiring a fresh server decision — a share offer, a lock, an account change — stays online.
+
+**Identity is online-only, and the app says so rather than queueing it.** Registering, and changing the
+username, email address, or password, all go straight to the server and are refused up front when there
+is no connection - `AccountClient` has no queued outcome to return. Each needs a verdict only the server
+can give (is this username free, is this email address already registered, is this the current
+password), and each changes how the user signs in *everywhere*, not only on this phone. A queued
+password change is the clearest failure: it would tell someone their password had changed while the old
+one still worked, possibly for days. Registration goes further - the account is created on the server
+before anything is written locally, so a local account the server has never heard of cannot exist.
+
+Notes can wait in an outbox because nothing outside the phone depends on when they land. An identity
+cannot.
 
 **Deleting an account is online-only, and the app should say so rather than queue it.** It is the one
 action where an outbox would actively mislead: the request is irreversible, it needs the password

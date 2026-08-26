@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Orbit.Contracts.Notes;
@@ -75,8 +76,7 @@ public sealed class NoteSynchronizer
             var pull = await PullChangesAsync(dbContext, cancellationToken);
             return new SyncResult(push.Sent, pull.Received, pull.RemovedLocally, push.GivenUp, ReachedTheServer: true);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException
-                                          && !cancellationToken.IsCancellationRequested)
+        catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))
         {
             _logger.LogInformation("Could not reach the server to pull changes ({Reason})", exception.Message);
             return push.Sent > 0
@@ -98,8 +98,7 @@ public sealed class NoteSynchronizer
             {
                 result = await SendAsync(dbContext, entry, cancellationToken);
             }
-            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException
-                                              && !cancellationToken.IsCancellationRequested)
+            catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))
             {
                 // Offline again, or the server faltered. Stop here and keep this change and everything
                 // queued behind it - sending the rest out of order is worse than sending none.
@@ -121,6 +120,34 @@ public sealed class NoteSynchronizer
         }
 
         return (sent, givenUp);
+    }
+
+    /// <summary>
+    /// Whether this failure is one that trying again later could fix - no network at all, a timeout, or
+    /// a server having a bad moment.
+    ///
+    /// <see cref="HttpRequestException"/> covers both "there is no network" and "the server answered,
+    /// with a status I did not want", and swallowing the second as though it were the first tells a user
+    /// whose session has expired that they are offline: wrong, and nothing they can act on. A 401 has to
+    /// surface so the app can send them back to sign in.
+    /// </summary>
+    private static bool IsWorthRetrying(Exception exception, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        return exception switch
+        {
+            // No response at all - the usual shape of being offline.
+            HttpRequestException { StatusCode: null } => true,
+            HttpRequestException { StatusCode: { } status } =>
+                (int)status >= 500
+                || status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests,
+            TaskCanceledException => true,
+            _ => false
+        };
     }
 
     /// <summary>Returns 1 when the change was given up on rather than kept for another attempt.</summary>

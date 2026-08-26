@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Orbit.Core.Mobile;
 using Orbit.Maui.Configuration;
+using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Startup;
@@ -91,6 +92,10 @@ public static class MauiProgram
 
 		services.AddHttpClient<TokenRefreshService>(client => client.BaseAddress = apiSettings.BaseAddress);
 		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress);
+		// Registering has no token to attach, and the rest are guarded by the server checking the current
+		// password rather than by this client - see AccountClient.
+		services.AddHttpClient<AccountClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
 	}
 
@@ -102,6 +107,10 @@ public static class MauiProgram
 		services.AddTransient<StartupViewModel>();
 		services.AddTransient<SignInPage>();
 		services.AddTransient<SignInViewModel>();
+		services.AddTransient<RegisterPage>();
+		services.AddTransient<RegisterViewModel>();
+		services.AddTransient<AccountPage>();
+		services.AddTransient<AccountViewModel>();
 		services.AddTransient<NotesPage>();
 		services.AddTransient<NotesViewModel>();
 	}

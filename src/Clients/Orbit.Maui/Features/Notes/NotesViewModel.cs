@@ -76,6 +76,9 @@ public sealed partial class NotesViewModel : ObservableObject
 	private bool CanAddNote => NewNoteTitle.Trim().Length > 0;
 
 	[RelayCommand]
+	private void GoToAccount() => _navigator.ShowAccount();
+
+	[RelayCommand]
 	private async Task SignOutAsync()
 	{
 		await _authenticationClient.SignOutAsync();
@@ -107,6 +110,13 @@ public sealed partial class NotesViewModel : ObservableObject
 				await ShowLocalNotesAsync(cancellationToken);
 			}
 		}
+		catch (HttpRequestException)
+		{
+			// The server was reached and refused - an expired session, most often. AppNavigator is
+			// watching the session store and moves to sign-in when that is what happened; there is
+			// nothing useful to say here beyond not claiming the phone is offline.
+			SyncStatus = "Couldn't sync just now";
+		}
 		catch (OperationCanceledException)
 		{
 			// The screen went away mid-sync. The command is started without being awaited, so this must
@@ -118,16 +128,24 @@ public sealed partial class NotesViewModel : ObservableObject
 		}
 	}
 
-	private static string DescribeSync(SyncResult result)
+	/// <summary>
+	/// "Offline" is only said when the phone actually believes it has no connection. A sync that failed
+	/// while connectivity looks fine is a different thing - a server having a bad moment - and saying
+	/// "offline" would send the user looking for a network problem that isn't there.
+	/// </summary>
+	private string DescribeSync(SyncResult result)
 	{
-		if (!result.ReachedTheServer)
+		if (result.ReachedTheServer)
 		{
-			return result.Sent + result.Received == 0
-				? "Offline - showing what's on this phone"
-				: "Offline - some changes are still waiting";
+			return result.Sent > 0 ? $"Synced - sent {result.Sent}" : "Synced";
 		}
 
-		return result.Sent > 0 ? $"Synced - sent {result.Sent}" : "Synced";
+		if (!_networkStatus.IsOnline)
+		{
+			return "Offline - showing what's on this phone";
+		}
+
+		return "Couldn't sync just now - your changes are saved on this phone";
 	}
 
 	partial void OnNewNoteTitleChanged(string value) => AddNoteCommand.NotifyCanExecuteChanged();

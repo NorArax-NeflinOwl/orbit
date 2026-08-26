@@ -37,16 +37,19 @@ public sealed partial class SignInViewModel : ObservableObject
 
 		try
 		{
-			if (!await _authenticationClient.SignInAsync(EmailOrUserName, Password, cancellationToken))
+			var result = await _authenticationClient.SignInAsync(EmailOrUserName, Password, cancellationToken);
+			if (!result.Succeeded)
 			{
-				ErrorMessage = "Those details weren't recognised.";
+				// A refusal and a missing connection say different things on purpose: sending someone to
+				// reset a password that was fine, because their train went into a tunnel, is a bad way
+				// to lose an account.
+				ErrorMessage = result.Message ?? "Those details weren't recognised.";
 				return;
 			}
 		}
 		catch (HttpRequestException)
 		{
-			// Told apart from a refusal on purpose: sending someone to reset a password that was fine,
-			// because their train went into a tunnel, is a bad way to lose an account.
+			// Connectivity said yes and the request still failed - a captive portal, most likely.
 			ErrorMessage = "Couldn't reach Orbit. Check your connection and try again.";
 			return;
 		}
@@ -54,6 +57,9 @@ public sealed partial class SignInViewModel : ObservableObject
 		Password = string.Empty;
 		_navigator.ShowNotes();
 	}
+
+	[RelayCommand]
+	private void GoToRegister() => _navigator.ShowRegister();
 
 	partial void OnErrorMessageChanged(string value) => OnPropertyChanged(nameof(HasError));
 }

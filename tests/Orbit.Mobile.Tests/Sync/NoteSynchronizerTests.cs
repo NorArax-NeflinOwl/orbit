@@ -243,6 +243,34 @@ public sealed class NoteSynchronizerTests
     }
 
     [Fact]
+    public async Task An_expired_session_is_not_reported_as_being_offline()
+    {
+        using var context = new SyncContext();
+        context.Server.ForcedFailure = System.Net.HttpStatusCode.Unauthorized;
+
+        // The server was reached and had an opinion. Swallowing it as "offline" would leave someone
+        // whose session expired staring at stale notes with nothing about their connection to fix.
+        var failure = await Assert.ThrowsAsync<HttpRequestException>(() => context.SynchroniseAsync());
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, failure.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_server_having_a_bad_moment_is_worth_trying_again_rather_than_surfacing()
+    {
+        using var context = new SyncContext();
+        await context.Notes.CreateAsync("Groceries", SomeContent);
+        context.Server.ForcedFailure = System.Net.HttpStatusCode.InternalServerError;
+
+        var result = await context.SynchroniseAsync();
+
+        // Unlike a 401, there is nothing for the user to do about a 500 - so the change stays queued and
+        // the app tries again rather than throwing at them.
+        Assert.False(result.ReachedTheServer);
+        Assert.Equal(1, await context.DbContext.Outbox.CountAsync());
+    }
+
+    [Fact]
     public async Task Nothing_arrives_twice_when_a_sync_runs_again_with_no_changes()
     {
         using var context = new SyncContext();

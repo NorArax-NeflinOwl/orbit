@@ -51,7 +51,10 @@
             </CollectionView>
         </RefreshView>
 
-        <Button Grid.Row="3" Text="Sign out" Command="{Binding SignOutCommand}" />
+        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="12">
+            <Button Grid.Column="0" Text="Account" Command="{Binding GoToAccountCommand}" />
+            <Button Grid.Column="1" Text="Sign out" Command="{Binding SignOutCommand}" />
+        </Grid>
 
     </Grid>
 

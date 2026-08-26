@@ -1,50 +1,60 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Users;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Authentication;
 
 /// <summary>
 /// Signing in and out. Talks to the API without the access-token handler in front of it - there is no
 /// token to attach yet on the way in, and on the way out the refresh token is the thing being revoked.
+///
+/// Signing in needs a connection, for the same reason every account operation does (see
+/// <see cref="AccountClient"/>): only the server can say whether a password is right, and only it can
+/// issue the tokens everything else depends on.
 /// </summary>
 public sealed class AuthenticationClient
 {
     private readonly HttpClient _httpClient;
+    private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
 
-    public AuthenticationClient(HttpClient httpClient, SessionStore sessionStore)
+    public AuthenticationClient(HttpClient httpClient, INetworkStatus networkStatus, SessionStore sessionStore)
     {
         _httpClient = httpClient;
+        _networkStatus = networkStatus;
         _sessionStore = sessionStore;
     }
 
     /// <summary>
-    /// True when the credentials were accepted and the session stored. False means they were refused -
-    /// the only outcome the sign-in screen can do anything about. Anything else (no network, a server
-    /// error) throws, because telling the user their password is wrong when the server was simply
-    /// unreachable sends them off to reset a password that was fine.
+    /// Refused and offline are told apart deliberately: saying "wrong password" when the server was
+    /// simply unreachable sends someone off to reset a password that was fine.
     /// </summary>
-    public async Task<bool> SignInAsync(string emailOrUserName, string password, CancellationToken cancellationToken = default)
+    public async Task<AccountOperationResult> SignInAsync(
+        string emailOrUserName, string password, CancellationToken cancellationToken = default)
     {
+        if (!_networkStatus.IsOnline)
+        {
+            return AccountOperationResult.RequiresConnection;
+        }
+
         var response = await _httpClient.PostAsJsonAsync(
             "api/auth/login", new LoginRequest(emailOrUserName, password), cancellationToken);
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
         {
-            return false;
+            return AccountOperationResult.Refused("Those details weren't recognised.");
         }
 
         response.EnsureSuccessStatusCode();
 
-        var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken);
-        if (authResponse is null)
+        if (await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken) is not { } authResponse)
         {
-            return false;
+            return AccountOperationResult.Refused("Orbit signed you in but sent nothing back.");
         }
 
         await _sessionStore.SetAsync(UserSession.FromAuthResponse(authResponse));
-        return true;
+        return AccountOperationResult.Applied;
     }
 
     /// <summary>

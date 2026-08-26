@@ -31,6 +31,11 @@
 
             <Button Text="Sign in" Command="{Binding SignInCommand}" />
 
+            <Button Text="Create an account"
+                    Command="{Binding GoToRegisterCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{StaticResource Primary}" />
+
             <ActivityIndicator IsRunning="{Binding SignInCommand.IsRunning}"
                                IsVisible="{Binding SignInCommand.IsRunning}"
                                HorizontalOptions="Center" />

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Account.AccountPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:account="clr-namespace:Orbit.Maui.Features.Account"
+    x:DataType="account:AccountViewModel"
+    Title="Account">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="18">
+
+            <Label Text="Account" FontSize="26" FontAttributes="Bold" />
+
+            <!-- One statement for the whole screen: none of this can happen without the server. -->
+            <Label Text="Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later."
+                   IsVisible="{Binding IsOffline}"
+                   TextColor="{StaticResource Magenta}"
+                   LineBreakMode="WordWrap" />
+
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
+
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
+                <Label Text="Username" FontAttributes="Bold" />
+                <Entry Placeholder="New username" Text="{Binding UserName}" IsSpellCheckEnabled="False" />
+                <Entry Placeholder="Display name" Text="{Binding DisplayName}" />
+                <Button Text="Change username" Command="{Binding ChangeUserNameCommand}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
+                <Label Text="Email address" FontAttributes="Bold" />
+                <Entry Placeholder="New email address" Text="{Binding NewEmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
+                <Button Text="Send confirmation code" Command="{Binding RequestEmailChangeCommand}" />
+                <Entry Placeholder="Confirmation code" Text="{Binding EmailConfirmationCode}" Keyboard="Numeric" />
+                <Button Text="Confirm new address" Command="{Binding ConfirmEmailChangeCommand}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
+                <Label Text="Password" FontAttributes="Bold" />
+                <Entry Placeholder="Current password" Text="{Binding CurrentPassword}" IsPassword="True" />
+                <Entry Placeholder="New password" Text="{Binding NewPassword}" IsPassword="True" />
+                <Button Text="Change password" Command="{Binding ChangePasswordCommand}" />
+            </VerticalStackLayout>
+
+            <Button Text="Back to notes"
+                    Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{StaticResource Primary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

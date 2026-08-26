@@ -1,5 +1,7 @@
-using Orbit.Maui.Features.Notes;
+using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
+using Orbit.Maui.Features.Notes;
+using Orbit.Mobile.Authentication;
 
 namespace Orbit.Maui;
 
@@ -15,9 +17,27 @@ public sealed class AppNavigator
 {
 	private readonly IServiceProvider _services;
 
-	public AppNavigator(IServiceProvider services) => _services = services;
+	public AppNavigator(IServiceProvider services, SessionStore sessionStore)
+	{
+		_services = services;
+
+		// A session can end far from any screen - a refresh token the server has revoked takes it away
+		// from inside an HTTP call. Watching the store here means every such path lands on the sign-in
+		// screen, instead of each screen having to notice for itself and one of them forgetting.
+		sessionStore.Changed += session =>
+		{
+			if (session is null)
+			{
+				ShowSignIn();
+			}
+		};
+	}
 
 	public void ShowSignIn() => ShowAsRoot<SignInPage>();
+
+	public void ShowRegister() => ShowAsRoot<RegisterPage>();
+
+	public void ShowAccount() => ShowAsRoot<AccountPage>();
 
 	public void ShowNotes() => ShowAsRoot<NotesPage>();
 
