@@ -23,6 +23,10 @@ public sealed class OrbitLocalDbContext : DbContext
 
     public DbSet<SyncCursor> SyncCursors => Set<SyncCursor>();
 
+    public DbSet<LocalChatMessage> ChatMessages => Set<LocalChatMessage>();
+
+    public DbSet<OutgoingChatMessage> OutgoingChatMessages => Set<OutgoingChatMessage>();
+
     /// <summary>
     /// SQLite has no date type, and EF's default mapping for <see cref="DateTimeOffset"/> cannot be
     /// sorted or compared in SQL - "ORDER BY UpdatedAtUtc" fails outright. Since sync is decided almost
@@ -53,6 +57,19 @@ public sealed class OrbitLocalDbContext : DbContext
         });
 
         modelBuilder.Entity<SyncCursor>(cursor => cursor.HasKey(entity => entity.EntityType));
+
+        modelBuilder.Entity<LocalChatMessage>(message =>
+        {
+            message.HasKey(entity => entity.Id);
+            // Every read is "this conversation, in order", which is the only way chat is ever queried.
+            message.HasIndex(entity => new { entity.OtherUserId, entity.SentAtUtc });
+        });
+
+        modelBuilder.Entity<OutgoingChatMessage>(message =>
+        {
+            message.HasKey(entity => entity.Id);
+            message.HasIndex(entity => entity.Id);
+        });
     }
 
     /// <summary>

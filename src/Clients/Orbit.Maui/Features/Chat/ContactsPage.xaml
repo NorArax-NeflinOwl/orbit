@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Chat.ContactsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:contracts="clr-namespace:Orbit.Contracts.Chat;assembly=Orbit.Contracts"
+    xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
+    x:DataType="chat:ContactsViewModel"
+    Title="Chat">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20" RowSpacing="12">
+
+        <Label Grid.Row="0" Text="Chat" FontSize="26" FontAttributes="Bold" />
+
+        <RefreshView Grid.Row="1" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Contacts}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenConversationCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
+
+                <CollectionView.EmptyView>
+                    <Label Text="{Binding Message}" Padding="24" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="contracts:ContactDto">
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <Label Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold" />
+                            <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12"
+                                   TextColor="{StaticResource Gray500}" />
+                            <Label Text="Waiting for them to accept your request"
+                                   IsVisible="{Binding IsPendingApprovalFromOtherParty}"
+                                   FontSize="12" TextColor="{StaticResource Primary}" />
+                            <Label Text="Wants to chat with you"
+                                   IsVisible="{Binding RequiresApprovalFromCurrentUser}"
+                                   FontSize="12" TextColor="{StaticResource Primary}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+        <Button Grid.Row="2" Text="Back to notes" Command="{Binding GoBackCommand}"
+                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+
+    </Grid>
+
+</ContentPage>

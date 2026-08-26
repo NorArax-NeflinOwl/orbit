@@ -415,7 +415,7 @@ this policy needs the server to say so: a flag on the owner's view meaning "some
 accepted grant on this". Worth doing as its own change, since deriving it per item is a query per item
 unless it is batched.
 
-### 5.5 Offline and end-to-end encryption
+### 5.5 Offline and end-to-end encryption (the one-to-one half is built)
 
 Two concrete rules, both consequences of §4.1:
 
@@ -426,6 +426,13 @@ Two concrete rules, both consequences of §4.1:
   A message encrypted at compose time and sent an hour later carries a stale membership list and will
   be rejected, correctly. The outbox must therefore store the plaintext (locally, protected per §5.1)
   and perform the fan-out at the moment of sending.
+
+  **Built, and followed even where it isn't needed yet.** `EncryptedChatMessageSender` encrypts at send
+  time for one-to-one messages too, where nothing would notice the difference — precisely so group chat
+  is a fan-out added to a working outbox rather than a rewrite of one. The queue therefore holds
+  plaintext, which is the app's only plaintext at rest and the sharpest argument for answering §5.1.
+  Received messages are cached as ciphertext and opened per screenful, so the local database stays no
+  more revealing than the server.
 
 ### 5.6 Background sync
 
@@ -588,7 +595,7 @@ phase behind it, mostly for free apart from the platform-specific work.
 | **0. Server prerequisites** (built) | Version-gate endpoint (§7), diagnostic-log endpoint and table (§8), push transports (§4.2), multi-audience Google (§4.3), delta + tombstones for sync (§5.3), optionally the shared API-client project (§4.4) | Merged into `main`, web client unaffected |
 | **1. Walking skeleton** (built) | `Orbit.Maui` project, `Orbit.Contracts` referenced, auth + `SecureStorage` + single-flight refresh, **version gate on startup (§7)**, sign in/out, one real screen | A real account signs in on a device and an out-of-date build is stopped on the splash screen |
 | **2. Local store and sync spine** (built) | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
-| **3. Crypto spine** (interop + key handling built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
+| **3. Crypto spine** (built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
 | **4. The content features** | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
 | **5. The rest of chat** | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
 | **6. Location and maps** | Geolocation, maps, recording, sharing, viewing shared | Location parity |
@@ -633,7 +640,8 @@ least from being started early.
 - **Diagnostic logs are a new way to leak plaintext** (§8) out of an app whose whole design avoids it.
   Scrubbing has to happen at the logging call, and stay a review concern afterwards.
 - **Chat history is not portable to a device that never had the key.** This is by design, but it will
-  read as a bug to users. Needs deliberate onboarding copy, not an error state.
+  read as a bug to users. Needs deliberate onboarding copy, not an error state. The key gate is where
+  that copy lives now; it is written as an explanation rather than a failure.
 - **The Mac is a dependency, not a preference** (§1.1). Under MAUI the project survives moving to
   Windows, but every iOS release build and store submission still needs macOS somewhere. Decide early
   whether that is a machine kept on the LAN or a CI runner, because discovering it at submission time

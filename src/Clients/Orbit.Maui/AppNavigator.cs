@@ -2,6 +2,7 @@ using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Notes;
+using Orbit.Contracts.Chat;
 using Orbit.Mobile.Authentication;
 
 namespace Orbit.Maui;
@@ -42,14 +43,27 @@ public sealed class AppNavigator
 
 	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>();
 
+	public void ShowContacts() => ShowAsRoot<ContactsPage>();
+
+	/// <summary>
+	/// A conversation needs to know whose it is, and these screens are resolved from the container rather
+	/// than constructed - so the page is told after it exists, before it is shown.
+	/// </summary>
+	public void ShowConversation(ContactDto contact)
+		=> ShowAsRoot<ConversationPage>(page => ((ConversationViewModel)page.BindingContext).Open(contact));
+
 	public void ShowNotes() => ShowAsRoot<NotesPage>();
 
-	private void ShowAsRoot<TPage>() where TPage : Page
+	private void ShowAsRoot<TPage>(Action<TPage>? prepare = null) where TPage : Page
 		=> MainThread.BeginInvokeOnMainThread(() =>
 		{
-			if (Application.Current?.Windows.FirstOrDefault() is { } window)
+			if (Application.Current?.Windows.FirstOrDefault() is not { } window)
 			{
-				window.Page = _services.GetRequiredService<TPage>();
+				return;
 			}
+
+			var page = _services.GetRequiredService<TPage>();
+			prepare?.Invoke(page);
+			window.Page = page;
 		});
 }

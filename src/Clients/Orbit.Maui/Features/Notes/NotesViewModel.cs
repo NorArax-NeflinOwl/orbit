@@ -76,6 +76,9 @@ public sealed partial class NotesViewModel : ObservableObject
 	private bool CanAddNote => NewNoteTitle.Trim().Length > 0;
 
 	[RelayCommand]
+	private void GoToChat() => _navigator.ShowContacts();
+
+	[RelayCommand]
 	private void GoToAccount() => _navigator.ShowAccount();
 
 	[RelayCommand]

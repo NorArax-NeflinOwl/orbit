@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Chat.ConversationPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:mobile="clr-namespace:Orbit.Mobile.Chat;assembly=Orbit.Mobile"
+    xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
+    x:DataType="chat:ConversationViewModel"
+    Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+
+        <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
+        <Label Grid.Row="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+               FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+
+        <RefreshView Grid.Row="2" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
+
+                <CollectionView.EmptyView>
+                    <Label Text="No messages yet." Padding="24" HorizontalTextAlignment="Center" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="mobile:ReadableChatMessage">
+                        <VerticalStackLayout Padding="0,8" Spacing="2">
+                            <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
+                            <!-- A message sealed under a key pair since replaced can never be opened. -->
+                            <Label Text="This message can't be opened on this device."
+                                   IsVisible="{Binding CannotBeOpened}"
+                                   FontSize="12" TextColor="{StaticResource Gray500}" />
+                            <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
+                                   FontSize="11" TextColor="{StaticResource Gray500}" />
+                            <Label Text="Waiting to send" IsVisible="{Binding IsWaitingToSend}"
+                                   FontSize="11" TextColor="{StaticResource Primary}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanWrite}">
+            <Entry Grid.Column="0" Placeholder="Message" Text="{Binding Draft}"
+                   ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
+            <Button Grid.Column="1" Text="Send" Command="{Binding SendCommand}" />
+        </Grid>
+
+    </Grid>
+
+</ContentPage>

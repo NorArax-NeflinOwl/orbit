@@ -10,6 +10,7 @@ using Orbit.Maui.Platform;
 using Orbit.Mobile.Api;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Sync;
@@ -40,7 +41,7 @@ public static class MauiProgram
 #endif
 
 		var app = builder.Build();
-		LocalDatabase.EnsureCreated(app.Services);
+		LocalDatabase.Migrate(app.Services);
 		return app;
 	}
 
@@ -61,6 +62,10 @@ public static class MauiProgram
 		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
 		services.AddTransient<OwnEncryptionKeyProvider>();
 		services.AddTransient<NoteSynchronizer>();
+		services.AddSingleton<ChatRepository>();
+		services.AddTransient<EncryptedChatMessageReader>();
+		services.AddTransient<EncryptedChatMessageSender>();
+		services.AddTransient<ChatSynchronizer>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)
@@ -105,6 +110,8 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<EncryptionKeyClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<ChatClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
 	}
 
@@ -122,6 +129,10 @@ public static class MauiProgram
 		services.AddTransient<AccountViewModel>();
 		services.AddTransient<ChatKeyGatePage>();
 		services.AddTransient<ChatKeyGateViewModel>();
+		services.AddTransient<ContactsPage>();
+		services.AddTransient<ContactsViewModel>();
+		services.AddTransient<ConversationPage>();
+		services.AddTransient<ConversationViewModel>();
 		services.AddTransient<NotesPage>();
 		services.AddTransient<NotesViewModel>();
 	}

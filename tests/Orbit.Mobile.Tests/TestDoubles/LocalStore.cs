@@ -19,8 +19,10 @@ internal sealed class LocalStore : IDbContextFactory<OrbitLocalDbContext>, IDisp
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
 
+        // Migrate, not EnsureCreated, so a migration that does not actually produce the schema the code
+        // expects fails here rather than on a device.
         using var schema = CreateDbContext();
-        schema.Database.EnsureCreated();
+        schema.Database.Migrate();
     }
 
     /// <summary>

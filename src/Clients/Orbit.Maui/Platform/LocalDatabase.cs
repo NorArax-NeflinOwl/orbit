@@ -20,17 +20,19 @@ public static class LocalDatabase
 		=> $"Data Source={Path.Combine(FileSystem.AppDataDirectory, "orbit.db3")}";
 
 	/// <summary>
-	/// EnsureCreated rather than migrations, while nothing has shipped and there is no installed schema
-	/// to migrate from. The first release that people actually keep data in has to switch to migrations,
-	/// because EnsureCreated silently does nothing to a database that already exists - a new column
-	/// would simply be missing at runtime.
+	/// Brings the local database up to the schema this build expects, creating it on first run.
+	///
+	/// Migrations rather than EnsureCreated, which was the original shortcut and lasted exactly until the
+	/// second table: EnsureCreated does nothing at all to a database that already exists, so a new table
+	/// or column is simply missing at runtime, and the failure surfaces as a SQLite error deep inside a
+	/// screen rather than anywhere near the change that caused it.
 	/// </summary>
-	public static void EnsureCreated(IServiceProvider services)
+	public static void Migrate(IServiceProvider services)
 	{
 		using var dbContext = services
 			.GetRequiredService<IDbContextFactory<OrbitLocalDbContext>>()
 			.CreateDbContext();
 
-		dbContext.Database.EnsureCreated();
+		dbContext.Database.Migrate();
 	}
 }
