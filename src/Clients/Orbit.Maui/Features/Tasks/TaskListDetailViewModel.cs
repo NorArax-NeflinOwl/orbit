@@ -138,6 +138,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 		{
 			var result = await _synchronizer.SynchroniseAsync(cancellationToken);
 			Status = result.ReachedTheServer ? string.Empty : "Saved on this phone - it will sync later";
+
+			// Re-read rather than keep what was shown before the sync. An entry added here has no server
+			// id until the push comes back with one, and a later save built on the older copy would send
+			// no id at all - so the server would mint a second entry and cut loose whatever pointed at
+			// the first. See TaskItemRequest.Id.
+			if (result.Received > 0)
+			{
+				await ShowStoredListAsync(cancellationToken);
+			}
 		}
 		catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
 		{

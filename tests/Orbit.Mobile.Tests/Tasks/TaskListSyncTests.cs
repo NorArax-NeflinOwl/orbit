@@ -52,6 +52,34 @@ public sealed class TaskListSyncTests
     }
 
     [Fact]
+    public async Task An_entry_added_on_the_phone_takes_the_servers_id_and_keeps_it_across_later_saves()
+    {
+        // An entry created here has no server id until the push comes back with one. If a later save is
+        // built from a copy read before that, it sends no id, the server mints a second entry, and
+        // anything pointing at the first - a restock task, a daily reminder's record, an overdue notice -
+        // is cut loose. What makes the screen able to avoid that is the store holding the id afterwards.
+        using var context = new TaskContext();
+        var created = await context.TaskLists.CreateAsync("Groceries", NewItems("Buy milk"));
+        await context.SynchroniseAsync();
+
+        var afterFirstSync = (await context.TaskLists.FindAsync(created.LocalId))!.Items;
+        var entryId = Assert.Single(afterFirstSync).Id;
+        Assert.NotEqual(Guid.Empty, entryId);
+
+        await context.TaskLists.UpdateAsync(
+            created.LocalId, "Groceries", [afterFirstSync[0] with { IsCompleted = true }]);
+        await context.SynchroniseAsync();
+
+        var onTheServer = Assert.Single(context.Server.TaskLists.Single(list => list.Title == "Groceries").Items);
+        Assert.Equal(entryId, onTheServer.Id);
+        Assert.True(onTheServer.IsCompleted);
+    }
+
+    /// <summary>A fresh entry as the screen builds one: no server id yet, which is Guid.Empty locally.</summary>
+    private static IReadOnlyList<TaskItemDto> NewItems(string description)
+        => [new(Guid.Empty, description, null, false, null, "None", false, "None", new TimeOnly(9, 0))];
+
+    [Fact]
     public async Task A_list_created_and_then_edited_offline_arrives_in_the_order_it_happened()
     {
         using var context = new TaskContext();

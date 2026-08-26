@@ -121,10 +121,14 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
-    /// <summary>The server assigns item ids, which is why a request carries none.</summary>
+    /// <summary>
+    /// Keeps the id it was sent, and mints one only for an entry that has none - what the real endpoint
+    /// does (see TaskEndpoints.ToDomainItem). Minting unconditionally would let a client that dropped
+    /// entry ids pass its tests and lose them against a real server.
+    /// </summary>
     private static IReadOnlyList<TaskItemDto> ToDtos(IReadOnlyList<TaskItemRequest> items)
         => items.Select(item => new TaskItemDto(
-            Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
             item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
             item.DailyReminderTimeOfDay)).ToList();
 
