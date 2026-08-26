@@ -557,7 +557,7 @@ phase behind it, mostly for free apart from the platform-specific work.
 | **0. Server prerequisites** (built) | Version-gate endpoint (§7), diagnostic-log endpoint and table (§8), push transports (§4.2), multi-audience Google (§4.3), delta + tombstones for sync (§5.3), optionally the shared API-client project (§4.4) | Merged into `main`, web client unaffected |
 | **1. Walking skeleton** (built) | `Orbit.Maui` project, `Orbit.Contracts` referenced, auth + `SecureStorage` + single-flight refresh, **version gate on startup (§7)**, sign in/out, one real screen | A real account signs in on a device and an out-of-date build is stopped on the splash screen |
 | **2. Local store and sync spine** (built) | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
-| **3. Crypto spine** | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
+| **3. Crypto spine** (interop built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
 | **4. The content features** | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
 | **5. The rest of chat** | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
 | **6. Location and maps** | Geolocation, maps, recording, sharing, viewing shared | Location parity |
@@ -585,10 +585,17 @@ least from being started early.
   against a server that uses edit locks (§5.4) — has no obviously correct answer. Mitigate by proving
   the whole spine on Notes alone in phase 2 and being willing to change the conflict policy before
   four more features depend on it.
-- **Crypto interop is the other schedule risk.** If the shared-secret detail in §4.1 is discovered
-  late, it invalidates every message-handling assumption above it. Mitigate by making phase 3 start
-  with test vectors generated *from the browser*, checked into the repo, and asserted against by both
-  clients.
+- ~~**Crypto interop is the other schedule risk.**~~ **Retired.** The mitigation was carried out as
+  written: vectors generated *from the browser* running Orbit.Web's own `e2eeChat.js`, checked into
+  `tests/Orbit.Mobile.Tests/Crypto`, and asserted against. The no-KDF detail in §4.1 is now pinned in
+  two independent ways - the browser proved at generation time that `deriveKey` and the raw
+  `deriveBits` secret are the same key, and .NET decrypts browser ciphertext using
+  `DeriveRawSecretAgreement`. Both directions are verified: browser ciphertext opens in .NET, and a
+  browser opens .NET ciphertext, including a JWK private-key backup written by .NET.
+
+  What is *not* done is the rest of phase 3 - key storage on the device, restore at sign-in, and chat
+  itself. The risk this bullet described was that the spec would be discovered wrong late; that part is
+  settled.
 - **A local database of decrypted content weakens what private items promise** (§5.1). Private notes
   exist so the server cannot read them; caching them in plaintext on the device moves the exposure
   rather than removing it. Decide on database encryption deliberately.

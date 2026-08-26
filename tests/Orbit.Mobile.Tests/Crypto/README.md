@@ -17,6 +17,19 @@ service, and no real user's key is ever checked in.
 
 `backupPassword` is the passphrase those test keys are wrapped under, for the same reason.
 
+## Checking the other direction
+
+The vectors prove .NET can read what a browser wrote. Nothing in a .NET test can prove the reverse -
+only a browser can say whether WebCrypto accepts what this side produces - so that half is a two-step
+check:
+
+1. `dotnet test` (DotNetOutputTests) writes `dotnet-produced.json` next to the test binary.
+2. Copy it, `e2eeChat.js`, and `verify-dotnet-output-in-a-browser.html` into one directory, serve over
+   HTTP, and open the page. Every field it prints should be `true`.
+
+It checks four things: a browser can restore a key from a backup, decrypt a message .NET encrypted,
+open content .NET sealed for one reader, and import a JWK backup .NET wrote.
+
 ## What each vector pins down
 
 | Field | What it proves |

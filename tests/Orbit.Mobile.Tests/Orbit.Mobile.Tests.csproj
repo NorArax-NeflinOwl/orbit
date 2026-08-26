@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The vectors a real browser produced; the crypto tests read them at runtime. -->
+    <None Update="Crypto\browser-e2ee-vectors.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- HttpUtility.ParseQueryString, for reading the change-feed cursor back out in FakeNotesServer. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
