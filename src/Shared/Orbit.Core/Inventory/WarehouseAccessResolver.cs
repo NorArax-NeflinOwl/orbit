@@ -57,9 +57,10 @@ public sealed class WarehouseAccessResolver
     }
 
     /// <summary>Every warehouse callerId owns, plus every one shared with them (accepted grants only) - see Warehouses.razor.</summary>
-    public async Task<IReadOnlyList<Warehouse>> ResolveAllAsync(Guid callerId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Warehouse>> ResolveAllAsync(
+        Guid callerId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        var owned = await _warehouseRepository.GetAllAsync(callerId, cancellationToken);
+        var owned = await _warehouseRepository.GetAllAsync(callerId, updatedSinceUtc, cancellationToken);
         var grants = await _warehouseShareRepository.GetAcceptedGrantsForRecipientAsync(callerId, cancellationToken);
 
         // Asked once for the whole list rather than per item - see GetSharedOutWarehouseIdsAsync.

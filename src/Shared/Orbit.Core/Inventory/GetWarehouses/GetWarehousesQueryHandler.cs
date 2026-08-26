@@ -13,5 +13,5 @@ public sealed class GetWarehousesQueryHandler : IRequestHandler<GetWarehousesQue
     }
 
     public Task<IReadOnlyList<Warehouse>> HandleAsync(GetWarehousesQuery request, CancellationToken cancellationToken)
-        => _warehouseAccessResolver.ResolveAllAsync(request.UserId, cancellationToken);
+        => _warehouseAccessResolver.ResolveAllAsync(request.UserId, request.UpdatedSinceUtc, cancellationToken);
 }

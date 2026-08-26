@@ -81,6 +81,16 @@ public sealed class FirebasePushNotificationSender : IPushNotificationSender
                 $"Firebase reported subscription {subscription.Id}'s device token as no longer valid ({(int)response.StatusCode}).");
         }
 
+        if (IsApnsKeyMissing(response.StatusCode, body))
+        {
+            // Worth naming rather than leaving inside a generic refusal: nothing in this repository can
+            // fix it, and reading it as "Firebase refused something" sends whoever sees it looking in
+            // the wrong place. The key is uploaded in the Firebase console, not configured here.
+            throw new InvalidOperationException(
+                "Firebase cannot reach iOS: no valid APNs key is uploaded for this project. Upload the APNs "
+                + $"auth key under Project settings > Cloud Messaging in the Firebase console. ({Summarise(body)})");
+        }
+
         throw new InvalidOperationException(
             $"Firebase refused a push notification ({(int)response.StatusCode}): {Summarise(body)}");
     }
@@ -109,6 +119,16 @@ public sealed class FirebasePushNotificationSender : IPushNotificationSender
     /// FCM reports a dead token as UNREGISTERED, and a malformed one as INVALID_ARGUMENT. Both mean the
     /// subscription will never work again, so both are worth pruning rather than retrying forever.
     /// </summary>
+    /// <summary>
+    /// FCM's answer when a message is addressed to an iOS device and the project has no usable APNs
+    /// key. Only covers the case FCM notices: a key that is present but wrong for the bundle leaves FCM
+    /// accepting the send and the message dying at Apple, which nothing here can observe - see the
+    /// deployment notes on why that one is a checklist item rather than a check.
+    /// </summary>
+    internal static bool IsApnsKeyMissing(HttpStatusCode statusCode, string body)
+        => statusCode == HttpStatusCode.Unauthorized
+            && body.Contains("THIRD_PARTY_AUTH_ERROR", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsTokenNoLongerValid(HttpStatusCode statusCode, string body)
         => statusCode == HttpStatusCode.NotFound
             || (statusCode == HttpStatusCode.BadRequest && body.Contains("registration token", StringComparison.OrdinalIgnoreCase))

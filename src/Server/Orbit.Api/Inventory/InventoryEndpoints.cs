@@ -45,9 +45,9 @@ public static class InventoryEndpoints
         {
             var callerId = GetUserId(user);
             var cursor = ChangeFeed.StartCursor();
-            var all = await dispatcher.SendAsync(new GetWarehousesQuery(callerId), cancellationToken);
-            var changed = all.Where(warehouse => warehouse.UpdatedAtUtc >= since)
-                .Select(warehouse => ToDto(warehouse, callerId)).ToList();
+            // The cursor goes to the database rather than being applied to everything it returned.
+            var all = await dispatcher.SendAsync(new GetWarehousesQuery(callerId, since), cancellationToken);
+            var changed = all.Select(warehouse => ToDto(warehouse, callerId)).ToList();
 
             return Results.Ok(await ChangeFeed.BuildAsync(
                 changed, cursor, callerId, SyncEntityType.Warehouse, since, tombstones, cancellationToken));

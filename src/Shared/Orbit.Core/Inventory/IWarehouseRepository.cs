@@ -3,7 +3,13 @@ namespace Orbit.Core.Inventory;
 public interface IWarehouseRepository
 {
     /// <summary>Every warehouse userId owns. Warehouses shared *with* them come from IWarehouseShareRepository - see WarehouseAccessResolver.</summary>
-    Task<IReadOnlyList<Warehouse>> GetAllAsync(Guid userId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Everything userId owns, or - when updatedSinceUtc is given - only what changed at or after it.
+    /// The cursor is applied in the database: a client catching up asks for a delta, and answering it by
+    /// fetching everything and discarding most of it saved the wire and nothing else.
+    /// </summary>
+    Task<IReadOnlyList<Warehouse>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken);
 
     /// <summary>Scoped to userId as owner - returns null both when the warehouse doesn't exist and when someone else owns it.</summary>
     Task<Warehouse?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken);

@@ -43,8 +43,9 @@ public static class NoteEndpoints
         {
             var userId = GetUserId(user);
             var cursor = ChangeFeed.StartCursor();
-            var notes = await dispatcher.SendAsync(new GetNotesQuery(userId), cancellationToken);
-            var changed = notes.Where(note => note.UpdatedAtUtc >= since).Select(ToDto).ToList();
+            // The cursor goes to the database rather than being applied to everything it returned.
+            var notes = await dispatcher.SendAsync(new GetNotesQuery(userId, since), cancellationToken);
+            var changed = notes.Select(ToDto).ToList();
 
             return Results.Ok(await ChangeFeed.BuildAsync(
                 changed, cursor, userId, SyncEntityType.Note, since, tombstones, cancellationToken));

@@ -14,12 +14,21 @@ public sealed class WarehouseRepository : IWarehouseRepository
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<Warehouse>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Warehouse>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        var entities = await _dbContext.Warehouses
+        var query = _dbContext.Warehouses
             .AsNoTracking()
-            .Where(warehouse => warehouse.UserId == userId)
-            .ToListAsync(cancellationToken);
+            .Where(warehouse => warehouse.UserId == userId);
+
+        // Narrowed in the database when the caller only wants what changed. A client catching up asks
+        // for a delta; fetching everything and dropping most of it here saved the wire and nothing else.
+        if (updatedSinceUtc is not null)
+        {
+            query = query.Where(warehouse => warehouse.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        var entities = await query.ToListAsync(cancellationToken);
 
         return entities
             .OrderBy(warehouse => warehouse.Name)

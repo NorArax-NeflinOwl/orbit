@@ -23,7 +23,7 @@ public sealed class GetTaskListByIdQueryHandler : IRequestHandler<GetTaskListByI
     /// </summary>
     public async Task<TaskList?> HandleAsync(GetTaskListByIdQuery request, CancellationToken cancellationToken)
     {
-        var accessibleTaskLists = await _taskListAccessResolver.ResolveAllAsync(request.UserId, cancellationToken);
+        var accessibleTaskLists = await _taskListAccessResolver.ResolveAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var resolvedTaskLists = _linkedTaskCompletionResolver.ResolveAll(accessibleTaskLists);
         return resolvedTaskLists.FirstOrDefault(taskList => taskList.Id == request.Id);
     }

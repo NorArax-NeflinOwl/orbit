@@ -15,14 +15,21 @@ public sealed class NoteRepository : INoteRepository
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<Note>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Note>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        // SQLite can't translate ORDER BY on a DateTimeOffset column, so the sort has to happen in
-        // memory after fetching (see the EF Core NotSupportedException this avoids).
-        var entities = await _dbContext.Notes
+        var query = _dbContext.Notes
             .AsNoTracking()
-            .Where(entity => entity.UserId == userId)
-            .ToListAsync(cancellationToken);
+            .Where(entity => entity.UserId == userId);
+
+        // Narrowed in the database when the caller only wants what changed. A client catching up asks
+        // for a delta; fetching everything and dropping most of it here saved the wire and nothing else.
+        if (updatedSinceUtc is not null)
+        {
+            query = query.Where(entity => entity.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        var entities = await query.ToListAsync(cancellationToken);
 
         return entities
             .OrderByDescending(entity => entity.UpdatedAtUtc)

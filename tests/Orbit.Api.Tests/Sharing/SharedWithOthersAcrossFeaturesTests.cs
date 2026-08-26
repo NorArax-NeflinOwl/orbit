@@ -46,7 +46,7 @@ public sealed class SharedWithOthersAcrossFeaturesTests
         // A pending offer on the second list: nobody can read or change it yet, so it does not count.
         await shares.AddAsync(TaskListShare.Create(privateOne.Id, _owner.Id, Guid.NewGuid()), CancellationToken.None);
 
-        var resolved = await new TaskListAccessResolver(lists, shares, _users).ResolveAllAsync(_owner.Id, CancellationToken.None);
+        var resolved = await new TaskListAccessResolver(lists, shares, _users).ResolveAllAsync(_owner.Id, updatedSinceUtc: null, CancellationToken.None);
 
         Assert.True(resolved.Single(list => list.Title == "Shared").IsSharedWithOthers);
         Assert.False(resolved.Single(list => list.Title == "Mine alone").IsSharedWithOthers);
@@ -64,7 +64,7 @@ public sealed class SharedWithOthersAcrossFeaturesTests
         await events.AddAsync(privateOne, CancellationToken.None);
         await shares.AddAsync(Accepted(CalendarEventShare.Create(shared.Id, _owner.Id, Guid.NewGuid())), CancellationToken.None);
 
-        var resolved = await new CalendarEventAccessResolver(events, shares, _users).ResolveAllAsync(_owner.Id, CancellationToken.None);
+        var resolved = await new CalendarEventAccessResolver(events, shares, _users).ResolveAllAsync(_owner.Id, updatedSinceUtc: null, CancellationToken.None);
 
         Assert.True(resolved.Single(item => item.Details.Title == "Shared").IsSharedWithOthers);
         Assert.False(resolved.Single(item => item.Details.Title == "Mine alone").IsSharedWithOthers);
@@ -82,7 +82,7 @@ public sealed class SharedWithOthersAcrossFeaturesTests
         await warehouses.AddAsync(privateOne, CancellationToken.None);
         await shares.AddAsync(Accepted(WarehouseShare.Create(shared.Id, _owner.Id, Guid.NewGuid())), CancellationToken.None);
 
-        var resolved = await new WarehouseAccessResolver(warehouses, shares, _users).ResolveAllAsync(_owner.Id, CancellationToken.None);
+        var resolved = await new WarehouseAccessResolver(warehouses, shares, _users).ResolveAllAsync(_owner.Id, updatedSinceUtc: null, CancellationToken.None);
 
         Assert.True(resolved.Single(item => item.Name == "Shared").IsSharedWithOthers);
         Assert.False(resolved.Single(item => item.Name == "Mine alone").IsSharedWithOthers);
@@ -100,7 +100,7 @@ public sealed class SharedWithOthersAcrossFeaturesTests
         await shares.AddAsync(
             Accepted(TaskListShare.Create(shared.Id, _owner.Id, recipientId, ShareAccessLevel.CanEdit)), CancellationToken.None);
 
-        var resolved = await new TaskListAccessResolver(lists, shares, _users).ResolveAllAsync(recipientId, CancellationToken.None);
+        var resolved = await new TaskListAccessResolver(lists, shares, _users).ResolveAllAsync(recipientId, updatedSinceUtc: null, CancellationToken.None);
 
         // Conflating the two ends of one relationship would make every shared item look shared out to
         // everybody, and the offline policy would then refuse edits nobody else could possibly make.

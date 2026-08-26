@@ -46,9 +46,10 @@ public sealed class CalendarEventAccessResolver
     }
 
     /// <summary>Every event callerId owns, plus every event shared with them (accepted grants only).</summary>
-    public async Task<IReadOnlyList<CalendarEvent>> ResolveAllAsync(Guid callerId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CalendarEvent>> ResolveAllAsync(
+        Guid callerId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        var owned = await _calendarEventRepository.GetAllAsync(callerId, cancellationToken);
+        var owned = await _calendarEventRepository.GetAllAsync(callerId, updatedSinceUtc, cancellationToken);
         var grants = await _calendarEventShareRepository.GetAcceptedGrantsForRecipientAsync(callerId, cancellationToken);
 
         // Asked once for the whole list rather than per item - see GetSharedOutCalendarEventIdsAsync.

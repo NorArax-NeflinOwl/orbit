@@ -10,8 +10,17 @@ internal sealed class InMemoryNoteRepository : INoteRepository
 {
     private readonly List<Note> _notes = [];
 
-    public Task<IReadOnlyList<Note>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<Note>>(_notes.Where(note => note.UserId == userId).ToList());
+    public Task<IReadOnlyList<Note>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
+    {
+        var matching = _notes.Where(note => note.UserId == userId);
+        if (updatedSinceUtc is not null)
+        {
+            matching = matching.Where(note => note.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        return Task.FromResult<IReadOnlyList<Note>>(matching.ToList());
+    }
 
     public Task<Note?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
         => Task.FromResult(_notes.FirstOrDefault(note => note.Id == id && note.UserId == userId));

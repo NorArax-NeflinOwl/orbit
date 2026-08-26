@@ -263,6 +263,22 @@ Required work, server-side:
 None of this is exotic, but it is a schema change plus two integrations, and it should be scoped and
 merged **before** the mobile client needs it rather than alongside.
 
+### 4.2.1 The iOS push failure nothing can detect
+
+FCM reaches iOS through APNs, so iOS delivery depends on an APNs auth key uploaded in the Firebase
+console under **Project settings → Cloud Messaging**. There are two ways it goes wrong and they are not
+alike:
+
+- **No usable key at all.** FCM answers 401 with `THIRD_PARTY_AUTH_ERROR`, which
+  `FirebasePushNotificationSender` now names explicitly instead of reporting as a generic refusal.
+- **A key that is present but wrong for the bundle id.** FCM accepts the send, answers 200, and the
+  message dies at Apple. Nothing on the server observes this - there is no delivery receipt to read.
+
+The second one cannot be turned into a check, so it belongs on the release checklist: after changing the
+bundle id, the Apple team, or the APNs key, send one notification to a real iOS device and confirm it
+arrives. `Firebase__ServiceAccountKeyPath` is verified by the deploy workflow, which catches Firebase
+being unconfigured entirely - but not this.
+
 ### 4.3 Google sign-in accepts exactly one audience
 
 `GoogleAuthSettings` holds a single `ClientId`, and `GoogleIdentityVerifier` validates ID tokens with

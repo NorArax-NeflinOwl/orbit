@@ -88,6 +88,7 @@ jobs:
             Smtp__Password
             Smtp__FromAddress
             GoogleAuth__ClientId
+            Firebase__ServiceAccountKeyPath
           "
           CONFIGURED_VARIABLES=$(az containerapp show \
             --name orbit-api \

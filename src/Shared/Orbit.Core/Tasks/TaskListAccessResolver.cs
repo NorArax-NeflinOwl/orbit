@@ -47,9 +47,10 @@ public sealed class TaskListAccessResolver
     }
 
     /// <summary>Every task list callerId owns, plus every task list shared with them (accepted grants only).</summary>
-    public async Task<IReadOnlyList<TaskList>> ResolveAllAsync(Guid callerId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TaskList>> ResolveAllAsync(
+        Guid callerId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        var owned = await _taskRepository.GetAllAsync(callerId, cancellationToken);
+        var owned = await _taskRepository.GetAllAsync(callerId, updatedSinceUtc, cancellationToken);
         var grants = await _taskListShareRepository.GetAcceptedGrantsForRecipientAsync(callerId, cancellationToken);
 
         // Asked once for the whole list rather than per item - see GetSharedOutTaskListIdsAsync.

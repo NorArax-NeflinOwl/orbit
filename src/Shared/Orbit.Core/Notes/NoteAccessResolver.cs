@@ -58,9 +58,10 @@ public sealed class NoteAccessResolver
     }
 
     /// <summary>Every note callerId owns, plus every note shared with them (accepted grants only) - see Notes.razor/Dashboard.razor.</summary>
-    public async Task<IReadOnlyList<Note>> ResolveAllAsync(Guid callerId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Note>> ResolveAllAsync(
+        Guid callerId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        var owned = await _noteRepository.GetAllAsync(callerId, cancellationToken);
+        var owned = await _noteRepository.GetAllAsync(callerId, updatedSinceUtc, cancellationToken);
         var grants = await _noteShareRepository.GetAcceptedGrantsForRecipientAsync(callerId, cancellationToken);
 
         // Asked once for the whole list rather than per note - see GetSharedOutNoteIdsAsync.

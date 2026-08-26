@@ -12,5 +12,5 @@ public sealed class GetCalendarEventsQueryHandler : IRequestHandler<GetCalendarE
     }
 
     public Task<IReadOnlyList<CalendarEvent>> HandleAsync(GetCalendarEventsQuery request, CancellationToken cancellationToken)
-        => _calendarEventAccessResolver.ResolveAllAsync(request.UserId, cancellationToken);
+        => _calendarEventAccessResolver.ResolveAllAsync(request.UserId, request.UpdatedSinceUtc, cancellationToken);
 }

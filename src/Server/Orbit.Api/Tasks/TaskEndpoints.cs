@@ -45,8 +45,9 @@ public static class TaskEndpoints
         {
             var userId = GetUserId(user);
             var cursor = ChangeFeed.StartCursor();
-            var all = await dispatcher.SendAsync(new GetTaskListsQuery(userId), cancellationToken);
-            var changed = all.Where(taskList => taskList.UpdatedAtUtc >= since).Select(ToDto).ToList();
+            // The cursor goes to the database rather than being applied to everything it returned.
+            var all = await dispatcher.SendAsync(new GetTaskListsQuery(userId, since), cancellationToken);
+            var changed = all.Select(ToDto).ToList();
 
             return Results.Ok(await ChangeFeed.BuildAsync(
                 changed, cursor, userId, SyncEntityType.TaskList, since, tombstones, cancellationToken));
