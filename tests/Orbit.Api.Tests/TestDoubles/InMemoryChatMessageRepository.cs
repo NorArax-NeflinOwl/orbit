@@ -79,12 +79,19 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         return Task.FromResult(readSentTimestamps.Count == 0 ? null : (DateTimeOffset?)readSentTimestamps.Max());
     }
 
-    public Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(Guid groupId, Guid userId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<ChatMessage>>(
-            _messages
-                .Where(message => message.GroupId == groupId && (message.SenderUserId == userId || message.RecipientUserId == userId))
-                .OrderBy(message => message.SentAtUtc)
-                .ToList());
+    public Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(
+        Guid groupId, Guid userId, DateTimeOffset? sinceUtc, CancellationToken cancellationToken)
+    {
+        var messages = _messages.Where(message =>
+            message.GroupId == groupId && (message.SenderUserId == userId || message.RecipientUserId == userId));
+
+        if (sinceUtc is not null)
+        {
+            messages = messages.Where(message => message.SentAtUtc > sinceUtc.Value);
+        }
+
+        return Task.FromResult<IReadOnlyList<ChatMessage>>(messages.OrderBy(message => message.SentAtUtc).ToList());
+    }
 
     public Task DeleteAsync(Guid messageId, CancellationToken cancellationToken)
     {

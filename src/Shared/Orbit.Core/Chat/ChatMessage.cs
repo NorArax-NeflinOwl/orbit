@@ -55,10 +55,17 @@ public sealed class ChatMessage
     /// of N rows per message, and of a new member being unable to read anything sent before they
     /// joined, since no copy was ever encrypted for them.
     /// </summary>
+    /// <summary>
+    /// One copy of a group message. <paramref name="sentAtUtc"/> is passed in rather than read here so
+    /// every copy of the same message carries the same instant: read per copy, a message fanned out to
+    /// five people had five slightly different times, the one shown depended on which copy happened to
+    /// be kept, and a cursor could fall between them and hand back part of a message.
+    /// </summary>
     public static ChatMessage CreateForGroup(
-        Guid groupId, Guid groupMessageId, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
+        Guid groupId, Guid groupMessageId, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64,
+        DateTimeOffset sentAtUtc)
         => new(
-            Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, DateTimeOffset.UtcNow,
+            Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc,
             isEdited: false, editedAtUtc: null, groupId, groupMessageId);
 
     /// <summary>

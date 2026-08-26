@@ -30,7 +30,8 @@ public sealed class GetGroupConversationQueryHandler : IRequestHandler<GetGroupC
             return [];
         }
 
-        var messages = await _chatMessageRepository.GetGroupConversationAsync(request.GroupId, request.UserId, cancellationToken);
+        var messages = await _chatMessageRepository.GetGroupConversationAsync(
+            request.GroupId, request.UserId, request.SinceUtc, cancellationToken);
 
         // Ordered by id within a group of copies, so the same one is chosen on every read: the browser
         // caches decrypted text against the copy's id, and a choice that wandered between polls would

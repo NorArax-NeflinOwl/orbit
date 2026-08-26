@@ -59,7 +59,9 @@ else
                 <small>@T["Created:"] @note.CreatedAtUtc.LocalDateTime</small><br>
                 <small>@T["Last updated:"] @note.UpdatedAtUtc.LocalDateTime</small><br>
                 <button @onclick="() => GoToEditNote(note.Id)">@T["Edit"]</button>
-                <button @onclick="() => DeleteNoteAsync(note)">@T["Delete"]</button>
+                @* Somebody else's note is not this reader's to delete: pressing this takes it off their
+                   list and leaves the owner's alone, so it says that rather than "Delete". *@
+                <button @onclick="() => DeleteNoteAsync(note)">@(note.IsShared ? T["Remove from my list"] : T["Delete"])</button>
             </li>
         }
     </ul>
@@ -109,7 +111,11 @@ else
     private async Task DeleteNoteAsync(NoteDto note)
     {
         Logger.LogInformation("User clicked 'Delete' for note {NoteId}", note.Id);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete note \"{note.Title}\"?");
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            note.IsShared
+                ? T.Format("Remove \"{0}\" from your list? The owner keeps it.", note.Title)
+                : T.Format("Delete note \"{0}\"?", note.Title));
         if (!confirmed)
         {
             return;

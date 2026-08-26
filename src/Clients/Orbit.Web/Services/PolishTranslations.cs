@@ -696,5 +696,8 @@ internal static class PolishTranslations
         ["Search chats"] = "Szukaj rozmów",
         ["Search groups"] = "Szukaj grup",
         ["Nothing matches that."] = "Nic nie pasuje.",
+        ["Remove from my list"] = "Usuń z mojej listy",
+        ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
+        ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
     };
 }

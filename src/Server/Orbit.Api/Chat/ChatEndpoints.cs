@@ -157,10 +157,14 @@ public static class ChatEndpoints
             return changed ? Results.NoContent() : Results.NotFound();
         });
 
+        // sinceUtc matches the one-to-one conversation's own cursor: a client polling a group can ask
+        // for what it has not seen instead of the whole conversation every tick.
         chat.MapGet("/groups/{groupId:guid}/messages", async (
-            Guid groupId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+            Guid groupId, DateTimeOffset? sinceUtc, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
-            var messages = await dispatcher.SendAsync(new GetGroupConversationQuery(GetUserId(user), groupId), cancellationToken);
+            var messages = await dispatcher.SendAsync(
+                new GetGroupConversationQuery(GetUserId(user), groupId, sinceUtc), cancellationToken);
             return Results.Ok(messages.Select(ToDto));
         });
 

@@ -34,4 +34,6 @@ internal sealed class InMemoryUserRepository : IUserRepository
         // there is nothing to replace here - this mirrors InMemoryNoteRepository.UpdateAsync.
         return Task.CompletedTask;
     }
+    public Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<User>>(_users.Where(user => ids.Contains(user.Id)).ToList());
 }

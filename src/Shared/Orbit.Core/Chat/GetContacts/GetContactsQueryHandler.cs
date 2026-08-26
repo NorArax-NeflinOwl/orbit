@@ -33,17 +33,24 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
         // notifications is tidying, not reading, and a conversation the reader has not opened stays
         // unread however often they clear the panel.
         var unreadCounts = await _chatMessageRepository.GetUnreadCountsBySenderAsync(request.UserId, cancellationToken);
-        var summaries = new List<ContactSummary>();
 
+        // Three queries for the whole list rather than two per contact. This loop used to ask for each
+        // other party's profile and each conversation's access state one at a time, so a reader with
+        // thirty contacts cost sixty round trips - on a list the chat window refreshes on every poll.
+        var contactUserIds = contacts.Select(contact => contact.ContactUserId).ToList();
+        var usersById = (await _userRepository.GetByIdsAsync(contactUserIds, cancellationToken))
+            .ToDictionary(user => user.Id);
+        var accessByOtherParty = await _chatConversationAccessRepository.GetAllForUserAsync(request.UserId, cancellationToken);
+
+        var summaries = new List<ContactSummary>(contacts.Count);
         foreach (var contact in contacts)
         {
-            var otherUser = await _userRepository.GetByIdAsync(contact.ContactUserId, cancellationToken);
-            if (otherUser is null)
+            if (!usersById.TryGetValue(contact.ContactUserId, out var otherUser))
             {
                 continue;
             }
 
-            var access = await _chatConversationAccessRepository.GetAsync(request.UserId, contact.ContactUserId, cancellationToken);
+            var access = accessByOtherParty.GetValueOrDefault(contact.ContactUserId);
             var requiresApprovalFromCurrentUser = access is { IsApproved: false } && access.InitiatedByUserId != request.UserId;
             var isPendingApprovalFromOtherParty = access is { IsApproved: false } && access.InitiatedByUserId == request.UserId;
             summaries.Add(new ContactSummary(

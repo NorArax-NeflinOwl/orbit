@@ -81,4 +81,10 @@ public sealed class NoteShareRepository : INoteShareRepository
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc
         };
+    public async Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        await _dbContext.NoteShares
+            .Where(share => share.SourceNoteId == sourceId && share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }

@@ -4,6 +4,13 @@ public interface IUserRepository
 {
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Several users in one round trip, in no particular order and skipping any id that matches nobody.
+    /// Callers that need a set of people - the contacts list, a group's roster - used to ask one at a
+    /// time, which is a query per contact on every poll tick.
+    /// </summary>
+    Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
 
     Task<User?> GetByUserNameAsync(string userName, CancellationToken cancellationToken);

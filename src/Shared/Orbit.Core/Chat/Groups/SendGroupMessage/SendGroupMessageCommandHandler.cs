@@ -38,11 +38,14 @@ public sealed class SendGroupMessageCommandHandler : IRequestHandler<SendGroupMe
         }
 
         var groupMessageId = Guid.NewGuid();
+        // One instant for the whole fan-out, not one per copy - see ChatMessage.CreateForGroup.
+        var sentAtUtc = DateTimeOffset.UtcNow;
         foreach (var copy in request.Copies)
         {
             await _chatMessageRepository.AddAsync(
                 ChatMessage.CreateForGroup(
-                    group.Id, groupMessageId, request.SenderUserId, copy.RecipientUserId, copy.CiphertextBase64, copy.NonceBase64),
+                    group.Id, groupMessageId, request.SenderUserId, copy.RecipientUserId, copy.CiphertextBase64, copy.NonceBase64,
+                    sentAtUtc),
                 cancellationToken);
         }
 

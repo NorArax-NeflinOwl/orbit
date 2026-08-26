@@ -40,4 +40,15 @@ internal sealed class InMemoryChatConversationAccessRepository : IChatConversati
         => _accesses.FirstOrDefault(access =>
             (access.InitiatedByUserId == userId && access.OtherUserId == otherUserId) ||
             (access.InitiatedByUserId == otherUserId && access.OtherUserId == userId));
+    public Task<IReadOnlyDictionary<Guid, ChatConversationAccess>> GetAllForUserAsync(
+        Guid userId, CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<Guid, ChatConversationAccess> byOtherParty = _accesses
+            .Where(access => access.InitiatedByUserId == userId || access.OtherUserId == userId)
+            .ToDictionary(
+                access => access.InitiatedByUserId == userId ? access.OtherUserId : access.InitiatedByUserId,
+                access => access);
+
+        return Task.FromResult(byOtherParty);
+    }
 }

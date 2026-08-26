@@ -16,25 +16,24 @@ public sealed class ChatMessageRepository : IChatMessageRepository
     public async Task<IReadOnlyList<ChatMessage>> GetConversationAsync(
         Guid userId, Guid otherUserId, DateTimeOffset? sinceUtc, CancellationToken cancellationToken)
     {
-        // Only the SenderUserId/RecipientUserId filter is translated to SQL. sinceUtc filtering and the
-        // final ordering both operate on the DateTimeOffset column, which SQLite can't translate (see the
-        // EF Core exception this avoids, and GetReadUpToUtcAsync below for the same limitation) - so both
-        // happen in memory after fetching the conversation instead.
-        var entities = await _dbContext.ChatMessages
+        // Filtered and ordered in the database. This used to fetch the whole conversation and narrow it
+        // here, because SQLite could not translate a comparison on a DateTimeOffset column - a real
+        // limitation of a provider this app no longer uses. Against PostgreSQL the column is a
+        // timestamptz and Npgsql translates both, so a chat window polling once a second stopped asking
+        // for its entire history on every tick.
+        var query = _dbContext.ChatMessages
             .AsNoTracking()
             .Where(message =>
                 (message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
-                (message.SenderUserId == otherUserId && message.RecipientUserId == userId))
-            .ToListAsync(cancellationToken);
+                (message.SenderUserId == otherUserId && message.RecipientUserId == userId));
 
-        var messagesSinceUtc = sinceUtc is null
-            ? entities
-            : entities.Where(entity => entity.SentAtUtc > sinceUtc.Value);
+        if (sinceUtc is not null)
+        {
+            query = query.Where(message => message.SentAtUtc > sinceUtc.Value);
+        }
 
-        return messagesSinceUtc
-            .OrderBy(entity => entity.SentAtUtc)
-            .Select(ToDomain)
-            .ToList();
+        var entities = await query.OrderBy(message => message.SentAtUtc).ToListAsync(cancellationToken);
+        return entities.Select(ToDomain).ToList();
     }
 
     public async Task AddAsync(ChatMessage message, CancellationToken cancellationToken)
@@ -43,14 +42,22 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(Guid groupId, Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(
+        Guid groupId, Guid userId, DateTimeOffset? sinceUtc, CancellationToken cancellationToken)
     {
-        var entities = await _dbContext.ChatMessages
+        var query = _dbContext.ChatMessages
             .AsNoTracking()
-            .Where(message => message.GroupId == groupId && (message.SenderUserId == userId || message.RecipientUserId == userId))
-            .OrderBy(message => message.SentAtUtc)
-            .ToListAsync(cancellationToken);
+            .Where(message => message.GroupId == groupId && (message.SenderUserId == userId || message.RecipientUserId == userId));
 
+        if (sinceUtc is not null)
+        {
+            // Safe alongside the copy-collapsing in GetGroupConversationQueryHandler: every copy of one
+            // group message is stamped with the same SentAtUtc when it is fanned out, so a cursor either
+            // takes all of a message's copies or none, never a subset that would change which one is kept.
+            query = query.Where(message => message.SentAtUtc > sinceUtc.Value);
+        }
+
+        var entities = await query.OrderBy(message => message.SentAtUtc).ToListAsync(cancellationToken);
         return entities.Select(ToDomain).ToList();
     }
 
