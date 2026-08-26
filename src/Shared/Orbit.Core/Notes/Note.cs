@@ -69,6 +69,7 @@ public sealed class Note
         Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate = false, EncryptedPayload? encryptedContent = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
+        EnsureSomethingToRead(title, content, isPrivate);
         var now = DateTimeOffset.UtcNow;
         return new Note(
             Guid.NewGuid(), userId, title, content, isPrivate, encryptedContent, now, now,
@@ -103,6 +104,7 @@ public sealed class Note
     public void Update(string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
+        EnsureSomethingToRead(title, content, isPrivate);
         (Title, Content, IsPrivate, EncryptedContent) = ReadableOrSealed(title, content, isPrivate, encryptedContent);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
@@ -113,6 +115,29 @@ public sealed class Note
     /// than trusted from callers, because a private note that still carried a readable title would break
     /// the only promise this feature makes.
     /// </summary>
+    /// <summary>
+    /// Refuses a note with nothing in it at all - no title and no line with anything on it. Such a note
+    /// shows up in the list as a blank row that says nothing about itself and can only have been made by
+    /// accident, so it is better not to have been made.
+    ///
+    /// A title on its own is enough: "Dentist on Tuesday" is a whole note, and demanding a body for it
+    /// would be inventing a rule nobody asked for. A private note is exempt entirely - its readable
+    /// fields travel empty by design, and what it actually says is inside the sealed payload where this
+    /// cannot look.
+    /// </summary>
+    private static void EnsureSomethingToRead(string title, IReadOnlyList<NoteContentLine> content, bool isPrivate)
+    {
+        if (isPrivate)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(title) && !content.Any(line => !string.IsNullOrWhiteSpace(line.Text)))
+        {
+            throw new InvalidRequestException("A note needs a title or something written in it.");
+        }
+    }
+
     /// <summary>
     /// Refuses a private note arriving with nothing sealed inside it. Called from Create and Update
     /// only - never when rebuilding a stored row, which is deliberate: this rule exists to stop a bad
