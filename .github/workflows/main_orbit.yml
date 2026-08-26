@@ -1,12 +1,23 @@
-# Builds orbit-api and orbit-web images inside Azure Container Registry and updates both Azure
-# Container Apps to run the newly built image. Replaces the previous single-App-Service workflow that
-# Azure Deployment Center generated - Orbit is now deployed as two separate containers, matching the
-# local docker-compose topology instead of one combined ASP.NET Core app.
+# Tests Orbit, then - on main - builds orbit-api and orbit-web images and updates both Azure Container
+# Apps to run them. Replaces the previous single-App-Service workflow that Azure Deployment Center
+# generated - Orbit is now deployed as two separate containers, matching the local docker-compose
+# topology instead of one combined ASP.NET Core app.
+#
+# One workflow, two jobs, because two workflows could not gate each other. The suite used to run here
+# and again in a separate ci.yml, and a red ci.yml did not stop a deploy - it was a report beside the
+# pipeline rather than a step in it. Worse, the two drifted: this file asked for "orbit.sln" and ci.yml
+# for "Orbit.sln", so three merges built green in one workflow and silently failed to deploy in the
+# other (see PR #75). `needs` is a real gate, and one definition cannot disagree with itself.
 
-name: Build and deploy Orbit to Azure Container Apps
+name: Build, test and deploy Orbit to Azure Container Apps
 
 on:
   push:
+    branches:
+      - main
+  # A pull request runs the test job only - the deploy job is skipped by its own condition below, so a
+  # branch is checked without any of it reaching Azure.
+  pull_request:
     branches:
       - main
   workflow_dispatch:
@@ -21,7 +32,35 @@ permissions:
   contents: read
 
 jobs:
-  build-and-deploy:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      # Orbit.sln, capitalised: the runner's filesystem is case-sensitive and a developer's Mac is not,
+      # so a name that is only wrong in its case passes locally and fails only here.
+      - name: Restore
+        run: dotnet restore Orbit.sln
+
+      - name: Build
+        run: dotnet build Orbit.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Orbit.sln --configuration Release --no-build
+
+  deploy:
+    # The gate the old arrangement only looked like it had: nothing below runs until the suite is green.
+    needs: test
+    # Everything from here talks to Azure, so a pull request stops at the job above.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # Deliberately NOT targeting a GitHub Environment here (e.g. `environment: production`), tempting
     # as that is for gating deploys behind a manual approval - doing so changes the OIDC token's
@@ -106,21 +145,6 @@ jobs:
             exit 1
           fi
           echo "orbit-api has every required environment variable."
-
-      # az acr build (ACR Tasks) is blocked on Azure Free Trial subscriptions regardless of role
-      # assignments, so images are built here on the runner instead and pushed with plain docker push.
-      # The cheapest gate there is, and the one that was missing: this workflow built and deployed
-      # without running a single test. A dependency cycle in the client's service graph reached
-      # production that way (see PR #70), and ClientServiceGraphTests would have stopped it here.
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      # Orbit.sln, capitalised: the runner's filesystem is case-sensitive and a developer's Mac is not,
-      # so a name that is only wrong in its case passes locally and fails only here.
-      - name: Run the test suite
-        run: dotnet test Orbit.sln --configuration Release
 
       - name: Log in to Azure Container Registry
         run: az acr login --name ${{ env.registryName }}
