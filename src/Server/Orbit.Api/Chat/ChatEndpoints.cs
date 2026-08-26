@@ -7,6 +7,7 @@ using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.EditMessage;
 using Orbit.Core.Chat.Groups.SendGroupMessage;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
+using Orbit.Core.Chat.Groups.EditGroupMessage;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
 using Orbit.Core.Chat.Groups.GetChatGroups;
 using Orbit.Core.Chat.Groups.CreateChatGroup;
@@ -174,6 +175,18 @@ public static class ChatEndpoints
             return sent ? Results.NoContent() : Results.NotFound();
         });
 
+        chat.MapPut("/groups/{groupId:guid}/messages/{groupMessageId:guid}", async (
+            Guid groupId, Guid groupMessageId, SendGroupMessageRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var copies = request.Copies
+                .Select(copy => new GroupMessageCopy(copy.RecipientUserId, copy.CiphertextBase64, copy.NonceBase64))
+                .ToList();
+            var edited = await dispatcher.SendAsync(
+                new EditGroupMessageCommand(GetUserId(user), groupMessageId, copies), cancellationToken);
+            return edited ? Results.NoContent() : Results.NotFound();
+        });
+
         chat.MapDelete("/messages/{messageId:guid}", async (
             Guid messageId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -225,7 +238,7 @@ public static class ChatEndpoints
     private static ChatMessageDto ToDto(ChatMessage message)
         => new(
             message.Id, message.SenderUserId, message.RecipientUserId, message.CiphertextBase64, message.NonceBase64, message.SentAtUtc,
-            message.IsEdited, message.EditedAtUtc);
+            message.IsEdited, message.EditedAtUtc, message.GroupMessageId);
 
     private static ChatConversationAccessDto ToDto(ChatConversationAccess access)
         => new(access.InitiatedByUserId, access.IsApproved);

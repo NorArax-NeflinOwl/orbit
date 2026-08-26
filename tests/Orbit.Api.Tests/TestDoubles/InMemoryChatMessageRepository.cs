@@ -110,4 +110,8 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
 
         return Task.FromResult(counts);
     }
+    public Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(
+        Guid groupMessageId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<ChatMessage>>(
+            _messages.Where(message => message.GroupMessageId == groupMessageId).ToList());
 }
