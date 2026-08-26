@@ -95,6 +95,23 @@ public sealed class DashboardTests : TestContext
         Assert.EndsWith($"/chat/groups/{group.Id}", Services.GetRequiredService<NavigationManager>().Uri);
     }
 
+    [Fact]
+    public void Clicking_a_task_list_opens_its_checklist_rather_than_its_settings()
+    {
+        var taskList = TaskList("Errands");
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterTasksApiClient([taskList]);
+        RegisterEmptyCalendarApiClient();
+        var cut = RenderComponent<Dashboard>();
+
+        FindColumn(cut, "Tasks").QuerySelector("button")!.Click();
+
+        // Clicking a list here means "let me get on with it", which is ticking things off - reworking
+        // the list's own settings is a deliberate trip to the editor from there.
+        Assert.EndsWith($"/tasks/{taskList.Id}/checklist", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
     private static ChatGroupDto Group(string name, int memberCount, string ownRole = "Member")
         => new(
             Guid.NewGuid(), name, Guid.NewGuid(), DateTimeOffset.UtcNow, ownRole,
@@ -125,11 +142,19 @@ public sealed class DashboardTests : TestContext
         Services.AddSingleton(new NotesApiClient(httpClient));
     }
 
-    private void RegisterEmptyTasksApiClient()
+    private void RegisterEmptyTasksApiClient() => RegisterTasksApiClient([]);
+
+    private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
     {
-        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(Array.Empty<TaskDto>()))) { BaseAddress = new Uri("https://example.test/") };
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(taskLists))) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new TasksApiClient(httpClient));
     }
+
+    private static TaskDto TaskList(string title)
+        => new(
+            Guid.NewGuid(), title, [], IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
     private void RegisterEmptyCalendarApiClient()
     {
