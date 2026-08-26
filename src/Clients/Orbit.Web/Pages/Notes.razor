@@ -13,9 +13,15 @@
    classes. Restyle onto the tokens/components in wwwroot/css/app.css (.page-header, .card, .card-grid,
    .btn-primary/.btn-secondary, .list-row) the way Dashboard.razor's "Notes" card already does, instead
    of introducing new one-off classes. *@
-<h1>Notes</h1>
-
-<p><button @onclick="GoToAddNote">Add note</button></p>
+<div class="page-header">
+    <div>
+        <h1>Notes</h1>
+        <p class="page-subtitle">Everything you have written down, and anything shared with you.</p>
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-primary" @onclick="GoToAddNote">Add note</button>
+    </div>
+</div>
 
 @if (_notes is null)
 {
