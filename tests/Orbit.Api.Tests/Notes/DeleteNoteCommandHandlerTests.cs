@@ -11,7 +11,7 @@ public sealed class DeleteNoteCommandHandlerTests
     public async Task HandleAsync_deletes_a_note_owned_by_the_requesting_user()
     {
         var repository = new InMemoryNoteRepository();
-        var handler = new DeleteNoteCommandHandler(repository);
+        var handler = new DeleteNoteCommandHandler(repository, new InMemorySyncTombstoneRepository());
         var userId = Guid.NewGuid();
         var note = Note.Create(userId, "Title", [NoteContentLine.PlainText("Content")]);
         await repository.AddAsync(note, CancellationToken.None);
@@ -26,7 +26,7 @@ public sealed class DeleteNoteCommandHandlerTests
     public async Task HandleAsync_returns_false_and_does_not_delete_a_note_owned_by_a_different_user()
     {
         var repository = new InMemoryNoteRepository();
-        var handler = new DeleteNoteCommandHandler(repository);
+        var handler = new DeleteNoteCommandHandler(repository, new InMemorySyncTombstoneRepository());
         var ownerId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
         var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
@@ -41,7 +41,7 @@ public sealed class DeleteNoteCommandHandlerTests
     [Fact]
     public async Task HandleAsync_returns_false_for_an_unknown_note_id()
     {
-        var handler = new DeleteNoteCommandHandler(new InMemoryNoteRepository());
+        var handler = new DeleteNoteCommandHandler(new InMemoryNoteRepository(), new InMemorySyncTombstoneRepository());
 
         var wasDeleted = await handler.HandleAsync(new DeleteNoteCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 

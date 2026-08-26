@@ -36,6 +36,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
     public DbSet<DiagnosticLogEntryEntity> DiagnosticLogEntries => Set<DiagnosticLogEntryEntity>();
+    public DbSet<SyncTombstoneEntity> SyncTombstones => Set<SyncTombstoneEntity>();
     public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -366,6 +367,14 @@ public sealed class OrbitDbContext : DbContext
             entity.HasIndex(link => link.Token).IsUnique();
             // GetLiveForItemAsync's exact filter: one live link per item per owner.
             entity.HasIndex(link => new { link.OwnerUserId, link.ItemType, link.ItemId });
+        });
+
+        modelBuilder.Entity<SyncTombstoneEntity>(entity =>
+        {
+            entity.HasKey(tombstone => tombstone.Id);
+            entity.Property(tombstone => tombstone.EntityType).IsRequired().HasMaxLength(40);
+            // Every read is "this user's deletions of this kind since a moment" - see SyncTombstoneRepository.
+            entity.HasIndex(tombstone => new { tombstone.UserId, tombstone.EntityType, tombstone.DeletedAtUtc });
         });
 
         modelBuilder.Entity<DiagnosticLogEntryEntity>(entity =>

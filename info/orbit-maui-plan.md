@@ -306,8 +306,16 @@ deliberately, not defaulted.
 | Recording your own location | Notification feed | Share links, export/import |
 | Composing chat messages (queued, see §5.5) | Contacts | Viewing others' shared locations |
 | | | Sign-in, account changes, Google linking |
+| | | **Deleting the account** |
 
 Anything requiring a fresh server decision — a share offer, a lock, an account change — stays online.
+
+**Deleting an account is online-only, and the app should say so rather than queue it.** It is the one
+action where an outbox would actively mislead: the request is irreversible, it needs the password
+checked against the server, and it has effects the phone cannot carry out on its own — on the server
+side it also takes the account out of its chat groups, promoting a new admin where it was the last one.
+An offline "delete my account" that sits in a queue would leave someone believing their account was
+gone while it was still live, possibly for days. Grey the action out while offline and explain why.
 
 ### 5.3 Pulling changes: the API has no delta, and no tombstones
 

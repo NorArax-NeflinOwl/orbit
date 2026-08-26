@@ -15,6 +15,7 @@ using Orbit.Core.Sharing;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.OverdueNotifications;
+using Orbit.Core.Sync;
 using Orbit.Core.Users;
 using Orbit.Data.Repositories;
 
@@ -64,6 +65,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<INotificationSettingsRepository, NotificationSettingsRepository>();
         services.AddScoped<INotificationEntryRepository, NotificationEntryRepository>();
         services.AddScoped<IDiagnosticLogRepository, DiagnosticLogRepository>();
+        services.AddScoped<ISyncTombstoneRepository, SyncTombstoneRepository>();
         services.AddScoped<IPublicShareLinkRepository, PublicShareLinkRepository>();
 
         return services;
