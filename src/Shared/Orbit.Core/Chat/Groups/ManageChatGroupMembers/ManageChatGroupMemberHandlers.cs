@@ -103,6 +103,15 @@ public sealed class RemoveChatGroupMemberCommandHandler : IRequestHandler<Remove
         }
 
         group.RemoveMember(request.ActorUserId, request.UserId);
+
+        // The last person out empties the group, and an empty group is not something to keep - the same
+        // tidy-up DeleteAccountCommandHandler does after RemoveDeletedAccount, for the same reason.
+        if (group.IsEmpty)
+        {
+            await _chatGroupRepository.DeleteAsync(group.Id, cancellationToken);
+            return true;
+        }
+
         await _chatGroupRepository.UpdateAsync(group, cancellationToken);
         return true;
     }
