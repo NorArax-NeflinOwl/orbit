@@ -4,10 +4,11 @@ The mobile client: one .NET MAUI project producing both the **iOS** and **Androi
 is the reference device. See [`info/orbit-maui-plan.md`](../../../info/orbit-maui-plan.md) for the plan
 this is being built against.
 
-Phases 1 to 3 are built: the version gate, sign in/out with the session in the Keychain, a notes screen
-that reads a local SQLite database and works with no connection, and end-to-end-encrypted one-to-one
-chat that interoperates with Orbit.Web byte for byte. Everything else is still ahead — see the plan's
-phasing.
+Phases 1 to 4 are built: the version gate, sign in/out with the session in the Keychain,
+end-to-end-encrypted one-to-one chat that interoperates with Orbit.Web byte for byte, and notes, task
+lists, calendar events and warehouses all on one offline sync spine — every screen reads a local SQLite
+database, and changes queue in one outbox and replay in order when the network returns. Still ahead:
+group chat, background sync, and the iPhone-specific work in the plan's §9.
 
 The local database is managed with **EF Core migrations** (`Orbit.Mobile/Data/Migrations`). Add one with
 `dotnet ef migrations add <Name> --project src/Clients/Orbit.Mobile --output-dir Data/Migrations`. The

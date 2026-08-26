@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 
@@ -24,6 +25,8 @@ public sealed class OrbitLocalDbContext : DbContext
     public DbSet<LocalTaskList> TaskLists => Set<LocalTaskList>();
 
     public DbSet<LocalCalendarEvent> CalendarEvents => Set<LocalCalendarEvent>();
+
+    public DbSet<LocalWarehouse> Warehouses => Set<LocalWarehouse>();
 
     public DbSet<OutboxEntry> Outbox => Set<OutboxEntry>();
 
@@ -80,6 +83,15 @@ public sealed class OrbitLocalDbContext : DbContext
                     stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.CalendarEventDetailsDto)!);
         });
 
+        modelBuilder.Entity<LocalWarehouse>(warehouse =>
+        {
+            warehouse.HasKey(entity => entity.LocalId);
+            warehouse.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
+            warehouse.Property(entity => entity.Items)
+                .HasConversion(WarehouseItemsConverter)
+                .Metadata.SetValueComparer(WarehouseItemsComparer);
+        });
+
         modelBuilder.Entity<OutboxEntry>(entry =>
         {
             entry.HasKey(entity => entity.Id);
@@ -134,6 +146,17 @@ public sealed class OrbitLocalDbContext : DbContext
 
     /// <summary>Without this an edited item list is compared by reference and saved unchanged.</summary>
     private static readonly ValueComparer<IReadOnlyList<TaskItemDto>> ItemsComparer = new(
+        (left, right) => left!.SequenceEqual(right!),
+        items => items.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
+        items => items.ToList());
+
+    /// <summary>What a warehouse holds, in one column - nothing ever queries a single item.</summary>
+    private static readonly ValueConverter<IReadOnlyList<WarehouseItemDto>, string> WarehouseItemsConverter = new(
+        items => JsonSerializer.Serialize(items, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto),
+        stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto) ?? new List<WarehouseItemDto>());
+
+    /// <summary>Without this an edited item list is compared by reference and saved unchanged.</summary>
+    private static readonly ValueComparer<IReadOnlyList<WarehouseItemDto>> WarehouseItemsComparer = new(
         (left, right) => left!.SequenceEqual(right!),
         items => items.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
         items => items.ToList());

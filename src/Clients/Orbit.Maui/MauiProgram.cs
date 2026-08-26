@@ -5,6 +5,7 @@ using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
 using Orbit.Maui.Features.Chat;
+using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Tasks;
 using Orbit.Maui.Features.Startup;
@@ -63,6 +64,7 @@ public static class MauiProgram
 		services.AddSingleton<LocalNoteRepository>();
 		services.AddSingleton<LocalTaskListRepository>();
 		services.AddSingleton<LocalCalendarEventRepository>();
+		services.AddSingleton<LocalWarehouseRepository>();
 
 		// Transient, not singleton: both take a typed HttpClient, and holding one for the life of the app
 		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
@@ -70,6 +72,7 @@ public static class MauiProgram
 		services.AddTransient<NoteSynchronizer>();
 		services.AddTransient<TaskListSynchronizer>();
 		services.AddTransient<CalendarEventSynchronizer>();
+		services.AddTransient<WarehouseSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<EncryptedChatMessageReader>();
 		services.AddTransient<EncryptedChatMessageSender>();
@@ -113,6 +116,8 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<CalendarClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<InventoryClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 
 		services.AddHttpClient<TokenRefreshService>(client => client.BaseAddress = apiSettings.BaseAddress);
 		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress);
@@ -153,5 +158,9 @@ public static class MauiProgram
 		services.AddTransient<TaskListDetailViewModel>();
 		services.AddTransient<CalendarPage>();
 		services.AddTransient<CalendarViewModel>();
+		services.AddTransient<InventoryPage>();
+		services.AddTransient<InventoryViewModel>();
+		services.AddTransient<WarehouseDetailPage>();
+		services.AddTransient<WarehouseDetailViewModel>();
 	}
 }

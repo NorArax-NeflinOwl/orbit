@@ -55,7 +55,8 @@
             <Button Grid.Row="0" Grid.Column="0" Text="Tasks" Command="{Binding GoToTasksCommand}" />
             <Button Grid.Row="0" Grid.Column="1" Text="Calendar" Command="{Binding GoToCalendarCommand}" />
             <Button Grid.Row="0" Grid.Column="2" Text="Chat" Command="{Binding GoToChatCommand}" />
-            <Button Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="Account" Command="{Binding GoToAccountCommand}" />
+            <Button Grid.Row="1" Grid.Column="0" Text="Inventory" Command="{Binding GoToInventoryCommand}" />
+            <Button Grid.Row="1" Grid.Column="1" Text="Account" Command="{Binding GoToAccountCommand}" />
             <Button Grid.Row="1" Grid.Column="2" Text="Sign out" Command="{Binding SignOutCommand}" />
         </Grid>
 

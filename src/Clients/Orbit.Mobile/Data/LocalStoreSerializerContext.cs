@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 
@@ -13,4 +14,5 @@ namespace Orbit.Mobile.Data;
 [JsonSerializable(typeof(IReadOnlyList<NoteContentLineDto>))]
 [JsonSerializable(typeof(IReadOnlyList<TaskItemDto>))]
 [JsonSerializable(typeof(CalendarEventDetailsDto))]
+[JsonSerializable(typeof(IReadOnlyList<WarehouseItemDto>))]
 internal sealed partial class LocalStoreSerializerContext : JsonSerializerContext;
