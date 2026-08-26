@@ -38,6 +38,14 @@ public sealed class TaskList
     public TaskListPriority Priority { get; private set; }
 
     /// <summary>
+    /// Keeps this list at the top of the Tasks page whatever the reader is sorting by. Separate from
+    /// Priority on purpose: priority says how much something matters, pinning says "keep this where I
+    /// can see it", and the two are not the same wish - a low-priority list can still be the one being
+    /// worked on today.
+    /// </summary>
+    public bool IsPinned { get; private set; }
+
+    /// <summary>
     /// Marks this list as one that gathers other lists: the lists its items link to are its members,
     /// and the checklist view renders them inline underneath it so the whole group can be worked
     /// through in one place. Purely a presentation flag - completion still follows the same rules,
@@ -68,7 +76,7 @@ public sealed class TaskList
 
     private TaskList(
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
-        TaskListPriority priority, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        TaskListPriority priority, bool isPinned, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
@@ -77,6 +85,7 @@ public sealed class TaskList
         IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(Items);
         Priority = priority;
+        IsPinned = isPinned;
         LockedByUserId = lockedByUserId;
         LockedByUserName = lockedByUserName;
         LockExpiresAtUtc = lockExpiresAtUtc;
@@ -86,12 +95,13 @@ public sealed class TaskList
 
     public static TaskList Create(
         Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
-        bool isPrivate = false, EncryptedPayload? encryptedContent = null, TaskListPriority priority = TaskListPriority.Normal)
+        bool isPrivate = false, EncryptedPayload? encryptedContent = null, TaskListPriority priority = TaskListPriority.Normal,
+        bool isPinned = false)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         var now = DateTimeOffset.UtcNow;
         return new TaskList(
-            Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, now, now,
+            Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, now, now,
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
     }
 
@@ -105,8 +115,8 @@ public sealed class TaskList
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        TaskListPriority priority)
-        => new(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, createdAtUtc, updatedAtUtc,
+        TaskListPriority priority, bool isPinned)
+        => new(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, createdAtUtc, updatedAtUtc,
             lockedByUserId, lockedByUserName, lockExpiresAtUtc);
 
     /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
@@ -133,6 +143,22 @@ public sealed class TaskList
         IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(Items);
         Priority = priority;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Pinning is its own action rather than part of Update, so it can be done from the list of lists
+    /// without loading, editing and saving the whole thing - and so it never collides with someone
+    /// else's edit lock, which is about the content rather than where the card sits.
+    /// </summary>
+    public void SetPinned(bool isPinned)
+    {
+        if (IsPinned == isPinned)
+        {
+            return;
+        }
+
+        IsPinned = isPinned;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
