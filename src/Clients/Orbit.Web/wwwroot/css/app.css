@@ -2969,3 +2969,9 @@ input.note-editor-title {
     align-items: center;
     color: var(--danger);
 }
+
+/* A pinned task list leads the page whatever the sort is (Tasks.razor). */
+.card-badge-pinned {
+    background: color-mix(in oklch, var(--accent) 16%, transparent);
+    color: var(--accent);
+}

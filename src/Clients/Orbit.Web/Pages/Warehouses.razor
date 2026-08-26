@@ -70,7 +70,7 @@ else
                     }
                 </div>
                 <div class="warehouse-card-actions">
-                    <button class="btn-primary" @onclick="() => OpenWarehouse(warehouse.Id)">Open</button>
+                    <button class="btn-primary" @onclick="() => OpenWarehouse(warehouse.Id)">@T["Open"]</button>
                     @if (CanShare(warehouse))
                     {
                         <button class="btn-secondary" @onclick="() => ToggleSharePanel(warehouse.Id)">@T["Share"]</button>

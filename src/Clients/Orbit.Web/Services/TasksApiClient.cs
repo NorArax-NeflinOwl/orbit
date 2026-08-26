@@ -35,6 +35,14 @@ public sealed class TasksApiClient
         _privateContentSealer = privateContentSealer;
     }
 
+    /// <summary>Pins or unpins one list. Returns false when it isn't the caller's to pin - see SetTaskListPinnedCommandHandler.</summary>
+    public async Task<bool> SetPinnedAsync(Guid taskListId, bool isPinned, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/pinned", new SetTaskListPinnedRequest(isPinned), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<IReadOnlyList<TaskDto>> GetTaskListsAsync(CancellationToken cancellationToken = default)
     {
         var taskLists = await _httpClient.GetFromJsonAsync<List<TaskDto>>("api/tasks", cancellationToken) ?? [];
