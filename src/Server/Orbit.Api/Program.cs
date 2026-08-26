@@ -112,6 +112,19 @@ try
     // One place decides what a refused request looks like - see InvalidRequestExceptionHandler.
     builder.Services.AddExceptionHandler<InvalidRequestExceptionHandler>();
 
+    // A body that leaves out a required field, or sends null for one, is a bad request - and used to be
+    // a 500. Every request record here is a positional record of non-nullable values, so the binder is
+    // the right place to say so: without these, a missing field arrived as null and the handler
+    // dereferenced it, which told the caller only that something had gone wrong on the server.
+    //
+    // Both flags are needed and neither covers the other: RespectRequiredConstructorParameters catches
+    // a field that isn't there, RespectNullableAnnotations catches one that is there and null.
+    builder.Services.ConfigureHttpJsonOptions(options =>
+    {
+        options.SerializerOptions.RespectRequiredConstructorParameters = true;
+        options.SerializerOptions.RespectNullableAnnotations = true;
+    });
+
     // Calendar event reminder emails (see CalendarEventReminderBackgroundService). SmtpEmailSender
     // itself just logs a warning and skips sending when Smtp:Host/Smtp:FromAddress aren't configured,
     // rather than failing startup - a fresh local checkout should still run without email set up.

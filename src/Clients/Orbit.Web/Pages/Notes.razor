@@ -37,8 +37,8 @@ else
     <ul>
         @foreach (var note in _notes)
         {
-            <li>
-                <strong>@note.Title</strong>
+            <li class="note-row">
+                <strong class="note-row-title">@note.Title</strong>
                 @* One line, not the whole note - enough to recognise which note this is, with the
                    editor one click away for reading it. A checklist line shows whether it is done, the
                    same mark the task list preview uses. *@
