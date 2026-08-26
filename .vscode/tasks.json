@@ -31,6 +31,62 @@
             ],
             "dependsOn": ["ensure-postgres"],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "ios-simulator: open",
+            // Boots the simulator that was last used and brings the window up. Everything below talks to
+            // "booted", so something has to be running first; opening Simulator.app is the one step that
+            // does not need a device name spelled out here and going stale.
+            "type": "shell",
+            "command": "open",
+            "args": ["-a", "Simulator"],
+            "problemMatcher": []
+        },
+        {
+            "label": "maui-ios: build",
+            // The simulator build, which needs its runtime identifier named: without it the iOS build
+            // targets a device and produces an app the simulator cannot install. iossimulator-x64 on an
+            // Intel Mac.
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj",
+                "-f", "net10.0-ios",
+                "-p:RuntimeIdentifier=iossimulator-arm64",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "maui-ios: run on simulator",
+            // Build, install, launch - no debugger attached. What to use when the MAUI extension is not
+            // installed, or to see a change quickly without a debug session. Installing over the top
+            // keeps the app's local database, which is usually what you want; to start from an empty
+            // one, use "maui-ios: reinstall clean" instead.
+            "type": "shell",
+            "command": "xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app && xcrun simctl launch booted com.orbit.maui",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": ["ios-simulator: open", "maui-ios: build"],
+            "problemMatcher": []
+        },
+        {
+            "label": "maui-ios: reinstall clean",
+            // Wipes the app's container, and with it the local SQLite database - the way to test a fresh
+            // install or a migration path from nothing. The chat key survives: it lives in the Keychain,
+            // which an uninstall does not clear.
+            "type": "shell",
+            "command": "xcrun simctl uninstall booted com.orbit.maui; xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app && xcrun simctl launch booted com.orbit.maui",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": ["ios-simulator: open", "maui-ios: build"],
+            "problemMatcher": []
         }
     ]
 }

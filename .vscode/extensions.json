@@ -1,5 +1,13 @@
 {
     // C# debugging (coreclr) and Blazor WebAssembly debugging (blazorwasm) used by launch.json both
     // require this extension; without it, F5 has no debugger to run and breakpoints are never hit.
-    "recommendations": ["ms-dotnettools.csharp"]
+    //
+    // The MAUI extension is what makes F5 work for Orbit.Maui: it owns the "maui" debug type, the
+    // device picker in the status bar, and hot reload. Without it the app can still be built, installed
+    // and run on a simulator from the tasks in tasks.json - but with no debugger attached, so no
+    // breakpoints. See src/Clients/Orbit.Maui/README.md.
+    "recommendations": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.dotnet-maui"
+    ]
 }
