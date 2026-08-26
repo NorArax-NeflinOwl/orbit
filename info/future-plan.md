@@ -14,11 +14,13 @@ picture of what's left.
   isn't part of `Orbit.sln`, so it builds nothing and is a reservation rather than a stub. See
   [Architecture — Orbit.Web](architecture.md#orbitweb).
 
-  **This plan is now contested.** [Orbit.iOS — Plan](orbit-ios-plan.md) proposes a native
-  Swift/SwiftUI client for iPhone 15 Pro instead, carrying the same full feature set, and argues MAUI
-  buys nothing if only one platform is being built. The two shouldn't both be half-built: whichever
-  wins, the other's reservation should be removed. That decision is open — see
-  [Orbit.iOS — Open questions](orbit-ios-plan.md#9-open-questions).
+  **This is now planned in detail:** [Orbit.Maui — Plan](orbit-maui-plan.md). One MAUI project builds
+  both apps, referencing `Orbit.Contracts` directly; iPhone 15 Pro is the target device and Android
+  the second platform. Beyond web parity it adds **offline operation** with a local SQLite database
+  and background sync, a **forced-update version gate**, and **uploadable diagnostic logs**. It also
+  names the server work that has to land first: push transports beyond Web Push, a Google audience
+  allowlist, and delta/tombstone support for sync. Remaining decisions are in
+  [§12](orbit-maui-plan.md#12-open-questions).
 - **Writing to a real Google Calendar.** `Orbit.GoogleIntegration` (`src/Server`) holds the ID-token
   verification behind Google sign-in (`GoogleIdentityVerifier`, `GoogleAuthSettings`) — that is
   authentication only, and no calendar data is read or written. What ships today is the link-based
