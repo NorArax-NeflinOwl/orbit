@@ -43,6 +43,11 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
         await _dbContext.PushSubscriptions.Where(subscription => subscription.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.NotificationSettings.Where(settings => settings.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.NotificationEntries.Where(entry => entry.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        // Normally already gone: DeleteAccountCommandHandler takes the account out of its groups through
+        // the domain first, so an emptied group is removed and a group left without its only admin gets a
+        // new one. Swept here too because this method's contract is "every row this account owns", and a
+        // membership that outlived its account silently breaks group messaging for everyone still in it.
+        await _dbContext.ChatGroupMembers.Where(member => member.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.UserVerificationCodes.Where(code => code.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.Users.Where(user => user.Id == userId).ExecuteDeleteAsync(cancellationToken);
 

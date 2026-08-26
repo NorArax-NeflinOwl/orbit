@@ -23,4 +23,13 @@ internal sealed class InMemoryChatGroupRepository : IChatGroupRepository
     /// replace - mirroring InMemoryNoteRepository and the EF repository's already-tracked entity.
     /// </summary>
     public Task UpdateAsync(ChatGroup group, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task DeleteAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        _groups.RemoveAll(group => group.Id == groupId);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Every group still stored, for tests asserting what survived an account deletion.</summary>
+    public IReadOnlyList<ChatGroup> Groups => _groups;
 }

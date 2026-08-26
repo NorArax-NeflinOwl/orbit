@@ -17,4 +17,12 @@ public interface IChatGroupRepository
 
     /// <summary>Persists the group's name and its whole membership list as it now stands.</summary>
     Task UpdateAsync(ChatGroup group, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes a group and its memberships outright. Only reached when the last member's account is
+    /// deleted (see DeleteAccountCommandHandler): a group nobody is in can never be posted to, read, or
+    /// joined again, so keeping it would leave a row nothing can reach. Its messages are left alone,
+    /// like every other already-delivered message.
+    /// </summary>
+    Task DeleteAsync(Guid groupId, CancellationToken cancellationToken);
 }

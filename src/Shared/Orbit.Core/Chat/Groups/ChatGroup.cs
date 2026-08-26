@@ -103,6 +103,50 @@ public sealed class ChatGroup
         _members.Remove(member);
     }
 
+    /// <summary>
+    /// Removes someone because their account was deleted, which is not the same thing as
+    /// <see cref="RemoveMember"/> and deliberately breaks two of its rules.
+    ///
+    /// There is no actor: nobody performed this, the person simply no longer exists. And it cannot be
+    /// refused - refusing would mean an account could not be deleted because of a group it happens to be
+    /// in, which is not a trade anyone would accept. So where RemoveMember tells the last admin to
+    /// promote someone first, this promotes for them: the longest-standing remaining member takes over,
+    /// on the grounds that they have seen the most of the group. Leaving it admin-less instead would
+    /// strand a group nobody can add to, rename, or remove from - the state every other rule here exists
+    /// to prevent.
+    ///
+    /// Leaves the group empty rather than deleting it, because a group is not this type's to delete -
+    /// see DeleteAccountCommandHandler, which removes an emptied group once this has run.
+    /// </summary>
+    public void RemoveDeletedAccount(Guid userId)
+    {
+        var member = FindMember(userId);
+        if (member is null)
+        {
+            return;
+        }
+
+        _members.Remove(member);
+
+        if (member.Role != ChatGroupRole.Admin || AdminCount > 0 || _members.Count == 0)
+        {
+            return;
+        }
+
+        var successor = _members
+            .OrderBy(candidate => candidate.JoinedAtUtc)
+            // Two people can join in the same tick; ordering by id as well keeps the choice deterministic
+            // rather than dependent on however the rows came back.
+            .ThenBy(candidate => candidate.UserId)
+            .First();
+
+        _members.Remove(successor);
+        _members.Add(successor with { Role = ChatGroupRole.Admin });
+    }
+
+    /// <summary>True once nobody is left - see <see cref="RemoveDeletedAccount"/>.</summary>
+    public bool IsEmpty => _members.Count == 0;
+
     /// <summary>Promotes or demotes a member. Demoting the last admin is refused for the same reason removing them is.</summary>
     public void ChangeRole(Guid actorUserId, Guid userId, ChatGroupRole role)
     {
