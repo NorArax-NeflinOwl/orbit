@@ -51,6 +51,11 @@ dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-ios
 
 The server, web client, and `Orbit.Mobile` keep building and testing through `Orbit.sln` as before.
 
+The same boundary is why dependency submission has its own workflow
+(`.github/workflows/dependency-submission.yml`) rather than GitHub's **Automatic dependency submission**
+setting: that setting cannot be told what to build, so it restores every project file it can find and
+fails on this one every time. Keep it switched off.
+
 ## Debugging from VS Code
 
 `.vscode/launch.json` carries **Orbit.Maui (iOS simulator)**, and a compound that starts `Orbit.Api`

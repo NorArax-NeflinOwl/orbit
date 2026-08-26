@@ -1,0 +1,43 @@
+# Feeds the dependency graph, and so Dependabot's alerts, with what Orbit actually depends on.
+#
+# This replaces GitHub's "Automatic dependency submission" setting, which cannot be told what to build:
+# it globs every project file in the repository and runs `dotnet restore` on each one. That fails here
+# and always will, because Orbit.Maui targets net10.0-ios and net10.0-android and a Linux runner has no
+# MAUI workloads - the same reason Orbit.Maui is deliberately outside Orbit.sln (see the project's
+# README and ci.yml). Turn that setting off; this does the job it was there for.
+#
+# Orbit.Maui is still *scanned* - the detector reads PackageReference straight out of the project file -
+# it is only never restored. So nothing drops out of the graph.
+name: Dependency submission
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  # The snapshot is written back to the repository's dependency graph.
+  contents: write
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      # Restoring first means the detector reads resolved versions out of project.assets.json rather
+      # than the ranges in the project files, so the graph records what was actually used.
+      - name: Restore
+        run: dotnet restore Orbit.sln
+
+      - name: Submit the dependency snapshot
+        # Pinned by commit: this action publishes no tags, and it is the same revision GitHub's own
+        # automatic submission runs.
+        uses: actions/component-detection-dependency-submission-action@98beaea5a1227f3db476e4c9ca959a0cacd7ac4f
