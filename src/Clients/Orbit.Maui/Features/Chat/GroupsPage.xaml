@@ -4,8 +4,8 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
-    xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
-    x:DataType="chat:GroupsViewModel"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
+    x:DataType="screens:GroupsViewModel"
     Title="Groups">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
@@ -43,7 +43,7 @@
             <Label Grid.Row="1" Text="Who is in it" FontAttributes="Bold" />
             <CollectionView Grid.Row="2" ItemsSource="{Binding Candidates}">
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="chat:SelectableContact">
+                    <DataTemplate x:DataType="screens:SelectableContact">
                         <Grid ColumnDefinitions="Auto,*" Padding="0,8" ColumnSpacing="8">
                             <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" />
                             <Label Grid.Column="1" Text="{Binding DisplayName}" VerticalOptions="Center" />

@@ -26,12 +26,19 @@ of the plan, and `Platform/LocalDatabase.cs`, which is the one place that would 
 
 | Project | Target | In `Orbit.sln`? |
 | --- | --- | --- |
-| `Orbit.Mobile` | `net10.0` | **Yes** — everything decided without a device: the version gate, auth, the local store and the sync spine |
+| `Orbit.Mobile` | `net10.0` | **Yes** — everything decided without a device: the version gate, auth, the local store, the sync spine, and the screens' view models |
 | `Orbit.Mobile.Tests` | `net10.0` | **Yes** — ordinary xUnit against the above |
-| `Orbit.Maui` | `net10.0-ios`, `net10.0-android` | **No** — the two app heads: XAML, view models, platform services |
+| `Orbit.Maui` | `net10.0-ios`, `net10.0-android` | **No** — the two app heads: XAML, page code-behind, platform services |
 
 The split exists so the interesting logic can be unit-tested. A MAUI head cannot be referenced by a
 normal test project, so anything left inside it is only ever verified by running the app.
+
+**The view models live in `Orbit.Mobile`, not in the head.** They were in the head at first, and it cost
+a real bug: the task-list screen kept the copy it had read before syncing, so ticking an entry it had
+just added sent no id and the server made a second one. Nothing below the screen was wrong, and nothing
+below the screen could have caught it. None of them touch a MAUI type - the two things that genuinely
+are platform calls are behind interfaces the head implements: `IScreenNavigator` (swapping the window's
+page) and `IUpdateLink` (leaving the app for a store listing).
 
 `Orbit.Maui` stays out of the solution because CI builds `Orbit.sln` on `ubuntu-latest` (see
 `.github/workflows/ci.yml`), which cannot build `net10.0-ios` at all — that needs macOS and Xcode — and
@@ -43,6 +50,26 @@ dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-ios
 ```
 
 The server, web client, and `Orbit.Mobile` keep building and testing through `Orbit.sln` as before.
+
+## Debugging from VS Code
+
+`.vscode/launch.json` carries **Orbit.Maui (iOS simulator)**, and a compound that starts `Orbit.Api`
+alongside it — the app talks to `http://localhost:5080` on a simulator, so without the server it gets no
+further than the sign-in screen. Breakpoints need the **.NET MAUI extension**
+(`ms-dotnettools.dotnet-maui`, recommended in `.vscode/extensions.json`); it owns the `maui` debug type
+and the device picker in the status bar. Pick a simulator there before pressing F5.
+
+Without that extension the app can still be built and run, just with no debugger attached — the tasks in
+`.vscode/tasks.json` do it:
+
+| Task | Does |
+| --- | --- |
+| `maui-ios: build` | The simulator build, runtime identifier and all |
+| `maui-ios: run on simulator` | Opens the simulator, builds, installs **over the top**, launches — keeps the local database |
+| `maui-ios: reinstall clean` | The same but wipes the app's container first, for testing a fresh install |
+
+An uninstall clears the local SQLite database but **not** the chat key: that lives in the Keychain, which
+survives it.
 
 ## Running it against a local server
 

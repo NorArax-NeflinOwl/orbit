@@ -3,8 +3,8 @@
     x:Class="Orbit.Maui.Features.Authentication.RegisterPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:authentication="clr-namespace:Orbit.Maui.Features.Authentication"
-    x:DataType="authentication:RegisterViewModel"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Authentication;assembly=Orbit.Mobile"
+    x:DataType="screens:RegisterViewModel"
     Title="Create an account">
 
     <ScrollView>

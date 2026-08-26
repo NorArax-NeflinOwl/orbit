@@ -3,8 +3,8 @@
     x:Class="Orbit.Maui.Features.Calendar.CalendarPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:calendar="clr-namespace:Orbit.Maui.Features.Calendar"
-    x:DataType="calendar:CalendarViewModel"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
+    x:DataType="screens:CalendarViewModel"
     Title="Calendar">
 
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
@@ -30,7 +30,7 @@
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="calendar:CalendarEventRow">
+                    <DataTemplate x:DataType="screens:CalendarEventRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding When}" FontSize="12" TextColor="{StaticResource Gray500}" />

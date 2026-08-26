@@ -1,3 +1,5 @@
+using Orbit.Mobile.Screens.Chat;
+
 namespace Orbit.Maui.Features.Chat;
 
 public partial class ConversationPage : ContentPage
@@ -9,6 +11,9 @@ public partial class ConversationPage : ContentPage
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 	}
+
+	/// <summary>Typed so the navigator can hand the page its contact without casting the binding context.</summary>
+	public ConversationViewModel ViewModel => _viewModel;
 
 	protected override void OnAppearing()
 	{

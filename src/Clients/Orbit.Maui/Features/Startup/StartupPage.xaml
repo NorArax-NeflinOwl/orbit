@@ -3,8 +3,8 @@
     x:Class="Orbit.Maui.Features.Startup.StartupPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:startup="clr-namespace:Orbit.Maui.Features.Startup"
-    x:DataType="startup:StartupViewModel">
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Startup;assembly=Orbit.Mobile"
+    x:DataType="screens:StartupViewModel">
 
     <Grid RowDefinitions="*,Auto,*" Padding="32">
         <VerticalStackLayout Grid.Row="1" Spacing="24" HorizontalOptions="Center">

@@ -4,7 +4,8 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:tasks="clr-namespace:Orbit.Maui.Features.Tasks"
-    x:DataType="tasks:TaskListDetailViewModel"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
+    x:DataType="screens:TaskListDetailViewModel"
     Title="{Binding Title}">
 
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
@@ -30,7 +31,7 @@
                  the page, whose BindingContext is the view model. Naming the view model type instead
                  compiles and then silently binds to nothing. -->
             <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="tasks:TaskItemRow">
+                <DataTemplate x:DataType="screens:TaskItemRow">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="0,10">
                         <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="44"
                                 BackgroundColor="Transparent" TextColor="{StaticResource Primary}"

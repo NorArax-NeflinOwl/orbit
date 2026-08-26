@@ -1,3 +1,5 @@
+using Orbit.Mobile.Screens.Startup;
+
 namespace Orbit.Maui.Features.Startup;
 
 public partial class StartupPage : ContentPage

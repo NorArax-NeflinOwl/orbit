@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Orbit.Mobile.Data;
 
-namespace Orbit.Maui.Features.Chat;
+namespace Orbit.Mobile.Screens.Chat;
 
 /// <summary>
 /// A contact with a tick next to it, for choosing who a new group holds. A wrapper rather than
@@ -10,12 +10,12 @@ namespace Orbit.Maui.Features.Chat;
 /// </summary>
 public sealed partial class SelectableContact : ObservableObject
 {
-	[ObservableProperty]
-	private bool _isSelected;
+    [ObservableProperty]
+    private bool _isSelected;
 
-	public SelectableContact(LocalContact contact) => Contact = contact;
+    public SelectableContact(LocalContact contact) => Contact = contact;
 
-	public LocalContact Contact { get; }
+    public LocalContact Contact { get; }
 
-	public string DisplayName => Contact.DisplayName;
+    public string DisplayName => Contact.DisplayName;
 }

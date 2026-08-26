@@ -3,8 +3,8 @@
     x:Class="Orbit.Maui.Features.Notes.NotesPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
-    x:DataType="notes:NotesViewModel"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
+    x:DataType="screens:NotesViewModel"
     Title="Notes">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
@@ -33,7 +33,7 @@
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="notes:NoteListItem">
+                    <DataTemplate x:DataType="screens:NoteListItem">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding UpdatedAtUtc, StringFormat='Updated {0:g}'}"

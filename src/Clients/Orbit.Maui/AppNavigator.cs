@@ -5,20 +5,23 @@ using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Tasks;
-using Orbit.Mobile.Data;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Data;
+using Orbit.Mobile.Screens;
 
 namespace Orbit.Maui;
 
 /// <summary>
-/// Moves the app between its three top-level screens by replacing the window's page outright.
+/// Moves the app between its three top-level screens by replacing the window's page outright. The one
+/// implementation of <see cref="IScreenNavigator"/> - which exists so the view models, which need only
+/// this, do not need a MAUI project to be tested in.
 ///
 /// Deliberately not Shell navigation: these are destinations that replace each other, never a stack.
 /// Signing in must not leave the sign-in screen behind a back gesture, and - the reason this matters -
 /// a build the server has retired must have no navigation stack at all to be swiped past. A blocked app
 /// simply *is* the startup screen.
 /// </summary>
-public sealed class AppNavigator
+public sealed class AppNavigator : IScreenNavigator
 {
 	private readonly IServiceProvider _services;
 
@@ -58,14 +61,14 @@ public sealed class AppNavigator
 		=> ShowAsRoot<WarehouseDetailPage>(page => page.ViewModel.Open(localId));
 
 	public void ShowTaskList(Guid localId)
-		=> ShowAsRoot<TaskListDetailPage>(page => ((TaskListDetailViewModel)page.BindingContext).Open(localId));
+		=> ShowAsRoot<TaskListDetailPage>(page => page.ViewModel.Open(localId));
 
 	/// <summary>
 	/// A conversation needs to know whose it is, and these screens are resolved from the container rather
 	/// than constructed - so the page is told after it exists, before it is shown.
 	/// </summary>
 	public void ShowConversation(LocalContact contact)
-		=> ShowAsRoot<ConversationPage>(page => ((ConversationViewModel)page.BindingContext).Open(contact));
+		=> ShowAsRoot<ConversationPage>(page => page.ViewModel.Open(contact));
 
 	public void ShowGroups() => ShowAsRoot<GroupsPage>();
 

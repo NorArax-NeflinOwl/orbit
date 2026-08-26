@@ -2,6 +2,15 @@ using Microsoft.Extensions.Logging;
 using Orbit.Core.Mobile;
 using Orbit.Maui.Configuration;
 using Orbit.Maui.Features.Account;
+using Orbit.Mobile.Screens.Account;
+using Orbit.Mobile.Screens.Authentication;
+using Orbit.Mobile.Screens.Calendar;
+using Orbit.Mobile.Screens.Chat;
+using Orbit.Mobile.Screens.Inventory;
+using Orbit.Mobile.Screens.Notes;
+using Orbit.Mobile.Screens.Startup;
+using Orbit.Mobile.Screens.Tasks;
+using Orbit.Mobile.Screens;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
 using Orbit.Maui.Features.Chat;
@@ -136,7 +145,11 @@ public static class MauiProgram
 
 	private static void RegisterScreens(IServiceCollection services)
 	{
+		// One instance, reachable both ways: the shell asks for AppNavigator, the view models ask for the
+		// interface, and swapping the page has to happen on the same object either way.
 		services.AddSingleton<AppNavigator>();
+		services.AddSingleton<IScreenNavigator>(services => services.GetRequiredService<AppNavigator>());
+		services.AddSingleton<IUpdateLink, StoreUpdateLink>();
 
 		services.AddTransient<StartupPage>();
 		services.AddTransient<StartupViewModel>();

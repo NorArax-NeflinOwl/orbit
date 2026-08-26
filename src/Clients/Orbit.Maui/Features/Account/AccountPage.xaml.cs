@@ -1,3 +1,5 @@
+using Orbit.Mobile.Screens.Account;
+
 namespace Orbit.Maui.Features.Account;
 
 public partial class AccountPage : ContentPage

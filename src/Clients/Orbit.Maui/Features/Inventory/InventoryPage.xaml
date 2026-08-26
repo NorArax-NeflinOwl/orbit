@@ -3,8 +3,8 @@
     x:Class="Orbit.Maui.Features.Inventory.InventoryPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:inventory="clr-namespace:Orbit.Maui.Features.Inventory"
-    x:DataType="inventory:InventoryViewModel"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
+    x:DataType="screens:InventoryViewModel"
     Title="Inventory">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
@@ -28,7 +28,7 @@
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="inventory:WarehouseRow">
+                    <DataTemplate x:DataType="screens:WarehouseRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding Contents}" FontSize="12" TextColor="{StaticResource Gray500}" />

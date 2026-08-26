@@ -1,3 +1,5 @@
+using Orbit.Mobile.Screens.Notes;
+
 namespace Orbit.Maui.Features.Notes;
 
 public partial class NotesPage : ContentPage
