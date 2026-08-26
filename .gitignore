@@ -27,6 +27,8 @@ _to_delete/
 *.pem
 *.key
 *.p12
+# APNs auth key, downloadable exactly once - Firebase holds it, but it lands on disk first.
+*.p8
 *.jks
 *.tar.gz
 secrets/
