@@ -78,11 +78,23 @@ else
                         <div class="editor-item-summary">
                             <InputText class="editor-item-main" placeholder="Item name" @bind-Value="item.Name" />
                             <span class="editor-item-aside">
-                                <label title="Quantity">
-                                    Qty
+                                @if (NeedsRestocking(item))
+                                {
+                                    <span class="item-warning" title="There is no more of this than the minimum you set">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20"
+                                             fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                             role="img" aria-label="Running low">
+                                            <path d="M10 2.8 18.2 17H1.8L10 2.8Z" />
+                                            <path d="M10 8v3.6" />
+                                            <path d="M10 14.2h.01" />
+                                        </svg>
+                                    </span>
+                                }
+                                <label title="How much of it there is">
+                                    Amount
                                     <InputNumber TValue="decimal" @bind-Value="item.Quantity" step="0.01" />
                                 </label>
-                                <label title="Restock below this quantity">
+                                <label title="Restock once the amount reaches this">
                                     Min
                                     <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
                                 </label>
@@ -233,6 +245,16 @@ else
         _formModel.Items.Add(item);
         _expandedItem = item;
     }
+
+    /// <summary>
+    /// The same condition InventoryItem.IsBelowMinimum uses to raise the restock task, said out loud
+    /// while someone is looking at the row rather than only after a background service has been round.
+    /// Kept identical on purpose: a warning that appeared one step earlier than the task would leave an
+    /// item flagged with nothing having been raised for it, which reads as the app disagreeing with
+    /// itself.
+    /// </summary>
+    private static bool NeedsRestocking(WarehouseItemFormModel item)
+        => item.MinimumQuantity is { } minimum && item.Quantity < minimum;
 
     private bool IsExpanded(WarehouseItemFormModel item) => ReferenceEquals(_expandedItem, item);
 
