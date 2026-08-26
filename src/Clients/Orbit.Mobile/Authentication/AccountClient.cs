@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Users;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Authentication;
@@ -52,7 +53,7 @@ public sealed class AccountClient
         if (response.StatusCode is HttpStatusCode.Conflict)
         {
             return AccountOperationResult.Refused(
-                await ReadServerMessageAsync(response, "That email address or username is already taken.", cancellationToken));
+                await RefusalMessage.ReadAsync(response, "That email address or username is already taken.", cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -151,30 +152,10 @@ public sealed class AccountClient
         if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest)
         {
             return AccountOperationResult.Refused(
-                await ReadServerMessageAsync(response, refusalMessage, cancellationToken));
+                await RefusalMessage.ReadAsync(response, refusalMessage, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
         return AccountOperationResult.Applied;
     }
-
-    /// <summary>
-    /// The server's own wording where it gave one, since it knows more about the refusal than the
-    /// client's guess does - falling back to <paramref name="fallback"/> rather than showing raw JSON.
-    /// </summary>
-    private static async Task<string> ReadServerMessageAsync(
-        HttpResponseMessage response, string fallback, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var problem = await response.Content.ReadFromJsonAsync<ServerMessage>(cancellationToken);
-            return string.IsNullOrWhiteSpace(problem?.Message) ? fallback : problem.Message;
-        }
-        catch (Exception exception) when (exception is System.Text.Json.JsonException or HttpRequestException)
-        {
-            return fallback;
-        }
-    }
-
-    private sealed record ServerMessage(string? Message);
 }

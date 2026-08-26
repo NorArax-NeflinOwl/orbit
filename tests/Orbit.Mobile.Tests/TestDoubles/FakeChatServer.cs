@@ -172,8 +172,13 @@ internal sealed class FakeChatServer : HttpMessageHandler
                 : Json(Groups);
         }
 
-        // api/chat/groups/{id}/messages
         var groupId = Guid.Parse(segments[3]);
+        if (segments.Length >= 5 && segments[4] == "members")
+        {
+            return await ChangeMembershipAsync(request, segments, groupId, cancellationToken);
+        }
+
+        // api/chat/groups/{id}/messages
         var group = Groups.FirstOrDefault(candidate => candidate.Id == groupId);
         if (group is null || group.Members.All(member => member.UserId != CallerUserId))
         {
@@ -190,6 +195,92 @@ internal sealed class FakeChatServer : HttpMessageHandler
             ? await AcceptGroupMessageAsync(request, group, cancellationToken)
             : Json(ReadGroupConversation(groupId));
     }
+
+    /// <summary>
+    /// The membership rules, as ChatGroup enforces them: only an admin may change anything, adding
+    /// somebody you have no conversation with is refused, and the last admin can be neither removed nor
+    /// demoted. A fake that waved these through would let a screen offering the impossible pass its
+    /// tests - which is exactly what these tests are for.
+    /// </summary>
+    private async Task<HttpResponseMessage> ChangeMembershipAsync(
+        HttpRequestMessage request, string[] segments, Guid groupId, CancellationToken cancellationToken)
+    {
+        var index = Groups.FindIndex(candidate => candidate.Id == groupId);
+        if (index < 0)
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var group = Groups[index];
+        if (group.Members.All(member => member.UserId != CallerUserId))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        if (group.Members.Single(member => member.UserId == CallerUserId).Role != "Admin")
+        {
+            return Refused("Only an admin can change who is in a group.");
+        }
+
+        if (request.Method == HttpMethod.Post)
+        {
+            var added = JsonSerializer.Deserialize<AddChatGroupMemberRequest>(
+                await request.Content!.ReadAsStringAsync(cancellationToken), _json)!;
+
+            if (group.Members.Any(member => member.UserId == added.UserId))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            if (Contacts.All(contact => contact.UserId != added.UserId))
+            {
+                return Refused("You can only add people you already have a chat with.");
+            }
+
+            AddMember(groupId, added.UserId);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        var subjectUserId = Guid.Parse(segments[5]);
+        var subject = group.Members.FirstOrDefault(member => member.UserId == subjectUserId);
+        if (subject is null)
+        {
+            return Refused("That person isn't in this group.");
+        }
+
+        var adminCount = group.Members.Count(member => member.Role == "Admin");
+
+        if (request.Method == HttpMethod.Delete)
+        {
+            if (subject.Role == "Admin" && adminCount == 1)
+            {
+                return Refused("A group needs at least one admin - promote someone else first.");
+            }
+
+            Groups[index] = group with { Members = [.. group.Members.Where(member => member.UserId != subjectUserId)] };
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        var role = JsonSerializer.Deserialize<ChangeChatGroupMemberRoleRequest>(
+            await request.Content!.ReadAsStringAsync(cancellationToken), _json)!.Role;
+
+        if (subject.Role == "Admin" && role != "Admin" && adminCount == 1)
+        {
+            return Refused("A group needs at least one admin - promote someone else first.");
+        }
+
+        Groups[index] = group with
+        {
+            Members = [.. group.Members.Select(member => member.UserId == subjectUserId ? member with { Role = role } : member)],
+            OwnRole = subjectUserId == CallerUserId ? role : group.OwnRole
+        };
+
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    /// <summary>A refusal the caller is entitled to hear about - see InvalidRequestExceptionHandler.</summary>
+    private static HttpResponseMessage Refused(string message)
+        => new(HttpStatusCode.BadRequest) { Content = JsonContent.Create(new { message }) };
 
     private async Task<HttpResponseMessage> CreateGroupAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

@@ -37,14 +37,6 @@ picture of what's left.
   distributed lock or message queue once it's needed — see
   [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders). No second
   instance runs today; this is forward-looking groundwork already in place.
-- **Password manager and strong-password generator.** Not scoped in detail yet on the backlog beyond
-  the idea itself. **Proposed approach:** worth treating as an extension of the existing E2EE chat
-  design rather than a new subsystem - encrypted credential entries could reuse the same per-user key
-  material `OwnEncryptionKeyProvider` already manages, so the server only ever stores ciphertext it
-  can't read, matching the chat's own trust model (see
-  [Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat)). The
-  generator itself is a pure client-side algorithm (length/character-set rules), no server involvement
-  needed at all.
 - **A local AI model on the server, as groundwork for a future chat bot.** No work started; explicitly
   scoped on the backlog as infrastructure to land before the chat bot feature itself. **Proposed
   approach:** self-hosting something like Ollama alongside `orbit-api` in `docker-compose.yml` (a new

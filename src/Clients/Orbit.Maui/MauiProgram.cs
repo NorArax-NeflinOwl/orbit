@@ -171,6 +171,8 @@ public static class MauiProgram
 		services.AddTransient<GroupsViewModel>();
 		services.AddTransient<GroupConversationPage>();
 		services.AddTransient<GroupConversationViewModel>();
+		services.AddTransient<GroupDetailPage>();
+		services.AddTransient<GroupDetailViewModel>();
 		services.AddTransient<NotesPage>();
 		services.AddTransient<NotesViewModel>();
 		services.AddTransient<TasksPage>();

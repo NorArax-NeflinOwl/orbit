@@ -272,6 +272,17 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         _navigator.ShowGroups();
     }
 
+    /// <summary>Who is in the group, and - for an admin - changing it.</summary>
+    [RelayCommand]
+    private void OpenMembers()
+    {
+        if (_group is not null)
+        {
+            StopPolling();
+            _navigator.ShowGroupDetail(_group);
+        }
+    }
+
     private async Task ShowStoredConversationAsync(CancellationToken cancellationToken)
     {
         if (_group is null)

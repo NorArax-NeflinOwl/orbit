@@ -12,8 +12,10 @@
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
-        <Label Grid.Row="1" Text="{Binding Members}" FontSize="12" TextColor="{StaticResource Gray500}"
-               LineBreakMode="TailTruncation" />
+        <!-- The member list doubles as the way into managing it, the way the web's header does. -->
+        <Button Grid.Row="1" Text="{Binding Members}" Command="{Binding OpenMembersCommand}"
+                FontSize="12" TextColor="{StaticResource Gray500}" BackgroundColor="Transparent"
+                Padding="0" HorizontalOptions="Start" LineBreakMode="TailTruncation" />
         <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
 

@@ -21,6 +21,24 @@ public enum SendMessageOutcome
 
 public sealed record SendMessageResult(SendMessageOutcome Outcome, ChatMessageDto? Message = null);
 
+/// <summary>
+/// What the server did with a change to a group's membership.
+/// </summary>
+/// <param name="Refusal">
+/// The rule that was broken, in the server's own words - "A group needs at least one admin - promote
+/// someone else first", "You can only add people you already have a chat with". Null when the change
+/// went through, or when the group is simply not visible to this account, which the server declines to
+/// explain at all: membership decides who may even see a group, so distinguishing "no such group" from
+/// "not yours" would leak the difference.
+/// </param>
+public sealed record GroupMemberChangeResult(bool Done, string? Refusal = null)
+{
+    public static readonly GroupMemberChangeResult Applied = new(Done: true);
+
+    /// <summary>The group is gone, or this account is not in it - the server answers the same to both.</summary>
+    public static readonly GroupMemberChangeResult NotVisible = new(Done: false);
+}
+
 /// <summary>What the server did with a group message the app tried to send.</summary>
 public enum GroupSendOutcome
 {
@@ -86,6 +104,66 @@ public sealed class ChatClient
 
         response.EnsureSuccessStatusCode();
         return true;
+    }
+
+    /// <summary>
+    /// Puts somebody into a group. Refused unless the caller is an admin and already has a conversation
+    /// with them - a group must not become a way to reach somebody who never agreed to hear from you.
+    /// </summary>
+    public Task<GroupMemberChangeResult> AddGroupMemberAsync(
+        Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+        => ChangeMembershipAsync(
+            new HttpRequestMessage(HttpMethod.Post, $"api/chat/groups/{groupId}/members")
+            {
+                Content = JsonContent.Create(new AddChatGroupMemberRequest(userId))
+            },
+            "They could not be added to this group.", cancellationToken);
+
+    /// <summary>
+    /// Takes somebody out of a group, which an admin may also do to themselves - leaving. Refused when
+    /// it would strip the group of its last admin.
+    /// </summary>
+    public Task<GroupMemberChangeResult> RemoveGroupMemberAsync(
+        Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+        => ChangeMembershipAsync(
+            new HttpRequestMessage(HttpMethod.Delete, $"api/chat/groups/{groupId}/members/{userId}"),
+            "They could not be removed from this group.", cancellationToken);
+
+    /// <param name="role">"Admin" or "Member" - see Orbit.Core.Chat.Groups.ChatGroupRole.</param>
+    public Task<GroupMemberChangeResult> ChangeGroupMemberRoleAsync(
+        Guid groupId, Guid userId, string role, CancellationToken cancellationToken = default)
+        => ChangeMembershipAsync(
+            new HttpRequestMessage(HttpMethod.Put, $"api/chat/groups/{groupId}/members/{userId}/role")
+            {
+                Content = JsonContent.Create(new ChangeChatGroupMemberRoleRequest(role))
+            },
+            "That role could not be changed.", cancellationToken);
+
+    /// <summary>
+    /// All three membership changes answer the same way, so they are sent the same way: no content on
+    /// success, 404 for a group this account cannot see, and 400 naming the rule that stopped it.
+    /// </summary>
+    private async Task<GroupMemberChangeResult> ChangeMembershipAsync(
+        HttpRequestMessage request, string fallbackRefusal, CancellationToken cancellationToken)
+    {
+        using (request)
+        {
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+
+            if (response.StatusCode is HttpStatusCode.NotFound)
+            {
+                return GroupMemberChangeResult.NotVisible;
+            }
+
+            if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden)
+            {
+                return new GroupMemberChangeResult(
+                    Done: false, await RefusalMessage.ReadAsync(response, fallbackRefusal, cancellationToken));
+            }
+
+            response.EnsureSuccessStatusCode();
+            return GroupMemberChangeResult.Applied;
+        }
     }
 
     /// <summary>Every group the signed-in user is in, with its current membership.</summary>

@@ -32,6 +32,8 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowGroupConversation(LocalChatGroup group) => _destinations.Add(nameof(ShowGroupConversation));
 
+    public void ShowGroupDetail(LocalChatGroup group) => _destinations.Add(nameof(ShowGroupDetail));
+
     public void ShowNotes() => _destinations.Add(nameof(ShowNotes));
 
     public void ShowTasks() => _destinations.Add(nameof(ShowTasks));

@@ -28,6 +28,8 @@ public interface IScreenNavigator
 
     void ShowGroupConversation(LocalChatGroup group);
 
+    void ShowGroupDetail(LocalChatGroup group);
+
     void ShowNotes();
 
     void ShowTasks();

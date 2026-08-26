@@ -76,6 +76,10 @@ public sealed class AppNavigator : IScreenNavigator
 	public void ShowGroupConversation(LocalChatGroup group)
 		=> ShowAsRoot<GroupConversationPage>(page => page.ViewModel.Open(group));
 
+	/// <inheritdoc cref="ShowConversation"/>
+	public void ShowGroupDetail(LocalChatGroup group)
+		=> ShowAsRoot<GroupDetailPage>(page => page.ViewModel.Open(group));
+
 	public void ShowNotes() => ShowAsRoot<NotesPage>();
 
 	private void ShowAsRoot<TPage>(Action<TPage>? prepare = null) where TPage : Page
