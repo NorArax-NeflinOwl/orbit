@@ -24,8 +24,10 @@
 		<!-- Display name -->
 		<ApplicationTitle>Orbit</ApplicationTitle>
 
-		<!-- App Identifier -->
-		<ApplicationId>com.orbit.app</ApplicationId>
+		<!-- App Identifier. Must match what Firebase has registered for both heads (google-services.json's
+		package_name and GoogleService-Info.plist's BUNDLE_ID) - an app registering under an id Firebase
+		does not know gets no push at all. -->
+		<ApplicationId>com.orbit.maui</ApplicationId>
 
 		<!-- ApplicationDisplayVersion is the SemVer the version gate compares against, and
 		ApplicationVersion the monotonic build number stores order by - see info/orbit-maui-plan.md's

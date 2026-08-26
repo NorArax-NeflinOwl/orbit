@@ -38,3 +38,10 @@ credentials/
 
 *.DS_Store
 *.Development.json
+
+# Firebase config for the Android app. Not a private key, but it carries an API key and is
+# deployment-specific, so it follows the same rule as GoogleAuth:ClientId - a placeholder is tracked
+# (google-services.json.example) and the real file is not. Fetch it from the Firebase console, or copy
+# it from secrets/ if you keep one there.
+google-services.json
+GoogleService-Info.plist

@@ -1,0 +1,30 @@
+{
+  "_comment": "Firebase config for the Android app, from Firebase console > Project settings > Your apps > Android. Copy this to google-services.json (gitignored) and fill in the real values. package_name MUST equal the csproj's ApplicationId, or the app registers under an id Firebase does not know and push never arrives.",
+  "project_info": {
+    "project_number": "",
+    "project_id": "",
+    "storage_bucket": ""
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "",
+        "android_client_info": {
+          "package_name": "com.orbit.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": ""
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
