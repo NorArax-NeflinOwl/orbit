@@ -4,6 +4,7 @@
 @inject PublicShareApiClient PublicShareApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<SharedItemPage> Logger
+@inject Translations T
 
 <PageTitle>@(_item is null ? "Orbit — Shared" : $"Orbit — {_item.Title}")</PageTitle>
 
@@ -13,12 +14,12 @@
 <div class="shared-item-page">
     @if (_isLoading)
     {
-        <p class="page-subtitle">Loading…</p>
+        <p class="page-subtitle">@T["Loading…"]</p>
     }
     else if (_item is null)
     {
         <div class="card shared-item-card">
-            <h1>This link doesn't work</h1>
+            <h1>@T["This link doesn't work"]</h1>
             <p class="page-subtitle">
                 It may have been turned off by whoever shared it, or the thing it pointed at may be gone.
                 Ask them for a new one.
@@ -73,14 +74,12 @@
                 {
                     <AuthorizeView>
                         <Authorized>
-                            <button type="button" class="btn-primary" disabled="@_isClaiming" @onclick="ClaimAsync">
-                                Save to my account
-                            </button>
+                            <button type="button" class="btn-primary" disabled="@_isClaiming" @onclick="ClaimAsync">@T["Save to my account"]</button>
                             <p class="page-subtitle">You'll get your own read-only copy. Nothing you do changes theirs.</p>
                         </Authorized>
                         <NotAuthorized>
-                            <button type="button" class="btn-primary" @onclick="SignInToClaim">Sign in to save this</button>
-                            <p class="page-subtitle">Reading needs no account. Saving it to your own does.</p>
+                            <button type="button" class="btn-primary" @onclick="SignInToClaim">@T["Sign in to save this"]</button>
+                            <p class="page-subtitle">@T["Reading needs no account. Saving it to your own does."]</p>
                         </NotAuthorized>
                     </AuthorizeView>
                 }

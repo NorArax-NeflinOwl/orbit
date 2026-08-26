@@ -7,28 +7,29 @@
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<Contacts> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Contacts</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1>Contacts</h1>
-        <p class="page-subtitle">Search for someone and start a conversation.</p>
+        <h1>@T["Contacts"]</h1>
+        <p class="page-subtitle">@T["Search for someone and start a conversation."]</p>
     </div>
 </div>
 
-<p><a class="btn-secondary" href="/chat/groups">Group chats</a></p>
+<p><a class="btn-secondary" href="/chat/groups">@T["Group chats"]</a></p>
 
 <div class="field-row" style="margin-bottom:24px;">
-    <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="Email address or username" />
-    <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">Search</button>
+    <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="@(T["Email address or username"])" />
+    <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">@T["Search"]</button>
 </div>
 
 @if (_loadError is not null)
 {
     <p class="error">
         @_loadError
-        <button type="button" class="btn-secondary" @onclick="LoadContactsAsync">Retry</button>
+        <button type="button" class="btn-secondary" @onclick="LoadContactsAsync">@T["Retry"]</button>
     </p>
 }
 
@@ -46,14 +47,14 @@
                 <span class="chat-list-name">@_searchResult.DisplayName</span>
                 <span class="chat-list-preview">@_searchResult.UserName</span>
             </span>
-            <button type="button" class="btn-secondary" @onclick="() => OpenChat(_searchResult.Id)">Open chat</button>
+            <button type="button" class="btn-secondary" @onclick="() => OpenChat(_searchResult.Id)">@T["Open chat"]</button>
         </div>
     </div>
 }
 
 @if (_contacts is not null && _pendingRequests.Any())
 {
-    <h2>New requests</h2>
+    <h2>@T["New requests"]</h2>
     <div class="card" style="margin-bottom:24px;">
         @foreach (var contact in _pendingRequests)
         {
@@ -63,21 +64,21 @@
                     <span class="chat-list-name">@contact.DisplayName</span>
                     <span class="chat-list-preview">@contact.UserName</span>
                 </span>
-                <span class="chat-request-badge">New request</span>
+                <span class="chat-request-badge">@T["New request"]</span>
             </button>
         }
     </div>
 }
 
-<h2>Chats</h2>
+<h2>@T["Chats"]</h2>
 
 @if (_contacts is null)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else if (!_establishedChats.Any())
 {
-    <p>No chats. Search for a user by email address or username to start a conversation.</p>
+    <p>@T["No chats. Search for a user by email address or username to start a conversation."]</p>
 }
 else
 {

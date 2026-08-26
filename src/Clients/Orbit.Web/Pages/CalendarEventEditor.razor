@@ -18,6 +18,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ILogger<CalendarEventEditor> Logger
+@inject Translations T
 
 <PageTitle>@(IsNewEvent ? "New event" : "Edit event")</PageTitle>
 
@@ -30,7 +31,7 @@
 
 @if (_isLoading)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else
 {
@@ -59,7 +60,7 @@ else
             <InputTextArea @bind-Value="_formModel.Description" />
         </div>
         <div class="field">
-            <label>Location</label>
+            <label>@T["Location"]</label>
             <InputText @bind-Value="_formModel.LocationAddress" placeholder="Pick a point on the map to set an address" />
             <div class="field-row">
                 <button type="button" class="btn-secondary" @onclick="ToggleMapAsync">@(_isMapVisible ? "Hide map" : "Pick on map")</button>
@@ -158,7 +159,7 @@ else
                             </select>
                             <span>before</span>
                         }
-                        <button type="button" class="btn-secondary" @onclick="() => RemoveReminderRow(row)">Remove</button>
+                        <button type="button" class="btn-secondary" @onclick="() => RemoveReminderRow(row)">@T["Remove"]</button>
                     </div>
                 }
             }
@@ -193,7 +194,7 @@ else
     {
         <fieldset disabled="@_isSaving">
             <div class="field">
-                <label>Guests</label>
+                <label>@T["Guests"]</label>
                 @if (_formModel.GuestUserIds.Count == 0)
                 {
                     <p>No guests.</p>
@@ -205,7 +206,7 @@ else
                         {
                             <li>
                                 @GetGuestDisplayName(guestUserId)
-                                <button type="button" class="btn-secondary" @onclick="() => RemoveGuest(guestUserId)">Remove</button>
+                                <button type="button" class="btn-secondary" @onclick="() => RemoveGuest(guestUserId)">@T["Remove"]</button>
                             </li>
                         }
                     </ul>
@@ -228,18 +229,18 @@ else
                             }
                         </select>
                         <select id="guestAccessLevelSelect" @bind="_selectedAccessLevel">
-                            <option value="ReadOnly">Read-only</option>
-                            <option value="Share">Can share</option>
+                            <option value="ReadOnly">@T["Read-only"]</option>
+                            <option value="Share">@T["Can share"]</option>
                             @if (_canGrantEditOnly)
                             {
-                                <option value="EditOnly">Can edit, but not share editing</option>
+                                <option value="EditOnly">@T["Can edit, but not share editing"]</option>
                             }
                             @if (_canGrantCanEdit)
                             {
-                                <option value="CanEdit">Can edit</option>
+                                <option value="CanEdit">@T["Can edit"]</option>
                             }
                         </select>
-                        <button type="button" id="addGuestFromContactButton" class="btn-secondary" @onclick="AddSelectedContactAsGuest">Add</button>
+                        <button type="button" id="addGuestFromContactButton" class="btn-secondary" @onclick="AddSelectedContactAsGuest">@T["Add"]</button>
                     </div>
                 }
             </div>
@@ -247,14 +248,14 @@ else
     }
 
     <div class="form-actions">
-        <button type="submit" class="btn-primary" disabled="@_isSaving">Save</button>
-        <button type="button" class="btn-secondary" @onclick="CancelAsync">Cancel</button>
+        <button type="submit" class="btn-primary" disabled="@_isSaving">@T["Save"]</button>
+        <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
     </div>
     </EditForm>
 
     @if (!IsNewEvent && Id is { } calendarEventId)
     {
-        <h2>Link</h2>
+        <h2>@T["Link"]</h2>
         <ShareLinkButton ItemType="CalendarEvent" ItemId="calendarEventId" />
     }
 

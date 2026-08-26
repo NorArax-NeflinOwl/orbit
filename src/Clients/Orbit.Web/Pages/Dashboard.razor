@@ -13,13 +13,14 @@
 @inject ChatApiClient ChatApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<Dashboard> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Dashboard</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1>Dashboard</h1>
-        <p class="page-subtitle">Everything on your plate, in one place.</p>
+        <h1>@T["Dashboard"]</h1>
+        <p class="page-subtitle">@T["Everything on your plate, in one place."]</p>
     </div>
 </div>
 
@@ -29,11 +30,11 @@
 }
 else if (_notes is null || _taskLists is null || _events is null || _contacts is null || _groups is null)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _contacts.Count == 0 && _groups.Count == 0)
 {
-    <p>Nothing to show.</p>
+    <p>@T["Nothing to show."]</p>
 }
 else
 {
@@ -48,7 +49,7 @@ else
         @if (_notes.Count > 0)
         {
             <div class="card">
-                <div class="card-header"><span class="card-title">Notes</span><span class="card-count">@_notes.Count</span></div>
+                <div class="card-header"><span class="card-title">@T["Notes"]</span><span class="card-count">@_notes.Count</span></div>
                 @foreach (var note in _notes)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditNote(note.Id)">
@@ -62,7 +63,7 @@ else
         @if (_taskLists.Count > 0)
         {
             <div class="card">
-                <div class="card-header"><span class="card-title">Tasks</span><span class="card-count">@_taskLists.Count lists</span></div>
+                <div class="card-header"><span class="card-title">@T["Tasks"]</span><span class="card-count">@_taskLists.Count lists</span></div>
                 @foreach (var taskList in _taskLists)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditTaskList(taskList.Id)">
@@ -74,7 +75,7 @@ else
                         }
                         else if (taskList.IsCompleted)
                         {
-                            <span class="row-meta">Done</span>
+                            <span class="row-meta">@T["Done"]</span>
                         }
                     </button>
                 }
@@ -84,7 +85,7 @@ else
         @if (_events.Count > 0)
         {
             <div class="card">
-                <div class="card-header"><span class="card-title">Upcoming</span><span class="card-count">@_events.Count</span></div>
+                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-count">@_events.Count</span></div>
                 @foreach (var calendarEvent in _events.OrderBy(e => e.Details.StartUtc).Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditEvent(calendarEvent.Id)">
@@ -101,7 +102,7 @@ else
         @if (_groups.Count > 0)
         {
             <div class="card">
-                <div class="card-header"><span class="card-title">Groups</span><span class="card-count">@_groups.Count</span></div>
+                <div class="card-header"><span class="card-title">@T["Groups"]</span><span class="card-count">@_groups.Count</span></div>
                 @foreach (var group in _groups)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToGroup(group.Id)">
@@ -109,7 +110,7 @@ else
                         <span class="row-title">@group.Name</span>
                         @if (group.OwnRole == AdminRole)
                         {
-                            <span class="card-badge">Admin</span>
+                            <span class="card-badge">@T["Admin"]</span>
                         }
                         <span class="row-meta">@group.Members.Count</span>
                     </button>
@@ -120,7 +121,7 @@ else
         @if (_contacts.Count > 0)
         {
             <div class="card">
-                <div class="card-header"><span class="card-title">Recent chats</span></div>
+                <div class="card-header"><span class="card-title">@T["Recent chats"]</span></div>
                 @foreach (var contact in _recentContacts.Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
@@ -132,7 +133,7 @@ else
             </div>
 
             <div class="card">
-                <div class="card-header"><span class="card-title">Contacts</span><span class="card-count">@_contactsAlphabetically.Count()</span></div>
+                <div class="card-header"><span class="card-title">@T["Contacts"]</span><span class="card-count">@_contactsAlphabetically.Count()</span></div>
                 @foreach (var contact in _contactsAlphabetically)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">

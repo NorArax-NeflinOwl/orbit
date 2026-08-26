@@ -9,6 +9,7 @@ using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -17,7 +18,7 @@ namespace Orbit.Web.Tests.Pages;
 /// Covers the shallow editing level: a whole list as tickable rows, a group list rendered together with
 /// the lists it gathers, and which rows are deliberately not tickable.
 /// </summary>
-public sealed class TaskListChecklistTests : TestContext
+public sealed class TaskListChecklistTests : OrbitTestContext
 {
     private readonly List<HttpRequestMessage> _requests = [];
     private readonly List<string> _requestBodies = [];

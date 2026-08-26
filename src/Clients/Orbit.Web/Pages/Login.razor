@@ -7,6 +7,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<Login> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Log in</PageTitle>
 
@@ -16,21 +17,21 @@
    dedicated centered-card auth layout (logo, card, form) using app.css's .card/.btn-primary, closer to
    what a login page usually looks like than reusing the app shell's .page-header pattern. Register.razor
    is the same story. *@
-<h1>Log in</h1>
+<h1>@T["Log in"]</h1>
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync" class="editor-form">
     <div class="field">
-        <label>Email or username</label>
+        <label>@T["Email or username"]</label>
         <InputText id="emailOrUserName" @bind-Value="_formModel.EmailOrUserName" />
     </div>
     <div class="field">
-        <label>Password</label>
+        <label>@T["Password"]</label>
         <!-- InputText always renders type="text" regardless of splatted attributes, so a real masked
              password field needs a plain <input> with a manual two-way binding instead. -->
         <input type="password" id="password" @bind="_formModel.Password" />
     </div>
     <div class="form-actions">
-        <button type="submit" class="btn-primary" disabled="@_isSubmitting">Log in</button>
+        <button type="submit" class="btn-primary" disabled="@_isSubmitting">@T["Log in"]</button>
     </div>
 </EditForm>
 
@@ -41,7 +42,7 @@
 
 <GoogleSignInButton OnCredential="SignInWithGoogleAsync" ShowDivider="true" />
 
-<p>Don't have an account? <a href="/register">Register</a></p>
+<p>@T["Don't have an account? "]<a href="/register">@T["Register"]</a></p>
 
 @code {
     /// <summary>Set by whatever sent the reader here - see DestinationAfterLogin, which is what decides whether to honour it.</summary>

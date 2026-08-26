@@ -14,6 +14,7 @@
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject IJSRuntime JSRuntime
 @inject ILogger<Calendar> Logger
+@inject Translations T
 
 <PageTitle>Orbit — Calendar</PageTitle>
 
@@ -23,9 +24,9 @@
    panel, and a pill view-switch (Day/Month/Year) - see wwwroot/css/app.css's .card/.btn-primary/.today-strip
    vocabulary from Dashboard.razor for the pattern. CalendarMonthGrid.razor/CalendarDayGrid.razor/
    CalendarYearGrid.razor would need the same treatment since they render into this page's grid classes. *@
-<h1>Calendar</h1>
+<h1>@T["Calendar"]</h1>
 
-<p><button class="btn-primary" @onclick="GoToAddEvent">Add event</button></p>
+<p><button class="btn-primary" @onclick="GoToAddEvent">@T["Add event"]</button></p>
 
 <div class="calendar-toolbar">
     <button type="button" class="icon-btn @(_viewState.IsEventListVisible ? "active" : "")"
@@ -55,11 +56,11 @@
             {
                 @if (_events is null)
                 {
-                    <p>Loading…</p>
+                    <p>@T["Loading…"]</p>
                 }
                 else if (_events.Count == 0)
                 {
-                    <p>No events.</p>
+                    <p>@T["No events."]</p>
                 }
                 else
                 {
@@ -90,7 +91,7 @@
                                             </button>
                                         }
                                         <button type="button" class="btn-secondary" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? "View" : "Edit")</button>
-                                        <button type="button" class="btn-secondary" @onclick="() => DeleteEventAsync(calendarEvent)">Delete</button>
+                                        <button type="button" class="btn-secondary" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
                                     </span>
                                 </div>
 
@@ -106,7 +107,7 @@
                                                 @if (_hasGoogleExtras)
                                                 {
                                                     <a href="@GoogleMapsLink.ToPlace(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@FormatLocation(location)</a>
-                                                    <a class="google-link" href="@GoogleMapsLink.ToDirections(location.Latitude, location.Longitude)" target="_blank" rel="noopener">Directions</a>
+                                                    <a class="google-link" href="@GoogleMapsLink.ToDirections(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@T["Directions"]</a>
                                                 }
                                                 else
                                                 {
@@ -117,9 +118,7 @@
                                         @if (_hasGoogleExtras)
                                         {
                                             <span class="field-break"></span>
-                                            <a class="google-link" href="@GoogleCalendarLinkFor(calendarEvent)" target="_blank" rel="noopener">
-                                                Add to Google Calendar
-                                            </a>
+                                            <a class="google-link" href="@GoogleCalendarLinkFor(calendarEvent)" target="_blank" rel="noopener">@T["Add to Google Calendar"]</a>
                                         }
                                         @if (calendarEvent.Details.Recurrence is { } recurrence)
                                         {
@@ -139,14 +138,14 @@
 
             @if (_viewState.IsTaskListVisible)
             {
-                <h3>Tasks with a due date</h3>
+                <h3>@T["Tasks with a due date"]</h3>
                 @if (_dueTasks is null)
                 {
-                    <p>Loading…</p>
+                    <p>@T["Loading…"]</p>
                 }
                 else if (_dueTasks.Count == 0)
                 {
-                    <p>No tasks with a due date.</p>
+                    <p>@T["No tasks with a due date."]</p>
                 }
                 else
                 {
@@ -157,7 +156,7 @@
                                 <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
                                 <span class="row-title">@dueTask.Description</span>
                                 <span class="row-meta">@dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-                                <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(dueTask.TaskListId)">Open</button>
+                                <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(dueTask.TaskListId)">@T["Open"]</button>
                             </div>
                         }
                     </div>
@@ -170,14 +169,14 @@
         <div class="calendar-visualization-toolbar">
             <div class="calendar-visualization-toolbar-navigation">
                 <button @onclick="GoToPreviousPeriod">‹</button>
-                <button @onclick="GoToToday">Today</button>
+                <button @onclick="GoToToday">@T["Today"]</button>
                 <button @onclick="GoToNextPeriod">›</button>
                 <h2 class="calendar-period-label">@_viewState.PeriodLabel</h2>
             </div>
             <div class="calendar-view-switch">
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">Day</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">Month</button>
-                <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">Year</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">@T["Day"]</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">@T["Month"]</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">@T["Year"]</button>
             </div>
         </div>
 

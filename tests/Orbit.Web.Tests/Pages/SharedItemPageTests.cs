@@ -9,6 +9,7 @@ using Orbit.Contracts.Sharing;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -18,7 +19,7 @@ namespace Orbit.Web.Tests.Pages;
 /// reach. What matters is that it shows the item, offers no way to change it, and offers signing in
 /// only as a way to keep a copy.
 /// </summary>
-public sealed class SharedItemPageTests : TestContext
+public sealed class SharedItemPageTests : OrbitTestContext
 {
     private readonly TestAuthorizationContext _authorization;
 

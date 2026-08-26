@@ -9,12 +9,13 @@
 @inject NotificationsApiClient NotificationsApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<WarehouseEditor> Logger
+@inject Translations T
 
 <PageTitle>@(_formModel.Name.Length > 0 ? _formModel.Name : "Warehouse")</PageTitle>
 
 @if (_isLoading)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else
 {
@@ -50,9 +51,7 @@ else
             {
                 <div class="field">
                     <label>
-                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />
-                        Private
-                    </label>
+                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                     <small>
                         Encrypted in this browser before it is saved, so Orbit's servers hold something they
                         can't read - no item rows for this warehouse exist there at all. A private warehouse
@@ -63,10 +62,10 @@ else
                 </div>
             }
 
-            <h2 class="options-heading">Items</h2>
+            <h2 class="options-heading">@T["Items"]</h2>
             @if (_formModel.Items.Count == 0)
             {
-                <p>No items yet.</p>
+                <p>@T["No items yet."]</p>
             }
             else
             {
@@ -76,15 +75,13 @@ else
                         @* Name and the two numbers that decide whether it needs restocking stay on the
                            row; everything else waits behind the toggle so a full warehouse is readable. *@
                         <div class="editor-item-summary">
-                            <InputText class="editor-item-main" placeholder="Item name" @bind-Value="item.Name" />
+                            <InputText class="editor-item-main" placeholder="@(T["Item name"])" @bind-Value="item.Name" />
                             <span class="editor-item-aside">
                                 <label title="Quantity">
                                     Qty
                                     <InputNumber TValue="decimal" @bind-Value="item.Quantity" step="0.01" />
                                 </label>
-                                <label title="Restock below this quantity">
-                                    Min
-                                    <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
+                                <label title="Restock below this quantity">@T["Min"]<InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
                                 </label>
                                 <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
                                         title="@(IsExpanded(item) ? "Hide this item's other settings" : "Show this item's other settings")"
@@ -92,24 +89,18 @@ else
                                         @onclick="() => ToggleExpanded(item)">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
                                 </button>
-                                <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
+                                <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">@T["Remove"]</button>
                             </span>
                         </div>
 
                         @if (IsExpanded(item))
                         {
                             <div class="editor-item-details">
-                                <label>
-                                    Product type
-                                    <InputText placeholder="Product type" @bind-Value="item.ProductType" />
+                                <label>@T["Product type"]<InputText placeholder="@(T["Product type"])" @bind-Value="item.ProductType" />
                                 </label>
-                                <label>
-                                    Category
-                                    <InputText placeholder="Category" @bind-Value="item.Category" />
+                                <label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="item.Category" />
                                 </label>
-                                <label>
-                                    Expires
-                                    <InputDate @bind-Value="item.ExpiryDate" />
+                                <label>@T["Expires"]<InputDate @bind-Value="item.ExpiryDate" />
                                 </label>
                                 <label>
                                     Expiry notification
@@ -133,15 +124,15 @@ else
                 <p class="error">@_saveErrorMessage</p>
             }
             <div class="form-actions">
-                <button type="submit" class="btn-primary">Save</button>
-                <button type="button" class="btn-secondary" @onclick="GoToWarehouses">Cancel</button>
+                <button type="submit" class="btn-primary">@T["Save"]</button>
+                <button type="button" class="btn-secondary" @onclick="GoToWarehouses">@T["Cancel"]</button>
             </div>
         </fieldset>
     </EditForm>
 
     @if (!_formModel.IsPrivate)
     {
-        <h2>Link</h2>
+        <h2>@T["Link"]</h2>
         <ShareLinkButton ItemType="Warehouse" ItemId="WarehouseId" />
     }
 }

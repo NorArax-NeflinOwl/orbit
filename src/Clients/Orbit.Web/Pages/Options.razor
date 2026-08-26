@@ -8,6 +8,7 @@
 @using Orbit.Core.Transfer
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
+@inject Translations T
 @inject PushNotificationManager PushNotificationManager
 @inject NotificationsApiClient NotificationsApiClient
 @inject ClientFlagsApiClient ClientFlagsApiClient
@@ -25,7 +26,7 @@
 
 <div class="page-header">
     <div>
-        <h1>Options</h1>
+        <h1>@T["Options"]</h1>
         <p class="page-subtitle">Your account, appearance, and notification preferences.</p>
     </div>
 </div>
@@ -37,11 +38,11 @@
         <div class="options-card">
             <div class="options-row options-row-stacked">
                 <div class="field">
-                    <label for="displayNameInput">Display name</label>
+                    <label for="displayNameInput">@T["Display name"]</label>
                     <input id="displayNameInput" @bind="_profileForm.DisplayName" />
                 </div>
                 <div class="field">
-                    <label for="userNameInput">Username</label>
+                    <label for="userNameInput">@T["Username"]</label>
                     <input id="userNameInput" @bind="_profileForm.UserName" />
                 </div>
                 <div class="field">
@@ -160,7 +161,7 @@
 
             <div class="options-row options-row-stacked">
                 <div>
-                    <div class="options-row-title">Password</div>
+                    <div class="options-row-title">@T["Password"]</div>
                     <div class="options-row-desc">
                         Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere.
                     </div>
@@ -189,29 +190,29 @@
     </div>
 
     <div class="options-section">
-        <h2 class="options-heading">Appearance</h2>
+        <h2 class="options-heading">@T["Appearance"]</h2>
         <p class="options-subtext">Choose how Orbit looks on this device.</p>
         <div class="theme-picker">
             <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Light ? "active" : "")"
                     @onclick="() => SetThemeAsync(ThemePreference.Light)">
                 <span class="theme-preview theme-preview-light"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
-                <span class="theme-option-label">Light</span>
+                <span class="theme-option-label">@T["Light"]</span>
             </button>
             <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Dark ? "active" : "")"
                     @onclick="() => SetThemeAsync(ThemePreference.Dark)">
                 <span class="theme-preview theme-preview-dark"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
-                <span class="theme-option-label">Dark</span>
+                <span class="theme-option-label">@T["Dark"]</span>
             </button>
             <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.System ? "active" : "")"
                     @onclick="() => SetThemeAsync(ThemePreference.System)">
                 <span class="theme-preview theme-preview-system"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
-                <span class="theme-option-label">System</span>
+                <span class="theme-option-label">@T["System"]</span>
             </button>
         </div>
     </div>
 
     <div class="options-section">
-        <h2 class="options-heading">Notifications</h2>
+        <h2 class="options-heading">@T["Notifications"]</h2>
         <div class="options-card">
             <div class="options-row">
                 <div>
@@ -233,7 +234,7 @@
             </div>
             <div class="options-row">
                 <div>
-                    <div class="options-row-title">Allow notifications</div>
+                    <div class="options-row-title">@T["Allow notifications"]</div>
                     <div class="options-row-desc">Master switch for the three settings below and for anything showing up in the Notifications panel/badge/banner at all.</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowNotifications ? "on" : "")" role="switch"
@@ -244,7 +245,7 @@
             </div>
             <div class="options-row options-row-child">
                 <div>
-                    <div class="options-row-title">Allow push</div>
+                    <div class="options-row-title">@T["Allow push"]</div>
                     <div class="options-row-desc">Lets any calendar event, task, or inventory item's own push setting actually send a push notification.</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowPush ? "on" : "")" role="switch"
@@ -256,7 +257,7 @@
             </div>
             <div class="options-row options-row-child">
                 <div>
-                    <div class="options-row-title">Tell me when something is shared with me</div>
+                    <div class="options-row-title">@T["Tell me when something is shared with me"]</div>
                     <div class="options-row-desc">
                         A note, task list, event, warehouse, or someone's location. The invitation always
                         appears in your notifications either way - this adds a push notification or email
@@ -272,7 +273,7 @@
             </div>
             <div class="options-row options-row-child">
                 <div>
-                    <div class="options-row-title">Allow email</div>
+                    <div class="options-row-title">@T["Allow email"]</div>
                     <div class="options-row-desc">Lets any calendar event, task, or inventory item's own email setting actually send an email.</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowEmail ? "on" : "")" role="switch"
@@ -296,7 +297,7 @@
             </div>
             <div class="options-row options-row-child">
                 <div>
-                    <div class="options-row-title">Banner duration (seconds)</div>
+                    <div class="options-row-title">@T["Banner duration (seconds)"]</div>
                     <div class="options-row-desc">How long a notification banner stays on screen (1-30).</div>
                 </div>
                 <input type="number" id="bannerVisibleSecondsInput" class="options-number-input" min="1" max="30"
@@ -306,7 +307,7 @@
             </div>
             <div class="options-row options-row-child">
                 <div>
-                    <div class="options-row-title">Banner interval (seconds)</div>
+                    <div class="options-row-title">@T["Banner interval (seconds)"]</div>
                     <div class="options-row-desc">Minimum quiet time before the next banner may appear (1-300).</div>
                 </div>
                 <input type="number" id="bannerMinimumGapSecondsInput" class="options-number-input" min="1" max="300"
@@ -316,7 +317,7 @@
             </div>
             <div class="options-row options-row-child">
                 <div>
-                    <div class="options-row-title">Keep notifications for (days)</div>
+                    <div class="options-row-title">@T["Keep notifications for (days)"]</div>
                     <div class="options-row-desc">
                         How long a notification stays on the
                         <a href="/notifications">notifications page</a> before it is deleted for good (1-90).
@@ -342,12 +343,12 @@
     @if (_exceptionDetailsAllowedByServer)
     {
         <div class="options-section">
-            <h2 class="options-heading">Diagnostics</h2>
+            <h2 class="options-heading">@T["Diagnostics"]</h2>
             <p class="options-subtext">Only shown in non-production environments.</p>
             <div class="options-card">
                 <div class="options-row">
                     <div>
-                        <div class="options-row-title">Show exceptions</div>
+                        <div class="options-row-title">@T["Show exceptions"]</div>
                         <div class="options-row-desc">Lets the Notifications panel list this browser's own recent errors, each with a "Copy" button for reporting a bug.</div>
                     </div>
                     <button type="button" class="switch @(_notificationSettings.ShowExceptionDetails ? "on" : "")" role="switch"
@@ -361,14 +362,30 @@
     }
 
     <div class="options-section">
-        <h2 class="options-heading">Your data</h2>
+        <h2 class="options-heading">@T["Language"]</h2>
+        <p class="options-subtext">@T["The language Orbit's own interface is written in. Kept on this device."]</p>
+        <div class="options-card">
+            <div class="options-row">
+                <div>
+                    <div class="options-row-title">@T["Language"]</div>
+                </div>
+                <select id="languageSelect" class="options-select" value="@T.Language" @onchange="OnLanguageChangedAsync">
+                    <option value="@AppLanguage.English">@T["English"]</option>
+                    <option value="@AppLanguage.Polish">Polski</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="options-section">
+        <h2 class="options-heading">@T["Your data"]</h2>
         <p class="options-subtext">
             Everything you own — notes, task lists, events and storages — as one JSON file, and back again.
         </p>
         <div class="options-card">
             <div class="options-row options-row-stacked">
                 <div>
-                    <div class="options-row-title">Export</div>
+                    <div class="options-row-title">@T["Export"]</div>
                     <div class="options-row-desc">
                         Downloads a file holding everything in your account. Things other people shared with
                         you stay theirs and are left out. A private item travels sealed: import it back here
@@ -381,7 +398,7 @@
             </div>
             <div class="options-row options-row-stacked">
                 <div>
-                    <div class="options-row-title">Import</div>
+                    <div class="options-row-title">@T["Import"]</div>
                     <div class="options-row-desc">
                         Adds everything in a file to this account. Nothing is replaced or matched up with what
                         you already have, so importing the same file twice leaves two copies of everything.
@@ -401,7 +418,7 @@
     </div>
 
     <div class="options-section">
-        <h2 class="options-heading">Danger zone</h2>
+        <h2 class="options-heading">@T["Danger zone"]</h2>
         <p class="options-subtext">Deleting your account is permanent and cannot be undone.</p>
         <div class="options-card options-card-danger">
             <div class="options-row options-row-stacked">
@@ -415,7 +432,7 @@
                 @if (_account?.HasPassword == true)
                 {
                     <div class="field">
-                        <label for="deleteAccountPasswordInput">Password</label>
+                        <label for="deleteAccountPasswordInput">@T["Password"]</label>
                         <input type="password" id="deleteAccountPasswordInput" @bind="_deleteAccountForm.Password" />
                     </div>
                 }
@@ -432,6 +449,14 @@
 </div>
 
 @code {
+    private async Task OnLanguageChangedAsync(ChangeEventArgs args)
+    {
+        if (Enum.TryParse<AppLanguage>(args.Value?.ToString(), out var language))
+        {
+            await T.SetLanguageAsync(language);
+        }
+    }
+
     /// <summary>An export of a whole account is not large by file standards, but a hand-made file could be - this is where a nonsense one stops.</summary>
     private const long MaximumImportSizeBytes = 32 * 1024 * 1024;
 

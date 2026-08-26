@@ -2,15 +2,16 @@
 @using Orbit.Contracts.Notifications
 @using Orbit.Web.Services
 @inject ClientExceptionLog ClientExceptionLog
+@inject Translations T
 
 @* Shared by MainLayout's desktop popup and the mobile Notifications page, so the two can never drift. *@
 @if (IsLoading)
 {
-    <p class="notifications-panel-empty">Loading…</p>
+    <p class="notifications-panel-empty">@T["Loading…"]</p>
 }
 else if (Entries.Count == 0 && ExceptionEntries.Count == 0)
 {
-    <p class="notifications-panel-empty">Nothing yet.</p>
+    <p class="notifications-panel-empty">@T["Nothing yet."]</p>
 }
 else
 {

@@ -10,16 +10,17 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<GroupChat> Logger
+@inject Translations T
 
 <PageTitle>@(_selectedGroup?.Name ?? "Groups")</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1>Groups</h1>
+        <h1>@T["Groups"]</h1>
         <p class="page-subtitle">Chats with more than one other person, encrypted the same way one-to-one chats are.</p>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn-secondary" @onclick="GoToContacts">Contacts</button>
+        <button type="button" class="btn-secondary" @onclick="GoToContacts">@T["Contacts"]</button>
         <button type="button" class="btn-primary" @onclick="StartCreating">New group</button>
     </div>
 </div>
@@ -55,8 +56,8 @@
             }
         </div>
         <div class="form-actions">
-            <button type="button" class="btn-primary" disabled="@(_isBusy || _newGroupName.Trim().Length == 0)" @onclick="CreateGroupAsync">Create</button>
-            <button type="button" class="btn-secondary" @onclick="() => _isCreating = false">Cancel</button>
+            <button type="button" class="btn-primary" disabled="@(_isBusy || _newGroupName.Trim().Length == 0)" @onclick="CreateGroupAsync">@T["Create"]</button>
+            <button type="button" class="btn-secondary" @onclick="() => _isCreating = false">@T["Cancel"]</button>
         </div>
     </div>
 }
@@ -77,7 +78,7 @@
                     <span class="row-title">@group.Name</span>
                     @if (group.OwnRole == AdminRole)
                     {
-                        <span class="card-badge">Admin</span>
+                        <span class="card-badge">@T["Admin"]</span>
                     }
                     <span class="row-meta">@group.Members.Count</span>
                 </button>
@@ -102,7 +103,7 @@
                         <span class="row-title">@DisplayNameFor(member.UserId)</span>
                         @if (member.Role == AdminRole)
                         {
-                            <span class="card-badge">Admin</span>
+                            <span class="card-badge">@T["Admin"]</span>
                         }
                         @if (IsOwnAdmin && member.UserId != _ownUserId)
                         {
@@ -110,7 +111,7 @@
                                     @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
                                 @(member.Role == AdminRole ? "Demote" : "Make admin")
                             </button>
-                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">Remove</button>
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
                         }
                     </div>
                 }
@@ -125,7 +126,7 @@
                                 <option value="@contact.UserId">@contact.DisplayName</option>
                             }
                         </select>
-                        <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="AddMemberAsync">Add</button>
+                        <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="AddMemberAsync">@T["Add"]</button>
                     </div>
                 }
             </div>
@@ -145,7 +146,7 @@
                         <span class="row-meta">@message.SentAtUtc.LocalDateTime.ToString("dd.MM HH:mm")</span>
                         @if (CanDelete(message))
                         {
-                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => DeleteMessageAsync(message)">Delete</button>
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
                         }
                     </div>
                 }
@@ -153,7 +154,7 @@
 
             <div class="field-row">
                 <input @bind="_draft" placeholder="Write to the group" @onkeydown="OnDraftKeyDownAsync" />
-                <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">Send</button>
+                <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">@T["Send"]</button>
             </div>
         </div>
     }

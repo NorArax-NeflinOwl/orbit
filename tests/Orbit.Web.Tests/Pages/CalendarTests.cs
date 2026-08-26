@@ -12,11 +12,12 @@ using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
 
-public sealed class CalendarTests : TestContext
+public sealed class CalendarTests : OrbitTestContext
 {
     public CalendarTests()
     {

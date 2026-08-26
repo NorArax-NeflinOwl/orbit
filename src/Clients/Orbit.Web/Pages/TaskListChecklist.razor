@@ -7,6 +7,7 @@
 @inject NavigationManager NavigationManager
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ILogger<TaskListChecklist> Logger
+@inject Translations T
 
 <PageTitle>@(_sections.Count > 0 ? _sections[0].TaskList.Title : "Checklist")</PageTitle>
 
@@ -15,7 +16,7 @@
    is what lets the whole list - and, for a group list, every list it gathers - stay on one screen. *@
 @if (_isLoading)
 {
-    <p>Loading…</p>
+    <p>@T["Loading…"]</p>
 }
 else if (_sections.Count == 0)
 {
@@ -39,7 +40,7 @@ else
             </p>
         </div>
         <div class="page-header-actions">
-            <button type="button" class="btn-secondary" @onclick="GoToDeepEditor">Edit</button>
+            <button type="button" class="btn-secondary" @onclick="GoToDeepEditor">@T["Edit"]</button>
             <button type="button" class="btn-secondary" @onclick="GoToTaskLists">Back</button>
         </div>
     </div>
@@ -85,7 +86,7 @@ else
                                 @* Google Calendar template links can't create a task, so a deadline
                                    becomes a short event ending at it - see GoogleCalendarEventLink. *@
                                 <a class="google-link" href="@GoogleCalendarEventLink.ForTaskItem(item.Description, dueDate, section.TaskList.Title)"
-                                   target="_blank" rel="noopener" @onclick:stopPropagation="true">Add to Google Calendar</a>
+                                   target="_blank" rel="noopener" @onclick:stopPropagation="true">@T["Add to Google Calendar"]</a>
                             }
                         }
                     </label>

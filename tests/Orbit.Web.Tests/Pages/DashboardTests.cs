@@ -13,11 +13,12 @@ using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using Orbit.Web.Tests;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
 
-public sealed class DashboardTests : TestContext
+public sealed class DashboardTests : OrbitTestContext
 {
     public DashboardTests()
     {
