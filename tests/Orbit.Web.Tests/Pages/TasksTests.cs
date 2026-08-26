@@ -195,6 +195,61 @@ public sealed class TasksTests : TestContext
         Assert.Contains("No lists are", cut.Markup);
     }
 
+    [Fact]
+    public void A_pinned_list_leads_the_page()
+    {
+        RegisterTasksApiClient([
+            TaskList("Zebra", "High", "New", DateTimeOffset.UtcNow),
+            TaskList("Apple", "Low", "New", DateTimeOffset.UtcNow, isPinned: true)]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // Low priority, and still first: that is what pinning is for.
+        Assert.StartsWith("Apple", CardTitles(cut)[0]);
+    }
+
+    [Fact]
+    public void A_pin_holds_under_every_sort_order()
+    {
+        RegisterTasksApiClient([
+            TaskList("Apple", "High", "New", DateTimeOffset.UtcNow.AddYears(-1)),
+            TaskList("Zebra", "Low", "New", DateTimeOffset.UtcNow, isPinned: true)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        foreach (var order in new[] { "Alphabetical", "ReverseAlphabetical", "Newest", "Oldest", "Priority" })
+        {
+            cut.Find(".list-sort select").Change(order);
+            Assert.StartsWith("Zebra", CardTitles(cut)[0]);
+        }
+    }
+
+    [Fact]
+    public void A_pinned_list_says_so()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", "Normal", "New", DateTimeOffset.UtcNow, isPinned: true)]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Single(cut.FindAll(".card-badge-pinned"));
+        Assert.Contains("Unpin", cut.Markup);
+    }
+
+    [Fact]
+    public void A_list_you_only_hold_a_share_of_offers_no_pin()
+    {
+        // Pinning moves the card on its owner's page, so a recipient pinning it would be rearranging
+        // someone else's.
+        var shared = TaskList("Theirs", "Normal", "New", DateTimeOffset.UtcNow) with
+        {
+            IsShared = true, SharedByUserName = "anna", AccessLevel = "ReadOnly"
+        };
+        RegisterTasksApiClient([shared]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.DoesNotContain("Pin", cut.Find(".card-actions").TextContent);
+    }
+
     /// <summary>The card titles in the order they render, each still carrying its badges' text after the title itself.</summary>
     private static string[] CardTitles(IRenderedFragment cut)
         => cut.FindAll(".card-title").Select(title => title.TextContent.Trim()).ToArray();
@@ -211,11 +266,15 @@ public sealed class TasksTests : TestContext
 
     private static TaskDto TaskList(
         string title, string priority, string status, DateTimeOffset createdAtUtc, params TaskItemDto[] items)
+        => TaskList(title, priority, status, createdAtUtc, isPinned: false, items);
+
+    private static TaskDto TaskList(
+        string title, string priority, string status, DateTimeOffset createdAtUtc, bool isPinned, params TaskItemDto[] items)
         => new(
             Guid.NewGuid(), title, items, IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
             createdAtUtc, createdAtUtc,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
-            Priority: priority, Status: status);
+            Priority: priority, Status: status, IsPinned: isPinned);
 
     private static TaskItemDto Item(string description, bool isCompleted = false)
         => new(

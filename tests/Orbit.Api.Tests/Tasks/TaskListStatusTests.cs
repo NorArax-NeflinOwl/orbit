@@ -94,7 +94,7 @@ public sealed class TaskListStatusTests
         var rebuilt = TaskList.FromPersistence(
             original.Id, original.UserId, original.Title, original.Items, original.IsGroup, original.IsPrivate,
             original.EncryptedContent, original.CreatedAtUtc, original.UpdatedAtUtc,
-            original.LockedByUserId, original.LockedByUserName, original.LockExpiresAtUtc, original.Priority);
+            original.LockedByUserId, original.LockedByUserName, original.LockExpiresAtUtc, original.Priority, original.IsPinned);
 
         Assert.Equal(TaskListPriority.High, rebuilt.Priority);
     }

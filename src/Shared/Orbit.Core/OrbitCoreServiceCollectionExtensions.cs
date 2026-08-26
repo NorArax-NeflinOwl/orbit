@@ -84,6 +84,7 @@ using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
+using Orbit.Core.Tasks.SetTaskListPinned;
 using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Users;
@@ -145,6 +146,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
         services.AddScoped<IRequestHandler<ShareTaskListCommand, ShareOutcome?>, ShareTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<SetTaskListPinnedCommand, bool>, SetTaskListPinnedCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptTaskListShareCommand, bool>, AcceptTaskListShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListShareStatusQuery, bool?>, GetTaskListShareStatusQueryHandler>();
         services.AddScoped<IRequestHandler<AcquireTaskListLockCommand, EditOutcome>, AcquireTaskListLockCommandHandler>();
