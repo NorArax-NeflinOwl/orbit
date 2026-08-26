@@ -75,6 +75,8 @@ services:
       Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
       # Empty unless Google sign-in is configured - see .env.example.
       GoogleAuth__ClientId: "${GOOGLE_CLIENT_ID:-}"
+      GoogleAuth__IosClientId: "${GOOGLE_IOS_CLIENT_ID:-}"
+      GoogleAuth__AndroidClientId: "${GOOGLE_ANDROID_CLIENT_ID:-}"
       # Optional - see .env.example. Read directly (not under a "Smtp__"-style prefix) since it's
       # picked up by Azure Monitor's exporter by its own conventional env var name, not app config.
       APPLICATIONINSIGHTS_CONNECTION_STRING: "${APPLICATIONINSIGHTS_CONNECTION_STRING:-}"

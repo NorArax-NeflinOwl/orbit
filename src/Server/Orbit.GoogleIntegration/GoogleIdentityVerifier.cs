@@ -8,8 +8,9 @@ namespace Orbit.GoogleIntegration;
 /// <summary>
 /// Verifies Google ID tokens with Google's own library, which checks the signature against Google's
 /// published keys (fetching and caching them), the issuer, and the expiry. This class adds the two checks
-/// that are specific to Orbit: that the token was issued for *this* deployment's client id, and that
-/// Google itself considers the address verified.
+/// that are specific to Orbit: that the token was issued for one of *this* deployment's own clients (web
+/// or either mobile app - see GoogleAuthSettings.AcceptedClientIds), and that Google itself considers the
+/// address verified.
 /// </summary>
 public sealed class GoogleIdentityVerifier : IGoogleIdentityVerifier
 {
@@ -22,7 +23,7 @@ public sealed class GoogleIdentityVerifier : IGoogleIdentityVerifier
         _logger = logger;
     }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(_settings.CurrentValue.ClientId);
+    public bool IsConfigured => _settings.CurrentValue.IsConfigured;
 
     public async Task<GoogleIdentity?> VerifyAsync(string idToken, CancellationToken cancellationToken)
     {
@@ -35,10 +36,12 @@ public sealed class GoogleIdentityVerifier : IGoogleIdentityVerifier
         try
         {
             // Audience is the crucial one: without it, a token minted for any other Google application
-            // would validate here and let its holder sign in as that user.
+            // would validate here and let its holder sign in as that user. Widening it to several
+            // audiences is safe only because it stays an explicit allowlist of this deployment's own
+            // clients - see GoogleAuthSettings.AcceptedClientIds.
             payload = await GoogleJsonWebSignature.ValidateAsync(
                 idToken,
-                new GoogleJsonWebSignature.ValidationSettings { Audience = [_settings.CurrentValue.ClientId] });
+                new GoogleJsonWebSignature.ValidationSettings { Audience = _settings.CurrentValue.AcceptedClientIds });
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not HttpRequestException)
         {
