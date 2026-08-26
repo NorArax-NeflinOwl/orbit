@@ -15,4 +15,5 @@ namespace Orbit.Mobile.Data;
 [JsonSerializable(typeof(IReadOnlyList<TaskItemDto>))]
 [JsonSerializable(typeof(CalendarEventDetailsDto))]
 [JsonSerializable(typeof(IReadOnlyList<WarehouseItemDto>))]
+[JsonSerializable(typeof(IReadOnlyList<LocalChatGroupMember>))]
 internal sealed partial class LocalStoreSerializerContext : JsonSerializerContext;

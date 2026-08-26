@@ -597,7 +597,7 @@ phase behind it, mostly for free apart from the platform-specific work.
 | **2. Local store and sync spine** (built) | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
 | **3. Crypto spine** (built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
 | **4. The content features** (built) | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
-| **5. The rest of chat** | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
+| **5. The rest of chat** (group conversations built) | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
 | **6. Location and maps** | Geolocation, maps, recording, sharing, viewing shared | Location parity |
 | **7. Notifications and diagnostics** | APNs/FCM registration, notification settings, in-app feed, deep links, **file logging and upload (§8)** | A push taps through to the right screen; a user can send a log |
 | **8. Platform polish** | Live Activities and the Dynamic Island location share, Action Button, widgets, accessibility, localisation | Ready for review |

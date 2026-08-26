@@ -23,12 +23,19 @@ internal sealed class ChatContext : IDisposable
     {
         Clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         Server = new FakeChatServer(Clock);
+        Users = new FakeUsersServer();
 
         var vectors = BrowserVectorsFile.Read();
         OwnUserId = Guid.NewGuid();
         OtherUserId = Guid.NewGuid();
         OtherIdentity = ChatIdentity.FromBackup(vectors.Bob.Backup, vectors.BackupPassword)!;
         OtherPublicKeyBase64 = vectors.Bob.PublicKeyBase64;
+
+        // A third party, for the group tests. Generated rather than taken from the vectors, which carry
+        // two: interoperability is what the vectors are for, and this one only has to be a real key.
+        ThirdUserId = Guid.NewGuid();
+        ThirdIdentity = ChatIdentity.Create();
+        ThirdPublicKeyBase64 = ThirdIdentity.PublicKeyBase64;
 
         var keyStorage = new InMemoryChatKeyStorage();
         using (var own = ChatIdentity.FromBackup(vectors.Alice.Backup, vectors.BackupPassword)!)
@@ -37,27 +44,35 @@ internal sealed class ChatContext : IDisposable
             OwnPublicKeyBase64 = own.PublicKeyBase64;
         }
 
+        Server.CallerUserId = OwnUserId;
         var session = new UserSession("access", "refresh", OwnUserId, "me@orbit.example", "Me");
+        var sessionStore = new SessionStore(new InMemorySessionStorage(session));
         var encryptionKeyProvider = new OwnEncryptionKeyProvider(
             keyStorage, new EncryptionKeyClient(new FakeEncryptionKeyServer().ToHttpClient()),
-            new SessionStore(new InMemorySessionStorage(session)),
-            NullLogger<OwnEncryptionKeyProvider>.Instance);
+            sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance);
 
         Repository = new ChatRepository(_localStore, Clock);
         var chatClient = new ChatClient(Server.ToHttpClient());
+        var usersClient = new UsersClient(Users.ToHttpClient());
         Sender = new EncryptedChatMessageSender(
-            Repository, chatClient, encryptionKeyProvider, NullLogger<EncryptedChatMessageSender>.Instance);
-        Reader = new EncryptedChatMessageReader(Repository, encryptionKeyProvider);
-        Synchronizer = new ChatSynchronizer(Repository, chatClient, Sender, NullLogger<ChatSynchronizer>.Instance);
+            Repository, chatClient, usersClient, encryptionKeyProvider, sessionStore,
+            NullLogger<EncryptedChatMessageSender>.Instance);
+        Reader = new EncryptedChatMessageReader(Repository, encryptionKeyProvider, sessionStore);
+        Synchronizer = new ChatSynchronizer(
+            Repository, chatClient, usersClient, Sender, NullLogger<ChatSynchronizer>.Instance);
     }
 
     public FakeTimeProvider Clock { get; }
     public FakeChatServer Server { get; }
+    public FakeUsersServer Users { get; }
     public Guid OwnUserId { get; }
     public Guid OtherUserId { get; }
+    public Guid ThirdUserId { get; }
     public string OwnPublicKeyBase64 { get; }
     public string OtherPublicKeyBase64 { get; }
+    public string ThirdPublicKeyBase64 { get; }
     public ChatIdentity OtherIdentity { get; }
+    public ChatIdentity ThirdIdentity { get; }
     public ChatRepository Repository { get; }
     public EncryptedChatMessageSender Sender { get; }
     public EncryptedChatMessageReader Reader { get; }
@@ -66,9 +81,24 @@ internal sealed class ChatContext : IDisposable
     /// <summary>Publishes the other party's key, without which nothing can be encrypted for them.</summary>
     public void GiveTheOtherPartyAPublishedKey() => Server.AddContact(OtherUserId, OtherPublicKeyBase64);
 
+    /// <summary>
+    /// Both other people, as accounts that can be looked up by id. Group members are reached that way
+    /// rather than through the contact list, which only holds people the user has spoken to.
+    /// </summary>
+    public void PublishGroupMemberKeys()
+    {
+        Users.Add(OtherUserId, "Bob", OtherPublicKeyBase64);
+        Users.Add(ThirdUserId, "Carol", ThirdPublicKeyBase64);
+        Users.Add(OwnUserId, "Me", OwnPublicKeyBase64);
+    }
+
     /// <summary>Reads a message the way its recipient would - proof it is really encrypted for them.</summary>
     public string? OpenAsTheOtherParty(Orbit.Contracts.Chat.ChatMessageDto message)
         => OtherIdentity.Decrypt(OwnPublicKeyBase64, new EncryptedText(message.CiphertextBase64, message.NonceBase64));
+
+    /// <inheritdoc cref="OpenAsTheOtherParty"/>
+    public string? OpenAsTheThirdParty(Orbit.Contracts.Chat.ChatMessageDto message)
+        => ThirdIdentity.Decrypt(OwnPublicKeyBase64, new EncryptedText(message.CiphertextBase64, message.NonceBase64));
 
     public Task<IReadOnlyList<ReadableChatMessage>> ReadConversationAsync()
         => Reader.ReadAsync(OtherUserId, OtherPublicKeyBase64, CancellationToken.None);
@@ -76,7 +106,9 @@ internal sealed class ChatContext : IDisposable
     public void Dispose()
     {
         OtherIdentity.Dispose();
+        ThirdIdentity.Dispose();
         Server.Dispose();
+        Users.Dispose();
         _localStore.Dispose();
     }
 }

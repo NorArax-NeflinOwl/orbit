@@ -17,11 +17,29 @@ public sealed class LocalChatMessage
 
     /// <summary>
     /// The other party, whichever direction the message went. One conversation per person, so this is
-    /// what a conversation is keyed by rather than sender and recipient separately.
+    /// what a one-to-one conversation is keyed by rather than sender and recipient separately. Meaningless
+    /// for a group message, where <see cref="GroupId"/> is the conversation and the other party changes
+    /// from message to message.
     /// </summary>
     public Guid OtherUserId { get; set; }
 
+    /// <summary>The group this belongs to, null for an ordinary one-to-one message.</summary>
+    public Guid? GroupId { get; set; }
+
     public Guid SenderUserId { get; set; }
+
+    /// <summary>
+    /// Who this copy was sealed for. Only a group needs it: a group message is one copy per member (see
+    /// ChatMessage.CreateForGroup), and the reader's own copies are sealed against a recipient's key
+    /// rather than the sender's, so opening them means knowing which recipient.
+    /// </summary>
+    public Guid RecipientUserId { get; set; }
+
+    /// <summary>
+    /// Shared by every copy of one group message, null for a one-to-one one. The server hands each reader
+    /// a single copy per message; this is what identifies the message the copy belongs to.
+    /// </summary>
+    public Guid? GroupMessageId { get; set; }
 
     public string CiphertextBase64 { get; set; } = string.Empty;
 

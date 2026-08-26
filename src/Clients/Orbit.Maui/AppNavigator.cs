@@ -67,6 +67,12 @@ public sealed class AppNavigator
 	public void ShowConversation(LocalContact contact)
 		=> ShowAsRoot<ConversationPage>(page => ((ConversationViewModel)page.BindingContext).Open(contact));
 
+	public void ShowGroups() => ShowAsRoot<GroupsPage>();
+
+	/// <inheritdoc cref="ShowConversation"/>
+	public void ShowGroupConversation(LocalChatGroup group)
+		=> ShowAsRoot<GroupConversationPage>(page => page.ViewModel.Open(group));
+
 	public void ShowNotes() => ShowAsRoot<NotesPage>();
 
 	private void ShowAsRoot<TPage>(Action<TPage>? prepare = null) where TPage : Page

@@ -1,3 +1,4 @@
+using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 
@@ -14,11 +15,14 @@ public sealed class EncryptedChatMessageReader
 {
     private readonly ChatRepository _chatRepository;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
+    private readonly SessionStore _sessionStore;
 
-    public EncryptedChatMessageReader(ChatRepository chatRepository, OwnEncryptionKeyProvider encryptionKeyProvider)
+    public EncryptedChatMessageReader(
+        ChatRepository chatRepository, OwnEncryptionKeyProvider encryptionKeyProvider, SessionStore sessionStore)
     {
         _chatRepository = chatRepository;
         _encryptionKeyProvider = encryptionKeyProvider;
+        _sessionStore = sessionStore;
     }
 
     /// <summary>
@@ -55,4 +59,68 @@ public sealed class EncryptedChatMessageReader
 
         return conversation;
     }
+
+    /// <summary>
+    /// A group conversation, read the same way and with one difference that runs through all of it: the
+    /// key changes from message to message.
+    ///
+    /// A group message is stored as one copy per member, each sealed between the sender and that one
+    /// recipient (see ChatMessage.CreateForGroup), so there is no single "other party" for the screen.
+    /// The reader's own copies are sealed against a recipient's key rather than their own, which is why
+    /// the sender's side agrees with whoever the copy was addressed to.
+    /// </summary>
+    /// <inheritdoc cref="ReadAsync" path="/exception"/>
+    public async Task<IReadOnlyList<ReadableChatMessage>> ReadGroupAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
+    {
+        using var identity = await _encryptionKeyProvider.OpenAsync(cancellationToken);
+        var ownUserId = await RequireSignedInUserIdAsync();
+
+        var members = (await _chatRepository.FindGroupAsync(groupId, cancellationToken))?.Members ?? [];
+        var stored = await _chatRepository.GetGroupConversationAsync(groupId, cancellationToken);
+        var queued = await _chatRepository.GetQueuedForGroupAsync(groupId, cancellationToken);
+
+        var conversation = new List<ReadableChatMessage>(stored.Count + queued.Count);
+        foreach (var message in stored)
+        {
+            var isMine = message.SenderUserId == ownUserId;
+            var otherPartyUserId = isMine ? message.RecipientUserId : message.SenderUserId;
+            conversation.Add(new ReadableChatMessage(
+                isMine,
+                Open(identity, members, otherPartyUserId, message),
+                message.SentAtUtc,
+                message.IsEdited,
+                IsWaitingToSend: false,
+                SenderName: isMine ? "You" : NameOf(members, message.SenderUserId)));
+        }
+
+        foreach (var message in queued)
+        {
+            conversation.Add(new ReadableChatMessage(
+                IsMine: true, message.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true, SenderName: "You"));
+        }
+
+        return conversation;
+    }
+
+    /// <summary>
+    /// Null when the other party to this copy has no cached key - they left the group, or their account
+    /// is gone - which the screen shows as one unopenable message rather than an empty conversation.
+    /// </summary>
+    private static string? Open(
+        ChatIdentity identity, IReadOnlyList<LocalChatGroupMember> members, Guid otherPartyUserId, LocalChatMessage message)
+        => FindMember(members, otherPartyUserId)?.PublicKeyBase64 is { } otherPartyPublicKey
+            ? identity.Decrypt(otherPartyPublicKey, new EncryptedText(message.CiphertextBase64, message.NonceBase64))
+            : null;
+
+    private static string NameOf(IReadOnlyList<LocalChatGroupMember> members, Guid userId)
+        => FindMember(members, userId)?.DisplayName ?? "Someone";
+
+    private static LocalChatGroupMember? FindMember(IReadOnlyList<LocalChatGroupMember> members, Guid userId)
+        => members.FirstOrDefault(member => member.UserId == userId);
+
+    private async Task<Guid> RequireSignedInUserIdAsync()
+        => await _sessionStore.GetAsync() is { } session
+            ? session.UserId
+            : throw new EncryptionKeyLockedException();
 }

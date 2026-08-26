@@ -17,7 +17,14 @@ public sealed class OutgoingChatMessage
 {
     public long Id { get; set; }
 
-    public Guid RecipientUserId { get; set; }
+    /// <summary>
+    /// Where this is going. Exactly one of the two is set: a message is addressed to a person or to a
+    /// group, and the two travel to different endpoints with different fan-out.
+    /// </summary>
+    public Guid? RecipientUserId { get; set; }
+
+    /// <inheritdoc cref="RecipientUserId"/>
+    public Guid? GroupId { get; set; }
 
     public string Text { get; set; } = string.Empty;
 

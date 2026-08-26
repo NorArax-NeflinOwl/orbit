@@ -12,9 +12,16 @@ namespace Orbit.Mobile.Chat;
 /// Typed on this device and not yet accepted by the server. Shown alongside the real history so a
 /// message written with no connection doesn't look lost.
 /// </param>
+/// <param name="SenderName">
+/// Who wrote it, for a group conversation where that changes from message to message. Null for a
+/// one-to-one one, where the screen's title already says who the other party is.
+/// </param>
 public sealed record ReadableChatMessage(
-    bool IsMine, string? Text, DateTimeOffset SentAtUtc, bool IsEdited, bool IsWaitingToSend)
+    bool IsMine, string? Text, DateTimeOffset SentAtUtc, bool IsEdited, bool IsWaitingToSend, string? SenderName = null)
 {
     /// <summary>True when this device could not open it - the screen shows a placeholder in its place.</summary>
     public bool CannotBeOpened => Text is null;
+
+    /// <summary>Whether to label the bubble with its author, which only a group conversation does.</summary>
+    public bool HasSenderName => SenderName is not null;
 }

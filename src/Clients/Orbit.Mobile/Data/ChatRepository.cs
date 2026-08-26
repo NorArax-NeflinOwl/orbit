@@ -53,6 +53,46 @@ public sealed class ChatRepository
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>The groups this phone knows about, newest first.</summary>
+    public async Task<IReadOnlyList<LocalChatGroup>> GetGroupsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await dbContext.ChatGroups
+            .AsNoTracking()
+            .OrderByDescending(group => group.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<LocalChatGroup?> FindGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await dbContext.ChatGroups.AsNoTracking().FirstOrDefaultAsync(group => group.Id == groupId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Replaces the cached group list wholesale, for the same reason contacts are replaced rather than
+    /// merged: the server's list is the complete answer, and a group the user was removed from should
+    /// disappear here too.
+    /// </summary>
+    public async Task StoreGroupsAsync(IReadOnlyList<LocalChatGroup> groups, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await dbContext.ChatGroups.ExecuteDeleteAsync(cancellationToken);
+        dbContext.ChatGroups.AddRange(groups);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LocalChatMessage>> GetGroupConversationAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.GroupId == groupId)
+            .OrderBy(message => message.SentAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<LocalChatMessage>> GetConversationAsync(
         Guid otherUserId, CancellationToken cancellationToken = default)
     {
@@ -81,12 +121,30 @@ public sealed class ChatRepository
     /// Stores what the server sent, replacing anything already held for the same message - an edited
     /// message comes back under the same id with new ciphertext.
     /// </summary>
-    public async Task StoreAsync(
+    /// <returns>
+    /// How many rows this actually wrote, which is not the number handed in. The group endpoint returns
+    /// the whole conversation every time, so a caller that treated "messages came back" as "something
+    /// changed" would rebuild the screen on every poll.
+    /// </returns>
+    public Task<int> StoreAsync(
         Guid otherUserId, IReadOnlyList<ChatMessageDto> messages, CancellationToken cancellationToken = default)
+        => StoreAsync(messages, message => message.OtherUserId = otherUserId, cancellationToken);
+
+    /// <inheritdoc cref="StoreAsync(Guid, IReadOnlyList{ChatMessageDto}, CancellationToken)"/>
+    public Task<int> StoreGroupMessagesAsync(
+        Guid groupId, IReadOnlyList<ChatMessageDto> messages, CancellationToken cancellationToken = default)
+        => StoreAsync(messages, message => message.GroupId = groupId, cancellationToken);
+
+    /// <param name="address">
+    /// Sets whichever conversation the message belongs to. The two kinds are keyed differently - a person
+    /// for one-to-one, a group otherwise - and nothing else about storing them differs.
+    /// </param>
+    private async Task<int> StoreAsync(
+        IReadOnlyList<ChatMessageDto> messages, Action<LocalChatMessage> address, CancellationToken cancellationToken)
     {
         if (messages.Count == 0)
         {
-            return;
+            return 0;
         }
 
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -96,15 +154,17 @@ public sealed class ChatRepository
                 message => message.Id == incoming.Id, cancellationToken);
 
             var message = existing ?? Add(dbContext, incoming.Id);
-            message.OtherUserId = otherUserId;
+            address(message);
             message.SenderUserId = incoming.SenderUserId;
+            message.RecipientUserId = incoming.RecipientUserId;
+            message.GroupMessageId = incoming.GroupMessageId;
             message.CiphertextBase64 = incoming.CiphertextBase64;
             message.NonceBase64 = incoming.NonceBase64;
             message.SentAtUtc = incoming.SentAtUtc;
             message.IsEdited = incoming.IsEdited;
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        return await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>Everything waiting to go out, oldest first - the order it must be sent in.</summary>
@@ -125,17 +185,31 @@ public sealed class ChatRepository
             .ToListAsync(cancellationToken);
     }
 
-    /// <summary>Queues text to send. Not encrypted here - see <see cref="OutgoingChatMessage"/>.</summary>
-    public async Task<OutgoingChatMessage> QueueAsync(
-        Guid recipientUserId, string text, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<OutgoingChatMessage>> GetQueuedForGroupAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var queued = new OutgoingChatMessage
-        {
-            RecipientUserId = recipientUserId,
-            Text = text,
-            QueuedAtUtc = _timeProvider.GetUtcNow()
-        };
+        return await dbContext.OutgoingChatMessages
+            .AsNoTracking()
+            .Where(message => message.GroupId == groupId)
+            .OrderBy(message => message.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Queues text to send. Not encrypted here - see <see cref="OutgoingChatMessage"/>.</summary>
+    public Task<OutgoingChatMessage> QueueAsync(
+        Guid recipientUserId, string text, CancellationToken cancellationToken = default)
+        => QueueAsync(new OutgoingChatMessage { RecipientUserId = recipientUserId, Text = text }, cancellationToken);
+
+    /// <inheritdoc cref="QueueAsync(Guid, string, CancellationToken)"/>
+    public Task<OutgoingChatMessage> QueueForGroupAsync(
+        Guid groupId, string text, CancellationToken cancellationToken = default)
+        => QueueAsync(new OutgoingChatMessage { GroupId = groupId, Text = text }, cancellationToken);
+
+    private async Task<OutgoingChatMessage> QueueAsync(OutgoingChatMessage queued, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        queued.QueuedAtUtc = _timeProvider.GetUtcNow();
 
         dbContext.OutgoingChatMessages.Add(queued);
         await dbContext.SaveChangesAsync(cancellationToken);

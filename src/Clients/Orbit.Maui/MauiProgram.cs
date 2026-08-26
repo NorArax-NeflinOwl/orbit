@@ -129,6 +129,8 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<ChatClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<UsersClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
 	}
 
@@ -150,6 +152,10 @@ public static class MauiProgram
 		services.AddTransient<ContactsViewModel>();
 		services.AddTransient<ConversationPage>();
 		services.AddTransient<ConversationViewModel>();
+		services.AddTransient<GroupsPage>();
+		services.AddTransient<GroupsViewModel>();
+		services.AddTransient<GroupConversationPage>();
+		services.AddTransient<GroupConversationViewModel>();
 		services.AddTransient<NotesPage>();
 		services.AddTransient<NotesViewModel>();
 		services.AddTransient<TasksPage>();

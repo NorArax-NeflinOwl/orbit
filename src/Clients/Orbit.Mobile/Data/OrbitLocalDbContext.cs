@@ -10,9 +10,9 @@ using Orbit.Contracts.Tasks;
 namespace Orbit.Mobile.Data;
 
 /// <summary>
-/// The phone's own database. Created with EnsureCreated rather than migrations for now: nothing has
-/// shipped, so there is no installed schema to migrate from - see the note on
-/// <see cref="OpenAsync"/> before that stops being true.
+/// The phone's own database, brought up to date by EF migrations (see LocalDatabase in Orbit.Maui).
+/// Migrations rather than EnsureCreated because an installed app already has a database: EnsureCreated
+/// does nothing at all to one that exists, so a new table simply never appeared.
 /// </summary>
 public sealed class OrbitLocalDbContext : DbContext
 {
@@ -37,6 +37,8 @@ public sealed class OrbitLocalDbContext : DbContext
     public DbSet<OutgoingChatMessage> OutgoingChatMessages => Set<OutgoingChatMessage>();
 
     public DbSet<LocalContact> Contacts => Set<LocalContact>();
+
+    public DbSet<LocalChatGroup> ChatGroups => Set<LocalChatGroup>();
 
     /// <summary>
     /// SQLite has no date type, and EF's default mapping for <see cref="DateTimeOffset"/> cannot be
@@ -107,6 +109,7 @@ public sealed class OrbitLocalDbContext : DbContext
             message.HasKey(entity => entity.Id);
             // Every read is "this conversation, in order", which is the only way chat is ever queried.
             message.HasIndex(entity => new { entity.OtherUserId, entity.SentAtUtc });
+            message.HasIndex(entity => new { entity.GroupId, entity.SentAtUtc });
         });
 
         modelBuilder.Entity<OutgoingChatMessage>(message =>
@@ -116,6 +119,14 @@ public sealed class OrbitLocalDbContext : DbContext
         });
 
         modelBuilder.Entity<LocalContact>(contact => contact.HasKey(entity => entity.UserId));
+
+        modelBuilder.Entity<LocalChatGroup>(group =>
+        {
+            group.HasKey(entity => entity.Id);
+            group.Property(entity => entity.Members)
+                .HasConversion(MembersConverter)
+                .Metadata.SetValueComparer(MembersComparer);
+        });
     }
 
     /// <summary>
@@ -149,6 +160,17 @@ public sealed class OrbitLocalDbContext : DbContext
         (left, right) => left!.SequenceEqual(right!),
         items => items.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
         items => items.ToList());
+
+    /// <summary>A group's membership, in one column - nothing ever queries a single member.</summary>
+    private static readonly ValueConverter<IReadOnlyList<LocalChatGroupMember>, string> MembersConverter = new(
+        members => JsonSerializer.Serialize(members, LocalStoreSerializerContext.Default.IReadOnlyListLocalChatGroupMember),
+        stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListLocalChatGroupMember) ?? new List<LocalChatGroupMember>());
+
+    /// <summary>Without this a changed membership is compared by reference and saved unchanged.</summary>
+    private static readonly ValueComparer<IReadOnlyList<LocalChatGroupMember>> MembersComparer = new(
+        (left, right) => left!.SequenceEqual(right!),
+        members => members.Aggregate(0, (hash, member) => HashCode.Combine(hash, member.GetHashCode())),
+        members => members.ToList());
 
     /// <summary>What a warehouse holds, in one column - nothing ever queries a single item.</summary>
     private static readonly ValueConverter<IReadOnlyList<WarehouseItemDto>, string> WarehouseItemsConverter = new(

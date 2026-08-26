@@ -21,6 +21,25 @@ public enum SendMessageOutcome
 
 public sealed record SendMessageResult(SendMessageOutcome Outcome, ChatMessageDto? Message = null);
 
+/// <summary>What the server did with a group message the app tried to send.</summary>
+public enum GroupSendOutcome
+{
+    Sent,
+
+    /// <summary>
+    /// The group is gone, or the sender is no longer in it. Membership decides both, and the server
+    /// deliberately answers the same way to either - see IChatGroupRepository. Nothing queued for that
+    /// group can ever succeed.
+    /// </summary>
+    NoLongerAMember,
+
+    /// <summary>
+    /// The fan-out did not match the group's membership: somebody joined or left between the app reading
+    /// the member list and posting. Worth trying again, because the next attempt re-reads the list.
+    /// </summary>
+    MembershipChanged
+}
+
 /// <summary>
 /// The chat half of the API. Everything here carries ciphertext only - the plaintext never leaves the
 /// device, and Orbit.Api stores and relays what it cannot read.
@@ -48,6 +67,50 @@ public sealed class ChatClient
         }
 
         return await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatMessageDto>>(path, cancellationToken) ?? [];
+    }
+
+    /// <summary>Every group the signed-in user is in, with its current membership.</summary>
+    public async Task<IReadOnlyList<ChatGroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatGroupDto>>("api/chat/groups", cancellationToken) ?? [];
+
+    public async Task<Guid> CreateGroupAsync(CreateChatGroupRequest request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync("api/chat/groups", request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
+    }
+
+    /// <summary>
+    /// The whole group conversation. Unlike the one-to-one endpoint this takes no "since", so it is the
+    /// full history every time; the store replaces by message id, so re-reading costs bandwidth rather
+    /// than duplicates.
+    /// </summary>
+    public async Task<IReadOnlyList<ChatMessageDto>> GetGroupConversationAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatMessageDto>>(
+            $"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
+
+    /// <summary>
+    /// Posts one message as one ciphertext per other member. The server checks the set against the
+    /// group's current membership and refuses anything that doesn't match exactly, which is what
+    /// <see cref="GroupSendOutcome.MembershipChanged"/> reports.
+    /// </summary>
+    public async Task<GroupSendOutcome> SendGroupMessageAsync(
+        Guid groupId, IReadOnlyList<GroupMessageCopyDto> copies, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            $"api/chat/groups/{groupId}/messages", new SendGroupMessageRequest(copies), cancellationToken);
+
+        switch (response.StatusCode)
+        {
+            case HttpStatusCode.NotFound:
+                return GroupSendOutcome.NoLongerAMember;
+            case HttpStatusCode.BadRequest:
+                return GroupSendOutcome.MembershipChanged;
+            default:
+                response.EnsureSuccessStatusCode();
+                return GroupSendOutcome.Sent;
+        }
     }
 
     public async Task<SendMessageResult> SendAsync(

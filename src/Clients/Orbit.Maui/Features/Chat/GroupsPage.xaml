@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Chat.GroupsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
+    xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
+    x:DataType="chat:GroupsViewModel"
+    Title="Groups">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
+
+        <Label Grid.Row="0" Text="Groups" FontSize="26" FontAttributes="Bold" />
+        <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+               FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+
+        <RefreshView Grid.Row="2" IsVisible="{Binding IsNotCreating}"
+                     IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Groups}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenGroupCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
+
+                <CollectionView.EmptyView>
+                    <Label Text="No groups yet." Padding="24" HorizontalTextAlignment="Center" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="data:LocalChatGroup">
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
+                            <Label Text="{Binding Members.Count, StringFormat='{0} members'}"
+                                   FontSize="12" TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+        <!-- Choosing who a new group holds. Replaces the list rather than sitting above it, so the
+             checkboxes are not competing with a second scrolling area on a phone screen. -->
+        <Grid Grid.Row="2" IsVisible="{Binding IsCreating}" RowDefinitions="Auto,Auto,*" RowSpacing="10">
+            <Entry Grid.Row="0" Placeholder="Group name" Text="{Binding NewGroupName}" />
+            <Label Grid.Row="1" Text="Who is in it" FontAttributes="Bold" />
+            <CollectionView Grid.Row="2" ItemsSource="{Binding Candidates}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="chat:SelectableContact">
+                        <Grid ColumnDefinitions="Auto,*" Padding="0,8" ColumnSpacing="8">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" />
+                            <Label Grid.Column="1" Text="{Binding DisplayName}" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsCreating}">
+            <Button Grid.Column="0" Text="Create" Command="{Binding CreateCommand}" />
+            <Button Grid.Column="1" Text="Cancel" Command="{Binding CancelCreatingCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+        </Grid>
+
+        <Button Grid.Row="3" Text="New group" Command="{Binding StartCreatingCommand}"
+                IsVisible="{Binding IsNotCreating}" />
+
+        <Button Grid.Row="4" Text="Back to chat" Command="{Binding GoBackCommand}"
+                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+
+    </Grid>
+
+</ContentPage>

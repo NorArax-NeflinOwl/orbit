@@ -8,7 +8,7 @@
     x:DataType="chat:ContactsViewModel"
     Title="Chat">
 
-    <Grid RowDefinitions="Auto,*,Auto" Padding="20" RowSpacing="12">
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
 
         <Label Grid.Row="0" Text="Chat" FontSize="26" FontAttributes="Bold" />
 
@@ -41,7 +41,9 @@
             </CollectionView>
         </RefreshView>
 
-        <Button Grid.Row="2" Text="Back to notes" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="2" Text="Groups" Command="{Binding OpenGroupsCommand}" />
+
+        <Button Grid.Row="3" Text="Back to notes" Command="{Binding GoBackCommand}"
                 BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
 
     </Grid>
