@@ -16,6 +16,13 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public string? LastDestination => _destinations.Count == 0 ? null : _destinations[^1];
 
+    /// <summary>Which conversation, group or task list it was sent to - not just that it was sent.</summary>
+    public LocalContact? LastContact { get; private set; }
+
+    public LocalChatGroup? LastGroup { get; private set; }
+
+    public Guid? LastTaskListId { get; private set; }
+
     public void ShowSignIn() => _destinations.Add(nameof(ShowSignIn));
 
     public void ShowRegister() => _destinations.Add(nameof(ShowRegister));
@@ -26,11 +33,19 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowContacts() => _destinations.Add(nameof(ShowContacts));
 
-    public void ShowConversation(LocalContact contact) => _destinations.Add(nameof(ShowConversation));
+    public void ShowConversation(LocalContact contact)
+    {
+        LastContact = contact;
+        _destinations.Add(nameof(ShowConversation));
+    }
 
     public void ShowGroups() => _destinations.Add(nameof(ShowGroups));
 
-    public void ShowGroupConversation(LocalChatGroup group) => _destinations.Add(nameof(ShowGroupConversation));
+    public void ShowGroupConversation(LocalChatGroup group)
+    {
+        LastGroup = group;
+        _destinations.Add(nameof(ShowGroupConversation));
+    }
 
     public void ShowGroupDetail(LocalChatGroup group) => _destinations.Add(nameof(ShowGroupDetail));
 
@@ -38,7 +53,11 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowTasks() => _destinations.Add(nameof(ShowTasks));
 
-    public void ShowTaskList(Guid localId) => _destinations.Add(nameof(ShowTaskList));
+    public void ShowTaskList(Guid localId)
+    {
+        LastTaskListId = localId;
+        _destinations.Add(nameof(ShowTaskList));
+    }
 
     public void ShowCalendar() => _destinations.Add(nameof(ShowCalendar));
 
@@ -47,4 +66,6 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
     public void ShowMap() => _destinations.Add(nameof(ShowMap));
 
     public void ShowWarehouse(Guid localId) => _destinations.Add(nameof(ShowWarehouse));
+
+    public void ShowNotifications() => _destinations.Add(nameof(ShowNotifications));
 }

@@ -43,4 +43,7 @@ public interface IScreenNavigator
     void ShowMap();
 
     void ShowWarehouse(Guid localId);
+
+    /// <summary>What happened while the reader was elsewhere - see NotificationFeedViewModel.</summary>
+    void ShowNotifications();
 }

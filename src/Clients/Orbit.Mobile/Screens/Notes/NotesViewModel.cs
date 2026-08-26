@@ -94,6 +94,9 @@ public sealed partial class NotesViewModel : ObservableObject
     private void GoToAccount() => _navigator.ShowAccount();
 
     [RelayCommand]
+    private void GoToNotifications() => _navigator.ShowNotifications();
+
+    [RelayCommand]
     private async Task SignOutAsync()
     {
         await _authenticationClient.SignOutAsync();
