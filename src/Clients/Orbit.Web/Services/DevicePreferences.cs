@@ -11,16 +11,21 @@ namespace Orbit.Web.Services;
 /// itself granted per device and per origin - syncing the answer across devices would mean one of them
 /// claiming an answer another one gave. The diagnostics settings are about what this browser reports
 /// while someone is looking at it, which is the same kind of thing.
+///
+/// Takes no ILogger, and must not. PersistentLoggerProvider reads MinimumLogLevel from here on every
+/// line it considers, so anything this class logged would be asking the logging pipeline to build
+/// itself - which is a dependency cycle at startup (ILoggerProvider -> DevicePreferences -> ILogger&lt;T&gt;
+/// -> ILoggerFactory -> ILoggerProvider) and a recursion at runtime. A class the logger depends on
+/// cannot log. Both catch blocks below fall back to the documented default instead, which is the whole
+/// answer this class has to give.
 /// </summary>
 public sealed class DevicePreferences
 {
     private readonly IJSRuntime _jsRuntime;
-    private readonly ILogger<DevicePreferences> _logger;
 
-    public DevicePreferences(IJSRuntime jsRuntime, ILogger<DevicePreferences> logger)
+    public DevicePreferences(IJSRuntime jsRuntime)
     {
         _jsRuntime = jsRuntime;
-        _logger = logger;
     }
 
     /// <summary>Raised after a preference changes, so a page showing the current choice (Options) can refresh.</summary>
@@ -87,9 +92,8 @@ public sealed class DevicePreferences
         {
             return await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", key);
         }
-        catch (JSException exception)
+        catch (JSException)
         {
-            _logger.LogWarning(exception, "Couldn't read the device preference {PreferenceKey}", key);
             return null;
         }
     }
@@ -100,10 +104,9 @@ public sealed class DevicePreferences
         {
             await _jsRuntime.InvokeVoidAsync("localStorage.setItem", key, value);
         }
-        catch (JSException exception)
+        catch (JSException)
         {
             // The setting still applies for this session - it just won't be remembered next time.
-            _logger.LogWarning(exception, "Couldn't store the device preference {PreferenceKey}", key);
         }
         finally
         {
