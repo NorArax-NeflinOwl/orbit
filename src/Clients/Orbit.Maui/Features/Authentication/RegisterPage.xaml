@@ -20,7 +20,9 @@
                    LineBreakMode="WordWrap" />
 
             <Entry Placeholder="Email address" Text="{Binding EmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
-            <Entry Placeholder="Username" Text="{Binding UserName}" IsSpellCheckEnabled="False" />
+            <!-- Plain, not the default text keyboard: iOS capitalises the first letter of a sentence,
+                 which silently turns a typed username into a different one. -->
+            <Entry Placeholder="Username" Text="{Binding UserName}" Keyboard="Plain" />
             <Entry Placeholder="Display name" Text="{Binding DisplayName}" />
             <Entry Placeholder="Password" Text="{Binding Password}" IsPassword="True" ReturnType="Go"
                    ReturnCommand="{Binding RegisterCommand}" />

@@ -22,7 +22,8 @@
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
                 <Label Text="Username" FontAttributes="Bold" />
-                <Entry Placeholder="New username" Text="{Binding UserName}" IsSpellCheckEnabled="False" />
+                <!-- See RegisterPage for why this is not the default text keyboard. -->
+                <Entry Placeholder="New username" Text="{Binding UserName}" Keyboard="Plain" />
                 <Entry Placeholder="Display name" Text="{Binding DisplayName}" />
                 <Button Text="Change username" Command="{Binding ChangeUserNameCommand}" />
             </VerticalStackLayout>
