@@ -4,6 +4,7 @@ using Orbit.Contracts;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
+using Orbit.Api.Sync;
 using Orbit.Core.Notes;
 using Orbit.Core.Sync;
 using Orbit.Core.Notes.AcceptNoteShare;
@@ -33,24 +34,20 @@ public static class NoteEndpoints
             return Results.Ok(result.Select(ToDto));
         });
 
-        // What a client needs to catch up after being away, in one call: the notes that changed and the
-        // ids that are gone. Kept separate from GET / rather than adding a parameter to it, so the
+        // What a client needs to catch up after being away, in one call: the notes that changed and
+        // the ids that are gone. Kept separate from GET / rather than adding a parameter to it, so the
         // existing full-list response shape stays exactly as it was for the web client.
         notes.MapGet("/changes", async (
             DateTimeOffset since, ClaimsPrincipal user, IDispatcher dispatcher,
             ISyncTombstoneRepository tombstones, CancellationToken cancellationToken) =>
         {
             var userId = GetUserId(user);
-            // Read the clock before querying, not after: anything written while this runs then falls on
-            // or after the cursor the client comes back with, rather than into the gap between them.
-            var asOfUtc = DateTimeOffset.UtcNow;
-
+            var cursor = ChangeFeed.StartCursor();
             var notes = await dispatcher.SendAsync(new GetNotesQuery(userId), cancellationToken);
             var changed = notes.Where(note => note.UpdatedAtUtc >= since).Select(ToDto).ToList();
-            var deletedIds = await tombstones.GetDeletedIdsSinceAsync(
-                userId, SyncEntityType.Note, since, cancellationToken);
 
-            return Results.Ok(new NoteChangesDto(changed, deletedIds, asOfUtc));
+            return Results.Ok(await ChangeFeed.BuildAsync(
+                changed, cursor, userId, SyncEntityType.Note, since, tombstones, cancellationToken));
         });
 
         notes.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>

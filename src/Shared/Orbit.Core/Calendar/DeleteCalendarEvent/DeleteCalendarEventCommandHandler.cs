@@ -1,14 +1,17 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Sync;
 
 namespace Orbit.Core.Calendar.DeleteCalendarEvent;
 
 public sealed class DeleteCalendarEventCommandHandler : IRequestHandler<DeleteCalendarEventCommand, bool>
 {
     private readonly ICalendarEventRepository _calendarEventRepository;
+    private readonly ISyncTombstoneRepository _syncTombstoneRepository;
 
-    public DeleteCalendarEventCommandHandler(ICalendarEventRepository calendarEventRepository)
+    public DeleteCalendarEventCommandHandler(ICalendarEventRepository calendarEventRepository, ISyncTombstoneRepository syncTombstoneRepository)
     {
         _calendarEventRepository = calendarEventRepository;
+        _syncTombstoneRepository = syncTombstoneRepository;
     }
 
     /// <summary>
@@ -27,6 +30,8 @@ public sealed class DeleteCalendarEventCommandHandler : IRequestHandler<DeleteCa
         }
 
         await _calendarEventRepository.DeleteAsync(request.UserId, request.Id, cancellationToken);
+        await _syncTombstoneRepository.RecordAsync(
+            new SyncTombstone(request.UserId, SyncEntityType.CalendarEvent, request.Id, DateTimeOffset.UtcNow), cancellationToken);
         return true;
     }
 }

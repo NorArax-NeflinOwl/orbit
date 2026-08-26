@@ -3,6 +3,8 @@ using System.Security.Claims;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
+using Orbit.Api.Sync;
+using Orbit.Core.Sync;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.AcceptCalendarEventShare;
 using Orbit.Core.Calendar.AcquireCalendarEventLock;
@@ -30,6 +32,21 @@ public static class CalendarEndpoints
         {
             var result = await dispatcher.SendAsync(new GetCalendarEventsQuery(GetUserId(user)), cancellationToken);
             return Results.Ok(result.Select(ToDto));
+        });
+
+        // What a client needs to catch up after being away - see ChangeFeedDto. Separate from GET /
+        // so the existing full-list shape stays exactly as the web client expects it.
+        calendarEvents.MapGet("/changes", async (
+            DateTimeOffset since, ClaimsPrincipal user, IDispatcher dispatcher,
+            ISyncTombstoneRepository tombstones, CancellationToken cancellationToken) =>
+        {
+            var userId = GetUserId(user);
+            var cursor = ChangeFeed.StartCursor();
+            var all = await dispatcher.SendAsync(new GetCalendarEventsQuery(userId), cancellationToken);
+            var changed = all.Where(calendarEvent => calendarEvent.UpdatedAtUtc >= since).Select(ToDto).ToList();
+
+            return Results.Ok(await ChangeFeed.BuildAsync(
+                changed, cursor, userId, SyncEntityType.CalendarEvent, since, tombstones, cancellationToken));
         });
 
         calendarEvents.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>

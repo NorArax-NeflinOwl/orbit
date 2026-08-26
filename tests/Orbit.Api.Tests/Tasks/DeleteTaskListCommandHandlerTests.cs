@@ -11,7 +11,7 @@ public sealed class DeleteTaskListCommandHandlerTests
     public async Task HandleAsync_deletes_a_task_list_owned_by_the_requesting_user()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new DeleteTaskListCommandHandler(repository);
+        var handler = new DeleteTaskListCommandHandler(repository, new InMemorySyncTombstoneRepository());
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Errands", []);
         await repository.AddAsync(taskList, CancellationToken.None);
@@ -26,7 +26,7 @@ public sealed class DeleteTaskListCommandHandlerTests
     public async Task HandleAsync_returns_false_and_does_not_delete_a_task_list_owned_by_a_different_user()
     {
         var repository = new InMemoryTaskRepository();
-        var handler = new DeleteTaskListCommandHandler(repository);
+        var handler = new DeleteTaskListCommandHandler(repository, new InMemorySyncTombstoneRepository());
         var ownerId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
         var taskList = TaskList.Create(ownerId, "Errands", []);
@@ -41,7 +41,7 @@ public sealed class DeleteTaskListCommandHandlerTests
     [Fact]
     public async Task HandleAsync_returns_false_for_an_unknown_task_list_id()
     {
-        var handler = new DeleteTaskListCommandHandler(new InMemoryTaskRepository());
+        var handler = new DeleteTaskListCommandHandler(new InMemoryTaskRepository(), new InMemorySyncTombstoneRepository());
 
         var wasDeleted = await handler.HandleAsync(new DeleteTaskListCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 

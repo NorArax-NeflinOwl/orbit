@@ -5,6 +5,8 @@ using Orbit.Contracts;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
+using Orbit.Api.Sync;
+using Orbit.Core.Sync;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.AcceptTaskListShare;
 using Orbit.Core.Tasks.AcquireTaskListLock;
@@ -33,6 +35,21 @@ public static class TaskEndpoints
         {
             var result = await dispatcher.SendAsync(new GetTaskListsQuery(GetUserId(user)), cancellationToken);
             return Results.Ok(result.Select(ToDto));
+        });
+
+        // What a client needs to catch up after being away - see ChangeFeedDto. Separate from GET /
+        // so the existing full-list shape stays exactly as the web client expects it.
+        tasks.MapGet("/changes", async (
+            DateTimeOffset since, ClaimsPrincipal user, IDispatcher dispatcher,
+            ISyncTombstoneRepository tombstones, CancellationToken cancellationToken) =>
+        {
+            var userId = GetUserId(user);
+            var cursor = ChangeFeed.StartCursor();
+            var all = await dispatcher.SendAsync(new GetTaskListsQuery(userId), cancellationToken);
+            var changed = all.Where(taskList => taskList.UpdatedAtUtc >= since).Select(ToDto).ToList();
+
+            return Results.Ok(await ChangeFeed.BuildAsync(
+                changed, cursor, userId, SyncEntityType.TaskList, since, tombstones, cancellationToken));
         });
 
         tasks.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>

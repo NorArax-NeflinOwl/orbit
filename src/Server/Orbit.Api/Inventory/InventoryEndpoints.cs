@@ -4,6 +4,8 @@ using Orbit.Contracts;
 using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
+using Orbit.Api.Sync;
+using Orbit.Core.Sync;
 using Orbit.Core.Inventory;
 using Orbit.Core.Inventory.AcceptWarehouseShare;
 using Orbit.Core.Inventory.AcquireWarehouseLock;
@@ -33,6 +35,22 @@ public static class InventoryEndpoints
             var callerId = GetUserId(user);
             var result = await dispatcher.SendAsync(new GetWarehousesQuery(callerId), cancellationToken);
             return Results.Ok(result.Select(warehouse => ToDto(warehouse, callerId)));
+        });
+
+        // What a client needs to catch up after being away - see ChangeFeedDto. A deleted warehouse
+        // takes its items with it, so only the warehouse needs a tombstone.
+        warehouses.MapGet("/changes", async (
+            DateTimeOffset since, ClaimsPrincipal user, IDispatcher dispatcher,
+            ISyncTombstoneRepository tombstones, CancellationToken cancellationToken) =>
+        {
+            var callerId = GetUserId(user);
+            var cursor = ChangeFeed.StartCursor();
+            var all = await dispatcher.SendAsync(new GetWarehousesQuery(callerId), cancellationToken);
+            var changed = all.Where(warehouse => warehouse.UpdatedAtUtc >= since)
+                .Select(warehouse => ToDto(warehouse, callerId)).ToList();
+
+            return Results.Ok(await ChangeFeed.BuildAsync(
+                changed, cursor, callerId, SyncEntityType.Warehouse, since, tombstones, cancellationToken));
         });
 
         warehouses.MapGet("/{warehouseId:guid}", async (

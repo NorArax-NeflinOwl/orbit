@@ -12,7 +12,8 @@ twelve route groups, all of which the mobile client is expected to consume. See
 [Current Status](current-status.md) for what "every feature" currently means.
 
 **Settled so far:** the name (`Orbit.Maui`, reusing the folder already reserved for it), the framework
-(§1), and that the app works offline (§5). Still open: §12.
+(§1), that the app works offline (§5), and that offline editing is **restrictive** — only items nobody
+else can change (§5.4). Still open: §12.
 
 ## 1. Framework: .NET MAUI
 
@@ -317,9 +318,9 @@ side it also takes the account out of its chat groups, promoting a new admin whe
 An offline "delete my account" that sits in a queue would leave someone believing their account was
 gone while it was still live, possibly for days. Grey the action out while offline and explain why.
 
-### 5.3 Pulling changes: the API has no delta, and no tombstones
+### 5.3 Pulling changes: delta and tombstones (built)
 
-Two gaps, both server-side, both blocking real sync:
+Two gaps stood in the way of real sync, both server-side:
 
 1. **No `since` parameter.** Every collection endpoint returns everything it has; only
    `GET /api/chat/messages/{otherUserId}` accepts `sinceUtc`. The main DTOs already carry
@@ -330,8 +331,11 @@ Two gaps, both server-side, both blocking real sync:
    soft-delete tombstones server-side, or a periodic full reconciliation pull to catch what the delta
    missed. Tombstones are the cleaner answer and the larger change.
 
-Until both exist, "sync" is really "re-download everything periodically", which is workable for a
-first milestone and does not scale with the data.
+**Both now exist.** `GET /api/{notes,tasks,calendar-events,warehouses}/changes?since=` returns what
+changed and what was deleted, and deletions are recorded as tombstones in one table covering every
+entity type — see `Orbit.Core.Sync.SyncTombstone`. The cursor comes back as an ISO-8601 UTC string
+ending in `Z`, safe to drop straight into the next URL, and `since` is inclusive so a change landing
+mid-request is re-sent rather than lost.
 
 ### 5.4 Pushing changes, and conflicts
 
@@ -344,17 +348,27 @@ server-held, time-limited edit locks with a heartbeat (`LockedByUserId`, `LockEx
 **An offline client cannot hold a lock.** It can only find out at replay time that someone else was
 editing, by which point the user has already done the work.
 
-That leaves a decision worth taking deliberately:
+**Decided: restrictive.** Offline editing is allowed only for items **nobody else can change**;
+anything shared, in either direction, is read-only until connectivity returns. The alternative —
+edit anything and resolve on replay — needs a conflict UI and delivers "your change was rejected
+because someone else was editing" long after the user did the work. Refusing up front is honest and
+surprises nobody.
 
-- **Restrictive:** offline editing only for items nobody else can touch (unshared and private ones),
-  with shared items read-only until connectivity returns. Honest, and never surprises anyone.
-- **Permissive:** edit anything offline, resolve on replay — which means designing a conflict UI, and
-  accepting that "your change was rejected because someone else was editing" arrives long after the
-  fact.
+Last-write-wins on `UpdatedAtUtc` then covers what remains, and is defensible there: the only writer
+who can lose anything is the same person on another device. For a shared item it would not be, because
+it silently discards someone else's work — the exact outcome the locks were added to prevent.
 
-For items only the owner can touch, last-write-wins on `UpdatedAtUtc` is defensible and cheap. For
-shared items it is not, because it silently discards the other person's work — the exact outcome the
-locks were added to prevent.
+**Sharing is not a copy, which is why this matters.** Accepting a share does not duplicate the item:
+`NoteAccessResolver` (and its task, calendar, and warehouse equivalents) loads the *owner's* row and
+stamps the caller's access level onto it. Two people with `CanEdit` are editing one row, which is what
+the locks exist for and what makes offline editing of a shared item genuinely unsafe.
+
+**One prerequisite the API doesn't meet yet.** A client can see when an item was shared *with* it —
+`IsShared` on the DTO — but nothing tells an **owner** that they shared an item *out*. So the owner's
+copy of a note that someone else can edit looks, to the client, exactly like a private one. Applying
+this policy needs the server to say so: a flag on the owner's view meaning "somebody else has an
+accepted grant on this". Worth doing as its own change, since deriving it per item is a query per item
+unless it is batched.
 
 ### 5.5 Offline and end-to-end encryption
 
@@ -587,9 +601,9 @@ least from being started early.
 
 These change the plan materially and are worth answering before the phase they land in:
 
-1. **Offline conflict policy** (§5.4) — restrictive (offline editing only for items nobody else can
-   touch) or permissive (edit anything, resolve on replay)? Needed before phase 2, and the single
-   most consequential open question left.
+1. ~~**Offline conflict policy** (§5.4)~~ — **settled: restrictive.** What it still needs is a way for
+   an owner to know an item is shared out (§5.4's last paragraph); until the API says so, the client
+   cannot tell a private item from one someone else may be editing.
 2. **Is the local database encrypted?** (§5.1) Plain SQLite in app-private storage, or SQLCipher with
    the key in the platform keystore. Needed before phase 2, and it is a security decision rather than
    a technical one.

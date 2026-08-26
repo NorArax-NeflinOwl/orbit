@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Sync;
 
 namespace Orbit.Core.Inventory.DeleteWarehouse;
 
@@ -6,11 +7,15 @@ public sealed class DeleteWarehouseCommandHandler : IRequestHandler<DeleteWareho
 {
     private readonly IWarehouseRepository _warehouseRepository;
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly ISyncTombstoneRepository _syncTombstoneRepository;
 
-    public DeleteWarehouseCommandHandler(IWarehouseRepository warehouseRepository, IInventoryRepository inventoryRepository)
+    public DeleteWarehouseCommandHandler(
+        IWarehouseRepository warehouseRepository, IInventoryRepository inventoryRepository,
+        ISyncTombstoneRepository syncTombstoneRepository)
     {
         _warehouseRepository = warehouseRepository;
         _inventoryRepository = inventoryRepository;
+        _syncTombstoneRepository = syncTombstoneRepository;
     }
 
     /// <summary>
@@ -30,6 +35,11 @@ public sealed class DeleteWarehouseCommandHandler : IRequestHandler<DeleteWareho
 
         await _inventoryRepository.DeleteAllInWarehouseAsync(request.WarehouseId, cancellationToken);
         await _warehouseRepository.DeleteAsync(request.UserId, request.WarehouseId, cancellationToken);
+        // Only the warehouse gets a tombstone: its items are reached through it, so a client dropping the
+        // warehouse drops them with it - see GET /api/warehouses/{warehouseId}/items.
+        await _syncTombstoneRepository.RecordAsync(
+            new SyncTombstone(request.UserId, SyncEntityType.Warehouse, request.WarehouseId, DateTimeOffset.UtcNow),
+            cancellationToken);
         return true;
     }
 }

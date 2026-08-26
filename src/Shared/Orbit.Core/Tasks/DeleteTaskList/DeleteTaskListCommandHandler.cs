@@ -1,14 +1,17 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Sync;
 
 namespace Orbit.Core.Tasks.DeleteTaskList;
 
 public sealed class DeleteTaskListCommandHandler : IRequestHandler<DeleteTaskListCommand, bool>
 {
     private readonly ITaskRepository _taskRepository;
+    private readonly ISyncTombstoneRepository _syncTombstoneRepository;
 
-    public DeleteTaskListCommandHandler(ITaskRepository taskRepository)
+    public DeleteTaskListCommandHandler(ITaskRepository taskRepository, ISyncTombstoneRepository syncTombstoneRepository)
     {
         _taskRepository = taskRepository;
+        _syncTombstoneRepository = syncTombstoneRepository;
     }
 
     /// <summary>
@@ -27,6 +30,8 @@ public sealed class DeleteTaskListCommandHandler : IRequestHandler<DeleteTaskLis
         }
 
         await _taskRepository.DeleteAsync(request.UserId, request.Id, cancellationToken);
+        await _syncTombstoneRepository.RecordAsync(
+            new SyncTombstone(request.UserId, SyncEntityType.TaskList, request.Id, DateTimeOffset.UtcNow), cancellationToken);
         return true;
     }
 }
