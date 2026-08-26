@@ -39,4 +39,11 @@ internal sealed class InMemoryWarehouseShareRepository : IWarehouseShareReposito
 
         return Task.FromResult(ids);
     }
+
+    public Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        _shares.RemoveAll(share =>
+            share.SourceWarehouseId == sourceId && share.RecipientUserId == recipientUserId && share.IsAccepted);
+        return Task.CompletedTask;
+    }
 }

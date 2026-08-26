@@ -252,6 +252,77 @@ public sealed class GroupMessagingTests
         Assert.All(context.MessageRepository.All, copy => Assert.False(copy.IsEdited));
     }
 
+    [Fact]
+    public async Task Every_copy_of_one_group_message_carries_the_same_instant()
+    {
+        var context = new GroupMessagingTestContext();
+
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+
+        // Read per copy this was five slightly different times for one message: the time shown depended
+        // on which copy happened to be kept, and a "since" cursor could fall between them and hand back
+        // part of a message - which would change which copy the reader is given, and with it the id
+        // their decrypted text is cached against.
+        var sentAt = context.MessageRepository.All.Select(message => message.SentAtUtc).Distinct().ToList();
+        Assert.Single(sentAt);
+    }
+
+    [Fact]
+    public async Task A_cursor_takes_all_of_a_message_or_none_of_it()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        var first = context.MessageRepository.All[0].SentAtUtc;
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+
+        var sinceFirst = await context.ReadAsync(context.AdminId, first);
+
+        // The second message only, and all of it - so collapsing still picks the copy it picked before.
+        Assert.Single(sinceFirst);
+        Assert.All(sinceFirst, message => Assert.True(message.SentAtUtc > first));
+    }
+
+    [Fact]
+    public async Task Reading_without_a_cursor_still_gives_the_whole_conversation()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        await context.SendAsync(context.MemberId, [context.AdminId, context.SecondMemberId]);
+
+        Assert.Equal(2, (await context.ReadAsync(context.AdminId)).Count);
+    }
+
+    [Fact]
+    public async Task The_last_member_leaving_takes_the_group_with_them()
+    {
+        var groupRepository = new InMemoryChatGroupRepository();
+        var owner = Guid.NewGuid();
+        var group = ChatGroup.Create(owner, "Weekend trip");
+        await groupRepository.AddAsync(group, CancellationToken.None);
+
+        var left = await new RemoveChatGroupMemberCommandHandler(groupRepository)
+            .HandleAsync(new RemoveChatGroupMemberCommand(owner, group.Id, owner), CancellationToken.None);
+
+        // An emptied group is not something to keep - the same tidy-up the account-deletion path does.
+        Assert.True(left);
+        Assert.Null(await groupRepository.GetByIdAsync(group.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Leaving_a_group_that_others_are_still_in_leaves_the_group_standing()
+    {
+        var context = new GroupMessagingTestContext();
+
+        var left = await new RemoveChatGroupMemberCommandHandler(context.GroupRepository)
+            .HandleAsync(new RemoveChatGroupMemberCommand(context.MemberId, context.GroupId, context.MemberId), CancellationToken.None);
+
+        Assert.True(left);
+        var group = await context.GroupRepository.GetByIdAsync(context.GroupId, CancellationToken.None);
+        Assert.NotNull(group);
+        Assert.False(group!.IsMember(context.MemberId));
+        Assert.True(group.IsMember(context.AdminId));
+    }
+
     /// <summary>A group of three, wired the way DI wires the real thing.</summary>
     private sealed class GroupMessagingTestContext
     {
@@ -283,9 +354,9 @@ public sealed class GroupMessagingTests
                         senderId, GroupId, recipientIds.Select(id => new GroupMessageCopy(id, $"cipher-for-{id}", "nonce")).ToList()),
                     CancellationToken.None);
 
-        public Task<IReadOnlyList<ChatMessage>> ReadAsync(Guid callerId)
+        public Task<IReadOnlyList<ChatMessage>> ReadAsync(Guid callerId, DateTimeOffset? sinceUtc = null)
             => new GetGroupConversationQueryHandler(GroupRepository, MessageRepository)
-                .HandleAsync(new GetGroupConversationQuery(callerId, GroupId), CancellationToken.None);
+                .HandleAsync(new GetGroupConversationQuery(callerId, GroupId, sinceUtc), CancellationToken.None);
 
         public Task<bool> AddMemberAsync(Guid actorId, Guid userId)
             => new AddChatGroupMemberCommandHandler(

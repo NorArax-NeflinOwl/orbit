@@ -28,4 +28,11 @@ public interface IWarehouseShareRepository
     /// A whole set in one query, because the caller asks it of every warehouse in a list.
     /// </summary>
     Task<IReadOnlySet<Guid>> GetSharedOutWarehouseIdsAsync(Guid ownerUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Drops the accepted grant that puts this warehouse on recipientUserId's list, taking it off their
+    /// list without touching the owner's. Scoped to the recipient, so it can only ever remove their own
+    /// access. A no-op when there is no such grant.
+    /// </summary>
+    Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken);
 }

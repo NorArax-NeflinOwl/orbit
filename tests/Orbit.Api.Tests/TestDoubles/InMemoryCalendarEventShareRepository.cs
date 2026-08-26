@@ -58,4 +58,11 @@ internal sealed class InMemoryCalendarEventShareRepository : ICalendarEventShare
 
         return Task.FromResult(ids);
     }
+
+    public Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        _shares.RemoveAll(share =>
+            share.SourceCalendarEventId == sourceId && share.RecipientUserId == recipientUserId && share.IsAccepted);
+        return Task.CompletedTask;
+    }
 }

@@ -35,4 +35,11 @@ public interface ITaskListShareRepository
     /// A whole set in one query, because the caller asks it of every task list in a list.
     /// </summary>
     Task<IReadOnlySet<Guid>> GetSharedOutTaskListIdsAsync(Guid ownerUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Drops the accepted grant that puts this task list on recipientUserId's list, taking it off their
+    /// list without touching the owner's. Scoped to the recipient, so it can only ever remove their own
+    /// access. A no-op when there is no such grant.
+    /// </summary>
+    Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken);
 }

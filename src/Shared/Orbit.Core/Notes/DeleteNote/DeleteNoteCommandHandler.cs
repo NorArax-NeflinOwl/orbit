@@ -6,32 +6,54 @@ namespace Orbit.Core.Notes.DeleteNote;
 public sealed class DeleteNoteCommandHandler : IRequestHandler<DeleteNoteCommand, bool>
 {
     private readonly INoteRepository _noteRepository;
+    private readonly INoteShareRepository _noteShareRepository;
     private readonly ISyncTombstoneRepository _syncTombstoneRepository;
 
-    public DeleteNoteCommandHandler(INoteRepository noteRepository, ISyncTombstoneRepository syncTombstoneRepository)
+    public DeleteNoteCommandHandler(
+        INoteRepository noteRepository, INoteShareRepository noteShareRepository,
+        ISyncTombstoneRepository syncTombstoneRepository)
     {
         _noteRepository = noteRepository;
+        _noteShareRepository = noteShareRepository;
         _syncTombstoneRepository = syncTombstoneRepository;
     }
 
     /// <summary>
-    /// Returns false instead of throwing when the note is missing or not owned by the requesting user,
-    /// so the API can turn that into a 404 either way, without leaking which is the case.
+    /// Deletes the caller's own note, or - when it is somebody else's, shared with them - takes it off
+    /// their list by dropping the grant. False when it is neither, so the API answers 404 without
+    /// leaking which of the two it was.
     ///
-    /// Leaves a tombstone behind so a client that was offline at the time still learns the note is gone -
-    /// an absent row looks exactly like one the client already has (see SyncTombstone).
+    /// Either way leaves a tombstone behind so a client that was offline at the time still learns the
+    /// note is gone - an absent row looks exactly like one the client already has (see SyncTombstone).
     /// </summary>
     public async Task<bool> HandleAsync(DeleteNoteCommand request, CancellationToken cancellationToken)
     {
         var note = await _noteRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
         if (note is null)
         {
-            return false;
+            // Not the owner's. A recipient asking to be rid of something shared with them means
+            // taking it off their own list - destroying somebody else's note is not theirs to
+            // do. Removing the accepted grant does exactly that and leaves the owner's untouched.
+            if (await _noteShareRepository.FindAcceptedGrantAsync(request.Id, request.UserId, cancellationToken) is null)
+            {
+                return false;
+            }
+
+            await _noteShareRepository.RemoveAcceptedGrantAsync(request.Id, request.UserId, cancellationToken);
+            await RecordTombstoneAsync(request, cancellationToken);
+            return true;
         }
 
         await _noteRepository.DeleteAsync(request.UserId, request.Id, cancellationToken);
-        await _syncTombstoneRepository.RecordAsync(
-            new SyncTombstone(request.UserId, SyncEntityType.Note, request.Id, DateTimeOffset.UtcNow), cancellationToken);
+        await RecordTombstoneAsync(request, cancellationToken);
         return true;
     }
+
+    /// <summary>
+    /// Tombstones are per-user, which is what lets a dropped grant leave one: the note is gone from this
+    /// reader's list and from nobody else's, and that is exactly what their next delta needs to say.
+    /// </summary>
+    private Task RecordTombstoneAsync(DeleteNoteCommand request, CancellationToken cancellationToken)
+        => _syncTombstoneRepository.RecordAsync(
+            new SyncTombstone(request.UserId, SyncEntityType.Note, request.Id, DateTimeOffset.UtcNow), cancellationToken);
 }

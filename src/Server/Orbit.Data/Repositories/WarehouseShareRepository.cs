@@ -94,4 +94,10 @@ public sealed class WarehouseShareRepository : IWarehouseShareRepository
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc
         };
+    public async Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        await _dbContext.WarehouseShares
+            .Where(share => share.SourceWarehouseId == sourceId && share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }

@@ -48,4 +48,10 @@ internal sealed class InMemoryNoteShareRepository : INoteShareRepository
         // there is nothing to replace here - mirrors InMemoryCalendarEventShareRepository.
         return Task.CompletedTask;
     }
+    public Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        _shares.RemoveAll(share =>
+            share.SourceNoteId == sourceId && share.RecipientUserId == recipientUserId && share.IsAccepted);
+        return Task.CompletedTask;
+    }
 }

@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Sync;
@@ -107,10 +108,42 @@ public sealed class NoteDeletionTombstoneTests
         Assert.Empty(deletedIds);
     }
 
+    [Fact]
+    public async Task Dropping_a_share_leaves_a_trace_for_the_person_who_dropped_it()
+    {
+        // The note stays where it is - it is somebody else's - but it is gone from this reader's list,
+        // and a delta cannot say so on its own any more than a real deletion can.
+        var context = new NoteDeletionContext();
+        var noteId = await context.AddNoteSharedWithMeAsync();
+
+        var dropped = await context.DeleteAsync(noteId);
+
+        Assert.True(dropped);
+        var tombstone = Assert.Single(context.Tombstones.Tombstones);
+        Assert.Equal(context.UserId, tombstone.UserId);
+        Assert.Equal(noteId, tombstone.EntityId);
+    }
+
+    [Fact]
+    public async Task Dropping_a_share_tells_nobody_but_the_person_who_dropped_it()
+    {
+        // Tombstones are per-user, which is the whole reason this is safe: the owner's own copy is
+        // untouched, and a tombstone reaching them would have their client throw the note away.
+        var context = new NoteDeletionContext();
+        var noteId = await context.AddNoteSharedWithMeAsync();
+
+        await context.DeleteAsync(noteId);
+
+        var deletedIds = await context.Tombstones.GetDeletedIdsSinceAsync(
+            context.SharingUserId, SyncEntityType.Note, DateTimeOffset.UtcNow.AddMinutes(-5), CancellationToken.None);
+        Assert.Empty(deletedIds);
+    }
+
     private sealed class NoteDeletionContext
     {
         public Guid UserId { get; } = Guid.NewGuid();
         public InMemoryNoteRepository Notes { get; } = new();
+        public InMemoryNoteShareRepository Shares { get; } = new();
         public InMemorySyncTombstoneRepository Tombstones { get; } = new();
 
         public async Task<Guid> AddNoteAsync(Guid? ownerUserId = null)
@@ -120,8 +153,21 @@ public sealed class NoteDeletionTombstoneTests
             return note.Id;
         }
 
+        /// <summary>Whoever owns the note from AddNoteSharedWithMeAsync, so a test can check their side too.</summary>
+        public Guid SharingUserId { get; } = Guid.NewGuid();
+
+        /// <summary>Somebody else's note, accepted by this context's user - theirs to drop, not to delete.</summary>
+        public async Task<Guid> AddNoteSharedWithMeAsync()
+        {
+            var noteId = await AddNoteAsync(SharingUserId);
+            var share = NoteShare.Create(noteId, SharingUserId, UserId, ShareAccessLevel.ReadOnly);
+            share.MarkAccepted();
+            await Shares.AddAsync(share, CancellationToken.None);
+            return noteId;
+        }
+
         public Task<bool> DeleteAsync(Guid noteId)
-            => new DeleteNoteCommandHandler(Notes, Tombstones)
+            => new DeleteNoteCommandHandler(Notes, Shares, Tombstones)
                 .HandleAsync(new DeleteNoteCommand(UserId, noteId), CancellationToken.None);
     }
 }

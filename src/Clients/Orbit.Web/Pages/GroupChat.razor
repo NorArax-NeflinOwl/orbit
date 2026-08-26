@@ -133,6 +133,13 @@
                             </button>
                             <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
                         }
+                        @* Showing yourself out is not the same act as removing somebody, and needs no
+                           admin standing - see ChatGroup.RemoveMember. Without this there was no way
+                           out of a group at all. *@
+                        @if (member.UserId == _ownUserId)
+                        {
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="LeaveGroupAsync">@T["Leave group"]</button>
+                        }
                     </div>
                 }
 
@@ -364,6 +371,18 @@
         {
             await ChatApiClient.RemoveGroupMemberAsync(GroupId!.Value, userId);
             await LoadAsync();
+        });
+
+    /// <summary>
+    /// Leaves the group and goes back to the list, since the page it was showing is no longer one this
+    /// reader is in. The server refuses a sole admin who would strand the others - that comes back as a
+    /// 400 naming the rule, which RunAsync surfaces.
+    /// </summary>
+    private async Task LeaveGroupAsync()
+        => await RunAsync(async () =>
+        {
+            await ChatApiClient.RemoveGroupMemberAsync(GroupId!.Value, _ownUserId);
+            NavigationManager.NavigateTo("/chat/groups");
         });
 
     private async Task ChangeRoleAsync(Guid userId, string role)

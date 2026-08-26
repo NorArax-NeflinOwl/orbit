@@ -66,4 +66,18 @@ public sealed class ChatConversationAccessRepository : IChatConversationAccessRe
             CreatedAtUtc = access.CreatedAtUtc,
             ApprovedAtUtc = access.ApprovedAtUtc
         };
+    public async Task<IReadOnlyDictionary<Guid, ChatConversationAccess>> GetAllForUserAsync(
+        Guid userId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.ChatConversationAccesses
+            .AsNoTracking()
+            .Where(entity => entity.InitiatedByUserId == userId || entity.OtherUserId == userId)
+            .ToListAsync(cancellationToken);
+
+        // Keyed by whoever the caller is talking to, which is what a caller holding a list of contacts
+        // has in hand.
+        return entities.ToDictionary(
+            entity => entity.InitiatedByUserId == userId ? entity.OtherUserId : entity.InitiatedByUserId,
+            ToDomain);
+    }
 }

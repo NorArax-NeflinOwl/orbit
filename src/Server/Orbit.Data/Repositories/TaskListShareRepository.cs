@@ -93,4 +93,10 @@ public sealed class TaskListShareRepository : ITaskListShareRepository
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc
         };
+    public async Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        await _dbContext.TaskShares
+            .Where(share => share.SourceTaskListId == sourceId && share.RecipientUserId == recipientUserId && share.AcceptedAtUtc != null)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }
