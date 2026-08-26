@@ -140,9 +140,9 @@ internal static class PolishTranslations
         ["Category"] = "Kategoria",
         ["Expires"] = "Termin ważności",
         ["Private - encrypted, and only you can read it"] = "Prywatne — zaszyfrowane, czyta to tylko Ty",
-        ["There is no more of this than the minimum you set"] = "Nie zostało tego więcej niż ustawione minimum",
+        ["There is less of this than the minimum you set"] = "Zostało tego mniej niż ustawione minimum",
         ["How much of it there is"] = "Ile tego jest",
-        ["Restock once the amount reaches this"] = "Uzupełnij, gdy ilość spadnie do tego poziomu",
+        ["Restock once the amount drops below this"] = "Uzupełnij, gdy ilość spadnie poniżej tego poziomu",
 
         // ---- Chat ----
         ["Chats"] = "Rozmowy",

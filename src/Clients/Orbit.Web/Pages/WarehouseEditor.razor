@@ -15,7 +15,7 @@
 
 @if (_isLoading)
 {
-    <p>@T["Loading…"]</p>
+    <p>Loading…</p>
 }
 else
 {
@@ -51,7 +51,9 @@ else
             {
                 <div class="field">
                     <label>
-                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
+                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />
+                        Private
+                    </label>
                     <small>
                         Encrypted in this browser before it is saved, so Orbit's servers hold something they
                         can't read - no item rows for this warehouse exist there at all. A private warehouse
@@ -62,10 +64,10 @@ else
                 </div>
             }
 
-            <h2 class="options-heading">@T["Items"]</h2>
+            <h2 class="options-heading">Items</h2>
             @if (_formModel.Items.Count == 0)
             {
-                <p>@T["No items yet."]</p>
+                <p>No items yet.</p>
             }
             else
             {
@@ -77,11 +79,25 @@ else
                         <div class="editor-item-summary">
                             <InputText class="editor-item-main" placeholder="@(T["Item name"])" @bind-Value="item.Name" />
                             <span class="editor-item-aside">
-                                <label title="Quantity">
-                                    Qty
+                                @if (NeedsRestocking(item))
+                                {
+                                    <span class="item-warning" title="@(T["There is less of this than the minimum you set"])">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20"
+                                             fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                             role="img" aria-label="Running low">
+                                            <path d="M10 2.8 18.2 17H1.8L10 2.8Z" />
+                                            <path d="M10 8v3.6" />
+                                            <path d="M10 14.2h.01" />
+                                        </svg>
+                                    </span>
+                                }
+                                <label title="@(T["How much of it there is"])">
+                                    @T["Amount"]
                                     <InputNumber TValue="decimal" @bind-Value="item.Quantity" step="0.01" />
                                 </label>
-                                <label title="Restock below this quantity">@T["Min"]<InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
+                                <label title="@(T["Restock once the amount drops below this"])">
+                                    @T["Min"]
+                                    <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
                                 </label>
                                 <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
                                         title="@(IsExpanded(item) ? "Hide this item's other settings" : "Show this item's other settings")"
@@ -89,18 +105,24 @@ else
                                         @onclick="() => ToggleExpanded(item)">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
                                 </button>
-                                <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">@T["Remove"]</button>
+                                <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">Remove</button>
                             </span>
                         </div>
 
                         @if (IsExpanded(item))
                         {
                             <div class="editor-item-details">
-                                <label>@T["Product type"]<InputText placeholder="@(T["Product type"])" @bind-Value="item.ProductType" />
+                                <label>
+                                    Product type
+                                    <InputText placeholder="Product type" @bind-Value="item.ProductType" />
                                 </label>
-                                <label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="item.Category" />
+                                <label>
+                                    Category
+                                    <InputText placeholder="Category" @bind-Value="item.Category" />
                                 </label>
-                                <label>@T["Expires"]<InputDate @bind-Value="item.ExpiryDate" />
+                                <label>
+                                    Expires
+                                    <InputDate @bind-Value="item.ExpiryDate" />
                                 </label>
                                 <label>
                                     Expiry notification
@@ -124,15 +146,15 @@ else
                 <p class="error">@_saveErrorMessage</p>
             }
             <div class="form-actions">
-                <button type="submit" class="btn-primary">@T["Save"]</button>
-                <button type="button" class="btn-secondary" @onclick="GoToWarehouses">@T["Cancel"]</button>
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" class="btn-secondary" @onclick="GoToWarehouses">Cancel</button>
             </div>
         </fieldset>
     </EditForm>
 
     @if (!_formModel.IsPrivate)
     {
-        <h2>@T["Link"]</h2>
+        <h2>Link</h2>
         <ShareLinkButton ItemType="Warehouse" ItemId="WarehouseId" />
     }
 }
@@ -224,6 +246,16 @@ else
         _formModel.Items.Add(item);
         _expandedItem = item;
     }
+
+    /// <summary>
+    /// The same condition InventoryItem.IsBelowMinimum uses to raise the restock task, said out loud
+    /// while someone is looking at the row rather than only after a background service has been round.
+    /// Kept identical on purpose: a warning that appeared one step earlier than the task would leave an
+    /// item flagged with nothing having been raised for it, which reads as the app disagreeing with
+    /// itself.
+    /// </summary>
+    private static bool NeedsRestocking(WarehouseItemFormModel item)
+        => item.MinimumQuantity is { } minimum && item.Quantity < minimum;
 
     private bool IsExpanded(WarehouseItemFormModel item) => ReferenceEquals(_expandedItem, item);
 

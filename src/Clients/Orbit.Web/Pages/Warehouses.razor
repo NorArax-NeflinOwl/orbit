@@ -53,7 +53,9 @@ else
         {
             <li class="card warehouse-card">
                 <div class="warehouse-card-main">
-                    <button type="button" class="warehouse-name" @onclick="() => OpenWarehouse(warehouse.Id)">@warehouse.Name</button>
+                    @* A heading rather than a button: opening it is the "Open" action below, which says
+                       so instead of leaving the reader to discover that the name is clickable. *@
+                    <h2 class="warehouse-name">@warehouse.Name</h2>
                     @if (warehouse.IsPrivate)
                     {
                         <span class="warehouse-shared-badge">@T["Private - encrypted, and only you can read it"]</span>
@@ -68,6 +70,7 @@ else
                     }
                 </div>
                 <div class="warehouse-card-actions">
+                    <button class="btn-primary" @onclick="() => OpenWarehouse(warehouse.Id)">Open</button>
                     @if (CanShare(warehouse))
                     {
                         <button class="btn-secondary" @onclick="() => ToggleSharePanel(warehouse.Id)">@T["Share"]</button>

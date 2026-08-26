@@ -46,7 +46,9 @@ else
                 </button>
             }
         </div>
-        <label class="list-sort">@T["Sort"]<select @bind="_sortOrder" @bind:after="OnSortChanged">
+        <label class="list-sort">
+            @T["Sort"]
+            <select @bind="_sortOrder" @bind:after="OnSortChanged">
                 <option value="@TaskListSortOrder.Priority">@T["Priority"]</option>
                 <option value="@TaskListSortOrder.Newest">@T["Newest first"]</option>
                 <option value="@TaskListSortOrder.Oldest">@T["Oldest first"]</option>
