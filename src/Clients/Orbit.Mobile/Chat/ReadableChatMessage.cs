@@ -23,6 +23,10 @@ namespace Orbit.Mobile.Chat;
 /// Shared by every copy of one group posting, null for a one-to-one message. An edit has to name the
 /// whole posting rather than the single copy this device happens to hold.
 /// </param>
+/// <param name="ForwardedFromDisplayName">
+/// Who originally wrote it, when this message reached the reader by being passed on. Null for anything
+/// written directly to them.
+/// </param>
 /// <param name="IsReadByThem">
 /// True when the other party has seen this one. Only ever set on the reader's own messages in a
 /// one-to-one conversation: the server tracks reading per conversation, not per message, and offers it
@@ -30,13 +34,22 @@ namespace Orbit.Mobile.Chat;
 /// </param>
 public sealed record ReadableChatMessage(
     bool IsMine, string? Text, DateTimeOffset SentAtUtc, bool IsEdited, bool IsWaitingToSend,
-    string? SenderName = null, Guid? MessageId = null, Guid? GroupMessageId = null, bool IsReadByThem = false)
+    string? SenderName = null, Guid? MessageId = null, Guid? GroupMessageId = null, bool IsReadByThem = false,
+    string? ForwardedFromDisplayName = null)
 {
     /// <summary>True when this device could not open it - the screen shows a placeholder in its place.</summary>
     public bool CannotBeOpened => Text is null;
 
     /// <summary>Whether to label the bubble with its author, which only a group conversation does.</summary>
     public bool HasSenderName => SenderName is not null;
+
+    public bool WasForwarded => ForwardedFromDisplayName is not null;
+
+    /// <summary>
+    /// Whether this can be passed on. Needs something to pass: a message that could not be opened here
+    /// has no text to re-encrypt for somebody else, and one still queued has not been sent even once.
+    /// </summary>
+    public bool CanBeForwarded => Text is { Length: > 0 } && !IsWaitingToSend;
 
     /// <summary>
     /// Whether to offer editing and deleting. Only the reader's own messages, and only once the server

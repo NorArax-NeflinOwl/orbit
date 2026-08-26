@@ -83,8 +83,22 @@ public sealed partial class GroupDetailViewModel : ObservableObject
         // last saw an hour ago is how an admin ends up demoting somebody who already left. The contacts,
         // because they are who may be added - and they are cached by a different screen, so a group
         // opened without visiting that one first would offer nobody at all.
-        await _synchronizer.SynchroniseGroupsAsync(cancellationToken);
-        await _synchronizer.SynchroniseContactsAsync(cancellationToken);
+        try
+        {
+            await _synchronizer.SynchroniseGroupsAsync(cancellationToken);
+            await _synchronizer.SynchroniseContactsAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            // See ContactsViewModel: refused rather than unreachable, and it must not escape a command
+            // nobody is awaiting. What is already stored is still worth showing.
+            Message = "Couldn't refresh just now";
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
         await ShowStoredGroupAsync(cancellationToken);
     }
 

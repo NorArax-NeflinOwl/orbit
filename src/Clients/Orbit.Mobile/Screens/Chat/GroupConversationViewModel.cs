@@ -114,8 +114,22 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     /// </summary>
     private async Task RefreshMembershipAsync(CancellationToken cancellationToken)
     {
-        if (_group is null || !await _synchronizer.SynchroniseGroupsAsync(cancellationToken))
+        if (_group is null)
         {
+            return;
+        }
+
+        try
+        {
+            if (!await _synchronizer.SynchroniseGroupsAsync(cancellationToken))
+            {
+                return;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            // See ContactsViewModel: this runs from OnAppearing without being awaited, so a refusal
+            // escaping here would take the app down rather than showing the cached membership.
             return;
         }
 

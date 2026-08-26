@@ -18,6 +18,8 @@ public sealed partial class ConversationViewModel : ObservableObject
     private readonly EncryptedChatMessageReader _reader;
     private readonly EncryptedChatMessageSender _sender;
     private readonly EncryptedChatMessageEditor _editor;
+    private readonly MessageForwarder _forwarder;
+    private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
     private readonly IScreenNavigator _navigator;
 
@@ -43,6 +45,9 @@ public sealed partial class ConversationViewModel : ObservableObject
     /// worse answer than the one from a minute ago.
     /// </summary>
     private DateTimeOffset? _theyReadUpToUtc;
+
+    /// <summary>The message waiting for somewhere to be passed on to, if one is.</summary>
+    private ReadableChatMessage? _beingForwarded;
     /// <summary>
     /// True while <see cref="Status"/> is explaining something the reader just did - a message refused,
     /// an edit that could not go through. The poll runs every few seconds and would otherwise wipe the
@@ -67,18 +72,28 @@ public sealed partial class ConversationViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEditing;
 
+    /// <summary>While picking somewhere to forward to, the list of conversations replaces the messages.</summary>
+    [ObservableProperty]
+    private bool _isForwarding;
+
     public ConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
-        ChatSynchronizer synchronizer, IScreenNavigator navigator)
+        MessageForwarder forwarder, ChatRepository chatRepository, ChatSynchronizer synchronizer,
+        IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
         _editor = editor;
+        _forwarder = forwarder;
+        _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _navigator = navigator;
     }
 
     public ObservableCollection<ReadableChatMessage> Messages { get; } = [];
+
+    /// <summary>Where a message can be passed on to: every conversation but this one.</summary>
+    public ObservableCollection<LocalContact> ForwardTargets { get; } = [];
 
     public bool HasStatus => Status.Length > 0;
 
@@ -88,11 +103,17 @@ public sealed partial class ConversationViewModel : ObservableObject
     /// </summary>
     public bool CanWrite => _contact?.PublicKeyBase64 is not null;
 
+    /// <summary>The compose box and the forward picker share the bottom of the screen, so only one shows.</summary>
+    public bool CanCompose => CanWrite && !IsForwarding;
+
+    public bool IsNotForwarding => !IsForwarding;
+
     public void Open(LocalContact contact)
     {
         _contact = contact;
         Title = contact.DisplayName;
         OnPropertyChanged(nameof(CanWrite));
+        OnPropertyChanged(nameof(CanCompose));
     }
 
     [RelayCommand]
@@ -159,6 +180,74 @@ public sealed partial class ConversationViewModel : ObservableObject
         _beingEdited = message;
         Draft = message.Text ?? string.Empty;
         IsEditing = true;
+    }
+
+    /// <summary>
+    /// Offers somewhere to pass this message on to. Only other conversations - forwarding a message back
+    /// into the one it came from is just repeating it.
+    /// </summary>
+    [RelayCommand]
+    private async Task StartForwardingAsync(ReadableChatMessage? message, CancellationToken cancellationToken)
+    {
+        if (message is not { CanBeForwarded: true } || _contact is null)
+        {
+            return;
+        }
+
+        ForwardTargets.Clear();
+        foreach (var contact in await _chatRepository.GetContactsAsync(cancellationToken))
+        {
+            if (contact.UserId != _contact.UserId && contact.PublicKeyBase64 is not null)
+            {
+                ForwardTargets.Add(contact);
+            }
+        }
+
+        if (ForwardTargets.Count == 0)
+        {
+            SayWhatHappened("No other conversations to forward this to yet.");
+            return;
+        }
+
+        _beingForwarded = message;
+        IsForwarding = true;
+    }
+
+    [RelayCommand]
+    private void CancelForwarding()
+    {
+        _beingForwarded = null;
+        IsForwarding = false;
+    }
+
+    [RelayCommand]
+    private async Task ForwardToAsync(LocalContact? target, CancellationToken cancellationToken)
+    {
+        if (target is null || _beingForwarded is not { } message || _contact is null)
+        {
+            return;
+        }
+
+        var forwarded = message;
+        CancelForwarding();
+
+        try
+        {
+            var result = await _forwarder.ForwardAsync(
+                forwarded, _contact.UserId, _contact.DisplayName, target, cancellationToken);
+
+            SayWhatHappened(result is { Sent: > 0 }
+                ? $"Forwarded to {target.DisplayName}."
+                : Describe(result));
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            _navigator.ShowChatKeyGate();
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-forward.
+        }
     }
 
     [RelayCommand]
@@ -353,6 +442,12 @@ public sealed partial class ConversationViewModel : ObservableObject
     {
         Status = status;
         _statusExplainsTheLastAction = status.Length > 0;
+    }
+
+    partial void OnIsForwardingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsNotForwarding));
+        OnPropertyChanged(nameof(CanCompose));
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));

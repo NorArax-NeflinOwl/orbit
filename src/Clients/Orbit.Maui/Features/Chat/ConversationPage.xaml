@@ -3,6 +3,7 @@
     x:Class="Orbit.Maui.Features.Chat.ConversationPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
     xmlns:mobile="clr-namespace:Orbit.Mobile.Chat;assembly=Orbit.Mobile"
     xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
@@ -15,7 +16,8 @@
         <Label Grid.Row="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
 
-        <RefreshView Grid.Row="2" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="2" IsVisible="{Binding IsNotForwarding}"
+                     IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
 
                 <CollectionView.EmptyView>
@@ -25,6 +27,9 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="mobile:ReadableChatMessage">
                         <VerticalStackLayout Padding="0,8" Spacing="2">
+                            <Label Text="{Binding ForwardedFromDisplayName, StringFormat='Forwarded from {0}'}"
+                                   IsVisible="{Binding WasForwarded}"
+                                   FontSize="11" TextColor="{StaticResource Gray500}" />
                             <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
                             <!-- A message sealed under a key pair since replaced can never be opened. -->
                             <Label Text="This message can't be opened on this device."
@@ -50,6 +55,13 @@
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DeleteCommand, x:DataType=chat:ConversationPage}"
                                         CommandParameter="{Binding .}" />
                             </HorizontalStackLayout>
+                            <!-- Offered on anybody's message, unlike Edit and Delete: passing on what
+                                 somebody else wrote is the case this exists for. -->
+                            <Button Text="Forward" FontSize="12" Padding="10,2" HorizontalOptions="Start"
+                                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}"
+                                    IsVisible="{Binding CanBeForwarded}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartForwardingCommand, x:DataType=chat:ConversationPage}"
+                                    CommandParameter="{Binding .}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -57,7 +69,33 @@
             </CollectionView>
         </RefreshView>
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanWrite}">
+        <!-- Picking where to pass a message on to. Replaces the conversation rather than sitting over
+             it, the same way choosing who to add to a group does. -->
+        <Grid Grid.Row="2" RowDefinitions="Auto,*" RowSpacing="8" IsVisible="{Binding IsForwarding}">
+            <Label Grid.Row="0" Text="Forward to" FontAttributes="Bold" />
+            <CollectionView Grid.Row="1" ItemsSource="{Binding ForwardTargets}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="data:LocalContact">
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,10" ColumnSpacing="8">
+                            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding DisplayName}" FontSize="17" />
+                                <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12"
+                                       TextColor="{StaticResource Gray500}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="Send" FontSize="13" Padding="14,4"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ForwardToCommand, x:DataType=chat:ConversationPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <Button Grid.Row="3" Text="Cancel" Command="{Binding CancelForwardingCommand}"
+                IsVisible="{Binding IsForwarding}"
+                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanCompose}">
             <Entry Grid.Column="0" Placeholder="Message" Text="{Binding Draft}"
                    ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
             <Button Grid.Column="1" Text="Send" Command="{Binding SendCommand}" />

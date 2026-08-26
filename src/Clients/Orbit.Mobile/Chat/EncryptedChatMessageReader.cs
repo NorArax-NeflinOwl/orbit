@@ -51,15 +51,19 @@ public sealed class EncryptedChatMessageReader
         foreach (var message in stored)
         {
             var isMine = message.SenderUserId != otherUserId;
+            var opened = Open(
+                identity, otherPartyPublicKeyBase64, new EncryptedText(message.CiphertextBase64, message.NonceBase64));
+
             conversation.Add(new ReadableChatMessage(
                 isMine,
-                Text: identity.Decrypt(otherPartyPublicKeyBase64, new EncryptedText(message.CiphertextBase64, message.NonceBase64)),
+                opened.Text,
                 message.SentAtUtc,
                 message.IsEdited,
                 IsWaitingToSend: false,
                 MessageId: message.Id,
                 // Read up to a point, so everything sent at or before it has been seen.
-                IsReadByThem: isMine && theyReadUpToUtc is { } readUpTo && message.SentAtUtc <= readUpTo));
+                IsReadByThem: isMine && theyReadUpToUtc is { } readUpTo && message.SentAtUtc <= readUpTo,
+                ForwardedFromDisplayName: opened.ForwardedFromDisplayName));
         }
 
         foreach (var message in queued)
@@ -96,15 +100,17 @@ public sealed class EncryptedChatMessageReader
         {
             var isMine = message.SenderUserId == ownUserId;
             var otherPartyUserId = isMine ? message.RecipientUserId : message.SenderUserId;
+            var opened = OpenGroupCopy(identity, members, otherPartyUserId, message);
             conversation.Add(new ReadableChatMessage(
                 isMine,
-                Open(identity, members, otherPartyUserId, message),
+                opened.Text,
                 message.SentAtUtc,
                 message.IsEdited,
                 IsWaitingToSend: false,
                 SenderName: isMine ? "You" : NameOf(members, message.SenderUserId),
                 MessageId: message.Id,
-                GroupMessageId: message.GroupMessageId));
+                GroupMessageId: message.GroupMessageId,
+                ForwardedFromDisplayName: opened.ForwardedFromDisplayName));
         }
 
         foreach (var message in queued)
@@ -117,14 +123,37 @@ public sealed class EncryptedChatMessageReader
     }
 
     /// <summary>
-    /// Null when the other party to this copy has no cached key - they left the group, or their account
-    /// is gone - which the screen shows as one unopenable message rather than an empty conversation.
+    /// One opened message: its words, and who wrote them first if it got here by being passed on.
     /// </summary>
-    private static string? Open(
+    private readonly record struct OpenedMessage(string? Text, string? ForwardedFromDisplayName);
+
+    /// <summary>
+    /// Decrypts, then unwraps a forward if that is what it is. The two belong together: a forward's
+    /// words are inside the payload, so anything that decrypted but was not unwrapped would show the
+    /// reader raw JSON.
+    /// </summary>
+    private static OpenedMessage Open(ChatIdentity identity, string otherPartyPublicKeyBase64, EncryptedText encrypted)
+    {
+        if (identity.Decrypt(otherPartyPublicKeyBase64, encrypted) is not { } plainText)
+        {
+            return new OpenedMessage(null, null);
+        }
+
+        return ForwardedMessage.TryUnwrap(plainText) is { } forwarded
+            ? new OpenedMessage(forwarded.Content, forwarded.OriginalAuthorDisplayName)
+            : new OpenedMessage(plainText, null);
+    }
+
+    /// <summary>
+    /// Nothing openable when the other party to this copy has no cached key - they left the group, or
+    /// their account is gone - which the screen shows as one unopenable message rather than an empty
+    /// conversation.
+    /// </summary>
+    private static OpenedMessage OpenGroupCopy(
         ChatIdentity identity, IReadOnlyList<LocalChatGroupMember> members, Guid otherPartyUserId, LocalChatMessage message)
         => FindMember(members, otherPartyUserId)?.PublicKeyBase64 is { } otherPartyPublicKey
-            ? identity.Decrypt(otherPartyPublicKey, new EncryptedText(message.CiphertextBase64, message.NonceBase64))
-            : null;
+            ? Open(identity, otherPartyPublicKey, new EncryptedText(message.CiphertextBase64, message.NonceBase64))
+            : new OpenedMessage(null, null);
 
     private static string NameOf(IReadOnlyList<LocalChatGroupMember> members, Guid userId)
         => FindMember(members, userId)?.DisplayName ?? "Someone";

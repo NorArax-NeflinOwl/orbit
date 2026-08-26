@@ -123,6 +123,14 @@ public sealed partial class ContactsViewModel : ObservableObject
                     : "Offline - showing what's on this phone";
             }
         }
+        catch (HttpRequestException)
+        {
+            // The server was reached and refused - an expired session, most often. TokenRefreshService
+            // has already cleared it and AppNavigator is watching, so the app is on its way to sign-in;
+            // what matters here is that this does not escape. These commands are started from
+            // OnAppearing without being awaited, and an unobserved failure kills the process.
+            Message = "Couldn't refresh just now";
+        }
         catch (OperationCanceledException)
         {
             // The screen went away mid-load; the command is started without being awaited.

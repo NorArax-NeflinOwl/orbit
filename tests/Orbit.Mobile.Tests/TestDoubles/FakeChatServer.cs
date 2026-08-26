@@ -39,6 +39,12 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
     public bool IsUnreachable { get; set; }
 
+    /// <summary>
+    /// Set to make every request come back refused - 401 is an expired session, which the app has to
+    /// survive rather than crash on, since the screens start their loads without awaiting them.
+    /// </summary>
+    public HttpStatusCode? RefuseEverythingWith { get; set; }
+
     /// <summary>Set to make the server refuse sends - 403 is "they haven't approved this conversation".</summary>
     public HttpStatusCode? RefuseSendsWith { get; set; }
 
@@ -110,6 +116,11 @@ internal sealed class FakeChatServer : HttpMessageHandler
         if (IsUnreachable)
         {
             throw new HttpRequestException("No such host is known.");
+        }
+
+        if (RefuseEverythingWith is { } refusal)
+        {
+            return new HttpResponseMessage(refusal);
         }
 
         var segments = request.RequestUri!.AbsolutePath.Trim('/').Split('/');
