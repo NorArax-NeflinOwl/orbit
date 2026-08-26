@@ -67,6 +67,11 @@ Without that extension the app can still be built and run, just with no debugger
 | `maui-ios: build` | The simulator build, runtime identifier and all |
 | `maui-ios: run on simulator` | Opens the simulator, builds, installs **over the top**, launches — keeps the local database |
 | `maui-ios: reinstall clean` | The same but wipes the app's container first, for testing a fresh install |
+| `ios-simulator: list iPhones` | What the installed Xcode actually ships, which is what the next task accepts |
+| `ios-simulator: boot a chosen iPhone` | Switches which model everything targets, shutting the current one down first |
+
+Everything targets `booted`, which is the only handle `simctl` offers once a device is running — so
+choosing the model is a step of its own, and only one may be booted at a time or `booted` is ambiguous.
 
 An uninstall clears the local SQLite database but **not** the chat key: that lives in the Keychain, which
 survives it.
