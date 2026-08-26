@@ -140,6 +140,18 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         Assert.Empty(cut.FindAll("#guestContactSelect"));
     }
 
+    [Fact]
+    public void A_new_event_offers_no_delete()
+    {
+        // There is nothing to delete yet, and offering it would only lead to a request for an id that
+        // does not exist.
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        Assert.DoesNotContain("Delete event", cut.Markup);
+    }
+
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(contacts))) { BaseAddress = new Uri("https://example.test/") };

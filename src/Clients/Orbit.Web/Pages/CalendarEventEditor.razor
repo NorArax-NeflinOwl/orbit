@@ -250,6 +250,15 @@ else
     <div class="form-actions">
         <button type="submit" class="btn-primary" disabled="@_isSaving">@T["Save"]</button>
         <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
+        @if (!IsNewEvent && _canEditContent)
+        {
+            @* Deleting from here, not only from the calendar page: opening an event to look at it and
+               deciding it should go is the moment the wish arrives. Only for an event that is actually
+               yours to change - the same gate the content fieldset uses. *@
+            <button type="button" class="btn-secondary form-actions-danger" disabled="@_isDeleting" @onclick="DeleteAsync">
+                @T["Delete event"]
+            </button>
+        }
     </div>
     </EditForm>
 
@@ -296,6 +305,7 @@ else
     private Guid? _originalOwnerUserId;
     private string? _sharedByUserName;
     private bool _isSaving;
+    private bool _isDeleting;
 
     /// <summary>Mirrors NoteEditor's field of the same name - see its comment.</summary>
     private string? _lockedByUserName;
@@ -714,6 +724,35 @@ else
         return recipientsNotNotified.Count == 0
             ? null
             : $"The event was saved, but the invite couldn't be sent to: {string.Join(", ", recipientsNotNotified)}.";
+    }
+
+    /// <summary>
+    /// Asks first, like the calendar page's own delete does, then goes back to the calendar - staying on
+    /// the editor of something that no longer exists would only offer a Save that could not work.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Delete this event? This can't be undone."))
+        {
+            return;
+        }
+
+        _isDeleting = true;
+        Logger.LogInformation("User clicked 'Delete event' (EventId={EventId})", Id);
+        try
+        {
+            await CalendarApiClient.DeleteCalendarEventAsync(Id!.Value);
+            NavigationManager.NavigateTo("/calendar");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to delete calendar event {EventId}", Id);
+            _errorMessage = "Couldn't delete the event. Try again.";
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
     }
 
     private async Task CancelAsync()
