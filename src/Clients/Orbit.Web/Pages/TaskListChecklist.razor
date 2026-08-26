@@ -9,7 +9,7 @@
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
 
-<PageTitle>@(_sections.Count > 0 ? _sections[0].TaskList.Title : "Checklist")</PageTitle>
+<PageTitle>@(_sections.Count > 0 ? _sections[0].TaskList.Title : T["Checklist"])</PageTitle>
 
 @* The shallow half of the two editing levels: the deep editor (TaskEditor.razor) can change and remove
    anything, while this view only ticks items off. Everything else about a list is read-only here, which
@@ -20,8 +20,8 @@
 }
 else if (_sections.Count == 0)
 {
-    <p>This task list no longer exists.</p>
-    <button type="button" class="btn-secondary" @onclick="GoToTaskLists">Back to task lists</button>
+    <p>@T["This task list no longer exists."]</p>
+    <button type="button" class="btn-secondary" @onclick="GoToTaskLists">@T["Back to task lists"]</button>
 }
 else
 {
@@ -31,17 +31,17 @@ else
             <p class="page-subtitle">
                 @if (_sections[0].TaskList.IsGroup)
                 {
-                    <text>Group list - @(_sections.Count - 1) linked @(_sections.Count == 2 ? "list" : "lists") shown below.</text>
+                    <text>@T.Format("Group list - {0} linked {1} shown below.", _sections.Count - 1, _sections.Count == 2 ? T["list"] : T["lists"])</text>
                 }
                 else
                 {
-                    <text>Tick items off; use Edit to change the list itself.</text>
+                    <text>@T["Tick items off; use Edit to change the list itself."]</text>
                 }
             </p>
         </div>
         <div class="page-header-actions">
             <button type="button" class="btn-secondary" @onclick="GoToDeepEditor">@T["Edit"]</button>
-            <button type="button" class="btn-secondary" @onclick="GoToTaskLists">Back</button>
+            <button type="button" class="btn-secondary" @onclick="GoToTaskLists">@T["Back"]</button>
         </div>
     </div>
 
@@ -63,7 +63,7 @@ else
 
             @if (section.TaskList.Items.Count == 0)
             {
-                <p class="checklist-empty">No items.</p>
+                <p class="checklist-empty">@T["No items."]</p>
             }
             else
             {
@@ -76,11 +76,11 @@ else
                         <span class="check-row-text">@item.Description</span>
                         @if (item.LinkedTaskListId is { } linkedTaskListId)
                         {
-                            <span class="row-meta">follows @LinkedTaskListTitle(linkedTaskListId)</span>
+                            <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitle(linkedTaskListId))</span>
                         }
                         else if (item.DueDateUtc is { } dueDate)
                         {
-                            <span class="row-meta">due @dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+                            <span class="row-meta">@T.Format("due {0}", dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                             @if (_hasGoogleExtras)
                             {
                                 @* Google Calendar template links can't create a task, so a deadline
@@ -134,7 +134,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to load the checklist for task list {TaskListId}", Id);
-            _errorMessage = "Couldn't load this task list. Try again.";
+            _errorMessage = T["Couldn't load this task list. Try again."];
             _isLoading = false;
             return;
         }
@@ -184,7 +184,7 @@ else
         => item.LinkedTaskListId is not null || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
 
     private string LinkedTaskListTitle(Guid linkedTaskListId)
-        => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId)?.Title ?? "another list";
+        => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId)?.Title ?? T["another list"];
 
     private static string CompletionSummary(TaskDto taskList)
         => $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";
@@ -216,11 +216,11 @@ else
                 taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup));
             if (outcome.Kind == EditOutcomeKind.Locked)
             {
-                _errorMessage = $"{outcome.LockedByUserName} is currently editing \"{taskList.Title}\" - try again in a moment.";
+                _errorMessage = T.Format("{0} is currently editing \"{1}\" - try again in a moment.", outcome.LockedByUserName, taskList.Title);
             }
             else if (outcome.Kind == EditOutcomeKind.NotFound)
             {
-                _errorMessage = $"\"{taskList.Title}\" is no longer available to you.";
+                _errorMessage = T.Format("\"{0}\" is no longer available to you.", taskList.Title);
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -231,7 +231,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to toggle an item on task list {TaskListId}", taskList.Id);
-            _errorMessage = "Couldn't save that change. Try again.";
+            _errorMessage = T["Couldn't save that change. Try again."];
         }
 
         // Reloads even after a failure, so a checkbox that didn't save snaps back to what the server

@@ -19,17 +19,17 @@
 @inject ILogger<MapPage> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Map</PageTitle>
+<PageTitle>@T["Orbit — Map"]</PageTitle>
 
 <div class="map-page">
     <div class="page-header">
         <div>
             <h1>@T["Map"]</h1>
-            <p class="page-subtitle">The one location you've recorded for yourself, and where it is.</p>
+            <p class="page-subtitle">@T["The one location you've recorded for yourself, and where it is."]</p>
         </div>
         <div class="page-header-actions">
             <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="RecordCurrentLocationAsync">
-                @(_location is null ? "Record where I am" : "Update to where I am now")
+                @(_location is null ? T["Record where I am"] : T["Update to where I am now"])
             </button>
             @if (_location is not null)
             {
@@ -50,12 +50,12 @@
                 <span class="card-title">@T["Share where you are"]</span>
                 @if (_ownShares.Count > 0)
                 {
-                    <span class="card-count">@_ownShares.Count sharing</span>
+                    <span class="card-count">@T.Format("{0} sharing", _ownShares.Count)</span>
                 }
             </div>
             <div class="field-row">
                 <select @bind="_shareWithUserId">
-                    <option value="">Pick a contact…</option>
+                    <option value="">@T["Pick a contact…"]</option>
                     @foreach (var contact in _contacts)
                     {
                         <option value="@contact.UserId">@contact.DisplayName</option>
@@ -69,7 +69,7 @@
             {
                 <div class="list-row">
                     <span class="row-title">@DisplayNameFor(share.SharerUserId == _ownUserId ? share.RecipientUserId : share.SharerUserId)</span>
-                    <span class="row-meta">@(share.IsContinuous ? "live" : "sent once") · @FormatRecordedAt(share.UpdatedAtUtc)</span>
+                    <span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"]) · @FormatRecordedAt(share.UpdatedAtUtc)</span>
                     <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StopSharingAsync(share.RecipientUserId)">@T["Stop"]</button>
                 </div>
             }
@@ -77,8 +77,7 @@
             @if (_isLiveSharing)
             {
                 <p class="empty-hint">
-                    Your position goes out again every minute while this page is open, and stops the moment it isn't.
-                    Ending a share deletes the position from Orbit - nothing is kept afterwards.
+                    @T["Your position goes out again every minute while this page is open, and stops the moment it isn't. Ending a share deletes the position from Orbit - nothing is kept afterwards."]
                 </p>
             }
         </div>
@@ -92,9 +91,7 @@
     {
         <div class="card">
             <p class="empty-hint">
-                Nothing recorded yet. Recording asks your browser for your position - it will ask your
-                permission first, and nothing is read until you press the button. Orbit keeps one point and no
-                history: recording again replaces it, and forgetting it leaves nothing behind.
+                @T["Nothing recorded yet. Recording asks your browser for your position - it will ask your permission first, and nothing is read until you press the button. Orbit keeps one point and no history: recording again replaces it, and forgetting it leaves nothing behind."]
             </p>
         </div>
     }
@@ -106,11 +103,11 @@
                 @if (_hasGoogleExtras)
                 {
                     @* The street name itself opens the place in Google Maps. *@
-                    <a href="@GoogleMapsLink.ToPlace(_location.Latitude, _location.Longitude)" target="_blank" rel="noopener">@(_location.Address ?? "Recorded location")</a>
+                    <a href="@GoogleMapsLink.ToPlace(_location.Latitude, _location.Longitude)" target="_blank" rel="noopener">@(_location.Address ?? T["Recorded location"])</a>
                 }
                 else
                 {
-                    @(_location.Address ?? "Recorded location")
+                    @(_location.Address ?? T["Recorded location"])
                 }
             </span>
                 <span class="card-count">@FormatRecordedAt(_location.RecordedAtUtc)</span>
@@ -204,7 +201,7 @@
         {
             Logger.LogWarning(exception, "Failed to draw the location map");
             _hasFailed = true;
-            _message = "The map couldn't be drawn, but your location is recorded.";
+            _message = T["The map couldn't be drawn, but your location is recorded."];
         }
     }
 
@@ -227,7 +224,7 @@
         {
             Logger.LogError(exception, "Failed to load the recorded location");
             _hasFailed = true;
-            _message = "Couldn't load your location. Try again.";
+            _message = T["Couldn't load your location. Try again."];
         }
         finally
         {
@@ -250,7 +247,7 @@
             // having agreed to beforehand, and reaching it without that agreement is the thing the
             // setting exists to prevent - see DevicePreferences.AllowLocation.
             _hasFailed = true;
-            _message = "Orbit isn't allowed to use your location. Turn it on in Options first.";
+            _message = T["Orbit isn't allowed to use your location. Turn it on in Options first."];
             return;
         }
 
@@ -277,20 +274,20 @@
             await RedrawAsync();
             if (announce)
             {
-                _message = "Location recorded.";
+                _message = T["Location recorded."];
             }
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to save the recorded location");
             _hasFailed = true;
-            _message = "Couldn't save your location. Try again.";
+            _message = T["Couldn't save your location. Try again."];
         }
         catch (JSException exception)
         {
             Logger.LogError(exception, "Failed to read the browser's position");
             _hasFailed = true;
-            _message = "Your location couldn't be read in this browser.";
+            _message = T["Your location couldn't be read in this browser."];
         }
         finally
         {
@@ -321,13 +318,13 @@
             await UsersApiClient.ClearOwnLocationAsync();
             await DisposeMapAsync();
             await RedrawAsync();
-            _message = "Location forgotten.";
+            _message = T["Location forgotten."];
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to clear the recorded location");
             _hasFailed = true;
-            _message = "Couldn't clear your location. Try again.";
+            _message = T["Couldn't clear your location. Try again."];
         }
         finally
         {
@@ -405,7 +402,7 @@
         if (_location is not { } location)
         {
             _hasFailed = true;
-            _message = "Record where you are first - there is nothing to share yet.";
+            _message = T["Record where you are first - there is nothing to share yet."];
             return;
         }
 
@@ -421,8 +418,8 @@
             _shareWithUserId = string.Empty;
             await LoadAsync();
             _message = isContinuous
-                ? "Sharing. Your position goes out again every minute while this page is open."
-                : "Sent. That one position is all they can see.";
+                ? T["Sharing. Your position goes out again every minute while this page is open."]
+                : T["Sent. That one position is all they can see."];
         }
         catch (InvalidOperationException exception)
         {
@@ -435,7 +432,7 @@
         {
             Logger.LogError(exception, "Failed to share a location");
             _hasFailed = true;
-            _message = "Couldn't share your location. Try again.";
+            _message = T["Couldn't share your location. Try again."];
         }
         finally
         {
@@ -452,13 +449,13 @@
         {
             await UsersApiClient.StopSharingLocationAsync(recipientUserId);
             await LoadAsync();
-            _message = "Stopped. Orbit no longer holds that position at all.";
+            _message = T["Stopped. Orbit no longer holds that position at all."];
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to stop sharing a location");
             _hasFailed = true;
-            _message = "Couldn't stop sharing. Try again.";
+            _message = T["Couldn't stop sharing. Try again."];
         }
         finally
         {

@@ -9,7 +9,7 @@
 @inject ILogger<Login> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Log in</PageTitle>
+<PageTitle>@T["Orbit — Log in"]</PageTitle>
 
 @* TODO(Orbit.Web.UI): still plain unstyled <div>/<label>/<input> - and unlike the other pages, this one
    also renders with the full sidebar shell next to it if a stale-but-still-valid token is already in
@@ -71,7 +71,7 @@
             // client-side timeout, for instance - so a failure here always shows the same inline error
             // message instead of crashing the whole page.
             Logger.LogActionFailed(ClientActionCategory.Login, "Login", exception);
-            _errorMessage = "Failed to connect to the server. Check your connection and try again.";
+            _errorMessage = T["Failed to connect to the server. Check your connection and try again."];
             _isSubmitting = false;
             return;
         }
@@ -91,8 +91,8 @@
 
         _errorMessage = result.Outcome switch
         {
-            AuthOutcome.InvalidCredentials => "Invalid email, username, or password.",
-            _ => "An error occurred while logging in. Try again."
+            AuthOutcome.InvalidCredentials => T["Invalid email, username, or password."],
+            _ => T["An error occurred while logging in. Try again."]
         };
         _isSubmitting = false;
     }
@@ -141,13 +141,13 @@
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Google sign-in failed");
-            _errorMessage = "Couldn't sign in with Google. Try again.";
+            _errorMessage = T["Couldn't sign in with Google. Try again."];
             return;
         }
 
         if (result.Outcome != AuthOutcome.Success)
         {
-            _errorMessage = "Couldn't sign in with Google. Try again.";
+            _errorMessage = T["Couldn't sign in with Google. Try again."];
             return;
         }
 

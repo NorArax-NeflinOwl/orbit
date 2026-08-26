@@ -11,7 +11,7 @@
 @inject ILogger<WarehouseEditor> Logger
 @inject Translations T
 
-<PageTitle>@(_formModel.Name.Length > 0 ? _formModel.Name : "Warehouse")</PageTitle>
+<PageTitle>@(_formModel.Name.Length > 0 ? _formModel.Name : T["Warehouse"])</PageTitle>
 
 @if (_isLoading)
 {
@@ -21,27 +21,27 @@ else
 {
     <div class="page-header">
         <div>
-            <h1>@(_formModel.Name.Length > 0 ? _formModel.Name : "Warehouse")</h1>
-            <p class="page-subtitle">Everything in this warehouse, edited together - a low item still raises a restock task.</p>
+            <h1>@(_formModel.Name.Length > 0 ? _formModel.Name : T["Warehouse"])</h1>
+            <p class="page-subtitle">@T["Everything in this warehouse, edited together - a low item still raises a restock task."]</p>
             @if (_isShared)
             {
-                <p class="shared-note-banner">Shared by <strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
+                <p class="shared-note-banner">@T["Shared by"]<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
             }
         </div>
-        <button class="btn-secondary" @onclick="GoToWarehouses">All warehouses</button>
+        <button class="btn-secondary" @onclick="GoToWarehouses">@T["All warehouses"]</button>
     </div>
 
     @if (_lockedByUserName is not null)
     {
         <p class="lock-banner">
-            <strong>@_lockedByUserName</strong> is currently editing this warehouse - you can't edit it right now.
+            @T.Format("{0} is currently editing this warehouse - you can't edit it right now.", _lockedByUserName)
         </p>
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
         <fieldset disabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)">
             <div class="field">
-                <label>Name</label>
+                <label>@T["Name"]</label>
                 <InputText id="warehouseNameInput" @bind-Value="_formModel.Name" />
             </div>
 
@@ -53,11 +53,7 @@ else
                     <label>
                         <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                     <small>
-                        Encrypted in this browser before it is saved, so Orbit's servers hold something they
-                        can't read - no item rows for this warehouse exist there at all. A private warehouse
-                        can't be shared, and any share of it stops working while it stays private. Because
-                        the server can no longer read a quantity or an expiry date, it raises no restock
-                        tasks and sends no expiry reminders. Losing your password means losing it.
+                        @T["Encrypted in this browser before it is saved, so Orbit's servers hold something they can't read - no item rows for this warehouse exist there at all. A private warehouse can't be shared, and any share of it stops working while it stays private. Because the server can no longer read a quantity or an expiry date, it raises no restock tasks and sends no expiry reminders. Losing your password means losing it."]
                     </small>
                 </div>
             }
@@ -82,7 +78,7 @@ else
                                     <span class="item-warning" title="@(T["There is less of this than the minimum you set"])">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20"
                                              fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                             role="img" aria-label="Running low">
+                                             role="img" aria-label="@(T["Running low"])">
                                             <path d="M10 2.8 18.2 17H1.8L10 2.8Z" />
                                             <path d="M10 8v3.6" />
                                             <path d="M10 14.2h.01" />
@@ -98,7 +94,7 @@ else
                                     <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
                                 </label>
                                 <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
-                                        title="@(IsExpanded(item) ? "Hide this item's other settings" : "Show this item's other settings")"
+                                        title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
                                         aria-expanded="@(IsExpanded(item) ? "true" : "false")"
                                         @onclick="() => ToggleExpanded(item)">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
@@ -116,12 +112,10 @@ else
                                 </label>
                                 <label>@T["Expires"]<InputDate @bind-Value="item.ExpiryDate" />
                                 </label>
-                                <label>
-                                    Expiry notification
-                                    <select @bind="item.ExpiryNotificationChannel">
+                                <label>@T["Expiry notification"]<select @bind="item.ExpiryNotificationChannel">
                                         @foreach (var option in NotificationChannelOption.All)
                                         {
-                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@option.Label</option>
+                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
                                         }
                                     </select>
                                 </label>
@@ -131,7 +125,7 @@ else
                 }
             }
 
-            <button type="button" class="btn-secondary" @onclick="AddItem">Add item</button>
+            <button type="button" class="btn-secondary" @onclick="AddItem">@T["Add item"]</button>
 
             @if (_saveErrorMessage is not null)
             {
@@ -180,7 +174,7 @@ else
 
     private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
 
-    private string SharedAccessDescription => _access.Description;
+    private string SharedAccessDescription => T[_access.Description];
 
     protected override async Task OnInitializedAsync()
     {
@@ -280,7 +274,7 @@ else
 
             if (outcome.Kind == EditOutcomeKind.NotFound)
             {
-                _saveErrorMessage = "Failed to save the warehouse. Try again.";
+                _saveErrorMessage = T["Failed to save the warehouse. Try again."];
                 return;
             }
         }
@@ -292,7 +286,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to save warehouse {WarehouseId}", WarehouseId);
-            _saveErrorMessage = "Failed to save the warehouse. Try again.";
+            _saveErrorMessage = T["Failed to save the warehouse. Try again."];
             return;
         }
         finally

@@ -19,18 +19,21 @@ namespace Orbit.Web.Services;
 public sealed class NotesApiClient
 {
     private readonly HttpClient _httpClient;
+    private readonly Translations? _translations;
     private readonly ILogger _logger;
     private readonly PrivateContentSealer? _privateContentSealer;
 
     /// <summary>Shown in place of a private note nobody can open any more - see PrivateContentSealer.OpenAsync.</summary>
     public const string UnreadableNoteTitle = "Unreadable - encrypted with an older key";
 
-    // logger and sealer default to absent rather than being required, so existing call sites (including
-    // every test that constructs this with just an HttpClient) keep compiling unchanged; only the
-    // DI-resolved instance registered in Program.cs logs or handles private notes.
-    public NotesApiClient(HttpClient httpClient, ILogger<NotesApiClient>? logger = null, PrivateContentSealer? privateContentSealer = null)
+    // logger, sealer and translations default to absent rather than being required, so existing call
+    // sites (including every test that constructs this with just an HttpClient) keep compiling
+    // unchanged; only the DI-resolved instance registered in Program.cs logs, handles private notes, or
+    // speaks the reader's language.
+    public NotesApiClient(HttpClient httpClient, ILogger<NotesApiClient>? logger = null, PrivateContentSealer? privateContentSealer = null, Translations? translations = null)
     {
         _httpClient = httpClient;
+        _translations = translations;
         _logger = logger ?? NullLogger<NotesApiClient>.Instance;
         _privateContentSealer = privateContentSealer;
     }
@@ -75,7 +78,7 @@ public sealed class NotesApiClient
 
         var content = await _privateContentSealer.OpenAsync<SealedNote>(encryptedContent, cancellationToken);
         return content is null
-            ? note with { Title = UnreadableNoteTitle }
+            ? note with { Title = Translated(UnreadableNoteTitle) }
             : note with { Title = content.Title, Content = content.Content };
     }
 
@@ -179,7 +182,7 @@ public sealed class NotesApiClient
         response.EnsureSuccessStatusCode();
     }
 
-    private static async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -189,7 +192,7 @@ public sealed class NotesApiClient
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
             var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
-            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? "another user");
+            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? Translated("another user"));
         }
 
         response.EnsureSuccessStatusCode();
@@ -255,4 +258,12 @@ public sealed class NotesApiClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<bool>(cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// The reader's language for text this client substitutes in - English when there is no
+    /// Translations to ask, which is every test that builds this client by hand. Translated here
+    /// rather than where it is rendered, because by then a stand-in title is indistinguishable from
+    /// a real one the reader wrote.
+    /// </summary>
+    private string Translated(string english) => _translations?[english] ?? english;
 }

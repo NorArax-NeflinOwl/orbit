@@ -15,14 +15,17 @@ namespace Orbit.Web.Services;
 public sealed class CalendarApiClient
 {
     private readonly HttpClient _httpClient;
+    private readonly Translations? _translations;
     private readonly ILogger _logger;
 
-    // logger defaults to a no-op instance rather than being required, so existing call sites (including
-    // every test that constructs this with just an HttpClient) keep compiling unchanged; only the
-    // DI-resolved instance registered in Program.cs actually logs anywhere.
-    public CalendarApiClient(HttpClient httpClient, ILogger<CalendarApiClient>? logger = null)
+    // logger defaults to a no-op instance and translations to absent rather than being required, so
+    // existing call sites (including every test that constructs this with just an HttpClient) keep
+    // compiling unchanged; only the DI-resolved instance registered in Program.cs actually logs
+    // anywhere or speaks the reader's language.
+    public CalendarApiClient(HttpClient httpClient, ILogger<CalendarApiClient>? logger = null, Translations? translations = null)
     {
         _httpClient = httpClient;
+        _translations = translations;
         _logger = logger ?? NullLogger<CalendarApiClient>.Instance;
     }
 
@@ -93,7 +96,7 @@ public sealed class CalendarApiClient
         response.EnsureSuccessStatusCode();
     }
 
-    private static async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private async Task<EditOutcome> ToEditOutcomeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -103,7 +106,7 @@ public sealed class CalendarApiClient
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
             var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
-            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? "another user");
+            return EditOutcome.LockedBy(conflict?.LockedByUserName ?? Translated("another user"));
         }
 
         response.EnsureSuccessStatusCode();
@@ -175,4 +178,12 @@ public sealed class CalendarApiClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<bool>(cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// The reader's language for text this client substitutes in - English when there is no
+    /// Translations to ask, which is every test that builds this client by hand. Translated here
+    /// rather than where it is rendered, because by then a stand-in title is indistinguishable from
+    /// a real one the reader wrote.
+    /// </summary>
+    private string Translated(string english) => _translations?[english] ?? english;
 }

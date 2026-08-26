@@ -23,12 +23,12 @@
 @inject ILogger<Chat> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Chat</PageTitle>
+<PageTitle>@T["Orbit — Chat"]</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1>Messages</h1>
-        <p class="page-subtitle">End-to-end encrypted conversations.</p>
+        <h1>@T["Messages"]</h1>
+        <p class="page-subtitle">@T["End-to-end encrypted conversations."]</p>
     </div>
 </div>
 
@@ -39,8 +39,7 @@
 else if (_encryptionUnavailable)
 {
     <p>
-        Chat requires a secure connection (an address starting with "https://", or "http://localhost").
-        Open Orbit at such an address and try again.
+        @T["Chat requires a secure connection (an address starting with \"https://\", or \"http://localhost\"). Open Orbit at such an address and try again."]
     </p>
 }
 else if (_encryptionKeyLocked)
@@ -59,7 +58,7 @@ else
         <div class="chat-list-backdrop @(_isDrawerOpen ? "open" : "")" @onclick="CloseDrawer"></div>
         <div class="chat-list @(_isDrawerOpen ? "open" : "") @(_isContactListCollapsed ? "collapsed" : "")">
             <div class="chat-list-header">
-                <button type="button" class="icon-btn" title="@(_isContactListCollapsed ? "Show names" : "Hide names")" @onclick="ToggleContactListCollapsed">
+                <button type="button" class="icon-btn" title="@(_isContactListCollapsed ? T["Show names"] : T["Hide names"])" @onclick="ToggleContactListCollapsed">
                     @if (_isContactListCollapsed)
                     {
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
@@ -89,7 +88,7 @@ else
 
         <div class="chat-thread">
             <div class="chat-thread-header">
-                <button type="button" class="icon-btn chat-list-toggle" title="Conversations" @onclick="ToggleDrawer">
+                <button type="button" class="icon-btn chat-list-toggle" title="@(T["Conversations"])" @onclick="ToggleDrawer">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
                 </button>
                 <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(_otherUser.Id);width:34px;height:34px;font-size:12.5px;">@AvatarHelper.GetInitials(_otherUser.DisplayName)</span>
@@ -101,8 +100,7 @@ else
             @if (_otherUser.PublicKeyBase64 is null)
             {
                 <p>
-                    @_otherUser.DisplayName hasn't set up encryption yet - they need to log in in their own
-                    browser first before you can message them.
+                    @T.Format("{0} hasn't set up encryption yet - they need to log in in their own browser first before you can message them.", _otherUser.DisplayName)
                 </p>
             }
             else
@@ -110,15 +108,13 @@ else
                 @if (RequiresApprovalFromMe)
                 {
                     <p class="chat-request-banner">
-                        @_otherUser.DisplayName wants to chat with you.
-                        <button type="button" class="btn-primary" disabled="@_isApprovingConversation" @onclick="ApproveConversationAsync">
-                            Allow chatting
-                        </button>
+                        @T.Format("{0} wants to chat with you.", _otherUser.DisplayName)
+                        <button type="button" class="btn-primary" disabled="@_isApprovingConversation" @onclick="ApproveConversationAsync">@T["Allow chatting"]</button>
                     </p>
                 }
                 else if (IsPendingApprovalFromOtherParty)
                 {
-                    <p class="chat-request-banner">Message is waiting for @_otherUser.DisplayName to approve.</p>
+                    <p class="chat-request-banner">@T.Format("Message is waiting for {0} to approve.", _otherUser.DisplayName)</p>
                 }
 
                 <div class="chat-messages" @ref="_messageListElement" @onclick="CloseMessageMenu">
@@ -158,7 +154,7 @@ else
                                        id="@MessageElementId(message.Id)">
                                         @if (_forwardedFromByMessageId.TryGetValue(message.Id, out var forwardedFromDisplayName))
                                         {
-                                            <span class="chat-bubble-forwarded-label">Forwarded from @forwardedFromDisplayName</span>
+                                            <span class="chat-bubble-forwarded-label">@T.Format("Forwarded from {0}", forwardedFromDisplayName)</span>
                                         }
                                         @if (_replyToByMessageId.TryGetValue(message.Id, out var quoted))
                                         {
@@ -170,7 +166,7 @@ else
                                                 @quoted.Preview
                                             </button>
                                         }
-                                        @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[couldn't decrypt]")
+                                        @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
                                     </p>
                                     @if (canEdit || canForward)
                                     {
@@ -218,11 +214,11 @@ else
                                     @message.SentAtUtc.ToLocalTime().ToString("HH:mm")
                                     @if (message.IsEdited)
                                     {
-                                        <text> · Edited</text>
+                                        <text>@T["· Edited"]</text>
                                     }
                                     @if (message.SenderUserId == _ownUserId)
                                     {
-                                        @(IsReadByOtherParty(message) ? " · Read" : " · Sent")
+                                        @(IsReadByOtherParty(message) ? T[" · Read"] : T[" · Sent"])
                                     }
                                 </span>
                                 @if (_forwardErrorMessage is not null && _forwardErrorMessageForMessageId == message.Id)
@@ -258,7 +254,7 @@ else
                     }
                     @if (_isJumpToNewestVisible)
                     {
-                        <button type="button" class="chat-jump-to-newest" title="Jump to newest message"
+                        <button type="button" class="chat-jump-to-newest" title="@(T["Jump to newest message"])"
                                 @onclick="ScrollToNewestMessageAsync" @onclick:stopPropagation="true">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M10 4v12M5 11l5 5 5-5" />
@@ -437,7 +433,7 @@ else
             // initial load should too, instead of crashing the whole WASM renderer over what a retry
             // might resolve on its own.
             Logger.LogError(exception, "Failed to load chat");
-            _loadErrorMessage = "Couldn't load chat. Check your connection and try again.";
+            _loadErrorMessage = T["Couldn't load chat. Check your connection and try again."];
             return;
         }
         catch (JSException exception)
@@ -530,7 +526,7 @@ else
             // Mirrors OnInitializedAsync's own catch above - no status code at all (API unreachable,
             // DNS, a dropped connection, ...) shouldn't crash the page when switching contacts either.
             Logger.LogError(exception, "Failed to load conversation with {UserId}", UserId);
-            _loadErrorMessage = "Couldn't load this conversation. Check your connection and try again.";
+            _loadErrorMessage = T["Couldn't load this conversation. Check your connection and try again."];
             return;
         }
 
@@ -801,7 +797,7 @@ else
         {
             Logger.LogWarning(
                 exception, "Failed to forward chat message {MessageId} to user {TargetUserId}", message.Id, targetContact.UserId);
-            _forwardErrorMessage = "Couldn't forward the message.";
+            _forwardErrorMessage = T["Couldn't forward the message."];
             _forwardErrorMessageForMessageId = message.Id;
         }
         finally
@@ -1123,12 +1119,12 @@ else
 
     private static async Task<bool> GrantAsync<T>(Task<T?> shareTask) where T : class => await shareTask is not null;
 
-    private static string DescribeItemType(string itemType) => itemType switch
+    private string DescribeItemType(string itemType) => itemType switch
     {
-        "Note" => "a note",
-        "TaskList" => "a task list",
-        "CalendarEvent" => "an event",
-        _ => "a warehouse"
+        "Note" => T["a note"],
+        "TaskList" => T["a task list"],
+        "CalendarEvent" => T["an event"],
+        _ => T["a warehouse"]
     };
 
     private async Task GrantEditAccessAsync(Guid messageId, EditAccessRequestNotice notice)

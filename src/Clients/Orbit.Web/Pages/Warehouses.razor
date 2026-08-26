@@ -13,7 +13,7 @@
 @inject ILogger<Warehouses> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Inventory</PageTitle>
+<PageTitle>@T["Orbit — Inventory"]</PageTitle>
 
 <div class="page-header">
     <div>
@@ -62,11 +62,11 @@ else
                     }
                     @if (warehouse.IsShared)
                     {
-                        <span class="warehouse-shared-badge">Shared by @warehouse.SharedByUserName · @AccessDescription(warehouse.AccessLevel)</span>
+                        <span class="warehouse-shared-badge">@T.Format("Shared by {0} · {1}", warehouse.SharedByUserName, AccessDescription(warehouse.AccessLevel))</span>
                     }
                     @if (warehouse.LockedByUserName is { } lockedBy)
                     {
-                        <span class="warehouse-shared-badge">@lockedBy is editing it right now</span>
+                        <span class="warehouse-shared-badge">@T.Format("{0} is editing it right now", lockedBy)</span>
                     }
                 </div>
                 <div class="warehouse-card-actions">
@@ -86,12 +86,12 @@ else
                     <div class="warehouse-share-panel">
                         @if (ShareableContacts(warehouse).Count == 0)
                         {
-                            <p>No contacts to share with yet - start a conversation first.</p>
+                            <p>@T["No contacts to share with yet - start a conversation first."]</p>
                         }
                         else
                         {
                             <select id="shareContactSelect" @bind="_selectedContactUserId">
-                                <option value="">-- select a contact --</option>
+                                <option value="">@T["-- select a contact --"]</option>
                                 @foreach (var contact in ShareableContacts(warehouse))
                                 {
                                     <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
@@ -168,7 +168,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to load warehouses");
-            _errorMessage = "Couldn't load your warehouses. Check your connection and try again.";
+            _errorMessage = T["Couldn't load your warehouses. Check your connection and try again."];
             _warehouses = [];
         }
     }
@@ -199,8 +199,8 @@ else
     private static bool CanGrantEditOnly(WarehouseDto warehouse)
         => SharedItemAccess.For(warehouse.IsShared, warehouse.AccessLevel).CanGrantEditOnly;
 
-    private static string AccessDescription(string accessLevel)
-        => SharedItemAccess.For(isShared: true, accessLevel).Description;
+    private string AccessDescription(string accessLevel)
+        => T[SharedItemAccess.For(isShared: true, accessLevel).Description];
 
     private void StartCreating()
     {
@@ -239,7 +239,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to create a warehouse");
-            _errorMessage = "Failed to create the warehouse. Try again.";
+            _errorMessage = T["Failed to create the warehouse. Try again."];
         }
         finally
         {
@@ -278,15 +278,15 @@ else
             var result = await InventoryApiClient.ShareWarehouseAsync(warehouse.Id, recipientUserId, _selectedAccessLevel);
             if (result is null)
             {
-                _shareErrorMessage = "Failed to share the warehouse.";
+                _shareErrorMessage = T["Failed to share the warehouse."];
                 return;
             }
 
             var payloadJson = JsonSerializer.Serialize(new WarehouseShareMessagePayload(result.ShareId, warehouse.Name));
             await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
             _shareInfoMessage = result.AlreadyShared
-                ? "Already shared with that contact - sent a reminder."
-                : "Shared - they'll see it in your chat.";
+                ? T["Already shared with that contact - sent a reminder."]
+                : T["Shared - they'll see it in your chat."];
             _selectedContactUserId = string.Empty;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -296,7 +296,7 @@ else
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogWarning(exception, "Failed to share warehouse {WarehouseId} with user {RecipientUserId}", warehouse.Id, recipientUserId);
-            _shareErrorMessage = "Failed to share the warehouse.";
+            _shareErrorMessage = T["Failed to share the warehouse."];
         }
         finally
         {
@@ -307,7 +307,7 @@ else
     private async Task DeleteWarehouseAsync(WarehouseDto warehouse)
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>(
-            "confirm", $"Delete \"{warehouse.Name}\" and everything in it?");
+            "confirm", T.Format("Delete \"{0}\" and everything in it?", warehouse.Name));
         if (!confirmed)
         {
             return;
@@ -325,7 +325,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to delete warehouse {WarehouseId}", warehouse.Id);
-            _errorMessage = "Failed to delete the warehouse. Try again.";
+            _errorMessage = T["Failed to delete the warehouse. Try again."];
             return;
         }
 

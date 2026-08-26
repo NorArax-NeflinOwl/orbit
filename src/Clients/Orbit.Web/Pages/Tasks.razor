@@ -9,7 +9,7 @@
 @inject ILogger<Tasks> Logger
 @inject Translations T
 
-<PageTitle>Orbit — Tasks</PageTitle>
+<PageTitle>@T["Orbit — Tasks"]</PageTitle>
 
 <div class="page-header">
     <div>
@@ -60,7 +60,7 @@ else
 
     @if (VisibleTaskLists.Count == 0)
     {
-        <p class="empty-hint">No lists are @DescribeStatus(_statusFilter!.Value).ToLowerInvariant().</p>
+        <p class="empty-hint">@T.Format("No lists are {0}.", DescribeStatus(_statusFilter!.Value).ToLowerInvariant())</p>
     }
 
     <div class="card-grid">
@@ -80,7 +80,7 @@ else
                         }
                         @if (taskList.Priority != "Normal")
                         {
-                            <span class="card-badge card-badge-priority-@taskList.Priority.ToLowerInvariant()">@taskList.Priority</span>
+                            <span class="card-badge card-badge-priority-@taskList.Priority.ToLowerInvariant()">@DescribePriority(ParsePriority(taskList))</span>
                         }
                         <span class="card-badge card-badge-status-@taskList.Status.ToLowerInvariant()">@DescribeStatus(ParseStatus(taskList))</span>
                         @if (taskList.IsPinned)
@@ -100,7 +100,7 @@ else
                         <span class="row-title">@item.Description</span>
                         @if (item.LinkedTaskListId is not null)
                         {
-                            <span class="row-meta">follows another list</span>
+                            <span class="row-meta">@T["follows another list"]</span>
                         }
                         else if (item.DueDateUtc is { } dueDate)
                         {
@@ -111,7 +111,7 @@ else
                 @if (taskList.Items.Count > PreviewItemCount)
                 {
                     <div class="list-row">
-                        <span class="row-meta">and @(taskList.Items.Count - PreviewItemCount) more…</span>
+                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - PreviewItemCount)</span>
                     </div>
                 }
                 @if (taskList.Items.Count == 0)
@@ -228,12 +228,20 @@ else
     private static TaskListPriority ParsePriority(TaskDto taskList)
         => Enum.TryParse<TaskListPriority>(taskList.Priority, out var priority) ? priority : TaskListPriority.Normal;
 
-    private static string DescribeStatus(TaskListStatus status) => status switch
+    /// <summary>Mirrors the wording of TaskEditor's own priority dropdown, so a list reads the same in both places.</summary>
+    private string DescribePriority(TaskListPriority priority) => priority switch
     {
-        TaskListStatus.Pending => "In progress",
-        TaskListStatus.Completed => "Done",
-        TaskListStatus.Overdue => "Overdue",
-        _ => "Not started"
+        TaskListPriority.Low => T["Low"],
+        TaskListPriority.High => T["High"],
+        _ => T["Normal"]
+    };
+
+    private string DescribeStatus(TaskListStatus status) => status switch
+    {
+        TaskListStatus.Pending => T["In progress"],
+        TaskListStatus.Completed => T["Done"],
+        TaskListStatus.Overdue => T["Overdue"],
+        _ => T["Not started"]
     };
 
     /// <summary>The orders the sort dropdown offers - Priority first, since it is the one the reader set themselves.</summary>
