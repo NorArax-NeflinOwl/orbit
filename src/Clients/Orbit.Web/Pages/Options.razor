@@ -414,7 +414,10 @@
                     <div class="options-row-title">@T["Language"]</div>
                 </div>
                 <select id="languageSelect" class="options-select" value="@T.Language" @onchange="OnLanguageChangedAsync">
-                    <option value="@AppLanguage.English">@T["English"]</option>
+                    @* Each language named in its own language, the way a language picker is read: the
+                       list means the same thing whichever one you are currently in. Translating only
+                       one of the two gave "angielski" beside "Polski". *@
+                    <option value="@AppLanguage.English">English</option>
                     <option value="@AppLanguage.Polish">Polski</option>
                 </select>
             </div>

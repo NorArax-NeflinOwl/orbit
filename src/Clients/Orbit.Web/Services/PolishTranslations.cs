@@ -125,7 +125,6 @@ internal static class PolishTranslations
         ["No tasks with a due date."] = "Brak zadań z terminem.",
         ["Delete event"] = "Usuń wydarzenie",
         ["Guests"] = "Goście",
-        ["No guests"] = "Brak gości",
         ["Directions"] = "Wyznacz trasę",
         ["Add to Google Calendar"] = "Dodaj do Kalendarza Google",
         ["The event's end can't be before its start."] = "Koniec wydarzenia nie może być przed jego początkiem.",
@@ -179,13 +178,10 @@ internal static class PolishTranslations
 
         // ---- Options ----
         ["Appearance"] = "Wygląd",
-        ["Theme"] = "Motyw",
         ["System"] = "Systemowy",
         ["Light"] = "Jasny",
         ["Dark"] = "Ciemny",
         ["Language"] = "Język",
-        ["English"] = "angielski",
-        ["Polish"] = "polski",
         ["The language Orbit's own interface is written in. Kept on this device."] =
             "Język, w którym napisany jest interfejs Orbita. Zapamiętywany na tym urządzeniu.",
         ["Location"] = "Położenie",

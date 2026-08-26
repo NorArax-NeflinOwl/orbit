@@ -936,6 +936,16 @@ input.note-editor-title {
     padding: 4px 10px;
 }
 
+/* The title on its own line. A note with nothing written in it has no preview between the title and
+   its timestamps, and two inline elements with Razor's whitespace removed read as one word. */
+.note-row-title {
+    display: block;
+}
+
+.note-row small {
+    color: var(--text-tertiary);
+}
+
 .icon-btn {
     width: 30px;
     height: 30px;
