@@ -132,6 +132,60 @@ public sealed class ChatClient
         }
     }
 
+    /// <summary>
+    /// Removes a message for everyone, not just for the caller. One copy's id is enough for a group
+    /// message: the server removes every copy of the same posting - see DeleteChatMessageCommandHandler.
+    /// </summary>
+    /// <returns>False when it is already gone, or was never the caller's to remove.</returns>
+    public async Task<bool> DeleteMessageAsync(Guid messageId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync($"api/chat/messages/{messageId}", cancellationToken);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>Rewrites a one-to-one message. False when it is gone or was somebody else's to edit.</summary>
+    public async Task<bool> EditMessageAsync(
+        Guid messageId, EditMessageRequest request, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync($"api/chat/messages/{messageId}", request, cancellationToken);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>
+    /// Rewrites one group message. The same fan-out as sending, because every copy is separately
+    /// encrypted - leaving one behind would show different members different words.
+    /// </summary>
+    public async Task<GroupSendOutcome> EditGroupMessageAsync(
+        Guid groupId, Guid groupMessageId, IReadOnlyList<GroupMessageCopyDto> copies,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync(
+            $"api/chat/groups/{groupId}/messages/{groupMessageId}", new SendGroupMessageRequest(copies), cancellationToken);
+
+        switch (response.StatusCode)
+        {
+            case HttpStatusCode.NotFound:
+                return GroupSendOutcome.NoLongerAMember;
+            case HttpStatusCode.BadRequest:
+                return GroupSendOutcome.MembershipChanged;
+            default:
+                response.EnsureSuccessStatusCode();
+                return GroupSendOutcome.Sent;
+        }
+    }
+
     public async Task<SendMessageResult> SendAsync(
         SendMessageRequest request, CancellationToken cancellationToken = default)
     {

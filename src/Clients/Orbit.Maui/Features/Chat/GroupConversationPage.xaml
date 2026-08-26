@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:mobile="clr-namespace:Orbit.Mobile.Chat;assembly=Orbit.Mobile"
+    xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
     x:DataType="screens:GroupConversationViewModel"
     Title="{Binding Title}">
@@ -37,6 +38,19 @@
                                    FontSize="11" TextColor="{StaticResource Gray500}" />
                             <Label Text="Waiting to send" IsVisible="{Binding IsWaitingToSend}"
                                    FontSize="11" TextColor="{StaticResource Primary}" />
+                            <!-- Only on the reader's own messages, and only once the server has one -
+                                 see ReadableChatMessage.CanBeChanged. The commands live on the page's
+                                 view model, so these go through the page's typed ViewModel property. -->
+                            <HorizontalStackLayout Spacing="16" IsVisible="{Binding CanBeChanged}">
+                                <Button Text="Edit" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
+                                        TextColor="{StaticResource Primary}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartEditingCommand, x:DataType=chat:GroupConversationPage}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="Delete" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
+                                        TextColor="{StaticResource Primary}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DeleteCommand, x:DataType=chat:GroupConversationPage}"
+                                        CommandParameter="{Binding .}" />
+                            </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -44,10 +58,13 @@
             </CollectionView>
         </RefreshView>
 
-        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanWrite}">
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanWrite}">
             <Entry Grid.Column="0" Placeholder="Message" Text="{Binding Draft}"
                    ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
             <Button Grid.Column="1" Text="Send" Command="{Binding SendCommand}" />
+            <Button Grid.Column="2" Text="Cancel" IsVisible="{Binding IsEditing}"
+                    Command="{Binding CancelEditingCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
         </Grid>
 
         <Button Grid.Row="5" Text="Back to groups" Command="{Binding GoBackCommand}"

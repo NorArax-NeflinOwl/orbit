@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Contracts.Chat;
+using Orbit.Mobile.Crypto;
 
 namespace Orbit.Mobile.Data;
 
@@ -165,6 +166,61 @@ public sealed class ChatRepository
         }
 
         return await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Replaces one message's ciphertext with a freshly sealed one, and marks it as edited. Done here as
+    /// well as on the server so the conversation shows the new words at once: a one-to-one pull only asks
+    /// for what is newer, so an edit to something older would not come back on its own.
+    /// </summary>
+    public async Task RewriteAsync(Guid messageId, EncryptedText sealedText, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.ChatMessages.FirstOrDefaultAsync(message => message.Id == messageId, cancellationToken) is not { } stored)
+        {
+            return;
+        }
+
+        stored.CiphertextBase64 = sealedText.CiphertextBase64;
+        stored.NonceBase64 = sealedText.NonceBase64;
+        stored.IsEdited = true;
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Drops a message this phone holds. A group copy takes every copy of the same posting with it, which
+    /// is what the server does too - a message leaves the group rather than one member's view of it.
+    /// </summary>
+    public async Task ForgetAsync(Guid messageId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.ChatMessages.FirstOrDefaultAsync(message => message.Id == messageId, cancellationToken) is not { } stored)
+        {
+            return;
+        }
+
+        if (stored.GroupMessageId is { } groupMessageId)
+        {
+            await dbContext.ChatMessages
+                .Where(message => message.GroupMessageId == groupMessageId)
+                .ExecuteDeleteAsync(cancellationToken);
+            return;
+        }
+
+        dbContext.ChatMessages.Remove(stored);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Drops every copy of one group posting. An edited group message is re-sealed per member, so the
+    /// copies that come back carry new ids - without this the old ones would sit alongside them.
+    /// </summary>
+    public async Task ForgetGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await dbContext.ChatMessages
+            .Where(message => message.GroupMessageId == groupMessageId)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     /// <summary>Everything waiting to go out, oldest first - the order it must be sent in.</summary>

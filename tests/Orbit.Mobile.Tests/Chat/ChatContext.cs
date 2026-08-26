@@ -54,9 +54,13 @@ internal sealed class ChatContext : IDisposable
         Repository = new ChatRepository(_localStore, Clock);
         ChatClient = new ChatClient(Server.ToHttpClient());
         var usersClient = new UsersClient(Users.ToHttpClient());
+        var directoryReader = new ChatDirectoryReader(ChatClient, usersClient, sessionStore);
         Sender = new EncryptedChatMessageSender(
-            Repository, ChatClient, usersClient, encryptionKeyProvider, sessionStore,
+            Repository, ChatClient, directoryReader, encryptionKeyProvider,
             NullLogger<EncryptedChatMessageSender>.Instance);
+        Editor = new EncryptedChatMessageEditor(
+            Repository, ChatClient, directoryReader, encryptionKeyProvider,
+            NullLogger<EncryptedChatMessageEditor>.Instance);
         Reader = new EncryptedChatMessageReader(Repository, encryptionKeyProvider, sessionStore);
         Synchronizer = new ChatSynchronizer(
             Repository, ChatClient, usersClient, Sender, NullLogger<ChatSynchronizer>.Instance);
@@ -76,6 +80,7 @@ internal sealed class ChatContext : IDisposable
     public ChatRepository Repository { get; }
     public ChatClient ChatClient { get; }
     public EncryptedChatMessageSender Sender { get; }
+    public EncryptedChatMessageEditor Editor { get; }
     public EncryptedChatMessageReader Reader { get; }
     public ChatSynchronizer Synchronizer { get; }
 

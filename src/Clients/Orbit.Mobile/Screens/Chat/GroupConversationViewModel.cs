@@ -18,6 +18,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 {
     private readonly EncryptedChatMessageReader _reader;
     private readonly EncryptedChatMessageSender _sender;
+    private readonly EncryptedChatMessageEditor _editor;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
     private readonly IScreenNavigator _navigator;
@@ -30,6 +31,9 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
     private LocalChatGroup? _group;
     private CancellationTokenSource? _polling;
+
+    /// <summary>The message the compose box is currently rewriting, if it is rewriting one.</summary>
+    private ReadableChatMessage? _beingEdited;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -46,12 +50,17 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRefreshing;
 
+    /// <inheritdoc cref="ConversationViewModel.IsEditing"/>
+    [ObservableProperty]
+    private bool _isEditing;
+
     public GroupConversationViewModel(
-        EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, ChatRepository chatRepository,
-        ChatSynchronizer synchronizer, IScreenNavigator navigator)
+        EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
+        ChatRepository chatRepository, ChatSynchronizer synchronizer, IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
+        _editor = editor;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _navigator = navigator;
@@ -120,6 +129,12 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         var text = Draft.Trim();
         Draft = string.Empty;
 
+        if (_beingEdited is { GroupMessageId: { } groupMessageId })
+        {
+            await RewriteAsync(groupMessageId, text, cancellationToken);
+            return;
+        }
+
         try
         {
             var result = await _sender.SendToGroupAsync(_group.Id, text, cancellationToken);
@@ -139,6 +154,77 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     }
 
     private bool CanSend => Draft.Trim().Length > 0 && CanWrite;
+
+    /// <inheritdoc cref="ConversationViewModel.StartEditing"/>
+    [RelayCommand]
+    private void StartEditing(ReadableChatMessage? message)
+    {
+        if (message is not { CanBeChanged: true, GroupMessageId: not null })
+        {
+            return;
+        }
+
+        _beingEdited = message;
+        Draft = message.Text ?? string.Empty;
+        IsEditing = true;
+    }
+
+    [RelayCommand]
+    private void CancelEditing()
+    {
+        _beingEdited = null;
+        Draft = string.Empty;
+        IsEditing = false;
+        Status = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task DeleteAsync(ReadableChatMessage? message, CancellationToken cancellationToken)
+    {
+        if (message is not { CanBeChanged: true, MessageId: { } messageId })
+        {
+            return;
+        }
+
+        try
+        {
+            Status = ChatEditMessage.For(await _editor.DeleteAsync(messageId, cancellationToken));
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await ShowStoredConversationAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Rewriting a group message is the whole fan-out again, one copy per current member - leaving one
+    /// behind would show different members different words.
+    /// </summary>
+    private async Task RewriteAsync(Guid groupMessageId, string text, CancellationToken cancellationToken)
+    {
+        _beingEdited = null;
+        IsEditing = false;
+
+        try
+        {
+            Status = ChatEditMessage.For(
+                await _editor.EditGroupMessageAsync(_group!.Id, groupMessageId, text, cancellationToken));
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            _navigator.ShowChatKeyGate();
+            return;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await ShowStoredConversationAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken, showProgress: false);
+    }
 
     /// <inheritdoc cref="ConversationViewModel.StartPolling"/>
     public void StartPolling()

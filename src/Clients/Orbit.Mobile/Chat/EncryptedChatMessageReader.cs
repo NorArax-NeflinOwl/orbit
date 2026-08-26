@@ -48,7 +48,8 @@ public sealed class EncryptedChatMessageReader
                 Text: identity.Decrypt(otherPartyPublicKeyBase64, new EncryptedText(message.CiphertextBase64, message.NonceBase64)),
                 message.SentAtUtc,
                 message.IsEdited,
-                IsWaitingToSend: false));
+                IsWaitingToSend: false,
+                MessageId: message.Id));
         }
 
         foreach (var message in queued)
@@ -91,7 +92,9 @@ public sealed class EncryptedChatMessageReader
                 message.SentAtUtc,
                 message.IsEdited,
                 IsWaitingToSend: false,
-                SenderName: isMine ? "You" : NameOf(members, message.SenderUserId)));
+                SenderName: isMine ? "You" : NameOf(members, message.SenderUserId),
+                MessageId: message.Id,
+                GroupMessageId: message.GroupMessageId));
         }
 
         foreach (var message in queued)

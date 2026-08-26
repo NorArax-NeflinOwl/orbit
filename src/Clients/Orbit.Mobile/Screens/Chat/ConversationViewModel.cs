@@ -17,6 +17,7 @@ public sealed partial class ConversationViewModel : ObservableObject
 {
     private readonly EncryptedChatMessageReader _reader;
     private readonly EncryptedChatMessageSender _sender;
+    private readonly EncryptedChatMessageEditor _editor;
     private readonly ChatSynchronizer _synchronizer;
     private readonly IScreenNavigator _navigator;
 
@@ -33,6 +34,9 @@ public sealed partial class ConversationViewModel : ObservableObject
     private LocalContact? _contact;
     private CancellationTokenSource? _polling;
 
+    /// <summary>The message the compose box is currently rewriting, if it is rewriting one.</summary>
+    private ReadableChatMessage? _beingEdited;
+
     [ObservableProperty]
     private string _title = string.Empty;
 
@@ -45,12 +49,17 @@ public sealed partial class ConversationViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRefreshing;
 
+    /// <summary>The compose box doubles as the editor, so the Send button has to say which it is doing.</summary>
+    [ObservableProperty]
+    private bool _isEditing;
+
     public ConversationViewModel(
-        EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, ChatSynchronizer synchronizer,
-        IScreenNavigator navigator)
+        EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
+        ChatSynchronizer synchronizer, IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
+        _editor = editor;
         _synchronizer = synchronizer;
         _navigator = navigator;
     }
@@ -95,6 +104,12 @@ public sealed partial class ConversationViewModel : ObservableObject
         var text = Draft.Trim();
         Draft = string.Empty;
 
+        if (_beingEdited is { MessageId: { } messageId })
+        {
+            await RewriteAsync(messageId, text, cancellationToken);
+            return;
+        }
+
         try
         {
             var result = await _sender.SendAsync(_contact.UserId, text, cancellationToken);
@@ -114,6 +129,74 @@ public sealed partial class ConversationViewModel : ObservableObject
     }
 
     private bool CanSend => Draft.Trim().Length > 0 && CanWrite;
+
+    /// <summary>
+    /// Puts a message back into the compose box to be rewritten. The box doubles as the editor rather
+    /// than a screen of its own: there is one text field either way, and a phone has no room to spare.
+    /// </summary>
+    [RelayCommand]
+    private void StartEditing(ReadableChatMessage? message)
+    {
+        if (message is not { CanBeChanged: true })
+        {
+            return;
+        }
+
+        _beingEdited = message;
+        Draft = message.Text ?? string.Empty;
+        IsEditing = true;
+    }
+
+    [RelayCommand]
+    private void CancelEditing()
+    {
+        _beingEdited = null;
+        Draft = string.Empty;
+        IsEditing = false;
+        Status = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task DeleteAsync(ReadableChatMessage? message, CancellationToken cancellationToken)
+    {
+        if (message is not { CanBeChanged: true, MessageId: { } messageId } || _contact is null)
+        {
+            return;
+        }
+
+        try
+        {
+            Status = ChatEditMessage.For(await _editor.DeleteAsync(messageId, cancellationToken));
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await ShowStoredConversationAsync(cancellationToken);
+    }
+
+    private async Task RewriteAsync(Guid messageId, string text, CancellationToken cancellationToken)
+    {
+        _beingEdited = null;
+        IsEditing = false;
+
+        try
+        {
+            Status = ChatEditMessage.For(await _editor.EditAsync(messageId, _contact!.UserId, text, cancellationToken));
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            _navigator.ShowChatKeyGate();
+            return;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await ShowStoredConversationAsync(cancellationToken);
+    }
 
     /// <summary>
     /// Starts checking for new messages, and stops when the screen goes away. Driven by the page's own

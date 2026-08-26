@@ -135,6 +135,19 @@ internal sealed class FakeChatServer : HttpMessageHandler
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
+        if (segments.Length == 4 && segments[2] == "messages" && Guid.TryParse(segments[3], out var messageId))
+        {
+            if (request.Method == HttpMethod.Delete)
+            {
+                return Remove(messageId);
+            }
+
+            if (request.Method == HttpMethod.Put)
+            {
+                return await RewriteAsync(messageId, request, cancellationToken);
+            }
+        }
+
         if (request.Method == HttpMethod.Post)
         {
             return await AcceptAsync(request, cancellationToken);
@@ -167,6 +180,12 @@ internal sealed class FakeChatServer : HttpMessageHandler
             return new HttpResponseMessage(HttpStatusCode.NotFound);
         }
 
+        if (request.Method == HttpMethod.Put)
+        {
+            // api/chat/groups/{id}/messages/{groupMessageId} - the same fan-out as sending, over the top.
+            return await AcceptGroupMessageAsync(request, group, cancellationToken, Guid.Parse(segments[5]));
+        }
+
         return request.Method == HttpMethod.Post
             ? await AcceptGroupMessageAsync(request, group, cancellationToken)
             : Json(ReadGroupConversation(groupId));
@@ -187,7 +206,7 @@ internal sealed class FakeChatServer : HttpMessageHandler
     /// deliver into a group the recipient has no part in - so both are 400, as the real handler does.
     /// </summary>
     private async Task<HttpResponseMessage> AcceptGroupMessageAsync(
-        HttpRequestMessage request, ChatGroupDto group, CancellationToken cancellationToken)
+        HttpRequestMessage request, ChatGroupDto group, CancellationToken cancellationToken, Guid? replacing = null)
     {
         var sent = JsonSerializer.Deserialize<SendGroupMessageRequest>(
             await request.Content!.ReadAsStringAsync(cancellationToken), _json)!;
@@ -201,7 +220,16 @@ internal sealed class FakeChatServer : HttpMessageHandler
             return new HttpResponseMessage(HttpStatusCode.BadRequest);
         }
 
-        var groupMessageId = Guid.NewGuid();
+        if (replacing is { } edited)
+        {
+            // Every copy of the posting is replaced, so nobody is left reading the words it had before.
+            if (_groupMessages.RemoveAll(stored => stored.Message.GroupMessageId == edited) == 0)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+        }
+
+        var groupMessageId = replacing ?? Guid.NewGuid();
         foreach (var copy in sent.Copies)
         {
             AddIncomingGroupCopy(
@@ -241,6 +269,65 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
         _messages.Add(message);
         return Json(message);
+    }
+
+    /// <summary>
+    /// Deletes for everyone, and a group copy takes every copy of the same posting with it - what the
+    /// real handler does. Only the sender may; a recipient asking is refused.
+    /// </summary>
+    private HttpResponseMessage Remove(Guid messageId)
+    {
+        if (_messages.FirstOrDefault(message => message.Id == messageId) is { } oneToOne)
+        {
+            if (oneToOne.SenderUserId != CallerUserId)
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            _messages.Remove(oneToOne);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        if (_groupMessages.FirstOrDefault(stored => stored.Message.Id == messageId) is not { } copy)
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        if (copy.Message.SenderUserId != CallerUserId)
+        {
+            return new HttpResponseMessage(HttpStatusCode.Forbidden);
+        }
+
+        _groupMessages.RemoveAll(stored => stored.Message.GroupMessageId == copy.Message.GroupMessageId);
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    private async Task<HttpResponseMessage> RewriteAsync(
+        Guid messageId, HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var index = _messages.FindIndex(message => message.Id == messageId);
+        if (index < 0)
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        if (_messages[index].SenderUserId != CallerUserId)
+        {
+            return new HttpResponseMessage(HttpStatusCode.Forbidden);
+        }
+
+        var edit = JsonSerializer.Deserialize<EditMessageRequest>(
+            await request.Content!.ReadAsStringAsync(cancellationToken), _json)!;
+
+        _messages[index] = _messages[index] with
+        {
+            CiphertextBase64 = edit.CiphertextBase64,
+            NonceBase64 = edit.NonceBase64,
+            IsEdited = true,
+            EditedAtUtc = _timeProvider.GetUtcNow()
+        };
+
+        return Json(_messages[index]);
     }
 
     private static HttpResponseMessage Json<T>(T payload)

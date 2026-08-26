@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Orbit.Contracts.Chat;
 using Orbit.Mobile.Api;
-using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 
@@ -54,21 +53,18 @@ public sealed class EncryptedChatMessageSender
 
     private readonly ChatRepository _chatRepository;
     private readonly ChatClient _chatClient;
-    private readonly UsersClient _usersClient;
+    private readonly ChatDirectoryReader _directoryReader;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
-    private readonly SessionStore _sessionStore;
     private readonly ILogger<EncryptedChatMessageSender> _logger;
 
     public EncryptedChatMessageSender(
-        ChatRepository chatRepository, ChatClient chatClient, UsersClient usersClient,
-        OwnEncryptionKeyProvider encryptionKeyProvider, SessionStore sessionStore,
-        ILogger<EncryptedChatMessageSender> logger)
+        ChatRepository chatRepository, ChatClient chatClient, ChatDirectoryReader directoryReader,
+        OwnEncryptionKeyProvider encryptionKeyProvider, ILogger<EncryptedChatMessageSender> logger)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
-        _usersClient = usersClient;
+        _directoryReader = directoryReader;
         _encryptionKeyProvider = encryptionKeyProvider;
-        _sessionStore = sessionStore;
         _logger = logger;
     }
 
@@ -128,67 +124,12 @@ public sealed class EncryptedChatMessageSender
         return progress.ToResult();
     }
 
-    /// <summary>
-    /// Who can be written to and what each group's membership is, <b>as the server has them right now</b>.
-    /// Read once per flush and never cached between flushes: a key the recipient has replaced would seal
-    /// a message nobody can open, and a membership list that has moved on would have the fan-out refused.
-    /// </summary>
-    private async Task<ChatDirectory> ReadDirectoryAsync(
+    private Task<ChatDirectory> ReadDirectoryAsync(
         IReadOnlyList<OutgoingChatMessage> queued, CancellationToken cancellationToken)
-    {
-        var publicKeys = new Dictionary<Guid, string>();
-        var otherMembers = new Dictionary<Guid, IReadOnlyList<Guid>>();
-
-        if (queued.Any(message => message.RecipientUserId is not null))
-        {
-            foreach (var contact in await _chatClient.GetContactsAsync(cancellationToken))
-            {
-                if (contact.PublicKeyBase64 is { } publicKey)
-                {
-                    publicKeys[contact.UserId] = publicKey;
-                }
-            }
-        }
-
-        var waitingGroupIds = queued
-            .Where(message => message.GroupId is not null)
-            .Select(message => message.GroupId!.Value)
-            .ToHashSet();
-
-        if (waitingGroupIds.Count == 0)
-        {
-            return new ChatDirectory(publicKeys, otherMembers);
-        }
-
-        var ownUserId = await RequireSignedInUserIdAsync();
-        foreach (var group in await _chatClient.GetGroupsAsync(cancellationToken))
-        {
-            if (waitingGroupIds.Contains(group.Id))
-            {
-                otherMembers[group.Id] = group.Members
-                    .Select(member => member.UserId)
-                    .Where(userId => userId != ownUserId)
-                    .ToList();
-            }
-        }
-
-        // A group can hold people the sender has never had a conversation with, so the contact list does
-        // not cover them and each has to be looked up by id.
-        foreach (var userId in otherMembers.Values.SelectMany(members => members).Distinct())
-        {
-            if (publicKeys.ContainsKey(userId))
-            {
-                continue;
-            }
-
-            if (await _usersClient.FindAsync(userId, cancellationToken) is { PublicKeyBase64: { } publicKey })
-            {
-                publicKeys[userId] = publicKey;
-            }
-        }
-
-        return new ChatDirectory(publicKeys, otherMembers);
-    }
+        => _directoryReader.ReadAsync(
+            queued.Any(message => message.RecipientUserId is not null),
+            queued.Where(message => message.GroupId is not null).Select(message => message.GroupId!.Value).ToHashSet(),
+            cancellationToken);
 
     private async Task SendOneAsync(
         ChatIdentity identity, ChatDirectory directory, OutgoingChatMessage message, SendProgress progress,
@@ -232,7 +173,7 @@ public sealed class EncryptedChatMessageSender
         ChatIdentity identity, ChatDirectory directory, OutgoingChatMessage message, CancellationToken cancellationToken)
     {
         var recipientUserId = message.RecipientUserId!.Value;
-        if (!directory.PublicKeysByUserId.TryGetValue(recipientUserId, out var recipientPublicKey))
+        if (directory.FindPublicKey(recipientUserId) is not { } recipientPublicKey)
         {
             // No published key means nothing can be encrypted for them - waiting will not change it.
             _logger.LogWarning("No public key for {RecipientUserId}; dropping a queued message", recipientUserId);
@@ -270,7 +211,7 @@ public sealed class EncryptedChatMessageSender
         ChatIdentity identity, ChatDirectory directory, Guid groupId, OutgoingChatMessage message,
         CancellationToken cancellationToken)
     {
-        if (!directory.OtherMembersByGroupId.TryGetValue(groupId, out var otherMembers))
+        if (directory.FindOtherMembers(groupId) is not { } otherMembers)
         {
             _logger.LogWarning("Group {GroupId} is gone, or this account is no longer in it; dropping a queued message", groupId);
             return QueuedSendOutcome.GiveUp(ChatSendRefusal.NoLongerThere);
@@ -287,7 +228,7 @@ public sealed class EncryptedChatMessageSender
         var copies = new List<GroupMessageCopyDto>(otherMembers.Count);
         foreach (var memberUserId in otherMembers)
         {
-            if (!directory.PublicKeysByUserId.TryGetValue(memberUserId, out var memberPublicKey))
+            if (directory.FindPublicKey(memberUserId) is not { } memberPublicKey)
             {
                 // A partial fan-out is refused by design, so one member without a published key stops the
                 // whole message. Dropped rather than held, because somebody who has never signed in may
@@ -327,11 +268,6 @@ public sealed class EncryptedChatMessageSender
         progress.GiveUp(ChatSendRefusal.NoLongerThere);
     }
 
-    private async Task<Guid> RequireSignedInUserIdAsync()
-        => await _sessionStore.GetAsync() is { } session
-            ? session.UserId
-            : throw new EncryptionKeyLockedException();
-
     private static bool IsWorthRetrying(Exception exception, CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
@@ -366,10 +302,6 @@ public sealed class EncryptedChatMessageSender
 
         public bool IsSent => !IsWorthAnotherAttempt && Refusal is ChatSendRefusal.None;
     }
-
-    private sealed record ChatDirectory(
-        IReadOnlyDictionary<Guid, string> PublicKeysByUserId,
-        IReadOnlyDictionary<Guid, IReadOnlyList<Guid>> OtherMembersByGroupId);
 
     /// <summary>What the flush has managed so far, and whether it should carry on.</summary>
     private sealed class SendProgress
