@@ -884,10 +884,10 @@
         _emailMessage = null;
         try
         {
-            var confirmed = await UsersApiClient.ConfirmEmailVerificationAsync(_emailForm.Code);
-            _emailFailed = !confirmed;
-            _emailMessage = confirmed ? T["Email address confirmed."] : T["That code isn't valid any more. Request a new one."];
-            if (confirmed)
+            var error = await UsersApiClient.ConfirmEmailVerificationAsync(_emailForm.Code);
+            _emailFailed = error is not null;
+            _emailMessage = error is null ? T["Email address confirmed."] : T[error];
+            if (error is null)
             {
                 _emailForm.Clear();
                 GoogleIntegrationAccess.Forget();

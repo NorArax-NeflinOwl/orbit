@@ -103,7 +103,8 @@
 
         _errorMessage = result.Outcome switch
         {
-            AuthOutcome.EmailOrUserNameAlreadyTaken => T["That email or username is already taken."],
+            AuthOutcome.EmailAlreadyTaken => T["An account with this email address already exists."],
+            AuthOutcome.UserNameAlreadyTaken => T["This username is already taken."],
             _ => T["An error occurred while registering. Try again."]
         };
         _isSubmitting = false;

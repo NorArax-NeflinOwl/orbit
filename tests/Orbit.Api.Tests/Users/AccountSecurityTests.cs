@@ -44,7 +44,7 @@ public sealed class AccountSecurityTests
 
         var confirmed = await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode);
 
-        Assert.True(confirmed);
+        Assert.Equal(EmailVerificationConfirmResult.Confirmed, confirmed);
         Assert.Equal("new@example.com", user.Email);
         Assert.True(user.IsEmailVerified);
     }
@@ -71,11 +71,11 @@ public sealed class AccountSecurityTests
 
         for (var attempt = 0; attempt < UserVerificationCode.MaxFailedAttempts; attempt++)
         {
-            Assert.False(await context.ConfirmEmailVerificationAsync(user.Id, "000000"));
+            Assert.Equal(EmailVerificationConfirmResult.InvalidCode, await context.ConfirmEmailVerificationAsync(user.Id, "000000"));
         }
 
         // Even the right code is refused now - this is what keeps a six-digit code from being guessable.
-        Assert.False(await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode));
+        Assert.Equal(EmailVerificationConfirmResult.InvalidCode, await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode));
         Assert.False(user.IsEmailVerified);
     }
 
@@ -91,7 +91,7 @@ public sealed class AccountSecurityTests
 
         // Both codes read the same in this stub, so what's being pinned is that the *newest* one wins:
         // the account lands on the address from the second request, not the first.
-        Assert.True(confirmed);
+        Assert.Equal(EmailVerificationConfirmResult.Confirmed, confirmed);
         Assert.Equal("second@example.com", user.Email);
     }
 
@@ -274,6 +274,73 @@ public sealed class AccountSecurityTests
         Assert.Equal("Alice Cooper", user.DisplayName);
     }
 
+    [Fact]
+    public async Task An_address_taken_while_the_code_was_in_flight_is_refused_rather_than_written()
+    {
+        var context = new AccountTestContext();
+        var user = await context.AddUserAsync("alice@example.com", "alice");
+        await context.RequestEmailVerificationAsync(user.Id, "wanted@example.com");
+
+        // Free when the code was issued, somebody else's by the time it comes back - a window as long as
+        // the code lives. Checking only at the start let this reach the unique index on Users.Email and
+        // come back as a 500 nobody could act on.
+        await context.AddUserAsync("wanted@example.com", "bob");
+
+        var result = await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode);
+
+        Assert.Equal(EmailVerificationConfirmResult.EmailTaken, result);
+        Assert.Equal("alice@example.com", user.Email);
+        Assert.False(user.IsEmailVerified);
+    }
+
+    [Fact]
+    public async Task A_code_refused_for_a_taken_address_still_works_once_the_address_is_free()
+    {
+        var context = new AccountTestContext();
+        var user = await context.AddUserAsync("alice@example.com", "alice");
+        await context.RequestEmailVerificationAsync(user.Id, "wanted@example.com");
+        var squatter = await context.AddUserAsync("wanted@example.com", "bob");
+        await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode);
+
+        // Nothing was wrong with the code, so it is not spent - the reader can finish the moment the
+        // collision is resolved, instead of starting over for someone else's mistake.
+        squatter.SetVerifiedEmail("bob@example.com");
+        await context.UserRepository.UpdateAsync(squatter, CancellationToken.None);
+        var result = await context.ConfirmEmailVerificationAsync(user.Id, TestVerificationCodeGenerator.FixedCode);
+
+        Assert.Equal(EmailVerificationConfirmResult.Confirmed, result);
+        Assert.Equal("wanted@example.com", user.Email);
+    }
+
+    [Fact]
+    public async Task Changing_a_username_only_in_its_case_is_still_your_own_username()
+    {
+        var context = new AccountTestContext();
+        var user = await context.AddUserAsync("alice@example.com", "alice");
+        var handler = new UpdateProfileCommandHandler(context.UserRepository);
+
+        var result = await handler.HandleAsync(new UpdateProfileCommand(user.Id, "Alice", "ALICE"), CancellationToken.None);
+
+        // Normalized down, so "ALICE" is not a second account's worth of name - and not a collision with
+        // the reader's own, either.
+        Assert.Equal(UpdateProfileResult.Success, result);
+        Assert.Equal("alice", user.UserName);
+    }
+
+    [Fact]
+    public async Task A_username_taken_in_a_different_case_is_still_taken()
+    {
+        var context = new AccountTestContext();
+        await context.AddUserAsync("bob@example.com", "bob");
+        var user = await context.AddUserAsync("alice@example.com", "alice");
+        var handler = new UpdateProfileCommandHandler(context.UserRepository);
+
+        var result = await handler.HandleAsync(new UpdateProfileCommand(user.Id, "Alice", "BOB"), CancellationToken.None);
+
+        Assert.Equal(UpdateProfileResult.UserNameTaken, result);
+        Assert.Equal("alice", user.UserName);
+    }
+
     /// <summary>The collaborator graph these flows need, wired the same way DI wires the real one.</summary>
     private sealed class AccountTestContext
     {
@@ -299,7 +366,7 @@ public sealed class AccountSecurityTests
             => new RequestEmailVerificationCommandHandler(UserRepository, CodeRepository, CodeGenerator, EmailSender)
                 .HandleAsync(new RequestEmailVerificationCommand(userId, emailAddress), CancellationToken.None);
 
-        public Task<bool> ConfirmEmailVerificationAsync(Guid userId, string code)
+        public Task<EmailVerificationConfirmResult> ConfirmEmailVerificationAsync(Guid userId, string code)
             => new ConfirmEmailVerificationCommandHandler(UserRepository, CodeRepository, CodeGenerator)
                 .HandleAsync(new ConfirmEmailVerificationCommand(userId, code), CancellationToken.None);
 

@@ -31,7 +31,13 @@ public static class AuthEndpoints
 
             if (result.User is null)
             {
-                return Results.Conflict(new { message = result.Error });
+                // Both fields carried: "reason" is what the browser branches on, "message" is what
+                // anything else reading this response can show as-is.
+                return result.Rejection == RegistrationRejection.EmailTaken
+                    ? Results.Conflict(new RegistrationConflictDto(
+                        nameof(RegistrationRejection.EmailTaken), "An account with this email address already exists."))
+                    : Results.Conflict(new RegistrationConflictDto(
+                        nameof(RegistrationRejection.UserNameTaken), "This username is already taken."));
             }
 
             return Results.Ok(await ToAuthResponseAsync(result.User, tokenService, refreshTokenService, cancellationToken));

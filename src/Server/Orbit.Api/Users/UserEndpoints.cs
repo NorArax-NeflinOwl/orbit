@@ -176,9 +176,14 @@ public static class UserEndpoints
         users.MapPost("/me/email-verification/confirm", async (
             ConfirmEmailVerificationRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var confirmed = await dispatcher.SendAsync(
+            var result = await dispatcher.SendAsync(
                 new ConfirmEmailVerificationCommand(GetUserId(user), request.Code), cancellationToken);
-            return confirmed ? Results.NoContent() : Results.BadRequest(new { message = "That code isn't valid any more. Request a new one." });
+            return result switch
+            {
+                EmailVerificationConfirmResult.Confirmed => Results.NoContent(),
+                EmailVerificationConfirmResult.EmailTaken => Results.Conflict(new { message = "An account with this email address already exists." }),
+                _ => Results.BadRequest(new { message = "That code isn't valid any more. Request a new one." })
+            };
         }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
 
         users.MapGet("/search", async (

@@ -192,7 +192,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<UnlinkGoogleAccountCommand, LinkGoogleAccountResult>, UnlinkGoogleAccountCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteAccountCommand, bool>, DeleteAccountCommandHandler>();
         services.AddScoped<IRequestHandler<RequestEmailVerificationCommand, EmailVerificationRequestResult>, RequestEmailVerificationCommandHandler>();
-        services.AddScoped<IRequestHandler<ConfirmEmailVerificationCommand, bool>, ConfirmEmailVerificationCommandHandler>();
+        services.AddScoped<IRequestHandler<ConfirmEmailVerificationCommand, EmailVerificationConfirmResult>, ConfirmEmailVerificationCommandHandler>();
         services.AddScoped<IRequestHandler<RequestPasswordResetCommand, bool>, RequestPasswordResetCommandHandler>();
         services.AddScoped<IRequestHandler<ResetPasswordCommand, bool>, ResetPasswordCommandHandler>();
         services.AddScoped<IRequestHandler<LoginQuery, User?>, LoginQueryHandler>();

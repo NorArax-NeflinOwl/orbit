@@ -538,7 +538,6 @@ internal static class PolishTranslations
         ["a warehouse"] = "magazyn",
         ["An error occurred while logging in. Try again."] = "Wystąpił błąd podczas logowania. Spróbuj ponownie.",
         ["An error occurred while registering. Try again."] = "Wystąpił błąd podczas rejestracji. Spróbuj ponownie.",
-        ["That email or username is already taken."] = "Ten e-mail lub nazwa użytkownika są już zajęte.",
         ["Tick items off; use Edit to change the list itself."] = "Odhaczaj pozycje; użyj Edytuj, aby zmienić samą listę.",
         ["The checklist view of a group list also shows every list its items link to, so the whole group can be worked through on one screen."] =
             "Widok listy grupowej pokazuje też każdą listę, z którą powiązane są jej pozycje, więc całą grupę można przejść na jednym ekranie.",
@@ -708,5 +707,6 @@ internal static class PolishTranslations
         ["sent once"] = "wysłane raz",
         ["Hide this item's other settings"] = "Ukryj pozostałe ustawienia tej pozycji",
         ["Show this item's other settings"] = "Pokaż pozostałe ustawienia tej pozycji",
+        ["Too many attempts. Wait a minute and try again."] = "Zbyt wiele prób. Odczekaj minutę i spróbuj ponownie.",
     };
 }

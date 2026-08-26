@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Orbit.Contracts.Users;
+using Orbit.Core.Users.RegisterUser;
 
 namespace Orbit.Web.Services;
 
@@ -29,7 +31,13 @@ public sealed class AuthApiClient
 
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
-            return AuthResult.EmailOrUserNameAlreadyTaken();
+            // A 409 is a refusal whether or not a body came with it, so reading the reason must not be
+            // able to turn one into an exception - an empty or unfamiliar body just leaves the more
+            // common of the two.
+            var reason = await ReadRejectionReasonAsync(response, cancellationToken);
+            return reason == nameof(RegistrationRejection.UserNameTaken)
+                ? AuthResult.UserNameAlreadyTaken()
+                : AuthResult.EmailAlreadyTaken();
         }
 
         return await StoreTokensAndSucceedAsync(response, cancellationToken);
@@ -117,4 +125,19 @@ public sealed class AuthApiClient
         await _tokenStore.SetTokensAsync(authResponse.Token, authResponse.RefreshToken);
         return AuthResult.Success();
     }
+
+    private static async Task<string?> ReadRejectionReasonAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var conflict = await response.Content.ReadFromJsonAsync<RegistrationConflictDto>(cancellationToken: cancellationToken);
+            return conflict?.Reason;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
 }
