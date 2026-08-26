@@ -1,0 +1,126 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Web;
+using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Sync;
+
+namespace Orbit.Mobile.Tests.TestDoubles;
+
+/// <summary>Orbit's calendar endpoints, in memory.</summary>
+internal sealed class FakeCalendarServer : HttpMessageHandler
+{
+    private readonly TimeProvider _timeProvider;
+    private readonly Dictionary<Guid, CalendarEventDto> _events = [];
+    private readonly List<(Guid Id, DateTimeOffset DeletedAtUtc)> _tombstones = [];
+
+    public FakeCalendarServer(TimeProvider timeProvider) => _timeProvider = timeProvider;
+
+    public List<string> ReceivedRequests { get; } = [];
+
+    public bool IsUnreachable { get; set; }
+
+    public IReadOnlyCollection<CalendarEventDto> Events => _events.Values;
+
+    public CalendarEventDto AddEvent(string title, bool isShared = false, bool isSharedWithOthers = false)
+    {
+        var now = _timeProvider.GetUtcNow();
+        var calendarEvent = new CalendarEventDto(
+            Guid.NewGuid(), DetailsFor(title, now), now, now,
+            isShared, isShared ? "someone" : null, "CanEdit", null, isSharedWithOthers);
+
+        _events[calendarEvent.Id] = calendarEvent;
+        return calendarEvent;
+    }
+
+    public void DeleteEvent(Guid id)
+    {
+        _events.Remove(id);
+        _tombstones.Add((id, _timeProvider.GetUtcNow()));
+    }
+
+    public static CalendarEventDetailsDto DetailsFor(string title, DateTimeOffset startUtc)
+        => new(title, null, null, null, startUtc, startUtc.AddHours(1), false, null, [], [], "None", "None");
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var path = request.RequestUri!.AbsolutePath;
+        ReceivedRequests.Add($"{request.Method} {path}");
+
+        if (IsUnreachable)
+        {
+            throw new HttpRequestException("No such host is known.");
+        }
+
+        if (path.EndsWith("/changes", StringComparison.Ordinal))
+        {
+            var since = DateTimeOffset.Parse(HttpUtility.ParseQueryString(request.RequestUri.Query)["since"]!);
+            return Json(new ChangeFeedDto<CalendarEventDto>(
+                _events.Values.Where(item => item.UpdatedAtUtc >= since).ToList(),
+                _tombstones.Where(entry => entry.DeletedAtUtc >= since).Select(entry => entry.Id).ToList(),
+                _timeProvider.GetUtcNow().UtcDateTime.ToString("O")));
+        }
+
+        return request.Method.Method switch
+        {
+            "POST" => await CreateAsync(request, cancellationToken),
+            "PUT" => await UpdateAsync(request, path, cancellationToken),
+            "DELETE" => Delete(path),
+            _ => Json(_events.Values.ToList())
+        };
+    }
+
+    private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var body = await ReadAsync<CreateCalendarEventRequest>(request, cancellationToken);
+        var created = AddEvent(body!.Details.Title);
+        _events[created.Id] = created with { Details = ToDto(body.Details) };
+        return Json(created.Id, HttpStatusCode.Created);
+    }
+
+    private async Task<HttpResponseMessage> UpdateAsync(HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = ReadId(path);
+        if (!_events.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<UpdateCalendarEventRequest>(request, cancellationToken);
+        _events[id] = existing with { Details = ToDto(body!.Details), UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    private HttpResponseMessage Delete(string path)
+    {
+        var id = ReadId(path);
+        if (!_events.ContainsKey(id))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        DeleteEvent(id);
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    private static CalendarEventDetailsDto ToDto(CalendarEventDetailsRequest details)
+        => new(
+            details.Title, details.Description,
+            details.Location is { } location ? new EventLocationDto(location.Address, location.Latitude, location.Longitude) : null,
+            details.Color, details.StartUtc, details.EndUtc, details.IsAllDay,
+            details.Recurrence is { } recurrence ? new RecurrenceDto(recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc) : null,
+            details.Guests, details.ReminderMinutesBeforeStart,
+            details.CreationNotificationChannel, details.ReminderNotificationChannel);
+
+    private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
+
+    private static async Task<T?> ReadAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
+        => JsonSerializer.Deserialize<T>(
+            await request.Content!.ReadAsStringAsync(cancellationToken),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+    private static HttpResponseMessage Json<T>(T payload, HttpStatusCode statusCode = HttpStatusCode.OK)
+        => new(statusCode) { Content = JsonContent.Create(payload) };
+
+    public HttpClient ToHttpClient() => new(this, disposeHandler: false) { BaseAddress = new Uri("https://orbit.example/") };
+}

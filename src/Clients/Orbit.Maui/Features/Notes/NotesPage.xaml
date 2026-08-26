@@ -51,11 +51,12 @@
             </CollectionView>
         </RefreshView>
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
-            <Button Grid.Column="0" Text="Tasks" Command="{Binding GoToTasksCommand}" />
-            <Button Grid.Column="1" Text="Chat" Command="{Binding GoToChatCommand}" />
-            <Button Grid.Column="2" Text="Account" Command="{Binding GoToAccountCommand}" />
-            <Button Grid.Column="3" Text="Sign out" Command="{Binding SignOutCommand}" />
+        <Grid Grid.Row="3" ColumnDefinitions="*,*,*" ColumnSpacing="6" RowDefinitions="Auto,Auto" RowSpacing="6">
+            <Button Grid.Row="0" Grid.Column="0" Text="Tasks" Command="{Binding GoToTasksCommand}" />
+            <Button Grid.Row="0" Grid.Column="1" Text="Calendar" Command="{Binding GoToCalendarCommand}" />
+            <Button Grid.Row="0" Grid.Column="2" Text="Chat" Command="{Binding GoToChatCommand}" />
+            <Button Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="Account" Command="{Binding GoToAccountCommand}" />
+            <Button Grid.Row="1" Grid.Column="2" Text="Sign out" Command="{Binding SignOutCommand}" />
         </Grid>
 
     </Grid>

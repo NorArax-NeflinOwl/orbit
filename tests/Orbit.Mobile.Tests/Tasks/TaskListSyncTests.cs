@@ -169,18 +169,23 @@ public sealed class TaskListSyncTests
     }
 
     [Fact]
-    public async Task A_run_dropped_because_another_was_in_flight_does_not_claim_to_be_offline()
+    public async Task A_change_queued_while_a_sync_is_running_still_gets_sent()
     {
         using var context = new TaskContext();
         var held = new TaskCompletionSource();
         context.Server.HoldRequestsUntil = held;
-        var first = context.SynchroniseAsync();
-        var second = context.SynchroniseAsync();
-        held.SetResult();
-        await Task.WhenAll(first, second);
 
-        // The run in flight is reaching the server; saying "offline" would put a lie on the screen.
-        Assert.True((await second).ReachedTheServer);
+        // A screen's own sync, started before the user's change exists.
+        var inFlight = context.SynchroniseAsync();
+        await context.TaskLists.CreateAsync("Added mid-sync", SomeItems);
+        var afterTheChange = context.SynchroniseAsync();
+        held.SetResult();
+        await Task.WhenAll(inFlight, afterTheChange);
+
+        // Dropping the second run - the first design - left this queued while the screen said "Synced",
+        // because the run it deferred to had begun before the list existed.
+        Assert.Contains(context.Server.TaskLists, list => list.Title == "Added mid-sync");
+        Assert.Equal(0, await context.CountQueuedAsync(SyncEntityType.TaskList));
     }
 
     [Fact]

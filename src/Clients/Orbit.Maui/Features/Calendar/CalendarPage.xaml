@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Calendar.CalendarPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:calendar="clr-namespace:Orbit.Maui.Features.Calendar"
+    x:DataType="calendar:CalendarViewModel"
+    Title="Calendar">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+
+        <Label Grid.Row="0" Text="{Binding SyncStatus}" FontSize="12" TextColor="{StaticResource Gray500}" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry Grid.Column="0" Placeholder="New event" Text="{Binding NewEventTitle}"
+                   ReturnType="Done" ReturnCommand="{Binding AddEventCommand}" />
+            <Button Grid.Column="1" Text="Add" Command="{Binding AddEventCommand}" />
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
+            <DatePicker Grid.Column="0" Date="{Binding NewEventDate}" />
+            <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" />
+        </Grid>
+
+        <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Events}">
+
+                <CollectionView.EmptyView>
+                    <Label Text="Nothing coming up." Padding="24" HorizontalTextAlignment="Center" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="calendar:CalendarEventRow">
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                            <Label Text="{Binding When}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                   FontSize="12" TextColor="{StaticResource Primary}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+        <Button Grid.Row="4" Text="Back to notes" Command="{Binding GoBackCommand}"
+                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+
+    </Grid>
+
+</ContentPage>

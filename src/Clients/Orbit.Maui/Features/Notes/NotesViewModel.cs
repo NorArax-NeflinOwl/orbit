@@ -79,6 +79,9 @@ public sealed partial class NotesViewModel : ObservableObject
 	private void GoToTasks() => _navigator.ShowTasks();
 
 	[RelayCommand]
+	private void GoToCalendar() => _navigator.ShowCalendar();
+
+	[RelayCommand]
 	private void GoToChat() => _navigator.ShowContacts();
 
 	[RelayCommand]

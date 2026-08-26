@@ -36,10 +36,8 @@ public sealed class TaskListSynchronizer
 
     /// <summary>Never throws for being offline - see NoteSynchronizer for why that is a rule here.</summary>
     public Task<SyncResult> SynchroniseAsync(CancellationToken cancellationToken = default)
-        // A run already in flight is asking the server the same question - see SyncGate for why a second
-        // one is dropped rather than queued.
-        => _syncGate.RunAsync(
-            SyncEntityType.TaskList, () => RunAsync(cancellationToken), SyncResult.AlreadyRunning);
+        // Serialised rather than run alongside another - see SyncGate for what overlapping costs.
+        => _syncGate.RunAsync(SyncEntityType.TaskList, () => RunAsync(cancellationToken), cancellationToken);
 
     private async Task<SyncResult> RunAsync(CancellationToken cancellationToken)
     {

@@ -18,13 +18,6 @@ namespace Orbit.Mobile.Sync;
 public sealed record SyncResult(int Sent, int Received, int RemovedLocally, int GivenUp, bool ReachedTheServer)
 {
     public static SyncResult NeverGotThrough(int givenUp) => new(0, 0, 0, givenUp, ReachedTheServer: false);
-
-    /// <summary>
-    /// Another run was already in flight, so this one did nothing. Reported as having reached the server
-    /// because the run in flight is doing exactly that - saying "offline" here would be a lie the screen
-    /// would show for no reason.
-    /// </summary>
-    public static SyncResult AlreadyRunning { get; } = new(0, 0, 0, 0, ReachedTheServer: true);
 }
 
 /// <summary>
@@ -69,10 +62,8 @@ public sealed class NoteSynchronizer
     /// an error - making every caller wrap this in a try/catch would guarantee one of them forgets.
     /// </summary>
     public Task<SyncResult> SynchroniseAsync(CancellationToken cancellationToken = default)
-        // A run already in flight is asking the server the same question - see SyncGate for why a second
-        // one is dropped rather than queued.
-        => _syncGate.RunAsync(
-            SyncEntityType.Note, () => RunAsync(cancellationToken), SyncResult.AlreadyRunning);
+        // Serialised rather than run alongside another - see SyncGate for what overlapping costs.
+        => _syncGate.RunAsync(SyncEntityType.Note, () => RunAsync(cancellationToken), cancellationToken);
 
     private async Task<SyncResult> RunAsync(CancellationToken cancellationToken)
     {

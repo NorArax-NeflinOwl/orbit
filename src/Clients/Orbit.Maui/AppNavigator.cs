@@ -1,5 +1,6 @@
 using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
+using Orbit.Maui.Features.Calendar;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Tasks;
@@ -47,6 +48,8 @@ public sealed class AppNavigator
 	public void ShowContacts() => ShowAsRoot<ContactsPage>();
 
 	public void ShowTasks() => ShowAsRoot<TasksPage>();
+
+	public void ShowCalendar() => ShowAsRoot<CalendarPage>();
 
 	public void ShowTaskList(Guid localId)
 		=> ShowAsRoot<TaskListDetailPage>(page => ((TaskListDetailViewModel)page.BindingContext).Open(localId));

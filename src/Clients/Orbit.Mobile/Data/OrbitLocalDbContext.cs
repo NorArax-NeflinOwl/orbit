@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 
@@ -21,6 +22,8 @@ public sealed class OrbitLocalDbContext : DbContext
     public DbSet<LocalNote> Notes => Set<LocalNote>();
 
     public DbSet<LocalTaskList> TaskLists => Set<LocalTaskList>();
+
+    public DbSet<LocalCalendarEvent> CalendarEvents => Set<LocalCalendarEvent>();
 
     public DbSet<OutboxEntry> Outbox => Set<OutboxEntry>();
 
@@ -63,6 +66,18 @@ public sealed class OrbitLocalDbContext : DbContext
             taskList.Property(entity => entity.Items)
                 .HasConversion(ItemsConverter)
                 .Metadata.SetValueComparer(ItemsComparer);
+        });
+
+        modelBuilder.Entity<LocalCalendarEvent>(calendarEvent =>
+        {
+            calendarEvent.HasKey(entity => entity.LocalId);
+            calendarEvent.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
+            // Everything the event is travels as one block, so it is stored as one - nothing ever
+            // queries a guest or a reminder on its own.
+            calendarEvent.Property(entity => entity.Details)
+                .HasConversion(
+                    details => JsonSerializer.Serialize(details, LocalStoreSerializerContext.Default.CalendarEventDetailsDto),
+                    stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.CalendarEventDetailsDto)!);
         });
 
         modelBuilder.Entity<OutboxEntry>(entry =>
