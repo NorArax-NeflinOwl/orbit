@@ -17,7 +17,7 @@ public sealed class RegisterUserCommandHandlerTests
             new RegisterUserCommand("New@Example.com", "NewUser", "New User", "s3cret-password"), CancellationToken.None);
 
         Assert.NotNull(result.User);
-        Assert.Null(result.Error);
+        Assert.Null(result.Rejection);
         // Registration normalizes the email and username so login is case-insensitive for both.
         Assert.Equal("new@example.com", result.User!.Email);
         Assert.Equal("newuser", result.User.UserName);
@@ -40,7 +40,8 @@ public sealed class RegisterUserCommandHandlerTests
             new RegisterUserCommand("taken@example.com", "second", "Second", "password-two"), CancellationToken.None);
 
         Assert.Null(result.User);
-        Assert.NotNull(result.Error);
+        // Which field collided, not just that one did - it is the only way the reader knows what to change.
+        Assert.Equal(RegistrationRejection.EmailTaken, result.Rejection);
     }
 
     [Fact]
@@ -56,6 +57,6 @@ public sealed class RegisterUserCommandHandlerTests
             new RegisterUserCommand("second@example.com", "takenname", "Second", "password-two"), CancellationToken.None);
 
         Assert.Null(result.User);
-        Assert.NotNull(result.Error);
+        Assert.Equal(RegistrationRejection.UserNameTaken, result.Rejection);
     }
 }

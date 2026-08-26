@@ -89,10 +89,15 @@ public sealed class RegisterTests : OrbitTestContext
         Assert.Empty(cut.FindAll(".error"));
     }
 
-    [Fact]
-    public void Submitting_an_email_or_username_that_is_already_taken_shows_an_error_message()
+    [Theory]
+    [InlineData("EmailTaken", "An account with this email address already exists.")]
+    [InlineData("UserNameTaken", "This username is already taken.")]
+    public void Submitting_a_taken_email_or_username_says_which_one_was_taken(string reason, string expectedMessage)
     {
-        RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict));
+        RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new RegistrationConflictDto(reason, "taken"))
+        });
 
         var cut = RenderComponent<Register>();
         cut.Find("#email").Change("taken@example.com");
@@ -102,7 +107,8 @@ public sealed class RegisterTests : OrbitTestContext
         cut.Find("#repeatPassword").Change("password");
         cut.Find("form").Submit();
 
-        Assert.Contains("That email or username is already taken.", cut.Markup);
+        // Refusing is only half the job: the reader has to learn which of the two fields to change.
+        Assert.Contains(expectedMessage, cut.Markup);
     }
 
     [Fact]

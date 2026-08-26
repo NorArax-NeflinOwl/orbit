@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -179,12 +181,22 @@ try
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         // Brute-force protection for /api/auth/register and /api/auth/login (see AuthEndpoints for why
-        // /refresh and /logout don't use this policy): 5 requests per minute per client IP, with no
-        // queueing, so a client that exceeds this gets an immediate 429 instead of waiting. Partitioned
-        // by IP address (rather than one limiter shared by every caller) so one aggressive client can't
-        // also lock out every other client hitting these endpoints.
+        // /refresh and /logout don't use this policy) and for the signed-in endpoints that change an
+        // account: 5 requests per minute per caller, with no queueing, so a caller that exceeds this
+        // gets an immediate 429 instead of waiting.
+        //
+        // Partitioned by user id whenever the caller is signed in, and only by IP address when there is
+        // nobody to name. Behind an ingress proxy - which is how this runs in Azure Container Apps -
+        // RemoteIpAddress is the proxy's own address, identical for every visitor, so an IP partition
+        // there is really one shared bucket: five email-verification codes a minute for the whole
+        // installation, and a signed-in user locked out by strangers. The user id is both the honest
+        // key for those endpoints and one no forwarded header has to be trusted for.
         options.AddPolicy(RateLimiterPolicyNames.Auth, httpContext => RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            // "sub", not ClaimTypes.NameIdentifier: MapInboundClaims is off above, so the token's own
+            // claim names survive unmapped - which is what every endpoint here reads too.
+            partitionKey: httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 5,
@@ -269,8 +281,14 @@ try
         ExceptionHandler = _ => Task.CompletedTask
     });
     app.UseCors(webClientCorsPolicy);
-    app.UseRateLimiter();
     app.UseAuthentication();
+    // After authentication, not before: the Auth policy partitions a signed-in caller by their user id,
+    // and nobody has one until UseAuthentication has read the token. Ordered the other way the policy
+    // still runs and still looks correct - it just silently falls back to the IP for every request,
+    // which is the bug this ordering exists to prevent. The cost is that a bearer token is verified
+    // before a request can be rejected; that is a local HMAC check, and the endpoints that carry no
+    // token at all (login, register) short-circuit it anyway.
+    app.UseRateLimiter();
     app.UseAuthorization();
 
     app.MapAuthEndpoints();

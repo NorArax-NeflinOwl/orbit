@@ -11,6 +11,13 @@ public sealed class UsersApiClient
 {
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    /// What a 429 means to the reader: not a failure to fix, just too many tries too quickly. Told
+    /// apart from a real failure because "try again" is the right advice here and useless everywhere
+    /// else - see the Auth rate limiting policy in Orbit.Api's Program.
+    /// </summary>
+    private const string TooManyAttemptsMessage = "Too many attempts. Wait a minute and try again.";
+
     public UsersApiClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
@@ -180,22 +187,41 @@ public sealed class UsersApiClient
             return "An account with this email address already exists.";
         }
 
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            return TooManyAttemptsMessage;
+        }
+
         response.EnsureSuccessStatusCode();
         return null;
     }
 
-    /// <summary>False when the code is wrong, expired, already used, or out of attempts.</summary>
-    public async Task<bool> ConfirmEmailVerificationAsync(string code, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Null on success, otherwise the reason to show the reader. A code can fail for two quite different
+    /// things - it was wrong, or the address stopped being free while the code was in flight - and the
+    /// reader can only act on the second if they are told which one happened.
+    /// </summary>
+    public async Task<string?> ConfirmEmailVerificationAsync(string code, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(
             "api/users/me/email-verification/confirm", new ConfirmEmailVerificationRequest(code), cancellationToken);
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
-            return false;
+            return "That code isn't valid any more. Request a new one.";
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            return "An account with this email address already exists.";
+        }
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            return TooManyAttemptsMessage;
         }
 
         response.EnsureSuccessStatusCode();
-        return true;
+        return null;
     }
 
     /// <summary>Records where the caller is. The address is best-effort - a point without one is still worth keeping.</summary>
