@@ -84,7 +84,7 @@
             // keeps the app's local database, which is usually what you want; to start from an empty
             // one, use "maui-ios: reinstall clean" instead.
             "type": "shell",
-            "command": "xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app && xcrun simctl launch booted com.orbit.maui",
+            "command": "xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app && xcrun simctl launch booted com.orbitmaui.ios",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -98,7 +98,7 @@
             // install or a migration path from nothing. The chat key survives: it lives in the Keychain,
             // which an uninstall does not clear.
             "type": "shell",
-            "command": "xcrun simctl uninstall booted com.orbit.maui; xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app && xcrun simctl launch booted com.orbit.maui",
+            "command": "xcrun simctl uninstall booted com.orbitmaui.ios; xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app && xcrun simctl launch booted com.orbitmaui.ios",
             "options": {
                 "cwd": "${workspaceFolder}"
             },

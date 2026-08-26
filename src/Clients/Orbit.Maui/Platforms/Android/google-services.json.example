@@ -10,7 +10,7 @@
       "client_info": {
         "mobilesdk_app_id": "",
         "android_client_info": {
-          "package_name": "com.orbit.app"
+          "package_name": "com.orbitmaui.android"
         }
       },
       "oauth_client": [],
