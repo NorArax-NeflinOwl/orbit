@@ -106,8 +106,17 @@ else
                     }
                     <InputText class="editor-item-main" @bind-Value="item.Description" placeholder="@(T["Item description"])" />
                     <span class="editor-item-aside">
-                        <InputDate @bind-Value="item.DueDate" />
-                        <input type="time" @bind="item.DueTime" />
+                        @* Labelled rather than left to be guessed from their shape: side by side on a
+                           wide screen the pair reads as a due date, but stacked on a narrow one they
+                           are two bare boxes with nothing saying what either is for. *@
+                        <span class="editor-item-field">
+                            <span class="editor-item-field-label">@T["Due date"]</span>
+                            <InputDate @bind-Value="item.DueDate" aria-label="@(T["Due date"])" />
+                        </span>
+                        <span class="editor-item-field">
+                            <span class="editor-item-field-label">@T["Due time"]</span>
+                            <input type="time" @bind="item.DueTime" aria-label="@(T["Due time"])" />
+                        </span>
                         <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
                                 title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
                                 aria-expanded="@(IsExpanded(item) ? "true" : "false")"

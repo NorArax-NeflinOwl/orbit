@@ -713,5 +713,8 @@ internal static class PolishTranslations
         ["Shared their location, and keeps it up to date."] = "Udostępnił swoje położenie i na bieżąco je odświeża.",
         ["Shared where they are right now."] = "Udostępnił, gdzie właśnie jest.",
         ["Shared with you"] = "Udostępnione Tobie",
+        ["Due date"] = "Termin",
+        ["Due time"] = "Godzina",
+        ["That message is no longer yours to edit."] = "Tej wiadomości nie możesz już edytować.",
     };
 }

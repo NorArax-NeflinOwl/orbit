@@ -63,6 +63,26 @@ public sealed class EncryptedChatMessageSender
         Guid ownUserId, Guid groupId, IReadOnlyList<Guid> otherMemberUserIds, string plainTextContent,
         CancellationToken cancellationToken = default)
     {
+        var copies = await SealForEachMemberAsync(ownUserId, otherMemberUserIds, plainTextContent, cancellationToken);
+        await _chatApiClient.SendGroupMessageAsync(groupId, copies, cancellationToken);
+    }
+
+    /// <summary>
+    /// Rewrites one group message to new text. The same fan-out as sending, because every copy is
+    /// separately encrypted - leaving one behind would show different members different words. False
+    /// when the message is gone or was somebody else's to edit.
+    /// </summary>
+    public async Task<bool> EditGroupMessageAsync(
+        Guid ownUserId, Guid groupId, Guid groupMessageId, IReadOnlyList<Guid> otherMemberUserIds, string plainTextContent,
+        CancellationToken cancellationToken = default)
+    {
+        var copies = await SealForEachMemberAsync(ownUserId, otherMemberUserIds, plainTextContent, cancellationToken);
+        return await _chatApiClient.EditGroupMessageAsync(groupId, groupMessageId, copies, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<GroupMessageCopyDto>> SealForEachMemberAsync(
+        Guid ownUserId, IReadOnlyList<Guid> otherMemberUserIds, string plainTextContent, CancellationToken cancellationToken)
+    {
         await _ownEncryptionKeyProvider.EnsurePublicKeyAsync();
         await using var cryptoModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
 
@@ -81,7 +101,7 @@ public sealed class EncryptedChatMessageSender
             copies.Add(new GroupMessageCopyDto(memberUserId, payload.CiphertextBase64, payload.NonceBase64));
         }
 
-        await _chatApiClient.SendGroupMessageAsync(groupId, copies, cancellationToken);
+        return copies;
     }
 
     /// <summary>Shape returned by e2eeChat.js's encryptMessage - matched by camelCase property name.</summary>

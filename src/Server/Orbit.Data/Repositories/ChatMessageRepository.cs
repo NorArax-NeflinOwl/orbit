@@ -156,4 +156,14 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         return counts.ToDictionary(entry => entry.SenderUserId, entry => entry.Count);
     }
+    public async Task<IReadOnlyList<ChatMessage>> GetGroupMessageCopiesAsync(
+        Guid groupMessageId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.GroupMessageId == groupMessageId)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
 }

@@ -7,6 +7,7 @@ using Orbit.Core.Chat;
 using Orbit.Core.Chat.DeleteMessage;
 using Orbit.Core.Chat.Groups;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
+using Orbit.Core.Chat.Groups.EditGroupMessage;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
 using Orbit.Core.Chat.Groups.SendGroupMessage;
 using Xunit;
@@ -217,6 +218,40 @@ public sealed class GroupMessagingTests
         Assert.Equal($"/chat/groups/{group.Id}", entry.Url);
     }
 
+    [Fact]
+    public async Task Editing_a_group_message_rewrites_every_copy_of_it()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        var groupMessageId = context.MessageRepository.All[0].GroupMessageId!.Value;
+
+        var edited = await context.EditAsync(context.AdminId, groupMessageId,
+            [context.MemberId, context.SecondMemberId], "corrected");
+
+        // Every copy or none: each is separately encrypted, so leaving one behind would show different
+        // members different words with nothing to say which is current.
+        Assert.True(edited);
+        var copies = context.MessageRepository.All.Where(m => m.GroupMessageId == groupMessageId).ToList();
+        Assert.Equal(2, copies.Count);
+        Assert.All(copies, copy => Assert.Equal($"corrected-for-{copy.RecipientUserId}", copy.CiphertextBase64));
+        Assert.All(copies, copy => Assert.True(copy.IsEdited));
+    }
+
+    [Fact]
+    public async Task Somebody_elses_group_message_is_not_theirs_to_edit()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        var groupMessageId = context.MessageRepository.All[0].GroupMessageId!.Value;
+
+        // An admin may delete a member's message; putting different words in their mouth is another
+        // thing entirely, and moderation does not reach it.
+        var edited = await context.EditAsync(context.MemberId, groupMessageId, [context.AdminId], "not mine to say");
+
+        Assert.False(edited);
+        Assert.All(context.MessageRepository.All, copy => Assert.False(copy.IsEdited));
+    }
+
     /// <summary>A group of three, wired the way DI wires the real thing.</summary>
     private sealed class GroupMessagingTestContext
     {
@@ -260,6 +295,14 @@ public sealed class GroupMessagingTests
                         new InMemoryPushSubscriptionRepository(), PushSender, NullLogger<PushNotificationDispatcher>.Instance))
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
 
+
+        public Task<bool> EditAsync(Guid actorId, Guid groupMessageId, IReadOnlyList<Guid> recipientIds, string newText)
+            => new EditGroupMessageCommandHandler(MessageRepository)
+                .HandleAsync(
+                    new EditGroupMessageCommand(
+                        actorId, groupMessageId,
+                        recipientIds.Select(id => new GroupMessageCopy(id, $"{newText}-for-{id}", "nonce")).ToList()),
+                    CancellationToken.None);
 
         public Task<bool> DeleteAsync(Guid actorId, Guid messageId)
             => new DeleteChatMessageCommandHandler(MessageRepository, GroupRepository)

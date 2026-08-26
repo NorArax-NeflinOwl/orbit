@@ -819,6 +819,108 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
+/* A note's preview line: one line, clipped rather than wrapped, so every card in the list is the same
+   height whatever is written inside it. */
+.note-preview-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.note-preview-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.note-preview-line.completed .note-preview-text {
+    text-decoration: line-through;
+    color: var(--text-tertiary);
+}
+
+/* The label above each of the two due-date boxes. Hidden where the row is wide enough for the pair to
+   read as one thing, shown once they stack - which is the only place they stop being obvious. */
+.editor-item-field {
+    display: contents;
+}
+
+.editor-item-field-label {
+    display: none;
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+@media (max-width: 700px) {
+    .editor-item-field {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .editor-item-field-label {
+        display: block;
+    }
+}
+
+.group-members-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.group-members-toggle svg {
+    transition: transform 0.15s ease;
+}
+
+.group-members-toggle svg.open {
+    transform: rotate(180deg);
+}
+
+.group-members.hidden {
+    display: none;
+}
+
+/* A member row wraps instead of stretching the page. "Administrator" is a long word in some languages,
+   and beside two buttons it pushed the whole conversation wider than the screen on a phone. */
+.group-member-row {
+    flex-wrap: wrap;
+    row-gap: 4px;
+}
+
+.group-member-row .row-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.group-member-badge {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The message's own actions, kept together so they wrap as a unit rather than one button at a time. */
+.group-message-actions {
+    display: inline-flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.group-message-edit {
+    margin: 0 0 8px 0;
+}
+
 .icon-btn {
     width: 30px;
     height: 30px;

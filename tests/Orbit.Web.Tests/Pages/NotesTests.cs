@@ -47,15 +47,33 @@ public sealed class NotesTests : OrbitTestContext
     }
 
     [Fact]
-    public void A_notes_lines_are_previewed_as_one_line_of_text()
+    public void A_note_is_previewed_by_its_first_line_and_how_much_else_there_is()
     {
-        // Content is structured rather than a flat string, so the preview has to join it back up -
-        // otherwise a multi-line note would render its lines run together with no spaces.
         RegisterNotesApiClient([Note("Shopping", "Milk", "Bread", "Coffee")]);
 
         var cut = RenderComponent<Web.Pages.Notes>();
 
-        Assert.Contains("Milk Bread Coffee", cut.Find("li p").TextContent);
+        // The first line, not the whole note glued together - a preview that prints everything is not a
+        // preview, and made every card in the list a different height.
+        var preview = cut.Find("li p").TextContent;
+        Assert.Contains("Milk", preview);
+        Assert.DoesNotContain("Coffee", preview);
+        Assert.Contains("+2 more", preview);
+    }
+
+    [Fact]
+    public void A_checklist_line_is_previewed_with_whether_it_is_done()
+    {
+        RegisterNotesApiClient([Note("Shopping") with
+        {
+            Content = [new NoteContentLineDto("Milk", IsChecklistItem: true, IsChecked: true)]
+        }]);
+
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        // The same mark a task list preview uses, so a ticked-off line reads as ticked off here too.
+        Assert.Contains("✓", cut.Find("li p").TextContent);
+        Assert.Contains("completed", cut.Find("li p").ClassName);
     }
 
     [Fact]
@@ -66,7 +84,8 @@ public sealed class NotesTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Notes>();
 
         Assert.Contains("Empty one", cut.Markup);
-        Assert.Equal(string.Empty, cut.Find("li p").TextContent.Trim());
+        // Nothing written yet means no preview line at all, rather than an empty one holding space open.
+        Assert.Empty(cut.FindAll("li p"));
     }
 
     [Fact]
