@@ -66,13 +66,22 @@
 <div class="group-layout">
     <div class="card group-list">
         <div class="card-header"><span class="card-title">@T["Your groups"]</span><span class="card-count">@_groups.Count</span></div>
+        @if (_groups.Count > 0)
+        {
+            <input class="chat-list-search" type="search" @bind="_groupSearch" @bind:event="oninput"
+                   placeholder="@(T["Search groups"])" aria-label="@(T["Search groups"])" />
+        }
         @if (_groups.Count == 0)
         {
             <p class="empty-hint">@T["No groups yet."]</p>
         }
+        else if (!_matchingGroups.Any())
+        {
+            <p class="empty-hint">@T["Nothing matches that."]</p>
+        }
         else
         {
-            @foreach (var group in _groups)
+            @foreach (var group in _matchingGroups)
             {
                 <button type="button" class="list-row list-row-button @(group.Id == GroupId ? "active" : "")"
                         @onclick="() => OpenGroup(group.Id)">
@@ -229,6 +238,15 @@
 
     /// <summary>Whether the roster is unfolded. Closed to begin with: the messages are what the reader came for.</summary>
     private bool _areMembersVisible;
+
+    /// <summary>What the reader has typed into the group search box.</summary>
+    private string _groupSearch = string.Empty;
+
+    /// <summary>The groups left after the search box - filtered here, since the page already holds them all.</summary>
+    private IEnumerable<ChatGroupDto> _matchingGroups
+        => _groupSearch.Trim() is { Length: > 0 } query
+            ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            : _groups;
 
     /// <summary>Which message is open for editing or forwarding, and what is being typed into it.</summary>
     private Guid? _editingMessageId;

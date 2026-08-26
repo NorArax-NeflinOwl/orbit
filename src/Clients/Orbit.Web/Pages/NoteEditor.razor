@@ -31,7 +31,7 @@ else
 {
     @if (_isShared)
     {
-        <p class="shared-note-banner">@T["This note was shared by"]<strong>@_sharedByUserName</strong> - @SharedAccessDescription.
+        <p class="shared-note-banner">@T["This note was shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.
         </p>
         @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
         {
@@ -62,7 +62,7 @@ else
                     <label>
                         <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                     <small>
-                        @T["Encrypted in this browser before it is saved, so Orbit's servers hold something they can't read. A private note can't be shared, and any share of it stops working while it stays private. Losing your password means losing it - a reset replaces the key it was encrypted with, exactly as it does for chat history."]
+                        @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."]
                     </small>
                 </div>
             }
