@@ -40,34 +40,34 @@
                 </div>
 
                 <nav class="sidebar-nav">
-                    <NavLink class="nav-item nav-item-dashboard" href="/" Match="NavLinkMatch.All" title="Dashboard">
+                    <NavLink class="nav-item nav-item-dashboard" href="/" Match="NavLinkMatch.All" title="@(T["Dashboard"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="2.5" y="11.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="11.5" width="6" height="6" rx="1.5" /></svg>
                         <span class="label">@T["Dashboard"]</span>
                     </NavLink>
-                    <NavLink class="nav-item" href="/notes" title="Notes">
+                    <NavLink class="nav-item" href="/notes" title="@(T["Notes"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h7l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z" /><path d="M12 2.5v3h3" /><path d="M6.5 11h7M6.5 14h7M6.5 8h3" /></svg>
                         <span class="label">@T["Notes"]</span>
                     </NavLink>
-                    <NavLink class="nav-item" href="/tasks" title="Tasks">
+                    <NavLink class="nav-item" href="/tasks" title="@(T["Tasks"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
                         <span class="label">@T["Tasks"]</span>
                         @RenderSectionBadge("/tasks")
                     </NavLink>
-                    <NavLink class="nav-item" href="/calendar" title="Calendar">
+                    <NavLink class="nav-item" href="/calendar" title="@(T["Calendar"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="13.5" rx="2.5" /><path d="M2.5 8h15M6.5 2v3.5M13.5 2v3.5" /></svg>
                         <span class="label">@T["Calendar"]</span>
                         @RenderSectionBadge("/calendar")
                     </NavLink>
-                    <NavLink class="nav-item" href="/inventory" title="Inventory">
+                    <NavLink class="nav-item" href="/inventory" title="@(T["Inventory"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l7-3.4 7 3.4v7.6l-7 3.4-7-3.4V6.2Z" /><path d="M3 6.2l7 3.4M10 9.6l7-3.4M10 9.6v7.6" /></svg>
                         <span class="label">@T["Inventory"]</span>
                         @RenderSectionBadge("/inventory")
                     </NavLink>
-                    <NavLink class="nav-item" href="/map" title="Map">
+                    <NavLink class="nav-item" href="/map" title="@(T["Map"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
                         <span class="label">@T["Map"]</span>
                     </NavLink>
-                    <NavLink class="nav-item" href="/contacts" title="Contacts">
+                    <NavLink class="nav-item" href="/contacts" title="@(T["Contacts"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="6.5" r="3" /><path d="M1.5 17c0-3 2.5-5 5.5-5s5.5 2 5.5 5" /><circle cx="15" cy="7.5" r="2.3" /><path d="M13.7 12.2c2.4.3 4.1 2 4.1 4.6" /></svg>
                         <span class="label">@T["Contacts"]</span>
                         @RenderSectionBadge("/chat")
@@ -75,7 +75,7 @@
 
                     <div class="nav-divider"></div>
 
-                    <NavLink class="nav-item options-nav-item" href="/options" title="Options">
+                    <NavLink class="nav-item options-nav-item" href="/options" title="@(T["Options"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="10" cy="10" r="3.4" />
                             <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" />

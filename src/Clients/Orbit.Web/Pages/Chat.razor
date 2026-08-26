@@ -12,6 +12,7 @@
 @inject TasksApiClient TasksApiClient
 @inject InventoryApiClient InventoryApiClient
 @inject NotificationFeedState NotificationFeedState
+@inject NotificationsApiClient NotificationsApiClient
 @inject UsersApiClient UsersApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject OwnEncryptionKeyProvider OwnEncryptionKeyProvider
@@ -153,10 +154,21 @@ else
                             else
                             {
                                 <div class="chat-bubble-wrap">
-                                    <p class="chat-bubble">
+                                    <p class="chat-bubble @(_highlightedMessageId == message.Id ? "highlighted" : "")"
+                                       id="@MessageElementId(message.Id)">
                                         @if (_forwardedFromByMessageId.TryGetValue(message.Id, out var forwardedFromDisplayName))
                                         {
                                             <span class="chat-bubble-forwarded-label">Forwarded from @forwardedFromDisplayName</span>
+                                        }
+                                        @if (_replyToByMessageId.TryGetValue(message.Id, out var quoted))
+                                        {
+                                            @* Clickable: the reference is what makes a reply readable in a long
+                                               conversation, and it is only worth carrying if it takes you there. *@
+                                            <button type="button" class="chat-bubble-quote"
+                                                    @onclick="() => ScrollToQuotedMessageAsync(quoted.MessageId)"
+                                                    @onclick:stopPropagation="true">
+                                                @quoted.Preview
+                                            </button>
                                         }
                                         @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? "[couldn't decrypt]")
                                     </p>
@@ -176,6 +188,7 @@ else
                                                     }
                                                     @if (canForward)
                                                     {
+                                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartReply(message)">@T["Reply"]</button>
                                                         <button type="button" class="avatar-dropdown-item" @onclick="() => StartForward(message)">@T["Forward"]</button>
                                                     }
                                                 </div>
@@ -254,6 +267,17 @@ else
                     }
                 </div>
 
+                @if (_replyingTo is { } replyTarget)
+                {
+                    <div class="chat-reply-strip">
+                        <span class="chat-reply-strip-label">@T["Replying to"]</span>
+                        <span class="chat-reply-strip-preview">
+                            @ReplyMessagePayload.Preview(_decryptedContentByMessageId.GetValueOrDefault(replyTarget.Id) ?? string.Empty)
+                        </span>
+                        <button type="button" class="icon-btn" title="@(T["Stop replying"])" @onclick="CancelReply">✕</button>
+                    </div>
+                }
+
                 <div class="chat-input-bar">
                     <input class="chat-input" @bind="_draftMessage" @bind:event="oninput" @onkeydown="OnDraftKeyDownAsync" placeholder="@(T["Write a message…"])"
                            disabled="@RequiresApprovalFromMe" />
@@ -313,6 +337,18 @@ else
 
     /// <summary>Which message is currently showing its "Forward to…" contact picker in place of the Edit/Forward menu, if any.</summary>
     private Guid? _forwardingMessageId;
+
+    /// <summary>The message the draft is answering, if any - see ReplyMessagePayload.</summary>
+    private ChatMessageDto? _replyingTo;
+
+    /// <summary>What each reply is answering, keyed by the reply's own id. Kept apart from the decrypted text the same way share notices are.</summary>
+    private readonly Dictionary<Guid, QuotedMessage> _replyToByMessageId = [];
+
+    /// <summary>Briefly marks the message a quote just jumped to, so the eye lands on it.</summary>
+    private Guid? _highlightedMessageId;
+
+    /// <param name="Preview">Carried by the reply rather than read back from the original, which may have been edited or deleted since.</param>
+    private sealed record QuotedMessage(Guid MessageId, string Preview);
     private bool _isForwarding;
     private string? _forwardErrorMessage;
     private Guid? _forwardErrorMessageForMessageId;
@@ -482,6 +518,7 @@ else
             await LoadConversationAccessAsync();
             await LoadNewMessagesAsync();
             await SyncReadStateAsync();
+            await ClearNotificationsForThisConversationAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -688,6 +725,31 @@ else
         }
     }
 
+    /// <summary>
+    /// Answering a particular message rather than the conversation in general. The draft box grows a
+    /// strip naming what is being answered, and sending carries the reference along - see
+    /// ReplyMessagePayload.
+    /// </summary>
+    private void StartReply(ChatMessageDto message)
+    {
+        _openMessageMenuId = null;
+        _replyingTo = message;
+    }
+
+    private void CancelReply() => _replyingTo = null;
+
+    /// <summary>
+    /// Scrolls the quoted message into view. The reference is what makes a reply readable in a long
+    /// conversation, and it is only worth carrying if it takes you there.
+    /// </summary>
+    private async Task ScrollToQuotedMessageAsync(Guid messageId)
+    {
+        _highlightedMessageId = messageId;
+        await JSRuntime.InvokeVoidAsync("OrbitChatScroll.scrollToMessage", MessageElementId(messageId));
+    }
+
+    private static string MessageElementId(Guid messageId) => $"chat-message-{messageId}";
+
     private void StartForward(ChatMessageDto message)
     {
         _openMessageMenuId = null;
@@ -870,6 +932,29 @@ else
         _otherPartyReadUpToUtc = await ChatApiClient.GetReadReceiptAsync(UserId);
     }
 
+    /// <summary>
+    /// Clears the notifications about this conversation while its window is open. Arriving here already
+    /// clears whatever was waiting (see MainLayout's own navigation handling), but a message that lands
+    /// while the reader is sitting in the window records a fresh entry that nothing would clear - so the
+    /// badge counts up beside a conversation being read as it happens.
+    ///
+    /// Skipped unless something is actually unread for this route, so a poll every second doesn't become
+    /// a request every second.
+    /// </summary>
+    private async Task ClearNotificationsForThisConversationAsync()
+    {
+        var conversationUrl = $"/chat/{UserId}";
+        if (!NotificationFeedState.HasUnreadFor(conversationUrl))
+        {
+            return;
+        }
+
+        if (await NotificationsApiClient.MarkReadAtUrlAsync(conversationUrl))
+        {
+            NotificationFeedState.MarkReadFor(conversationUrl);
+        }
+    }
+
     /// <summary>True once the other party has read up to at least this own message's send time.</summary>
     private bool IsReadByOtherParty(ChatMessageDto message)
         => _otherPartyReadUpToUtc is { } readUpToUtc && message.SentAtUtc <= readUpToUtc;
@@ -947,6 +1032,13 @@ else
                 _acceptedShareIds.Add(shareNotice.ShareId);
             }
 
+            return;
+        }
+
+        if (TryDeserialize<ReplyMessagePayload>(plainText) is { Type: ReplyMessagePayload.MessageType } reply)
+        {
+            _decryptedContentByMessageId[message.Id] = reply.Content;
+            _replyToByMessageId[message.Id] = new QuotedMessage(reply.ReplyToMessageId, reply.ReplyToPreview);
             return;
         }
 
@@ -1131,13 +1223,29 @@ else
         _isSending = true;
         try
         {
+            // A reply travels as a structured payload carrying what it answers; anything else goes as
+            // the plain text it is, so an ordinary message costs no JSON on either end.
+            var contentToSend = _replyingTo is { } replyingTo
+                ? JsonSerializer.Serialize(new ReplyMessagePayload(
+                    replyingTo.Id,
+                    ReplyMessagePayload.Preview(_decryptedContentByMessageId.GetValueOrDefault(replyingTo.Id) ?? string.Empty),
+                    _draftMessage))
+                : _draftMessage;
+
             var payload = await _cryptoModule.InvokeAsync<EncryptedPayload>(
-                "encryptMessage", _ownUserId, _otherUser.PublicKeyBase64, _draftMessage);
+                "encryptMessage", _ownUserId, _otherUser.PublicKeyBase64, contentToSend);
             var sent = await ChatApiClient.SendMessageAsync(
                 new SendMessageRequest(UserId, payload.CiphertextBase64, payload.NonceBase64));
 
             _messages.Add(sent);
             _decryptedContentByMessageId[sent.Id] = _draftMessage;
+            if (_replyingTo is { } answered)
+            {
+                _replyToByMessageId[sent.Id] = new QuotedMessage(
+                    answered.Id, ReplyMessagePayload.Preview(_decryptedContentByMessageId.GetValueOrDefault(answered.Id) ?? string.Empty));
+                _replyingTo = null;
+            }
+
             _draftMessage = string.Empty;
             // Sending always follows your own message down, regardless of where you had scrolled to.
             _scrollToNewestOnNextRender = true;

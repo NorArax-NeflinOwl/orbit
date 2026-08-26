@@ -110,9 +110,9 @@ else
                         @if (IsExpanded(item))
                         {
                             <div class="editor-item-details">
-                                <label>@T["Product type"]<InputText placeholder="Product type" @bind-Value="item.ProductType" />
+                                <label>@T["Product type"]<InputText placeholder="@(T["Product type"])" @bind-Value="item.ProductType" />
                                 </label>
-                                <label>@T["Category"]<InputText placeholder="Category" @bind-Value="item.Category" />
+                                <label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="item.Category" />
                                 </label>
                                 <label>@T["Expires"]<InputDate @bind-Value="item.ExpiryDate" />
                                 </label>

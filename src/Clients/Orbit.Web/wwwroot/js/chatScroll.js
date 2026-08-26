@@ -41,6 +41,16 @@
                 element.removeEventListener("scroll", element.orbitScrollListener);
                 delete element.orbitScrollListener;
             }
+        },
+
+        // Brings the message a reply is quoting into view. Missing is the ordinary case rather than an
+        // error: the quote carries its own preview, so it still reads correctly for a message that has
+        // since been deleted, or that sits further back than this window has loaded.
+        scrollToMessage: (elementId) => {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.scrollIntoView({ block: "center", behavior: "smooth" });
+            }
         }
     };
 })();
