@@ -20,6 +20,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject TransferApiClient TransferApiClient
+@inject DevicePreferences DevicePreferences
 @inject ILogger<Options> Logger
 
 <PageTitle>Orbit — Options</PageTitle>
@@ -340,6 +341,70 @@
         }
     </div>
 
+    <div class="options-section">
+        <h2 class="options-heading">@T["Location"]</h2>
+        <p class="options-subtext">Kept on this device - a browser grants location per device, so the answer is given per device too.</p>
+        <div class="options-card">
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">@T["Use my location"]</div>
+                    <div class="options-row-desc">
+                        Lets Orbit ask this browser where you are, for the map and for sharing your position
+                        with someone. Until you turn this on, nothing asks - not even the browser's own
+                        permission prompt. Turning it on doesn't send anything anywhere by itself.
+                    </div>
+                </div>
+                <button type="button" class="switch @(DevicePreferences.AllowLocation ? "on" : "")" role="switch"
+                        aria-checked="@DevicePreferences.AllowLocation"
+                        @onclick="ToggleAllowLocationAsync">
+                    <span class="switch-knob"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="options-section">
+        <h2 class="options-heading">@T["Debugger"]</h2>
+        <p class="options-subtext">What this browser reports about Orbit itself. Kept on this device.</p>
+        <div class="options-card">
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">@T["Mode"]</div>
+                    <div class="options-row-desc">
+                        Debug shows what the app can tell you about itself - the captured log, and detail
+                        behind an error rather than just "something went wrong". Release keeps it out of
+                        the way. This is a choice about what you are shown, not the build Orbit was
+                        compiled as, which was fixed long before this page opened.
+                    </div>
+                </div>
+                <select id="diagnosticsModeSelect" class="options-select"
+                        value="@DevicePreferences.DiagnosticsMode"
+                        @onchange="OnDiagnosticsModeChangedAsync">
+                    <option value="@DiagnosticsMode.Release">@T["Release"]</option>
+                    <option value="@DiagnosticsMode.Debug">@T["Debug"]</option>
+                </select>
+            </div>
+            <div class="options-row options-row-stacked">
+                <div>
+                    <div class="options-row-title">@T["Frontend log level"]</div>
+                    <div class="options-row-desc">
+                        The least severe line this browser keeps in its own log. Warning by default:
+                        anything lower fills the buffer with routine noise long before an actual failure
+                        needs the space. Takes effect straight away.
+                    </div>
+                </div>
+                <select id="frontendLogLevelSelect" class="options-select"
+                        value="@DevicePreferences.MinimumLogLevel"
+                        @onchange="OnLogLevelChangedAsync">
+                    @foreach (var level in SelectableLogLevels)
+                    {
+                        <option value="@level">@level</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
     @if (_exceptionDetailsAllowedByServer)
     {
         <div class="options-section">
@@ -449,6 +514,22 @@
 </div>
 
 @code {
+    /// <summary>Everything above None, which would mean keeping nothing and is what turning the log off would look like - Options has no reason to offer that separately from picking Critical.</summary>
+    private static readonly LogLevel[] SelectableLogLevels =
+        [LogLevel.Trace, LogLevel.Debug, LogLevel.Information, LogLevel.Warning, LogLevel.Error, LogLevel.Critical];
+
+    private Task ToggleAllowLocationAsync() => DevicePreferences.SetAllowLocationAsync(!DevicePreferences.AllowLocation);
+
+    private Task OnDiagnosticsModeChangedAsync(ChangeEventArgs args)
+        => Enum.TryParse<DiagnosticsMode>(args.Value?.ToString(), out var mode)
+            ? DevicePreferences.SetDiagnosticsModeAsync(mode)
+            : Task.CompletedTask;
+
+    private Task OnLogLevelChangedAsync(ChangeEventArgs args)
+        => Enum.TryParse<LogLevel>(args.Value?.ToString(), out var level)
+            ? DevicePreferences.SetMinimumLogLevelAsync(level)
+            : Task.CompletedTask;
+
     private async Task OnLanguageChangedAsync(ChangeEventArgs args)
     {
         if (Enum.TryParse<AppLanguage>(args.Value?.ToString(), out var language))

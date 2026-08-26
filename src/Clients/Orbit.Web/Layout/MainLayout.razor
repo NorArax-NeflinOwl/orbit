@@ -14,6 +14,7 @@
 @inject NotificationFeedState NotificationFeedState
 @inject ClientExceptionLog ClientExceptionLog
 @inject ThemeService ThemeService
+@inject DevicePreferences DevicePreferences
 @inject Translations T
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -236,6 +237,7 @@
         // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
         // theme applies to the login/register pages too.
         await ThemeService.InitializeAsync();
+        await DevicePreferences.InitializeAsync();
         await T.InitializeAsync();
         // The layout owns every page below it, so re-rendering here is what makes a language change take
         // effect everywhere at once instead of on the next navigation.
@@ -738,14 +740,17 @@
     /// Reads this browser's own captured Warning+/Error client-side log (see clientLogging.js's
     /// appendLog, mirrored here by PersistentLoggerProvider) - purely local per-device diagnostics, never
     /// sent to the server, unlike the push/chat entries in _recentEntries above. Gated on both the
-    /// server's environment flag and this user's own ShowExceptionDetails preference (see
-    /// NotificationSettings' class comment for why both matter), so a Production deployment never shows
-    /// this section regardless of what an individual account has set.
+    /// server's environment flag and the reader asking for them - either through this account's
+    /// ShowExceptionDetails preference or by putting this browser in Debug mode (see
+    /// DevicePreferences.DiagnosticsMode). The server's flag stays the outer gate whichever way they
+    /// asked, so a Production deployment never shows this section regardless of what anyone has set.
     /// </summary>
     private async Task LoadClientExceptionEntriesAsync()
     {
         var exceptionDetailsAllowedByServer = await ClientFlagsApiClient.GetExceptionDetailsAllowedAsync();
-        _showExceptionsSection = exceptionDetailsAllowedByServer && _notificationSettings.ShowExceptionDetails;
+        var readerAskedForThem = _notificationSettings.ShowExceptionDetails
+            || DevicePreferences.DiagnosticsMode == DiagnosticsMode.Debug;
+        _showExceptionsSection = exceptionDetailsAllowedByServer && readerAskedForThem;
         if (!_showExceptionsSection)
         {
             _clientExceptionEntries = [];

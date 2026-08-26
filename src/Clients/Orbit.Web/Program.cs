@@ -105,6 +105,9 @@ builder.Services.AddScoped<GoogleIntegrationAccess>();
 builder.Services.AddScoped<PrivateContentSealer>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
+// Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
+// level from this on every line it considers.
+builder.Services.AddSingleton<DevicePreferences>();
 // Singleton so every page reads the same choice - MainLayout initialises it and re-renders on Changed.
 builder.Services.AddSingleton<Translations>();
 // Shared unread state so the avatar badge, the nav-section badges, and Chat's contact avatars all read
