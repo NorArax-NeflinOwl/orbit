@@ -60,6 +60,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<!-- The map on the location screen. On iOS this is MapKit, which needs no API key and no account -
+		on Android it would be Google Maps and would need both, so that is a decision for when Android is
+		actually built. -->
+		<PackageReference Include="Microsoft.Maui.Controls.Maps" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
 		<!-- Property change notification and commands, so view models are the shape MVVM expects without
 		hand-writing INotifyPropertyChanged on every one of them. -->

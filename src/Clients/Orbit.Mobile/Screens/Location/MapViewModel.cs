@@ -58,6 +58,13 @@ public sealed partial class MapViewModel : ObservableObject
     /// <summary>People whose position the reader can currently see.</summary>
     public ObservableCollection<ReceivedPosition> SharedWithMe { get; } = [];
 
+    /// <summary>
+    /// Everything worth drawing: the reader's own position and everybody else's that could be opened.
+    /// One collection rather than two, because a map does not care whose a point is - only the pin's
+    /// label does.
+    /// </summary>
+    public ObservableCollection<MapPoint> Points { get; } = [];
+
     /// <summary>People who can currently see the reader's.</summary>
     public ObservableCollection<SharingWithRow> SharingWith { get; } = [];
 
@@ -125,13 +132,19 @@ public sealed partial class MapViewModel : ObservableObject
                 reading.Latitude, reading.Longitude, reading.Address, DateTimeOffset.UtcNow);
             OwnPositionDescription = Describe(_ownPosition);
             OnPropertyChanged(nameof(HasOwnPosition));
+            ShowPointsOnMap();
 
             await _locationClient.SaveOwnAsync(
                 reading.Latitude, reading.Longitude, reading.Address, cancellationToken);
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException exception)
         {
-            Message = "Read your position, but couldn't save it - Orbit is out of reach.";
+            // Reached-and-refused is not the same as unreachable, and telling somebody they are offline
+            // when the server answered is unactionable - the same mistake the sync layer makes a point
+            // of not making. A null status is the only thing that means the request never landed.
+            Message = exception.StatusCode is null
+                ? "Read your position, but couldn't save it - Orbit is out of reach."
+                : "Read your position, but Orbit wouldn't store it. Try signing in again.";
         }
         catch (OperationCanceledException)
         {
@@ -196,9 +209,11 @@ public sealed partial class MapViewModel : ObservableObject
 
             await ShowWhoCanSeeMeAsync(cancellationToken);
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException exception)
         {
-            Message = "Sharing a position needs a connection.";
+            Message = exception.StatusCode is null
+                ? "Sharing a position needs a connection."
+                : "Orbit wouldn't accept that share. Try signing in again.";
         }
         catch (EncryptionKeyLockedException)
         {
@@ -224,9 +239,13 @@ public sealed partial class MapViewModel : ObservableObject
             Message = $"{row.DisplayName} can no longer see where you are.";
             await ShowWhoCanSeeMeAsync(cancellationToken);
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException exception)
         {
-            Message = "Stopping needs a connection - they can still see you until it goes through.";
+            // Worth being precise about: whoever it is can still see the reader either way, and saying
+            // "you are offline" when they are not sends them looking in the wrong place.
+            Message = exception.StatusCode is null
+                ? "Stopping needs a connection - they can still see you until it goes through."
+                : "Orbit wouldn't stop that share - they can still see you.";
         }
         catch (OperationCanceledException)
         {
@@ -244,6 +263,34 @@ public sealed partial class MapViewModel : ObservableObject
         foreach (var position in received)
         {
             SharedWithMe.Add(position);
+        }
+
+        ShowPointsOnMap();
+    }
+
+    /// <summary>
+    /// Rebuilds the whole set rather than adding and removing, because a position is replaced rather
+    /// than edited - the same point moving is a new reading, and there is never enough here for the
+    /// difference to be worth tracking.
+    /// </summary>
+    private void ShowPointsOnMap()
+    {
+        Points.Clear();
+
+        if (_ownPosition is { } own)
+        {
+            Points.Add(new MapPoint("You", own.Address, own.Latitude, own.Longitude, IsMine: true));
+        }
+
+        foreach (var received in SharedWithMe)
+        {
+            // A position that could not be opened has no coordinates to draw - it stays in the list
+            // below, where it can at least say who is sharing.
+            if (received.Position is { } position)
+            {
+                Points.Add(new MapPoint(
+                    received.SharerDisplayName, position.Address, position.Latitude, position.Longitude, IsMine: false));
+            }
         }
     }
 

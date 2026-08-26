@@ -21,6 +21,9 @@ internal sealed class FakeLocationServer : HttpMessageHandler
 
     public bool IsUnreachable { get; set; }
 
+    /// <summary>Set to make every request come back refused, which is not the same as unreachable.</summary>
+    public HttpStatusCode? RefuseEverythingWith { get; set; }
+
     /// <summary>The caller's own recorded position - stored in the clear, as the real one does.</summary>
     public SaveOwnLocationRequest? OwnLocation { get; private set; }
 
@@ -37,6 +40,11 @@ internal sealed class FakeLocationServer : HttpMessageHandler
         if (IsUnreachable)
         {
             throw new HttpRequestException("No such host is known.");
+        }
+
+        if (RefuseEverythingWith is { } refusal)
+        {
+            return new HttpResponseMessage(refusal);
         }
 
         var path = request.RequestUri!.AbsolutePath;

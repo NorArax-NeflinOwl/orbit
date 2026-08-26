@@ -7,6 +7,7 @@
     xmlns:mobile="clr-namespace:Orbit.Mobile.Location;assembly=Orbit.Mobile"
     xmlns:location="clr-namespace:Orbit.Maui.Features.Location"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Location;assembly=Orbit.Mobile"
+    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     x:DataType="screens:MapViewModel"
     Title="Location">
 
@@ -16,6 +17,10 @@
             <Label Text="Location" FontSize="26" FontAttributes="Bold" />
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                    FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+
+            <!-- Pins are built in code-behind: the control's pin carries a platform Location, and
+                 keeping that out of the view model is what lets the view model be tested at all. -->
+            <maps:Map x:Name="PositionsMap" HeightRequest="260" IsShowingUser="False" />
 
             <Label Text="Where you are" FontAttributes="Bold" />
             <Label Text="{Binding OwnPositionDescription}" LineBreakMode="WordWrap" />

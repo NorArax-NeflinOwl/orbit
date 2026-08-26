@@ -61,6 +61,78 @@ public sealed class MapScreenTests
     }
 
     [Fact]
+    public async Task Reading_a_position_puts_it_on_the_map()
+    {
+        using var context = new MapContext();
+        var screen = context.Open();
+
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        var point = Assert.Single(screen.Points);
+        Assert.True(point.IsMine);
+        Assert.Equal("You", point.Label);
+        Assert.Equal(52.2297, point.Latitude, precision: 4);
+    }
+
+    [Fact]
+    public async Task A_position_somebody_shares_is_drawn_next_to_the_readers_own()
+    {
+        using var context = new MapContext();
+        await context.SomebodySharesTheirPositionAsync("Bob");
+        var screen = context.Open();
+
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(2, screen.Points.Count);
+        // The reader's own comes first, which is what the map centres on.
+        Assert.True(screen.Points[0].IsMine);
+        Assert.Equal("Bob", screen.Points[1].Label);
+    }
+
+    [Fact]
+    public async Task A_position_that_cannot_be_opened_is_listed_but_not_drawn()
+    {
+        // There are no coordinates to draw. Dropping it from the list as well would hide that somebody
+        // is sharing at all, which is the part worth knowing.
+        using var context = new MapContext();
+        context.SomebodySharesSomethingUnreadable("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Single(screen.SharedWithMe);
+        Assert.Empty(screen.Points);
+    }
+
+    [Fact]
+    public async Task A_refusal_is_not_reported_as_being_offline()
+    {
+        // Found on a device: a stale session made the server answer 404, and the screen called it "out
+        // of reach" - which sends somebody to check their signal instead of their session.
+        using var context = new MapContext();
+        context.LocationServer.RefuseEverythingWith = System.Net.HttpStatusCode.NotFound;
+        var screen = context.Open();
+
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain("out of reach", screen.Message);
+        Assert.Contains("signing in", screen.Message);
+    }
+
+    [Fact]
+    public async Task Being_genuinely_unreachable_still_says_so()
+    {
+        using var context = new MapContext();
+        context.LocationServer.IsUnreachable = true;
+        var screen = context.Open();
+
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        Assert.Contains("out of reach", screen.Message);
+    }
+
+    [Fact]
     public async Task Somebody_shared_with_shows_up_in_who_can_see_you_and_can_be_stopped()
     {
         using var context = new MapContext();
@@ -138,6 +210,26 @@ public sealed class MapScreenTests
             _users.Add(userId, displayName, vectors.Bob.PublicKeyBase64);
             await _synchronizer.SynchroniseContactsAsync();
             return userId;
+        }
+
+        /// <summary>Somebody else sharing a position sealed for the reader, as the server would hold it.</summary>
+        public async Task SomebodySharesTheirPositionAsync(string displayName)
+        {
+            var sharerUserId = await AddContactAsync(displayName);
+            var vectors = BrowserVectorsFile.Read();
+            using var theirIdentity = ChatIdentity.FromBackup(vectors.Bob.Backup, vectors.BackupPassword)!;
+            using var own = ChatIdentity.FromBackup(vectors.Alice.Backup, vectors.BackupPassword)!;
+
+            var position = new SharedPosition(50.0647, 19.9450, "Kraków", DateTimeOffset.Parse("2026-08-26T09:00:00Z"));
+            var sealedPosition = theirIdentity.Encrypt(own.PublicKeyBase64, position.ToJson());
+            LocationServer.AddIncomingShare(sharerUserId, sealedPosition.CiphertextBase64, sealedPosition.NonceBase64);
+        }
+
+        public void SomebodySharesSomethingUnreadable(string displayName)
+        {
+            var sharerUserId = Guid.NewGuid();
+            _users.Add(sharerUserId, displayName, BrowserVectorsFile.Read().Bob.PublicKeyBase64);
+            LocationServer.AddIncomingShare(sharerUserId, "AAAAAAAAAAAAAAAAAAAAAA==", "AAAAAAAAAAAAAAAA");
         }
 
         public MapViewModel Open()
