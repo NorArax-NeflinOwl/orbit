@@ -15,6 +15,7 @@ using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
+using Orbit.Core.Tasks.SetTaskListPinned;
 using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
 
@@ -71,6 +72,16 @@ public static class TaskEndpoints
         // Moves one item out of this list and into another of the caller's own lists - see
         // MoveTaskItemCommandHandler for why this needs its own endpoint rather than folding into the
         // whole-list PUT above (it touches two different TaskList aggregates at once).
+        // Its own endpoint rather than part of the update: pinning is done from the list of lists,
+        // where nothing has been loaded to edit - see TaskList.SetPinned.
+        tasks.MapPut("/{id:guid}/pinned", async (
+            Guid id, SetTaskListPinnedRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var pinned = await dispatcher.SendAsync(
+                new SetTaskListPinnedCommand(GetUserId(user), id, request.IsPinned), cancellationToken);
+            return pinned ? Results.NoContent() : Results.NotFound();
+        });
+
         tasks.MapPost("/{id:guid}/items/{itemId:guid}/move", async (
             Guid id, Guid itemId, MoveTaskItemRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -183,7 +194,8 @@ public static class TaskEndpoints
             taskList.AccessLevel.ToString(),
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
-            taskList.Status.ToString());
+            taskList.Status.ToString(),
+            taskList.IsPinned);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch
