@@ -80,7 +80,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
 	public bool HasMessage => Message.Length > 0;
 
 	/// <summary>Resetting sends a code by email, so an unconfirmed address has nowhere to send it.</summary>
-	public bool CanReset => _account?.IsEmailVerified is true;
+	public bool CanReset => ChatKeyGate.CanResetPassword(_account?.IsEmailVerified is true);
 
 	/// <summary>The code hasn't been asked for yet, so the form for entering one isn't useful.</summary>
 	public bool AwaitingCodeRequest => !CodeSent;
@@ -92,14 +92,13 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
 	{
 		try
 		{
-			if (await _encryptionKeyProvider.HasKeyAsync(cancellationToken))
+			var deviceHoldsTheKey = await _encryptionKeyProvider.HasKeyAsync(cancellationToken);
+			if (!deviceHoldsTheKey)
 			{
-				SetMode(ChatKeyGateMode.Unlocked);
-				return;
+				_account = await _accountClient.GetAccountAsync(cancellationToken);
 			}
 
-			_account = await _accountClient.GetAccountAsync(cancellationToken);
-			SetMode(_account?.HasPassword is false ? ChatKeyGateMode.SetFirstPassword : ChatKeyGateMode.EnterPassword);
+			SetMode(ToMode(ChatKeyGate.Decide(deviceHoldsTheKey, _account?.HasPassword is true)));
 		}
 		catch (Exception exception) when (exception is HttpRequestException or EncryptionKeyLockedException)
 		{
@@ -171,9 +170,15 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
 	private void StartReset() => SetMode(ChatKeyGateMode.Reset);
 
 	[RelayCommand]
-	private void CancelReset() => SetMode(_account?.HasPassword is false
-		? ChatKeyGateMode.SetFirstPassword
-		: ChatKeyGateMode.EnterPassword);
+	private void CancelReset()
+		=> SetMode(ToMode(ChatKeyGate.Decide(deviceHoldsTheKey: false, _account?.HasPassword is true)));
+
+	private static ChatKeyGateMode ToMode(ChatKeyGateSituation situation) => situation switch
+	{
+		ChatKeyGateSituation.AlreadyUnlocked => ChatKeyGateMode.Unlocked,
+		ChatKeyGateSituation.SetFirstPassword => ChatKeyGateMode.SetFirstPassword,
+		_ => ChatKeyGateMode.EnterPassword
+	};
 
 	[RelayCommand]
 	private void GoBack() => _navigator.ShowNotes();

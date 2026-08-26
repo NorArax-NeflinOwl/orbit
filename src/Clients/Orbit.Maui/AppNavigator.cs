@@ -2,7 +2,7 @@ using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Notes;
-using Orbit.Contracts.Chat;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Authentication;
 
 namespace Orbit.Maui;
@@ -49,7 +49,7 @@ public sealed class AppNavigator
 	/// A conversation needs to know whose it is, and these screens are resolved from the container rather
 	/// than constructed - so the page is told after it exists, before it is shown.
 	/// </summary>
-	public void ShowConversation(ContactDto contact)
+	public void ShowConversation(LocalContact contact)
 		=> ShowAsRoot<ConversationPage>(page => ((ConversationViewModel)page.BindingContext).Open(contact));
 
 	public void ShowNotes() => ShowAsRoot<NotesPage>();

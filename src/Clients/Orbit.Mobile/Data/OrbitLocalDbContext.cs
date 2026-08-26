@@ -27,6 +27,8 @@ public sealed class OrbitLocalDbContext : DbContext
 
     public DbSet<OutgoingChatMessage> OutgoingChatMessages => Set<OutgoingChatMessage>();
 
+    public DbSet<LocalContact> Contacts => Set<LocalContact>();
+
     /// <summary>
     /// SQLite has no date type, and EF's default mapping for <see cref="DateTimeOffset"/> cannot be
     /// sorted or compared in SQL - "ORDER BY UpdatedAtUtc" fails outright. Since sync is decided almost
@@ -70,6 +72,8 @@ public sealed class OrbitLocalDbContext : DbContext
             message.HasKey(entity => entity.Id);
             message.HasIndex(entity => entity.Id);
         });
+
+        modelBuilder.Entity<LocalContact>(contact => contact.HasKey(entity => entity.UserId));
     }
 
     /// <summary>

@@ -3,7 +3,7 @@
     x:Class="Orbit.Maui.Features.Chat.ContactsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:contracts="clr-namespace:Orbit.Contracts.Chat;assembly=Orbit.Contracts"
+    xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
     xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
     x:DataType="chat:ContactsViewModel"
     Title="Chat">
@@ -23,7 +23,7 @@
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="contracts:ContactDto">
+                    <DataTemplate x:DataType="data:LocalContact">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12"

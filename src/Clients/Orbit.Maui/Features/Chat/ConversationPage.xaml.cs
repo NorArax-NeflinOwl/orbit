@@ -14,5 +14,16 @@ public partial class ConversationPage : ContentPage
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+		_viewModel.StartPolling();
+	}
+
+	/// <summary>
+	/// Polling belongs to the screen, not to the app - a conversation nobody is looking at should cost
+	/// nothing. See ConversationViewModel for why this is not the web client's once-a-second loop.
+	/// </summary>
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_viewModel.StopPolling();
 	}
 }

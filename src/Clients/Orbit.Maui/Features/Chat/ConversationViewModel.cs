@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Orbit.Contracts.Chat;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Sync;
 
@@ -20,7 +20,18 @@ public sealed partial class ConversationViewModel : ObservableObject
 	private readonly ChatSynchronizer _synchronizer;
 	private readonly AppNavigator _navigator;
 
-	private ContactDto? _contact;
+	/// <summary>
+	/// How often an open conversation checks for new messages. Orbit.Web polls chat once a second, which
+	/// info/orbit-maui-plan.md §11 singles out as the thing not to copy literally: on a phone that costs
+	/// battery and gets throttled the moment the app is backgrounded. This polls only while the screen is
+	/// actually in front of someone, and at a rate a person reading a conversation would not notice.
+	///
+	/// It is a stopgap either way - §4.2's silent push is what makes chat timely without a timer at all.
+	/// </summary>
+	private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(5);
+
+	private LocalContact? _contact;
+	private CancellationTokenSource? _polling;
 
 	[ObservableProperty]
 	private string _title = string.Empty;
@@ -54,7 +65,7 @@ public sealed partial class ConversationViewModel : ObservableObject
 	/// </summary>
 	public bool CanWrite => _contact?.PublicKeyBase64 is not null;
 
-	public void Open(ContactDto contact)
+	public void Open(LocalContact contact)
 	{
 		_contact = contact;
 		Title = contact.DisplayName;
@@ -104,8 +115,50 @@ public sealed partial class ConversationViewModel : ObservableObject
 
 	private bool CanSend => Draft.Trim().Length > 0 && CanWrite;
 
+	/// <summary>
+	/// Starts checking for new messages, and stops when the screen goes away. Driven by the page's own
+	/// lifecycle rather than a timer that outlives it, so a conversation nobody is looking at costs
+	/// nothing.
+	/// </summary>
+	public void StartPolling()
+	{
+		StopPolling();
+		_polling = new CancellationTokenSource();
+		_ = PollAsync(_polling.Token);
+	}
+
+	public void StopPolling()
+	{
+		_polling?.Cancel();
+		_polling?.Dispose();
+		_polling = null;
+	}
+
+	private async Task PollAsync(CancellationToken cancellationToken)
+	{
+		using var timer = new PeriodicTimer(PollingInterval);
+
+		try
+		{
+			while (await timer.WaitForNextTickAsync(cancellationToken))
+			{
+				// No spinner: a pull-to-refresh indicator appearing by itself every few seconds reads
+				// as the app struggling rather than as it working.
+				await SynchroniseAsync(cancellationToken, showProgress: false);
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			// The screen went away. Nothing to report - this loop is nobody's foreground work.
+		}
+	}
+
 	[RelayCommand]
-	private void GoBack() => _navigator.ShowContacts();
+	private void GoBack()
+	{
+		StopPolling();
+		_navigator.ShowContacts();
+	}
 
 	private async Task ShowStoredConversationAsync(CancellationToken cancellationToken)
 	{
@@ -134,14 +187,14 @@ public sealed partial class ConversationViewModel : ObservableObject
 		}
 	}
 
-	private async Task SynchroniseAsync(CancellationToken cancellationToken)
+	private async Task SynchroniseAsync(CancellationToken cancellationToken, bool showProgress = true)
 	{
 		if (_contact is null)
 		{
 			return;
 		}
 
-		IsRefreshing = true;
+		IsRefreshing = showProgress;
 		try
 		{
 			var result = await _synchronizer.SynchroniseConversationAsync(_contact.UserId, cancellationToken);

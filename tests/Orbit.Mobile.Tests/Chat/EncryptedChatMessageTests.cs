@@ -184,6 +184,49 @@ public sealed class EncryptedChatMessageTests
     }
 
     [Fact]
+    public async Task The_people_a_user_talks_to_are_readable_with_no_connection()
+    {
+        using var context = new ChatContext();
+        context.GiveTheOtherPartyAPublishedKey();
+        await context.Synchronizer.SynchroniseContactsAsync();
+
+        context.Server.IsUnreachable = true;
+        var refreshed = await context.Synchronizer.SynchroniseContactsAsync();
+
+        // Without this a conversation whose history is cached still could not be reached, which made
+        // offline chat readable in principle and not in practice.
+        Assert.False(refreshed);
+        Assert.Equal(context.OtherUserId, Assert.Single(await context.Repository.GetContactsAsync()).UserId);
+    }
+
+    [Fact]
+    public async Task Someone_who_has_dropped_off_the_servers_list_drops_off_here_too()
+    {
+        using var context = new ChatContext();
+        context.GiveTheOtherPartyAPublishedKey();
+        await context.Synchronizer.SynchroniseContactsAsync();
+
+        context.Server.Contacts.Clear();
+        await context.Synchronizer.SynchroniseContactsAsync();
+
+        // The server's list is the complete answer, so refreshing replaces rather than merges.
+        Assert.Empty(await context.Repository.GetContactsAsync());
+    }
+
+    [Fact]
+    public async Task A_cached_contact_carries_the_key_needed_to_know_they_can_be_written_to()
+    {
+        using var context = new ChatContext();
+        context.GiveTheOtherPartyAPublishedKey();
+
+        await context.Synchronizer.SynchroniseContactsAsync();
+
+        // Held for display - "can this person be written to at all" - and deliberately not used to
+        // encrypt, which always fetches the key fresh. See LocalContact.
+        Assert.Equal(context.OtherPublicKeyBase64, Assert.Single(await context.Repository.GetContactsAsync()).PublicKeyBase64);
+    }
+
+    [Fact]
     public async Task Syncing_a_conversation_offline_reports_it_rather_than_throwing()
     {
         using var context = new ChatContext();

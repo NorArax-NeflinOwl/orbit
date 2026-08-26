@@ -1,19 +1,21 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Orbit.Contracts.Chat;
-using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Data;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Maui.Features.Chat;
 
 /// <summary>
-/// Who the user can talk to. Online-only for now: contacts are not part of the local store yet (the plan
-/// makes them read-only offline, which is a later step), so this says so rather than showing nothing.
+/// Who the user can talk to. Read from the local cache and then refreshed, so the list opens with no
+/// connection - without that, a conversation whose history is cached still could not be reached, which
+/// made offline chat readable in principle and not in practice.
 /// </summary>
 public sealed partial class ContactsViewModel : ObservableObject
 {
-	private readonly ChatClient _chatClient;
+	private readonly ChatRepository _chatRepository;
+	private readonly ChatSynchronizer _synchronizer;
 	private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
 	private readonly AppNavigator _navigator;
 
@@ -24,14 +26,16 @@ public sealed partial class ContactsViewModel : ObservableObject
 	private bool _isRefreshing;
 
 	public ContactsViewModel(
-		ChatClient chatClient, OwnEncryptionKeyProvider encryptionKeyProvider, AppNavigator navigator)
+		ChatRepository chatRepository, ChatSynchronizer synchronizer,
+		OwnEncryptionKeyProvider encryptionKeyProvider, AppNavigator navigator)
 	{
-		_chatClient = chatClient;
+		_chatRepository = chatRepository;
+		_synchronizer = synchronizer;
 		_encryptionKeyProvider = encryptionKeyProvider;
 		_navigator = navigator;
 	}
 
-	public ObservableCollection<ContactDto> Contacts { get; } = [];
+	public ObservableCollection<LocalContact> Contacts { get; } = [];
 
 	public bool HasMessage => Message.Length > 0;
 
@@ -50,21 +54,19 @@ public sealed partial class ContactsViewModel : ObservableObject
 		IsRefreshing = true;
 		try
 		{
-			var contacts = await _chatClient.GetContactsAsync(cancellationToken);
-			Contacts.Clear();
-			foreach (var contact in contacts)
-			{
-				Contacts.Add(contact);
-			}
+			// What is already known first, so the list is never blank while a request is in flight.
+			await ShowCachedContactsAsync(cancellationToken);
 
-			if (Contacts.Count == 0)
+			if (await _synchronizer.SynchroniseContactsAsync(cancellationToken))
 			{
-				Message = "No conversations yet.";
+				await ShowCachedContactsAsync(cancellationToken);
 			}
-		}
-		catch (HttpRequestException)
-		{
-			Message = "Couldn't reach Orbit. Your conversations aren't stored on this device yet.";
+			else
+			{
+				Message = Contacts.Count == 0
+					? "Offline, and this device hasn't seen your conversations yet."
+					: "Offline - showing what's on this phone";
+			}
 		}
 		catch (OperationCanceledException)
 		{
@@ -76,8 +78,20 @@ public sealed partial class ContactsViewModel : ObservableObject
 		}
 	}
 
+	private async Task ShowCachedContactsAsync(CancellationToken cancellationToken)
+	{
+		var contacts = await _chatRepository.GetContactsAsync(cancellationToken);
+		Contacts.Clear();
+		foreach (var contact in contacts)
+		{
+			Contacts.Add(contact);
+		}
+
+		Message = Contacts.Count == 0 ? "No conversations yet." : string.Empty;
+	}
+
 	[RelayCommand]
-	private void OpenConversation(ContactDto? contact)
+	private void OpenConversation(LocalContact? contact)
 	{
 		if (contact is not null)
 		{

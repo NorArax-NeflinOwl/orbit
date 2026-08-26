@@ -35,6 +35,28 @@ public sealed class ChatSynchronizer
     }
 
     /// <summary>
+    /// Refreshes the cached contact list. Separate from a conversation's own sync because it is a
+    /// different question - who can be talked to, rather than what was said - and the chat list needs it
+    /// before any conversation is open.
+    ///
+    /// Never throws for being offline: the cached list is what the screen shows either way.
+    /// </summary>
+    public async Task<bool> SynchroniseContactsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _chatRepository.StoreContactsAsync(
+                await _chatClient.GetContactsAsync(cancellationToken), cancellationToken);
+            return true;
+        }
+        catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))
+        {
+            _logger.LogInformation("Could not refresh contacts ({Reason}); showing the cached list", exception.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Never throws for being offline, for the same reason note sync doesn't: this runs on a timer and on
     /// every screen open, and "there is no network" is an ordinary state on a phone.
     /// </summary>

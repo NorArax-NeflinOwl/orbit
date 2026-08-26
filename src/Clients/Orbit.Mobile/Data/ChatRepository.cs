@@ -19,6 +19,40 @@ public sealed class ChatRepository
         _timeProvider = timeProvider;
     }
 
+    /// <summary>The people this phone knows about, most recently spoken to first.</summary>
+    public async Task<IReadOnlyList<LocalContact>> GetContactsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await dbContext.Contacts
+            .AsNoTracking()
+            .OrderByDescending(contact => contact.LastMessageAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Replaces the cached contact list with what the server just returned. A wholesale replace rather
+    /// than a merge, because the server's list is the complete answer - someone who has dropped off it
+    /// should drop off here too.
+    /// </summary>
+    public async Task StoreContactsAsync(IReadOnlyList<ContactDto> contacts, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await dbContext.Contacts.ExecuteDeleteAsync(cancellationToken);
+
+        dbContext.Contacts.AddRange(contacts.Select(contact => new LocalContact
+        {
+            UserId = contact.UserId,
+            UserName = contact.UserName,
+            DisplayName = contact.DisplayName,
+            PublicKeyBase64 = contact.PublicKeyBase64,
+            LastMessageAtUtc = contact.LastMessageAtUtc,
+            RequiresApprovalFromCurrentUser = contact.RequiresApprovalFromCurrentUser,
+            IsPendingApprovalFromOtherParty = contact.IsPendingApprovalFromOtherParty
+        }));
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<LocalChatMessage>> GetConversationAsync(
         Guid otherUserId, CancellationToken cancellationToken = default)
     {

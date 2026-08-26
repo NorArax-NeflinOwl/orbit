@@ -649,6 +649,11 @@ least from being started early.
 - **Polling on a phone is not free.** The web client polls chat once a second and the dashboard every
   three. Reproducing that literally on a phone will cost battery and get throttled in the background;
   push-driven refresh plus polling only while foregrounded is the minimum adjustment.
+
+  **The minimum adjustment is in place for chat:** a conversation polls every five seconds and only
+  while its screen is actually in front of someone, started and stopped by the page's own lifecycle.
+  Silent push (§4.2) is still what would make this timely without a timer at all, and nothing else polls
+  yet - the notes screen syncs on open and on pull-to-refresh only.
 - **"Cross-platform" does not cover the interesting part.** The §9 features are per-platform code, so
   is background sync (§5.6), and Android needs its own answers to each. The shared-code win is real
   for the other 80%, not for these.
