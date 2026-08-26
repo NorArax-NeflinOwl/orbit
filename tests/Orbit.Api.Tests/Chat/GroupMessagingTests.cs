@@ -252,6 +252,37 @@ public sealed class GroupMessagingTests
         Assert.All(context.MessageRepository.All, copy => Assert.False(copy.IsEdited));
     }
 
+    [Fact]
+    public async Task The_last_member_leaving_takes_the_group_with_them()
+    {
+        var groupRepository = new InMemoryChatGroupRepository();
+        var owner = Guid.NewGuid();
+        var group = ChatGroup.Create(owner, "Weekend trip");
+        await groupRepository.AddAsync(group, CancellationToken.None);
+
+        var left = await new RemoveChatGroupMemberCommandHandler(groupRepository)
+            .HandleAsync(new RemoveChatGroupMemberCommand(owner, group.Id, owner), CancellationToken.None);
+
+        // An emptied group is not something to keep - the same tidy-up the account-deletion path does.
+        Assert.True(left);
+        Assert.Null(await groupRepository.GetByIdAsync(group.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Leaving_a_group_that_others_are_still_in_leaves_the_group_standing()
+    {
+        var context = new GroupMessagingTestContext();
+
+        var left = await new RemoveChatGroupMemberCommandHandler(context.GroupRepository)
+            .HandleAsync(new RemoveChatGroupMemberCommand(context.MemberId, context.GroupId, context.MemberId), CancellationToken.None);
+
+        Assert.True(left);
+        var group = await context.GroupRepository.GetByIdAsync(context.GroupId, CancellationToken.None);
+        Assert.NotNull(group);
+        Assert.False(group!.IsMember(context.MemberId));
+        Assert.True(group.IsMember(context.AdminId));
+    }
+
     /// <summary>A group of three, wired the way DI wires the real thing.</summary>
     private sealed class GroupMessagingTestContext
     {
