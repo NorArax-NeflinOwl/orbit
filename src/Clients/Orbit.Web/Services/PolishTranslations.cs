@@ -709,5 +709,9 @@ internal static class PolishTranslations
         ["Show this item's other settings"] = "Pokaż pozostałe ustawienia tej pozycji",
         ["Too many attempts. Wait a minute and try again."] = "Zbyt wiele prób. Odczekaj minutę i spróbuj ponownie.",
         ["{0} new"] = "nowe: {0}",
+        ["When it starts"] = "Gdy się zaczyna",
+        ["Shared their location, and keeps it up to date."] = "Udostępnił swoje położenie i na bieżąco je odświeża.",
+        ["Shared where they are right now."] = "Udostępnił, gdzie właśnie jest.",
+        ["Shared with you"] = "Udostępnione Tobie",
     };
 }

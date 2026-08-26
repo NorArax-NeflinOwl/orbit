@@ -1052,6 +1052,16 @@ else
             return;
         }
 
+        // No ShareId and nothing to accept, so it never becomes a ShareNotice: a shared position is
+        // already visible on the map to whoever it was sealed for. It reads as what happened.
+        if (TryDeserialize<LocationShareMessagePayload>(plainText) is { Type: LocationShareMessagePayload.MessageType } locationShare)
+        {
+            _decryptedContentByMessageId[message.Id] = locationShare.IsContinuous
+                ? T["Shared their location, and keeps it up to date."]
+                : T["Shared where they are right now."];
+            return;
+        }
+
         if (TryDeserialize<ReplyMessagePayload>(plainText) is { Type: ReplyMessagePayload.MessageType } reply)
         {
             _decryptedContentByMessageId[message.Id] = reply.Content;
