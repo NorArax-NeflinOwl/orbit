@@ -78,7 +78,7 @@
             @if (_isLiveSharing)
             {
                 <p class="empty-hint">
-                    @T["Your position goes out again every minute while this page is open, and stops the moment it isn't. Ending a share deletes the position from Orbit - nothing is kept afterwards."]
+                    @T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]
                 </p>
             }
         </div>
@@ -92,7 +92,7 @@
     {
         <div class="card">
             <p class="empty-hint">
-                @T["Nothing recorded yet. Recording asks your browser for your position - it will ask your permission first, and nothing is read until you press the button. Orbit keeps one point and no history: recording again replaces it, and forgetting it leaves nothing behind."]
+                @T["Nothing recorded yet. Orbit asks your browser for your position only when you press the button, and keeps one point with no history."]
             </p>
         </div>
         @* Somebody else's position does not wait on the reader having recorded their own. Without this

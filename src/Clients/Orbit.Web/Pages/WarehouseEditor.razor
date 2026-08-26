@@ -25,7 +25,7 @@ else
             <p class="page-subtitle">@T["Everything in this warehouse, edited together - a low item still raises a restock task."]</p>
             @if (_isShared)
             {
-                <p class="shared-note-banner">@T["Shared by"]<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
+                <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
             }
         </div>
         <button class="btn-secondary" @onclick="GoToWarehouses">@T["All warehouses"]</button>
@@ -53,7 +53,7 @@ else
                     <label>
                         <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                     <small>
-                        @T["Encrypted in this browser before it is saved, so Orbit's servers hold something they can't read - no item rows for this warehouse exist there at all. A private warehouse can't be shared, and any share of it stops working while it stays private. Because the server can no longer read a quantity or an expiry date, it raises no restock tasks and sends no expiry reminders. Losing your password means losing it."]
+                        @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, raises no restock or expiry reminders, and losing your password loses it."]
                     </small>
                 </div>
             }

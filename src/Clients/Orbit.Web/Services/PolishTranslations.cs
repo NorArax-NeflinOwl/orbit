@@ -285,8 +285,7 @@ internal static class PolishTranslations
             "Ukończone — wynika z powiązanej listy, nie da się ustawić ręcznie",
         ["Completion follows the linked list, so it can't be ticked by hand."] =
             "Ukończenie wynika z powiązanej listy, więc nie da się go odhaczyć ręcznie.",
-        ["Sorts this list against the others on the Tasks page. Where it has got to is worked out from its items."] =
-            "Porządkuje tę listę względem pozostałych na stronie Zadania. To, na jakim jest etapie, wynika z jej pozycji.",
+        ["Sorts this list against the others. Its progress is worked out from its items."] = "Porządkuje tę listę względem pozostałych. Postęp wynika z jej pozycji.",
         ["All warehouses"] = "Wszystkie magazyny",
         ["Expiry notification"] = "Powiadomienie o terminie ważności",
         ["Running low"] = "Kończy się",
@@ -330,7 +329,7 @@ internal static class PolishTranslations
         ["Nobody can recover it for you: forget it and your chat history becomes unreadable."] =
             "Nikt go za Ciebie nie odzyska: jeśli je zapomnisz, historia rozmów stanie się nieczytelna.",
         ["Resetting needs a confirmed email address, and yours isn't confirmed yet. Confirm it in"] =
-            "Reset wymaga potwierdzonego adresu e-mail, a Twój nie jest jeszcze potwierdzony. Potwierdź go w sekcji ",
+            "Reset wymaga potwierdzonego adresu e-mail, a Twój nie jest jeszcze potwierdzony. Potwierdź go w sekcji",
         ["The one location you've recorded for yourself, and where it is."] =
             "Jedyne położenie, jakie dla siebie zapisałeś, i gdzie ono jest.",
         ["Nothing in it yet."] = "Na razie nic w tym nie ma.",
@@ -359,12 +358,10 @@ internal static class PolishTranslations
         ["How long a notification stays on the"] = "Jak długo powiadomienie zostaje na",
         ["What this browser reports about Orbit itself. Kept on this device."] =
             "Co ta przeglądarka raportuje o samym Orbicie. Zapamiętywane na tym urządzeniu.",
-        ["Kept on this device - a browser grants location per device, so the answer is given per device too."] =
-            "Zapamiętywane na tym urządzeniu — przeglądarka przyznaje dostęp do położenia osobno na każdym, więc i odpowiedź jest osobna.",
+        ["Kept on this device, because a browser grants location per device."] = "Zapamiętywane na tym urządzeniu, bo przeglądarka przyznaje dostęp do położenia osobno na każdym.",
         ["Everything you own — notes, task lists, events and storages — as one JSON file, and back again."] =
             "Wszystko, co masz — notatki, listy zadań, wydarzenia i magazyny — w jednym pliku JSON i z powrotem.",
-        ["Master switch for the three settings below and for anything showing up in the Notifications panel/badge/banner at all."] =
-            "Główny przełącznik dla trzech ustawień poniżej i dla wszystkiego, co w ogóle pojawia się w panelu powiadomień.",
+        ["Master switch for everything below, and for the notifications panel itself."] = "Główny przełącznik dla wszystkiego poniżej i dla samego panelu powiadomień.",
         ["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."] =
             "Natychmiastowe alerty o nowych wiadomościach, przypomnieniach i zaległych zadaniach, nawet gdy Orbit jest zamknięty.",
         ["Shows a short banner at the top of the page when a new notification arrives while Orbit is open."] =
@@ -539,52 +536,36 @@ internal static class PolishTranslations
         ["An error occurred while logging in. Try again."] = "Wystąpił błąd podczas logowania. Spróbuj ponownie.",
         ["An error occurred while registering. Try again."] = "Wystąpił błąd podczas rejestracji. Spróbuj ponownie.",
         ["Tick items off; use Edit to change the list itself."] = "Odhaczaj pozycje; użyj Edytuj, aby zmienić samą listę.",
-        ["The checklist view of a group list also shows every list its items link to, so the whole group can be worked through on one screen."] =
-            "Widok listy grupowej pokazuje też każdą listę, z którą powiązane są jej pozycje, więc całą grupę można przejść na jednym ekranie.",
-        ["Encrypted in this browser before it is saved, so Orbit's servers hold something they can't read. A private note can't be shared, and any share of it stops working while it stays private. Losing your password means losing it - a reset replaces the key it was encrypted with, exactly as it does for chat history."] =
-            "Szyfrowana w tej przeglądarce przed zapisem, więc serwery Orbita trzymają coś, czego nie potrafią odczytać. Prywatnej notatki nie da się udostępnić, a każde jej udostępnienie przestaje działać, dopóki pozostaje prywatna. Utrata hasła oznacza utratę notatki — reset podmienia klucz, którym ją zaszyfrowano, dokładnie tak jak przy historii rozmów.",
-        ["Encrypted in this browser before it is saved, so Orbit's servers hold something they can't read. A private list can't be shared, and any share of it stops working while it stays private. Because the server can no longer read a due date, a private list gets no overdue or daily reminders - and losing your password loses the list, exactly as a reset loses chat history."] =
-            "Szyfrowana w tej przeglądarce przed zapisem, więc serwery Orbita trzymają coś, czego nie potrafią odczytać. Prywatnej listy nie da się udostępnić, a każde jej udostępnienie przestaje działać, dopóki pozostaje prywatna. Ponieważ serwer nie odczyta już terminu, prywatna lista nie dostaje przypomnień o zaległościach ani codziennych — a utrata hasła oznacza utratę listy, tak samo jak reset oznacza utratę historii rozmów.",
-        ["Encrypted in this browser before it is saved, so Orbit's servers hold something they can't read - no item rows for this warehouse exist there at all. A private warehouse can't be shared, and any share of it stops working while it stays private. Because the server can no longer read a quantity or an expiry date, it raises no restock tasks and sends no expiry reminders. Losing your password means losing it."] =
-            "Szyfrowany w tej przeglądarce przed zapisem, więc serwery Orbita trzymają coś, czego nie potrafią odczytać — nie ma tam w ogóle wierszy z pozycjami tego magazynu. Prywatnego magazynu nie da się udostępnić, a każde jego udostępnienie przestaje działać, dopóki pozostaje prywatny. Ponieważ serwer nie odczyta już ilości ani terminu ważności, nie tworzy zadań uzupełnienia i nie wysyła przypomnień o terminach. Utrata hasła oznacza utratę magazynu.",
-        ["Chat is end-to-end encrypted, and your key is protected with a password. Your account signs in with Google and doesn't have one yet, so pick one now - it's also what lets you read your messages on another device."] =
-            "Rozmowy są szyfrowane end-to-end, a Twój klucz chroni hasło. Twoje konto loguje się przez Google i nie ma jeszcze hasła, więc ustaw je teraz — to ono pozwala też czytać wiadomości na innym urządzeniu.",
-        ["This browser doesn't have a copy of your encryption key yet. Enter your password to restore it from your encrypted backup - it never leaves this browser."] =
-            "Ta przeglądarka nie ma jeszcze kopii Twojego klucza szyfrującego. Wpisz hasło, aby odtworzyć go z zaszyfrowanej kopii — klucz nigdy nie opuszcza tej przeglądarki.",
-        ["Setting a new password starts your chat over: messages encrypted under the old one stay unreadable, because Orbit's servers never had the key to them."] =
-            "Ustawienie nowego hasła zaczyna rozmowy od nowa: wiadomości zaszyfrowane starym pozostaną nieczytelne, bo serwery Orbita nigdy nie miały do nich klucza.",
+        ["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."] = "Widok listy grupowej pokazuje też wszystkie listy, które zbiera, więc cała grupa mieści się na jednym ekranie.",
+        ["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."] = "Szyfrowana w tej przeglądarce, więc Orbit jej nie odczyta. Nie da się jej udostępnić, a utrata hasła oznacza utratę notatki.",
+        ["Encrypted in this browser, so Orbit can't read it. It can't be shared, gets no reminders, and losing your password loses it."] = "Szyfrowana w tej przeglądarce, więc Orbit jej nie odczyta. Nie da się jej udostępnić, nie dostaje przypomnień, a utrata hasła oznacza utratę listy.",
+        ["Encrypted in this browser, so Orbit can't read it. It can't be shared, raises no restock or expiry reminders, and losing your password loses it."] = "Szyfrowany w tej przeglądarce, więc Orbit go nie odczyta. Nie da się go udostępnić, nie tworzy zadań uzupełnienia ani przypomnień o terminach, a utrata hasła oznacza utratę magazynu.",
+        ["Chat is end-to-end encrypted and your key is protected with a password. Your Google account has none yet, so pick one now."] = "Rozmowy są szyfrowane end-to-end, a klucz chroni hasło. Twoje konto Google jeszcze go nie ma, więc ustaw je teraz.",
+        ["This browser has no copy of your encryption key. Enter your password to restore it - it never leaves this browser."] = "Ta przeglądarka nie ma kopii Twojego klucza szyfrującego. Wpisz hasło, aby go odtworzyć — klucz nie opuszcza tej przeglądarki.",
+        ["A new password starts your chat over: messages under the old one stay unreadable, because Orbit never had their key."] = "Nowe hasło zaczyna rozmowy od nowa: wiadomości spod starego pozostaną nieczytelne, bo Orbit nigdy nie miał do nich klucza.",
         ["Chat requires a secure connection (an address starting with \"https://\", or \"http://localhost\"). Open Orbit at such an address and try again."] =
             "Rozmowy wymagają bezpiecznego połączenia (adres zaczynający się od „https://” albo „http://localhost”). Otwórz Orbita pod takim adresem i spróbuj ponownie.",
-        ["Nothing recorded yet. Recording asks your browser for your position - it will ask your permission first, and nothing is read until you press the button. Orbit keeps one point and no history: recording again replaces it, and forgetting it leaves nothing behind."] =
-            "Nic jeszcze nie zapisano. Zapis pyta przeglądarkę o Twoje położenie — najpierw poprosi Cię o zgodę, a nic nie zostanie odczytane, dopóki nie naciśniesz przycisku. Orbit trzyma jeden punkt i żadnej historii: kolejny zapis go zastępuje, a usunięcie nie zostawia niczego.",
-        ["Your position goes out again every minute while this page is open, and stops the moment it isn't. Ending a share deletes the position from Orbit - nothing is kept afterwards."] =
-            "Twoje położenie wysyłane jest ponownie co minutę, dopóki ta strona jest otwarta, i ustaje w chwili jej zamknięcia. Zakończenie udostępniania usuwa położenie z Orbita — nic nie zostaje.",
+        ["Nothing recorded yet. Orbit asks your browser for your position only when you press the button, and keeps one point with no history."] = "Nic jeszcze nie zapisano. Orbit pyta przeglądarkę o Twoje położenie dopiero po naciśnięciu przycisku i trzyma jeden punkt, bez historii.",
+        ["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."] = "Twoje położenie wysyłane jest co minutę, dopóki ta strona jest otwarta. Zakończenie udostępniania usuwa je z Orbita.",
         ["Anyone with this link can read it without an account. They can't change it, and they can save their own read-only copy by signing in."] =
             "Każdy, kto ma ten link, może to przeczytać bez konta. Nie może tego zmienić, a po zalogowaniu może zapisać u siebie własną kopię tylko do odczytu.",
         ["It may have been turned off by whoever shared it, or the thing it pointed at may be gone. Ask them for a new one."] =
             "Osoba, która go udostępniła, mogła go wyłączyć, albo rzecz, na którą wskazywał, już nie istnieje. Poproś o nowy.",
-        ["A note, task list, event, warehouse, or someone's location. The invitation always appears in your notifications either way - this adds a push notification or email on top, so you hear about it straight away rather than next time you look."] =
-            "Notatka, lista zadań, wydarzenie, magazyn albo czyjeś położenie. Zaproszenie i tak zawsze pojawia się w powiadomieniach — to dokłada do tego powiadomienie push lub e-mail, żebyś dowiedział się od razu, a nie przy następnym zaglądnięciu.",
-        ["Downloads a file holding everything in your account. Things other people shared with you stay theirs and are left out. A private item travels sealed: import it back here and it opens again, import it into another account and nobody there can read it."] =
-            "Pobiera plik ze wszystkim, co masz na koncie. Rzeczy udostępnione Ci przez innych pozostają ich i nie trafiają do pliku. Element prywatny podróżuje zaszyfrowany: zaimportowany tutaj z powrotem znów się otworzy, a zaimportowany na inne konto pozostanie tam nieczytelny.",
-        ["Adds everything in a file to this account. Nothing is replaced or matched up with what you already have, so importing the same file twice leaves two copies of everything."] =
-            "Dodaje do tego konta wszystko z pliku. Nic nie jest zastępowane ani dopasowywane do tego, co już masz, więc dwukrotny import tego samego pliku zostawia dwie kopie wszystkiego.",
+        ["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."] = "Zaproszenie i tak zawsze trafia do powiadomień. To dokłada push lub e-mail, żebyś dowiedział się od razu.",
+        ["Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed."] = "Pobiera wszystko z Twojego konta jako jeden plik. Rzeczy udostępnione Tobie zostają pominięte, a element prywatny podróżuje zaszyfrowany.",
+        ["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."] = "Dodaje do tego konta wszystko z pliku. Nic nie jest zastępowane, więc dwukrotny import zostawia dwie kopie.",
         ["Lets the Notifications panel list this browser's own recent errors, each with a \"Copy\" button for reporting a bug."] =
             "Pozwala panelowi powiadomień wypisać ostatnie błędy tej przeglądarki, każdy z przyciskiem „Kopiuj” do zgłoszenia usterki.",
-        ["Lets Orbit ask this browser where you are, for the map and for sharing your position with someone. Until you turn this on, nothing asks - not even the browser's own permission prompt. Turning it on doesn't send anything anywhere by itself."] =
-            "Pozwala Orbitowi zapytać tę przeglądarkę, gdzie jesteś — na potrzeby mapy i udostępniania położenia. Dopóki tego nie włączysz, nic nie pyta — nawet własne okno zgody przeglądarki. Samo włączenie niczego nigdzie nie wysyła.",
-        ["Debug shows what the app can tell you about itself - the captured log, and detail behind an error rather than just \"something went wrong\". Release keeps it out of the way. This is a choice about what you are shown, not the build Orbit was compiled as, which was fixed long before this page opened."] =
-            "Debug pokazuje, co aplikacja potrafi powiedzieć o sobie — zapisany log i szczegóły błędu zamiast samego „coś poszło nie tak”. Release trzyma to poza zasięgiem wzroku. To wybór dotyczący tego, co widzisz, a nie tego, jak Orbit został skompilowany — to ustalono na długo przed otwarciem tej strony.",
-        ["The least severe line this browser keeps in its own log. Warning by default: anything lower fills the buffer with routine noise long before an actual failure needs the space. Takes effect straight away."] =
-            "Najłagodniejszy wpis, jaki ta przeglądarka zachowuje we własnym logu. Domyślnie Warning: cokolwiek niżej zapełnia bufor rutynowym szumem, zanim miejsce przyda się przy prawdziwej awarii. Działa od razu.",
+        ["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."] = "Pozwala Orbitowi zapytać tę przeglądarkę, gdzie jesteś. Dopóki tego nie włączysz, nic nie pyta — a samo włączenie niczego nie wysyła.",
+        ["Debug shows the captured log and the detail behind an error. Release hides both."] = "Debug pokazuje zapisany log i szczegóły błędu. Release chowa jedno i drugie.",
+        ["The least severe line this browser keeps. Warning by default, so routine noise doesn't crowd out a real failure."] = "Najłagodniejszy wpis, jaki ta przeglądarka zachowuje. Domyślnie Warning, żeby rutynowy szum nie wypierał prawdziwej awarii.",
         ["before it is deleted for good (1-90). Clearing the panel only tidies them out of the way; this is what actually removes them."] =
             "zanim zostanie usunięte na dobre (1–90). Wyczyszczenie panelu tylko je uprząta; to ustawienie faktycznie je kasuje.",
         ["Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."] =
             "Trwale usuwa Twoje konto i wszystko, co się w nim znajduje — notatki, zadania, wydarzenia, magazyn i historię rozmów. Tego nie da się cofnąć.",
         ["Saving a different address doesn't move the account to it on its own - that only happens once you confirm the code sent to the new address."] =
             "Zapisanie innego adresu samo w sobie nie przenosi na niego konta — dzieje się to dopiero po potwierdzeniu kodu wysłanego na nowy adres.",
-        ["With a confirmed email address or a connected Google account, Orbit offers links that hand something off to Google: adding a calendar event or a task's deadline to Google Calendar, opening an address in Google Maps, and getting directions to it. The links open Google with everything filled in - Orbit never writes to your calendar itself and asks for no access to it."] =
-            "Przy potwierdzonym adresie e-mail lub połączonym koncie Google Orbit oferuje linki przekazujące coś do Google: dodanie wydarzenia albo terminu zadania do Kalendarza Google, otwarcie adresu w Mapach Google i wyznaczenie do niego trasy. Linki otwierają Google z wypełnionymi danymi — Orbit sam nigdy nie zapisuje nic w Twoim kalendarzu i nie prosi o dostęp do niego.",
+        ["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."] = "Dodaje linki otwierające Kalendarz Google lub Mapy Google z wypełnionymi danymi. Orbit sam nic nie zapisuje w Twoim kalendarzu.",
 
         // Composed in code: option labels, confirmations, and the stand-ins shown when
         // something can't be read or named.
@@ -667,7 +648,7 @@ internal static class PolishTranslations
         ["{0} sharing"] = "udostępnienia: {0}",
         ["Created:"] = "Utworzono:",
         ["Last updated:"] = "Ostatnia zmiana:",
-        ["Everything from the last {0}, newest first — cleared ones included. Older than that and they are deleted; change how long in"] = "Wszystko z ostatnich {0}, od najnowszych — łącznie z wyczyszczonymi. Starsze są usuwane; długość zmienisz w sekcji ",
+        ["Everything from the last {0}, newest first — cleared ones included. Older than that and they are deleted; change how long in"] = "Wszystko z ostatnich {0}, od najnowszych — łącznie z wyczyszczonymi. Starsze są usuwane; długość zmienisz w sekcji",
         ["day"] = "dzień",
         ["Group list - {0} linked {1} shown below."] = "Lista grupowa — poniżej powiązane listy ({0}).",
         ["list"] = "lista",
@@ -716,5 +697,8 @@ internal static class PolishTranslations
         ["Due date"] = "Termin",
         ["Due time"] = "Godzina",
         ["That message is no longer yours to edit."] = "Tej wiadomości nie możesz już edytować.",
+        ["Search chats"] = "Szukaj rozmów",
+        ["Search groups"] = "Szukaj grup",
+        ["Nothing matches that."] = "Nic nie pasuje.",
     };
 }

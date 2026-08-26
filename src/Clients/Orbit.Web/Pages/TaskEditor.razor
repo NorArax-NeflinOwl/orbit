@@ -33,7 +33,7 @@ else
 {
     @if (_isShared)
     {
-        <p class="shared-task-list-banner">@T["This task list was shared by"]<strong>@_sharedByUserName</strong> - @SharedAccessDescription.
+        <p class="shared-task-list-banner">@T["This task list was shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.
         </p>
         @if (_access.CanAskToEdit && _originalOwnerUserId is { } ownerUserId)
         {
@@ -65,7 +65,7 @@ else
                 <label>
                     <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
                 <small>
-                    @T["Encrypted in this browser before it is saved, so Orbit's servers hold something they can't read. A private list can't be shared, and any share of it stops working while it stays private. Because the server can no longer read a due date, a private list gets no overdue or daily reminders - and losing your password loses the list, exactly as a reset loses chat history."]
+                    @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, gets no reminders, and losing your password loses it."]
                 </small>
             </div>
         }
@@ -74,7 +74,7 @@ else
             <label>
                 <InputCheckbox @bind-Value="_formModel.IsGroup" />@T["Group list"]</label>
             <small>
-                @T["The checklist view of a group list also shows every list its items link to, so the whole group can be worked through on one screen."]
+                @T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]
             </small>
         </div>
 
@@ -85,7 +85,7 @@ else
                 <option value="Normal">@T["Normal"]</option>
                 <option value="High">@T["High"]</option>
             </InputSelect>
-            <small>@T["Sorts this list against the others on the Tasks page. Where it has got to is worked out from its items."]</small>
+            <small>@T["Sorts this list against the others. Its progress is worked out from its items."]</small>
         </div>
 
         <h2>@T["Items"]</h2>

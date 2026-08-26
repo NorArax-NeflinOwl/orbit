@@ -22,8 +22,7 @@
         <p class="page-subtitle">
             @T.Format(
                 "Everything from the last {0}, newest first — cleared ones included. Older than that and they are deleted; change how long in",
-                $"{_retentionDays} {(_retentionDays == 1 ? T["day"] : T["days"])}")
-            <a href="/options">@T["Options"]</a>.
+                $"{_retentionDays} {(_retentionDays == 1 ? T["day"] : T["days"])}")@Space<a href="/options">@T["Options"]</a>.
         </p>
     </div>
     <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">@T["Clear"]</button>

@@ -80,7 +80,7 @@
                 @if (_emailForm.IsCodePending)
                 {
                     <div class="field">
-                        <label for="emailCodeInput">@T["Code sent to"]<strong>@_emailForm.SentToAddress</strong></label>
+                        <label for="emailCodeInput">@T["Code sent to"]@Space<strong>@_emailForm.SentToAddress</strong></label>
                         <input id="emailCodeInput" inputmode="numeric" autocomplete="one-time-code" @bind="_emailForm.Code" />
                     </div>
                     <div class="form-actions">
@@ -90,7 +90,7 @@
                 }
                 else
                 {
-                    <div class="options-row-desc">@T["The code goes to"]<strong>@VerificationTargetAddress</strong>.</div>
+                    <div class="options-row-desc">@T["The code goes to"]@Space<strong>@VerificationTargetAddress</strong>.</div>
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">@T["Send code"]</button>
                     </div>
@@ -115,7 +115,7 @@
                         }
                     </div>
                     <div class="options-row-desc">
-                        @T["With a confirmed email address or a connected Google account, Orbit offers links that hand something off to Google: adding a calendar event or a task's deadline to Google Calendar, opening an address in Google Maps, and getting directions to it. The links open Google with everything filled in - Orbit never writes to your calendar itself and asks for no access to it."]
+                        @T["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."]
                     </div>
                 </div>
             </div>
@@ -227,7 +227,7 @@
             <div class="options-row">
                 <div>
                     <div class="options-row-title">@T["Allow notifications"]</div>
-                    <div class="options-row-desc">@T["Master switch for the three settings below and for anything showing up in the Notifications panel/badge/banner at all."]</div>
+                    <div class="options-row-desc">@T["Master switch for everything below, and for the notifications panel itself."]</div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowNotifications ? "on" : "")" role="switch"
                         aria-checked="@_notificationSettings.AllowNotifications" disabled="@_isSavingNotificationSettings"
@@ -251,7 +251,7 @@
                 <div>
                     <div class="options-row-title">@T["Tell me when something is shared with me"]</div>
                     <div class="options-row-desc">
-                        @T["A note, task list, event, warehouse, or someone's location. The invitation always appears in your notifications either way - this adds a push notification or email on top, so you hear about it straight away rather than next time you look."]
+                        @T["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."]
                     </div>
                 </div>
                 <button type="button" class="switch @(_notificationSettings.AllowShareNotifications ? "on" : "")" role="switch"
@@ -308,7 +308,7 @@
             <div class="options-row options-row-child">
                 <div>
                     <div class="options-row-title">@T["Keep notifications for (days)"]</div>
-                    <div class="options-row-desc">@T["How long a notification stays on the"]<a href="/notifications">@T["notifications page"]</a> @T["before it is deleted for good (1-90). Clearing the panel only tidies them out of the way; this is what actually removes them."]
+                    <div class="options-row-desc">@T["How long a notification stays on the"]@Space<a href="/notifications">@T["notifications page"]</a> @T["before it is deleted for good (1-90). Clearing the panel only tidies them out of the way; this is what actually removes them."]
                     </div>
                 </div>
                 <input type="number" id="retentionDaysInput" class="options-number-input" min="1" max="90"
@@ -329,13 +329,13 @@
 
     <div class="options-section">
         <h2 class="options-heading">@T["Location"]</h2>
-        <p class="options-subtext">@T["Kept on this device - a browser grants location per device, so the answer is given per device too."]</p>
+        <p class="options-subtext">@T["Kept on this device, because a browser grants location per device."]</p>
         <div class="options-card">
             <div class="options-row options-row-stacked">
                 <div>
                     <div class="options-row-title">@T["Use my location"]</div>
                     <div class="options-row-desc">
-                        @T["Lets Orbit ask this browser where you are, for the map and for sharing your position with someone. Until you turn this on, nothing asks - not even the browser's own permission prompt. Turning it on doesn't send anything anywhere by itself."]
+                        @T["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."]
                     </div>
                 </div>
                 <button type="button" class="switch @(DevicePreferences.AllowLocation ? "on" : "")" role="switch"
@@ -355,7 +355,7 @@
                 <div>
                     <div class="options-row-title">@T["Mode"]</div>
                     <div class="options-row-desc">
-                        @T["Debug shows what the app can tell you about itself - the captured log, and detail behind an error rather than just \"something went wrong\". Release keeps it out of the way. This is a choice about what you are shown, not the build Orbit was compiled as, which was fixed long before this page opened."]
+                        @T["Debug shows the captured log and the detail behind an error. Release hides both."]
                     </div>
                 </div>
                 <select id="diagnosticsModeSelect" class="options-select"
@@ -369,7 +369,7 @@
                 <div>
                     <div class="options-row-title">@T["Frontend log level"]</div>
                     <div class="options-row-desc">
-                        @T["The least severe line this browser keeps in its own log. Warning by default: anything lower fills the buffer with routine noise long before an actual failure needs the space. Takes effect straight away."]
+                        @T["The least severe line this browser keeps. Warning by default, so routine noise doesn't crowd out a real failure."]
                     </div>
                 </div>
                 <select id="frontendLogLevelSelect" class="options-select"
@@ -429,7 +429,7 @@
                 <div>
                     <div class="options-row-title">@T["Export"]</div>
                     <div class="options-row-desc">
-                        @T["Downloads a file holding everything in your account. Things other people shared with you stay theirs and are left out. A private item travels sealed: import it back here and it opens again, import it into another account and nobody there can read it."]
+                        @T["Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed."]
                     </div>
                 </div>
                 <button type="button" class="btn-secondary" disabled="@_isExporting" @onclick="ExportAsync">
@@ -440,7 +440,7 @@
                 <div>
                     <div class="options-row-title">@T["Import"]</div>
                     <div class="options-row-desc">
-                        @T["Adds everything in a file to this account. Nothing is replaced or matched up with what you already have, so importing the same file twice leaves two copies of everything."]
+                        @T["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."]
                     </div>
                 </div>
                 <InputFile OnChange="ImportAsync" accept=".json,application/json" disabled="@_isImporting" />

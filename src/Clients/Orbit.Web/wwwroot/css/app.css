@@ -921,6 +921,21 @@ input.note-editor-title {
     margin: 0 0 8px 0;
 }
 
+.chat-list-search {
+    width: 100%;
+    margin: 0 0 6px 0;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-primary);
+}
+
+.chat-list-empty {
+    padding: 4px 10px;
+}
+
 .icon-btn {
     width: 30px;
     height: 30px;

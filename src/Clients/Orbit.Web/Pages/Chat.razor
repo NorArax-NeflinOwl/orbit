@@ -68,8 +68,19 @@ else
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
                     }
                 </button>
+                @* Hidden when the list is collapsed to initials: there is no room for it, and nothing
+                   to read in the results either. *@
+                @if (!_isContactListCollapsed)
+                {
+                    <input class="chat-list-search" type="search" @bind="_chatSearch" @bind:event="oninput"
+                           placeholder="@(T["Search chats"])" aria-label="@(T["Search chats"])" />
+                }
             </div>
-            @foreach (var contact in _establishedChats)
+            @if (!_matchingChats.Any())
+            {
+                <p class="empty-hint chat-list-empty">@T["Nothing matches that."]</p>
+            }
+            @foreach (var contact in _matchingChats)
             {
                 @* The badge counts the messages themselves, not entries in the notification panel:
                    clearing that panel is tidying, not reading, and it used to take the only sign that
@@ -371,6 +382,30 @@ else
     /// <summary>The drawer's contact list - already-established conversations only, most recently active first (matches Contacts.razor's own "Chats" filter).</summary>
     private IEnumerable<ContactDto> _establishedChats
         => _contacts.Where(contact => !contact.RequiresApprovalFromCurrentUser).OrderByDescending(contact => contact.LastMessageAtUtc);
+
+    /// <summary>What the reader has typed into the drawer's search box.</summary>
+    private string _chatSearch = string.Empty;
+
+    /// <summary>
+    /// The conversations left after the search box. Filtered here rather than on the server: the drawer
+    /// already holds every contact, and a list short enough to scroll is short enough to filter.
+    /// Matches the display name and the login, since either is what someone might type.
+    /// </summary>
+    private IEnumerable<ContactDto> _matchingChats
+    {
+        get
+        {
+            var query = _chatSearch.Trim();
+            if (query.Length == 0)
+            {
+                return _establishedChats;
+            }
+
+            return _establishedChats.Where(contact =>
+                contact.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || contact.UserName.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+        }
+    }
 
     /// <summary>
     /// Populated for a message that decrypts to one of the three share payload shapes (calendar event,
