@@ -139,9 +139,11 @@
                 @foreach (var message in _messages)
                 {
                     <div class="list-row group-message @(message.SenderUserId == _ownUserId ? "own" : "")">
+                        @* Sender and text as two elements rather than two lines of markup: Razor drops
+                           the whitespace between them, which ran the name straight into the message. *@
                         <span class="row-title">
-                            <strong>@DisplayNameFor(message.SenderUserId)</strong>
-                            @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? "…")
+                            <strong class="group-message-sender">@DisplayNameFor(message.SenderUserId)</strong>
+                            <span class="group-message-text">@(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? "…")</span>
                         </span>
                         <span class="row-meta">@message.SentAtUtc.LocalDateTime.ToString("dd.MM HH:mm")</span>
                         @if (CanDelete(message))

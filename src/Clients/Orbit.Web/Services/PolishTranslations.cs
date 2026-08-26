@@ -708,5 +708,6 @@ internal static class PolishTranslations
         ["Hide this item's other settings"] = "Ukryj pozostałe ustawienia tej pozycji",
         ["Show this item's other settings"] = "Pokaż pozostałe ustawienia tej pozycji",
         ["Too many attempts. Wait a minute and try again."] = "Zbyt wiele prób. Odczekaj minutę i spróbuj ponownie.",
+        ["{0} new"] = "nowe: {0}",
     };
 }

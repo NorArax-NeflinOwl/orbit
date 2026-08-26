@@ -71,16 +71,23 @@ else
             </div>
             @foreach (var contact in _establishedChats)
             {
-                <button type="button" class="chat-list-item @(contact.UserId == UserId ? "active" : "")" title="@contact.DisplayName" @onclick="() => SwitchContact(contact.UserId)">
+                @* The badge counts the messages themselves, not entries in the notification panel:
+                   clearing that panel is tidying, not reading, and it used to take the only sign that
+                   somebody had written with it. *@
+                <button type="button" class="chat-list-item @(contact.UserId == UserId ? "active" : "") @(UnreadFrom(contact) > 0 ? "unread" : "")" title="@contact.DisplayName" @onclick="() => SwitchContact(contact.UserId)">
                     <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">
                         @AvatarHelper.GetInitials(contact.DisplayName)
-                        @if (NotificationFeedState.CountForChatWith(contact.UserId) is > 0 and var unreadFromContact)
+                        @if (UnreadFrom(contact) is > 0 and var unreadFromContact)
                         {
                             <span class="notif-badge">@FormatUnreadCount(unreadFromContact)</span>
                         }
                     </span>
                     <span class="chat-list-meta">
                         <span class="chat-list-name">@contact.DisplayName</span>
+                        @if (UnreadFrom(contact) is > 0 and var waiting)
+                        {
+                            <span class="chat-list-preview">@T.Format("{0} new", waiting)</span>
+                        }
                     </span>
                 </button>
             }
@@ -887,6 +894,22 @@ else
         }
     }
 
+    /// <summary>
+    /// Appends a message unless the list already holds it, and says whether it did. The one place that
+    /// decides this: sending and polling can each learn about the same message first, and either
+    /// adding it without asking puts it on screen twice.
+    /// </summary>
+    private bool AddMessageIfNew(ChatMessageDto message)
+    {
+        if (_messages.Any(existing => existing.Id == message.Id))
+        {
+            return false;
+        }
+
+        _messages.Add(message);
+        return true;
+    }
+
     private async Task LoadNewMessagesAsync()
     {
         var sinceUtc = _messages.Count > 0 ? _messages[^1].SentAtUtc : (DateTimeOffset?)null;
@@ -898,14 +921,12 @@ else
         foreach (var message in newMessages)
         {
             // GetConversationAsync's "since" filter can re-return the very message that was just added
-            // optimistically by SendMessageAsync (same SentAtUtc as the "since" cursor) - skipping an
-            // id already present keeps a poll tick from duplicating it in the list.
-            if (_messages.Any(existing => existing.Id == message.Id))
+            // by SendMessageAsync (same SentAtUtc as the "since" cursor).
+            if (!AddMessageIfNew(message))
             {
                 continue;
             }
 
-            _messages.Add(message);
             addedAnyMessage = true;
             await DecryptAndCacheAsync(message);
         }
@@ -1233,7 +1254,11 @@ else
             var sent = await ChatApiClient.SendMessageAsync(
                 new SendMessageRequest(UserId, payload.CiphertextBase64, payload.NonceBase64));
 
-            _messages.Add(sent);
+            // A poll tick that overlapped this send may already have picked the message up: the server
+            // had stored it before this await returned, so both paths can hold it. Adding it blind is
+            // what showed the first message of a conversation twice, where an empty list makes the poll
+            // fetch everything and the overlap is near-certain.
+            AddMessageIfNew(sent);
             _decryptedContentByMessageId[sent.Id] = _draftMessage;
             if (_replyingTo is { } answered)
             {
@@ -1264,6 +1289,14 @@ else
     }
 
     /// <summary>Matches MainLayout's own badge formatting - 1-9 as-is, "9+" above that.</summary>
+    /// <summary>
+    /// Unread messages waiting from this contact. Comes from the conversation itself (ContactDto), so
+    /// it survives clearing the notification panel and disappears only once the conversation is opened.
+    /// The one exception is the conversation on screen, which the poll loop is marking read as it goes -
+    /// showing a count beside it would flicker against a list refreshed a moment later.
+    /// </summary>
+    private int UnreadFrom(ContactDto contact) => contact.UserId == UserId ? 0 : contact.UnreadCount;
+
     private static string FormatUnreadCount(int count) => count > 9 ? "9+" : count.ToString(CultureInfo.InvariantCulture);
 
     private void OnNotificationFeedChanged() => InvokeAsync(StateHasChanged);
