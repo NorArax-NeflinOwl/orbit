@@ -8,7 +8,10 @@ namespace Orbit.Core.Permissions;
 ///
 ///     SELECT "Permission", "Code" FROM "PermissionCodes";
 ///
-/// and so they survive a restart, a redeploy and a rotated secret - which a derived code does not.
+/// and so they survive a restart and a redeploy - which a derived code does not. A stored code is also
+/// one that can be changed on purpose: see <see cref="RotateAsync"/>, and the UPDATE that does the same
+/// thing by hand. Nothing is cached, so a code changed either way takes effect on the next attempt to
+/// redeem one, without a restart.
 /// </summary>
 public sealed class PermissionCodeStore
 {
@@ -21,7 +24,8 @@ public sealed class PermissionCodeStore
 
     /// <summary>
     /// Makes a code for every permission that has none, and leaves every existing one alone. Safe to
-    /// call on every start: it is what fills in a permission added after the last deployment.
+    /// call on every start: it is what fills in a permission added after the last deployment, and the
+    /// reason a code rotated in the meantime is still the code after the next one.
     /// </summary>
     public async Task<IReadOnlyList<PermissionCode>> EnsureEveryPermissionHasOneAsync(CancellationToken cancellationToken)
     {
@@ -30,11 +34,23 @@ public sealed class PermissionCodeStore
 
         foreach (var permission in Enum.GetValues<ApplicationPermission>().Where(permission => !covered.Contains(permission)))
         {
-            await _permissionCodeRepository.AddIfAbsentAsync(
+            await _permissionCodeRepository.SaveAsync(
                 PermissionCode.Mint(permission, DateTimeOffset.UtcNow), cancellationToken);
         }
 
         return await _permissionCodeRepository.GetAllAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Replaces one permission's code with a freshly made one and returns it. What the permission
+    /// unlocked before stops unlocking anything the moment this returns, so whoever holds the old code
+    /// loses it - which is the point of rotating one, and the reason nothing calls this on a schedule.
+    /// </summary>
+    public async Task<PermissionCode> RotateAsync(ApplicationPermission permission, CancellationToken cancellationToken)
+    {
+        var rotated = PermissionCode.Mint(permission, DateTimeOffset.UtcNow);
+        await _permissionCodeRepository.SaveAsync(rotated, cancellationToken);
+        return rotated;
     }
 
     /// <summary>

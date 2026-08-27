@@ -27,20 +27,31 @@ public sealed class PermissionCodeRepository : IPermissionCodeRepository
             .OfType<PermissionCode>()];
     }
 
-    public async Task AddIfAbsentAsync(PermissionCode code, CancellationToken cancellationToken)
+    /// <summary>
+    /// Writes the code over whatever that permission held, or puts the first one there. The row is
+    /// rewritten rather than removed and remade, so a permission is never left without a code.
+    /// </summary>
+    public async Task SaveAsync(PermissionCode code, CancellationToken cancellationToken)
     {
         var name = code.Permission.ToString();
-        if (await _dbContext.PermissionCodes.AnyAsync(row => row.Permission == name, cancellationToken))
+        var existing = await _dbContext.PermissionCodes
+            .FirstOrDefaultAsync(row => row.Permission == name, cancellationToken);
+
+        if (existing is null)
         {
-            return;
+            _dbContext.PermissionCodes.Add(new PermissionCodeEntity
+            {
+                Permission = name,
+                Code = code.Code,
+                CreatedAtUtc = code.CreatedAtUtc
+            });
+        }
+        else
+        {
+            existing.Code = code.Code;
+            existing.CreatedAtUtc = code.CreatedAtUtc;
         }
 
-        _dbContext.PermissionCodes.Add(new PermissionCodeEntity
-        {
-            Permission = name,
-            Code = code.Code,
-            CreatedAtUtc = code.CreatedAtUtc
-        });
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

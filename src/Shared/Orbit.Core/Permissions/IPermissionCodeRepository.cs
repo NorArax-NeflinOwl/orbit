@@ -5,8 +5,8 @@ public interface IPermissionCodeRepository
     Task<IReadOnlyList<PermissionCode>> GetAllAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Stores a code for a permission that has none. Does nothing when one already exists - the codes
-    /// are handed out, so minting a second one would quietly invalidate whatever somebody was told.
+    /// Stores the code for a permission, replacing whatever that permission had before. Whether a
+    /// permission's code should be left alone is the caller's decision, not this one's.
     /// </summary>
-    Task AddIfAbsentAsync(PermissionCode code, CancellationToken cancellationToken);
+    Task SaveAsync(PermissionCode code, CancellationToken cancellationToken);
 }

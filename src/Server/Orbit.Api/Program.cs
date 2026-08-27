@@ -271,9 +271,9 @@ try
         dbContext.Database.Migrate();
     }
 
-    // Every permission gets a code the first time this deployment starts without one, and keeps it
-    // afterwards - a code that changed under whoever was told it would be worse than no code at all.
-    // They are rows, so reading them back is a plain query rather than a search through a build log:
+    // Every permission gets a code the first time this deployment starts without one. Starting again
+    // never changes one, so a code rotated on purpose stays rotated. They are rows, so reading them back
+    // is a plain query rather than a search through a build log, and changing one is an UPDATE:
     //
     //     SELECT "Permission", "Code" FROM "PermissionCodes";
     using (var scope = app.Services.CreateScope())

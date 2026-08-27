@@ -297,9 +297,10 @@ jobs:
       # version is always traceable back to the workflow run that produced it. (":latest" is also
       # pushed above for convenience, e.g. manual `az containerapp up` testing, but isn't what gets
       # deployed here.)
-      # Permission unlock codes are rows in the database now, made once on the first start that finds
-      # them missing and kept afterwards - so there is nothing to generate or inject here, and nothing
-      # that changes under whoever was told a code. Read them with:
+      # Permission unlock codes are rows in the database now, made on the first start that finds them
+      # missing and left alone by every start after that - so there is nothing to generate or inject
+      # here, and a deployment does not change a code. Rotating one is an UPDATE, run when it is wanted
+      # rather than on every release. Read them with:
       #
       #     SELECT "Permission", "Code" FROM "PermissionCodes";
       - name: Deploy orbit-api
