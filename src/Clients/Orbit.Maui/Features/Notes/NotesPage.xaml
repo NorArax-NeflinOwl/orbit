@@ -30,7 +30,10 @@
         <RefreshView Grid.Row="1"
                      IsRefreshing="{Binding IsRefreshing}"
                      Command="{Binding LoadCommand}">
-            <CollectionView ItemsSource="{Binding Notes}">
+            <CollectionView ItemsSource="{Binding Notes}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
                     <Label Text="{controls:Translate 'No notes yet.'}" Padding="24" HorizontalTextAlignment="Center" />

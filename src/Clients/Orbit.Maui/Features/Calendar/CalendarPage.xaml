@@ -26,7 +26,10 @@
         </Grid>
 
         <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
-            <CollectionView ItemsSource="{Binding Events}">
+            <CollectionView ItemsSource="{Binding Events}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
                     <Label Text="{controls:Translate 'Nothing coming up.'}" Padding="24" HorizontalTextAlignment="Center" />

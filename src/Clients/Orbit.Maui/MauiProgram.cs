@@ -241,7 +241,11 @@ public static class MauiProgram
 		services.AddTransient<GroupDetailPage>();
 		services.AddTransient<GroupDetailViewModel>();
 		services.AddTransient<NotesPage>();
+		services.AddTransient<NoteDetailPage>();
+		services.AddTransient<CalendarEventDetailPage>();
 		services.AddTransient<NotesViewModel>();
+		services.AddTransient<NoteDetailViewModel>();
+		services.AddTransient<CalendarEventDetailViewModel>();
 		services.AddTransient<TasksPage>();
 		services.AddTransient<TasksViewModel>();
 		services.AddTransient<TaskListDetailPage>();

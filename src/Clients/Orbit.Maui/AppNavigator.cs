@@ -75,6 +75,12 @@ public sealed class AppNavigator : IScreenNavigator
 	public void ShowTaskList(Guid localId)
 		=> ShowAsRoot<TaskListDetailPage>(page => page.ViewModel.Open(localId));
 
+	public void ShowNote(Guid localId)
+		=> ShowAsRoot<NoteDetailPage>(page => page.ViewModel.Open(localId));
+
+	public void ShowCalendarEvent(Guid localId)
+		=> ShowAsRoot<CalendarEventDetailPage>(page => page.ViewModel.Open(localId));
+
 	/// <summary>
 	/// A conversation needs to know whose it is, and these screens are resolved from the container rather
 	/// than constructed - so the page is told after it exists, before it is shown.

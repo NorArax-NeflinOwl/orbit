@@ -113,6 +113,19 @@ public sealed partial class NotesViewModel : ObservableObject
         await ShowLocalNotesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Opens one note. A hidden row opens nothing: it offers the lock instead, which is the whole point
+    /// of hiding it - see NoteListItem.CanBeOpened.
+    /// </summary>
+    [RelayCommand]
+    private void Open(NoteListItem? row)
+    {
+        if (row is { CanBeOpened: true })
+        {
+            _navigator.ShowNote(row.LocalId);
+        }
+    }
+
     /// <summary>The way back to the dashboard, as every other list screen has - see NotesPage.</summary>
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();

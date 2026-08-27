@@ -83,6 +83,16 @@ public sealed class LocalNoteRepository
         return note;
     }
 
+    /// <inheritdoc cref="LocalTaskListRepository.CanEditAsync"/>
+    public async Task<bool> CanEditAsync(Guid localId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var note = await dbContext.Notes.AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken);
+
+        return note is not null && OfflineEditPolicy.IsAllowed(note, _networkStatus);
+    }
+
     /// <summary>Refuses rather than queues when the offline policy forbids it - see LocalWriteOutcome.</summary>
     public async Task<LocalWriteOutcome> UpdateAsync(
         Guid localId, string title, IReadOnlyList<NoteContentLineDto> content, CancellationToken cancellationToken = default)

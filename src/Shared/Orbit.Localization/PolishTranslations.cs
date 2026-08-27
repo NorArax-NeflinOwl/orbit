@@ -947,6 +947,22 @@ public static class PolishTranslations
         ["Saved."] = "Zapisano.",
         ["Pinning needs a connection."] = "Przypięcie wymaga połączenia.",
 
+        // The note editor - the screen a note opens into.
+        ["New line"] = "Nowy wiersz",
+        ["Nothing written here yet."] = "Nic tu jeszcze nie napisano.",
+        ["Back to notes"] = "Wróć do notatek",
+        ["Delete note"] = "Usuń notatkę",
+
+        // The event editor - the screen a calendar entry opens into.
+        ["When"] = "Kiedy",
+        ["Back to calendar"] = "Wróć do kalendarza",
+        ["Somebody else can change this event, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać to wydarzenie, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["Somebody else can change this note, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["This note is private, and its words are sealed with a key this phone doesn't have."] =
+            "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
+
         // One group message's own info view: who it reached, and who has opened it.
         ["{0} - read {1}"] = "{0} — przeczytano {1}",
         ["{0} - delivered"] = "{0} — dostarczono",

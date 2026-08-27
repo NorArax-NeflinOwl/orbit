@@ -77,6 +77,16 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     private bool CanAddEvent => NewEventTitle.Trim().Length > 0;
 
+    /// <summary>Opens one event, as the notes list opens one note.</summary>
+    [RelayCommand]
+    private void Open(CalendarEventRow? row)
+    {
+        if (row is not null)
+        {
+            _navigator.ShowCalendarEvent(row.LocalId);
+        }
+    }
+
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();
 
