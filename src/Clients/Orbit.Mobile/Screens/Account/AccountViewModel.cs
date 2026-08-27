@@ -72,7 +72,7 @@ public sealed partial class AccountViewModel : ObservableObject
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
         UserPermissions permissions, IThemeStore themes, TransferClient transfer,
-        IScreenNavigator navigator)
+        Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
@@ -84,8 +84,16 @@ public sealed partial class AccountViewModel : ObservableObject
         _themes = themes;
         _transfer = transfer;
         _theme = themes.Read();
+        Notifications = notifications;
         _navigator = navigator;
     }
+
+    /// <summary>
+    /// How Orbit is allowed to interrupt, which Orbit.Web keeps in this same Options page under
+    /// Appearance. It had a screen of its own here, reached from a menu entry called "Settings" beside
+    /// one called "Account" - two doors to the same room, and neither name said which.
+    /// </summary>
+    public Notifications.NotificationSettingsViewModel Notifications { get; }
 
     /// <summary>
     /// Which section is showing. Tabs rather than one long scroll, as Orbit.Web's Options page has -
@@ -227,6 +235,7 @@ public sealed partial class AccountViewModel : ObservableObject
 
         await _permissions.EnsureLoadedAsync();
         ShowPermissions();
+        await Notifications.LoadCommand.ExecuteAsync(null);
     }
 
     /// <summary>

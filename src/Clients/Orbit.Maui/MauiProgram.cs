@@ -275,7 +275,6 @@ public static class MauiProgram
 		services.AddTransient<WarehouseDetailViewModel>();
 		services.AddTransient<NotificationFeedPage>();
 		services.AddTransient<NotificationFeedViewModel>();
-		services.AddTransient<NotificationSettingsPage>();
 		services.AddTransient<NotificationSettingsViewModel>();
 		services.AddTransient<DiagnosticsPage>();
 		services.AddTransient<DiagnosticsViewModel>();

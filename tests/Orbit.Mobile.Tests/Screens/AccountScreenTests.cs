@@ -3,6 +3,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Account;
+using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 
@@ -141,6 +142,12 @@ public sealed class AccountScreenTests
         /// <summary>The account's whole archive, out and back - see TransferClient.</summary>
         public FakeTransferServer Transfer { get; } = new();
 
+        /// <summary>
+        /// How Orbit may interrupt, which now lives under this screen's Appearance tab rather than on a
+        /// screen of its own - see AccountViewModel.Notifications.
+        /// </summary>
+        public FakeNotificationServer Notifications { get; } = new();
+
         private readonly SessionStore _sessionStore = new(new InMemorySessionStorage(
             new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Me")));
 
@@ -159,12 +166,16 @@ public sealed class AccountScreenTests
                 UnlockedPermissions.For(_localStore),
                 Themes,
                 new TransferClient(Transfer.ToHttpClient()),
+                new NotificationSettingsViewModel(
+                    new NotificationsClient(Notifications.ToHttpClient()),
+                    new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator()),
                 new RecordingScreenNavigator());
 
         public void Dispose()
         {
             _users.Dispose();
             Transfer.Dispose();
+            Notifications.Dispose();
             _localStore.Dispose();
         }
     }

@@ -68,8 +68,6 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>();
 
-	public void ShowNotificationSettings() => ShowAsRoot<NotificationSettingsPage>();
-
 	public void ShowDiagnostics() => ShowAsRoot<DiagnosticsPage>();
 
 	public void ShowTaskList(Guid localId)

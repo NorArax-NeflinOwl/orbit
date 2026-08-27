@@ -275,8 +275,6 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     /// Notification settings, reached from here rather than from the notification list. They are the
     /// account's settings, and the list is a list.
     /// </summary>
-    [RelayCommand]
-    private void GoToNotificationSettings() => LeaveMenuFor(_navigator.ShowNotificationSettings);
 
     /// <summary>Whether the reader has chosen to be shown as available - see Presence for the other two states.</summary>
     public bool IsAvailable => _presence.Chosen == ChosenAvailability.Available;
