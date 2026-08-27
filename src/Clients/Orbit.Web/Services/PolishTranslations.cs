@@ -701,5 +701,8 @@ internal static class PolishTranslations
         ["Remove from my list"] = "Usuń z mojej listy",
         ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
+        ["Full screen"] = "Pełny ekran",
+        ["Leave full screen"] = "Zamknij pełny ekran",
+        ["Someone"] = "Ktoś",
     };
 }
