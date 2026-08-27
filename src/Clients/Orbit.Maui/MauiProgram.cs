@@ -121,6 +121,9 @@ public static class MauiProgram
 		// One holder for the whole app: the tap is recorded by platform code and taken by whatever
 		// screen is ready to follow it, which only works if both see the same instance.
 		services.AddSingleton<PendingNotificationTap>();
+		// One instance, because it is where the app is rather than what a screen knows: the navigator
+		// writes to it on every move and the phone's back gesture reads it - see UpNavigation.
+		services.AddSingleton<UpNavigation>();
 		// Both are singletons because they describe the app rather than a screen: every navigation
 		// bar reads the same presence, and every section reports into the same sync state.
 		services.AddSingleton<Orbit.Mobile.Presence.Presence>();
