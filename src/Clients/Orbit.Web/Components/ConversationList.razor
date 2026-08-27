@@ -1,0 +1,112 @@
+@using Orbit.Core.Users
+@using Orbit.Web.Services
+@inject Translations T
+
+@* Every conversation this reader has, people and groups in one list. Groups used to have a page of
+   their own, which meant looking in two places for "who have I been talking to" - and switching pages
+   to answer it. The panel is the same one on both chat screens, so the list does not move about. *@
+<div class="chat-list @(IsOpen ? "open" : "") @(IsCollapsed ? "collapsed" : "")">
+    <div class="chat-list-header">
+        <button type="button" class="icon-btn" title="@(IsCollapsed ? T["Show names"] : T["Hide names"])"
+                @onclick="OnToggleCollapsed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="@(IsCollapsed ? "M7.5 4.5L13 10l-5.5 5.5" : "M12.5 4.5L7 10l5.5 5.5")" />
+            </svg>
+        </button>
+        @* Hidden when the list is collapsed to initials: there is no room for it, and nothing to read in
+           the results either. *@
+        @if (!IsCollapsed)
+        {
+            <input class="chat-list-search" type="search" value="@Search" @oninput="OnSearchInput"
+                   placeholder="@(T["Search conversations"])" aria-label="@(T["Search conversations"])" />
+        }
+    </div>
+
+    @if (Conversations.Count == 0)
+    {
+        @if (!IsCollapsed)
+        {
+            <p class="empty-hint chat-list-empty">@T["Nothing matches that."]</p>
+        }
+    }
+    else
+    {
+        @foreach (var conversation in Conversations)
+        {
+            @* The badge counts the messages themselves, not entries in the notification panel: clearing
+               that panel is tidying, not reading. *@
+            <button type="button" title="@conversation.Name" @onclick="() => OnSelected.InvokeAsync(conversation)"
+                    class="chat-list-item @(conversation.Id == ActiveId ? "active" : "") @(conversation.UnreadCount > 0 ? "unread" : "")">
+                <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(conversation.Id)">
+                    @AvatarHelper.GetInitials(conversation.Name)
+                    @if (conversation.UnreadCount > 0)
+                    {
+                        <span class="notif-badge">@FormatUnreadCount(conversation.UnreadCount)</span>
+                    }
+                    @if (conversation.Presence is { } presence)
+                    {
+                        <PresenceDot Status="presence" />
+                    }
+                </span>
+                @if (!IsCollapsed)
+                {
+                    <span class="chat-list-meta">
+                        <span class="chat-list-name">
+                            @conversation.Name
+                            @if (conversation.IsGroup)
+                            {
+                                @* Says which kind of conversation a row is, now that both are in one list. *@
+                                <span class="conversation-kind" title="@(T["Group chat"])" aria-label="@(T["Group chat"])">
+                                    <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="7" cy="7" r="3" /><path d="M2 16c0-2.8 2.2-5 5-5s5 2.2 5 5" />
+                                        <path d="M13 4.3a3 3 0 0 1 0 5.4" /><path d="M14.5 11.4c2 .7 3.5 2.4 3.5 4.6" />
+                                    </svg>
+                                </span>
+                            }
+                        </span>
+                        @if (conversation.Note is { Length: > 0 } note)
+                        {
+                            <span class="chat-list-preview">@note</span>
+                        }
+                    </span>
+                }
+            </button>
+        }
+    }
+
+    @if (!IsCollapsed && OnNewGroup.HasDelegate)
+    {
+        <button type="button" class="btn-secondary chat-list-new-group" @onclick="OnNewGroup">@T["New group"]</button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Conversation> Conversations { get; set; } = [];
+
+    /// <summary>Whichever conversation is open on the screen this list is beside.</summary>
+    [Parameter] public Guid? ActiveId { get; set; }
+
+    /// <summary>Whether the drawer is showing on a narrow screen, where the list slides in over the thread.</summary>
+    [Parameter] public bool IsOpen { get; set; }
+
+    /// <summary>Collapsed to initials, for a reader who wants the room for the conversation itself.</summary>
+    [Parameter] public bool IsCollapsed { get; set; }
+
+    [Parameter] public EventCallback OnToggleCollapsed { get; set; }
+
+    [Parameter] public string Search { get; set; } = string.Empty;
+
+    [Parameter] public EventCallback<string> SearchChanged { get; set; }
+
+    [Parameter, EditorRequired] public EventCallback<Conversation> OnSelected { get; set; }
+
+    /// <summary>Offered only where the screen can act on it - see the two chat pages.</summary>
+    [Parameter] public EventCallback OnNewGroup { get; set; }
+
+    private Task OnSearchInput(ChangeEventArgs args) => SearchChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+
+    /// <summary>Keeps a badge from stretching its avatar once somebody has left a chat unread for a while.</summary>
+    private static string FormatUnreadCount(int unread) => unread > 9 ? "9+" : unread.ToString();
+}

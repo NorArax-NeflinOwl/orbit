@@ -1563,6 +1563,22 @@ input.note-editor-title {
     flex: 1;
 }
 
+/* Marks a row in the conversation list as a group rather than a person, now that both share it. */
+.conversation-kind {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    color: var(--text-tertiary);
+    vertical-align: middle;
+}
+
+/* Sits under the conversations rather than in the page header: starting a group belongs with the list
+   of them, and both chat screens show that list. */
+.chat-list-new-group {
+    margin: 8px;
+    width: calc(100% - 16px);
+}
+
 .chat-list-name {
     font-size: 13.5px;
     font-weight: 600;

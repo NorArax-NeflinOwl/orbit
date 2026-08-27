@@ -172,7 +172,7 @@ else
                 @foreach (var contact in _recentContacts.Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                         <span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span>
                     </button>
@@ -187,7 +187,7 @@ else
                 @foreach (var contact in _contactsAlphabetically)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                     </button>
                 }
@@ -202,13 +202,6 @@ else
 }
 
 @code {
-    /// <summary>
-    /// What to show next to this person right now. The API resolves it as the list is read, so an
-    /// unreadable value can only mean a client and server that disagree about the names - offline is
-    /// the honest answer to that, rather than claiming somebody is there.
-    /// </summary>
-    private static PresenceStatus StatusOf(ContactDto contact)
-        => Enum.TryParse<PresenceStatus>(contact.PresenceStatus, out var status) ? status : PresenceStatus.Offline;
 
     private IReadOnlyList<NoteDto>? _notes;
     private IReadOnlyList<TaskDto>? _taskLists;

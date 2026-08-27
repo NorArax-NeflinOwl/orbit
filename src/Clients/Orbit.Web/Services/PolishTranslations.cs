@@ -77,6 +77,8 @@ internal static class PolishTranslations
         ["Show single items"] = "Pokaż pojedyncze elementy",
         ["In list order"] = "W kolejności listy",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
+        ["Search conversations"] = "Szukaj rozmów",
+        ["Group chat"] = "Czat grupowy",
         ["Everything here is hidden. The menu at the top right brings it back."] =
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
@@ -219,7 +221,6 @@ internal static class PolishTranslations
 
         // ---- Chat ----
         ["Chats"] = "Rozmowy",
-        ["Group chats"] = "Czaty grupowe",
         ["New request"] = "Nowa prośba",
         ["New requests"] = "Nowe prośby",
         ["Open chat"] = "Otwórz rozmowę",
@@ -366,8 +367,6 @@ internal static class PolishTranslations
         ["Write to the group"] = "Napisz do grupy",
         ["New group"] = "Nowa grupa",
         ["Group name"] = "Nazwa grupy",
-        ["Your groups"] = "Twoje grupy",
-        ["No groups yet."] = "Nie masz jeszcze grup.",
         ["Who's in it"] = "Kto należy",
         ["Weekend trip"] = "Wyjazd na weekend",
         ["You need at least one contact to start a group."] =
@@ -764,8 +763,6 @@ internal static class PolishTranslations
         ["Due date"] = "Termin",
         ["Due time"] = "Godzina",
         ["That message is no longer yours to edit."] = "Tej wiadomości nie możesz już edytować.",
-        ["Search chats"] = "Szukaj rozmów",
-        ["Search groups"] = "Szukaj grup",
         ["Nothing matches that."] = "Nic nie pasuje.",
         ["Leave group"] = "Opuść grupę",
         ["You aren't in this group."] = "Nie należysz do tej grupy.",
