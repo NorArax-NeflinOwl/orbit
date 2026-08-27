@@ -34,6 +34,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         RegisterGoogleIntegrationAccess();
+        RegisterChecklistViewPreference();
     }
 
     [Fact]
@@ -356,5 +357,70 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, plain.Id));
 
         Assert.Empty(cut.FindAll(".checklist-card .card-title"));
+    }
+
+    [Fact]
+    public void A_group_with_nothing_nested_in_it_is_not_offered_a_flat_view()
+    {
+        // One row of plain members already reads as one page with headings - there is nothing to flatten.
+        var kitchen = TaskList("Kitchen", Item("Tiles"));
+        var group = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([group, kitchen]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
+
+        Assert.DoesNotContain("Show single items", cut.Markup);
+    }
+
+    [Fact]
+    public void A_tree_deeper_than_one_level_is_offered_a_flat_view()
+    {
+        var tree = ARenovationTree();
+        RegisterTasksApiClient(tree);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, tree[0].Id));
+
+        Assert.Contains("Show single items", cut.Markup);
+    }
+
+    [Fact]
+    public void The_flat_view_shows_every_item_in_the_tree_and_no_headings()
+    {
+        var tree = ARenovationTree();
+        RegisterTasksApiClient(tree);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, tree[0].Id));
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Show single items")).Click();
+
+        var rows = cut.FindAll(".check-row").Select(row => row.TextContent).ToList();
+        Assert.Contains(rows, row => row.Contains("Grout"));
+        Assert.Contains(rows, row => row.Contains("Mow"));
+        // The rows that only point at another list are how the tree is held together, not work to tick.
+        Assert.DoesNotContain(rows, row => row.Contains("Kitchen done"));
+        Assert.Empty(cut.FindAll(".checklist-card .card-title"));
+    }
+
+    /// <summary>Renovation -> Kitchen -> Tiling, plus a plain Garden - two levels below the root.</summary>
+    private static IReadOnlyList<TaskDto> ARenovationTree()
+    {
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id)) with { IsGroup = true };
+        var garden = TaskList("Garden", Item("Mow"));
+        var renovation = TaskList("Renovation",
+            Item("Kitchen done", linkedTaskListId: kitchen.Id),
+            Item("Garden done", linkedTaskListId: garden.Id)) with { IsGroup = true };
+        return [renovation, kitchen, tiling, garden];
+    }
+    /// <summary>
+    /// Which view a list opens in lives in localStorage, reached through a JS module (see
+    /// ChecklistViewPreference) - stubbed as "never saved", so these tests see the tree view unless they
+    /// press the button themselves.
+    /// </summary>
+    private void RegisterChecklistViewPreference()
+    {
+        var module = JSInterop.SetupModule("./js/checklistView.js");
+        module.Setup<string?>("getSavedView", _ => true).SetResult(null);
+        module.SetupVoid("saveView", _ => true);
+        Services.AddScoped<ChecklistViewPreference>();
     }
 }
