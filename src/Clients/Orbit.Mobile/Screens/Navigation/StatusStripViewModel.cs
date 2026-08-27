@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Navigation;
@@ -12,6 +13,7 @@ namespace Orbit.Mobile.Screens.Navigation;
 public sealed partial class StatusStripViewModel : ObservableObject, IDisposable
 {
     private readonly SyncState _syncState;
+    private readonly Translations _translations;
 
     [ObservableProperty]
     private string _label = string.Empty;
@@ -23,9 +25,10 @@ public sealed partial class StatusStripViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _needsAttention;
 
-    public StatusStripViewModel(SyncState syncState)
+    public StatusStripViewModel(SyncState syncState, Translations translations)
     {
         _syncState = syncState;
+        _translations = translations;
         _syncState.Changed += OnSyncStateChanged;
         Show();
     }
@@ -38,10 +41,10 @@ public sealed partial class StatusStripViewModel : ObservableObject, IDisposable
     {
         Label = _syncState.Condition switch
         {
-            SyncCondition.Syncing => "Syncing…",
-            SyncCondition.Synced => "Synced",
-            SyncCondition.Offline => "Offline",
-            SyncCondition.Failed => "Couldn't sync",
+            SyncCondition.Syncing => _translations["Syncing…"],
+            SyncCondition.Synced => _translations["Synced"],
+            SyncCondition.Offline => _translations["Offline"],
+            SyncCondition.Failed => _translations["Couldn't sync"],
             // Before anything has tried, saying "Synced" would be a claim and saying "Offline" a
             // slander. The strip stays quiet instead.
             _ => string.Empty

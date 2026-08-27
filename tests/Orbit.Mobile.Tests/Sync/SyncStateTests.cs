@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
@@ -19,7 +20,7 @@ public sealed class SyncStateTests
         var state = Build(isOnline: true);
 
         Assert.Equal(SyncCondition.Unknown, state.Condition);
-        Assert.Equal(string.Empty, new StatusStripViewModel(state).Label);
+        Assert.Equal(string.Empty, new StatusStripViewModel(state, English).Label);
     }
 
     [Fact]
@@ -31,7 +32,7 @@ public sealed class SyncStateTests
 
         Assert.Equal(SyncCondition.Synced, state.Condition);
         Assert.NotNull(state.LastSyncedAtUtc);
-        Assert.Equal("Synced", new StatusStripViewModel(state).Label);
+        Assert.Equal("Synced", new StatusStripViewModel(state, English).Label);
     }
 
     [Fact]
@@ -42,7 +43,7 @@ public sealed class SyncStateTests
         state.RecordFailed();
 
         Assert.Equal(SyncCondition.Offline, state.Condition);
-        Assert.False(new StatusStripViewModel(state).NeedsAttention);
+        Assert.False(new StatusStripViewModel(state, English).NeedsAttention);
     }
 
     [Fact]
@@ -53,14 +54,14 @@ public sealed class SyncStateTests
         state.RecordFailed();
 
         Assert.Equal(SyncCondition.Failed, state.Condition);
-        Assert.True(new StatusStripViewModel(state).NeedsAttention);
+        Assert.True(new StatusStripViewModel(state, English).NeedsAttention);
     }
 
     [Fact]
     public void The_strip_follows_the_state_it_is_already_watching()
     {
         var state = Build(isOnline: true);
-        var strip = new StatusStripViewModel(state);
+        var strip = new StatusStripViewModel(state, English);
 
         state.RecordStarted();
 
@@ -73,13 +74,16 @@ public sealed class SyncStateTests
     {
         // Every page builds one, so a strip that kept its subscription would pile up behind the reader.
         var state = Build(isOnline: true);
-        var strip = new StatusStripViewModel(state);
+        var strip = new StatusStripViewModel(state, English);
         strip.Dispose();
 
         state.RecordSucceeded();
 
         Assert.Equal(string.Empty, strip.Label);
     }
+
+    /// <summary>The strip's words come from the dictionary now, so a test has to say which language it is reading.</summary>
+    private static Translations English => new(new InMemoryLanguageStore());
 
     private static SyncState Build(bool isOnline)
         => new(isOnline ? FixedNetworkStatus.Online : FixedNetworkStatus.Offline,

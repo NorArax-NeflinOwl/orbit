@@ -12,7 +12,7 @@
 
             <controls:OrbitMark MarkSize="88" HorizontalOptions="Center" />
 
-            <Label Text="Orbit" FontSize="44" FontAttributes="Bold" HorizontalOptions="Center" />
+            <Label Text="{controls:Translate 'Orbit'}" FontSize="44" FontAttributes="Bold" HorizontalOptions="Center" />
 
             <ActivityIndicator IsRunning="{Binding IsChecking}"
                                IsVisible="{Binding IsChecking}"
@@ -23,7 +23,7 @@
                 <Label Text="{Binding BlockedMessage}"
                        HorizontalTextAlignment="Center"
                        LineBreakMode="WordWrap" />
-                <Button Text="Update Orbit"
+                <Button Text="{controls:Translate 'Update Orbit'}"
                         Command="{Binding OpenUpdateCommand}"
                         IsVisible="{Binding CanOpenUpdate}" />
             </VerticalStackLayout>

@@ -7,15 +7,15 @@
     xmlns:dashboard="clr-namespace:Orbit.Maui.Features.Dashboard"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Dashboard;assembly=Orbit.Mobile"
     x:DataType="screens:DashboardViewModel"
-    Title="Dashboard">
+    Title="{controls:Translate 'Dashboard'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Padding="20" Spacing="14">
 
-                <Label Text="Dashboard" FontSize="26" FontAttributes="Bold" />
-                <Label Text="Everything on your plate, in one place." FontSize="13"
+                <Label Text="{controls:Translate 'Dashboard'}" FontSize="26" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Everything on your plate, in one place.'}" FontSize="13"
                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
 
                 <!-- What is happening today, rather than how much there is in total - the same three
@@ -30,7 +30,7 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="{Binding TasksDueToday}" FontAttributes="Bold" />
-                                    <Span Text=" tasks due today" />
+                                    <Span Text="{controls:Translate ' tasks due today'}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
@@ -38,7 +38,7 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="{Binding EventsToday}" FontAttributes="Bold" />
-                                    <Span Text=" events today" />
+                                    <Span Text="{controls:Translate ' events today'}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
@@ -46,14 +46,14 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="{Binding PendingChatRequests}" FontAttributes="Bold" />
-                                    <Span Text=" new chat requests" />
+                                    <Span Text="{controls:Translate ' new chat requests'}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
                     </VerticalStackLayout>
                 </Border>
 
-                <Label Text="Nothing here yet. Add a note or a task to get started."
+                <Label Text="{controls:Translate 'Nothing here yet. Add a note or a task to get started.'}"
                        IsVisible="{Binding HasNothing}" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                        HorizontalOptions="Center" Margin="0,20" LineBreakMode="WordWrap" />
 

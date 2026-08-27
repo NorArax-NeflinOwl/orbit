@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
+using Orbit.Localization;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Presence;
 
 namespace Orbit.Mobile.Screens.Navigation;
@@ -23,6 +25,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly NotificationsClient _notificationsClient;
     private readonly AuthenticationClient _authenticationClient;
     private readonly Presence.Presence _presence;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>The signed-in reader's initials, which is what the avatar shows - there are no pictures in Orbit.</summary>
@@ -50,14 +53,20 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [ObservableProperty]
     private bool _isStatusExpanded;
 
+    /// <summary>Whether the language choices are showing, the same folded row the status uses.</summary>
+    [ObservableProperty]
+    private bool _isLanguageExpanded;
+
     public NavigationBarViewModel(
         SessionStore sessionStore, NotificationsClient notificationsClient,
-        AuthenticationClient authenticationClient, Presence.Presence presence, IScreenNavigator navigator)
+        AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
+        IScreenNavigator navigator)
     {
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
         _authenticationClient = authenticationClient;
         _presence = presence;
+        _translations = translations;
         _navigator = navigator;
         _presence.Changed += OnPresenceChanged;
         ShowPresence();
@@ -133,6 +142,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         if (!IsMenuOpen)
         {
             IsStatusExpanded = false;
+            IsLanguageExpanded = false;
         }
     }
 
@@ -142,10 +152,43 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         IsMenuOpen = false;
         // Folded away with the menu, so the next visit opens on the list rather than mid-choice.
         IsStatusExpanded = false;
+        IsLanguageExpanded = false;
     }
 
     [RelayCommand]
     private void ToggleStatus() => IsStatusExpanded = !IsStatusExpanded;
+
+    [RelayCommand]
+    private void ToggleLanguage() => IsLanguageExpanded = !IsLanguageExpanded;
+
+    public bool IsEnglish => _translations.Language == AppLanguage.English;
+
+    public bool IsPolish => !IsEnglish;
+
+    /// <summary>What the folded row shows on its right, so the choice is readable unopened.</summary>
+    public string LanguageDescription => IsEnglish ? "English" : "Polski";
+
+    [RelayCommand]
+    private void ChooseEnglish() => ChooseLanguage(AppLanguage.English);
+
+    [RelayCommand]
+    private void ChoosePolish() => ChooseLanguage(AppLanguage.Polish);
+
+    /// <summary>
+    /// Closes the menu and shows the current screen again. Every string is resolved when a page is
+    /// built, so the language only takes effect on the next page - and leaving the reader looking at
+    /// the old language after choosing a new one would read as the choice not having worked.
+    /// </summary>
+    private void ChooseLanguage(AppLanguage language)
+    {
+        _translations.SetLanguage(language);
+        OnPropertyChanged(nameof(IsEnglish));
+        OnPropertyChanged(nameof(IsPolish));
+        OnPropertyChanged(nameof(LanguageDescription));
+        IsLanguageExpanded = false;
+        IsMenuOpen = false;
+        _navigator.ShowDashboard();
+    }
 
     [RelayCommand]
     private void GoToAccount() => LeaveMenuFor(_navigator.ShowAccount);
@@ -159,7 +202,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     public bool IsUnavailable => !IsAvailable;
 
     /// <summary>What the collapsed row says on its right-hand side, so the choice is readable unopened.</summary>
-    public string ChosenDescription => IsAvailable ? "Available" : "Unavailable";
+    public string ChosenDescription => _translations[IsAvailable ? "Available" : "Unavailable"];
 
     [RelayCommand]
     private void ChooseAvailable() => Choose(ChosenAvailability.Available);

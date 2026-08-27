@@ -6,7 +6,7 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Account;assembly=Orbit.Mobile"
     x:DataType="screens:AccountViewModel"
-    Title="Account">
+    Title="{controls:Translate 'Account'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
@@ -14,10 +14,10 @@
     <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="24" Spacing="18">
 
-            <Label Text="Account" FontSize="26" FontAttributes="Bold" />
+            <Label Text="{controls:Translate 'Account'}" FontSize="26" FontAttributes="Bold" />
 
             <!-- One statement for the whole screen: none of this can happen without the server. -->
-            <Label Text="Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later."
+            <Label Text="{controls:Translate 'Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later.'}"
                    IsVisible="{Binding IsOffline}"
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
@@ -25,36 +25,36 @@
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
-                <Label Text="Username" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Username'}" FontAttributes="Bold" />
                 <!-- See RegisterPage for why this is not the default text keyboard. -->
-                <Entry Placeholder="New username" Text="{Binding UserName}" Keyboard="Plain" />
-                <Entry Placeholder="Display name" Text="{Binding DisplayName}" />
-                <Button Text="Change username" Command="{Binding ChangeUserNameCommand}" />
+                <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
+                <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
+                <Button Text="{controls:Translate 'Change username'}" Command="{Binding ChangeUserNameCommand}" />
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
-                <Label Text="Email address" FontAttributes="Bold" />
-                <Entry Placeholder="New email address" Text="{Binding NewEmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
-                <Button Text="Send confirmation code" Command="{Binding RequestEmailChangeCommand}" />
-                <Entry Placeholder="Confirmation code" Text="{Binding EmailConfirmationCode}" Keyboard="Numeric" />
-                <Button Text="Confirm new address" Command="{Binding ConfirmEmailChangeCommand}" />
+                <Label Text="{controls:Translate 'Email address'}" FontAttributes="Bold" />
+                <Entry Placeholder="{controls:Translate 'New email address'}" Text="{Binding NewEmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
+                <Button Text="{controls:Translate 'Send confirmation code'}" Command="{Binding RequestEmailChangeCommand}" />
+                <Entry Placeholder="{controls:Translate 'Confirmation code'}" Text="{Binding EmailConfirmationCode}" Keyboard="Numeric" />
+                <Button Text="{controls:Translate 'Confirm new address'}" Command="{Binding ConfirmEmailChangeCommand}" />
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
-                <Label Text="Password" FontAttributes="Bold" />
-                <Entry Placeholder="Current password" Text="{Binding CurrentPassword}" IsPassword="True" />
-                <Entry Placeholder="New password" Text="{Binding NewPassword}" IsPassword="True" />
-                <Button Text="Change password" Command="{Binding ChangePasswordCommand}" />
+                <Label Text="{controls:Translate 'Password'}" FontAttributes="Bold" />
+                <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />
+                <Entry Placeholder="{controls:Translate 'New password'}" Text="{Binding NewPassword}" IsPassword="True" />
+                <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
             </VerticalStackLayout>
 
-            <Button Text="Diagnostics" Command="{Binding GoToDiagnosticsCommand}"
+            <Button Text="{controls:Translate 'Diagnostics'}" Command="{Binding GoToDiagnosticsCommand}"
                     Style="{StaticResource LinkButton}" />
 
-            <Button Text="Chat key"
+            <Button Text="{controls:Translate 'Chat key'}"
                     Command="{Binding GoToChatKeyCommand}"
                     Style="{StaticResource LinkButton}" />
 
-            <Button Text="Back to dashboard"
+            <Button Text="{controls:Translate 'Back to dashboard'}"
                     Command="{Binding GoBackCommand}"
                     Style="{StaticResource LinkButton}" />
 

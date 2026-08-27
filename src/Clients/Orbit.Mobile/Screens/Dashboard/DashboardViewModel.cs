@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Dashboard;
 
@@ -24,6 +25,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly LocalCalendarEventRepository _calendarEvents;
     private readonly ChatRepository _chat;
     private readonly TimeProvider _timeProvider;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -35,13 +37,14 @@ public sealed partial class DashboardViewModel : ObservableObject
     public DashboardViewModel(
         LocalNoteRepository notes, LocalTaskListRepository taskLists,
         LocalCalendarEventRepository calendarEvents, ChatRepository chat, TimeProvider timeProvider,
-        IScreenNavigator navigator)
+        Translations translations, IScreenNavigator navigator)
     {
         _notes = notes;
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
         _chat = chat;
         _timeProvider = timeProvider;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -61,12 +64,12 @@ public sealed partial class DashboardViewModel : ObservableObject
         Cards.Clear();
         // An empty card is worse than no card: it takes up a phone's screen to say nothing. Each is
         // added only when it has something in it, which is also how the web's dashboard behaves.
-        AddCardIfAnything(DashboardCardKind.Notes, "Notes", notes.Count, DescribeNotes(notes));
-        AddCardIfAnything(DashboardCardKind.Tasks, "Tasks", taskLists.Count, DescribeTaskLists(taskLists));
-        AddCardIfAnything(DashboardCardKind.Upcoming, "Upcoming", events.Count, DescribeEvents(events));
-        AddCardIfAnything(DashboardCardKind.Groups, "Groups", groups.Count, DescribeGroups(groups));
+        AddCardIfAnything(DashboardCardKind.Notes, _translations["Notes"], notes.Count, DescribeNotes(notes));
+        AddCardIfAnything(DashboardCardKind.Tasks, _translations["Tasks"], taskLists.Count, DescribeTaskLists(taskLists));
+        AddCardIfAnything(DashboardCardKind.Upcoming, _translations["Upcoming"], events.Count, DescribeEvents(events));
+        AddCardIfAnything(DashboardCardKind.Groups, _translations["Groups"], groups.Count, DescribeGroups(groups));
         AddCardIfAnything(DashboardCardKind.RecentChats, "Recent chats", contacts.Count, DescribeRecentChats(contacts));
-        AddCardIfAnything(DashboardCardKind.Contacts, "Contacts", DirectoryOf(contacts).Count, DescribeDirectory(contacts));
+        AddCardIfAnything(DashboardCardKind.Contacts, _translations["Contacts"], DirectoryOf(contacts).Count, DescribeDirectory(contacts));
 
         HasNothing = Cards.Count == 0;
     }
@@ -154,7 +157,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         => notes
             .OrderByDescending(note => note.UpdatedAtUtc)
             .Take(RowsPerCard)
-            .Select(note => new DashboardRow(note.LocalId, TitleOrPlaceholder(note.Title, "Untitled"), Ago(note.UpdatedAtUtc)))
+            .Select(note => new DashboardRow(note.LocalId, TitleOrPlaceholder(note.Title, _translations["Untitled"]), Ago(note.UpdatedAtUtc)))
             .ToList();
 
     private IReadOnlyList<DashboardRow> DescribeTaskLists(IReadOnlyList<LocalTaskList> taskLists)
@@ -162,7 +165,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             .OrderByDescending(list => list.IsPinned)
             .ThenByDescending(list => list.UpdatedAtUtc)
             .Take(RowsPerCard)
-            .Select(list => new DashboardRow(list.LocalId, TitleOrPlaceholder(list.Title, "Untitled list"), DescribeProgress(list)))
+            .Select(list => new DashboardRow(list.LocalId, TitleOrPlaceholder(list.Title, _translations["Untitled list"]), DescribeProgress(list)))
             .ToList();
 
     /// <summary>
@@ -176,7 +179,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Take(RowsPerCard)
             .Select(calendarEvent => new DashboardRow(
                 calendarEvent.LocalId,
-                TitleOrPlaceholder(calendarEvent.Details.Title, "Untitled event"),
+                TitleOrPlaceholder(calendarEvent.Details.Title, _translations["Untitled event"]),
                 DescribeWhen(calendarEvent.Details.StartUtc, calendarEvent.Details.IsAllDay)))
             .ToList();
 
@@ -189,7 +192,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Select(contact => new DashboardRow(
                 contact.UserId,
                 contact.DisplayName,
-                contact.RequiresApprovalFromCurrentUser ? "Wants to chat" : Ago(contact.LastMessageAtUtc)))
+                contact.RequiresApprovalFromCurrentUser ? _translations["Wants to chat"] : Ago(contact.LastMessageAtUtc)))
             .ToList();
 
     /// <summary>
@@ -215,11 +218,11 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Select(group => new DashboardRow(group.Id, group.Name, string.Empty))
             .ToList();
 
-    private static string DescribeProgress(LocalTaskList list)
+    private string DescribeProgress(LocalTaskList list)
     {
         if (list.Items.Count == 0)
         {
-            return list.IsCompleted ? "Done" : string.Empty;
+            return list.IsCompleted ? _translations["Done"] : string.Empty;
         }
 
         return $"{list.Items.Count(item => item.IsCompleted)}/{list.Items.Count}";
@@ -229,9 +232,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     {
         var start = startUtc.ToLocalTime();
         var today = _timeProvider.GetLocalNow().Date;
-        var day = start.Date == today ? "Today"
-            : start.Date == today.AddDays(1) ? "Tomorrow"
-            : start.ToString("ddd d");
+        var day = start.Date == today ? _translations["Today"]
+            : start.Date == today.AddDays(1) ? _translations["Tomorrow"]
+            : start.ToString("ddd d", _translations.DisplayCulture);
 
         return isAllDay ? day : $"{day} {start:HH:mm}";
     }
@@ -246,14 +249,14 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         return elapsed switch
         {
-            { TotalMinutes: < 1 } => "Just now",
-            { TotalHours: < 1 } => $"{(int)elapsed.TotalMinutes}m ago",
-            { TotalDays: < 1 } => $"{(int)elapsed.TotalHours}h ago",
-            { TotalDays: < 30 } => $"{(int)elapsed.TotalDays}d ago",
-            _ => moment.ToLocalTime().ToString("d MMM yyyy")
+            { TotalMinutes: < 1 } => _translations["Just now"],
+            { TotalHours: < 1 } => _translations.Format("{0}m ago", (int)elapsed.TotalMinutes),
+            { TotalDays: < 1 } => _translations.Format("{0}h ago", (int)elapsed.TotalHours),
+            { TotalDays: < 30 } => _translations.Format("{0}d ago", (int)elapsed.TotalDays),
+            _ => moment.ToLocalTime().ToString("d MMM yyyy", _translations.DisplayCulture)
         };
     }
 
-    private static string TitleOrPlaceholder(string title, string placeholder)
+    private string TitleOrPlaceholder(string title, string placeholder)
         => title.Trim() is { Length: > 0 } trimmed ? trimmed : placeholder;
 }

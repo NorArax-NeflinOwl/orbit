@@ -3,28 +3,29 @@
     x:Class="Orbit.Maui.Features.Authentication.RegisterPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Authentication;assembly=Orbit.Mobile"
     x:DataType="screens:RegisterViewModel"
-    Title="Create an account">
+    Title="{controls:Translate 'Create an account'}">
 
     <ScrollView>
         <VerticalStackLayout Padding="32" Spacing="16" VerticalOptions="Center">
 
-            <Label Text="Create an account" FontSize="28" FontAttributes="Bold" HorizontalOptions="Center" />
+            <Label Text="{controls:Translate 'Create an account'}" FontSize="28" FontAttributes="Bold" HorizontalOptions="Center" />
 
             <!-- Said up front rather than after four fields have been filled in. -->
-            <Label Text="Creating an account needs a connection to Orbit."
+            <Label Text="{controls:Translate 'Creating an account needs a connection to Orbit.'}"
                    IsVisible="{Binding IsOffline}"
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    HorizontalTextAlignment="Center"
                    LineBreakMode="WordWrap" />
 
-            <Entry Placeholder="Email address" Text="{Binding EmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
+            <Entry Placeholder="{controls:Translate 'Email address'}" Text="{Binding EmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
             <!-- Plain, not the default text keyboard: iOS capitalises the first letter of a sentence,
                  which silently turns a typed username into a different one. -->
-            <Entry Placeholder="Username" Text="{Binding UserName}" Keyboard="Plain" />
-            <Entry Placeholder="Display name" Text="{Binding DisplayName}" />
-            <Entry Placeholder="Password" Text="{Binding Password}" IsPassword="True" ReturnType="Go"
+            <Entry Placeholder="{controls:Translate 'Username'}" Text="{Binding UserName}" Keyboard="Plain" />
+            <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
+            <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding Password}" IsPassword="True" ReturnType="Go"
                    ReturnCommand="{Binding RegisterCommand}" />
 
             <Label Text="{Binding ErrorMessage}"
@@ -32,13 +33,13 @@
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
-            <Button Text="Create account" Command="{Binding RegisterCommand}" />
+            <Button Text="{controls:Translate 'Create account'}" Command="{Binding RegisterCommand}" />
 
             <ActivityIndicator IsRunning="{Binding RegisterCommand.IsRunning}"
                                IsVisible="{Binding RegisterCommand.IsRunning}"
                                HorizontalOptions="Center" />
 
-            <Button Text="I already have an account"
+            <Button Text="{controls:Translate 'I already have an account'}"
                     Command="{Binding GoToSignInCommand}"
                     Style="{StaticResource LinkButton}" />
 

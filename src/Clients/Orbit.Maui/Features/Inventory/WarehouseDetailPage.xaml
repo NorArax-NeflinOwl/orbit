@@ -21,15 +21,15 @@
                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" LineBreakMode="WordWrap" />
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
-            <Entry Grid.Column="0" Placeholder="New item" Text="{Binding NewItemName}"
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemName}"
                    ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
-            <Button Grid.Column="1" Text="Add" Command="{Binding AddItemCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
         </Grid>
 
         <CollectionView Grid.Row="3" ItemsSource="{Binding Items}">
 
             <CollectionView.EmptyView>
-                <Label Text="Nothing in this warehouse yet." Padding="24" HorizontalTextAlignment="Center" />
+                <Label Text="{controls:Translate 'Nothing in this warehouse yet.'}" Padding="24" HorizontalTextAlignment="Center" />
             </CollectionView.EmptyView>
 
             <!-- RelativeSource walks the visual tree, so the ancestor has to be an element - the page,
@@ -41,15 +41,15 @@
                         <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="WordWrap" />
                         <Label Grid.Column="1" Text="{Binding Quantity}" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                        <Button Grid.Column="2" Text="−" WidthRequest="44" BackgroundColor="Transparent"
+                        <Button Grid.Column="2" Text="{controls:Translate '−'}" WidthRequest="44" BackgroundColor="Transparent"
                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveOneCommand, x:DataType=inventory:WarehouseDetailPage}"
                                 CommandParameter="{Binding .}" />
-                        <Button Grid.Column="3" Text="+" WidthRequest="44" BackgroundColor="Transparent"
+                        <Button Grid.Column="3" Text="{controls:Translate '+'}" WidthRequest="44" BackgroundColor="Transparent"
                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AddOneCommand, x:DataType=inventory:WarehouseDetailPage}"
                                 CommandParameter="{Binding .}" />
-                        <Button Grid.Column="4" Text="✕" WidthRequest="44" BackgroundColor="Transparent"
+                        <Button Grid.Column="4" Text="{controls:Translate '✕'}" WidthRequest="44" BackgroundColor="Transparent"
                                 TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveItemCommand, x:DataType=inventory:WarehouseDetailPage}"
                                 CommandParameter="{Binding .}" />
@@ -59,7 +59,7 @@
 
         </CollectionView>
 
-        <Button Grid.Row="4" Text="Back" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="4" Text="{controls:Translate 'Back'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />
 
     </Grid>

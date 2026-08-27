@@ -38,6 +38,7 @@
     <!-- For the vocabulary the server and the app have to agree on - MobilePlatform and the version
     verdicts. Orbit.Web references Orbit.Core for the same reason. -->
     <ProjectReference Include="..\..\Shared\Orbit.Core\Orbit.Core.csproj" />
+    <ProjectReference Include="..\..\Shared\Orbit.Localization\Orbit.Localization.csproj" />
   </ItemGroup>
 
 </Project>

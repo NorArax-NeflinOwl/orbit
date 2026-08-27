@@ -6,22 +6,22 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Authentication;assembly=Orbit.Mobile"
     x:DataType="screens:SignInViewModel"
-    Title="Sign in">
+    Title="{controls:Translate 'Sign in'}">
 
     <ScrollView>
         <VerticalStackLayout Padding="32" Spacing="20" VerticalOptions="Center">
 
             <controls:OrbitMark MarkSize="80" HorizontalOptions="Center" />
 
-            <Label Text="Orbit" FontSize="40" FontAttributes="Bold" HorizontalOptions="Center" />
+            <Label Text="{controls:Translate 'Orbit'}" FontSize="40" FontAttributes="Bold" HorizontalOptions="Center" />
 
-            <Entry Placeholder="Email or username"
+            <Entry Placeholder="{controls:Translate 'Email or username'}"
                    Text="{Binding EmailOrUserName}"
                    Keyboard="Email"
                    IsSpellCheckEnabled="False"
                    ReturnType="Next" />
 
-            <Entry Placeholder="Password"
+            <Entry Placeholder="{controls:Translate 'Password'}"
                    Text="{Binding Password}"
                    IsPassword="True"
                    ReturnType="Go"
@@ -32,9 +32,9 @@
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
-            <Button Text="Sign in" Command="{Binding SignInCommand}" />
+            <Button Text="{controls:Translate 'Sign in'}" Command="{Binding SignInCommand}" />
 
-            <Button Text="Create an account"
+            <Button Text="{controls:Translate 'Create an account'}"
                     Command="{Binding GoToRegisterCommand}"
                     Style="{StaticResource LinkButton}" />
 

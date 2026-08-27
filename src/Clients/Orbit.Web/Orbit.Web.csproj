@@ -25,6 +25,7 @@
          on the logging/DI abstraction packages, both already used by this WASM app, so this stays
          build-compatible with Blazor WebAssembly. -->
     <ProjectReference Include="..\..\Shared\Orbit.Core\Orbit.Core.csproj" />
+    <ProjectReference Include="..\..\Shared\Orbit.Localization\Orbit.Localization.csproj" />
   </ItemGroup>
 
 </Project>

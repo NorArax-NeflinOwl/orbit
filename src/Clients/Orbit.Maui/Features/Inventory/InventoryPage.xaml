@@ -6,7 +6,7 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
     x:DataType="screens:InventoryViewModel"
-    Title="Inventory">
+    Title="{controls:Translate 'Inventory'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
@@ -15,9 +15,9 @@
 
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry Grid.Column="0" Placeholder="New warehouse" Text="{Binding NewWarehouseName}"
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New warehouse'}" Text="{Binding NewWarehouseName}"
                    ReturnType="Done" ReturnCommand="{Binding AddWarehouseCommand}" />
-            <Button Grid.Column="1" Text="Add" Command="{Binding AddWarehouseCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddWarehouseCommand}" />
         </Grid>
 
         <RefreshView Grid.Row="2" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
@@ -27,7 +27,7 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="No warehouses yet." Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'No warehouses yet.'}" Padding="24" HorizontalTextAlignment="Center" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
@@ -44,7 +44,7 @@
             </CollectionView>
         </RefreshView>
 
-        <Button Grid.Row="3" Text="Back to dashboard" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="3" Text="{controls:Translate 'Back to dashboard'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />
 
     </Grid>

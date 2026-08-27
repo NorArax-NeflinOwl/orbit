@@ -27,7 +27,7 @@
             <CollectionView ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
 
                 <CollectionView.EmptyView>
-                    <Label Text="No messages yet." Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'No messages yet.'}" Padding="24" HorizontalTextAlignment="Center" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
@@ -42,17 +42,17 @@
                                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                            <Label Text="Waiting to send" IsVisible="{Binding IsWaitingToSend}"
+                            <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                             <!-- Only on the reader's own messages, and only once the server has one -
                                  see ReadableChatMessage.CanBeChanged. The commands live on the page's
                                  view model, so these go through the page's typed ViewModel property. -->
                             <HorizontalStackLayout Spacing="16" IsVisible="{Binding CanBeChanged}">
-                                <Button Text="Edit" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
+                                <Button Text="{controls:Translate 'Edit'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
                                         TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartEditingCommand, x:DataType=chat:GroupConversationPage}"
                                         CommandParameter="{Binding .}" />
-                                <Button Text="Delete" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
+                                <Button Text="{controls:Translate 'Delete'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
                                         TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DeleteCommand, x:DataType=chat:GroupConversationPage}"
                                         CommandParameter="{Binding .}" />
@@ -65,15 +65,15 @@
         </RefreshView>
 
         <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanWrite}">
-            <Entry Grid.Column="0" Placeholder="Message" Text="{Binding Draft}"
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
                    ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
-            <Button Grid.Column="1" Text="Send" Command="{Binding SendCommand}" />
-            <Button Grid.Column="2" Text="Cancel" IsVisible="{Binding IsEditing}"
+            <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Command="{Binding SendCommand}" />
+            <Button Grid.Column="2" Text="{controls:Translate 'Cancel'}" IsVisible="{Binding IsEditing}"
                     Command="{Binding CancelEditingCommand}"
                     Style="{StaticResource LinkButton}" />
         </Grid>
 
-        <Button Grid.Row="5" Text="Back to groups" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="5" Text="{controls:Translate 'Back to groups'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />
 
     </Grid>

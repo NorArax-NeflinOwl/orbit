@@ -6,7 +6,7 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     x:DataType="screens:CalendarViewModel"
-    Title="Calendar">
+    Title="{controls:Translate 'Calendar'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
@@ -15,9 +15,9 @@
 
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry Grid.Column="0" Placeholder="New event" Text="{Binding NewEventTitle}"
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New event'}" Text="{Binding NewEventTitle}"
                    ReturnType="Done" ReturnCommand="{Binding AddEventCommand}" />
-            <Button Grid.Column="1" Text="Add" Command="{Binding AddEventCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddEventCommand}" />
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
@@ -29,7 +29,7 @@
             <CollectionView ItemsSource="{Binding Events}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="Nothing coming up." Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'Nothing coming up.'}" Padding="24" HorizontalTextAlignment="Center" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
@@ -46,7 +46,7 @@
             </CollectionView>
         </RefreshView>
 
-        <Button Grid.Row="4" Text="Back to dashboard" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="4" Text="{controls:Translate 'Back to dashboard'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />
 
     </Grid>

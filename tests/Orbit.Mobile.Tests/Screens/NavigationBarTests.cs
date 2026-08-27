@@ -1,6 +1,7 @@
 using Orbit.Mobile.Api;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Tests.TestDoubles;
@@ -149,7 +150,7 @@ public sealed class NavigationBarTests
             => new(
                 _sessionStore, new NotificationsClient(Server.ToHttpClient()),
                 new AuthenticationClient(Server.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
-                Presence, Navigator);
+                Presence, new Translations(new InMemoryLanguageStore()), Navigator);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

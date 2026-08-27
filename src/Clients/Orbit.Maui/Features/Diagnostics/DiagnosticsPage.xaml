@@ -6,14 +6,14 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Diagnostics;assembly=Orbit.Mobile"
     x:DataType="screens:DiagnosticsViewModel"
-    Title="Diagnostics">
+    Title="{controls:Translate 'Diagnostics'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Padding="20" Spacing="12">
 
-                <Label Text="Diagnostics" FontSize="26" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Diagnostics'}" FontSize="26" FontAttributes="Bold" />
                 <Label Text="Orbit's own log, on this phone. Nothing leaves it unless you send it."
                        FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
@@ -26,20 +26,20 @@
 
                 <Grid ColumnDefinitions="*,Auto">
                     <VerticalStackLayout Grid.Column="0">
-                        <Label Text="Record everything" />
-                        <Label Text="Warnings and errors otherwise. Goes back to that on the next launch."
+                        <Label Text="{controls:Translate 'Record everything'}" />
+                        <Label Text="{controls:Translate 'Warnings and errors otherwise. Goes back to that on the next launch.'}"
                                FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                     </VerticalStackLayout>
                     <Switch Grid.Column="1" IsToggled="{Binding IsVerbose}" VerticalOptions="Center" />
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                    <Button Grid.Column="0" Text="Send to Orbit" Command="{Binding SendCommand}" />
-                    <Button Grid.Column="1" Text="Clear" Command="{Binding ClearCommand}"
+                    <Button Grid.Column="0" Text="{controls:Translate 'Send to Orbit'}" Command="{Binding SendCommand}" />
+                    <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" Command="{Binding ClearCommand}"
                             Style="{StaticResource DestructiveButton}" />
                 </Grid>
 
-                <Label Text="Nothing has been logged yet." IsVisible="{Binding HasNothing}"
+                <Label Text="{controls:Translate 'Nothing has been logged yet.'}" IsVisible="{Binding HasNothing}"
                        Style="{StaticResource SubtleLabel}" HorizontalOptions="Center" Margin="0,20" />
 
                 <!-- Monospaced and horizontally scrollable: a log line is a fixed shape, and wrapping one
@@ -48,7 +48,7 @@
                     <Label Text="{Binding Preview}" FontFamily="Menlo" FontSize="10" LineBreakMode="NoWrap" />
                 </ScrollView>
 
-                <Button Text="Back to account" Command="{Binding GoBackCommand}"
+                <Button Text="{controls:Translate 'Back to account'}" Command="{Binding GoBackCommand}"
                         Style="{StaticResource LinkButton}" />
 
             </VerticalStackLayout>

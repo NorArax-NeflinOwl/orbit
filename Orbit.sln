@@ -37,6 +37,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{C8E429
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orbit.Mobile.Tests", "tests\Orbit.Mobile.Tests\Orbit.Mobile.Tests.csproj", "{8EEB2174-6201-4162-AAD4-A1B3E230118F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orbit.Localization", "src\Shared\Orbit.Localization\Orbit.Localization.csproj", "{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -167,6 +169,18 @@ Global
 		{8EEB2174-6201-4162-AAD4-A1B3E230118F}.Release|x64.Build.0 = Release|Any CPU
 		{8EEB2174-6201-4162-AAD4-A1B3E230118F}.Release|x86.ActiveCfg = Release|Any CPU
 		{8EEB2174-6201-4162-AAD4-A1B3E230118F}.Release|x86.Build.0 = Release|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Debug|x64.Build.0 = Debug|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Debug|x86.Build.0 = Debug|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Release|x64.ActiveCfg = Release|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Release|x64.Build.0 = Release|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Release|x86.ActiveCfg = Release|Any CPU
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -184,6 +198,7 @@ Global
 		{2CB68E6B-ECF1-4479-A2A8-C099C48EF9BF} = {00B920E4-100F-D869-D8B1-04B3A2ED45DA}
 		{C8E42992-5E42-0C2B-DBFE-AA848D06431C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{8EEB2174-6201-4162-AAD4-A1B3E230118F} = {9756B2A6-FC62-4445-A461-D136C629D97C}
+		{04E6D5BD-7B8D-43B7-BDDC-C96F3B98CD7A} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6664CB17-67A1-41D0-84D3-7C91146B5E45}

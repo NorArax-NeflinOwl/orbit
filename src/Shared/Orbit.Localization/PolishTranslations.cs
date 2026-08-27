@@ -1,13 +1,17 @@
-namespace Orbit.Web.Services;
+namespace Orbit.Localization;
 
 /// <summary>
-/// Orbit's interface in Polish, keyed by the English it replaces - see <see cref="Translations"/> for
-/// why the key is the English text itself.
+/// Orbit's interface in Polish, keyed by the English it replaces. The key being the English text
+/// itself is what lets a string with no translation fall back to correct English rather than to a hole,
+/// which is what makes it safe to translate a screen at a time.
+///
+/// Shared by the web and the phone. They show different screens but say many of the same things, and a
+/// second copy of this would drift the moment one of them was corrected.
 ///
 /// Grouped by where the text appears rather than alphabetically, so a page can be checked against the
 /// screen it belongs to. Anything not listed here stays in English, which is the fallback by design.
 /// </summary>
-internal static class PolishTranslations
+public static class PolishTranslations
 {
     public static readonly IReadOnlyDictionary<string, string> ByEnglish = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -701,5 +705,93 @@ internal static class PolishTranslations
         ["Remove from my list"] = "Usuń z mojej listy",
         ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
+
+        // ---- Orbit.Maui's own wording. "Orbit" and the bare glyphs are deliberately absent:
+        // a product's name and a + are the same in both languages. ----
+        [" events today"] = " wydarzeń dziś",
+        [" new chat requests"] = " nowych zaproszeń do rozmowy",
+        [" tasks due today"] = " zadań na dziś",
+        ["Add someone"] = "Dodaj osobę",
+        ["Back to account"] = "Wróć do konta",
+        ["Back to chat"] = "Wróć do rozmów",
+        ["Back to dashboard"] = "Wróć do pulpitu",
+        ["Back to groups"] = "Wróć do grup",
+        ["Change username"] = "Zmień nazwę użytkownika",
+        ["Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later."] =
+            "Zmiana nazwy użytkownika, adresu e-mail lub hasła wymaga połączenia z Orbitem. Nic z tego nie zostanie zapisane na później.",
+        ["Chat"] = "Rozmowy",
+        ["Chat is unlocked"] = "Rozmowy są odblokowane",
+        ["Chat key"] = "Klucz rozmów",
+        ["Confirm new address"] = "Potwierdź nowy adres",
+        ["Confirmation code"] = "Kod potwierdzający",
+        ["Create account"] = "Załóż konto",
+        ["Create an account"] = "Załóż konto",
+        ["Creating an account needs a connection to Orbit."] = "Założenie konta wymaga połączenia z Orbitem.",
+        ["Delete list"] = "Usuń listę",
+        ["Find"] = "Szukaj",
+        ["Forward to"] = "Przekaż do",
+        ["I already have an account"] = "Mam już konto",
+        ["It always appears in your notifications. This also pushes or emails."] =
+            "Zawsze pojawi się w powiadomieniach. To dodatkowo wyśle powiadomienie push lub e-mail.",
+        ["Language"] = "Język",
+        ["Mark all read"] = "Oznacz wszystkie jako przeczytane",
+        ["Message"] = "Wiadomość",
+        ["New email address"] = "Nowy adres e-mail",
+        ["New item"] = "Nowa pozycja",
+        ["New list"] = "Nowa lista",
+        ["New username"] = "Nowa nazwa użytkownika",
+        ["New warehouse"] = "Nowy magazyn",
+        ["No messages yet."] = "Nie ma jeszcze wiadomości.",
+        ["No notes yet."] = "Nie ma jeszcze notatek.",
+        ["No warehouses yet."] = "Nie ma jeszcze magazynów.",
+        ["Nobody is sharing their position with you."] = "Nikt nie udostępnia Ci swojego położenia.",
+        ["Nobody."] = "Nikt.",
+        ["Nothing coming up."] = "Nic się nie zbliża.",
+        ["Nothing has been logged yet."] = "Nic jeszcze nie zostało zapisane.",
+        ["Nothing here yet."] = "Nic tu jeszcze nie ma.",
+        ["Nothing here yet. Add a note or a task to get started."] =
+            "Nic tu jeszcze nie ma. Dodaj notatkę albo zadanie, żeby zacząć.",
+        ["Nothing in this warehouse yet."] = "W tym magazynie nic jeszcze nie ma.",
+        ["Nothing on this list yet."] = "Na tej liście nic jeszcze nie ma.",
+        ["Notification settings"] = "Ustawienia powiadomień",
+        ["Notify me"] = "Powiadamiaj mnie",
+        ["Off means nothing is recorded or sent at all."] =
+            "Wyłączone oznacza, że nic nie jest zapisywane ani wysyłane.",
+        ["Push to this phone"] = "Powiadomienia na ten telefon",
+        ["Read"] = "Przeczytane",
+        ["Read my position"] = "Odczytaj moje położenie",
+        ["Record everything"] = "Zapisuj wszystko",
+        ["Remove admin"] = "Odbierz uprawnienia administratora",
+        ["Send confirmation code"] = "Wyślij kod potwierdzający",
+        ["Send to Orbit"] = "Wyślij do Orbita",
+        ["Set password and start chat over"] = "Ustaw hasło i zacznij rozmowy od nowa",
+        ["Settings"] = "Ustawienia",
+        ["Share it"] = "Udostępnij",
+        ["Share with"] = "Udostępnij osobie",
+        ["Sign in"] = "Zaloguj się",
+        ["Sign out"] = "Wyloguj się",
+        ["Status"] = "Status",
+        ["This device now holds your encryption key."] = "To urządzenie ma teraz Twój klucz szyfrujący.",
+        ["Update Orbit"] = "Zaktualizuj Orbita",
+        ["Waiting for them to accept your request"] = "Czeka na akceptację zaproszenia",
+        ["Waiting to send"] = "Czeka na wysłanie",
+        ["Wants to chat with you"] = "Chce z Tobą porozmawiać",
+        ["Warnings and errors otherwise. Goes back to that on the next launch."] =
+            "W przeciwnym razie tylko ostrzeżenia i błędy. Po następnym uruchomieniu wraca do tego ustawienia.",
+        ["When something is shared with me"] = "Gdy ktoś mi coś udostępni",
+        ["Where you are"] = "Gdzie jesteś",
+        ["Who can see you"] = "Kto Cię widzi",
+        ["Who is in it"] = "Kto należy do grupy",
+        ["Available"] = "Dostępny",
+        ["Couldn't sync"] = "Nie udało się zsynchronizować",
+        ["Just now"] = "Przed chwilą",
+        ["Offline"] = "Bez połączenia",
+        ["Synced"] = "Zsynchronizowano",
+        ["Syncing…"] = "Synchronizowanie…",
+        ["Unavailable"] = "Niedostępny",
+        ["Untitled event"] = "Wydarzenie bez tytułu",
+        ["Untitled list"] = "Lista bez tytułu",
+        ["Wants to chat"] = "Chce porozmawiać",
+        ["{0}d ago"] = "{0} dni temu",
     };
 }

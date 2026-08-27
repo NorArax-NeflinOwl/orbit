@@ -3,6 +3,7 @@ using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Dashboard;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -227,7 +228,7 @@ public sealed class DashboardScreenTests
         public RecordingScreenNavigator Navigator { get; } = new();
 
         public DashboardViewModel Open()
-            => new(_notes, _taskLists, _calendarEvents, _chat, _clock, Navigator);
+            => new(_notes, _taskLists, _calendarEvents, _chat, _clock, new Translations(new InMemoryLanguageStore()), Navigator);
 
         public async Task AddNoteAsync(string title)
             => await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)]);

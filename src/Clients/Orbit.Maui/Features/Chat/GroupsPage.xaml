@@ -7,14 +7,14 @@
     xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
     x:DataType="screens:GroupsViewModel"
-    Title="Groups">
+    Title="{controls:Translate 'Groups'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
 
-        <Label Grid.Row="0" Text="Groups" FontSize="26" FontAttributes="Bold" />
+        <Label Grid.Row="0" Text="{controls:Translate 'Groups'}" FontSize="26" FontAttributes="Bold" />
         <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
@@ -43,8 +43,8 @@
         <!-- Choosing who a new group holds. Replaces the list rather than sitting above it, so the
              checkboxes are not competing with a second scrolling area on a phone screen. -->
         <Grid Grid.Row="2" IsVisible="{Binding IsCreating}" RowDefinitions="Auto,Auto,*" RowSpacing="10">
-            <Entry Grid.Row="0" Placeholder="Group name" Text="{Binding NewGroupName}" />
-            <Label Grid.Row="1" Text="Who is in it" FontAttributes="Bold" />
+            <Entry Grid.Row="0" Placeholder="{controls:Translate 'Group name'}" Text="{Binding NewGroupName}" />
+            <Label Grid.Row="1" Text="{controls:Translate 'Who is in it'}" FontAttributes="Bold" />
             <CollectionView Grid.Row="2" ItemsSource="{Binding Candidates}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:SelectableContact">
@@ -58,15 +58,15 @@
         </Grid>
 
         <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsCreating}">
-            <Button Grid.Column="0" Text="Create" Command="{Binding CreateCommand}" />
-            <Button Grid.Column="1" Text="Cancel" Command="{Binding CancelCreatingCommand}"
+            <Button Grid.Column="0" Text="{controls:Translate 'Create'}" Command="{Binding CreateCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Cancel'}" Command="{Binding CancelCreatingCommand}"
                     Style="{StaticResource LinkButton}" />
         </Grid>
 
-        <Button Grid.Row="3" Text="New group" Command="{Binding StartCreatingCommand}"
+        <Button Grid.Row="3" Text="{controls:Translate 'New group'}" Command="{Binding StartCreatingCommand}"
                 IsVisible="{Binding IsNotCreating}" />
 
-        <Button Grid.Row="4" Text="Back to chat" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="4" Text="{controls:Translate 'Back to chat'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />
 
     </Grid>
