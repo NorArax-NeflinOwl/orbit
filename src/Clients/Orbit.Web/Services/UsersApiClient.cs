@@ -78,6 +78,22 @@ public sealed class UsersApiClient
     }
 
     /// <summary>The signed-in account's own profile - everything under /me is scoped to the caller's token.</summary>
+    public async Task<IReadOnlyList<string>> GetPermissionsAsync(CancellationToken cancellationToken = default)
+    {
+        var permissions = await _httpClient.GetFromJsonAsync<UserPermissionsDto>("api/users/me/permissions", cancellationToken);
+        return permissions?.Granted ?? [];
+    }
+
+    /// <summary>The permission the code unlocked, or null when it unlocked nothing.</summary>
+    public async Task<string?> RedeemPermissionCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/users/me/permissions/redeem", new RedeemPermissionCodeRequest(code), cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<RedeemPermissionCodeResultDto>(cancellationToken);
+        return result?.Granted;
+    }
+
     public async Task<bool> SetAvailabilityAsync(string availability, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync(

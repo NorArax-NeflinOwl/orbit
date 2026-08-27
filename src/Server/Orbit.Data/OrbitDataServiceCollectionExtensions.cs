@@ -9,6 +9,7 @@ using Orbit.Core.Location;
 using Orbit.Core.Inventory;
 using Orbit.Core.Inventory.ExpiryReminders;
 using Orbit.Core.Notes;
+using Orbit.Core.Permissions;
 using Orbit.Core.Notifications;
 using Orbit.Core.Sharing;
 using Orbit.Core.Tasks;
@@ -36,6 +37,7 @@ public static class OrbitDataServiceCollectionExtensions
                 "Password=<the POSTGRES_PASSWORD from your .env>\"`.");
 
         services.AddDbContext<OrbitDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();

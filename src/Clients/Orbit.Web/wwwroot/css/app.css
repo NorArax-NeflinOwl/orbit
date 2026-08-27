@@ -3420,3 +3420,68 @@ input.note-editor-title {
     border-color: var(--accent);
     color: var(--text-primary);
 }
+
+/* Options is four tabs rather than nine stacked sections - see Pages/Options.razor. */
+.options-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    overflow-x: auto;
+}
+
+.options-tab {
+    padding: 10px 16px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-display);
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.options-tab:hover {
+    color: var(--text-primary);
+}
+
+.options-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.permissions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.permissions-table th {
+    text-align: left;
+    padding: 0 0 8px;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    font-weight: 600;
+}
+
+.permissions-table td {
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.permissions-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* A code is read off one screen and typed into this one, so it is set in a face where every character
+   is its own width and nothing runs together. */
+.permission-code-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}

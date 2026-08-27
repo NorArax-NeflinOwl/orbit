@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Chat.Groups;
+using Orbit.Core.Permissions;
 using Orbit.Data;
 using Orbit.Data.Entities;
 using Orbit.Data.Repositories;
@@ -105,7 +106,8 @@ public sealed class AccountDeletionSweepTests : IAsyncLifetime
     [
         nameof(NoteEntity), nameof(TaskEntity), nameof(CalendarEventEntity), nameof(WarehouseEntity),
         nameof(RefreshTokenEntity), nameof(PushSubscriptionEntity), nameof(NotificationSettingsEntity),
-        nameof(NotificationEntryEntity), nameof(UserVerificationCodeEntity), nameof(ChatGroupMemberEntity)
+        nameof(NotificationEntryEntity), nameof(UserVerificationCodeEntity), nameof(ChatGroupMemberEntity),
+        nameof(UserPermissionEntity)
     ];
 
     private async Task SeedEverythingOwnedByAsync(Guid userId)
@@ -119,6 +121,7 @@ public sealed class AccountDeletionSweepTests : IAsyncLifetime
         _dbContext.PushSubscriptions.Add(new PushSubscriptionEntity { Id = Guid.NewGuid(), UserId = userId, Endpoint = $"https://push.example/{userId}", P256dhBase64 = "k", AuthBase64 = "a", CreatedAtUtc = now });
         _dbContext.NotificationSettings.Add(new NotificationSettingsEntity { Id = Guid.NewGuid(), UserId = userId });
         _dbContext.NotificationEntries.Add(new NotificationEntryEntity { Id = Guid.NewGuid(), UserId = userId, Kind = "Chat", Title = "Hi", Body = "Body", CreatedAtUtc = now });
+        _dbContext.UserPermissions.Add(new UserPermissionEntity { UserId = userId, Permission = nameof(ApplicationPermission.Chat), GrantedAtUtc = now });
         _dbContext.UserVerificationCodes.Add(new UserVerificationCodeEntity { Id = Guid.NewGuid(), UserId = userId, Purpose = "EmailVerification", CodeHash = "h", EmailAddress = "a@example.com", CreatedAtUtc = now, ExpiresAtUtc = now });
         // The membership needs a real group to point at - ChatGroupMembers.GroupId is a foreign key.
         var groupId = Guid.NewGuid();
@@ -137,6 +140,7 @@ public sealed class AccountDeletionSweepTests : IAsyncLifetime
         (nameof(_dbContext.PushSubscriptions), await _dbContext.PushSubscriptions.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.NotificationSettings), await _dbContext.NotificationSettings.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.NotificationEntries), await _dbContext.NotificationEntries.CountAsync(row => row.UserId == userId)),
+        (nameof(_dbContext.UserPermissions), await _dbContext.UserPermissions.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.UserVerificationCodes), await _dbContext.UserVerificationCodes.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.ChatGroupMembers), await _dbContext.ChatGroupMembers.CountAsync(row => row.UserId == userId))
     ];

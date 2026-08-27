@@ -66,6 +66,10 @@ services:
       ConnectionStrings__Orbit: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-orbit};Username=${POSTGRES_USER:-orbit};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in a .env file - see .env.example}"
       # Secret - read from the .env file at the repo root (see .env.example), never hardcoded here.
       Jwt__SigningKey: "${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in a .env file - see .env.example}"
+      # Every unlock code is derived from this one value (see PermissionSettings in Orbit.Api). Left
+      # empty the server makes one up on each start and logs the codes it produces, which is what local
+      # development runs on; set it to keep the same codes across restarts.
+      Permissions__Secret: "${ORBIT_PERMISSION_SECRET:-}"
       # Optional - calendar event reminder emails (see README.md's "Calendar event reminders"
       # section). Left unset, SmtpEmailSender just logs a warning and skips sending.
       Smtp__Host: "${SMTP_HOST:-}"
