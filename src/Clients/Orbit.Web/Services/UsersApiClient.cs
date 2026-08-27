@@ -84,14 +84,14 @@ public sealed class UsersApiClient
         return permissions?.Granted ?? [];
     }
 
-    /// <summary>The permission the code unlocked, or null when it unlocked nothing.</summary>
-    public async Task<string?> RedeemPermissionCodeAsync(string code, CancellationToken cancellationToken = default)
+    /// <summary>What the code unlocked, and what it needed first when it unlocked nothing - see RedeemPermissionCodeResultDto.</summary>
+    public async Task<RedeemPermissionCodeResultDto> RedeemPermissionCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(
             "api/users/me/permissions/redeem", new RedeemPermissionCodeRequest(code), cancellationToken);
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<RedeemPermissionCodeResultDto>(cancellationToken);
-        return result?.Granted;
+        return await response.Content.ReadFromJsonAsync<RedeemPermissionCodeResultDto>(cancellationToken)
+            ?? new RedeemPermissionCodeResultDto(Granted: null);
     }
 
     public async Task<bool> SetAvailabilityAsync(string availability, CancellationToken cancellationToken = default)

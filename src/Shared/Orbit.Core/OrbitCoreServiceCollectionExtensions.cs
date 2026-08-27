@@ -160,7 +160,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();
         services.AddScoped<IRequestHandler<GetUserPermissionsQuery, IReadOnlyList<ApplicationPermission>>, GetUserPermissionsQueryHandler>();
-        services.AddScoped<IRequestHandler<RedeemPermissionCodeCommand, ApplicationPermission?>, RedeemPermissionCodeCommandHandler>();
+        services.AddScoped<IRequestHandler<RedeemPermissionCodeCommand, RedeemPermissionCodeOutcome>, RedeemPermissionCodeCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptTaskListShareCommand, bool>, AcceptTaskListShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListShareStatusQuery, bool?>, GetTaskListShareStatusQueryHandler>();
         services.AddScoped<IRequestHandler<AcquireTaskListLockCommand, EditOutcome>, AcquireTaskListLockCommandHandler>();

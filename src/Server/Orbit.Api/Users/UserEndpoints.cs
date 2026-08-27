@@ -68,9 +68,10 @@ public static class UserEndpoints
         users.MapPost("/me/permissions/redeem", async (
             RedeemPermissionCodeRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var granted = await dispatcher.SendAsync(
+            var outcome = await dispatcher.SendAsync(
                 new RedeemPermissionCodeCommand(GetUserId(user), request.Code), cancellationToken);
-            return Results.Ok(new RedeemPermissionCodeResultDto(granted?.ToString()));
+            return Results.Ok(new RedeemPermissionCodeResultDto(
+                outcome.Granted?.ToString(), outcome.MissingPrerequisite?.ToString()));
         }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
 
         // What the caller chose to be. Only their own: presence describes whether somebody is there to

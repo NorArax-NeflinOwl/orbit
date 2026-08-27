@@ -45,6 +45,8 @@ internal static class PolishTranslations
         ["Group"] = "Grupowa",
         ["Pin"] = "Przypnij",
         ["Pin to top"] = "Przypnij na górę",
+        ["Needs {0}"] = "Wymaga: {0}",
+        ["{0} has to be unlocked first."] = "Najpierw trzeba odblokować: {0}.",
         ["Open Options"] = "Otwórz opcje",
         ["Enter the code for it under Options, Debug."] = "Wpisz kod do tej części w Opcjach, w zakładce Debug.",
         ["Not unlocked yet"] = "Jeszcze nieodblokowane",

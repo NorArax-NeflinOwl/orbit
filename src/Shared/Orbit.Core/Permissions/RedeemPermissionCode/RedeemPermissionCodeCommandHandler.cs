@@ -7,7 +7,7 @@ namespace Orbit.Core.Permissions.RedeemPermissionCode;
 /// something the account already holds still reports success: the person typed a valid code and the
 /// account can now use that part of Orbit, which is the only thing they asked about.
 /// </summary>
-public sealed class RedeemPermissionCodeCommandHandler : IRequestHandler<RedeemPermissionCodeCommand, ApplicationPermission?>
+public sealed class RedeemPermissionCodeCommandHandler : IRequestHandler<RedeemPermissionCodeCommand, RedeemPermissionCodeOutcome>
 {
     private readonly IUserPermissionRepository _userPermissionRepository;
     private readonly PermissionCodeAuthority _permissionCodeAuthority;
@@ -19,14 +19,22 @@ public sealed class RedeemPermissionCodeCommandHandler : IRequestHandler<RedeemP
         _permissionCodeAuthority = permissionCodeAuthority;
     }
 
-    public async Task<ApplicationPermission?> HandleAsync(RedeemPermissionCodeCommand request, CancellationToken cancellationToken)
+    public async Task<RedeemPermissionCodeOutcome> HandleAsync(RedeemPermissionCodeCommand request, CancellationToken cancellationToken)
     {
         if (_permissionCodeAuthority.Match(request.Code) is not { } permission)
         {
-            return null;
+            return new RedeemPermissionCodeOutcome(Granted: null, MissingPrerequisite: null);
+        }
+
+        var granted = await _userPermissionRepository.GetForUserAsync(request.UserId, cancellationToken);
+        // Refused rather than stored-and-inert: a code that appeared to work and changed nothing would
+        // be worse than being told what to unlock first.
+        if (permission.RequiredBefore() is { } required && !granted.Contains(required))
+        {
+            return new RedeemPermissionCodeOutcome(Granted: null, MissingPrerequisite: required);
         }
 
         await _userPermissionRepository.GrantAsync(request.UserId, permission, cancellationToken);
-        return permission;
+        return new RedeemPermissionCodeOutcome(permission, MissingPrerequisite: null);
     }
 }
