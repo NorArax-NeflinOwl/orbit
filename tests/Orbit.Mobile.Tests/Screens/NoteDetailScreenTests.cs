@@ -44,6 +44,75 @@ public sealed class NoteDetailScreenTests
         Assert.Equal(["milk", "eggs"], screen.Lines.Select(line => line.Text));
     }
 
+    /// <summary>
+    /// A line was a read-only label on this screen, so anything written into a note could never be
+    /// corrected - the note had to be deleted and written again. Orbit.Web edits its lines in place.
+    /// </summary>
+    [Fact]
+    public async Task A_line_can_be_corrected_after_it_is_written()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "mikl");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Lines[0].Text = "milk";
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+
+        var reopened = await context.OpenAsync(note.LocalId);
+        Assert.Equal(["milk"], reopened.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>
+    /// Leaving the screen is the other way an edit ends, and the one that used to lose it: every other
+    /// action here saves the whole note, so only a line typed and then left alone was at risk.
+    /// </summary>
+    [Fact]
+    public async Task A_line_edited_and_left_alone_is_still_written_down()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "mikl");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Lines[0].Text = "milk";
+        await screen.CloseAsync();
+
+        var reopened = await context.OpenAsync(note.LocalId);
+        Assert.Equal(["milk"], reopened.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>
+    /// Two lines that say the same thing are still two lines. They were compared by value, so ticking
+    /// one ticked both - and deleting one deleted both.
+    /// </summary>
+    [Fact]
+    public async Task Two_lines_that_say_the_same_thing_are_told_apart()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        await screen.ToggleChecklistCommand.ExecuteAsync(screen.Lines[0]);
+        await screen.ToggleCheckedCommand.ExecuteAsync(screen.Lines[0]);
+
+        Assert.True(screen.Lines[0].IsChecked);
+        Assert.False(screen.Lines[1].IsChecklistItem);
+    }
+
+    /// <summary>Orbit.Web's "Checklist item" button starts a tickable line rather than converting one.</summary>
+    [Fact]
+    public async Task A_checklist_item_can_be_started_directly()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.NewLine = "eggs";
+        await screen.AddChecklistItemCommand.ExecuteAsync(null);
+
+        Assert.True(screen.Lines.Single().IsChecklistItem);
+        Assert.False(screen.Lines.Single().IsChecked);
+    }
+
     [Fact]
     public async Task A_line_can_become_a_checklist_item_and_be_ticked()
     {

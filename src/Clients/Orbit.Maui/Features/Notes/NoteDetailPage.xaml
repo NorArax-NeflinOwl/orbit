@@ -25,11 +25,16 @@
                FontSize="12" LineBreakMode="WordWrap"
                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New line'}" Text="{Binding NewLine}"
-                   ReturnType="Done" ReturnCommand="{Binding AddLineCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddLineCommand}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="3" Spacing="8" IsVisible="{Binding CanEdit}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0" Placeholder="{controls:Translate 'New line'}" Text="{Binding NewLine}"
+                       ReturnType="Done" ReturnCommand="{Binding AddLineCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddLineCommand}" />
+            </Grid>
+            <Button Text="{controls:Translate 'Checklist item'}" HorizontalOptions="Start"
+                    FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding AddChecklistItemCommand}" />
+        </VerticalStackLayout>
 
         <CollectionView Grid.Row="4" ItemsSource="{Binding Lines}">
 
@@ -41,27 +46,26 @@
                  BindingContext is the view model - see TaskListDetailPage for the same note. -->
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="screens:NoteLineRow">
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Padding="0,10">
-                        <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="40" FontSize="16"
+                    <!-- The tick box leads the line, as it does in Orbit.Web's editor, and the line
+                         itself is written in rather than read: it was a label here, so a line could be
+                         written once and never corrected. Everything else a line can have done to it is
+                         behind one "⋯", the way a chat message's options are. -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" Padding="0,4">
+                        <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="36" FontSize="17"
                                 Padding="0" BackgroundColor="Transparent" IsVisible="{Binding IsChecklistItem}"
                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
                                 CommandParameter="{Binding .}" />
 
-                        <!-- The tick box is the whole signal, as on the task list - no strike-through,
-                             so the two screens do not disagree about what "done" looks like. -->
-                        <Label Grid.Column="1" Text="{Binding Text}" LineBreakMode="WordWrap" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
+                               BackgroundColor="Transparent" ReturnType="Done"
+                               IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
+                               ReturnCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.SaveLinesCommand, x:DataType=notes:NoteDetailPage}" />
 
-                        <Button Grid.Column="2" Text="☑" FontSize="14" Padding="8,0" BackgroundColor="Transparent"
+                        <Button Grid.Column="2" Text="⋯" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanEdit, x:DataType=notes:NoteDetailPage}"
                                 TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleChecklistCommand, x:DataType=notes:NoteDetailPage}"
-                                CommandParameter="{Binding .}" />
-
-                        <Button Grid.Column="3" Text="✕" FontSize="14" Padding="8,0" BackgroundColor="Transparent"
-                                IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanEdit, x:DataType=notes:NoteDetailPage}"
-                                TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
-                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveLineCommand, x:DataType=notes:NoteDetailPage}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowLineMenuCommand, x:DataType=notes:NoteDetailPage}"
                                 CommandParameter="{Binding .}" />
                     </Grid>
                 </DataTemplate>

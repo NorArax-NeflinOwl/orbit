@@ -87,13 +87,34 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     private bool CanAddLine => NewLine.Trim().Length > 0 && CanEdit;
 
+    /// <summary>
+    /// A new line that starts out tickable, which is what Orbit.Web's "Checklist item" toolbar button
+    /// does. Without it the only way to get one here was to add prose and then convert it.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanAddLine))]
+    private Task AddChecklistItemAsync(CancellationToken cancellationToken)
+    {
+        var text = NewLine.Trim();
+        NewLine = string.Empty;
+
+        return SaveAsync([.. Lines.Select(line => line.ToDto()), new NoteContentLineDto(text, true, false)], cancellationToken);
+    }
+
+    /// <summary>
+    /// Writes down what the lines say now. Every other action here saves the whole note anyway, so this
+    /// is for the one case that would otherwise be lost: a line edited and then left alone.
+    /// </summary>
+    [RelayCommand]
+    private Task SaveLinesAsync(CancellationToken cancellationToken)
+        => CanEdit ? SaveAsync([.. Lines.Select(line => line.ToDto())], cancellationToken) : Task.CompletedTask;
+
     /// <summary>Turns a line into a checklist item, or back into an ordinary one.</summary>
     [RelayCommand]
     private Task ToggleChecklistAsync(NoteLineRow? row, CancellationToken cancellationToken)
         => row is null
             ? Task.CompletedTask
             : SaveAsync(
-                [.. Lines.Select(line => line == row
+                [.. Lines.Select(line => ReferenceEquals(line, row)
                     ? line.ToDto() with { IsChecklistItem = !line.IsChecklistItem, IsChecked = false }
                     : line.ToDto())],
                 cancellationToken);
@@ -103,14 +124,16 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         => row is not { IsChecklistItem: true }
             ? Task.CompletedTask
             : SaveAsync(
-                [.. Lines.Select(line => line == row ? line.ToDto() with { IsChecked = !line.IsChecked } : line.ToDto())],
+                [.. Lines.Select(line => ReferenceEquals(line, row)
+                    ? line.ToDto() with { IsChecked = !line.IsChecked }
+                    : line.ToDto())],
                 cancellationToken);
 
     [RelayCommand]
     private Task RemoveLineAsync(NoteLineRow? row, CancellationToken cancellationToken)
         => row is null
             ? Task.CompletedTask
-            : SaveAsync([.. Lines.Where(line => line != row).Select(line => line.ToDto())], cancellationToken);
+            : SaveAsync([.. Lines.Where(line => !ReferenceEquals(line, row)).Select(line => line.ToDto())], cancellationToken);
 
     /// <summary>Renaming saves the whole note, because the API's update takes the whole note.</summary>
     [RelayCommand]
@@ -207,8 +230,15 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         ReadOnlyReason = _editLock.RefusalMessage;
     }
 
-    /// <summary>Lets the note go when the screen does, rather than leaving it claimed for a minute.</summary>
-    public Task CloseAsync() => _editLock.ReleaseAsync();
+    /// <summary>
+    /// Lets the note go when the screen does, rather than leaving it claimed for a minute - and writes
+    /// down anything typed into a line and not otherwise saved before letting go of it.
+    /// </summary>
+    public async Task CloseAsync()
+    {
+        await SaveLinesAsync(CancellationToken.None);
+        await _editLock.ReleaseAsync();
+    }
 
     /// <summary>
     /// Pushes what was just queued, and says so if it could not go. Nothing is lost either way - the
@@ -246,7 +276,12 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(CanEdit));
         AddLineCommand.NotifyCanExecuteChanged();
+        AddChecklistItemCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnNewLineChanged(string value) => AddLineCommand.NotifyCanExecuteChanged();
+    partial void OnNewLineChanged(string value)
+    {
+        AddLineCommand.NotifyCanExecuteChanged();
+        AddChecklistItemCommand.NotifyCanExecuteChanged();
+    }
 }
