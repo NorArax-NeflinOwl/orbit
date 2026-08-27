@@ -14,7 +14,7 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
-        <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
+        <Label Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold" />
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
@@ -129,7 +129,7 @@
         </VerticalStackLayout>
 
         <Grid Grid.Row="5" ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">
-            <Button Grid.Column="0" Text="{controls:Translate 'Back'}" Command="{Binding GoBackCommand}"
+            <Button Grid.Column="0" Text="{controls:Translate 'Back to task lists'}" Command="{Binding GoBackCommand}"
                     Style="{StaticResource LinkButton}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Delete list'}" Command="{Binding DeleteListCommand}"
                     Style="{StaticResource DestructiveButton}"

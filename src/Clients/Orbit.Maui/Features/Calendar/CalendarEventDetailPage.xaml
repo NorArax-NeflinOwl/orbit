@@ -13,7 +13,7 @@
     <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="20" Spacing="12">
 
-            <Entry Text="{Binding Title}" FontSize="20" IsReadOnly="{Binding IsReadOnly}"
+            <Entry Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
                    Placeholder="{controls:Translate 'Untitled event'}" />
 
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12" LineBreakMode="WordWrap"
@@ -54,8 +54,7 @@
                 <Button Text="{controls:Translate 'Back to calendar'}" Command="{Binding GoBackCommand}"
                         Style="{StaticResource LinkButton}" />
                 <Button Text="{controls:Translate 'Delete event'}" Command="{Binding DeleteCommand}"
-                        IsVisible="{Binding CanEdit}" Style="{StaticResource LinkButton}"
-                        TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+                        IsVisible="{Binding CanEdit}" Style="{StaticResource DestructiveButton}" />
             </HorizontalStackLayout>
 
         </VerticalStackLayout>

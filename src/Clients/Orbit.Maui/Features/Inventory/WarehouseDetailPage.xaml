@@ -15,7 +15,7 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
-        <Label Grid.Row="0" Text="{Binding Name}" FontSize="22" FontAttributes="Bold" />
+        <Label Grid.Row="0" Text="{Binding Name}" FontSize="20" FontAttributes="Bold" />
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
@@ -128,7 +128,7 @@
             <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
 
-        <Button Grid.Row="5" Text="{controls:Translate 'Back'}" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="5" Text="{controls:Translate 'Back to inventory'}" Command="{Binding GoBackCommand}"
                 IsVisible="{Binding IsShowingList}"
                 Style="{StaticResource LinkButton}" />
 

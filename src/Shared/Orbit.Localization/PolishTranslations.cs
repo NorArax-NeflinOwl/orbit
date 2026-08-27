@@ -344,6 +344,7 @@ public static class PolishTranslations
         ["Daily reminder time"] = "Godzina codziennego przypomnienia",
         ["Overdue notification"] = "Powiadomienie po terminie",
         ["No items."] = "Brak pozycji.",
+        ["Back to inventory"] = "Wróć do magazynów",
         ["Back to task lists"] = "Wróć do list zadań",
         ["This task list no longer exists."] = "Ta lista zadań już nie istnieje.",
         ["This task list was shared by"] = "Tę listę zadań udostępnił",

@@ -14,7 +14,7 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
         <!-- The title is the note's own, so it is edited in place rather than shown twice. -->
-        <Entry Grid.Row="0" Text="{Binding Title}" FontSize="20" IsReadOnly="{Binding IsReadOnly}"
+        <Entry Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
                Placeholder="{controls:Translate 'Untitled'}"
                ReturnType="Done" ReturnCommand="{Binding RenameCommand}" />
 
@@ -79,8 +79,7 @@
             <Button Text="{controls:Translate 'Back to notes'}" Command="{Binding GoBackCommand}"
                     Style="{StaticResource LinkButton}" />
             <Button Text="{controls:Translate 'Delete note'}" Command="{Binding DeleteCommand}"
-                    IsVisible="{Binding CanEdit}" Style="{StaticResource LinkButton}"
-                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+                    IsVisible="{Binding CanEdit}" Style="{StaticResource DestructiveButton}" />
         </HorizontalStackLayout>
 
     </Grid>
