@@ -303,6 +303,11 @@ jobs:
       # at the next release. Already-granted permissions are rows in the database and survive the
       # rotation; only the codes for granting new ones change.
       #
+      # It is stored as a Container App secret rather than a plain environment variable, so it cannot be
+      # read back out of the app afterwards - `az containerapp show` returns "secretref:permission-secret"
+      # and not the value. That makes the run summary written below the only place the codes ever exist:
+      # if it is lost, the way back is another deploy, which issues new ones.
+      #
       # Deliberately NOT added to the "required environment variable" check above: that step lists
       # variables a human has to set, and this one is set right here, so listing it would fail the very
       # first deploy that introduces it.
@@ -334,13 +339,21 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Two commands rather than one because `az containerapp update` cannot write secrets: the value
+      # goes in first, and only then does the environment variable point at it. Both are idempotent -
+      # the reference is the same on every deploy, and only what it points at changes.
       - name: Deploy orbit-api
         run: |
+          az containerapp secret set \
+            --name orbit-api \
+            --resource-group ${{ env.resourceGroupName }} \
+            --secrets permission-secret="$PERMISSION_SECRET"
+
           az containerapp update \
             --name orbit-api \
             --resource-group ${{ env.resourceGroupName }} \
             --image ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }} \
-            --set-env-vars Permissions__Secret="$PERMISSION_SECRET"
+            --set-env-vars Permissions__Secret=secretref:permission-secret
 
       - name: Deploy orbit-web
         run: |

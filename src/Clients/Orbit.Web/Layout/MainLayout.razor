@@ -276,13 +276,9 @@
         T.Changed += OnLanguageChanged;
         await EnsureEncryptionKeyIfAuthenticatedAsync();
         StartSessionHeartbeat();
-        if (_isAuthenticated)
-        {
-            Presence.Changed += OnPresenceChanged;
-            await Presence.StartAsync();
-            Permissions.Changed += OnPermissionsChanged;
-            await Permissions.RefreshAsync();
-        }
+        Presence.Changed += OnPresenceChanged;
+        Permissions.Changed += OnPermissionsChanged;
+        await StartPresenceAndPermissionsIfAuthenticatedAsync();
         await RefreshNotificationStateIfAuthenticatedAsync();
         StartNotificationPoll();
     }
@@ -424,8 +420,25 @@
         // above) - MainLayout itself is never recreated across that transition, so nothing else would.
         // A no-op while it's already running (StartSessionHeartbeat only starts one if none exists yet).
         StartSessionHeartbeat();
+        // Same reason as the heartbeat above: this layout is not recreated when somebody signs in, and
+        // when the app was opened at the login page there was nobody to report presence for or ask what
+        // they are allowed to do. Without this the navigation stays missing its gated entries, and the
+        // account shows as offline to everyone else, until the page is reloaded.
+        await StartPresenceAndPermissionsIfAuthenticatedAsync();
         await RefreshNotificationStateIfAuthenticatedAsync();
         StartNotificationPoll();
+    }
+
+    /// <summary>Safe to call again: PresenceService only ever starts one heartbeat.</summary>
+    private async Task StartPresenceAndPermissionsIfAuthenticatedAsync()
+    {
+        if (!_isAuthenticated)
+        {
+            return;
+        }
+
+        await Presence.StartAsync();
+        await Permissions.RefreshAsync();
     }
 
     /// <summary>

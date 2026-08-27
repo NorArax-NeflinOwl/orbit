@@ -1,4 +1,6 @@
 using System.Net;
+using Orbit.Core.Permissions;
+using System.Text;
 using System.Net.Http.Json;
 using AngleSharp.Dom;
 using Bunit;
@@ -31,6 +33,26 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyTasksApiClient();
         RegisterEmptyCalendarApiClient();
         RegisterDashboardPins();
+        RegisterPermissions();
+    }
+
+    /// <summary>
+    /// The dashboard only asks for chats, groups and shared positions once this account has unlocked
+    /// them (see UserPermissionState), so these tests grant everything - what they are about is what the
+    /// columns show, not what is unlocked. PermissionsTests below covers the locked case.
+    /// </summary>
+    private void RegisterPermissions(params ApplicationPermission[] granted)
+    {
+        var names = (granted.Length > 0 ? granted : Enum.GetValues<ApplicationPermission>())
+            .Select(permission => $"\"{permission}\"");
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent($"{{\"granted\":[{string.Join(",", names)}]}}", Encoding.UTF8, "application/json")
+        });
+        var permissions = new UserPermissionState(
+            new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
+        permissions.RefreshAsync().GetAwaiter().GetResult();
+        Services.AddSingleton(permissions);
     }
 
     /// <summary>
@@ -98,6 +120,32 @@ public sealed class DashboardTests : OrbitTestContext
 
         // A column that only ever said "none" would be dead space on the one page meant to be scanned.
         Assert.DoesNotContain("Groups", cut.Markup);
+    }
+
+    [Fact]
+    public void An_account_that_has_unlocked_nothing_still_gets_its_notes_and_tasks()
+    {
+        // What this pins: the dashboard is one page built from several separate questions, and the ones
+        // this account may not ask must not take the page down with them. Before the permission gate
+        // had this, a 403 on contacts or shared positions turned the entire dashboard - notes and task
+        // lists included - into "Couldn't load the dashboard", which is what everybody saw on the
+        // release that introduced it.
+        Services.Remove(Services.Single(service => service.ServiceType == typeof(UserPermissionState)));
+        RegisterPermissions(ApplicationPermission.Sharing);
+        RegisterNotesApiClient([new NoteDto(
+            Guid.NewGuid(), "Shopping", [], IsPrivate: false, EncryptedContent: null,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null)]);
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Shopping", cut.Markup);
+        Assert.DoesNotContain("Couldn't load the dashboard", cut.Markup);
+        // Nothing was asked for, so nothing is claimed: no contacts column rather than an empty one.
+        Assert.DoesNotContain("Anna Kowalska", cut.Markup);
     }
 
     [Fact]
@@ -197,9 +245,11 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.DoesNotContain("Shared with you", cut.Markup);
     }
 
-    private void RegisterEmptyNotesApiClient()
+    private void RegisterEmptyNotesApiClient() => RegisterNotesApiClient([]);
+
+    private void RegisterNotesApiClient(IReadOnlyList<NoteDto> notes)
     {
-        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(Array.Empty<NoteDto>()))) { BaseAddress = new Uri("https://example.test/") };
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(notes))) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new NotesApiClient(httpClient));
     }
 

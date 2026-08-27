@@ -296,13 +296,39 @@ public sealed class UsersApiClient
     }
 
     /// <summary>Who the caller is currently sharing their position with.</summary>
+    /// <summary>
+    /// Empty rather than an exception when this account has not unlocked location (see
+    /// PermissionPolicies in Orbit.Api). Half the app asks this question in passing - a share picker, a
+    /// dashboard card - and a refusal there is not a failure to report, it is the answer: there is
+    /// nobody to show. Left throwing, one 403 in an editor's OnInitializedAsync took down the whole
+    /// renderer.
+    /// </summary>
     public async Task<IReadOnlyList<SharedLocationDto>> GetOwnLocationSharesAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shares", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shares", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
 
     /// <summary>
     /// Positions other people are sharing with the caller, still encrypted - this is the call a recipient
     /// polls. Opening them needs the pairwise key, so it happens in the page (see EncryptedChatMessageReader).
     /// </summary>
     public async Task<IReadOnlyList<SharedLocationDto>> GetLocationsSharedWithMeAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shared-with-me", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shared-with-me", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            // Same as GetOwnLocationSharesAsync above: not allowed to ask means nobody to show.
+            return [];
+        }
+    }
 }
