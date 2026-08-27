@@ -129,6 +129,31 @@ Android refuses cleartext HTTP the way iOS does, and the exception is
 `Platforms/Android/Resources/xml/network_security_config.xml`: `10.0.2.2` and loopback only. A LAN
 address needs HTTPS or its own entry there.
 
+## Testing a tapped notification without sending one
+
+Push is not wired up on either head yet (`PhonePushNotifications` under each platform folder says why), but the
+tap handling behind it is, and it can be exercised without Firebase. The destination arrives as an
+ordinary intent extra on Android: the Firebase SDK turns each entry of the message's `data` block into
+one, and `Orbit.Api`'s `FirebasePushNotificationSender` puts the tap target there under `url`. So an
+`am start` carrying that extra is indistinguishable from a real tap as far as the app is concerned.
+
+The activity's class name carries a generated hash, so ask the device for it rather than writing it
+down anywhere:
+
+```bash
+adb shell am start -n "$(adb shell cmd package resolve-activity --brief com.orbitmaui.android | tail -1 | tr -d '\r')" -e url /calendar
+```
+
+Run it against a stopped app for the cold-start path and against a running one for the warm path — they
+are handled in different places (`OnCreate` and `OnNewIntent`) and only the second needs the activity to
+be `SingleTop`. The paths the app understands are the ones `NotificationDestination.Parse` lists:
+`/calendar`, `/inventory`, `/map`, `/tasks/{id}`, `/chat/{userId}`, `/chat/groups/{groupId}`.
+
+**A tap is only followed once the reader is signed in.** `StartupViewModel.ContinueToAppAsync` checks
+for a session first and sends them to sign-in otherwise, deliberately - following it would put a
+conversation behind the sign-in screen. On a freshly installed app the destination is recorded and then
+dropped, which looks like nothing happening.
+
 ## Prerequisites
 
 The .NET workloads (`maui`, `ios`, `android`) are only half of it — each platform also needs its own
