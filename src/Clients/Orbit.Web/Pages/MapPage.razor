@@ -211,6 +211,13 @@
         // Waits for the first permission read, so this page never decides it is locked before it
         // has been told - see UserPermissionState.EnsureLoadedAsync.
         await Permissions.EnsureLoadedAsync();
+        // Nothing below is reachable without this, and the page draws its locked notice instead - so it
+        // does not ask and get turned away, which only fills the console with refusals that are not news.
+        if (!Permissions.Has(ApplicationPermission.Location))
+        {
+            return;
+        }
+
         _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         await LoadAsync();
