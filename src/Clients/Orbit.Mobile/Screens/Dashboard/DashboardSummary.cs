@@ -21,14 +21,19 @@ public sealed record TodaySummary(int TasksDueToday, int EventsToday, int Pendin
 /// </param>
 public sealed record DashboardRow(Guid LocalId, string Title, string Detail);
 
-/// <summary>Which section a card belongs to, and therefore where tapping one of its rows leads.</summary>
+/// <summary>
+/// The cards, in the order Orbit.Web lays them out. Chats appear twice on purpose, as they do there:
+/// "Recent chats" answers "who was I just talking to", and "Contacts" is a directory - the same person
+/// in both, sorted for two different questions.
+/// </summary>
 public enum DashboardCardKind
 {
     Notes,
     Tasks,
-    Events,
-    Contacts,
-    Groups
+    Upcoming,
+    Groups,
+    RecentChats,
+    Contacts
 }
 
 /// <summary>

@@ -79,6 +79,50 @@ public sealed class NavigationBarTests
     }
 
     [Fact]
+    public void The_avatar_opens_a_menu_rather_than_going_anywhere()
+    {
+        // Orbit.Web's avatar does the same: the account, the notifications and signing out all hang off
+        // it, and making the avatar mean one of them would hide the other two.
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+
+        bar.ToggleMenuCommand.Execute(null);
+
+        Assert.True(bar.IsMenuOpen);
+        Assert.Empty(context.Navigator.Destinations);
+    }
+
+    [Fact]
+    public void Leaving_the_menu_for_somewhere_closes_it()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+        bar.ToggleMenuCommand.Execute(null);
+
+        bar.GoToNotificationsCommand.Execute(null);
+
+        // Otherwise coming back to a page finds the menu hanging open over it.
+        Assert.False(bar.IsMenuOpen);
+        Assert.Equal("ShowNotifications", context.Navigator.LastDestination);
+    }
+
+    [Fact]
+    public void Setting_a_status_leaves_the_menu_open()
+    {
+        // Setting a status is not leaving the menu, and closing it would hide the dot the reader just
+        // changed before they could see it change.
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+        bar.ToggleMenuCommand.Execute(null);
+
+        bar.ChooseUnavailableCommand.Execute(null);
+
+        Assert.True(bar.IsMenuOpen);
+        Assert.False(bar.IsAvailable);
+        Assert.Equal(PresenceAppearance.Unavailable, bar.Appearance);
+    }
+
+    [Fact]
     public void The_logo_leads_to_the_dashboard()
     {
         var context = new BarContext("Ala");
@@ -104,9 +148,11 @@ public sealed class NavigationBarTests
         public NavigationBarViewModel Open()
             => new(
                 _sessionStore, new NotificationsClient(Server.ToHttpClient()),
-                new Orbit.Mobile.Presence.Presence(
-                    FixedNetworkStatus.Online, new InMemoryPresenceStore(),
-                    new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T09:00:00Z"))),
-                Navigator);
+                new AuthenticationClient(Server.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
+                Presence, Navigator);
+
+        public Orbit.Mobile.Presence.Presence Presence { get; } = new(
+            FixedNetworkStatus.Online, new InMemoryPresenceStore(),
+            new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T09:00:00Z")));
     }
 }

@@ -16,11 +16,8 @@ namespace Orbit.Mobile.Screens.Dashboard;
 /// </summary>
 public sealed partial class DashboardViewModel : ObservableObject
 {
-    /// <summary>
-    /// How many rows a card shows. Enough to recognise what is there, few enough that five cards still
-    /// fit on a phone - the section itself is one tap away on the navigation bar.
-    /// </summary>
-    private const int RowsPerCard = 4;
+    /// <summary>How many rows a card shows. Six, as Orbit.Web shows, so the two agree about what fits.</summary>
+    private const int RowsPerCard = 6;
 
     private readonly LocalNoteRepository _notes;
     private readonly LocalTaskListRepository _taskLists;
@@ -66,9 +63,10 @@ public sealed partial class DashboardViewModel : ObservableObject
         // added only when it has something in it, which is also how the web's dashboard behaves.
         AddCardIfAnything(DashboardCardKind.Notes, "Notes", notes.Count, DescribeNotes(notes));
         AddCardIfAnything(DashboardCardKind.Tasks, "Tasks", taskLists.Count, DescribeTaskLists(taskLists));
-        AddCardIfAnything(DashboardCardKind.Events, "Events", events.Count, DescribeEvents(events));
-        AddCardIfAnything(DashboardCardKind.Contacts, "Contacts", contacts.Count, DescribeContacts(contacts));
+        AddCardIfAnything(DashboardCardKind.Upcoming, "Upcoming", events.Count, DescribeEvents(events));
         AddCardIfAnything(DashboardCardKind.Groups, "Groups", groups.Count, DescribeGroups(groups));
+        AddCardIfAnything(DashboardCardKind.RecentChats, "Recent chats", contacts.Count, DescribeRecentChats(contacts));
+        AddCardIfAnything(DashboardCardKind.Contacts, "Contacts", DirectoryOf(contacts).Count, DescribeDirectory(contacts));
 
         HasNothing = Cards.Count == 0;
     }
@@ -92,10 +90,11 @@ public sealed partial class DashboardViewModel : ObservableObject
                 _navigator.ShowTaskList(row.LocalId);
                 break;
 
-            case DashboardCardKind.Events:
+            case DashboardCardKind.Upcoming:
                 _navigator.ShowCalendar();
                 break;
 
+            case DashboardCardKind.RecentChats:
             case DashboardCardKind.Contacts:
                 await OpenConversationAsync(row.LocalId);
                 break;
@@ -167,15 +166,12 @@ public sealed partial class DashboardViewModel : ObservableObject
             .ToList();
 
     /// <summary>
-    /// What is still ahead rather than everything there is. A calendar's value on a home screen is the
-    /// next thing, and a list led by last month's events would bury it.
+    /// Everything on the calendar, soonest first - not only what is ahead. Filtering to the future reads
+    /// as the better idea and is a divergence: Orbit.Web shows the lot, and an account whose events have
+    /// all been and gone would show a calendar card there and none here.
     /// </summary>
     private IReadOnlyList<DashboardRow> DescribeEvents(IReadOnlyList<LocalCalendarEvent> events)
-    {
-        var now = _timeProvider.GetUtcNow();
-
-        return events
-            .Where(calendarEvent => calendarEvent.Details.EndUtc >= now)
+        => events
             .OrderBy(calendarEvent => calendarEvent.Details.StartUtc)
             .Take(RowsPerCard)
             .Select(calendarEvent => new DashboardRow(
@@ -183,9 +179,9 @@ public sealed partial class DashboardViewModel : ObservableObject
                 TitleOrPlaceholder(calendarEvent.Details.Title, "Untitled event"),
                 DescribeWhen(calendarEvent.Details.StartUtc, calendarEvent.Details.IsAllDay)))
             .ToList();
-    }
 
-    private IReadOnlyList<DashboardRow> DescribeContacts(IReadOnlyList<LocalContact> contacts)
+    /// <summary>Who was last talking, most recent first, with anybody waiting on an answer at the top.</summary>
+    private IReadOnlyList<DashboardRow> DescribeRecentChats(IReadOnlyList<LocalContact> contacts)
         => contacts
             .OrderByDescending(contact => contact.RequiresApprovalFromCurrentUser)
             .ThenByDescending(contact => contact.LastMessageAtUtc)
@@ -194,6 +190,22 @@ public sealed partial class DashboardViewModel : ObservableObject
                 contact.UserId,
                 contact.DisplayName,
                 contact.RequiresApprovalFromCurrentUser ? "Wants to chat" : Ago(contact.LastMessageAtUtc)))
+            .ToList();
+
+    /// <summary>
+    /// A plain directory, alphabetical. Leaves out conversations nobody has answered yet, so an
+    /// unanswered request shows up once - in Recent chats - rather than in both.
+    /// </summary>
+    private IReadOnlyList<DashboardRow> DescribeDirectory(IReadOnlyList<LocalContact> contacts)
+        => DirectoryOf(contacts)
+            .Take(RowsPerCard)
+            .Select(contact => new DashboardRow(contact.UserId, contact.DisplayName, string.Empty))
+            .ToList();
+
+    private static IReadOnlyList<LocalContact> DirectoryOf(IReadOnlyList<LocalContact> contacts)
+        => contacts
+            .Where(contact => !contact.RequiresApprovalFromCurrentUser && !contact.IsPendingApprovalFromOtherParty)
+            .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
     private IReadOnlyList<DashboardRow> DescribeGroups(IReadOnlyList<LocalChatGroup> groups)
@@ -216,12 +228,12 @@ public sealed partial class DashboardViewModel : ObservableObject
     private string DescribeWhen(DateTimeOffset startUtc, bool isAllDay)
     {
         var start = startUtc.ToLocalTime();
-        if (start.Date == _timeProvider.GetLocalNow().Date)
-        {
-            return isAllDay ? "Today" : $"Today {start:HH:mm}";
-        }
+        var today = _timeProvider.GetLocalNow().Date;
+        var day = start.Date == today ? "Today"
+            : start.Date == today.AddDays(1) ? "Tomorrow"
+            : start.ToString("ddd d");
 
-        return isAllDay ? start.ToString("d MMM") : start.ToString("d MMM HH:mm");
+        return isAllDay ? day : $"{day} {start:HH:mm}";
     }
 
     /// <summary>

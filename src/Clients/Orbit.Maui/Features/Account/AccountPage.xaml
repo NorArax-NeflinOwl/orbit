@@ -9,7 +9,6 @@
     Title="Account">
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <controls:NavigationBar Grid.Row="0" />
 
 
     <ScrollView Grid.Row="1">
@@ -48,26 +47,9 @@
                 <Button Text="Change password" Command="{Binding ChangePasswordCommand}" />
             </VerticalStackLayout>
 
-            <VerticalStackLayout Spacing="8">
-                <Label Text="Status" FontAttributes="Bold" />
-                <!-- Two choices rather than a toggle: "available" and "unavailable" are both things
-                     somebody picks, and a switch makes one of them look like the absence of the other. -->
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                    <Button Grid.Column="0" Text="Available" FontSize="13"
-                            Command="{Binding ChooseAvailableCommand}" IsEnabled="{Binding IsUnavailable}" />
-                    <Button Grid.Column="1" Text="Unavailable" FontSize="13"
-                            Command="{Binding ChooseUnavailableCommand}" IsEnabled="{Binding IsAvailable}" />
-                </Grid>
-                <Label Text="{Binding AvailabilityDescription}" FontSize="12" LineBreakMode="WordWrap"
-                       Style="{StaticResource SubtleLabel}" />
-            </VerticalStackLayout>
-
             <Button Text="Chat key"
                     Command="{Binding GoToChatKeyCommand}"
                     Style="{StaticResource LinkButton}" />
-
-            <Button Text="Sign out" Command="{Binding SignOutCommand}"
-                    Style="{StaticResource DestructiveButton}" />
 
             <Button Text="Back to dashboard"
                     Command="{Binding GoBackCommand}"
@@ -76,6 +58,7 @@
         </VerticalStackLayout>
     </ScrollView>
         <controls:StatusStrip Grid.Row="2" />
+        <controls:NavigationBar Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

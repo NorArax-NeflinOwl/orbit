@@ -10,7 +10,6 @@
     Title="Dashboard">
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <controls:NavigationBar Grid.Row="0" />
 
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Padding="20" Spacing="14">
@@ -97,5 +96,6 @@
             </VerticalStackLayout>
         </ScrollView>
         <controls:StatusStrip Grid.Row="2" />
+        <controls:NavigationBar Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 </ContentPage>

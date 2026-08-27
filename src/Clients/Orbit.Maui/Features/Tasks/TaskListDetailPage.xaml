@@ -10,7 +10,6 @@
     Title="{Binding Title}">
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <controls:NavigationBar Grid.Row="0" />
 
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
@@ -64,6 +63,7 @@
 
     </Grid>
         <controls:StatusStrip Grid.Row="2" />
+        <controls:NavigationBar Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

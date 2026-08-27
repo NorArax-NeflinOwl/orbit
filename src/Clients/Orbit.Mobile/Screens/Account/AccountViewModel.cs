@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
-using Orbit.Mobile.Presence;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Account;
@@ -17,8 +16,6 @@ namespace Orbit.Mobile.Screens.Account;
 public sealed partial class AccountViewModel : ObservableObject
 {
     private readonly AccountClient _accountClient;
-    private readonly AuthenticationClient _authenticationClient;
-    private readonly Presence.Presence _presence;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
@@ -49,13 +46,10 @@ public sealed partial class AccountViewModel : ObservableObject
     private bool _messageIsFailure;
 
     public AccountViewModel(
-        AccountClient accountClient, AuthenticationClient authenticationClient, Presence.Presence presence,
-        OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
+        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
-        _authenticationClient = authenticationClient;
-        _presence = presence;
         _encryptionKeyProvider = encryptionKeyProvider;
         _networkStatus = networkStatus;
         _sessionStore = sessionStore;
@@ -149,47 +143,8 @@ public sealed partial class AccountViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Whether the reader has chosen to be shown as available. Only the part they decide: the dot on
-    /// the avatar also turns amber on its own after a minute of not touching anything, and grey with no
-    /// connection, which is why this is two choices rather than four.
-    /// </summary>
-    public bool IsAvailable => _presence.Chosen == ChosenAvailability.Available;
-
-    public bool IsUnavailable => !IsAvailable;
-
-    public string AvailabilityDescription
-        => IsAvailable
-            ? "A green dot on your avatar, amber once you have been idle for a minute."
-            : "A red dot on your avatar. Nothing is silenced yet - Orbit has no shared presence.";
-
-    [RelayCommand]
-    private void ChooseAvailable() => Choose(ChosenAvailability.Available);
-
-    [RelayCommand]
-    private void ChooseUnavailable() => Choose(ChosenAvailability.Unavailable);
-
-    private void Choose(ChosenAvailability availability)
-    {
-        _presence.Choose(availability);
-        OnPropertyChanged(nameof(IsAvailable));
-        OnPropertyChanged(nameof(IsUnavailable));
-        OnPropertyChanged(nameof(AvailabilityDescription));
-    }
-
     [RelayCommand]
     private void GoToChatKey() => _navigator.ShowChatKeyGate();
-
-    /// <summary>
-    /// Signing out lives here rather than on a section screen, which is where Orbit.Web's avatar menu
-    /// puts it too - the avatar leads here, so it is where somebody looks for it.
-    /// </summary>
-    [RelayCommand]
-    private async Task SignOutAsync()
-    {
-        await _authenticationClient.SignOutAsync();
-        _navigator.ShowSignIn();
-    }
 
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();

@@ -10,7 +10,6 @@
     Title="Notifications">
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <controls:NavigationBar Grid.Row="0" />
 
 
     <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20" RowSpacing="12">
@@ -67,6 +66,7 @@
         </CollectionView>
     </Grid>
         <controls:StatusStrip Grid.Row="2" />
+        <controls:NavigationBar Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

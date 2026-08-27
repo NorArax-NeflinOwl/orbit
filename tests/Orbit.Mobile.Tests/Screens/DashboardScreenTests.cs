@@ -79,18 +79,56 @@ public sealed class DashboardScreenTests
     }
 
     [Fact]
-    public async Task The_events_card_looks_forward_rather_than_back()
+    public async Task The_calendar_card_shows_everything_soonest_first()
     {
+        // Not only what is ahead. Filtering to the future reads as the better idea and was a divergence:
+        // Orbit.Web shows the lot, so an account whose events have all been and gone showed a calendar
+        // card there and none here.
         using var context = new DashboardContext();
-        await context.AddEventAsync("Long gone", Now.AddDays(-10));
         await context.AddEventAsync("Tomorrow", Now.AddDays(1));
+        await context.AddEventAsync("Long gone", Now.AddDays(-10));
         var screen = context.Open();
 
         await screen.LoadCommand.ExecuteAsync(null);
 
-        // A calendar's worth on a home screen is the next thing; last month's would bury it.
-        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Events);
-        Assert.Equal("Tomorrow", Assert.Single(events.Rows).Title);
+        var events = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Upcoming);
+        Assert.Equal(["Long gone", "Tomorrow"], events.Rows.Select(row => row.Title));
+    }
+
+    [Fact]
+    public async Task Chats_are_listed_twice_for_two_different_questions()
+    {
+        // As Orbit.Web does: "Recent chats" answers who you were just talking to, "Contacts" is a
+        // directory. An unanswered request belongs only to the first - it is not a contact yet.
+        using var context = new DashboardContext();
+        await context.AddContactAsync("Zoe", requiresMyApproval: false);
+        await context.AddContactAsync("Wants to talk", requiresMyApproval: true);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var recent = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.RecentChats);
+        var directory = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Contacts);
+        Assert.Equal("Wants to talk", recent.Rows[0].Title);
+        Assert.Equal("Zoe", Assert.Single(directory.Rows).Title);
+    }
+
+    [Fact]
+    public async Task The_cards_come_in_the_order_the_web_lays_them_out()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("A note");
+        await context.AddTaskListAsync("A list", ("One", null, false));
+        await context.AddEventAsync("An event", Now);
+        await context.AddContactAsync("Bob", requiresMyApproval: false);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            [DashboardCardKind.Notes, DashboardCardKind.Tasks, DashboardCardKind.Upcoming,
+             DashboardCardKind.RecentChats, DashboardCardKind.Contacts],
+            screen.Cards.Select(card => card.Kind));
     }
 
     [Fact]
@@ -129,7 +167,7 @@ public sealed class DashboardScreenTests
         var userId = await context.AddContactAsync("Bob", requiresMyApproval: false);
         var screen = context.Open();
         await screen.LoadCommand.ExecuteAsync(null);
-        var contacts = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Contacts);
+        var contacts = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.RecentChats);
 
         await screen.OpenCommand.ExecuteAsync(contacts.Rows[0]);
 
@@ -152,7 +190,7 @@ public sealed class DashboardScreenTests
         // The count is the truth about the section; the rows are just a way in.
         var notes = Assert.Single(screen.Cards);
         Assert.Equal("9", notes.Count);
-        Assert.Equal(4, notes.Rows.Count);
+        Assert.Equal(6, notes.Rows.Count);
     }
 
     [Fact]

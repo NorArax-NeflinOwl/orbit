@@ -21,6 +21,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject, IDisposab
 {
     private readonly SessionStore _sessionStore;
     private readonly NotificationsClient _notificationsClient;
+    private readonly AuthenticationClient _authenticationClient;
     private readonly Presence.Presence _presence;
     private readonly IScreenNavigator _navigator;
 
@@ -34,12 +35,28 @@ public sealed partial class NavigationBarViewModel : ObservableObject, IDisposab
     [ObservableProperty]
     private PresenceAppearance _appearance = PresenceAppearance.Active;
 
+    /// <summary>Whose account this is, shown at the top of the menu as the web's dropdown does.</summary>
+    [ObservableProperty]
+    private string _displayName = string.Empty;
+
+    [ObservableProperty]
+    private bool _isMenuOpen;
+
+    /// <summary>
+    /// Whether the status choices are showing. Collapsed by default: the menu's job is to list what is
+    /// behind the avatar, and a row that is already unfolded pushes the rest of the list down to offer
+    /// something most visits do not want.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isStatusExpanded;
+
     public NavigationBarViewModel(
-        SessionStore sessionStore, NotificationsClient notificationsClient, Presence.Presence presence,
-        IScreenNavigator navigator)
+        SessionStore sessionStore, NotificationsClient notificationsClient,
+        AuthenticationClient authenticationClient, Presence.Presence presence, IScreenNavigator navigator)
     {
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
+        _authenticationClient = authenticationClient;
         _presence = presence;
         _navigator = navigator;
         _presence.Changed += OnPresenceChanged;
@@ -69,7 +86,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject, IDisposab
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
         _presence.MarkActive();
-        Initials = InitialsOf((await _sessionStore.GetAsync())?.DisplayName);
+        DisplayName = (await _sessionStore.GetAsync())?.DisplayName ?? string.Empty;
+        Initials = InitialsOf(DisplayName);
 
         try
         {
@@ -105,11 +123,81 @@ public sealed partial class NavigationBarViewModel : ObservableObject, IDisposab
     private void GoToContacts() => _navigator.ShowContacts();
 
     /// <summary>
-    /// The avatar leads to the account, which is where the web's avatar dropdown puts the same things -
-    /// options, notifications and signing out. A phone has no room for a hovering menu.
+    /// The avatar opens a menu rather than going anywhere, the same as Orbit.Web's: the account, the
+    /// notifications and signing out all hang off it, and making the avatar mean one of them would hide
+    /// the other two.
     /// </summary>
     [RelayCommand]
-    private void GoToAccount() => _navigator.ShowAccount();
+    private void ToggleMenu()
+    {
+        _presence.MarkActive();
+        IsMenuOpen = !IsMenuOpen;
+        if (!IsMenuOpen)
+        {
+            IsStatusExpanded = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseMenu()
+    {
+        IsMenuOpen = false;
+        // Folded away with the menu, so the next visit opens on the list rather than mid-choice.
+        IsStatusExpanded = false;
+    }
+
+    [RelayCommand]
+    private void ToggleStatus() => IsStatusExpanded = !IsStatusExpanded;
+
+    [RelayCommand]
+    private void GoToAccount() => LeaveMenuFor(_navigator.ShowAccount);
+
+    [RelayCommand]
+    private void GoToNotifications() => LeaveMenuFor(_navigator.ShowNotifications);
+
+    /// <summary>Whether the reader has chosen to be shown as available - see Presence for the other two states.</summary>
+    public bool IsAvailable => _presence.Chosen == ChosenAvailability.Available;
+
+    public bool IsUnavailable => !IsAvailable;
+
+    /// <summary>What the collapsed row says on its right-hand side, so the choice is readable unopened.</summary>
+    public string ChosenDescription => IsAvailable ? "Available" : "Unavailable";
+
+    [RelayCommand]
+    private void ChooseAvailable() => Choose(ChosenAvailability.Available);
+
+    [RelayCommand]
+    private void ChooseUnavailable() => Choose(ChosenAvailability.Unavailable);
+
+    /// <summary>
+    /// Deliberately leaves the *menu* open, though it folds the choices away. Setting a status is not
+    /// leaving the menu, and closing it would hide the dot the reader just changed before they could see
+    /// it change.
+    /// </summary>
+    private void Choose(ChosenAvailability availability)
+    {
+        _presence.Choose(availability);
+        OnPropertyChanged(nameof(IsAvailable));
+        OnPropertyChanged(nameof(IsUnavailable));
+        OnPropertyChanged(nameof(ChosenDescription));
+        // Folds back up: the choice is made, and the row now shows it.
+        IsStatusExpanded = false;
+    }
+
+    [RelayCommand]
+    private async Task SignOutAsync()
+    {
+        IsMenuOpen = false;
+        await _authenticationClient.SignOutAsync();
+        _navigator.ShowSignIn();
+    }
+
+    /// <summary>The menu closes on the way out, so coming back does not find it hanging open.</summary>
+    private void LeaveMenuFor(Action show)
+    {
+        IsMenuOpen = false;
+        show();
+    }
 
     /// <summary>
     /// Two initials at most, from the first and last word of the display name. Falls back to the first
