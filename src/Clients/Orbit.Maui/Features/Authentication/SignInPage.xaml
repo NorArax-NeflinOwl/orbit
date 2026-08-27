@@ -26,15 +26,14 @@
 
             <Label Text="{Binding ErrorMessage}"
                    IsVisible="{Binding HasError}"
-                   TextColor="{StaticResource Magenta}"
+                   TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
             <Button Text="Sign in" Command="{Binding SignInCommand}" />
 
             <Button Text="Create an account"
                     Command="{Binding GoToRegisterCommand}"
-                    BackgroundColor="Transparent"
-                    TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
 
             <ActivityIndicator IsRunning="{Binding SignInCommand.IsRunning}"
                                IsVisible="{Binding SignInCommand.IsRunning}"

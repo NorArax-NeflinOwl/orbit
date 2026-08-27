@@ -17,14 +17,14 @@
 
             <Label Text="Notifications" FontSize="26" FontAttributes="Bold" />
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-                   FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
 
             <Grid ColumnDefinitions="*,Auto">
                 <VerticalStackLayout Grid.Column="0">
                     <Label Text="Notify me" FontAttributes="Bold" />
                     <Label Text="Off means nothing is recorded or sent at all." FontSize="12"
-                           TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                           TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
                 <Switch Grid.Column="1" IsToggled="{Binding AllowNotifications}" VerticalOptions="Center" />
             </Grid>
@@ -47,15 +47,14 @@
                     <VerticalStackLayout Grid.Column="0">
                         <Label Text="When something is shared with me" />
                         <Label Text="It always appears in your notifications. This also pushes or emails."
-                               FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
                     <Switch Grid.Column="1" IsToggled="{Binding AllowShareNotifications}" VerticalOptions="Center" />
                 </Grid>
             </VerticalStackLayout>
 
             <Button Text="Save" Command="{Binding SaveCommand}" />
-            <Button Text="Back" Command="{Binding GoBackCommand}" BackgroundColor="Transparent"
-                    TextColor="{StaticResource Primary}" />
+            <Button Text="Back" Command="{Binding GoBackCommand}" Style="{StaticResource LinkButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

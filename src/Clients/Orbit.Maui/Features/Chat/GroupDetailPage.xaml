@@ -17,26 +17,26 @@
 
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
         <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-               FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
         <CollectionView Grid.Row="2" ItemsSource="{Binding Members}" IsVisible="{Binding IsNotAdding}">
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="screens:GroupMemberRow">
                     <VerticalStackLayout Padding="0,10" Spacing="2">
                         <Label Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold" />
-                        <Label Text="{Binding Description}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                        <Label Text="{Binding Description}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                         <!-- Only an admin is offered any of this; the server decides for certain. -->
                         <HorizontalStackLayout Spacing="16">
                             <Button Text="Make admin" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                    TextColor="{StaticResource Primary}" IsVisible="{Binding CanBePromoted}"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" IsVisible="{Binding CanBePromoted}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.PromoteCommand, x:DataType=chat:GroupDetailPage}"
                                     CommandParameter="{Binding .}" />
                             <Button Text="Remove admin" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                    TextColor="{StaticResource Primary}" IsVisible="{Binding CanBeDemoted}"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" IsVisible="{Binding CanBeDemoted}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DemoteCommand, x:DataType=chat:GroupDetailPage}"
                                     CommandParameter="{Binding .}" />
                             <Button Text="Remove" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                    TextColor="{StaticResource Primary}" IsVisible="{Binding CanBeRemoved}"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" IsVisible="{Binding CanBeRemoved}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveCommand, x:DataType=chat:GroupDetailPage}"
                                     CommandParameter="{Binding .}" />
                         </HorizontalStackLayout>
@@ -63,11 +63,11 @@
         <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsAdding}">
             <Button Grid.Column="0" Text="Add" Command="{Binding AddSelectedCommand}" />
             <Button Grid.Column="1" Text="Cancel" Command="{Binding CancelAddingCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
         </Grid>
 
         <Button Grid.Row="4" Text="Back to groups" Command="{Binding GoBackCommand}"
-                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                Style="{StaticResource LinkButton}" />
 
     </Grid>
     </Grid>

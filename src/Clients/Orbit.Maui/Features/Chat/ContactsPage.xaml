@@ -31,7 +31,7 @@
             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                 <Label Text="{Binding FoundPerson.DisplayName}" FontSize="17" FontAttributes="Bold" />
                 <Label Text="{Binding FoundPerson.UserName, StringFormat='@{0}'}" FontSize="12"
-                       TextColor="{StaticResource Gray500}" />
+                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
             </VerticalStackLayout>
             <Button Grid.Column="1" Text="Message" VerticalOptions="Center"
                     Command="{Binding OpenConversationCommand}"
@@ -53,13 +53,13 @@
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12"
-                                   TextColor="{StaticResource Gray500}" />
+                                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="Waiting for them to accept your request"
                                    IsVisible="{Binding IsPendingApprovalFromOtherParty}"
-                                   FontSize="12" TextColor="{StaticResource Primary}" />
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                             <Label Text="Wants to chat with you"
                                    IsVisible="{Binding RequiresApprovalFromCurrentUser}"
-                                   FontSize="12" TextColor="{StaticResource Primary}" />
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                             <!-- The command lives on the page's view model, not on the row, and a
                                  RelativeSource walks the *visual* tree - so this names the page and
                                  goes through its typed ViewModel property. -->
@@ -78,7 +78,7 @@
         <Button Grid.Row="4" Text="Groups" Command="{Binding OpenGroupsCommand}" />
 
         <Button Grid.Row="5" Text="Back to dashboard" Command="{Binding GoBackCommand}"
-                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                Style="{StaticResource LinkButton}" />
 
     </Grid>
     </Grid>

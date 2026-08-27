@@ -21,7 +21,7 @@
                 <Label LineBreakMode="WordWrap"
                        Text="Chat is end-to-end encrypted and your key is protected with a password. This account signs in with Google and doesn't have one yet, so pick one now - it's also what lets you read your messages on another device." />
                 <Label Text="Nobody can recover it for you: forget it and your chat history becomes unreadable."
-                       TextColor="{StaticResource Magenta}" LineBreakMode="WordWrap" />
+                       TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" LineBreakMode="WordWrap" />
                 <Entry Placeholder="Password" Text="{Binding Password}" IsPassword="True" />
                 <Entry Placeholder="Repeat password" Text="{Binding RepeatPassword}" IsPassword="True" />
                 <Button Text="Set password" Command="{Binding SetFirstPasswordCommand}" />
@@ -39,14 +39,14 @@
                         Command="{Binding StartResetCommand}"
                         IsVisible="{Binding CanReset}"
                         BackgroundColor="Transparent"
-                        TextColor="{StaticResource Primary}" />
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="12" IsVisible="{Binding IsResetting}">
                 <Label Text="Reset your password" FontSize="24" FontAttributes="Bold" />
                 <!-- Said before the code is even sent: this is the one path that throws a key away. -->
                 <Label Text="Setting a new password starts your chat over: messages encrypted under the old one stay unreadable, because Orbit's servers never had the key to them."
-                       TextColor="{StaticResource Magenta}" LineBreakMode="WordWrap" />
+                       TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" LineBreakMode="WordWrap" />
 
                 <VerticalStackLayout Spacing="12" IsVisible="{Binding AwaitingCodeRequest}">
                     <Label Text="{Binding EmailAddress, StringFormat='We will email a code to {0}.'}"
@@ -61,7 +61,7 @@
                     <Button Text="Set password and start chat over" Command="{Binding ResetPasswordCommand}" />
                 </VerticalStackLayout>
                 <Button Text="Back" Command="{Binding CancelResetCommand}"
-                        BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                        Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="12" IsVisible="{Binding IsUnlocked}">
@@ -70,10 +70,10 @@
             </VerticalStackLayout>
 
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-                   TextColor="{StaticResource Magenta}" LineBreakMode="WordWrap" />
+                   TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" LineBreakMode="WordWrap" />
 
             <Button Text="Back to dashboard" Command="{Binding GoBackCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

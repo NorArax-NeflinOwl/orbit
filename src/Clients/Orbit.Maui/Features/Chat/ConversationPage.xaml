@@ -19,7 +19,7 @@
 
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
         <Label Grid.Row="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-               FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
         <RefreshView Grid.Row="2" IsVisible="{Binding IsNotForwarding}"
                      IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
@@ -34,36 +34,36 @@
                         <VerticalStackLayout Padding="0,8" Spacing="2">
                             <Label Text="{Binding ForwardedFromDisplayName, StringFormat='Forwarded from {0}'}"
                                    IsVisible="{Binding WasForwarded}"
-                                   FontSize="11" TextColor="{StaticResource Gray500}" />
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
                             <!-- A message sealed under a key pair since replaced can never be opened. -->
                             <Label Text="This message can't be opened on this device."
                                    IsVisible="{Binding CannotBeOpened}"
-                                   FontSize="12" TextColor="{StaticResource Gray500}" />
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
-                                   FontSize="11" TextColor="{StaticResource Gray500}" />
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="Waiting to send" IsVisible="{Binding IsWaitingToSend}"
-                                   FontSize="11" TextColor="{StaticResource Primary}" />
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                             <!-- Only ever on the reader's own messages - see ReadableChatMessage. -->
                             <Label Text="Read" IsVisible="{Binding IsReadByThem}"
-                                   FontSize="11" TextColor="{StaticResource Primary}" />
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                             <!-- Only on the reader's own messages, and only once the server has one -
                                  see ReadableChatMessage.CanBeChanged. The commands live on the page's
                                  view model, so these go through the page's typed ViewModel property. -->
                             <HorizontalStackLayout Spacing="16" IsVisible="{Binding CanBeChanged}">
                                 <Button Text="Edit" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                        TextColor="{StaticResource Primary}"
+                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartEditingCommand, x:DataType=chat:ConversationPage}"
                                         CommandParameter="{Binding .}" />
                                 <Button Text="Delete" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                        TextColor="{StaticResource Primary}"
+                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DeleteCommand, x:DataType=chat:ConversationPage}"
                                         CommandParameter="{Binding .}" />
                             </HorizontalStackLayout>
                             <!-- Offered on anybody's message, unlike Edit and Delete: passing on what
                                  somebody else wrote is the case this exists for. -->
                             <Button Text="Forward" FontSize="12" Padding="10,2" HorizontalOptions="Start"
-                                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}"
+                                    Style="{StaticResource LinkButton}"
                                     IsVisible="{Binding CanBeForwarded}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartForwardingCommand, x:DataType=chat:ConversationPage}"
                                     CommandParameter="{Binding .}" />
@@ -85,7 +85,7 @@
                             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                 <Label Text="{Binding DisplayName}" FontSize="17" />
                                 <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12"
-                                       TextColor="{StaticResource Gray500}" />
+                                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             </VerticalStackLayout>
                             <Button Grid.Column="1" Text="Send" FontSize="13" Padding="14,4"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ForwardToCommand, x:DataType=chat:ConversationPage}"
@@ -98,7 +98,7 @@
 
         <Button Grid.Row="3" Text="Cancel" Command="{Binding CancelForwardingCommand}"
                 IsVisible="{Binding IsForwarding}"
-                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                Style="{StaticResource LinkButton}" />
 
         <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanCompose}">
             <Entry Grid.Column="0" Placeholder="Message" Text="{Binding Draft}"
@@ -106,13 +106,13 @@
             <Button Grid.Column="1" Text="Send" Command="{Binding SendCommand}" />
             <Button Grid.Column="2" Text="Cancel" IsVisible="{Binding IsEditing}"
                     Command="{Binding CancelEditingCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
         </Grid>
 
         <!-- These screens replace each other rather than stacking, so there is no navigation bar to go
              back through - every screen carries its own way out. -->
         <Button Grid.Row="4" Text="Back to chat" Command="{Binding GoBackCommand}"
-                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                Style="{StaticResource LinkButton}" />
 
     </Grid>
     </Grid>

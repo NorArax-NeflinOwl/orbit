@@ -15,7 +15,7 @@
             <!-- Said up front rather than after four fields have been filled in. -->
             <Label Text="Creating an account needs a connection to Orbit."
                    IsVisible="{Binding IsOffline}"
-                   TextColor="{StaticResource Magenta}"
+                   TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    HorizontalTextAlignment="Center"
                    LineBreakMode="WordWrap" />
 
@@ -29,7 +29,7 @@
 
             <Label Text="{Binding ErrorMessage}"
                    IsVisible="{Binding HasError}"
-                   TextColor="{StaticResource Magenta}"
+                   TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
             <Button Text="Create account" Command="{Binding RegisterCommand}" />
@@ -40,8 +40,7 @@
 
             <Button Text="I already have an account"
                     Command="{Binding GoToSignInCommand}"
-                    BackgroundColor="Transparent"
-                    TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

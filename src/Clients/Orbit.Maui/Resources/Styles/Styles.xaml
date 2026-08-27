@@ -431,6 +431,34 @@
         <Setter Property="SelectedTabColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
     </Style>
 
+    <!-- Secondary text: captions, statuses, timestamps. -->
+    <Style x:Key="SubtleLabel" TargetType="Label">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <!-- Text that warns without being an error: destructive actions, irreversible consequences. -->
+    <Style x:Key="WarningLabel" TargetType="Label">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+    </Style>
+
+    <!-- A button that reads as a link: no fill, accent text. Back buttons and the like. -->
+    <Style x:Key="LinkButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+    </Style>
+
+    <!-- The same, for something that destroys data. -->
+    <Style x:Key="DestructiveButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+    </Style>
+
+    <!-- A card or panel: a hairline that is visible in both themes without shouting in either. -->
+    <Style x:Key="CardBorder" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+    </Style>
+
     <!-- One section on the navigation bar. 44pt is Apple's minimum tap target, and it is what lets six
          of them sit on a phone without becoming a row of things nobody can hit. -->
     <Style x:Key="NavigationBarIcon" TargetType="Grid">
@@ -441,7 +469,7 @@
 
     <!-- The drawing inside one. Every icon is authored on a 20x20 canvas, so one scale serves all. -->
     <Style x:Key="NavigationBarIconPath" TargetType="Path">
-        <Setter Property="Stroke" Value="{StaticResource Primary}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
         <Setter Property="StrokeThickness" Value="1.4" />
         <Setter Property="Fill" Value="Transparent" />
         <Setter Property="Aspect" Value="Uniform" />

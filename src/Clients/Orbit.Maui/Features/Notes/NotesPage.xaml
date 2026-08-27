@@ -15,8 +15,8 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" Padding="20" RowSpacing="10">
 
         <VerticalStackLayout Grid.Row="0" Spacing="2">
-            <Label Text="{Binding Greeting}" FontSize="14" TextColor="{StaticResource Gray500}" />
-            <Label Text="{Binding SyncStatus}" FontSize="12" TextColor="{StaticResource Gray500}" />
+            <Label Text="{Binding Greeting}" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+            <Label Text="{Binding SyncStatus}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
         </VerticalStackLayout>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -43,12 +43,12 @@
                             <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding UpdatedAtUtc, StringFormat='Updated {0:g}'}"
                                    FontSize="12"
-                                   TextColor="{StaticResource Gray500}" />
+                                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <!-- Why a note is waiting, or why it cannot be edited right now. -->
                             <Label Text="{Binding Status}"
                                    IsVisible="{Binding HasStatus}"
                                    FontSize="12"
-                                   TextColor="{StaticResource Primary}" />
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

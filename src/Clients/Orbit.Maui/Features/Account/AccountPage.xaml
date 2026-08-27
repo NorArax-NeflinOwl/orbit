@@ -20,7 +20,7 @@
             <!-- One statement for the whole screen: none of this can happen without the server. -->
             <Label Text="Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later."
                    IsVisible="{Binding IsOffline}"
-                   TextColor="{StaticResource Magenta}"
+                   TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
@@ -50,16 +50,14 @@
 
             <Button Text="Chat key"
                     Command="{Binding GoToChatKeyCommand}"
-                    BackgroundColor="Transparent"
-                    TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
 
             <Button Text="Sign out" Command="{Binding SignOutCommand}"
-                    BackgroundColor="Transparent" TextColor="#D9342B" />
+                    Style="{StaticResource DestructiveButton}" />
 
             <Button Text="Back to dashboard"
                     Command="{Binding GoBackCommand}"
-                    BackgroundColor="Transparent"
-                    TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

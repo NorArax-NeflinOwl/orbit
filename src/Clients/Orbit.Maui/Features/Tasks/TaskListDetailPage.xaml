@@ -18,7 +18,7 @@
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
 
         <Label Grid.Row="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-               FontSize="12" TextColor="{StaticResource Primary}" LineBreakMode="WordWrap" />
+               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" LineBreakMode="WordWrap" />
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
             <Entry Grid.Column="0" Placeholder="New item" Text="{Binding NewItemDescription}"
@@ -39,13 +39,13 @@
                 <DataTemplate x:DataType="screens:TaskItemRow">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="0,10">
                         <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="44"
-                                BackgroundColor="Transparent" TextColor="{StaticResource Primary}"
+                                Style="{StaticResource LinkButton}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleItemCommand, x:DataType=tasks:TaskListDetailPage}"
                                 CommandParameter="{Binding .}" />
                         <Label Grid.Column="1" Text="{Binding Description}" VerticalOptions="Center"
                                LineBreakMode="WordWrap" />
                         <Button Grid.Column="2" Text="✕" WidthRequest="44"
-                                BackgroundColor="Transparent" TextColor="{StaticResource Gray500}"
+                                BackgroundColor="Transparent" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveItemCommand, x:DataType=tasks:TaskListDetailPage}"
                                 CommandParameter="{Binding .}" />
                     </Grid>
@@ -56,9 +56,9 @@
 
         <Grid Grid.Row="4" ColumnDefinitions="*,*" ColumnSpacing="12">
             <Button Grid.Column="0" Text="Back" Command="{Binding GoBackCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
             <Button Grid.Column="1" Text="Delete list" Command="{Binding DeleteListCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Magenta}"
+                    Style="{StaticResource DestructiveButton}"
                     IsVisible="{Binding CanEdit}" />
         </Grid>
 

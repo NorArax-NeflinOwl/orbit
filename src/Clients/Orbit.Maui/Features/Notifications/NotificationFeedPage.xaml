@@ -18,7 +18,7 @@
         <VerticalStackLayout Grid.Row="0" Spacing="12">
             <Label Text="Notifications" FontSize="26" FontAttributes="Bold" />
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-                   FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
 
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
@@ -35,11 +35,11 @@
                         Command="{Binding GoToSettingsCommand}" />
                 <Button Grid.Column="1" Text="Back" FontSize="13" Padding="8,4"
                         Command="{Binding GoBackCommand}" BackgroundColor="Transparent"
-                        TextColor="{StaticResource Primary}" />
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
             </Grid>
 
             <Label Text="Nothing here yet." IsVisible="{Binding HasNothing}"
-                   TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Margin="0,20,0,0" />
+                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" HorizontalOptions="Center" Margin="0,20,0,0" />
         </VerticalStackLayout>
 
         <CollectionView Grid.Row="1" ItemsSource="{Binding Rows}">

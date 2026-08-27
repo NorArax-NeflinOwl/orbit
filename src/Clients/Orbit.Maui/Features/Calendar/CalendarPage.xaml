@@ -14,7 +14,7 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
 
-        <Label Grid.Row="0" Text="{Binding SyncStatus}" FontSize="12" TextColor="{StaticResource Gray500}" />
+        <Label Grid.Row="0" Text="{Binding SyncStatus}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry Grid.Column="0" Placeholder="New event" Text="{Binding NewEventTitle}"
@@ -38,9 +38,9 @@
                     <DataTemplate x:DataType="screens:CalendarEventRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
-                            <Label Text="{Binding When}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                            <Label Text="{Binding When}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                   FontSize="12" TextColor="{StaticResource Primary}" />
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -49,7 +49,7 @@
         </RefreshView>
 
         <Button Grid.Row="4" Text="Back to dashboard" Command="{Binding GoBackCommand}"
-                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                Style="{StaticResource LinkButton}" />
 
     </Grid>
     </Grid>

@@ -17,7 +17,7 @@
 
         <Label Grid.Row="0" Text="Groups" FontSize="26" FontAttributes="Bold" />
         <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-               FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
         <RefreshView Grid.Row="2" IsVisible="{Binding IsNotCreating}"
                      IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
@@ -33,7 +33,7 @@
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding Members.Count, StringFormat='{0} members'}"
-                                   FontSize="12" TextColor="{StaticResource Gray500}" />
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -61,14 +61,14 @@
         <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsCreating}">
             <Button Grid.Column="0" Text="Create" Command="{Binding CreateCommand}" />
             <Button Grid.Column="1" Text="Cancel" Command="{Binding CancelCreatingCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
         </Grid>
 
         <Button Grid.Row="3" Text="New group" Command="{Binding StartCreatingCommand}"
                 IsVisible="{Binding IsNotCreating}" />
 
         <Button Grid.Row="4" Text="Back to chat" Command="{Binding GoBackCommand}"
-                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                Style="{StaticResource LinkButton}" />
 
     </Grid>
     </Grid>

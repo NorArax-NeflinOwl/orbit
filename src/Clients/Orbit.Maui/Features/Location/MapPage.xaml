@@ -21,7 +21,7 @@
 
             <Label Text="Location" FontSize="26" FontAttributes="Bold" />
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-                   FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
             <!-- Pins are built in code-behind: the control's pin carries a platform Location, and
                  keeping that out of the view model is what lets the view model be tested at all. -->
@@ -53,23 +53,23 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
                 <Button Text="Cancel" Command="{Binding CancelSharingCommand}"
-                        BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                        Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
 
             <Label Text="Who can see you" FontAttributes="Bold" Margin="0,12,0,0" />
             <CollectionView ItemsSource="{Binding SharingWith}" HeightRequest="180">
                 <CollectionView.EmptyView>
-                    <Label Text="Nobody." FontSize="12" TextColor="{StaticResource Gray500}" />
+                    <Label Text="Nobody." FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:SharingWithRow">
                         <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
                             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                 <Label Text="{Binding DisplayName}" FontSize="16" />
-                                <Label Text="{Binding Detail}" FontSize="11" TextColor="{StaticResource Gray500}" />
+                                <Label Text="{Binding Detail}" FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             </VerticalStackLayout>
                             <Button Grid.Column="1" Text="Stop" FontSize="13" Padding="14,4"
-                                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}"
+                                    Style="{StaticResource LinkButton}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StopSharingWithCommand, x:DataType=location:MapPage}"
                                     CommandParameter="{Binding .}" />
                         </Grid>
@@ -81,7 +81,7 @@
             <CollectionView ItemsSource="{Binding SharedWithMe}" HeightRequest="200">
                 <CollectionView.EmptyView>
                     <Label Text="Nobody is sharing their position with you." FontSize="12"
-                           TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                           TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="mobile:ReceivedPosition">
@@ -89,19 +89,19 @@
                             <Label Text="{Binding SharerDisplayName}" FontSize="16" FontAttributes="Bold" />
                             <Label Text="{Binding Position.Address}" LineBreakMode="WordWrap" />
                             <Label Text="{Binding Position.RecordedAtUtc, StringFormat='{0:g}'}"
-                                   FontSize="11" TextColor="{StaticResource Gray500}" />
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <!-- Listed rather than dropped: that somebody is sharing and it cannot be
                                  opened is worth seeing. -->
                             <Label Text="This position can't be opened on this device."
                                    IsVisible="{Binding CannotBeOpened}"
-                                   FontSize="12" TextColor="{StaticResource Gray500}" />
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
             <Button Text="Back to dashboard" Command="{Binding GoBackCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

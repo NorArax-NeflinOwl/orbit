@@ -21,7 +21,7 @@
     <!-- The same shape Orbit.Web takes on a narrow window: logo, then the section icons without their
          labels, then the avatar pushed to the far right. See app.css's 680px breakpoint. -->
     <Grid ColumnDefinitions="Auto,*,Auto" Padding="12,10" ColumnSpacing="6"
-          BackgroundColor="{AppThemeBinding Light=White, Dark=#1C1C1E}">
+          BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
 
         <!-- The logo is the way back to the dashboard, exactly as it is on the web at this width. -->
         <Grid Grid.Column="0" WidthRequest="34" HeightRequest="34" VerticalOptions="Center">
@@ -29,9 +29,11 @@
                 <TapGestureRecognizer Command="{Binding GoToDashboardCommand}" />
             </Grid.GestureRecognizers>
             <Ellipse WidthRequest="22" HeightRequest="11" Rotation="-28"
-                     Stroke="{StaticResource Primary}" StrokeThickness="1.6" Fill="Transparent"
+                     Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                     StrokeThickness="1.6" Fill="Transparent"
                      HorizontalOptions="Center" VerticalOptions="Center" />
-            <Ellipse WidthRequest="6" HeightRequest="6" Fill="{StaticResource Primary}"
+            <Ellipse WidthRequest="6" HeightRequest="6"
+                     Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                      HorizontalOptions="Center" VerticalOptions="Center" />
         </Grid>
 
@@ -83,22 +85,22 @@
                 <TapGestureRecognizer Command="{Binding GoToAccountCommand}" />
             </Grid.GestureRecognizers>
 
-            <Border StrokeThickness="0" BackgroundColor="{StaticResource Primary}"
+            <Border StrokeThickness="0" BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                     HeightRequest="34" WidthRequest="34" HorizontalOptions="Center" VerticalOptions="Center">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="17" />
                 </Border.StrokeShape>
-                <Label Text="{Binding Initials}" TextColor="White" FontSize="13" FontAttributes="Bold"
+                <Label Text="{Binding Initials}" TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}" FontSize="13" FontAttributes="Bold"
                        HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
 
-            <Border IsVisible="{Binding HasUnread}" StrokeThickness="0" BackgroundColor="#D9342B"
+            <Border IsVisible="{Binding HasUnread}" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}"
                     HeightRequest="18" MinimumWidthRequest="18" Padding="4,0"
                     HorizontalOptions="End" VerticalOptions="Start">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="9" />
                 </Border.StrokeShape>
-                <Label Text="{Binding UnreadLabel}" TextColor="White" FontSize="10" FontAttributes="Bold"
+                <Label Text="{Binding UnreadLabel}" TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}" FontSize="10" FontAttributes="Bold"
                        HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
         </Grid>

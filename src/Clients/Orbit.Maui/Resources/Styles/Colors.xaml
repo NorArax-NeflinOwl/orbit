@@ -41,4 +41,19 @@
     <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}"/>
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}"/>
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}"/>
+    <!-- Roles rather than shades. Every one of these is read in both themes, so the pair belongs
+         together in one place: a screen asks for "subtle text" and gets something legible either way,
+         instead of asking for Gray500 and being unreadable on black. -->
+    <Color x:Key="SubtleTextLight">#6E6E6E</Color>
+    <Color x:Key="SubtleTextDark">#A0A0A0</Color>
+    <Color x:Key="CardStrokeLight">#DCDCDC</Color>
+    <Color x:Key="CardStrokeDark">#3A3A3C</Color>
+    <Color x:Key="SurfaceLight">#FFFFFF</Color>
+    <Color x:Key="SurfaceDark">#1C1C1E</Color>
+    <!-- Primary is too dark to read on a dark background; PrimaryDark is the template's answer. -->
+    <Color x:Key="WarningLight">#C2185B</Color>
+    <Color x:Key="WarningDark">#FF80AB</Color>
+    <Color x:Key="DangerLight">#C62828</Color>
+    <Color x:Key="DangerDark">#FF8A80</Color>
+
 </ResourceDictionary>

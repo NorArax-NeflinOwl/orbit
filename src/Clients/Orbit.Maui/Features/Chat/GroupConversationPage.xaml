@@ -19,10 +19,10 @@
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
         <!-- The member list doubles as the way into managing it, the way the web's header does. -->
         <Button Grid.Row="1" Text="{Binding Members}" Command="{Binding OpenMembersCommand}"
-                FontSize="12" TextColor="{StaticResource Gray500}" BackgroundColor="Transparent"
+                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" BackgroundColor="Transparent"
                 Padding="0" HorizontalOptions="Start" LineBreakMode="TailTruncation" />
         <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-               FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
         <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
@@ -36,25 +36,25 @@
                         <VerticalStackLayout Padding="0,8" Spacing="2">
                             <!-- Who wrote it, which a one-to-one conversation gets from the title. -->
                             <Label Text="{Binding SenderName}" IsVisible="{Binding HasSenderName}"
-                                   FontSize="12" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
+                                   FontSize="12" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                             <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
                             <Label Text="This message can't be opened on this device."
                                    IsVisible="{Binding CannotBeOpened}"
-                                   FontSize="12" TextColor="{StaticResource Gray500}" />
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
-                                   FontSize="11" TextColor="{StaticResource Gray500}" />
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="Waiting to send" IsVisible="{Binding IsWaitingToSend}"
-                                   FontSize="11" TextColor="{StaticResource Primary}" />
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                             <!-- Only on the reader's own messages, and only once the server has one -
                                  see ReadableChatMessage.CanBeChanged. The commands live on the page's
                                  view model, so these go through the page's typed ViewModel property. -->
                             <HorizontalStackLayout Spacing="16" IsVisible="{Binding CanBeChanged}">
                                 <Button Text="Edit" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                        TextColor="{StaticResource Primary}"
+                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartEditingCommand, x:DataType=chat:GroupConversationPage}"
                                         CommandParameter="{Binding .}" />
                                 <Button Text="Delete" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                        TextColor="{StaticResource Primary}"
+                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DeleteCommand, x:DataType=chat:GroupConversationPage}"
                                         CommandParameter="{Binding .}" />
                             </HorizontalStackLayout>
@@ -71,11 +71,11 @@
             <Button Grid.Column="1" Text="Send" Command="{Binding SendCommand}" />
             <Button Grid.Column="2" Text="Cancel" IsVisible="{Binding IsEditing}"
                     Command="{Binding CancelEditingCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                    Style="{StaticResource LinkButton}" />
         </Grid>
 
         <Button Grid.Row="5" Text="Back to groups" Command="{Binding GoBackCommand}"
-                BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
+                Style="{StaticResource LinkButton}" />
 
     </Grid>
     </Grid>
