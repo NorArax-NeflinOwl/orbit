@@ -79,6 +79,8 @@ internal static class PolishTranslations
         ["Show on the dashboard"] = "Pokaż na pulpicie",
         ["Show"] = "Pokaż",
         ["Search conversations"] = "Szukaj rozmów",
+        ["Orbit can't reach that account, so this conversation can't be opened right now."] =
+            "Orbit nie może połączyć się z tym kontem, więc tej rozmowy nie da się teraz otworzyć.",
         ["Sorts this note against the others, and is what the dashboard's filter reads."] =
             "Sortuje tę notatkę względem innych i jest tym, co czyta filtr na pulpicie.",
         ["Sorts this event against the others, and is what the dashboard's filter reads."] =

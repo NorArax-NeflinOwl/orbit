@@ -72,6 +72,10 @@ and what closing them would take:
 - The client-side retry-after-refresh path end-to-end through a real `HttpClientHandler` pipeline.
 - Actually sending an email through `SmtpEmailSender` or a push notification through
   `VapidPushNotificationSender`.
+- The `Chat` page saying why a conversation cannot be opened (an account the API will not resolve),
+  which is checked by hand in a browser: the message on screen and the `Warning` it writes to this
+  browser's own log. Rendering that page under bUnit means standing up seventeen injected services and
+  the browser crypto behind them, which is the same reason the rest of this bullet exists.
 - The `Contacts`/`Chat` pages, `PushNotificationManager`, and
   `wwwroot/js/e2eeChat.js`/`wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — the
   encryption/decryption round trip, key generation and persistence in IndexedDB, the polling UI,
@@ -204,6 +208,37 @@ dotnet user-secrets set "Vapid:PrivateKeyBase64Url" "<your VAPID private key>"
 Leaving this unset is fine too — see
 [Functionality — Push notifications](functionality.md#push-notifications) for what that means at
 runtime.
+
+## Keeping the local database honest
+
+One Postgres serves whatever branch is checked out, and a migration applied by one branch stays applied
+after you switch away from it: EF records what it ran, and nothing un-runs it. That is how this database
+ended up carrying `DiagnosticLogEntries`, `SyncTombstones` and a mobile push column that `main` has never
+heard of - they came from the mobile branch and outlived it. A local database that is a superset of the
+deployed one is a local database that can prove the wrong thing: a query works here, and fails where it
+matters.
+
+What to check before trusting a local run - it needs no access to any deployment, since it compares the
+database against the branch you are on:
+
+```bash
+docker compose exec -T postgres psql -U orbit -d orbit -tAc 'SELECT "MigrationId" FROM "__EFMigrationsHistory" ORDER BY 1;' | sort > /tmp/applied.txt && ls src/Server/Orbit.Data/Migrations/*.cs | grep -v '\.Designer\.cs$' | xargs -n1 basename | sed 's/\.cs$//' | grep -v Snapshot | sort > /tmp/in-branch.txt && echo "applied here, not in this branch:" && comm -23 /tmp/applied.txt /tmp/in-branch.txt && echo "in this branch, not applied here:" && comm -13 /tmp/applied.txt /tmp/in-branch.txt
+```
+
+The first list is the one that matters. A name in it is either a migration from another branch (the
+database has more schema than this code expects) or one that was deleted from the repository on purpose
+- `GrantAdminAllPermissions` is the second kind and is expected to stay. The second list is normally
+empty; anything in it means the API has not been started since the migration was added.
+
+Starting over is the reliable fix, and costs nothing but the local data:
+
+```bash
+docker compose down -v && docker compose up -d
+```
+
+To avoid the drift in the first place, run a branch that carries its own migrations in its own stack
+rather than this one - `docker compose` names its volumes after the project, so a checkout in its own
+directory with its own project name gets its own database.
 
 ## Further guides in this folder
 

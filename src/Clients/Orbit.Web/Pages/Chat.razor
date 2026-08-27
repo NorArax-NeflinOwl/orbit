@@ -44,7 +44,8 @@ else
 
     @if (_loadErrorMessage is not null)
     {
-        <p>@_loadErrorMessage</p>
+        <p class="error">@_loadErrorMessage</p>
+        <button type="button" class="btn-secondary" @onclick="GoToContacts">@T["Contacts"]</button>
     }
     else if (_encryptionUnavailable)
     {
@@ -533,7 +534,12 @@ else
             _otherUser = await UsersApiClient.GetUserAsync(UserId);
             if (_otherUser is null)
             {
-                NavigationManager.NavigateTo("/contacts");
+                // Nothing came back for somebody whose conversation is on this reader's own list. Sending
+                // them back to Contacts without a word was indistinguishable from a click that did not
+                // register - the only sign anything happened was a 404 in the browser's own console.
+                Logger.LogWarning(
+                    "Couldn't open the conversation with {UserId}: the API returned no such account", UserId);
+                _loadErrorMessage = T["Orbit can't reach that account, so this conversation can't be opened right now."];
                 return;
             }
 
@@ -1361,6 +1367,8 @@ else
     }
 
     private void GoToNewGroup() => NavigationManager.NavigateTo("/chat/groups?new=1");
+
+    private void GoToContacts() => NavigationManager.NavigateTo("/contacts");
 
     private static string FormatUnreadCount(int count) => count > 9 ? "9+" : count.ToString(CultureInfo.InvariantCulture);
 
