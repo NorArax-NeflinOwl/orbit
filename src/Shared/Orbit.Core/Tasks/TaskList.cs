@@ -34,8 +34,8 @@ public sealed class TaskList
     /// </summary>
     public bool IsCompleted { get; private set; }
 
-    /// <summary>How much this list matters, for sorting and for the reader's own sense of it. See <see cref="TaskListPriority"/>.</summary>
-    public TaskListPriority Priority { get; private set; }
+    /// <summary>How much this list matters, for sorting and for the reader's own sense of it. See <see cref="ItemPriority"/>.</summary>
+    public ItemPriority Priority { get; private set; }
 
     /// <summary>
     /// Keeps this list at the top of the Tasks page whatever the reader is sorting by. Separate from
@@ -82,7 +82,7 @@ public sealed class TaskList
 
     private TaskList(
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
-        TaskListPriority priority, bool isPinned, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        ItemPriority priority, bool isPinned, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
     {
         Id = id;
@@ -101,7 +101,7 @@ public sealed class TaskList
 
     public static TaskList Create(
         Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
-        bool isPrivate = false, EncryptedPayload? encryptedContent = null, TaskListPriority priority = TaskListPriority.Normal,
+        bool isPrivate = false, EncryptedPayload? encryptedContent = null, ItemPriority priority = ItemPriority.Normal,
         bool isPinned = false)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
@@ -121,7 +121,7 @@ public sealed class TaskList
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        TaskListPriority priority, bool isPinned, Guid? linkedWarehouseId = null)
+        ItemPriority priority, bool isPinned, Guid? linkedWarehouseId = null)
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
@@ -146,7 +146,7 @@ public sealed class TaskList
     /// </summary>
     public void Update(
         string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
-        TaskListPriority priority = TaskListPriority.Normal)
+        ItemPriority priority = ItemPriority.Normal)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);

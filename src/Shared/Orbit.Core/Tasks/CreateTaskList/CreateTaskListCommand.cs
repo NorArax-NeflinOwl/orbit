@@ -5,4 +5,4 @@ namespace Orbit.Core.Tasks.CreateTaskList;
 [ClientAction(ClientActionCategory.Save)]
 public sealed record CreateTaskListCommand(
     Guid UserId, string Title, IReadOnlyList<TaskItem> Items, bool IsGroup, bool IsPrivate, EncryptedPayload? EncryptedContent,
-    TaskListPriority Priority = TaskListPriority.Normal) : IRequest<Guid>;
+    ItemPriority Priority = ItemPriority.Normal) : IRequest<Guid>;

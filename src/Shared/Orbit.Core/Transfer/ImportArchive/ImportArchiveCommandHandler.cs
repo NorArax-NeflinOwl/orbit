@@ -176,8 +176,8 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     private static NotificationChannel ParseChannel(string channel)
         => Enum.TryParse<NotificationChannel>(channel, out var parsed) ? parsed : NotificationChannel.None;
 
-    private static TaskListPriority ParsePriority(string priority)
-        => Enum.TryParse<TaskListPriority>(priority, out var parsed) ? parsed : TaskListPriority.Normal;
+    private static ItemPriority ParsePriority(string priority)
+        => Enum.TryParse<ItemPriority>(priority, out var parsed) ? parsed : ItemPriority.Normal;
 
     private static EncryptedPayload? ToPayload(ArchivedEncryptedContent? encryptedContent)
         => encryptedContent is null

@@ -1,5 +1,6 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Inventory;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.SetTaskListPinned;
 using Xunit;
@@ -75,10 +76,10 @@ public sealed class TaskListPinningTests
     {
         // Two different wishes: priority says how much something matters, a pin says keep it where I can
         // see it. A low-priority list can still be the one being worked on today.
-        var taskList = TaskList.Create(Guid.NewGuid(), "Errands", [], priority: TaskListPriority.Low, isPinned: true);
+        var taskList = TaskList.Create(Guid.NewGuid(), "Errands", [], priority: ItemPriority.Low, isPinned: true);
 
         Assert.True(taskList.IsPinned);
-        Assert.Equal(TaskListPriority.Low, taskList.Priority);
+        Assert.Equal(ItemPriority.Low, taskList.Priority);
     }
 
     [Fact]

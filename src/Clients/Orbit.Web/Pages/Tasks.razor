@@ -1,6 +1,7 @@
 @page "/tasks"
 @attribute [Authorize]
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Abstractions
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
@@ -225,14 +226,14 @@ else
     private static TaskListStatus ParseStatus(TaskDto taskList)
         => Enum.TryParse<TaskListStatus>(taskList.Status, out var status) ? status : TaskListStatus.New;
 
-    private static TaskListPriority ParsePriority(TaskDto taskList)
-        => Enum.TryParse<TaskListPriority>(taskList.Priority, out var priority) ? priority : TaskListPriority.Normal;
+    private static ItemPriority ParsePriority(TaskDto taskList)
+        => Enum.TryParse<ItemPriority>(taskList.Priority, out var priority) ? priority : ItemPriority.Normal;
 
     /// <summary>Mirrors the wording of TaskEditor's own priority dropdown, so a list reads the same in both places.</summary>
-    private string DescribePriority(TaskListPriority priority) => priority switch
+    private string DescribePriority(ItemPriority priority) => priority switch
     {
-        TaskListPriority.Low => T["Low"],
-        TaskListPriority.High => T["High"],
+        ItemPriority.Low => T["Low"],
+        ItemPriority.High => T["High"],
         _ => T["Normal"]
     };
 

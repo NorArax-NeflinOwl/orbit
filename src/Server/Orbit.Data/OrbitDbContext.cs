@@ -368,10 +368,10 @@ public sealed class OrbitDbContext : DbContext
 
         modelBuilder.Entity<TaskEntity>(entity =>
         {
-            // Matches TaskListPriority.Normal, so rows written before this column existed read back as
+            // Matches ItemPriority.Normal, so rows written before this column existed read back as
             // the default a new list gets rather than as an unparseable empty string.
             entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
-                .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskListPriority.Normal));
+                .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
         });
 
         modelBuilder.Entity<PublicShareLinkEntity>(entity =>
