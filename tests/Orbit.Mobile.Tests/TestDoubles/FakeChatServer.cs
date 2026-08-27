@@ -34,6 +34,27 @@ internal sealed class FakeChatServer : HttpMessageHandler
     /// <summary>Every copy of every group message, which is what the fan-out is judged by.</summary>
     public IReadOnlyList<ChatMessageDto> GroupMessageCopies => _groupMessages.Select(stored => stored.Message).ToList();
 
+    /// <summary>When each member opened their copy, for the receipts endpoint. Absent means delivered.</summary>
+    private readonly Dictionary<(Guid GroupMessageId, Guid RecipientUserId), DateTimeOffset> _groupReads = [];
+
+    /// <summary>Somebody opened their copy. A member with no entry has one and has not opened it.</summary>
+    public void MarkGroupMessageRead(Guid groupMessageId, Guid recipientUserId, DateTimeOffset readAtUtc)
+        => _groupReads[(groupMessageId, recipientUserId)] = readAtUtc;
+
+    /// <summary>
+    /// One receipt per stored copy, which is what a receipt is: a member who joined after the message
+    /// was sent has no copy and so appears in none.
+    /// </summary>
+    private List<GroupMessageReceiptDto> ReadReceiptsFor(Guid groupMessageId)
+        => [.. _groupMessages
+            .Where(stored => stored.Message.GroupMessageId == groupMessageId
+                && stored.Message.RecipientUserId != CallerUserId)
+            .Select(stored => new GroupMessageReceiptDto(
+                stored.Message.RecipientUserId,
+                _groupReads.TryGetValue((groupMessageId, stored.Message.RecipientUserId), out var readAt)
+                    ? readAt
+                    : null))]; 
+
     /// <summary>Whose token the requests are carrying, which the real server reads from the claim.</summary>
     public Guid CallerUserId { get; set; }
 
@@ -201,6 +222,12 @@ internal sealed class FakeChatServer : HttpMessageHandler
         if (group is null || group.Members.All(member => member.UserId != CallerUserId))
         {
             return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        // api/chat/groups/{id}/messages/{groupMessageId}/receipts
+        if (segments.Length == 7 && segments[6] == "receipts")
+        {
+            return Json(ReadReceiptsFor(Guid.Parse(segments[5])));
         }
 
         if (request.Method == HttpMethod.Put)

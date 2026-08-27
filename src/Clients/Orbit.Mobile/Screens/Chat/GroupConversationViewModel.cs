@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Contracts.Chat;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
@@ -22,6 +24,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     private readonly EncryptedChatMessageEditor _editor;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
+    private readonly ChatClient _chatClient;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -65,14 +68,15 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
     public GroupConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
-        ChatRepository chatRepository, ChatSynchronizer synchronizer, Translations translations,
-        IScreenNavigator navigator)
+        ChatRepository chatRepository, ChatSynchronizer synchronizer, ChatClient chatClient,
+        Translations translations, IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
         _editor = editor;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
+        _chatClient = chatClient;
         _translations = translations;
         _navigator = navigator;
     }
@@ -192,6 +196,54 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         _beingEdited = message;
         Draft = message.Text ?? string.Empty;
         IsEditing = true;
+    }
+
+    /// <summary>
+    /// Who this message reached and who has read it, as lines somebody can read. Composed here rather
+    /// than in the page so the wording is testable without a screen - the page only has to show it.
+    ///
+    /// Delivered means the server holds a copy addressed to that member, which is what a receipt is. A
+    /// member who joined after the message was sent has no copy and so appears in no receipt at all;
+    /// they are left out rather than shown as having not read something never sent to them.
+    /// </summary>
+    public async Task<string> DescribeReceiptsAsync(
+        ReadableChatMessage? message, CancellationToken cancellationToken = default)
+    {
+        if (_group is not { } group || message?.GroupMessageId is not { } groupMessageId)
+        {
+            return string.Empty;
+        }
+
+        IReadOnlyList<GroupMessageReceiptDto> receipts;
+        try
+        {
+            receipts = await _chatClient.GetGroupMessageReceiptsAsync(group.Id, groupMessageId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            return _translations["Couldn't read who has seen this."];
+        }
+
+        if (receipts.Count == 0)
+        {
+            return _translations["Nobody else has a copy of this yet."];
+        }
+
+        var names = group.Members.ToDictionary(member => member.UserId, member => member.DisplayName);
+
+        return string.Join(
+            Environment.NewLine,
+            receipts.Select(receipt => Describe(receipt, names)));
+    }
+
+    private string Describe(GroupMessageReceiptDto receipt, IReadOnlyDictionary<Guid, string> names)
+    {
+        var who = names.GetValueOrDefault(receipt.RecipientUserId) ?? _translations["Someone"];
+
+        return receipt.ReadAtUtc is { } readAt
+            ? _translations.Format(
+                "{0} - read {1}", who, readAt.ToLocalTime().ToString("g", _translations.DisplayCulture))
+            : _translations.Format("{0} - delivered", who);
     }
 
     [RelayCommand]

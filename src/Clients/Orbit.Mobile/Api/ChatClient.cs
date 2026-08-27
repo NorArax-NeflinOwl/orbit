@@ -211,6 +211,15 @@ public sealed class ChatClient
             $"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
 
     /// <summary>
+    /// Who one group message reached and who has read it. Asked per message rather than drawn for every
+    /// one of them, which is why it is a request of its own and not part of the conversation.
+    /// </summary>
+    public async Task<IReadOnlyList<GroupMessageReceiptDto>> GetGroupMessageReceiptsAsync(
+        Guid groupId, Guid groupMessageId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<IReadOnlyList<GroupMessageReceiptDto>>(
+            $"api/chat/groups/{groupId}/messages/{groupMessageId}/receipts", cancellationToken) ?? [];
+
+    /// <summary>
     /// Posts one message as one ciphertext per other member. The server checks the set against the
     /// group's current membership and refuses anything that doesn't match exactly, which is what
     /// <see cref="GroupSendOutcome.MembershipChanged"/> reports.

@@ -946,6 +946,12 @@ public static class PolishTranslations
         ["This position can't be opened on this device."] = "Tej lokalizacji nie da się otworzyć na tym urządzeniu.",
         ["Saved."] = "Zapisano.",
         ["Pinning needs a connection."] = "Przypięcie wymaga połączenia.",
+
+        // One group message's own info view: who it reached, and who has opened it.
+        ["{0} - read {1}"] = "{0} — przeczytano {1}",
+        ["{0} - delivered"] = "{0} — dostarczono",
+        ["Nobody else has a copy of this yet."] = "Nikt inny nie ma jeszcze kopii tej wiadomości.",
+        ["Couldn't read who has seen this."] = "Nie udało się odczytać, kto to widział.",
         ["Orbit's own log, on this phone. Nothing leaves it unless you send it."] =
             "Własny dziennik Orbita, na tym telefonie. Nic z niego nie wychodzi, dopóki go nie wyślesz.",
         // The map screen: reading a position, sharing it, and stopping.

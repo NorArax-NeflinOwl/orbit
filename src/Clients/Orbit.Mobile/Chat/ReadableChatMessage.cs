@@ -61,6 +61,9 @@ public sealed record ReadableChatMessage(
     /// </summary>
     public bool CanBeChanged => IsMine && !IsWaitingToSend && MessageId is not null;
 
+    /// <summary>Whether this message belongs to a group conversation, which is what gives it a menu.</summary>
+    public bool IsInAGroup => GroupMessageId is not null;
+
     /// <summary>
     /// Whether to say how far a group message got. Only on the reader's own, and only once it has been
     /// sent: there is nothing to report about a message still in the queue.

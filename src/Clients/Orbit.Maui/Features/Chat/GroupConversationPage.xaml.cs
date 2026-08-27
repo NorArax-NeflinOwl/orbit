@@ -28,16 +28,28 @@ public partial class GroupConversationPage : ContentPage
 
 	private async Task ShowMessageMenuAsync(ReadableChatMessage? message)
 	{
-		if (message is not { CanBeChanged: true })
+		if (message?.GroupMessageId is null)
 		{
 			return;
 		}
 
-		var chosen = await DisplayActionSheetAsync(
-			_translations["Message options"], _translations["Cancel"], destruction: null,
-			_translations["Edit"], _translations["Delete"]);
+		// "Who has read this" is offered for anybody's message; editing and deleting only for the
+		// reader's own - see ReadableChatMessage.CanBeChanged.
+		var actions = new List<string> { _translations["Who has read this"] };
+		if (message.CanBeChanged)
+		{
+			actions.Add(_translations["Edit"]);
+			actions.Add(_translations["Delete"]);
+		}
 
-		if (chosen == _translations["Edit"])
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Message options"], _translations["Cancel"], destruction: null, [.. actions]);
+
+		if (chosen == _translations["Who has read this"])
+		{
+			await ShowReceiptsAsync(message);
+		}
+		else if (chosen == _translations["Edit"])
 		{
 			_viewModel.StartEditingCommand.Execute(message);
 		}
@@ -46,6 +58,12 @@ public partial class GroupConversationPage : ContentPage
 			_viewModel.DeleteCommand.Execute(message);
 		}
 	}
+
+	private async Task ShowReceiptsAsync(ReadableChatMessage message)
+		=> await DisplayAlertAsync(
+			_translations["Who has read this"],
+			await _viewModel.DescribeReceiptsAsync(message),
+			_translations["Close"]);
 
 	/// <summary>Typed so the navigator can hand the page its group without casting the binding context.</summary>
 	public GroupConversationViewModel ViewModel => _viewModel;

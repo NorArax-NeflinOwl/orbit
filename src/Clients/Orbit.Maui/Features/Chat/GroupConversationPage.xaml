@@ -60,8 +60,10 @@
                                  does it and as a one-to-one conversation here already did. Only on the
                                  reader's own messages, and only once the server has one - see
                                  ReadableChatMessage.CanBeChanged. -->
+                            <!-- On anybody's message, not only the reader's own: "who has read this"
+                                 is worth asking about a message somebody else wrote too. -->
                             <Button Text="⋯" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
-                                    HorizontalOptions="Start" IsVisible="{Binding CanBeChanged}"
+                                    HorizontalOptions="Start" IsVisible="{Binding IsInAGroup}"
                                     TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
                                     CommandParameter="{Binding .}" />
