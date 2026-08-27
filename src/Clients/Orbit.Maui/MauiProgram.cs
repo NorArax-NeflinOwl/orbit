@@ -57,8 +57,12 @@ public static class MauiProgram
 			.UseMauiMaps()
 			.ConfigureFonts(fonts =>
 			{
-				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+				// The two faces Orbit.Web loads (see its index.html): IBM Plex Sans for anything read as
+				// text, Space Grotesk for headings. Same faces in both clients, which is the difference
+				// between two products that share a palette and one product.
+				fonts.AddFont("IBMPlexSans-Regular.ttf", "OrbitBody");
+				fonts.AddFont("IBMPlexSans-SemiBold.ttf", "OrbitBodySemibold");
+				fonts.AddFont("SpaceGrotesk-SemiBold.ttf", "OrbitDisplay");
 			});
 
 		RegisterPlatformServices(builder.Services);
