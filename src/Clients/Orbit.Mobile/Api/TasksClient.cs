@@ -108,6 +108,20 @@ public sealed class TasksClient : ILockableItems
     }
 
     /// <summary>
+    /// Moves one entry out of this list and into another. Done against the server rather than queued:
+    /// it needs both lists' real ids, and there is no sensible local half of "it is now over there".
+    /// </summary>
+    public async Task<WriteOutcome> MoveItemAsync(
+        Guid sourceTaskListId, Guid itemId, Guid targetTaskListId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/tasks/{sourceTaskListId}/items/{itemId}/move", new MoveTaskItemRequest(targetTaskListId),
+            cancellationToken);
+
+        return ReadOutcome(response);
+    }
+
+    /// <summary>
     /// Claims this item while it is being edited, so a second editor is told rather than left to find
     /// out when their save is refused. Calling it again refreshes the claim - see EditLock.
     /// </summary>

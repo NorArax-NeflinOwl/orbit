@@ -99,14 +99,27 @@
                 <Picker ItemsSource="{x:Static screens:TaskItemEditor.Channels}"
                         SelectedItem="{Binding DailyReminderNotificationChannel}"
                         IsVisible="{Binding RemindDaily}" />
+
             </VerticalStackLayout>
         </ScrollView>
 
-        <HorizontalStackLayout Grid.Row="4" Spacing="16" IsVisible="{Binding IsEditingItem}">
-            <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveItemCommand}" />
-            <Button Text="{controls:Translate 'Cancel'}" Style="{StaticResource LinkButton}"
-                    Command="{Binding CancelItemEditCommand}" />
-        </HorizontalStackLayout>
+        <VerticalStackLayout Grid.Row="4" Spacing="10" IsVisible="{Binding IsEditingItem}">
+
+            <!-- Outside the entry's own form, because moving is a change to two lists rather than to
+                 the entry: choosing a list does it there and then, and this form's Save is not involved. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding CanMoveItem}">
+                <Label Text="{controls:Translate 'Move to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                <Picker Title="{controls:Translate 'Move to…'}" ItemsSource="{Binding MoveTargets}"
+                        SelectedItem="{Binding MoveTarget}" SelectedIndexChanged="OnMoveTargetChosen"
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}" />
+            </VerticalStackLayout>
+
+            <HorizontalStackLayout Spacing="16">
+                <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveItemCommand}" />
+                <Button Text="{controls:Translate 'Cancel'}" Style="{StaticResource LinkButton}"
+                        Command="{Binding CancelItemEditCommand}" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
 
         <!-- The panel's own BindingContext would decide its IsVisible too, so the visibility lives on a
              wrapper that still reads the view model. -->

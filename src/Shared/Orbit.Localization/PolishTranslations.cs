@@ -833,6 +833,8 @@ public static class PolishTranslations
         ["Waiting to sync"] = "Czeka na synchronizację",
         ["{0} is editing this right now - it stays read-only until they finish."]
             = "{0} właśnie to edytuje - pozostaje tylko do odczytu, dopóki nie skończy.",
+        ["Moved to {0}."] = "Przeniesiono do: {0}.",
+        ["Couldn't move it. Try again."] = "Nie udało się przenieść. Spróbuj ponownie.",
         ["Shared with you - read-only until you're back online"] =
             "Udostępnione Tobie — tylko do odczytu, dopóki nie wrócisz online",
         ["Shared with others - read-only until you're back online"] =

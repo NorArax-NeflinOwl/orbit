@@ -28,6 +28,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly TimeProvider _timeProvider;
+    private readonly INetworkStatus _networkStatus;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -56,7 +57,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
-        TasksClient tasksClient, EditLock editLock)
+        TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
@@ -67,6 +68,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _tasksClient = tasksClient;
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
+        _networkStatus = networkStatus;
     }
 
     public ObservableCollection<TaskItemRow> Items { get; } = [];
@@ -103,6 +105,66 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         if (row is not null && CanEdit)
         {
             BeingEdited = TaskItemEditor.For(row.Item);
+            MoveTarget = null;
+            OnPropertyChanged(nameof(CanMoveItem));
+        }
+    }
+
+    /// <summary>The other lists this entry could go to - see <see cref="TaskListChoice"/>.</summary>
+    public ObservableCollection<TaskListChoice> MoveTargets { get; } = [];
+
+    /// <summary>
+    /// Choosing one moves the entry there and then, rather than waiting for this form's Save. The move
+    /// is not part of the entry - it is a change to two lists - and Orbit.Web's editor does the same.
+    /// </summary>
+    [ObservableProperty]
+    private TaskListChoice? _moveTarget;
+
+    /// <summary>
+    /// An entry added on this phone and not yet synced has no id the server would recognise, so there
+    /// is nothing to move yet. Offline there is nobody to do the moving at all.
+    /// </summary>
+    public bool CanMoveItem
+        => CanEdit
+            && _networkStatus.IsOnline
+            && MoveTargets.Count > 0
+            && BeingEdited?.ToDto().Id is { } itemId && itemId != Guid.Empty;
+
+    [RelayCommand]
+    private async Task MoveItemAsync(TaskListChoice? target, CancellationToken cancellationToken)
+    {
+        if (target is null
+            || BeingEdited?.ToDto().Id is not { } itemId
+            || await _taskLists.FindAsync(_localId, cancellationToken) is not { ServerId: { } sourceServerId })
+        {
+            return;
+        }
+
+        BeingEdited = null;
+
+        // Anything queued goes first: the server is about to be asked to rearrange these two lists, and
+        // it should be rearranging what the phone last said, not a version behind.
+        await SynchroniseAsync(cancellationToken);
+        var outcome = await _tasksClient.MoveItemAsync(sourceServerId, itemId, target.ServerId, cancellationToken);
+
+        // Then again, to bring both lists back as the server now has them - said after the sync, which
+        // clears the status of its own.
+        await SynchroniseAsync(cancellationToken);
+        await ShowStoredListAsync(cancellationToken);
+
+        Status = outcome is WriteOutcome.Applied
+            ? _translations.Format("Moved to {0}.", target.Name)
+            : _translations["Couldn't move it. Try again."];
+    }
+
+    private async Task ShowWhereItCanGoAsync(CancellationToken cancellationToken)
+    {
+        var others = await _taskLists.GetAllAsync(cancellationToken);
+
+        MoveTargets.Clear();
+        foreach (var other in others.Where(list => list.LocalId != _localId && list.ServerId is not null))
+        {
+            MoveTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
         }
     }
 
@@ -184,6 +246,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         _items = taskList.Items;
+        await ShowWhereItCanGoAsync(cancellationToken);
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
         ReadOnlyReason = string.Empty;
@@ -233,6 +296,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
+        OnPropertyChanged(nameof(CanMoveItem));
+    }
+
+    partial void OnMoveTargetChanged(TaskListChoice? value)
+    {
+        if (value is not null)
+        {
+            MoveItemCommand.Execute(value);
+        }
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));

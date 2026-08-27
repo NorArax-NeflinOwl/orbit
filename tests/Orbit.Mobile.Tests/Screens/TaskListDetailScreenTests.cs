@@ -149,6 +149,69 @@ public sealed class TaskListDetailScreenTests
         Assert.False(screen.Items[0].IsOverdue);
     }
 
+    /// <summary>
+    /// Moving an entry to another list, which the phone could not do at all. It is a change to two
+    /// lists rather than to the entry, so it happens on choosing rather than on the form's Save - the
+    /// same as Orbit.Web's editor.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_moved_to_another_list()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Later");
+        var screen = context.OpenTaskList("Today");
+        screen.NewItemDescription = "Call the plumber";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        screen.LoadCommand.Execute(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var later = screen.MoveTargets.Single(target => target.Name == "Later");
+        await screen.MoveItemCommand.ExecuteAsync(later);
+
+        Assert.Empty(screen.Items);
+        Assert.Contains("Later", screen.Status);
+        Assert.Contains(
+            "Call the plumber",
+            context.Server.ItemsIn(later.ServerId).Select(item => item.Description));
+    }
+
+    /// <summary>The list being looked at is not somewhere its own entries can go.</summary>
+    [Fact]
+    public async Task The_list_being_looked_at_is_not_one_of_the_places_to_move_to()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Later");
+        var screen = context.OpenTaskList("Today");
+        await context.SynchroniseAsync();
+        screen.LoadCommand.Execute(null);
+
+        Assert.DoesNotContain(screen.MoveTargets, target => target.Name == "Today");
+        Assert.Contains(screen.MoveTargets, target => target.Name == "Later");
+    }
+
+    /// <summary>
+    /// An entry added on this phone has no id the server would recognise until it syncs, and offline
+    /// there is nobody to do the moving. Neither is an error worth showing - the choice just isn't there.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_the_server_has_never_seen_cannot_be_moved()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Later");
+        var screen = context.OpenTaskList("Today");
+        await context.SynchroniseAsync();
+        screen.LoadCommand.Execute(null);
+
+        screen.NewItemDescription = "Call the plumber";
+        context.Server.IsUnreachable = true;
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+
+        Assert.False(screen.CanMoveItem);
+    }
+
     /// <summary>A phone with a local store and a server it can sometimes reach, and no MAUI in sight.</summary>
     private sealed class ScreenContext : IDisposable
     {
@@ -177,7 +240,7 @@ public sealed class TaskListDetailScreenTests
             var screen = new TaskListDetailViewModel(
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
-                new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock));
+                new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;

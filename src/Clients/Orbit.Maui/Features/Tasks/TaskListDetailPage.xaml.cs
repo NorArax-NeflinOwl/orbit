@@ -25,6 +25,15 @@ public partial class TaskListDetailPage : ContentPage
 		_viewModel.LoadCommand.Execute(null);
 	}
 
+	/// <summary>
+	/// Choosing a list moves the entry, which closes the editor the picker lives in - and iOS leaves its
+	/// wheel on screen when the view under it disappears. Dismissing it first is the view's own business.
+	/// </summary>
+	private void OnMoveTargetChosen(object? sender, EventArgs eventArgs)
+	{
+		(sender as Picker)?.Unfocus();
+	}
+
 	/// <summary>Lets go of the edit lock as the screen leaves - see EditLock.</summary>
 	protected override async void OnDisappearing()
 	{

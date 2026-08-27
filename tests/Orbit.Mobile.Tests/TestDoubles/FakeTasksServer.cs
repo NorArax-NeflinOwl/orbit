@@ -28,6 +28,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public IReadOnlyCollection<TaskDto> TaskLists => _taskLists.Values;
 
+    public IReadOnlyList<TaskItemDto> ItemsIn(Guid taskListId)
+        => _taskLists.TryGetValue(taskListId, out var taskList) ? taskList.Items : [];
+
     public TaskDto AddTaskList(string title, bool isShared = false, bool isSharedWithOthers = false)
     {
         var now = _timeProvider.GetUtcNow();
@@ -78,6 +81,14 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 _timeProvider.GetUtcNow().UtcDateTime.ToString("O")));
         }
 
+        // api/tasks/{sourceId}/items/{itemId}/move
+        if (path.EndsWith("/move", StringComparison.Ordinal))
+        {
+            var segments = path.Split('/');
+            return await MoveItemAsync(
+                request, Guid.Parse(segments[^4]), Guid.Parse(segments[^2]), cancellationToken);
+        }
+
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
@@ -85,6 +96,31 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             "DELETE" => Delete(path),
             _ => Json(_taskLists.Values.ToList())
         };
+    }
+
+    /// <summary>
+    /// As MoveTaskItemCommandHandler does it: the entry leaves one list and arrives in the other, and
+    /// both lists count as changed so a delta pull brings them both back.
+    /// </summary>
+    private async Task<HttpResponseMessage> MoveItemAsync(
+        HttpRequestMessage request, Guid sourceId, Guid itemId, CancellationToken cancellationToken)
+    {
+        var body = await ReadAsync<MoveTaskItemRequest>(request, cancellationToken);
+        if (!_taskLists.TryGetValue(sourceId, out var source)
+            || !_taskLists.TryGetValue(body!.TargetTaskListId, out var target)
+            || source.Items.FirstOrDefault(item => item.Id == itemId) is not { } moved)
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var movedAt = _timeProvider.GetUtcNow();
+        _taskLists[sourceId] = source with
+        {
+            Items = [.. source.Items.Where(item => item.Id != itemId)],
+            UpdatedAtUtc = movedAt
+        };
+        _taskLists[target.Id] = target with { Items = [.. target.Items, moved], UpdatedAtUtc = movedAt };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
     private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
