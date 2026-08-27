@@ -10,7 +10,7 @@
     x:DataType="screens:GroupConversationViewModel"
     Title="{Binding Title}">
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*,Auto">
         <controls:NavigationBar Grid.Row="0" />
 
 
@@ -78,6 +78,7 @@
                 Style="{StaticResource LinkButton}" />
 
     </Grid>
+        <controls:StatusStrip Grid.Row="2" />
     </Grid>
 
 </ContentPage>

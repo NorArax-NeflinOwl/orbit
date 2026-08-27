@@ -1,5 +1,7 @@
 using Orbit.Mobile.Api;
+using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -100,6 +102,11 @@ public sealed class NavigationBarTests
         public RecordingScreenNavigator Navigator { get; } = new();
 
         public NavigationBarViewModel Open()
-            => new(_sessionStore, new NotificationsClient(Server.ToHttpClient()), Navigator);
+            => new(
+                _sessionStore, new NotificationsClient(Server.ToHttpClient()),
+                new Orbit.Mobile.Presence.Presence(
+                    FixedNetworkStatus.Online, new InMemoryPresenceStore(),
+                    new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T09:00:00Z"))),
+                Navigator);
     }
 }

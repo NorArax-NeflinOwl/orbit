@@ -15,10 +15,8 @@ public sealed partial class TasksViewModel : ObservableObject
     private readonly LocalTaskListRepository _taskLists;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
+    private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
-
-    [ObservableProperty]
-    private string _syncStatus = string.Empty;
 
     [ObservableProperty]
     private string _newListTitle = string.Empty;
@@ -28,11 +26,12 @@ public sealed partial class TasksViewModel : ObservableObject
 
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, INetworkStatus networkStatus,
-        IScreenNavigator navigator)
+        SyncState syncState, IScreenNavigator navigator)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
+        _syncState = syncState;
         _navigator = navigator;
     }
 
@@ -88,10 +87,11 @@ public sealed partial class TasksViewModel : ObservableObject
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {
         IsRefreshing = true;
+        _syncState.RecordStarted();
         try
         {
             var result = await _synchronizer.SynchroniseAsync(cancellationToken);
-            SyncStatus = DescribeSync(result);
+            RecordSync(result);
 
             if (result.Sent + result.Received + result.RemovedLocally > 0)
             {
@@ -102,7 +102,7 @@ public sealed partial class TasksViewModel : ObservableObject
         {
             // The server was reached and refused - an expired session, most often. AppNavigator watches
             // the session store and moves to sign-in when that is what happened.
-            SyncStatus = "Couldn't sync just now";
+            _syncState.RecordFailed();
         }
         catch (OperationCanceledException)
         {
@@ -115,17 +115,19 @@ public sealed partial class TasksViewModel : ObservableObject
     }
 
     /// <summary>"Offline" is only said when the phone actually believes it has no connection.</summary>
-    private string DescribeSync(SyncResult result)
+    /// <summary>
+    /// A sync that never reached the server is not the same as one the server refused, and SyncState
+    /// tells them apart from the phone's own belief about connectivity rather than from the result.
+    /// </summary>
+    private void RecordSync(SyncResult result)
     {
         if (result.ReachedTheServer)
         {
-            return result.Sent > 0 ? $"Synced - sent {result.Sent}" : "Synced";
+            _syncState.RecordSucceeded();
+            return;
         }
 
-        return _networkStatus.IsOnline
-            ? "Couldn't sync just now - your changes are saved on this phone"
-            : "Offline - showing what's on this phone";
+        _syncState.RecordFailed();
     }
-
     partial void OnNewListTitleChanged(string value) => AddListCommand.NotifyCanExecuteChanged();
 }

@@ -18,13 +18,11 @@ public sealed partial class NotesViewModel : ObservableObject
     private readonly NoteSynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
+    private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
     private string _greeting = string.Empty;
-
-    [ObservableProperty]
-    private string _syncStatus = string.Empty;
 
     [ObservableProperty]
     private string _newNoteTitle = string.Empty;
@@ -34,12 +32,13 @@ public sealed partial class NotesViewModel : ObservableObject
 
     public NotesViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, INetworkStatus networkStatus,
-        SessionStore sessionStore, IScreenNavigator navigator)
+        SessionStore sessionStore, SyncState syncState, IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
         _sessionStore = sessionStore;
+        _syncState = syncState;
         _navigator = navigator;
     }
 
@@ -88,10 +87,11 @@ public sealed partial class NotesViewModel : ObservableObject
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {
         IsRefreshing = true;
+        _syncState.RecordStarted();
         try
         {
             var result = await _synchronizer.SynchroniseAsync(cancellationToken);
-            SyncStatus = DescribeSync(result);
+            RecordSync(result);
 
             if (result.Sent + result.Received + result.RemovedLocally > 0)
             {
@@ -103,7 +103,7 @@ public sealed partial class NotesViewModel : ObservableObject
             // The server was reached and refused - an expired session, most often. AppNavigator is
             // watching the session store and moves to sign-in when that is what happened; there is
             // nothing useful to say here beyond not claiming the phone is offline.
-            SyncStatus = "Couldn't sync just now";
+            _syncState.RecordFailed();
         }
         catch (OperationCanceledException)
         {
@@ -121,20 +121,19 @@ public sealed partial class NotesViewModel : ObservableObject
     /// while connectivity looks fine is a different thing - a server having a bad moment - and saying
     /// "offline" would send the user looking for a network problem that isn't there.
     /// </summary>
-    private string DescribeSync(SyncResult result)
+    /// <summary>
+    /// A sync that never reached the server is not the same as one the server refused, and SyncState
+    /// tells them apart from the phone's own belief about connectivity rather than from the result.
+    /// </summary>
+    private void RecordSync(SyncResult result)
     {
         if (result.ReachedTheServer)
         {
-            return result.Sent > 0 ? $"Synced - sent {result.Sent}" : "Synced";
+            _syncState.RecordSucceeded();
+            return;
         }
 
-        if (!_networkStatus.IsOnline)
-        {
-            return "Offline - showing what's on this phone";
-        }
-
-        return "Couldn't sync just now - your changes are saved on this phone";
+        _syncState.RecordFailed();
     }
-
     partial void OnNewNoteTitleChanged(string value) => AddNoteCommand.NotifyCanExecuteChanged();
 }

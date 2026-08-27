@@ -56,4 +56,15 @@
     <Color x:Key="DangerLight">#C62828</Color>
     <Color x:Key="DangerDark">#FF8A80</Color>
 
+    <!-- The dot on the avatar. Green, amber and red all mean reachable; grey means the phone cannot
+         reach Orbit at all, whatever its owner chose. -->
+    <Color x:Key="PresenceActiveLight">#2E7D32</Color>
+    <Color x:Key="PresenceActiveDark">#81C784</Color>
+    <Color x:Key="PresenceIdleLight">#F9A825</Color>
+    <Color x:Key="PresenceIdleDark">#FFD54F</Color>
+    <Color x:Key="PresenceUnavailableLight">#C62828</Color>
+    <Color x:Key="PresenceUnavailableDark">#FF8A80</Color>
+    <Color x:Key="PresenceOfflineLight">#9E9E9E</Color>
+    <Color x:Key="PresenceOfflineDark">#757575</Color>
+
 </ResourceDictionary>

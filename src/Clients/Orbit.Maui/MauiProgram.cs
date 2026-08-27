@@ -14,6 +14,7 @@ using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Notifications;
+using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Startup;
 using Orbit.Mobile.Screens.Tasks;
 using Orbit.Mobile.Screens;
@@ -104,9 +105,14 @@ public static class MauiProgram
 		// One holder for the whole app: the tap is recorded by platform code and taken by whatever
 		// screen is ready to follow it, which only works if both see the same instance.
 		services.AddSingleton<PendingNotificationTap>();
+		// Both are singletons because they describe the app rather than a screen: every navigation
+		// bar reads the same presence, and every section reports into the same sync state.
+		services.AddSingleton<Orbit.Mobile.Presence.Presence>();
+		services.AddSingleton<SyncState>();
 		services.AddTransient<PushRegistration>();
 		services.AddSingleton<IDeviceLocation, PhoneLocation>();
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
+		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)
@@ -180,6 +186,7 @@ public static class MauiProgram
 		services.AddTransient<DashboardViewModel>();
 		// One per bar, not one shared: a page that is not on screen has no business refreshing a badge.
 		services.AddTransient<NavigationBarViewModel>();
+		services.AddTransient<StatusStripViewModel>();
 		services.AddTransient<StartupPage>();
 		services.AddTransient<StartupViewModel>();
 		services.AddTransient<SignInPage>();

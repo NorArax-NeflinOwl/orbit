@@ -9,7 +9,7 @@
     x:DataType="screens:NotificationFeedViewModel"
     Title="Notifications">
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*,Auto">
         <controls:NavigationBar Grid.Row="0" />
 
 
@@ -66,6 +66,7 @@
             </CollectionView.ItemTemplate>
         </CollectionView>
     </Grid>
+        <controls:StatusStrip Grid.Row="2" />
     </Grid>
 
 </ContentPage>

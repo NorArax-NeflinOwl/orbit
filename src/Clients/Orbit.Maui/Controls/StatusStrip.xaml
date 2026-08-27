@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.StatusStrip"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Navigation;assembly=Orbit.Mobile"
+    x:DataType="screens:StatusStripViewModel">
+
+    <!-- Bottom left, out of the way, on every page. Sync is a fact about the app rather than about
+         whatever is on screen, so it belongs to the chrome and not to any one page's header. -->
+    <HorizontalStackLayout Padding="16,6" Spacing="6" IsVisible="{Binding Label, Converter={StaticResource IsNotEmpty}}"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+        <ActivityIndicator IsRunning="{Binding IsSyncing}" IsVisible="{Binding IsSyncing}"
+                           HeightRequest="12" WidthRequest="12" VerticalOptions="Center" />
+        <Label Text="{Binding Label}" FontSize="11" VerticalOptions="Center"
+               Style="{StaticResource SubtleLabel}" />
+    </HorizontalStackLayout>
+</ContentView>

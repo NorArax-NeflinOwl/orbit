@@ -3,10 +3,13 @@
     x:Class="Orbit.Maui.Controls.NavigationBar"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Navigation;assembly=Orbit.Mobile"
     x:DataType="screens:NavigationBarViewModel">
 
     <ContentView.Resources>
+        <controls:PresenceColorConverter x:Key="PresenceColor" />
+
         <!-- The same drawings Orbit.Web uses in its sidebar, as path data rather than SVG elements.
              Each is on a 20x20 canvas, so one size fits all of them. Rectangles and circles are written
              out as arcs because Path.Data takes path syntax only. -->
@@ -96,12 +99,21 @@
 
             <Border IsVisible="{Binding HasUnread}" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}"
                     HeightRequest="18" MinimumWidthRequest="18" Padding="4,0"
-                    HorizontalOptions="End" VerticalOptions="Start">
+                    HorizontalOptions="Start" VerticalOptions="Start">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="9" />
                 </Border.StrokeShape>
                 <Label Text="{Binding UnreadLabel}" TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}" FontSize="10" FontAttributes="Bold"
                        HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <Border HeightRequest="13" WidthRequest="13" StrokeThickness="2"
+                    Stroke="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+                    BackgroundColor="{Binding Appearance, Converter={StaticResource PresenceColor}}"
+                    HorizontalOptions="End" VerticalOptions="Start">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="7" />
+                </Border.StrokeShape>
             </Border>
         </Grid>
     </Grid>

@@ -8,7 +8,7 @@
     x:DataType="screens:AccountViewModel"
     Title="Account">
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*,Auto">
         <controls:NavigationBar Grid.Row="0" />
 
 
@@ -48,6 +48,20 @@
                 <Button Text="Change password" Command="{Binding ChangePasswordCommand}" />
             </VerticalStackLayout>
 
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Status" FontAttributes="Bold" />
+                <!-- Two choices rather than a toggle: "available" and "unavailable" are both things
+                     somebody picks, and a switch makes one of them look like the absence of the other. -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Grid.Column="0" Text="Available" FontSize="13"
+                            Command="{Binding ChooseAvailableCommand}" IsEnabled="{Binding IsUnavailable}" />
+                    <Button Grid.Column="1" Text="Unavailable" FontSize="13"
+                            Command="{Binding ChooseUnavailableCommand}" IsEnabled="{Binding IsAvailable}" />
+                </Grid>
+                <Label Text="{Binding AvailabilityDescription}" FontSize="12" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}" />
+            </VerticalStackLayout>
+
             <Button Text="Chat key"
                     Command="{Binding GoToChatKeyCommand}"
                     Style="{StaticResource LinkButton}" />
@@ -61,6 +75,7 @@
 
         </VerticalStackLayout>
     </ScrollView>
+        <controls:StatusStrip Grid.Row="2" />
     </Grid>
 
 </ContentPage>

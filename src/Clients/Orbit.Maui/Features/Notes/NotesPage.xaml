@@ -8,7 +8,7 @@
     x:DataType="screens:NotesViewModel"
     Title="Notes">
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*,Auto">
         <controls:NavigationBar Grid.Row="0" />
 
 
@@ -16,7 +16,6 @@
 
         <VerticalStackLayout Grid.Row="0" Spacing="2">
             <Label Text="{Binding Greeting}" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-            <Label Text="{Binding SyncStatus}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
         </VerticalStackLayout>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -58,6 +57,7 @@
 
 
     </Grid>
+        <controls:StatusStrip Grid.Row="2" />
     </Grid>
 
 </ContentPage>

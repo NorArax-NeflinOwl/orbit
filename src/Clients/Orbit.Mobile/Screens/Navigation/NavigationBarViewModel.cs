@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Presence;
 
 namespace Orbit.Mobile.Screens.Navigation;
 
@@ -16,10 +17,11 @@ namespace Orbit.Mobile.Screens.Navigation;
 /// One view model per bar rather than one shared instance. The bar is part of each page, and a page
 /// that is not on screen has no business refreshing an unread count.
 /// </summary>
-public sealed partial class NavigationBarViewModel : ObservableObject
+public sealed partial class NavigationBarViewModel : ObservableObject, IDisposable
 {
     private readonly SessionStore _sessionStore;
     private readonly NotificationsClient _notificationsClient;
+    private readonly Presence.Presence _presence;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>The signed-in reader's initials, which is what the avatar shows - there are no pictures in Orbit.</summary>
@@ -29,13 +31,30 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [ObservableProperty]
     private string _unreadLabel = string.Empty;
 
+    [ObservableProperty]
+    private PresenceAppearance _appearance = PresenceAppearance.Active;
+
     public NavigationBarViewModel(
-        SessionStore sessionStore, NotificationsClient notificationsClient, IScreenNavigator navigator)
+        SessionStore sessionStore, NotificationsClient notificationsClient, Presence.Presence presence,
+        IScreenNavigator navigator)
     {
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
+        _presence = presence;
         _navigator = navigator;
+        _presence.Changed += OnPresenceChanged;
+        ShowPresence();
     }
+
+    public void Dispose() => _presence.Changed -= OnPresenceChanged;
+
+    private void OnPresenceChanged(object? sender, EventArgs e) => ShowPresence();
+
+    /// <summary>
+    /// The dot in the avatar's top-right corner. Kept as the four states rather than a colour, so what
+    /// the app decided stays testable and only the page turns it into a colour.
+    /// </summary>
+    private void ShowPresence() => Appearance = _presence.Appearance;
 
     public bool HasUnread => UnreadLabel.Length > 0;
 
@@ -49,6 +68,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
+        _presence.MarkActive();
         Initials = InitialsOf((await _sessionStore.GetAsync())?.DisplayName);
 
         try

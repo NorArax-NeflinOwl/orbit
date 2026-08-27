@@ -8,7 +8,7 @@
     x:DataType="screens:ChatKeyGateViewModel"
     Title="Chat key">
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*,Auto">
         <controls:NavigationBar Grid.Row="0" />
 
 
@@ -77,6 +77,7 @@
 
         </VerticalStackLayout>
     </ScrollView>
+        <controls:StatusStrip Grid.Row="2" />
     </Grid>
 
 </ContentPage>
