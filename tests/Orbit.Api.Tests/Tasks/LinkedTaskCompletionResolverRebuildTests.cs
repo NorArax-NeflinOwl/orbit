@@ -73,7 +73,7 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
             updatedAtUtc: new DateTimeOffset(2026, 2, 2, 0, 0, 0, TimeSpan.Zero),
             lockedByUserId: Guid.NewGuid(), lockedByUserName: "someone",
             lockExpiresAtUtc: new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero),
-            TaskListPriority.High, isPinned: true, linkedWarehouseId: Guid.NewGuid());
+            ItemPriority.High, isPinned: true, linkedWarehouseId: Guid.NewGuid());
         taskList.SetAccessContext(isShared: true, sharedByUserName: "anna", ShareAccessLevel.ReadOnly);
         return taskList;
     }

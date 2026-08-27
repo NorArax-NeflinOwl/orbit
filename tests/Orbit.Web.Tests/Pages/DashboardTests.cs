@@ -33,6 +33,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyTasksApiClient();
         RegisterEmptyCalendarApiClient();
         RegisterDashboardPins();
+        RegisterDashboardCardPreferences();
         RegisterPermissions();
     }
 
@@ -66,6 +67,22 @@ public sealed class DashboardTests : OrbitTestContext
         module.Setup<string[]>("getPinnedCards").SetResult([]);
         module.SetupVoid("setPinnedCards", _ => true);
         Services.AddScoped<DashboardPinService>();
+    }
+
+    /// <summary>
+    /// What the reader has put away lives in localStorage too (see DashboardCardPreferences) - stubbed as
+    /// "nothing hidden" unless a test says otherwise, so the rest see the whole page.
+    /// </summary>
+    private void RegisterDashboardCardPreferences(
+        IReadOnlyDictionary<string, string>? filters = null, params string[] hidden)
+    {
+        var module = JSInterop.SetupModule("./js/dashboardCards.js");
+        module.Setup<string[]>("getHiddenCards").SetResult(hidden);
+        module.SetupVoid("setHiddenCards", _ => true);
+        module.Setup<Dictionary<string, string>>("getCardFilters")
+            .SetResult(filters is null ? [] : new Dictionary<string, string>(filters));
+        module.SetupVoid("setCardFilters", _ => true);
+        Services.AddScoped<DashboardCardPreferences>();
     }
 
     [Fact]
@@ -183,6 +200,184 @@ public sealed class DashboardTests : OrbitTestContext
             Enumerable.Range(0, memberCount)
                 .Select(_ => new ChatGroupMemberDto(Guid.NewGuid(), "Member", DateTimeOffset.UtcNow))
                 .ToList());
+
+    [Fact]
+    public void The_menu_offers_every_part_of_the_page()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        var cut = RenderComponent<Dashboard>();
+
+        OpenTheMenu(cut);
+
+        Assert.Equal(
+            ["Today", "Notes", "Tasks", "Upcoming", "Groups", "Shared with you", "Recent chats", "Contacts"],
+            MenuEntries(cut).Select(entry => entry.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_part_the_reader_put_away_is_not_drawn()
+    {
+        RegisterDashboardCardPreferences(null, "chats");
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Recent chats");
+        Assert.Contains("Anna Kowalska", FindColumn(cut, "Contacts").TextContent);
+    }
+
+    [Fact]
+    public void Unticking_a_part_in_the_menu_takes_it_off_the_page()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        var cut = RenderComponent<Dashboard>();
+        OpenTheMenu(cut);
+
+        MenuEntries(cut).Single(entry => entry.TextContent.Contains("Recent chats"))
+            .QuerySelector("input")!.Change(false);
+
+        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Recent chats");
+    }
+
+    [Fact]
+    public void The_menu_stays_open_while_several_parts_are_changed()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        var cut = RenderComponent<Dashboard>();
+        OpenTheMenu(cut);
+
+        // The click a real browser sends reaches the menu itself, which closes on one when its entries
+        // are actions. Closing after each tick here would make changing two a chore.
+        MenuEntries(cut)[0].Click();
+
+        Assert.NotEmpty(MenuEntries(cut));
+    }
+
+    [Fact]
+    public void Ticking_a_part_back_on_puts_it_back()
+    {
+        RegisterDashboardCardPreferences(null, "chats");
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        var cut = RenderComponent<Dashboard>();
+        OpenTheMenu(cut);
+
+        MenuEntries(cut).Single(entry => entry.TextContent.Contains("Recent chats"))
+            .QuerySelector("input")!.Change(true);
+
+        Assert.Contains("Anna Kowalska", FindColumn(cut, "Recent chats").TextContent);
+    }
+
+    [Fact]
+    public void A_page_with_everything_put_away_says_so()
+    {
+        // Otherwise it reads as a dashboard that failed to load, with nothing saying where its contents went.
+        RegisterDashboardCardPreferences(
+            null, "today", "notes", "tasks", "upcoming", "groups", "locations", "chats", "contacts");
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Empty(cut.FindAll("div.card"));
+        Assert.Contains("Everything here is hidden", cut.Markup);
+    }
+
+    [Fact]
+    public void A_card_shows_everything_until_it_is_told_otherwise()
+    {
+        RegisterNotesApiClient([Note("Shopping", "High"), Note("Ideas", "Low", isPinned: true)]);
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal(["Shopping", "Ideas"], RowTitlesIn(cut, "Notes"));
+    }
+
+    [Fact]
+    public void A_card_filtered_to_one_priority_shows_only_that()
+    {
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["notes"] = "HighPriority" });
+        RegisterNotesApiClient([Note("Shopping", "High"), Note("Ideas", "Low")]);
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal(["Shopping"], RowTitlesIn(cut, "Notes"));
+    }
+
+    [Fact]
+    public void A_card_filtered_to_what_is_pinned_shows_only_that()
+    {
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["notes"] = "Pinned" });
+        RegisterNotesApiClient([Note("Shopping", "High"), Note("Ideas", "Low", isPinned: true)]);
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal(["Ideas"], RowTitlesIn(cut, "Notes"));
+    }
+
+    [Fact]
+    public void The_count_beside_a_card_counts_what_the_card_is_showing()
+    {
+        // Otherwise a filtered card says three and shows one, which reads as a card that lost something.
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["notes"] = "HighPriority" });
+        RegisterNotesApiClient([Note("Shopping", "High"), Note("Ideas", "Low"), Note("Recipes", "Normal")]);
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal("1", FindColumn(cut, "Notes").QuerySelector(".card-count")!.TextContent.Trim());
+    }
+
+    [Fact]
+    public void Choosing_a_filter_from_the_cards_own_menu_applies_it()
+    {
+        RegisterNotesApiClient([Note("Shopping", "High"), Note("Ideas", "Low")]);
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<Dashboard>();
+
+        FindColumn(cut, "Notes").QuerySelector(".overflow-menu-trigger")!.Click();
+        cut.FindAll(".overflow-menu-dropdown button").First(entry => entry.TextContent.Contains("High")).Click();
+
+        Assert.Equal(["Shopping"], RowTitlesIn(cut, "Notes"));
+    }
+
+    [Fact]
+    public void A_card_whose_items_cannot_be_pinned_does_not_offer_pinned()
+    {
+        // An event has a priority but nothing to pin it to.
+        RegisterCalendarApiClient([Event("Dentist", DateTimeOffset.UtcNow.AddHours(2))]);
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<Dashboard>();
+
+        FindColumn(cut, "Upcoming").QuerySelector(".overflow-menu-trigger")!.Click();
+
+        // The tick beside the chosen one is part of the row, so compare what each row says after it.
+        var entries = cut.FindAll(".overflow-menu-dropdown button")
+            .Select(entry => entry.TextContent.Replace("✓", "").Trim());
+        Assert.Equal(["All", "High", "Normal", "Low"], entries);
+    }
+
+    private static IReadOnlyList<string> RowTitlesIn(IRenderedComponent<Dashboard> cut, string heading)
+        => [.. FindColumn(cut, heading).QuerySelectorAll(".row-title").Select(row => row.TextContent.Trim())];
+
+    private static NoteDto Note(string title, string priority, bool isPinned = false)
+        => new(
+            Guid.NewGuid(), title, [], IsPrivate: false, EncryptedContent: null,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
+            IsPinned: isPinned, Priority: priority);
+
+    private static void OpenTheMenu(IRenderedComponent<Dashboard> cut)
+        => cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+
+    private static IReadOnlyList<IElement> MenuEntries(IRenderedComponent<Dashboard> cut)
+        => [.. cut.FindAll(".overflow-menu-dropdown label")];
+
+    private static ContactDto Contact(string displayName)
+        => new(
+            Guid.NewGuid(), displayName.ToLowerInvariant(), displayName, $"{displayName}@example.com", "public-key",
+            DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false);
 
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
         => cut.FindAll("div.card").Single(column => column.QuerySelector(".card-title")!.TextContent == heading);

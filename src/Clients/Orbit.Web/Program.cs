@@ -106,6 +106,7 @@ builder.Services.AddScoped<PrivateContentSealer>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
 builder.Services.AddScoped<DashboardPinService>();
+builder.Services.AddScoped<DashboardCardPreferences>();
 builder.Services.AddScoped<PresenceService>();
 builder.Services.AddScoped<UserPermissionState>();
 builder.Services.AddScoped<ChecklistViewPreference>();

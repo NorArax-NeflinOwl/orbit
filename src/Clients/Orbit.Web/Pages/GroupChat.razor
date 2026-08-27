@@ -20,12 +20,11 @@
 
 <div class="page-header">
     <div>
-        <h1>@T["Groups"]</h1>
+        <h1>@T["Messages"]</h1>
         <p class="page-subtitle">@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</p>
     </div>
     <div class="page-header-actions">
         <button type="button" class="btn-secondary" @onclick="GoToContacts">@T["Contacts"]</button>
-        <button type="button" class="btn-primary" @onclick="StartCreating">@T["New group"]</button>
     </div>
 </div>
 
@@ -74,64 +73,10 @@ else
     }
 
     <div class="group-layout">
-        <div class="card group-list @(_isGroupListCollapsed ? "collapsed" : "")">
-            <div class="card-header">
-                @* Folds away to a strip of initials, the way the one-to-one chat list does, and starts
-                   folded: the conversation is what this page is for, and the list of groups is how you got
-                   here. *@
-                <button type="button" class="icon-btn" title="@(_isGroupListCollapsed ? T["Show names"] : T["Hide names"])"
-                        @onclick="() => _isGroupListCollapsed = !_isGroupListCollapsed">
-                    @if (_isGroupListCollapsed)
-                    {
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
-                    }
-                    else
-                    {
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
-                    }
-                </button>
-                @if (!_isGroupListCollapsed)
-                {
-                    <span class="card-title">@T["Your groups"]</span>
-                    <span class="card-count">@_groups.Count</span>
-                }
-            </div>
-            @if (_groups.Count > 0 && !_isGroupListCollapsed)
-            {
-                <input class="chat-list-search" type="search" @bind="_groupSearch" @bind:event="oninput"
-                       placeholder="@(T["Search groups"])" aria-label="@(T["Search groups"])" />
-            }
-            @if (_groups.Count == 0)
-            {
-                @if (!_isGroupListCollapsed)
-                {
-                    <p class="empty-hint">@T["No groups yet."]</p>
-                }
-            }
-            else if (!_matchingGroups.Any())
-            {
-                <p class="empty-hint">@T["Nothing matches that."]</p>
-            }
-            else
-            {
-                @foreach (var group in _matchingGroups)
-                {
-                    <button type="button" class="list-row list-row-button @(group.Id == GroupId ? "active" : "")"
-                            title="@group.Name" @onclick="() => OpenGroup(group.Id)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
-                        @if (!_isGroupListCollapsed)
-                        {
-                            <span class="row-title">@group.Name</span>
-                            @if (group.OwnRole == AdminRole)
-                            {
-                                <span class="card-badge">@T["Admin"]</span>
-                            }
-                            <span class="row-meta">@group.Members.Count</span>
-                        }
-                    </button>
-                }
-            }
-        </div>
+        <ConversationList Conversations="Conversations" ActiveId="GroupId" IsCollapsed="_isGroupListCollapsed"
+                          OnToggleCollapsed="() => _isGroupListCollapsed = !_isGroupListCollapsed"
+                          Search="@_groupSearch" SearchChanged="value => _groupSearch = value"
+                          OnSelected="OpenConversation" OnNewGroup="StartCreating" />
 
         @if (_selectedGroup is { } selectedGroup)
         {
@@ -347,11 +292,47 @@ else
     /// <summary>What the reader has typed into the group search box.</summary>
     private string _groupSearch = string.Empty;
 
+    /// <summary>
+    /// The same list the one-to-one chat shows - see ConversationList and Chat.razor, which builds it the
+    /// same way: people first by who was spoken to last, then groups by name.
+    /// </summary>
+    private IReadOnlyList<Conversation> Conversations =>
+    [
+        .. _establishedChats.Select(contact => new Conversation(
+            contact.UserId, contact.DisplayName, IsGroup: false, contact.UnreadCount, Conversation.PresenceOf(contact),
+            contact.UnreadCount > 0 ? T.Format("{0} new", contact.UnreadCount) : null)),
+        .. _matchingGroups.Select(group => new Conversation(
+            group.Id, group.Name, IsGroup: true, UnreadCount: 0, Presence: null,
+            T.Format("{0} members", group.Members.Count)))
+    ];
+
+    /// <summary>The people this reader can open a conversation with, most recently spoken to first.</summary>
+    private IEnumerable<ContactDto> _establishedChats
+        => (_groupSearch.Trim() is { Length: > 0 } query
+                ? _contacts.Where(contact =>
+                    contact.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                    || contact.UserName.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+                : _contacts)
+            .Where(contact => !contact.RequiresApprovalFromCurrentUser)
+            .OrderByDescending(contact => contact.LastMessageAtUtc);
+
+    private void OpenConversation(Conversation conversation)
+    {
+        if (conversation.IsGroup)
+        {
+            OpenGroup(conversation.Id);
+            return;
+        }
+
+        NavigationManager.NavigateTo($"/chat/{conversation.Id}");
+    }
+
     /// <summary>The groups left after the search box - filtered here, since the page already holds them all.</summary>
     private IEnumerable<ChatGroupDto> _matchingGroups
-        => _groupSearch.Trim() is { Length: > 0 } query
-            ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
-            : _groups;
+        => (_groupSearch.Trim() is { Length: > 0 } query
+                ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+                : _groups)
+            .OrderBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
 
     /// <summary>Which message's options menu is open - at most one, the way the one-to-one chat does it.</summary>
     private Guid? _openMessageMenuId;
@@ -396,6 +377,13 @@ else
         }
 
         await LoadAsync();
+
+        // "New group" is offered from the conversation list on both chat screens, and the other one can
+        // only ask for it by coming here - see Chat.razor's GoToNewGroup.
+        if (GroupId is null && NavigationManager.Uri.Contains("new=1", StringComparison.Ordinal))
+        {
+            StartCreating();
+        }
     }
 
     /// <summary>

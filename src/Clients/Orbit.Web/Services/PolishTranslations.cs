@@ -76,6 +76,16 @@ internal static class PolishTranslations
         ["Show the lists"] = "Pokaż listy",
         ["Show single items"] = "Pokaż pojedyncze elementy",
         ["In list order"] = "W kolejności listy",
+        ["Show on the dashboard"] = "Pokaż na pulpicie",
+        ["Show"] = "Pokaż",
+        ["Search conversations"] = "Szukaj rozmów",
+        ["Sorts this note against the others, and is what the dashboard's filter reads."] =
+            "Sortuje tę notatkę względem innych i jest tym, co czyta filtr na pulpicie.",
+        ["Sorts this event against the others, and is what the dashboard's filter reads."] =
+            "Sortuje to wydarzenie względem innych i jest tym, co czyta filtr na pulpicie.",
+        ["Group chat"] = "Czat grupowy",
+        ["Everything here is hidden. The menu at the top right brings it back."] =
+            "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Opens Google's own form with this event filled in. Nothing is saved there until you save it."] = "Otwiera formularz Google z wypełnionym wydarzeniem. Nic się tam nie zapisze, dopóki sam nie zapiszesz.",
         ["Google Calendar"] = "Kalendarz Google",
@@ -216,7 +226,6 @@ internal static class PolishTranslations
 
         // ---- Chat ----
         ["Chats"] = "Rozmowy",
-        ["Group chats"] = "Czaty grupowe",
         ["New request"] = "Nowa prośba",
         ["New requests"] = "Nowe prośby",
         ["Open chat"] = "Otwórz rozmowę",
@@ -363,8 +372,6 @@ internal static class PolishTranslations
         ["Write to the group"] = "Napisz do grupy",
         ["New group"] = "Nowa grupa",
         ["Group name"] = "Nazwa grupy",
-        ["Your groups"] = "Twoje grupy",
-        ["No groups yet."] = "Nie masz jeszcze grup.",
         ["Who's in it"] = "Kto należy",
         ["Weekend trip"] = "Wyjazd na weekend",
         ["You need at least one contact to start a group."] =
@@ -761,8 +768,6 @@ internal static class PolishTranslations
         ["Due date"] = "Termin",
         ["Due time"] = "Godzina",
         ["That message is no longer yours to edit."] = "Tej wiadomości nie możesz już edytować.",
-        ["Search chats"] = "Szukaj rozmów",
-        ["Search groups"] = "Szukaj grup",
         ["Nothing matches that."] = "Nic nie pasuje.",
         ["Leave group"] = "Opuść grupę",
         ["You aren't in this group."] = "Nie należysz do tej grupy.",

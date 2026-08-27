@@ -61,6 +61,15 @@ else
             <InputTextArea @bind-Value="_formModel.Description" />
         </div>
         <div class="field">
+            <label for="eventPrioritySelect">@T["Priority"]</label>
+            <InputSelect id="eventPrioritySelect" @bind-Value="_formModel.Priority">
+                <option value="Low">@T["Low"]</option>
+                <option value="Normal">@T["Normal"]</option>
+                <option value="High">@T["High"]</option>
+            </InputSelect>
+            <small>@T["Sorts this event against the others, and is what the dashboard's filter reads."]</small>
+        </div>
+        <div class="field">
             <label>@T["Location"]</label>
             <InputText @bind-Value="_formModel.LocationAddress" placeholder="@(T["Pick a point on the map to set an address"])" />
             <div class="field-row">
@@ -916,6 +925,9 @@ else
         public double? LocationLatitude { get; set; }
         public double? LocationLongitude { get; set; }
         public string Color { get; set; } = "#4a90d9";
+
+        /// <summary>ItemPriority by name, the way the API takes it - see CalendarEventDetailsDto.Priority.</summary>
+        public string Priority { get; set; } = "Normal";
         public bool IsAllDay { get; set; }
         public DateOnly? StartDate { get; set; }
         public TimeOnly? StartTime { get; set; }
@@ -978,7 +990,8 @@ else
                 GuestUserIds = details.Guests.ToList(),
                 ReminderMinutesBeforeStart = details.ReminderMinutesBeforeStart.ToList(),
                 CreationNotificationChannel = details.CreationNotificationChannel,
-                ReminderNotificationChannel = details.ReminderNotificationChannel
+                ReminderNotificationChannel = details.ReminderNotificationChannel,
+                Priority = details.Priority
             };
 
         public CalendarEventDetailsRequest ToRequest()
@@ -1004,7 +1017,8 @@ else
                 GuestUserIds,
                 ReminderMinutesBeforeStart,
                 CreationNotificationChannel,
-                ReminderNotificationChannel);
+                ReminderNotificationChannel,
+                Priority);
         }
 
         /// <summary>

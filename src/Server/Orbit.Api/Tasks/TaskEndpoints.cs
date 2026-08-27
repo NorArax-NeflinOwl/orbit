@@ -52,7 +52,7 @@ public static class TaskEndpoints
             var id = await dispatcher.SendAsync(
                 new CreateTaskListCommand(
                     GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
-                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<TaskListPriority>(request.Priority, "priority")),
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
                 cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
@@ -63,7 +63,7 @@ public static class TaskEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateTaskListCommand(
                     GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
-                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<TaskListPriority>(request.Priority, "priority")),
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
                 cancellationToken);
             return ToApiResult(outcome);
         });

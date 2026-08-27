@@ -3,4 +3,6 @@ using Orbit.Core.Abstractions;
 namespace Orbit.Core.Notes.UpdateNote;
 
 [ClientAction(ClientActionCategory.Edit)]
-public sealed record UpdateNoteCommand(Guid UserId, Guid Id, string Title, IReadOnlyList<NoteContentLine> Content, bool IsPrivate, EncryptedPayload? EncryptedContent) : IRequest<EditOutcome>;
+public sealed record UpdateNoteCommand(
+    Guid UserId, Guid Id, string Title, IReadOnlyList<NoteContentLine> Content, bool IsPrivate, EncryptedPayload? EncryptedContent,
+    ItemPriority Priority = ItemPriority.Normal) : IRequest<EditOutcome>;

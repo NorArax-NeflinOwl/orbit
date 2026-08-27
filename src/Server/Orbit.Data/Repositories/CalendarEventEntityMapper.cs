@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
@@ -38,7 +39,8 @@ internal static class CalendarEventEntityMapper
             JsonSerializer.Deserialize<List<Guid>>(entity.GuestsJson) ?? [],
             JsonSerializer.Deserialize<List<int>>(entity.RemindersJson) ?? [],
             Enum.Parse<NotificationChannel>(entity.CreationNotificationChannel),
-            Enum.Parse<NotificationChannel>(entity.ReminderNotificationChannel));
+            Enum.Parse<NotificationChannel>(entity.ReminderNotificationChannel),
+            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal);
 
         return CalendarEvent.FromPersistence(
             entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc,
@@ -68,6 +70,7 @@ internal static class CalendarEventEntityMapper
             RemindersJson = JsonSerializer.Serialize(details.ReminderMinutesBeforeStart),
             CreationNotificationChannel = details.CreationNotificationChannel.ToString(),
             ReminderNotificationChannel = details.ReminderNotificationChannel.ToString(),
+            Priority = details.Priority.ToString(),
             LockedByUserId = calendarEvent.LockedByUserId,
             LockedByUserName = calendarEvent.LockedByUserName,
             LockExpiresAtUtc = calendarEvent.LockExpiresAtUtc,

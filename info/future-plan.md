@@ -191,6 +191,18 @@ as not covered by an automated test today, together with why:
 
 ## Smaller identified follow-ups
 
+- **Reordering by hand needs a mouse.** The drag handles in the task and warehouse editors use HTML5
+  drag-and-drop, which browsers do not raise for touch. A phone can read an arranged list but cannot
+  arrange one, which matters before [Orbit.Maui](orbit-maui-plan.md) reaches these screens - either a
+  pointer-event implementation or a pair of move-up/move-down buttons behind the same handle.
+- **A group has no "last message" time.** The one conversation list therefore sorts people by recency
+  and groups by name, in two blocks. Carrying the newest message's timestamp on `ChatGroupDto` would let
+  the whole list sort by when something last happened, which is what somebody scanning it expects.
+- **An established contact can disappear.** `Contacts` gates being findable at all, so an account that
+  has not unlocked it is a 404 even to somebody who already has a conversation with them - the chat
+  exists, the profile behind it does not resolve. Either the gate should not apply to an account you are
+  already a contact of, or the chat should say plainly why the other side has gone quiet.
+
 - **A permanent, bind-mounted TLS certificate setup for local development.** The mkcert-based option
   in [`info/instructions.md`](instructions.md) currently requires copying certificate files into the
   running `orbit-web` container by hand after every `docker compose down -v`. Switching the

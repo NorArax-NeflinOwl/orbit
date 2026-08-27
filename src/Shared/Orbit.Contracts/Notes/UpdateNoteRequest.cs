@@ -6,4 +6,5 @@ namespace Orbit.Contracts.Notes;
 /// values are sealed inside EncryptedContent, which the browser fills in and the server never opens.
 /// </summary>
 public sealed record UpdateNoteRequest(
-    string Title, IReadOnlyList<NoteContentLineDto> Content, bool IsPrivate = false, EncryptedContentDto? EncryptedContent = null);
+    string Title, IReadOnlyList<NoteContentLineDto> Content, bool IsPrivate = false, EncryptedContentDto? EncryptedContent = null,
+    string Priority = "Normal");

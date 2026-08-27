@@ -4,6 +4,7 @@
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Users
+@using Orbit.Core.Abstractions
 @using Orbit.Core.Users
 @using Orbit.Contracts.Notes
 @using Orbit.Contracts.Tasks
@@ -19,6 +20,7 @@
 @inject UserPermissionState Permissions
 @inject Translations T
 @inject DashboardPinService DashboardPins
+@inject DashboardCardPreferences CardPreferences
 
 <PageTitle>@T["Orbit — Dashboard"]</PageTitle>
 
@@ -26,6 +28,21 @@
     <div>
         <h1>@T["Dashboard"]</h1>
         <p class="page-subtitle">@T["Everything on your plate, in one place."]</p>
+    </div>
+    <div class="page-header-actions">
+        @* Which parts of this page are wanted at all. A menu of settings rather than of actions, so it
+           stays open while several are changed - see OverflowMenu.StaysOpen. *@
+        <OverflowMenu StaysOpen="true">
+            <span class="overflow-menu-heading">@T["Show on the dashboard"]</span>
+            @foreach (var part in DashboardParts)
+            {
+                <label class="avatar-dropdown-item">
+                    <input type="checkbox" checked="@CardPreferences.IsVisible(part.Key)"
+                           @onchange="args => SetPartVisibleAsync(part.Key, (bool)args.Value!)" />
+                    @T[part.Name]
+                </label>
+            }
+        </OverflowMenu>
     </div>
 </div>
 
@@ -44,19 +61,22 @@ else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _co
 }
 else
 {
-    <div class="today-strip">
-        <span class="today-strip-date">@DateTime.Today.ToString("dddd, d MMMM", T.DisplayCulture)</span>
-        <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong>@T["tasks due today"]</span>
-        <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong>@T["events today"]</span>
-        <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong>@T["new chat requests"]</span>
-    </div>
+    @if (CardPreferences.IsVisible("today"))
+    {
+        <div class="today-strip">
+            <span class="today-strip-date">@DateTime.Today.ToString("dddd, d MMMM", T.DisplayCulture)</span>
+            <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong>@T["tasks due today"]</span>
+            <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong>@T["events today"]</span>
+            <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong>@T["new chat requests"]</span>
+        </div>
+    }
 
     <div class="card-grid">
-        @if (_notes.Count > 0)
+        @if (_notes.Count > 0 && CardPreferences.IsVisible("notes"))
         {
             <div class="card @(DashboardPins.IsPinned("notes") ? "card-pinned" : "")">
-                <div class="card-header"><span class="card-title">@T["Notes"]</span><span class="card-header-end"><span class="card-count">@_notes.Count</span><PinButton IsPinned='DashboardPins.IsPinned("notes")' OnPinnedChanged='pinned => SetCardPinnedAsync("notes", pinned)' /></span></div>
-                @foreach (var note in _notes)
+                <div class="card-header"><span class="card-title">@T["Notes"]</span><span class="card-header-end"><span class="card-count">@NotesToShow.Count</span><PinButton IsPinned='DashboardPins.IsPinned("notes")' OnPinnedChanged='pinned => SetCardPinnedAsync("notes", pinned)' /><CardFilterMenu Filter='CardPreferences.FilterFor("notes")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("notes", filter)' /></span></div>
+                @foreach (var note in NotesToShow)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditNote(note.Id)">
                         <span class="row-title">@note.Title</span>
@@ -66,11 +86,11 @@ else
             </div>
         }
 
-        @if (_taskLists.Count > 0)
+        @if (_taskLists.Count > 0 && CardPreferences.IsVisible("tasks"))
         {
             <div class="card @(DashboardPins.IsPinned("tasks") ? "card-pinned" : "")">
-                <div class="card-header"><span class="card-title">@T["Tasks"]</span><span class="card-header-end"><span class="card-count">@T.Format("{0} lists", _taskLists.Count)</span><PinButton IsPinned='DashboardPins.IsPinned("tasks")' OnPinnedChanged='pinned => SetCardPinnedAsync("tasks", pinned)' /></span></div>
-                @foreach (var taskList in _taskLists)
+                <div class="card-header"><span class="card-title">@T["Tasks"]</span><span class="card-header-end"><span class="card-count">@T.Format("{0} lists", TaskListsToShow.Count)</span><PinButton IsPinned='DashboardPins.IsPinned("tasks")' OnPinnedChanged='pinned => SetCardPinnedAsync("tasks", pinned)' /><CardFilterMenu Filter='CardPreferences.FilterFor("tasks")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("tasks", filter)' /></span></div>
+                @foreach (var taskList in TaskListsToShow)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToTaskList(taskList.Id)">
                         <span class="row-title">@taskList.Title</span>
@@ -88,11 +108,11 @@ else
             </div>
         }
 
-        @if (_upcomingEvents.Any())
+        @if (_upcomingEvents.Any() && CardPreferences.IsVisible("upcoming"))
         {
             <div class="card @(DashboardPins.IsPinned("upcoming") ? "card-pinned" : "")">
-                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-header-end"><span class="card-count">@_upcomingEvents.Count()</span><PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' /></span></div>
-                @foreach (var calendarEvent in _upcomingEvents.Take(6))
+                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-header-end"><span class="card-count">@EventsToShow.Count</span><PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' /><CardFilterMenu Filter='CardPreferences.FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' /></span></div>
+                @foreach (var calendarEvent in EventsToShow.Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditEvent(calendarEvent.Id)">
                         <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
@@ -105,7 +125,7 @@ else
             </div>
         }
 
-        @if (_groups.Count > 0)
+        @if (_groups.Count > 0 && CardPreferences.IsVisible("groups"))
         {
             <div class="card @(DashboardPins.IsPinned("groups") ? "card-pinned" : "")">
                 <div class="card-header"><span class="card-title">@T["Groups"]</span><span class="card-header-end"><span class="card-count">@_groups.Count</span><PinButton IsPinned='DashboardPins.IsPinned("groups")' OnPinnedChanged='pinned => SetCardPinnedAsync("groups", pinned)' /></span></div>
@@ -124,7 +144,7 @@ else
             </div>
         }
 
-        @if (_sharedLocations!.Count > 0)
+        @if (_sharedLocations!.Count > 0 && CardPreferences.IsVisible("locations"))
         {
             <div class="card @(DashboardPins.IsPinned("locations") ? "card-pinned" : "")">
                 <div class="card-header">
@@ -146,42 +166,43 @@ else
             </div>
         }
 
-        @if (_contacts.Count > 0)
+        @if (_contacts.Count > 0 && CardPreferences.IsVisible("chats"))
         {
             <div class="card @(DashboardPins.IsPinned("chats") ? "card-pinned" : "")">
                 <div class="card-header"><span class="card-title">@T["Recent chats"]</span><span class="card-header-end"><PinButton IsPinned='DashboardPins.IsPinned("chats")' OnPinnedChanged='pinned => SetCardPinnedAsync("chats", pinned)' /></span></div>
                 @foreach (var contact in _recentContacts.Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                         <span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span>
                     </button>
                 }
             </div>
+        }
 
+        @if (_contacts.Count > 0 && CardPreferences.IsVisible("contacts"))
+        {
             <div class="card @(DashboardPins.IsPinned("contacts") ? "card-pinned" : "")">
                 <div class="card-header"><span class="card-title">@T["Contacts"]</span><span class="card-header-end"><span class="card-count">@_contactsAlphabetically.Count()</span><PinButton IsPinned='DashboardPins.IsPinned("contacts")' OnPinnedChanged='pinned => SetCardPinnedAsync("contacts", pinned)' /></span></div>
                 @foreach (var contact in _contactsAlphabetically)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                     </button>
                 }
             </div>
         }
     </div>
+
+    @if (!CardPreferences.IsAnythingVisible(DashboardParts.Select(part => part.Key)))
+    {
+        <p class="empty-hint">@T["Everything here is hidden. The menu at the top right brings it back."]</p>
+    }
 }
 
 @code {
-    /// <summary>
-    /// What to show next to this person right now. The API resolves it as the list is read, so an
-    /// unreadable value can only mean a client and server that disagree about the names - offline is
-    /// the honest answer to that, rather than claiming somebody is there.
-    /// </summary>
-    private static PresenceStatus StatusOf(ContactDto contact)
-        => Enum.TryParse<PresenceStatus>(contact.PresenceStatus, out var status) ? status : PresenceStatus.Offline;
 
     private IReadOnlyList<NoteDto>? _notes;
     private IReadOnlyList<TaskDto>? _taskLists;
@@ -189,6 +210,81 @@ else
     private IReadOnlyList<ContactDto>? _contacts;
     private IReadOnlyList<ChatGroupDto>? _groups;
     private IReadOnlyList<SharedLocationDto>? _sharedLocations;
+
+    /// <summary>One part of the dashboard that can be put away, and what the menu calls it.</summary>
+    private sealed record DashboardPart(string Key, string Name);
+
+    /// <summary>
+    /// Everything the menu offers to hide, in the order the page draws it. The keys are the ones the
+    /// cards already carry for pinning, so a card is one thing to both of them.
+    /// </summary>
+    private static readonly IReadOnlyList<DashboardPart> DashboardParts =
+    [
+        new("today", "Today"),
+        new("notes", "Notes"),
+        new("tasks", "Tasks"),
+        new("upcoming", "Upcoming"),
+        new("groups", "Groups"),
+        new("locations", "Shared with you"),
+        new("chats", "Recent chats"),
+        new("contacts", "Contacts")
+    ];
+
+    /// <summary>What a card whose items can be pinned offers to filter by.</summary>
+    private static readonly IReadOnlyList<DashboardCardFilter> PinnableOptions =
+    [
+        DashboardCardFilter.All, DashboardCardFilter.Pinned, DashboardCardFilter.HighPriority,
+        DashboardCardFilter.NormalPriority, DashboardCardFilter.LowPriority
+    ];
+
+    /// <summary>The same, without the pin - a calendar event has a priority but nothing to pin it to.</summary>
+    private static readonly IReadOnlyList<DashboardCardFilter> PriorityOptions =
+    [
+        DashboardCardFilter.All, DashboardCardFilter.HighPriority, DashboardCardFilter.NormalPriority,
+        DashboardCardFilter.LowPriority
+    ];
+
+    private IReadOnlyList<NoteDto> NotesToShow =>
+        [.. (_notes ?? []).Where(note => Matches("notes", note.IsPinned, note.Priority))];
+
+    private IReadOnlyList<TaskDto> TaskListsToShow =>
+        [.. (_taskLists ?? []).Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+
+    private IReadOnlyList<CalendarEventDto> EventsToShow =>
+        [.. _upcomingEvents.Where(calendarEvent => Matches("upcoming", isPinned: false, calendarEvent.Details.Priority))];
+
+    /// <summary>
+    /// Whether one item survives its card's filter. Priorities arrive as names, the way everything else
+    /// crosses the wire - an unreadable one is treated as Normal rather than hidden, since a filter is
+    /// no place to make something disappear over a word nobody recognises.
+    /// </summary>
+    private bool Matches(string cardKey, bool isPinned, string priority) => CardPreferences.FilterFor(cardKey) switch
+    {
+        DashboardCardFilter.Pinned => isPinned,
+        DashboardCardFilter.HighPriority => PriorityOf(priority) == ItemPriority.High,
+        DashboardCardFilter.NormalPriority => PriorityOf(priority) == ItemPriority.Normal,
+        DashboardCardFilter.LowPriority => PriorityOf(priority) == ItemPriority.Low,
+        _ => true
+    };
+
+    private static ItemPriority PriorityOf(string priority)
+        => Enum.TryParse<ItemPriority>(priority, out var parsed) ? parsed : ItemPriority.Normal;
+
+    private async Task SetCardFilterAsync(string cardKey, DashboardCardFilter filter)
+    {
+        Logger.LogInformation("User filtered dashboard card {CardKey} to {Filter}", cardKey, filter);
+        await CardPreferences.SetFilterAsync(cardKey, filter);
+    }
+
+    /// <summary>
+    /// Takes one part of the dashboard off this reader's page, or puts it back - on this device, for the
+    /// same reason pinning is not stored server-side.
+    /// </summary>
+    private async Task SetPartVisibleAsync(string cardKey, bool isVisible)
+    {
+        Logger.LogInformation("User {Action} dashboard card {CardKey}", isVisible ? "showed" : "hid", cardKey);
+        await CardPreferences.SetVisibleAsync(cardKey, isVisible);
+    }
 
     /// <summary>
     /// Moves a card to the top of the page for this reader, on this device - see DashboardPinService for
@@ -247,6 +343,7 @@ else
         // for - asked too early, every gated card would be missing from a page that had them.
         await Permissions.EnsureLoadedAsync();
         await DashboardPins.InitializeAsync();
+        await CardPreferences.InitializeAsync();
         try
         {
             // Loaded together rather than one after another, so the dashboard's total load time is the

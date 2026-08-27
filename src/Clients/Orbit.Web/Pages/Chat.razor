@@ -66,54 +66,10 @@ else
     {
         <div class="chat-layout">
             <div class="chat-list-backdrop @(_isDrawerOpen ? "open" : "")" @onclick="CloseDrawer"></div>
-            <div class="chat-list @(_isDrawerOpen ? "open" : "") @(_isContactListCollapsed ? "collapsed" : "")">
-                <div class="chat-list-header">
-                    <button type="button" class="icon-btn" title="@(_isContactListCollapsed ? T["Show names"] : T["Hide names"])" @onclick="ToggleContactListCollapsed">
-                        @if (_isContactListCollapsed)
-                        {
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
-                        }
-                        else
-                        {
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
-                        }
-                    </button>
-                    @* Hidden when the list is collapsed to initials: there is no room for it, and nothing
-                       to read in the results either. *@
-                    @if (!_isContactListCollapsed)
-                    {
-                        <input class="chat-list-search" type="search" @bind="_chatSearch" @bind:event="oninput"
-                               placeholder="@(T["Search chats"])" aria-label="@(T["Search chats"])" />
-                    }
-                </div>
-                @if (!_matchingChats.Any())
-                {
-                    <p class="empty-hint chat-list-empty">@T["Nothing matches that."]</p>
-                }
-                @foreach (var contact in _matchingChats)
-                {
-                    @* The badge counts the messages themselves, not entries in the notification panel:
-                       clearing that panel is tidying, not reading, and it used to take the only sign that
-                       somebody had written with it. *@
-                    <button type="button" class="chat-list-item @(contact.UserId == UserId ? "active" : "") @(UnreadFrom(contact) > 0 ? "unread" : "")" title="@contact.DisplayName" @onclick="() => SwitchContact(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">
-                            @AvatarHelper.GetInitials(contact.DisplayName)
-                            @if (UnreadFrom(contact) is > 0 and var unreadFromContact)
-                            {
-                                <span class="notif-badge">@FormatUnreadCount(unreadFromContact)</span>
-                            }
-                            <PresenceDot Status="StatusOf(contact)" />
-                        </span>
-                        <span class="chat-list-meta">
-                            <span class="chat-list-name">@contact.DisplayName</span>
-                            @if (UnreadFrom(contact) is > 0 and var waiting)
-                            {
-                                <span class="chat-list-preview">@T.Format("{0} new", waiting)</span>
-                            }
-                        </span>
-                    </button>
-                }
-            </div>
+            <ConversationList Conversations="Conversations" ActiveId="UserId" IsOpen="_isDrawerOpen"
+                              IsCollapsed="_isContactListCollapsed" OnToggleCollapsed="ToggleContactListCollapsed"
+                              Search="@_chatSearch" SearchChanged="value => _chatSearch = value"
+                              OnSelected="OpenConversation" OnNewGroup="GoToNewGroup" />
 
             <div class="chat-thread">
                 <div class="chat-thread-header">
@@ -316,13 +272,6 @@ else
 }
 
 @code {
-    /// <summary>
-    /// What to show next to this person right now. The API resolves it as the list is read, so an
-    /// unreadable value can only mean a client and server that disagree about the names - offline is
-    /// the honest answer to that, rather than claiming somebody is there.
-    /// </summary>
-    private static PresenceStatus StatusOf(ContactDto contact)
-        => Enum.TryParse<PresenceStatus>(contact.PresenceStatus, out var status) ? status : PresenceStatus.Offline;
 
 
 
@@ -335,6 +284,9 @@ else
     private readonly List<ChatMessageDto> _messages = [];
     private readonly Dictionary<Guid, string> _decryptedContentByMessageId = [];
     private IReadOnlyList<ContactDto> _contacts = [];
+
+    /// <summary>The groups this reader is in - rows in the same list as the people, see ConversationList.</summary>
+    private IReadOnlyList<ChatGroupDto> _groups = [];
     private bool _isDrawerOpen;
 
     /// <summary>
@@ -493,6 +445,7 @@ else
             await OwnEncryptionKeyProvider.EnsurePublicKeyAsync();
             _cryptoModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
             _contacts = await ChatApiClient.GetContactsAsync();
+            _groups = await ChatApiClient.GetGroupsAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -947,6 +900,7 @@ else
             // conversation started just now (the contact only exists server-side after its first
             // message - see ChatMessageHandler) show up in the drawer without a full page reload.
             _contacts = await ChatApiClient.GetContactsAsync();
+            _groups = await ChatApiClient.GetGroupsAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -1372,6 +1326,41 @@ else
     /// showing a count beside it would flicker against a list refreshed a moment later.
     /// </summary>
     private int UnreadFrom(ContactDto contact) => contact.UserId == UserId ? 0 : contact.UnreadCount;
+
+    /// <summary>
+    /// Everything this reader can open, as one list - see ConversationList. People come first, most
+    /// recently spoken to first, since that is the order somebody looks for a conversation in; groups
+    /// follow by name, having no last-message time of their own to sort by.
+    /// </summary>
+    private IReadOnlyList<Conversation> Conversations =>
+    [
+        .. _matchingChats.Select(contact => new Conversation(
+            contact.UserId, contact.DisplayName, IsGroup: false, UnreadFrom(contact), Conversation.PresenceOf(contact),
+            UnreadFrom(contact) > 0 ? T.Format("{0} new", UnreadFrom(contact)) : null)),
+        .. _matchingGroups.Select(group => new Conversation(
+            group.Id, group.Name, IsGroup: true, UnreadCount: 0, Presence: null,
+            T.Format("{0} members", group.Members.Count)))
+    ];
+
+    /// <summary>The groups left after the same search box the people are filtered by.</summary>
+    private IEnumerable<ChatGroupDto> _matchingGroups
+        => (_chatSearch.Trim() is { Length: > 0 } query
+                ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+                : _groups)
+            .OrderBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
+
+    private void OpenConversation(Conversation conversation)
+    {
+        if (conversation.IsGroup)
+        {
+            NavigationManager.NavigateTo($"/chat/groups/{conversation.Id}");
+            return;
+        }
+
+        SwitchContact(conversation.Id);
+    }
+
+    private void GoToNewGroup() => NavigationManager.NavigateTo("/chat/groups?new=1");
 
     private static string FormatUnreadCount(int count) => count > 9 ? "9+" : count.ToString(CultureInfo.InvariantCulture);
 
