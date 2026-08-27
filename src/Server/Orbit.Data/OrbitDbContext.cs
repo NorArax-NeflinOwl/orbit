@@ -37,9 +37,19 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
     public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
     public DbSet<UserPermissionEntity> UserPermissions => Set<UserPermissionEntity>();
+    public DbSet<PermissionCodeEntity> PermissionCodes => Set<PermissionCodeEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<PermissionCodeEntity>(entity =>
+        {
+            // The permission is the key: one code per permission, so a second can never be minted
+            // beside the one somebody was told.
+            entity.HasKey(code => code.Permission);
+            entity.Property(code => code.Permission).HasMaxLength(32);
+            entity.Property(code => code.Code).IsRequired().HasMaxLength(32);
+        });
+
         modelBuilder.Entity<UserPermissionEntity>(entity =>
         {
             // The pair is the identity: an account either holds a permission or it does not, and there

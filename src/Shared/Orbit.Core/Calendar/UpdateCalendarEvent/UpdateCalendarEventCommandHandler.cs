@@ -17,9 +17,15 @@ public sealed class UpdateCalendarEventCommandHandler : IRequestHandler<UpdateCa
     public async Task<EditOutcome> HandleAsync(UpdateCalendarEventCommand request, CancellationToken cancellationToken)
     {
         var calendarEvent = await _calendarEventAccessResolver.ResolveAsync(request.UserId, request.Id, cancellationToken);
-        if (calendarEvent is null || !calendarEvent.AccessLevel.AllowsEditing())
+        if (calendarEvent is null)
         {
             return EditOutcome.NotFound;
+        }
+
+        // Visible but not theirs to change - see EditOutcomeKind.ReadOnly for why that is worth saying.
+        if (!calendarEvent.AccessLevel.AllowsEditing())
+        {
+            return EditOutcome.ReadOnly;
         }
 
         var nowUtc = DateTimeOffset.UtcNow;

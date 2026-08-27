@@ -27,9 +27,15 @@ public sealed class AcquireNoteLockCommandHandler : IRequestHandler<AcquireNoteL
     public async Task<EditOutcome> HandleAsync(AcquireNoteLockCommand request, CancellationToken cancellationToken)
     {
         var note = await _noteAccessResolver.ResolveAsync(request.UserId, request.NoteId, cancellationToken);
-        if (note is null || !note.AccessLevel.AllowsEditing())
+        if (note is null)
         {
             return EditOutcome.NotFound;
+        }
+
+        // Visible but not theirs to change - see EditOutcomeKind.ReadOnly for why that is worth saying.
+        if (!note.AccessLevel.AllowsEditing())
+        {
+            return EditOutcome.ReadOnly;
         }
 
         var nowUtc = DateTimeOffset.UtcNow;

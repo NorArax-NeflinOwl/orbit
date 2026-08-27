@@ -24,6 +24,9 @@ public sealed class TaskEntity
     /// <summary>Whether this list gathers other lists - see Orbit.Core.Tasks.TaskList.IsGroup.</summary>
     public bool IsGroup { get; set; }
 
+    /// <summary>The warehouse this list's work is measured against, if any - see Orbit.Core.Tasks.TaskList.LinkedWarehouseId.</summary>
+    public Guid? LinkedWarehouseId { get; set; }
+
     /// <summary>Stored by name, like every other enum here - see Orbit.Core.Tasks.TaskListPriority.</summary>
     public string Priority { get; set; } = nameof(Orbit.Core.Tasks.TaskListPriority.Normal);
     public bool IsPinned { get; set; }

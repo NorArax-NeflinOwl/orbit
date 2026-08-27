@@ -51,9 +51,14 @@ public sealed class LinkedTaskCompletionResolver
         var resolvedTaskList = TaskList.FromPersistence(
             taskList.Id, taskList.UserId, taskList.Title, resolvedItems, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent,
             taskList.CreatedAtUtc, taskList.UpdatedAtUtc,
-            taskList.LockedByUserId, taskList.LockedByUserName, taskList.LockExpiresAtUtc, taskList.Priority, taskList.IsPinned);
-        // FromPersistence only rebuilds the persisted fields - IsShared/SharedByUserName/AccessLevel are
-        // stamped separately per caller (see TaskList's class comment) and would otherwise be lost here.
+            taskList.LockedByUserId, taskList.LockedByUserName, taskList.LockExpiresAtUtc, taskList.Priority, taskList.IsPinned,
+            taskList.LinkedWarehouseId);
+        // Every persisted field has to be named above, and every new one has to be added here too - this
+        // rebuild is on the path of every read, so a field left out of it is a field that is stored,
+        // works in the handler that reads the row directly, and comes back null to the client.
+        //
+        // IsShared/SharedByUserName/AccessLevel are not persisted at all: they are stamped separately per
+        // caller (see TaskList's class comment) and would otherwise be lost here.
         resolvedTaskList.SetAccessContext(taskList.IsShared, taskList.SharedByUserName, taskList.AccessLevel);
         context.Resolved[taskListId] = resolvedTaskList;
         context.Visiting.Remove(taskListId);

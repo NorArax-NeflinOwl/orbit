@@ -23,9 +23,15 @@ public sealed class AcquireWarehouseLockCommandHandler : IRequestHandler<Acquire
     public async Task<EditOutcome> HandleAsync(AcquireWarehouseLockCommand request, CancellationToken cancellationToken)
     {
         var warehouse = await _warehouseAccessResolver.ResolveAsync(request.UserId, request.WarehouseId, cancellationToken);
-        if (warehouse is null || !warehouse.AccessLevel.AllowsEditing())
+        if (warehouse is null)
         {
             return EditOutcome.NotFound;
+        }
+
+        // Visible but not theirs to change - see EditOutcomeKind.ReadOnly for why that is worth saying.
+        if (!warehouse.AccessLevel.AllowsEditing())
+        {
+            return EditOutcome.ReadOnly;
         }
 
         var nowUtc = DateTimeOffset.UtcNow;

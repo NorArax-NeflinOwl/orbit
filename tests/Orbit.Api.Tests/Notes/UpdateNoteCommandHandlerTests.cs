@@ -66,7 +66,7 @@ public sealed class UpdateNoteCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_returns_NotFound_and_does_not_update_a_shared_read_only_note()
+    public async Task HandleAsync_returns_ReadOnly_and_does_not_update_a_shared_read_only_note()
     {
         var noteShareRepository = new InMemoryNoteShareRepository();
         var (noteRepository, _, recipientId, note) = await CreateSharedNoteAsync(noteShareRepository, ShareAccessLevel.ReadOnly);
@@ -75,11 +75,11 @@ public sealed class UpdateNoteCommandHandlerTests
         var outcome = await handler.HandleAsync(
             new UpdateNoteCommand(recipientId, note.Id, "Edited title", [NoteContentLine.PlainText("Edited content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
-        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
+        Assert.Equal(EditOutcomeKind.ReadOnly, outcome.Kind);
     }
 
     [Fact]
-    public async Task HandleAsync_returns_NotFound_and_does_not_update_a_note_shared_at_the_Share_tier()
+    public async Task HandleAsync_returns_ReadOnly_and_does_not_update_a_note_shared_at_the_Share_tier()
     {
         var noteShareRepository = new InMemoryNoteShareRepository();
         var (noteRepository, _, recipientId, note) = await CreateSharedNoteAsync(noteShareRepository, ShareAccessLevel.Share);
@@ -88,7 +88,7 @@ public sealed class UpdateNoteCommandHandlerTests
         var outcome = await handler.HandleAsync(
             new UpdateNoteCommand(recipientId, note.Id, "Edited title", [NoteContentLine.PlainText("Edited content")], IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
-        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
+        Assert.Equal(EditOutcomeKind.ReadOnly, outcome.Kind);
     }
 
     [Fact]

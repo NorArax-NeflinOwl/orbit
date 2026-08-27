@@ -679,6 +679,12 @@ else
                             return;
                         }
 
+                        if (outcome.Kind == EditOutcomeKind.Refused)
+                        {
+                            _errorMessage = outcome.Reason;
+                            return;
+                        }
+
                         if (outcome.Kind == EditOutcomeKind.NotFound)
                         {
                             _errorMessage = T["Failed to save the event. Try again."];

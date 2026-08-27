@@ -88,11 +88,11 @@ else
             </div>
         }
 
-        @if (_events.Count > 0)
+        @if (_upcomingEvents.Any())
         {
             <div class="card @(DashboardPins.IsPinned("upcoming") ? "card-pinned" : "")">
-                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-header-end"><span class="card-count">@_events.Count</span><PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' /></span></div>
-                @foreach (var calendarEvent in _events.OrderBy(e => e.Details.StartUtc).Take(6))
+                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-header-end"><span class="card-count">@_upcomingEvents.Count()</span><PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' /></span></div>
+                @foreach (var calendarEvent in _upcomingEvents.Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditEvent(calendarEvent.Id)">
                         <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
@@ -220,6 +220,16 @@ else
     private int TasksDueTodayCount => (_taskLists ?? [])
         .SelectMany(taskList => taskList.Items)
         .Count(item => !item.IsCompleted && item.DueDateUtc is { } due && due.ToLocalTime().Date == DateTime.Today);
+
+    /// <summary>
+    /// What is still ahead, soonest first. An event that has already finished is not upcoming, and a card
+    /// headed "Upcoming" that opens with last month is a card nobody reads twice. An event running right
+    /// now still counts: it has not been and gone.
+    /// </summary>
+    private IEnumerable<CalendarEventDto> _upcomingEvents
+        => (_events ?? [])
+            .Where(calendarEvent => calendarEvent.Details.EndUtc >= DateTimeOffset.UtcNow)
+            .OrderBy(calendarEvent => calendarEvent.Details.StartUtc);
 
     private int EventsTodayCount => (_events ?? [])
         .Count(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date == DateTime.Today);

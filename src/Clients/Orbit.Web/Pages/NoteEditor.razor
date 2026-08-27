@@ -288,6 +288,12 @@ else
                     return;
                 }
 
+                if (outcome.Kind == EditOutcomeKind.Refused)
+                {
+                    _saveErrorMessage = outcome.Reason;
+                    return;
+                }
+
                 if (outcome.Kind == EditOutcomeKind.NotFound)
                 {
                     _saveErrorMessage = T["Failed to save the note. Try again."];

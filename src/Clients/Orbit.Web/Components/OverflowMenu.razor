@@ -1,0 +1,33 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* The extra actions a screen has but does not want in its main row - the same three-dot menu the chat
+   uses for a message, so the gesture means the same thing wherever it appears. *@
+<span class="overflow-menu">
+    <button type="button" class="icon-btn overflow-menu-trigger" title="@(T["More"])"
+            aria-haspopup="true" aria-expanded="@(_isOpen ? "true" : "false")"
+            @onclick="Toggle" @onclick:stopPropagation="true">
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <circle cx="10" cy="4" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="10" cy="16" r="1.6" />
+        </svg>
+    </button>
+    @if (_isOpen)
+    {
+        @* Closing on any click inside is deliberate: every entry here is an action, and a menu that
+           stayed open behind the thing it just started would be in the way of reading the result. *@
+        <div class="overflow-menu-dropdown" @onclick="Close">
+            @ChildContent
+        </div>
+    }
+</span>
+
+@code {
+    /// <summary>The menu's entries - ordinary buttons, styled by .avatar-dropdown-item like the other menus.</summary>
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+
+    private bool _isOpen;
+
+    private void Toggle() => _isOpen = !_isOpen;
+
+    private void Close() => _isOpen = false;
+}

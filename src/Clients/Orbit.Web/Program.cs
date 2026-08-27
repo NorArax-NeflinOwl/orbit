@@ -108,6 +108,7 @@ builder.Services.AddScoped<ThemeService>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<PresenceService>();
 builder.Services.AddScoped<UserPermissionState>();
+builder.Services.AddScoped<ChecklistViewPreference>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
 // level from this on every line it considers.
 builder.Services.AddSingleton<DevicePreferences>();

@@ -1,11 +1,14 @@
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
+@using Orbit.Contracts.Inventory
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject NavigationManager NavigationManager
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
+@inject ChecklistViewPreference ChecklistViewPreference
+@inject InventoryApiClient InventoryApiClient
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
 
@@ -40,8 +43,32 @@ else
             </p>
         </div>
         <div class="page-header-actions">
+            @* Only for a tree deep enough to be worth flattening. A group whose members are plain lists
+               already reads as one page with headings; the choice is what a nested one needs. *@
+            @if (HasNestedLists)
+            {
+                <button type="button" class="btn-secondary" @onclick="ToggleViewAsync">
+                    @(_view == ChecklistView.Flat ? T["Show the lists"] : T["Show single items"])
+                </button>
+                <button type="button" class="btn-secondary" disabled="@(_savedView == _view)" @onclick="SaveViewAsync">
+                    @(_savedView == _view ? T["View saved"] : T["Save view"])
+                </button>
+            }
             <button type="button" class="btn-secondary" @onclick="GoToDeepEditor">@T["Edit"]</button>
             <button type="button" class="btn-secondary" @onclick="GoToTaskLists">@T["Back"]</button>
+            @* The things this list can do that are not "tick something off" - see OverflowMenu. *@
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
+                        @onclick="GenerateInventoryAsync">
+                    @T["Generate inventory"]
+                </button>
+                @* Nothing to recalculate until there is a warehouse to recalculate against. *@
+                <button type="button" class="avatar-dropdown-item"
+                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId.Length == 0)"
+                        @onclick="RecalculateAsync">
+                    @T["Recalculate against the inventory"]
+                </button>
+            </OverflowMenu>
         </div>
     </div>
 
@@ -50,9 +77,104 @@ else
         <p class="error">@_errorMessage</p>
     }
 
+    @* What this list's work costs against a warehouse. Offered for a group list, because that is what
+       gathers enough work to be worth counting - see StockRequirementCounter for the counting rule. *@
+    @if (_sections.Count > 0 && _sections[0].TaskList.IsGroup)
+    {
+        <div class="card stock-check-card">
+            <div class="card-header">
+                <span class="card-title">@T["Can this be done?"]</span>
+                <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync">
+                    <option value="">@T["Not measured against a warehouse"]</option>
+                    @foreach (var warehouse in _warehouses)
+                    {
+                        <option value="@warehouse.Id">@warehouse.Name</option>
+                    }
+                </select>
+            </div>
+
+            @if (_stockCheck is { } stockCheck)
+            {
+                <p class="options-subtext">
+                    @if (stockCheck.IsAchievable)
+                    {
+                        <text>@T["Everything this list needs is on the shelf."]</text>
+                    }
+                    else
+                    {
+                        <text>@T.Format("{0} of what this needs is short.", stockCheck.Requirements.Count(requirement => requirement.Missing > 0))</text>
+                    }
+                </p>
+                <table class="permissions-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">@T["What"]</th>
+                            <th scope="col">@T["Needed"]</th>
+                            <th scope="col">@T["On the shelf"]</th>
+                            <th scope="col">@T["Short"]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var requirement in stockCheck.Requirements)
+                        {
+                            <tr class="@(requirement.Missing > 0 ? "stock-check-short" : "")">
+                                <td>@requirement.Name</td>
+                                <td>@requirement.Required</td>
+                                <td>@requirement.Available</td>
+                                <td>@(requirement.Missing > 0 ? requirement.Missing.ToString() : "")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (!stockCheck.IsAchievable)
+                {
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" disabled="@_isRaisingShortfalls" @onclick="RaiseShortfallsAsync">
+                            @T["Add what is missing to the restock list"]
+                        </button>
+                    </div>
+                }
+                @if (_shortfallMessage is not null)
+                {
+                    <p class="info">@_shortfallMessage</p>
+                }
+            }
+        </div>
+    }
+
+    @if (_view == ChecklistView.Flat)
+    {
+        @* Every piece of actual work in the tree, in the order the lists come in, with the rows that
+           only point at another list left out - those are how the tree is held together, not something
+           to tick. *@
+        <div class="card checklist-card">
+            @if (_flatItems.Count == 0)
+            {
+                <p class="checklist-empty">@T["No items."]</p>
+            }
+            @foreach (var entry in _flatItems)
+            {
+                <label class="check-row @(entry.Item.IsCompleted ? "completed" : "")">
+                    <input type="checkbox" checked="@entry.Item.IsCompleted"
+                           disabled="@IsItemLocked(entry.Section, entry.Item)"
+                           @onchange="args => ToggleItemAsync(entry.Section.TaskList, entry.Item, (bool)args.Value!)" />
+                    <span class="check-row-text">@entry.Item.Description</span>
+                    @* Which list it came from, since the headings are gone in this view. *@
+                    <span class="row-meta">@entry.Section.TaskList.Title</span>
+                    @if (entry.Item.DueDateUtc is { } flatDueDate)
+                    {
+                        <span class="row-meta">@T.Format("due {0}", flatDueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
+                    }
+                </label>
+            }
+        </div>
+    }
+    else
+    {
     @foreach (var section in _sections)
     {
-        <div class="card checklist-card">
+        <div class="card checklist-card" style="--checklist-depth: @section.Depth">
             @if (section.IsMember)
             {
                 <div class="card-header">
@@ -94,6 +216,7 @@ else
             }
         </div>
     }
+    }
 }
 
 @code {
@@ -108,6 +231,38 @@ else
     /// as one flat ordered collection because the view renders them identically apart from the header.
     /// </summary>
     private IReadOnlyList<ChecklistSection> _sections = [];
+
+    /// <summary>
+    /// Which way this list is being read right now, and which way it was saved to open. They differ
+    /// while somebody is trying the other view without having kept it.
+    /// </summary>
+    private ChecklistView _view = ChecklistView.Tree;
+    private ChecklistView? _savedView;
+
+    /// <summary>The warehouses this reader could measure against, and which one is chosen.</summary>
+    private IReadOnlyList<WarehouseDto> _warehouses = [];
+    private string _linkedWarehouseId = string.Empty;
+    private TaskListStockCheckDto? _stockCheck;
+    private bool _isRaisingShortfalls;
+    private string? _shortfallMessage;
+    private bool _isWorkingOnInventory;
+
+    /// <summary>
+    /// Whether anything here is nested deeply enough to be worth flattening. A group whose members are
+    /// all plain lists already reads as one page with headings.
+    /// </summary>
+    private bool HasNestedLists => _sections.Any(section => section.Depth > 1);
+
+    /// <summary>
+    /// Every piece of actual work in the tree, each with the list it belongs to - ticking one still has
+    /// to save against its own list. Rows that only point at another list are left out: they are how
+    /// the tree is held together, and their state follows the list they point at anyway (see
+    /// LinkedTaskCompletionResolver).
+    /// </summary>
+    private IReadOnlyList<FlatChecklistEntry> _flatItems =>
+        [.. _sections.SelectMany(section => section.TaskList.Items
+            .Where(item => item.LinkedTaskListId is null)
+            .Select(item => new FlatChecklistEntry(section, item)))];
 
     /// <summary>
     /// Every list the user can reach, kept from the same load: it's what resolves a group's members and
@@ -141,13 +296,26 @@ else
 
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         _sections = BuildSections();
+        await LoadStockCheckAsync();
+        // Only asked for once the sections are built: a list with nothing nested in it has no second
+        // view to open in, whatever was saved for it before.
+        if (HasNestedLists)
+        {
+            _savedView = await ChecklistViewPreference.GetAsync(Id);
+            _view = _savedView ?? ChecklistView.Tree;
+        }
+
         _isLoading = false;
     }
 
     /// <summary>
-    /// A group list is followed one level down, to the lists its own items link to - those are its
-    /// members. Deeper links aren't expanded: a member that is itself a group stays a single line here,
-    /// so one screen can't unfold into an unbounded tree.
+    /// A group list is followed all the way down: the lists its items link to, the lists those link to,
+    /// and so on, so one screen shows the whole tree rather than stopping at the first row of members.
+    ///
+    /// Depth-first, so a list appears directly under the one that linked to it rather than after all of
+    /// its siblings' subtrees. Each list is shown once however many places link to it - the second
+    /// appearance would carry the same items and the same checkboxes, and ticking one would leave the
+    /// other looking untouched.
     /// </summary>
     private IReadOnlyList<ChecklistSection> BuildSections()
     {
@@ -157,22 +325,36 @@ else
             return [];
         }
 
-        var sections = new List<ChecklistSection> { new(taskList, IsMember: false) };
-        if (!taskList.IsGroup)
+        var sections = new List<ChecklistSection>();
+        AppendWithMembers(taskList, depth: 0, [], sections);
+        return sections;
+    }
+
+    /// <summary>
+    /// Adds one list and everything below it. <paramref name="alreadyShown"/> is what stops a list that
+    /// links back to one of its own ancestors - or to itself - from unfolding forever.
+    /// </summary>
+    private void AppendWithMembers(
+        TaskDto taskList, int depth, HashSet<Guid> alreadyShown, List<ChecklistSection> sections)
+    {
+        if (!alreadyShown.Add(taskList.Id))
         {
-            return sections;
+            return;
         }
 
-        var memberIds = taskList.Items
-            .Select(item => item.LinkedTaskListId)
-            .OfType<Guid>()
-            .Distinct();
-        sections.AddRange(memberIds
-            .Select(memberId => _allTaskLists.FirstOrDefault(candidate => candidate.Id == memberId))
-            .OfType<TaskDto>()
-            .Select(member => new ChecklistSection(member, IsMember: true)));
+        sections.Add(new ChecklistSection(taskList, IsMember: depth > 0, depth));
+        if (!taskList.IsGroup)
+        {
+            return;
+        }
 
-        return sections;
+        foreach (var memberId in taskList.Items.Select(item => item.LinkedTaskListId).OfType<Guid>())
+        {
+            if (_allTaskLists.FirstOrDefault(candidate => candidate.Id == memberId) is { } member)
+            {
+                AppendWithMembers(member, depth + 1, alreadyShown, sections);
+            }
+        }
     }
 
     /// <summary>
@@ -245,5 +427,152 @@ else
     private void GoToTaskLists() => NavigationManager.NavigateTo("/tasks");
 
     /// <summary>One list rendered in this view - the list being viewed, or one of a group list's members.</summary>
-    private sealed record ChecklistSection(TaskDto TaskList, bool IsMember);
+    /// <param name="Depth">How far below the list being viewed this one sits - 0 for that list itself.</param>
+    private sealed record ChecklistSection(TaskDto TaskList, bool IsMember, int Depth);
+
+    /// <summary>One item in the flattened view, with the list it came from - shown beside it, and saved against.</summary>
+    private sealed record FlatChecklistEntry(ChecklistSection Section, TaskItemDto Item);
+
+    /// <summary>
+    /// Reads the warehouses to choose from and, when one is already chosen, what the work costs against
+    /// it. Only for a group list: a single list's items are the work in front of you, not a bill of
+    /// materials gathered from several places.
+    /// </summary>
+    private async Task LoadStockCheckAsync()
+    {
+        if (_sections.Count == 0 || !_sections[0].TaskList.IsGroup)
+        {
+            return;
+        }
+
+        try
+        {
+            _warehouses = await InventoryApiClient.GetWarehousesAsync();
+            _linkedWarehouseId = _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty;
+            _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            // The checklist itself is the point of this page; not being able to price it against a
+            // warehouse leaves the panel empty rather than taking the page down.
+            Logger.LogWarning(exception, "Could not read the stock check for task list {TaskListId}", Id);
+        }
+    }
+
+    private async Task OnWarehouseChangedAsync(ChangeEventArgs args)
+    {
+        var chosen = args.Value?.ToString();
+        _linkedWarehouseId = chosen ?? string.Empty;
+        _shortfallMessage = null;
+        Guid? warehouseId = Guid.TryParse(chosen, out var parsed) ? parsed : null;
+        Logger.LogInformation("User measured task list {TaskListId} against warehouse {WarehouseId}", Id, warehouseId);
+
+        try
+        {
+            if (!await TasksApiClient.LinkWarehouseAsync(Id, warehouseId))
+            {
+                return;
+            }
+
+            _stockCheck = warehouseId is null ? null : await TasksApiClient.GetStockCheckAsync(Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to measure task list {TaskListId} against a warehouse", Id);
+        }
+    }
+
+    /// <summary>
+    /// Puts what is short onto the warehouse's standing restock list, where the daily reminder brings it
+    /// up, then re-reads the check - the shelf has not changed, but what is already waiting has.
+    /// </summary>
+    private async Task RaiseShortfallsAsync()
+    {
+        _isRaisingShortfalls = true;
+        _shortfallMessage = null;
+        try
+        {
+            var added = await TasksApiClient.RaiseStockShortfallsAsync(Id);
+            _shortfallMessage = added == 0
+                ? T["Everything short was already on the restock list."]
+                : T.Format("{0} added to the restock list.", added);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to raise stock shortfalls for task list {TaskListId}", Id);
+            _shortfallMessage = T["Couldn't add those to the restock list."];
+        }
+        finally
+        {
+            _isRaisingShortfalls = false;
+        }
+    }
+
+    /// <summary>
+    /// Builds a warehouse out of what this list calls for and points the list at it, so the check below
+    /// can be read straight away. The entries start empty - a shelf that began full would report the job
+    /// as doable before anybody had fetched anything.
+    /// </summary>
+    private async Task GenerateInventoryAsync()
+    {
+        _isWorkingOnInventory = true;
+        _shortfallMessage = null;
+        Logger.LogInformation("User generated an inventory from task list {TaskListId}", Id);
+        try
+        {
+            if (await TasksApiClient.GenerateInventoryAsync(Id) is not { } warehouseId)
+            {
+                return;
+            }
+
+            _warehouses = await InventoryApiClient.GetWarehousesAsync();
+            _linkedWarehouseId = warehouseId.ToString();
+            _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
+            _shortfallMessage = T["Inventory generated from this list."];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to generate an inventory from task list {TaskListId}", Id);
+            _shortfallMessage = T["Couldn't generate an inventory from this list."];
+        }
+        finally
+        {
+            _isWorkingOnInventory = false;
+        }
+    }
+
+    /// <summary>Asks the question again - the shelf moves without this page hearing about it.</summary>
+    private async Task RecalculateAsync()
+    {
+        _isWorkingOnInventory = true;
+        _shortfallMessage = null;
+        Logger.LogInformation("User recalculated the stock check for task list {TaskListId}", Id);
+        try
+        {
+            _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to recalculate the stock check for task list {TaskListId}", Id);
+        }
+        finally
+        {
+            _isWorkingOnInventory = false;
+        }
+    }
+
+    private async Task ToggleViewAsync()
+    {
+        _view = _view == ChecklistView.Flat ? ChecklistView.Tree : ChecklistView.Flat;
+        Logger.LogInformation("User switched the checklist to the {View} view", _view);
+        await Task.CompletedTask;
+    }
+
+    /// <summary>Keeps the way this list is being read now as the way it opens next time - on this device.</summary>
+    private async Task SaveViewAsync()
+    {
+        Logger.LogInformation("User saved the {View} view as the default for task list {TaskListId}", _view, Id);
+        await ChecklistViewPreference.SaveAsync(Id, _view);
+        _savedView = _view;
+    }
 }
