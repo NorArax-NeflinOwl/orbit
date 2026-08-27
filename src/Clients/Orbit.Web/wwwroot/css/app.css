@@ -3562,3 +3562,30 @@ input.note-editor-title {
 .stock-check-short td {
     color: var(--danger);
 }
+
+/* The three-dot menu a screen keeps its extra actions in - see Components/OverflowMenu.razor. Unlike the
+   chat's, this one is always visible: it sits in a header where there is nothing to hover first. */
+.overflow-menu {
+    position: relative;
+    display: inline-flex;
+}
+
+.overflow-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 220px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.15);
+    padding: 6px;
+    z-index: 30;
+}
+
+/* A menu entry that cannot do anything yet says so by looking spent, rather than by vanishing - the
+   reader learns the option exists and what it is waiting for. */
+.overflow-menu-dropdown .avatar-dropdown-item:disabled {
+    opacity: 0.45;
+    cursor: default;
+}

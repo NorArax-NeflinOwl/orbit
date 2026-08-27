@@ -17,6 +17,7 @@ using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
+using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.RaiseStockShortfalls;
 using Orbit.Core.Tasks.SetTaskListPinned;
@@ -87,6 +88,16 @@ public static class TaskEndpoints
             var linked = await dispatcher.SendAsync(
                 new LinkTaskListToWarehouseCommand(GetUserId(user), id, request.WarehouseId), cancellationToken);
             return linked ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Builds the shelf this list's work needs - one entry per distinct thing it calls for - and
+        // points the list at it, so the check below can be run straight away.
+        tasks.MapPost("/{id:guid}/inventory", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var warehouseId = await dispatcher.SendAsync(
+                new GenerateWarehouseFromTaskListCommand(GetUserId(user), id), cancellationToken);
+            return warehouseId is null ? Results.NotFound() : Results.Ok(warehouseId);
         });
 
         // Whether this list's work - and everything linked below it - can be done out of that warehouse.

@@ -46,6 +46,22 @@ public sealed class TasksApiClient
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>
+    /// Builds the shelf this list's work needs - one entry per distinct thing it calls for, each starting
+    /// at nothing - and points the list at it. Returns the new warehouse's id.
+    /// </summary>
+    public async Task<Guid?> GenerateInventoryAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/inventory", content: null, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
+    }
+
     /// <summary>Points a task list at the warehouse its work is measured against, or at none.</summary>
     public async Task<bool> LinkWarehouseAsync(Guid taskListId, Guid? warehouseId, CancellationToken cancellationToken = default)
     {
