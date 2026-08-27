@@ -910,13 +910,6 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
-/* The message's own actions, kept together so they wrap as a unit rather than one button at a time. */
-.group-message-actions {
-    display: inline-flex;
-    gap: 4px;
-    flex-wrap: wrap;
-}
-
 .group-message-edit {
     margin: 0 0 8px 0;
 }
@@ -944,6 +937,26 @@ input.note-editor-title {
 
 .note-row small {
     color: var(--text-tertiary);
+}
+
+/* One tick means the server has it for everyone; two mean everyone has read it. Muted until then, so a
+   glance down the conversation shows what has landed without reading the marks one by one. */
+.group-message-ticks {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    letter-spacing: -1px;
+}
+
+.group-message-ticks.read {
+    color: var(--accent);
+}
+
+.group-message-info {
+    margin: 0 0 8px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-subtle);
 }
 
 .icon-btn {
@@ -1655,8 +1668,17 @@ input.note-editor-title {
 }
 
 .chat-bubble-wrap:hover .chat-bubble-menu-trigger,
+.group-message:hover .chat-bubble-menu-trigger,
 .chat-bubble-menu-trigger:focus-visible {
     opacity: 1;
+}
+
+/* A group message is a row rather than a bubble, so the trigger has no hover state to inherit on a
+   touch screen - where nothing hovers, it stays visible instead of being unreachable. */
+@media (hover: none) {
+    .chat-bubble-menu-trigger {
+        opacity: 1;
+    }
 }
 
 .chat-bubble-menu-dropdown {

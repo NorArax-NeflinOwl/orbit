@@ -704,5 +704,11 @@ internal static class PolishTranslations
         ["Full screen"] = "Pełny ekran",
         ["Leave full screen"] = "Zamknij pełny ekran",
         ["Someone"] = "Ktoś",
+        ["Info"] = "Info",
+        ["Who has read this"] = "Kto to przeczytał",
+        ["Close"] = "Zamknij",
+        ["Delivered"] = "Dostarczone",
+        ["Read by everyone"] = "Przeczytane przez wszystkich",
+        ["Read {0}"] = "Przeczytane {0}",
     };
 }
