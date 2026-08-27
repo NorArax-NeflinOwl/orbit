@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Security;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Dashboard;
 
@@ -12,9 +13,12 @@ namespace Orbit.Mobile.Screens.Dashboard;
 /// counterpart of Orbit.Web's Dashboard, and the same landing screen, so the two agree about what
 /// "home" means.
 ///
-/// Reads only the local store. Every one of these sections is already kept current by its own
-/// synchroniser, so the dashboard has nothing of its own to fetch - which is also why it opens instantly
-/// and works with no connection at all.
+/// Shows what is already on the phone first, then synchronises every feature and shows it again if
+/// anything changed. Both halves matter: reading the local store first is what makes it open instantly
+/// and work with no connection, and synchronising is what stops it from being the one screen nobody
+/// refreshes. It used to do only the first half, on the assumption that each section keeps itself
+/// current - but a section only does that once its own screen has been opened, so after a sign-in the
+/// landing screen stayed empty until the reader had visited Notes, then Tasks, then the calendar.
 /// </summary>
 public sealed partial class DashboardViewModel : ObservableObject
 {
@@ -28,6 +32,8 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly TimeProvider _timeProvider;
     private readonly Translations _translations;
     private readonly PrivateItemGate _privateItems;
+    private readonly EverythingSynchronizer _synchronizer;
+    private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -39,7 +45,8 @@ public sealed partial class DashboardViewModel : ObservableObject
     public DashboardViewModel(
         LocalNoteRepository notes, LocalTaskListRepository taskLists,
         LocalCalendarEventRepository calendarEvents, ChatRepository chat, TimeProvider timeProvider,
-        Translations translations, PrivateItemGate privateItems, IScreenNavigator navigator)
+        Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
+        SyncState syncState, IScreenNavigator navigator)
     {
         _notes = notes;
         _taskLists = taskLists;
@@ -48,6 +55,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         _timeProvider = timeProvider;
         _translations = translations;
         _privateItems = privateItems;
+        _synchronizer = synchronizer;
+        _syncState = syncState;
         _navigator = navigator;
     }
 
@@ -55,6 +64,39 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
+    {
+        await ShowStoredSummaryAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    private async Task SynchroniseAsync(CancellationToken cancellationToken)
+    {
+        _syncState.RecordStarted();
+        try
+        {
+            var result = await _synchronizer.SynchroniseAsync(cancellationToken);
+            if (result.ReachedTheServer)
+            {
+                _syncState.RecordSucceeded();
+            }
+            else
+            {
+                _syncState.RecordFailed();
+            }
+
+            if (result.Sent + result.Received + result.RemovedLocally > 0)
+            {
+                await ShowStoredSummaryAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen went away mid-sync. The command is started without being awaited, so this
+            // must not escape.
+        }
+    }
+
+    private async Task ShowStoredSummaryAsync(CancellationToken cancellationToken)
     {
         var notes = await _notes.GetAllAsync(cancellationToken);
         var taskLists = await _taskLists.GetAllAsync(cancellationToken);

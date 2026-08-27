@@ -113,6 +113,7 @@ public static class MauiProgram
 		services.AddTransient<EncryptedChatMessageReader>();
 		services.AddTransient<EncryptedChatMessageSender>();
 		services.AddTransient<ChatSynchronizer>();
+		services.AddTransient<EverythingSynchronizer>();
 		services.AddTransient<ChatDirectoryReader>();
 		services.AddTransient<EncryptedChatMessageEditor>();
 		services.AddTransient<MessageForwarder>();
