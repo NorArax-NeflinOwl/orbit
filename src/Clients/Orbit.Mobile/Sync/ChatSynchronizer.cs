@@ -124,6 +124,9 @@ public sealed class ChatSynchronizer
             var messages = await _chatClient.GetGroupConversationAsync(groupId, cancellationToken);
             var stored = await _chatRepository.StoreGroupMessagesAsync(groupId, messages, cancellationToken);
 
+            // As in the one-to-one conversation above: this screen being open is what "read" means.
+            await _chatClient.MarkGroupConversationAsReadAsync(groupId, cancellationToken);
+
             return new ChatSyncResult(push.Sent, stored, ReachedTheServer: true);
         }
         catch (Exception exception) when (IsWorthRetrying(exception, cancellationToken))

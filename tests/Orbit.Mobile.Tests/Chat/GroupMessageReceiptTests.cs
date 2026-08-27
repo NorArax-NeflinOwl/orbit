@@ -84,6 +84,23 @@ public sealed class GroupMessageReceiptTests
         Assert.Equal("Couldn't read who has seen this.", described);
     }
 
+    /// <summary>
+    /// The phone showed everyone else's read marks in a group without ever leaving its own, so somebody
+    /// reading on their phone stayed unread to the rest of the group and the badge never cleared. It is
+    /// the same rule as a one-to-one conversation: having the screen open is what "read" means.
+    /// </summary>
+    [Fact]
+    public async Task Opening_a_group_conversation_says_it_has_been_read()
+    {
+        using var context = new ChatContext();
+        context.PublishGroupMemberKeys();
+        var group = context.Server.AddGroup("Trip", context.OtherUserId, context.ThirdUserId);
+
+        await Open(context, group.Id);
+
+        Assert.Contains(group.Id, context.Server.GroupsMarkedRead);
+    }
+
     private static async Task<string> Describe(ChatContext context, Guid groupId)
     {
         var screen = await Open(context, groupId);

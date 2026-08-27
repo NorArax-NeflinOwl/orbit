@@ -200,6 +200,9 @@ internal sealed class FakeChatServer : HttpMessageHandler
         return Json(messages.ToList());
     }
 
+    /// <summary>Which groups the caller said they had read - one entry per time they said it.</summary>
+    public List<Guid> GroupsMarkedRead { get; } = [];
+
     private async Task<HttpResponseMessage> HandleGroupsAsync(
         HttpRequestMessage request, string[] segments, CancellationToken cancellationToken)
     {
@@ -222,6 +225,13 @@ internal sealed class FakeChatServer : HttpMessageHandler
         if (group is null || group.Members.All(member => member.UserId != CallerUserId))
         {
             return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        // api/chat/groups/{id}/read
+        if (segments.Length == 5 && segments[4] == "read")
+        {
+            GroupsMarkedRead.Add(groupId);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
         // api/chat/groups/{id}/messages/{groupMessageId}/receipts

@@ -98,6 +98,17 @@ public sealed class ChatClient
     }
 
     /// <summary>
+    /// The same for a group. The phone showed everyone else's read marks in a group without ever
+    /// leaving its own, so a person reading on their phone stayed unread to the rest of the group and
+    /// the badge on the conversation never cleared.
+    /// </summary>
+    public async Task MarkGroupConversationAsReadAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsync($"api/chat/groups/{groupId}/read", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
     /// How far the other party has read: the send-time of the newest message of the caller's that they
     /// have seen, or null if none. One timestamp for the whole conversation rather than a flag per
     /// message - see GetReadUpToUtcAsync.
