@@ -30,6 +30,9 @@ public interface IScreenNavigator
 
     void ShowGroupDetail(LocalChatGroup group);
 
+    /// <summary>Where the app opens - everything on the reader's plate, the same as Orbit.Web's landing page.</summary>
+    void ShowDashboard();
+
     void ShowNotes();
 
     void ShowTasks();

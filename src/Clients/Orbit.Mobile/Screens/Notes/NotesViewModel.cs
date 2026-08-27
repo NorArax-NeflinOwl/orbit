@@ -18,7 +18,6 @@ public sealed partial class NotesViewModel : ObservableObject
     private readonly NoteSynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
-    private readonly AuthenticationClient _authenticationClient;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -35,13 +34,12 @@ public sealed partial class NotesViewModel : ObservableObject
 
     public NotesViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, INetworkStatus networkStatus,
-        SessionStore sessionStore, AuthenticationClient authenticationClient, IScreenNavigator navigator)
+        SessionStore sessionStore, IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
         _sessionStore = sessionStore;
-        _authenticationClient = authenticationClient;
         _navigator = navigator;
     }
 
@@ -74,34 +72,6 @@ public sealed partial class NotesViewModel : ObservableObject
     }
 
     private bool CanAddNote => NewNoteTitle.Trim().Length > 0;
-
-    [RelayCommand]
-    private void GoToTasks() => _navigator.ShowTasks();
-
-    [RelayCommand]
-    private void GoToCalendar() => _navigator.ShowCalendar();
-
-    [RelayCommand]
-    private void GoToInventory() => _navigator.ShowInventory();
-
-    [RelayCommand]
-    private void GoToMap() => _navigator.ShowMap();
-
-    [RelayCommand]
-    private void GoToChat() => _navigator.ShowContacts();
-
-    [RelayCommand]
-    private void GoToAccount() => _navigator.ShowAccount();
-
-    [RelayCommand]
-    private void GoToNotifications() => _navigator.ShowNotifications();
-
-    [RelayCommand]
-    private async Task SignOutAsync()
-    {
-        await _authenticationClient.SignOutAsync();
-        _navigator.ShowSignIn();
-    }
 
     private async Task ShowLocalNotesAsync(CancellationToken cancellationToken)
     {

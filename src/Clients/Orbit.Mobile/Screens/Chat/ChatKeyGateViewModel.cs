@@ -181,7 +181,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
     };
 
     [RelayCommand]
-    private void GoBack() => _navigator.ShowNotes();
+    private void GoBack() => _navigator.ShowDashboard();
 
     private async Task UnlockWithCurrentPasswordAsync(CancellationToken cancellationToken)
     {

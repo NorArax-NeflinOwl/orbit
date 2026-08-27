@@ -64,7 +64,7 @@ public sealed partial class InventoryViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void GoBack() => _navigator.ShowNotes();
+    private void GoBack() => _navigator.ShowDashboard();
 
     private async Task ShowStoredWarehousesAsync(CancellationToken cancellationToken)
     {

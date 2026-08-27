@@ -9,6 +9,8 @@ using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens.Location;
 using Orbit.Mobile.Location;
+using Orbit.Mobile.Screens.Dashboard;
+using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Notifications;
@@ -20,6 +22,7 @@ using Orbit.Maui.Features.Calendar;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
+using Orbit.Maui.Features.Dashboard;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Notifications;
 using Orbit.Maui.Features.Tasks;
@@ -173,6 +176,10 @@ public static class MauiProgram
 		services.AddSingleton<IScreenNavigator>(services => services.GetRequiredService<AppNavigator>());
 		services.AddSingleton<IUpdateLink, StoreUpdateLink>();
 
+		services.AddTransient<DashboardPage>();
+		services.AddTransient<DashboardViewModel>();
+		// One per bar, not one shared: a page that is not on screen has no business refreshing a badge.
+		services.AddTransient<NavigationBarViewModel>();
 		services.AddTransient<StartupPage>();
 		services.AddTransient<StartupViewModel>();
 		services.AddTransient<SignInPage>();

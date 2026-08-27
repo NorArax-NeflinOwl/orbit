@@ -76,7 +76,7 @@ public sealed partial class CalendarViewModel : ObservableObject
     private bool CanAddEvent => NewEventTitle.Trim().Length > 0;
 
     [RelayCommand]
-    private void GoBack() => _navigator.ShowNotes();
+    private void GoBack() => _navigator.ShowDashboard();
 
     private async Task ShowStoredEventsAsync(CancellationToken cancellationToken)
     {

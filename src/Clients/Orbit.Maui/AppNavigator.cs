@@ -2,6 +2,7 @@ using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
 using Orbit.Maui.Features.Chat;
+using Orbit.Maui.Features.Dashboard;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
 using Orbit.Maui.Features.Notes;
@@ -87,6 +88,8 @@ public sealed class AppNavigator : IScreenNavigator
 	/// <inheritdoc cref="ShowConversation"/>
 	public void ShowGroupDetail(LocalChatGroup group)
 		=> ShowAsRoot<GroupDetailPage>(page => page.ViewModel.Open(group));
+
+	public void ShowDashboard() => ShowAsRoot<DashboardPage>();
 
 	public void ShowNotes() => ShowAsRoot<NotesPage>();
 

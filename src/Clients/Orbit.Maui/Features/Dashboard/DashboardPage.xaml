@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Dashboard.DashboardPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:dashboard="clr-namespace:Orbit.Maui.Features.Dashboard"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Dashboard;assembly=Orbit.Mobile"
+    x:DataType="screens:DashboardViewModel"
+    Title="Dashboard">
+
+    <Grid RowDefinitions="Auto,*">
+        <controls:NavigationBar Grid.Row="0" />
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="20" Spacing="14">
+
+                <Label Text="Dashboard" FontSize="26" FontAttributes="Bold" />
+                <Label Text="Everything on your plate, in one place." FontSize="13"
+                       TextColor="{StaticResource Gray500}" />
+
+                <!-- What is happening today, rather than how much there is in total - the same three
+                     counts Orbit.Web puts in its "today strip". -->
+                <Border StrokeThickness="1" Stroke="{StaticResource Gray200}" Padding="14" Margin="0,4">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="10" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="6" BindingContext="{Binding Today}"
+                                         x:DataType="screens:TodaySummary">
+                        <Label FontSize="13">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="{Binding TasksDueToday}" FontAttributes="Bold" />
+                                    <Span Text=" tasks due today" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                        <Label FontSize="13">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="{Binding EventsToday}" FontAttributes="Bold" />
+                                    <Span Text=" events today" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                        <Label FontSize="13">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="{Binding PendingChatRequests}" FontAttributes="Bold" />
+                                    <Span Text=" new chat requests" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="Nothing here yet. Add a note or a task to get started."
+                       IsVisible="{Binding HasNothing}" TextColor="{StaticResource Gray500}"
+                       HorizontalOptions="Center" Margin="0,20" LineBreakMode="WordWrap" />
+
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Cards}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:DashboardCard">
+                            <Border StrokeThickness="1" Stroke="{StaticResource Gray200}" Padding="14">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Grid.Column="0" Text="{Binding Title}" FontAttributes="Bold" />
+                                        <Label Grid.Column="1" Text="{Binding Count}" FontSize="12"
+                                               TextColor="{StaticResource Gray500}" />
+                                    </Grid>
+
+                                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Rows}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="screens:DashboardRow">
+                                                <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+                                                    <Grid.GestureRecognizers>
+                                                        <TapGestureRecognizer
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=dashboard:DashboardPage}"
+                                                            CommandParameter="{Binding .}" />
+                                                    </Grid.GestureRecognizers>
+                                                    <Label Grid.Column="0" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                                                    <Label Grid.Column="1" Text="{Binding Detail}" FontSize="12"
+                                                           TextColor="{StaticResource Gray500}" VerticalOptions="Center" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

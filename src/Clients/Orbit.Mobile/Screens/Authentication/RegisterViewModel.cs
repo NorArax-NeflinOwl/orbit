@@ -90,7 +90,7 @@ public sealed partial class RegisterViewModel : ObservableObject
         }
 
         Password = string.Empty;
-        _navigator.ShowNotes();
+        _navigator.ShowDashboard();
     }
 
     [RelayCommand]

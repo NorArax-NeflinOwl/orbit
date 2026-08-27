@@ -431,4 +431,24 @@
         <Setter Property="SelectedTabColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
     </Style>
 
+    <!-- One section on the navigation bar. 44pt is Apple's minimum tap target, and it is what lets six
+         of them sit on a phone without becoming a row of things nobody can hit. -->
+    <Style x:Key="NavigationBarIcon" TargetType="Grid">
+        <Setter Property="WidthRequest" Value="44" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+    </Style>
+
+    <!-- The drawing inside one. Every icon is authored on a 20x20 canvas, so one scale serves all. -->
+    <Style x:Key="NavigationBarIconPath" TargetType="Path">
+        <Setter Property="Stroke" Value="{StaticResource Primary}" />
+        <Setter Property="StrokeThickness" Value="1.4" />
+        <Setter Property="Fill" Value="Transparent" />
+        <Setter Property="Aspect" Value="Uniform" />
+        <Setter Property="WidthRequest" Value="21" />
+        <Setter Property="HeightRequest" Value="21" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
 </ResourceDictionary>

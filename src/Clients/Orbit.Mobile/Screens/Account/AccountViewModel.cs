@@ -16,6 +16,7 @@ namespace Orbit.Mobile.Screens.Account;
 public sealed partial class AccountViewModel : ObservableObject
 {
     private readonly AccountClient _accountClient;
+    private readonly AuthenticationClient _authenticationClient;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
@@ -46,10 +47,12 @@ public sealed partial class AccountViewModel : ObservableObject
     private bool _messageIsFailure;
 
     public AccountViewModel(
-        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
+        AccountClient accountClient, AuthenticationClient authenticationClient,
+        OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
+        _authenticationClient = authenticationClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         _networkStatus = networkStatus;
         _sessionStore = sessionStore;
@@ -146,8 +149,19 @@ public sealed partial class AccountViewModel : ObservableObject
     [RelayCommand]
     private void GoToChatKey() => _navigator.ShowChatKeyGate();
 
+    /// <summary>
+    /// Signing out lives here rather than on a section screen, which is where Orbit.Web's avatar menu
+    /// puts it too - the avatar leads here, so it is where somebody looks for it.
+    /// </summary>
     [RelayCommand]
-    private void GoBack() => _navigator.ShowNotes();
+    private async Task SignOutAsync()
+    {
+        await _authenticationClient.SignOutAsync();
+        _navigator.ShowSignIn();
+    }
+
+    [RelayCommand]
+    private void GoBack() => _navigator.ShowDashboard();
 
     private async Task RunAsync(Func<Task<AccountOperationResult>> operation, string successMessage)
     {

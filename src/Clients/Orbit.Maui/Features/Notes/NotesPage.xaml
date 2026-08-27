@@ -3,11 +3,16 @@
     x:Class="Orbit.Maui.Features.Notes.NotesPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
     x:DataType="screens:NotesViewModel"
     Title="Notes">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid RowDefinitions="Auto,*">
+        <controls:NavigationBar Grid.Row="0" />
+
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" Padding="20" RowSpacing="10">
 
         <VerticalStackLayout Grid.Row="0" Spacing="2">
             <Label Text="{Binding Greeting}" FontSize="14" TextColor="{StaticResource Gray500}" />
@@ -51,17 +56,8 @@
             </CollectionView>
         </RefreshView>
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,*,*" ColumnSpacing="6" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
-            <Button Grid.Row="0" Grid.Column="0" Text="Tasks" Command="{Binding GoToTasksCommand}" />
-            <Button Grid.Row="0" Grid.Column="1" Text="Calendar" Command="{Binding GoToCalendarCommand}" />
-            <Button Grid.Row="0" Grid.Column="2" Text="Chat" Command="{Binding GoToChatCommand}" />
-            <Button Grid.Row="1" Grid.Column="0" Text="Inventory" Command="{Binding GoToInventoryCommand}" />
-            <Button Grid.Row="1" Grid.Column="1" Text="Account" Command="{Binding GoToAccountCommand}" />
-            <Button Grid.Row="1" Grid.Column="2" Text="Map" Command="{Binding GoToMapCommand}" />
-            <Button Grid.Row="2" Grid.Column="0" Text="Alerts" Command="{Binding GoToNotificationsCommand}" />
-            <Button Grid.Row="2" Grid.Column="1" Text="Sign out" Command="{Binding SignOutCommand}" />
-        </Grid>
 
+    </Grid>
     </Grid>
 
 </ContentPage>

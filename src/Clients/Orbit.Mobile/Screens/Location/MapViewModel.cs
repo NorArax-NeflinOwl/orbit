@@ -254,7 +254,7 @@ public sealed partial class MapViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void GoBack() => _navigator.ShowNotes();
+    private void GoBack() => _navigator.ShowDashboard();
 
     private async Task ShowWhoIsSharingAsync(CancellationToken cancellationToken)
     {

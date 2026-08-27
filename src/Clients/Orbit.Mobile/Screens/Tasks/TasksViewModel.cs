@@ -71,7 +71,7 @@ public sealed partial class TasksViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void GoBack() => _navigator.ShowNotes();
+    private void GoBack() => _navigator.ShowDashboard();
 
     private async Task ShowStoredListsAsync(CancellationToken cancellationToken)
     {

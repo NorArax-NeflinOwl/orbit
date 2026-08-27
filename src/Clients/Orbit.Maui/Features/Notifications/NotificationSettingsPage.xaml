@@ -3,11 +3,16 @@
     x:Class="Orbit.Maui.Features.Notifications.NotificationSettingsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notifications;assembly=Orbit.Mobile"
     x:DataType="screens:NotificationSettingsViewModel"
     Title="Notification settings">
 
-    <ScrollView>
+    <Grid RowDefinitions="Auto,*">
+        <controls:NavigationBar Grid.Row="0" />
+
+
+    <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="20" Spacing="16">
 
             <Label Text="Notifications" FontSize="26" FontAttributes="Bold" />
@@ -54,4 +59,6 @@
 
         </VerticalStackLayout>
     </ScrollView>
+    </Grid>
+
 </ContentPage>

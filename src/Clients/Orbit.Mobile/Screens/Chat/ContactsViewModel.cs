@@ -200,7 +200,7 @@ public sealed partial class ContactsViewModel : ObservableObject
     private void OpenGroups() => _navigator.ShowGroups();
 
     [RelayCommand]
-    private void GoBack() => _navigator.ShowNotes();
+    private void GoBack() => _navigator.ShowDashboard();
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 

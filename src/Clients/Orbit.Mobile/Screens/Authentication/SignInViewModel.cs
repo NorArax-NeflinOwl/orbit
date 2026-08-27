@@ -72,7 +72,7 @@ public sealed partial class SignInViewModel : ObservableObject
         await _pushRegistration.RegisterThisDeviceAsync(cancellationToken);
 
         Password = string.Empty;
-        _navigator.ShowNotes();
+        _navigator.ShowDashboard();
     }
 
     private async Task TryUnlockChatKeyAsync(string password, CancellationToken cancellationToken)

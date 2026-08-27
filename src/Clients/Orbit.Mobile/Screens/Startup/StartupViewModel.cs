@@ -84,7 +84,7 @@ public sealed partial class StartupViewModel : ObservableObject
             return;
         }
 
-        _navigator.ShowNotes();
+        _navigator.ShowDashboard();
     }
 
     [RelayCommand]

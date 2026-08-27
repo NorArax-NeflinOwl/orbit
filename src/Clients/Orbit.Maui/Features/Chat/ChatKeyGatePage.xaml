@@ -3,11 +3,16 @@
     x:Class="Orbit.Maui.Features.Chat.ChatKeyGatePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
     x:DataType="screens:ChatKeyGateViewModel"
     Title="Chat key">
 
-    <ScrollView>
+    <Grid RowDefinitions="Auto,*">
+        <controls:NavigationBar Grid.Row="0" />
+
+
+    <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="24" Spacing="16">
 
             <!-- A Google account that never set a password: there is nothing to wrap the key with yet. -->
@@ -67,10 +72,11 @@
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                    TextColor="{StaticResource Magenta}" LineBreakMode="WordWrap" />
 
-            <Button Text="Back to notes" Command="{Binding GoBackCommand}"
+            <Button Text="Back to dashboard" Command="{Binding GoBackCommand}"
                     BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
 
         </VerticalStackLayout>
     </ScrollView>
+    </Grid>
 
 </ContentPage>

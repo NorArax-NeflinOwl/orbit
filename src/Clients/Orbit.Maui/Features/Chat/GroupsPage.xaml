@@ -3,12 +3,17 @@
     x:Class="Orbit.Maui.Features.Chat.GroupsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
     x:DataType="screens:GroupsViewModel"
     Title="Groups">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
+    <Grid RowDefinitions="Auto,*">
+        <controls:NavigationBar Grid.Row="0" />
+
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
 
         <Label Grid.Row="0" Text="Groups" FontSize="26" FontAttributes="Bold" />
         <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
@@ -65,6 +70,7 @@
         <Button Grid.Row="4" Text="Back to chat" Command="{Binding GoBackCommand}"
                 BackgroundColor="Transparent" TextColor="{StaticResource Primary}" />
 
+    </Grid>
     </Grid>
 
 </ContentPage>

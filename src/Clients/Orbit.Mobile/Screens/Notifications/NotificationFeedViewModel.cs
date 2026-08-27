@@ -64,7 +64,7 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     private void GoToSettings() => _navigator.ShowNotificationSettings();
 
     [RelayCommand]
-    private void GoBack() => _navigator.ShowNotes();
+    private void GoBack() => _navigator.ShowDashboard();
 
     /// <summary>
     /// Marks the whole feed read. Deliberately separate from clearing: read means "I have seen these",
