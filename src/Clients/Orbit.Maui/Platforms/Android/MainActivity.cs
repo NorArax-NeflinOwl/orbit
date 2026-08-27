@@ -1,8 +1,10 @@
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
+using Android.Content.Res;
 using Android.OS;
 using AndroidX.Activity;
+using AndroidX.Core.View;
 using Microsoft.Extensions.DependencyInjection;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Screens.Navigation;
@@ -30,6 +32,36 @@ public class MainActivity : MauiAppCompatActivity
 
 		base.OnCreate(savedInstanceState);
 		OnBackPressedDispatcher.AddCallback(this, new GoUpOnBack(this));
+		MatchStatusBarIconsToTheme();
+	}
+
+	/// <summary>
+	/// UiMode is in this activity's ConfigurationChanges, so switching the system between light and dark
+	/// does not recreate it - which means nothing would revisit the status bar and its icons would stay
+	/// the previous mode's colour.
+	/// </summary>
+	public override void OnConfigurationChanged(Android.Content.Res.Configuration newConfig)
+	{
+		base.OnConfigurationChanged(newConfig);
+		MatchStatusBarIconsToTheme();
+	}
+
+	/// <summary>
+	/// Dark icons over the light status bar and light ones over the dark.
+	///
+	/// The bar's colour comes from the theme - colorPrimaryDark, and its values-night counterpart - but
+	/// Android does not work out the contrast from it. Left alone, the white icons it defaults to sit on
+	/// Orbit's white bar and simply are not there: no clock, no battery, no signal.
+	/// </summary>
+	private void MatchStatusBarIconsToTheme()
+	{
+		if (Window is not { DecorView: { } decorView } window)
+		{
+			return;
+		}
+
+		var isDark = (Resources?.Configuration?.UiMode & UiMode.NightMask) == UiMode.NightYes;
+		WindowCompat.GetInsetsController(window, decorView).AppearanceLightStatusBars = !isDark;
 	}
 
 	/// <summary>
