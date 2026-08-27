@@ -64,8 +64,6 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     [RelayCommand]
     private Task LoadAsync(CancellationToken cancellationToken) => ShowFeedAsync(cancellationToken);
 
-    [RelayCommand]
-    private void GoToSettings() => _navigator.ShowNotificationSettings();
 
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();

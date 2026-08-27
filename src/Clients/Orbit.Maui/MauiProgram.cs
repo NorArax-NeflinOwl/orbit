@@ -141,6 +141,7 @@ public static class MauiProgram
 		services.AddSingleton<IDeviceLocation, PhoneLocation>();
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
+		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
 		services.AddSingleton<IDeviceDescription, PhoneDescription>();
 		services.AddSingleton<IDeviceAuthentication, PhoneAuthentication>();
@@ -219,7 +220,6 @@ public static class MauiProgram
 		services.AddTransient<DashboardViewModel>();
 		// Shared by the bar and the menu it opens, which have to agree about whether that menu is open.
 		services.AddSingleton<NavigationBarViewModel>();
-		services.AddTransient<StatusStripViewModel>();
 		services.AddTransient<StartupPage>();
 		services.AddTransient<StartupViewModel>();
 		services.AddTransient<SignInPage>();

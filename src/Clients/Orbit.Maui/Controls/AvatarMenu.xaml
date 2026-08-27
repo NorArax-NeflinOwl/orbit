@@ -29,7 +29,18 @@
             </Border.StrokeShape>
 
             <VerticalStackLayout Padding="14" Spacing="10">
-                <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                <!-- Who this is, and whether their phone is in step. The second used to sit in the
+                     bottom-left corner of every screen; it is a fact about the account, so it lives
+                     with the account. -->
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                    <HorizontalStackLayout Spacing="6">
+                        <ActivityIndicator IsRunning="{Binding IsSyncing}" IsVisible="{Binding IsSyncing}"
+                                           HeightRequest="10" WidthRequest="10" VerticalOptions="Center" />
+                        <Label Text="{Binding SyncLabel}" FontSize="11" VerticalOptions="Center"
+                               Style="{StaticResource SubtleLabel}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
 
                 <BoxView HeightRequest="1"
                          Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
@@ -89,6 +100,12 @@
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
                 </Grid>
+
+                <Label Text="{controls:Translate 'Settings'}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding GoToNotificationSettingsCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
 
                 <Label Text="{controls:Translate 'Account'}">
                     <Label.GestureRecognizers>

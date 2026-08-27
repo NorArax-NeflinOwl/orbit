@@ -9,6 +9,10 @@
     x:DataType="screens:DashboardViewModel"
     Title="{controls:Translate 'Dashboard'}">
 
+    <ContentPage.Resources>
+        <controls:PinGlyphConverter x:Key="PinGlyph" />
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,*,Auto">
 
         <ScrollView Grid.Row="1">
@@ -68,11 +72,23 @@
                                     <RoundRectangle CornerRadius="10" />
                                 </Border.StrokeShape>
                                 <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <Label Grid.Column="0" Text="{Binding Title}" FontAttributes="Bold" />
+                                    <!-- The heading is a heading: larger than the rows beneath it and
+                                         ruled off from them, so the card's name does not read as its
+                                         first entry. -->
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                        <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
+                                               VerticalOptions="Center" />
                                         <Label Grid.Column="1" Text="{Binding Count}" FontSize="12"
-                                               TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                                               VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                                        <Button Grid.Column="2" FontSize="14" Padding="8,0" BackgroundColor="Transparent"
+                                                Text="{Binding IsPinned, Converter={StaticResource PinGlyph}}"
+                                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=dashboard:DashboardPage}"
+                                                CommandParameter="{Binding .}" />
                                     </Grid>
+
+                                    <BoxView HeightRequest="1"
+                                             Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
 
                                     <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Rows}">
                                         <BindableLayout.ItemTemplate>
@@ -83,7 +99,8 @@
                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=dashboard:DashboardPage}"
                                                             CommandParameter="{Binding .}" />
                                                     </Grid.GestureRecognizers>
-                                                    <Label Grid.Column="0" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                                                    <Label Grid.Column="0" Text="{Binding Title}" FontSize="15"
+                                                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
                                                     <Label Grid.Column="1" Text="{Binding Detail}" FontSize="12"
                                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" VerticalOptions="Center" />
                                                 </Grid>
@@ -98,7 +115,6 @@
 
             </VerticalStackLayout>
         </ScrollView>
-        <controls:StatusStrip Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

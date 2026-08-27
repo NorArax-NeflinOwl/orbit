@@ -97,7 +97,6 @@
                 Style="{StaticResource LinkButton}" />
 
     </Grid>
-        <controls:StatusStrip Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

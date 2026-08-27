@@ -40,4 +40,17 @@ public enum DashboardCardKind
 /// One card: a heading, a count, and the few most relevant rows. Not the whole section - the dashboard
 /// is a way in, and the section itself is one tap away on the navigation bar.
 /// </summary>
-public sealed record DashboardCard(DashboardCardKind Kind, string Title, string Count, IReadOnlyList<DashboardRow> Rows);
+public sealed record DashboardCard(
+    DashboardCardKind Kind, string Title, string Count, IReadOnlyList<DashboardRow> Rows, bool IsPinned = false);
+
+/// <summary>
+/// Which dashboard cards this reader keeps at the top. Held on the device rather than on the server, as
+/// Orbit.Web holds it in localStorage and for the same reason: it is the layout of one page on one
+/// device, and describes nothing about the notes, lists or people the cards show.
+/// </summary>
+public interface IDashboardPinStore
+{
+    IReadOnlySet<DashboardCardKind> Read();
+
+    void Write(IReadOnlySet<DashboardCardKind> pinned);
+}

@@ -267,6 +267,60 @@ public sealed class DashboardScreenTests
         Assert.DoesNotContain(screen.Cards, card => card.Kind is DashboardCardKind.RecentChats or DashboardCardKind.Contacts);
     }
 
+    /// <summary>
+    /// Pinning lifts a card without disturbing the order of the rest - the cards are built in the order
+    /// the web lays them out, and pinning moves one of them rather than sorting them all afresh.
+    /// </summary>
+    [Fact]
+    public async Task A_pinned_card_comes_first()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        await context.AddTaskListAsync("Trip", ("pack", null, false));
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(DashboardCardKind.Notes, screen.Cards[0].Kind);
+
+        screen.TogglePinCommand.Execute(screen.Cards.Single(card => card.Kind == DashboardCardKind.Tasks));
+
+        Assert.Equal(DashboardCardKind.Tasks, screen.Cards[0].Kind);
+        Assert.True(screen.Cards[0].IsPinned);
+    }
+
+    [Fact]
+    public async Task Unpinning_puts_it_back_where_it_was()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        await context.AddTaskListAsync("Trip", ("pack", null, false));
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var tasks = screen.Cards.Single(card => card.Kind == DashboardCardKind.Tasks);
+        screen.TogglePinCommand.Execute(tasks);
+        screen.TogglePinCommand.Execute(screen.Cards[0]);
+
+        Assert.Equal(DashboardCardKind.Notes, screen.Cards[0].Kind);
+    }
+
+    /// <summary>It is one page's layout on one device, so it has to survive the page being rebuilt.</summary>
+    [Fact]
+    public async Task A_pin_survives_the_screen_being_opened_again()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        await context.AddTaskListAsync("Trip", ("pack", null, false));
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.TogglePinCommand.Execute(screen.Cards.Single(card => card.Kind == DashboardCardKind.Tasks));
+
+        var reopened = context.Open();
+        await reopened.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(DashboardCardKind.Tasks, reopened.Cards[0].Kind);
+    }
+
     private sealed class DashboardContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -301,6 +355,9 @@ public sealed class DashboardScreenTests
         public FakeNotesServer NotesServer { get; }
 
         public SyncState SyncState => _syncState;
+
+        /// <summary>Which cards this reader keeps at the top - see IDashboardPinStore.</summary>
+        public InMemoryDashboardPinStore Pins { get; } = new();
 
         /// <summary>
         /// Narrows this account to what it has actually unlocked, and makes the chat server refuse the
@@ -363,7 +420,7 @@ public sealed class DashboardScreenTests
         public DashboardViewModel Open()
             => new(_notes, _taskLists, _calendarEvents, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 new PrivateItemGate(new FixedDeviceAuthentication()), _synchronizer, _syncState, _permissions,
-                Navigator);
+                Pins, Navigator);
 
         public async Task AddNoteAsync(string title)
             => await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)]);
