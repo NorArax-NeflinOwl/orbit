@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -19,6 +20,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly TaskListSynchronizer _synchronizer;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -37,10 +39,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private bool _isReadOnly;
 
     public TaskListDetailViewModel(
-        LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, IScreenNavigator navigator)
+        LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
+        IScreenNavigator navigator)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -88,7 +92,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var outcome = await _taskLists.DeleteAsync(_localId, cancellationToken);
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
-            Status = RefusalMessage;
+            Status = _translations[RefusalMessage];
             return;
         }
 
@@ -104,7 +108,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var outcome = await _taskLists.UpdateAsync(_localId, Title, items, cancellationToken);
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
-            Status = RefusalMessage;
+            Status = _translations[RefusalMessage];
             return;
         }
 
@@ -137,7 +141,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         try
         {
             var result = await _synchronizer.SynchroniseAsync(cancellationToken);
-            Status = result.ReachedTheServer ? string.Empty : "Saved on this phone - it will sync later";
+            Status = result.ReachedTheServer ? string.Empty : _translations["Saved on this phone - it will sync later"];
 
             // Re-read rather than keep what was shown before the sync. An entry added here has no server
             // id until the push comes back with one, and a later save built on the older copy would send
@@ -150,10 +154,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {
-            Status = "Saved on this phone - it will sync later";
+            Status = _translations["Saved on this phone - it will sync later"];
         }
     }
 
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string RefusalMessage =
         "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
 

@@ -4,6 +4,7 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -109,6 +110,8 @@ public sealed class NotificationSettingsScreenTests
         public RecordingScreenNavigator Navigator { get; } = new();
 
         public NotificationSettingsViewModel Open()
-            => new(new NotificationsClient(Server.ToHttpClient()), Navigator);
+            => new(
+                new NotificationsClient(Server.ToHttpClient()),
+                new Translations(new InMemoryLanguageStore()), Navigator);
     }
 }

@@ -48,7 +48,7 @@
                        TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" LineBreakMode="WordWrap" />
 
                 <VerticalStackLayout Spacing="12" IsVisible="{Binding AwaitingCodeRequest}">
-                    <Label Text="{Binding EmailAddress, StringFormat='We will email a code to {0}.'}"
+                    <Label Text="{Binding ResetCodeDestination}"
                            LineBreakMode="WordWrap" />
                     <Button Text="{controls:Translate 'Send code'}" Command="{Binding SendResetCodeCommand}" />
                 </VerticalStackLayout>

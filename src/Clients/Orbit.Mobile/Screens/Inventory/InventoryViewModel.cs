@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Inventory;
@@ -14,6 +15,7 @@ public sealed partial class InventoryViewModel : ObservableObject
     private readonly INetworkStatus _networkStatus;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
+    private readonly Translations _translations;
 
     [ObservableProperty]
     private string _newWarehouseName = string.Empty;
@@ -23,13 +25,14 @@ public sealed partial class InventoryViewModel : ObservableObject
 
     public InventoryViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, INetworkStatus networkStatus,
-        SyncState syncState, IScreenNavigator navigator)
+        SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
         _syncState = syncState;
         _navigator = navigator;
+        _translations = translations;
     }
 
     public ObservableCollection<WarehouseRow> Warehouses { get; } = [];
@@ -73,7 +76,7 @@ public sealed partial class InventoryViewModel : ObservableObject
         Warehouses.Clear();
         foreach (var warehouse in stored)
         {
-            Warehouses.Add(WarehouseRow.From(warehouse, pending.Contains(warehouse.LocalId), _networkStatus));
+            Warehouses.Add(WarehouseRow.From(warehouse, pending.Contains(warehouse.LocalId), _networkStatus, _translations));
         }
     }
 

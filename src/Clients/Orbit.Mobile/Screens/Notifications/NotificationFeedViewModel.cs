@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Screens;
 
@@ -19,6 +20,7 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
 {
     private readonly NotificationsClient _notificationsClient;
     private readonly NotificationOpener _opener;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -35,9 +37,11 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     private bool _isShowingEverything;
 
     public NotificationFeedViewModel(
-        NotificationsClient notificationsClient, NotificationOpener opener, IScreenNavigator navigator)
+        NotificationsClient notificationsClient, NotificationOpener opener, Translations translations,
+        IScreenNavigator navigator)
     {
         _notificationsClient = notificationsClient;
+        _translations = translations;
         _opener = opener;
         _navigator = navigator;
     }
@@ -49,7 +53,7 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     public bool HasNothing => Rows.Count == 0 && !IsBusy;
 
     /// <summary>What the switch offers next, rather than what it is showing now - it is a button, not a label.</summary>
-    public string ShowEverythingLabel => IsShowingEverything ? "Recent only" : "Show all";
+    public string ShowEverythingLabel => IsShowingEverything ? _translations["Recent only"] : _translations["Show all"];
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
@@ -129,10 +133,10 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
             var outcome = await _opener.OpenAsync(row.Url);
             Message = outcome switch
             {
-                NotificationOpenOutcome.NowhereToGo =>
-                    "This notification points somewhere this version of Orbit doesn't have. Updating should fix it.",
-                NotificationOpenOutcome.NotOnThisPhoneYet =>
-                    "Couldn't find what this is about on this phone. It may need a connection to catch up first.",
+                NotificationOpenOutcome.NowhereToGo => _translations[
+                    "This notification points somewhere this version of Orbit doesn't have. Updating should fix it."],
+                NotificationOpenOutcome.NotOnThisPhoneYet => _translations[
+                    "Couldn't find what this is about on this phone. It may need a connection to catch up first."],
                 _ => string.Empty
             };
 
@@ -186,8 +190,9 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     /// the request never landed, and telling somebody they are offline when the server answered sends
     /// them looking in the wrong place.
     /// </summary>
-    private static string Explain(HttpRequestException exception, string what)
+    /// <param name="what">A dictionary key naming the thing that failed, not the text itself.</param>
+    private string Explain(HttpRequestException exception, string what)
         => exception.StatusCode is null
-            ? $"{what} - Orbit is out of reach."
-            : $"{what}. Try signing in again.";
+            ? _translations.Format("{0} - Orbit is out of reach.", _translations[what])
+            : _translations.Format("{0}. Try signing in again.", _translations[what]);
 }

@@ -47,7 +47,7 @@
                                     HorizontalOptions="Start" Style="{StaticResource LinkButton}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=notes:NotesPage}" />
 
-                            <Label Text="{Binding UpdatedAtUtc, StringFormat='Updated {0:g}'}"
+                            <Label Text="{Binding Updated}"
                                    IsVisible="{Binding CanBeOpened}"
                                    FontSize="12"
                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />

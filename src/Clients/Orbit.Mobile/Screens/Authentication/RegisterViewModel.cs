@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Authentication;
@@ -18,6 +19,7 @@ public sealed partial class RegisterViewModel : ObservableObject
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly INetworkStatus _networkStatus;
     private readonly LocalStoreReset _localStore;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -37,12 +39,14 @@ public sealed partial class RegisterViewModel : ObservableObject
 
     public RegisterViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider,
-        INetworkStatus networkStatus, LocalStoreReset localStore, IScreenNavigator navigator)
+        INetworkStatus networkStatus, LocalStoreReset localStore, Translations translations,
+        IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         _networkStatus = networkStatus;
         _localStore = localStore;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -71,13 +75,13 @@ public sealed partial class RegisterViewModel : ObservableObject
         }
         catch (HttpRequestException)
         {
-            ErrorMessage = "Couldn't reach Orbit. Check your connection and try again.";
+            ErrorMessage = _translations["Couldn't reach Orbit. Check your connection and try again."];
             return;
         }
 
         if (!result.Succeeded)
         {
-            ErrorMessage = result.Message ?? "Couldn't create that account.";
+            ErrorMessage = result.Message ?? _translations["Couldn't create that account."];
             return;
         }
 

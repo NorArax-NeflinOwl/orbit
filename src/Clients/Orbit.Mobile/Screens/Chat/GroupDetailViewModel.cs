@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Chat;
@@ -23,6 +24,7 @@ public sealed partial class GroupDetailViewModel : ObservableObject
     private readonly ChatClient _chatClient;
     private readonly ChatSynchronizer _synchronizer;
     private readonly SessionStore _sessionStore;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     private LocalChatGroup? _group;
@@ -41,12 +43,13 @@ public sealed partial class GroupDetailViewModel : ObservableObject
 
     public GroupDetailViewModel(
         ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
-        SessionStore sessionStore, IScreenNavigator navigator)
+        SessionStore sessionStore, Translations translations, IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _synchronizer = synchronizer;
         _sessionStore = sessionStore;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -92,7 +95,7 @@ public sealed partial class GroupDetailViewModel : ObservableObject
         {
             // See ContactsViewModel: refused rather than unreachable, and it must not escape a command
             // nobody is awaiting. What is already stored is still worth showing.
-            Message = "Couldn't refresh just now";
+            Message = _translations["Couldn't refresh just now"];
         }
         catch (OperationCanceledException)
         {
@@ -121,7 +124,7 @@ public sealed partial class GroupDetailViewModel : ObservableObject
         {
             // The server's rule, said before it has to refuse: a group cannot be used to reach somebody
             // who never agreed to hear from you.
-            Message = "Everybody you have a conversation with is already in this group.";
+            Message = _translations["Everybody you have a conversation with is already in this group."];
             return;
         }
 
@@ -141,7 +144,7 @@ public sealed partial class GroupDetailViewModel : ObservableObject
         var chosen = Candidates.Where(candidate => candidate.IsSelected).Select(candidate => candidate.Contact.UserId).ToList();
         if (chosen.Count == 0)
         {
-            Message = "Pick at least one person.";
+            Message = _translations["Pick at least one person."];
             return;
         }
 
@@ -221,12 +224,12 @@ public sealed partial class GroupDetailViewModel : ObservableObject
                 return true;
             }
 
-            Message = result.Refusal ?? "This group is no longer available.";
+            Message = result.Refusal ?? _translations["This group is no longer available."];
             return false;
         }
         catch (HttpRequestException)
         {
-            Message = "Changing who is in a group needs a connection.";
+            Message = _translations["Changing who is in a group needs a connection."];
             return false;
         }
         catch (OperationCanceledException)

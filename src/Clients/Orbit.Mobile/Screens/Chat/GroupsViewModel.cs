@@ -5,6 +5,7 @@ using Orbit.Contracts.Chat;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Chat;
@@ -22,6 +23,7 @@ public sealed partial class GroupsViewModel : ObservableObject
     private readonly ChatClient _chatClient;
     private readonly ChatSynchronizer _synchronizer;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -38,12 +40,13 @@ public sealed partial class GroupsViewModel : ObservableObject
 
     public GroupsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
-        OwnEncryptionKeyProvider encryptionKeyProvider, IScreenNavigator navigator)
+        OwnEncryptionKeyProvider encryptionKeyProvider, Translations translations, IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _synchronizer = synchronizer;
         _encryptionKeyProvider = encryptionKeyProvider;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -82,8 +85,8 @@ public sealed partial class GroupsViewModel : ObservableObject
             else
             {
                 Message = Groups.Count == 0
-                    ? "Offline, and this device hasn't seen your groups yet."
-                    : "Offline - showing what's on this phone";
+                    ? _translations["Offline, and this device hasn't seen your groups yet."]
+                    : _translations["Offline - showing what's on this phone"];
             }
         }
         catch (HttpRequestException)
@@ -92,7 +95,7 @@ public sealed partial class GroupsViewModel : ObservableObject
             // has already cleared it and AppNavigator is watching, so the app is on its way to sign-in;
             // what matters here is that this does not escape. These commands are started from
             // OnAppearing without being awaited, and an unobserved failure kills the process.
-            Message = "Couldn't refresh just now";
+            Message = _translations["Couldn't refresh just now"];
         }
         catch (OperationCanceledException)
         {
@@ -118,7 +121,7 @@ public sealed partial class GroupsViewModel : ObservableObject
 
         if (Candidates.Count == 0)
         {
-            Message = "You have nobody to add yet - start a conversation first.";
+            Message = _translations["You have nobody to add yet - start a conversation first."];
             return;
         }
 
@@ -138,14 +141,14 @@ public sealed partial class GroupsViewModel : ObservableObject
         var name = NewGroupName.Trim();
         if (name.Length == 0)
         {
-            Message = "Give the group a name.";
+            Message = _translations["Give the group a name."];
             return;
         }
 
         var members = Candidates.Where(candidate => candidate.IsSelected).Select(candidate => candidate.Contact.UserId).ToList();
         if (members.Count == 0)
         {
-            Message = "Pick at least one person.";
+            Message = _translations["Pick at least one person."];
             return;
         }
 
@@ -155,7 +158,7 @@ public sealed partial class GroupsViewModel : ObservableObject
         }
         catch (HttpRequestException)
         {
-            Message = "Creating a group needs a connection.";
+            Message = _translations["Creating a group needs a connection."];
             return;
         }
         catch (OperationCanceledException)
@@ -188,7 +191,7 @@ public sealed partial class GroupsViewModel : ObservableObject
             Groups.Add(group);
         }
 
-        Message = Groups.Count == 0 ? "No groups yet." : string.Empty;
+        Message = Groups.Count == 0 ? _translations["No groups yet."] : string.Empty;
     }
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));

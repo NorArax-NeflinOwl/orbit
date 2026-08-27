@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Inventory;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Inventory;
@@ -16,6 +17,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 {
     private readonly LocalWarehouseRepository _warehouses;
     private readonly WarehouseSynchronizer _synchronizer;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -34,10 +36,12 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private bool _isReadOnly;
 
     public WarehouseDetailViewModel(
-        LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, IScreenNavigator navigator)
+        LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
+        IScreenNavigator navigator)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -100,8 +104,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         var outcome = await _warehouses.UpdateAsync(_localId, Name, items, cancellationToken);
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
-            Status = "Somebody else can change this warehouse, and Orbit can't be reached to check. " +
-                "It stays read-only until you're back online.";
+            Status = _translations[
+                "Somebody else can change this warehouse, and Orbit can't be reached to check. "
+                + "It stays read-only until you're back online."];
             return;
         }
 
@@ -133,7 +138,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         try
         {
             var result = await _synchronizer.SynchroniseAsync(cancellationToken);
-            Status = result.ReachedTheServer ? string.Empty : "Saved on this phone - it will sync later";
+            Status = result.ReachedTheServer ? string.Empty : _translations["Saved on this phone - it will sync later"];
 
             if (result.Received > 0)
             {
@@ -142,7 +147,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {
-            Status = "Saved on this phone - it will sync later";
+            Status = _translations["Saved on this phone - it will sync later"];
         }
     }
 

@@ -1,26 +1,26 @@
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Inventory;
 
 /// <summary>One row of the warehouses screen - the same shape as the other three features' rows.</summary>
+/// <param name="Contents">Already in the reader's language, so the row itself needs no dictionary.</param>
 public sealed record WarehouseRow(
-    Guid LocalId, string Name, int ItemCount, bool HasUnsentChanges, OfflineEditRefusal Refusal)
+    Guid LocalId, string Name, int ItemCount, bool HasUnsentChanges, OfflineEditRefusal Refusal,
+    string Contents, string Status)
 {
-    public static WarehouseRow From(LocalWarehouse warehouse, bool hasUnsentChanges, INetworkStatus networkStatus)
-        => new(
-            warehouse.LocalId, warehouse.Name, warehouse.Items.Count, hasUnsentChanges,
-            OfflineEditPolicy.Evaluate(warehouse, networkStatus));
-
-    public string Contents => ItemCount == 1 ? "1 item" : $"{ItemCount} items";
-
-    /// <summary>Empty when there is nothing worth saying, which is the common case.</summary>
-    public string Status => Refusal switch
+    public static WarehouseRow From(
+        LocalWarehouse warehouse, bool hasUnsentChanges, INetworkStatus networkStatus, Translations translations)
     {
-        OfflineEditRefusal.SharedWithYou => "Shared with you - read-only until you're back online",
-        OfflineEditRefusal.SharedWithOthers => "Shared with others - read-only until you're back online",
-        _ => HasUnsentChanges ? "Waiting to sync" : string.Empty
-    };
+        var refusal = OfflineEditPolicy.Evaluate(warehouse, networkStatus);
+
+        return new(
+            warehouse.LocalId, warehouse.Name, warehouse.Items.Count, hasUnsentChanges, refusal,
+            translations.Format("Items: {0}", warehouse.Items.Count),
+            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations));
+    }
 
     public bool HasStatus => Status.Length > 0;
 }

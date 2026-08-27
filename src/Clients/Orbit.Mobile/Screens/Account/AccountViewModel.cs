@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Account;
@@ -19,6 +20,7 @@ public sealed partial class AccountViewModel : ObservableObject
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -47,12 +49,13 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public AccountViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
-        SessionStore sessionStore, IScreenNavigator navigator)
+        SessionStore sessionStore, Translations translations, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         _networkStatus = networkStatus;
         _sessionStore = sessionStore;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -130,15 +133,17 @@ public sealed partial class AccountViewModel : ObservableObject
             var outcome = await _encryptionKeyProvider.RewrapAsync(currentPassword, newPassword, cancellationToken);
             if (outcome is EncryptionKeyOutcome.StillLocked)
             {
-                Message = "Password changed, but your chat key backup couldn't be updated. " +
-                    "Open \"Chat key\" to fix it, or older messages may not open on a new device.";
+                Message = _translations[
+                    "Password changed, but your chat key backup couldn't be updated. "
+                    + "Open \"Chat key\" to fix it, or older messages may not open on a new device."];
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             MessageIsFailure = true;
-            Message = "Password changed, but your chat key backup couldn't be updated. " +
-                "Sign in again while online to fix it.";
+            Message = _translations[
+                "Password changed, but your chat key backup couldn't be updated. "
+                + "Sign in again while online to fix it."];
             System.Diagnostics.Debug.WriteLine($"Could not re-wrap the chat key backup: {exception}");
         }
     }
@@ -152,18 +157,22 @@ public sealed partial class AccountViewModel : ObservableObject
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();
 
+    /// <param name="successMessage">
+    /// A dictionary key rather than the text itself, so every caller gets translated without each one
+    /// having to remember to ask - see <see cref="Translations"/>.
+    /// </param>
     private async Task RunAsync(Func<Task<AccountOperationResult>> operation, string successMessage)
     {
         try
         {
             var result = await operation();
             MessageIsFailure = !result.Succeeded;
-            Message = result.Succeeded ? successMessage : result.Message ?? "That didn't work.";
+            Message = result.Succeeded ? _translations[successMessage] : result.Message ?? _translations["That didn't work."];
         }
         catch (HttpRequestException)
         {
             MessageIsFailure = true;
-            Message = "Couldn't reach Orbit. Check your connection and try again.";
+            Message = _translations["Couldn't reach Orbit. Check your connection and try again."];
         }
         catch (OperationCanceledException)
         {

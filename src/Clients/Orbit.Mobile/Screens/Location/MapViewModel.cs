@@ -54,8 +54,9 @@ public sealed partial class MapViewModel : ObservableObject
         _usersClient = usersClient;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
+        _translations = translations;
         _navigator = navigator;
-        OwnPositionDescription = translations["Not read yet."];
+        OwnPositionDescription = _translations["Not read yet."];
     }
 
     /// <summary>People whose position the reader can currently see.</summary>
@@ -311,9 +312,10 @@ public sealed partial class MapViewModel : ObservableObject
         {
             var displayName = contacts.GetValueOrDefault(share.RecipientUserId)
                 ?? (await _usersClient.FindAsync(share.RecipientUserId, cancellationToken))?.DisplayName
-                ?? "Someone";
+                ?? _translations["Someone"];
 
-            SharingWith.Add(new SharingWithRow(share.RecipientUserId, displayName, share.IsContinuous, share.UpdatedAtUtc));
+            SharingWith.Add(SharingWithRow.From(
+                share.RecipientUserId, displayName, share.IsContinuous, share.UpdatedAtUtc, _translations));
         }
     }
 

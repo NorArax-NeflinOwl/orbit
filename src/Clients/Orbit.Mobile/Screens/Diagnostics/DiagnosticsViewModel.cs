@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Diagnostics;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Diagnostics;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Update;
 
 namespace Orbit.Mobile.Screens.Diagnostics;
@@ -27,6 +28,7 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     private readonly DiagnosticsClient _diagnosticsClient;
     private readonly IDeviceDescription _device;
     private readonly AppVersion _appVersion;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -40,13 +42,14 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
 
     public DiagnosticsViewModel(
         DiagnosticLogFile log, DiagnosticLogVerbosity verbosity, DiagnosticsClient diagnosticsClient,
-        IDeviceDescription device, AppVersion appVersion, IScreenNavigator navigator)
+        IDeviceDescription device, AppVersion appVersion, Translations translations, IScreenNavigator navigator)
     {
         _log = log;
         _verbosity = verbosity;
         _diagnosticsClient = diagnosticsClient;
         _device = device;
         _appVersion = appVersion;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -85,7 +88,7 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         var contents = _log.ReadAll();
         if (contents.Length == 0)
         {
-            Message = "There is nothing to send yet.";
+            Message = _translations["There is nothing to send yet."];
             return;
         }
 
@@ -101,14 +104,14 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
             // Zero readable entries is worth saying rather than claiming success: the log arrived and
             // told the server nothing, which is a different thing from having been sent.
             Message = stored > 0
-                ? $"Sent {stored} entries. Thank you."
-                : "Sent, but nothing in the log could be read.";
+                ? _translations.Format("Sent. Entries: {0}. Thank you.", stored)
+                : _translations["Sent, but nothing in the log could be read."];
         }
         catch (HttpRequestException exception)
         {
             Message = exception.StatusCode is null
-                ? "Couldn't send it - Orbit is out of reach."
-                : "Orbit wouldn't accept the log. Try signing in again.";
+                ? _translations["Couldn't send it - Orbit is out of reach."]
+                : _translations["Orbit wouldn't accept the log. Try signing in again."];
         }
         catch (OperationCanceledException)
         {

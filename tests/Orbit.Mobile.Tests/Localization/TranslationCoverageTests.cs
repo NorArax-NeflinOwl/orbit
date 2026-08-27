@@ -5,11 +5,14 @@ using Xunit;
 namespace Orbit.Mobile.Tests.Localization;
 
 /// <summary>
-/// Reads Orbit.Maui's own XAML and checks that everything it asks to be translated actually is.
+/// Reads Orbit.Maui's XAML <b>and</b> Orbit.Mobile's own code, and checks that everything either of them
+/// asks to be translated actually is.
 ///
 /// A missing translation is invisible by design - the English shows through - which is exactly why it
 /// needs a test. Without this, a screen added in six months is half Polish and nobody notices until
-/// somebody reading Polish opens it.
+/// somebody reading Polish opens it. The code half was added after the markup half had passed for weeks
+/// while every status line, refusal and empty-list message on the phone was still in English: the sweep
+/// could not see them, so it could not miss them.
 /// </summary>
 public sealed partial class TranslationCoverageTests
 {
@@ -22,7 +25,7 @@ public sealed partial class TranslationCoverageTests
     [Fact]
     public void Every_string_the_app_asks_to_translate_has_a_Polish_translation()
     {
-        var untranslated = StringsUsedInMarkup()
+        var untranslated = StringsUsedInMarkup().Concat(StringsUsedInCode())
             .Where(text => !SameInEveryLanguage.Contains(text))
             .Where(text => !PolishTranslations.ByEnglish.ContainsKey(text))
             .OrderBy(text => text, StringComparer.Ordinal)
@@ -41,6 +44,12 @@ public sealed partial class TranslationCoverageTests
         Assert.True(StringsUsedInMarkup().Count > 50);
     }
 
+    [Fact]
+    public void The_code_was_actually_found()
+    {
+        Assert.True(StringsUsedInCode().Count > 50);
+    }
+
     private static IReadOnlyCollection<string> StringsUsedInMarkup()
     {
         var markup = Path.Combine(RepositoryRoot(), "src", "Clients", "Orbit.Maui");
@@ -51,6 +60,28 @@ public sealed partial class TranslationCoverageTests
             foreach (Match match in TranslatedString().Matches(File.ReadAllText(file)))
             {
                 used.Add(match.Groups[1].Value);
+            }
+        }
+
+        return used;
+    }
+
+    /// <summary>
+    /// What the view models ask the dictionary for. Both forms are matched, and both allow a key split
+    /// across concatenated lines, because the longer sentences do not fit on one.
+    /// </summary>
+    private static IReadOnlyCollection<string> StringsUsedInCode()
+    {
+        var code = Path.Combine(RepositoryRoot(), "src", "Clients", "Orbit.Mobile");
+        var used = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var file in Directory.EnumerateFiles(code, "*.cs", SearchOption.AllDirectories))
+        {
+            var text = File.ReadAllText(file);
+            foreach (var match in LookedUp().Matches(text).Concat(Formatted().Matches(text)))
+            {
+                used.Add(string.Concat(Literal().Matches(match.Groups[1].Value)
+                    .Select(literal => literal.Groups[1].Value.Replace("\\\"", "\""))));
             }
         }
 
@@ -71,4 +102,13 @@ public sealed partial class TranslationCoverageTests
 
     [GeneratedRegex(@"\{controls:Translate '([^']+)'\}")]
     private static partial Regex TranslatedString();
+
+    [GeneratedRegex(@"translations\[\s*((?:""(?:[^""\\]|\\.)*""\s*\+?\s*)+)\]")]
+    private static partial Regex LookedUp();
+
+    [GeneratedRegex(@"translations\.Format\(\s*((?:""(?:[^""\\]|\\.)*""\s*\+?\s*)+)[,)]")]
+    private static partial Regex Formatted();
+
+    [GeneratedRegex(@"""((?:[^""\\]|\\.)*)""")]
+    private static partial Regex Literal();
 }

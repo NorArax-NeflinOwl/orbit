@@ -102,7 +102,7 @@ public sealed partial class NotesViewModel : ObservableObject
         {
             Notes.Add(NoteListItem.From(
                 note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
-                _translations["Private"]));
+                _translations, _translations["Private"]));
         }
     }
 

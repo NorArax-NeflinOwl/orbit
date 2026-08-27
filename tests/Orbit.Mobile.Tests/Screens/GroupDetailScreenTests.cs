@@ -9,6 +9,7 @@ using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -168,7 +169,9 @@ public sealed class GroupDetailScreenTests
             await _synchronizer.SynchroniseGroupsAsync();
             var stored = (await _repository.GetGroupsAsync()).Single(candidate => candidate.Id == group.Id);
 
-            var screen = new GroupDetailViewModel(_repository, _chatClient, _synchronizer, _sessionStore, Navigator);
+            var screen = new GroupDetailViewModel(
+                _repository, _chatClient, _synchronizer, _sessionStore,
+                new Translations(new InMemoryLanguageStore()), Navigator);
             screen.Open(stored);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

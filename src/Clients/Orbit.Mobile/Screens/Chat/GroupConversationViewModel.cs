@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Chat;
@@ -21,6 +22,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     private readonly EncryptedChatMessageEditor _editor;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>
@@ -63,13 +65,15 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
     public GroupConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
-        ChatRepository chatRepository, ChatSynchronizer synchronizer, IScreenNavigator navigator)
+        ChatRepository chatRepository, ChatSynchronizer synchronizer, Translations translations,
+        IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
         _editor = editor;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -209,7 +213,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
         try
         {
-            SayWhatHappened(ChatEditMessage.For(await _editor.DeleteAsync(messageId, cancellationToken)));
+            SayWhatHappened(ChatEditMessage.For(await _editor.DeleteAsync(messageId, cancellationToken), _translations));
         }
         catch (OperationCanceledException)
         {
@@ -231,7 +235,8 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         try
         {
             SayWhatHappened(ChatEditMessage.For(
-                await _editor.EditGroupMessageAsync(_group!.Id, groupMessageId, text, cancellationToken)));
+                await _editor.EditGroupMessageAsync(_group!.Id, groupMessageId, text, cancellationToken),
+                _translations));
         }
         catch (EncryptionKeyLockedException)
         {
@@ -336,7 +341,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
             var result = await _synchronizer.SynchroniseGroupConversationAsync(_group.Id, cancellationToken);
             if (!_statusExplainsTheLastAction)
             {
-                Status = result.ReachedTheServer ? string.Empty : "Offline - showing what's on this phone";
+                Status = result.ReachedTheServer ? string.Empty : _translations["Offline - showing what's on this phone"];
             }
 
             if (result.Sent + result.Received > 0)
@@ -346,7 +351,7 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is HttpRequestException or EncryptionKeyLockedException)
         {
-            Status = "Couldn't sync this conversation just now";
+            Status = _translations["Couldn't sync this conversation just now"];
         }
         catch (OperationCanceledException)
         {
@@ -359,14 +364,14 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     }
 
     /// <summary>See ConversationViewModel for why a refusal has to be said out loud.</summary>
-    private static string Describe(ChatSendResult result)
+    private string Describe(ChatSendResult result)
     {
         if (!result.ReachedTheServer)
         {
-            return "Offline - your message is saved and will send later";
+            return _translations["Offline - your message is saved and will send later"];
         }
 
-        return result.GivenUp > 0 ? ChatRefusalMessage.For(result.Refusal) : string.Empty;
+        return result.GivenUp > 0 ? ChatRefusalMessage.For(result.Refusal, _translations) : string.Empty;
     }
 
     partial void OnDraftChanged(string value)

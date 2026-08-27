@@ -123,8 +123,8 @@ public sealed partial class ContactsViewModel : ObservableObject
             else
             {
                 Message = Contacts.Count == 0
-                    ? "Offline, and this device hasn't seen your conversations yet."
-                    : "Offline - showing what's on this phone";
+                    ? _translations["Offline, and this device hasn't seen your conversations yet."]
+                    : _translations["Offline - showing what's on this phone"];
             }
         }
         catch (HttpRequestException)
@@ -133,7 +133,7 @@ public sealed partial class ContactsViewModel : ObservableObject
             // has already cleared it and AppNavigator is watching, so the app is on its way to sign-in;
             // what matters here is that this does not escape. These commands are started from
             // OnAppearing without being awaited, and an unobserved failure kills the process.
-            Message = "Couldn't refresh just now";
+            Message = _translations["Couldn't refresh just now"];
         }
         catch (OperationCanceledException)
         {
@@ -189,7 +189,7 @@ public sealed partial class ContactsViewModel : ObservableObject
         }
         catch (HttpRequestException)
         {
-            Message = "Accepting a chat request needs a connection.";
+            Message = _translations["Accepting a chat request needs a connection."];
             return;
         }
         catch (OperationCanceledException)

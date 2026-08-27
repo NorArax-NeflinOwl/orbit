@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Update;
 
@@ -15,6 +16,7 @@ public sealed partial class StartupViewModel : ObservableObject
     private readonly MobileVersionGate _versionGate;
     private readonly SessionStore _sessionStore;
     private readonly NotificationOpener _notificationOpener;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
     private readonly IUpdateLink _updateLink;
 
@@ -34,11 +36,12 @@ public sealed partial class StartupViewModel : ObservableObject
 
     public StartupViewModel(
         MobileVersionGate versionGate, SessionStore sessionStore, NotificationOpener notificationOpener,
-        IScreenNavigator navigator, IUpdateLink updateLink)
+        Translations translations, IScreenNavigator navigator, IUpdateLink updateLink)
     {
         _versionGate = versionGate;
         _sessionStore = sessionStore;
         _notificationOpener = notificationOpener;
+        _translations = translations;
         _navigator = navigator;
         _updateLink = updateLink;
     }
@@ -58,8 +61,8 @@ public sealed partial class StartupViewModel : ObservableObject
         _updateUrl = decision.UpdateUrl;
         CanOpenUpdate = !string.IsNullOrEmpty(decision.UpdateUrl);
         BlockedMessage = decision.LatestVersion is { } latest
-            ? $"This version of Orbit is no longer supported. Update to {latest} to continue."
-            : "This version of Orbit is no longer supported. Update to continue.";
+            ? _translations.Format("This version of Orbit is no longer supported. Update to {0} to continue.", latest)
+            : _translations["This version of Orbit is no longer supported. Update to continue."];
         IsBlocked = true;
         IsChecking = false;
         return decision;

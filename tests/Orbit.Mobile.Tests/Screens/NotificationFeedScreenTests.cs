@@ -12,6 +12,7 @@ using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.Crypto;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -194,7 +195,9 @@ public sealed class NotificationFeedScreenTests
         public RecordingScreenNavigator Navigator { get; } = new();
 
         public NotificationFeedViewModel Open()
-            => new(new NotificationsClient(Server.ToHttpClient()), _opener, Navigator);
+            => new(
+                new NotificationsClient(Server.ToHttpClient()), _opener,
+                new Translations(new InMemoryLanguageStore()), Navigator);
 
         public async Task<Guid> AddKnownContactAsync(string displayName)
         {

@@ -31,8 +31,17 @@
                     <DataTemplate x:DataType="data:LocalChatGroup">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
-                            <Label Text="{Binding Members.Count, StringFormat='{0} members'}"
-                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <!-- Label first, count second: Polish declines the noun after a number, so
+                                 "{0} members" cannot be translated into one correct form. -->
+                            <Label FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{controls:Translate 'Members'}" />
+                                        <Span Text=": " />
+                                        <Span Text="{Binding Members.Count}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

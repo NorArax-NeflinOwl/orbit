@@ -1,5 +1,6 @@
 using Orbit.Contracts.Notes;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Notes;
@@ -9,20 +10,31 @@ namespace Orbit.Mobile.Screens.Notes;
 /// things the user has to be told about it: whether the app is still holding a change, and whether it
 /// can be changed at all right now.
 /// </summary>
+/// <param name="Updated">
+/// When it last changed, already in the reader's language and their calendar's culture rather than the
+/// phone's - reading an interface in Polish and being told "Monday, March 3" is only half a translation.
+/// </param>
 /// <param name="IsHidden">
 /// A private note while private things are locked. The row still appears - a note vanishing from the
 /// list would look like it had been deleted - but says nothing about itself until it is unlocked.
 /// </param>
 public sealed record NoteListItem(
     Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
-    bool IsHidden = false, string HiddenTitle = "Private")
+    string Status = "", string Updated = "", bool IsHidden = false, string HiddenTitle = "Private")
 {
     public static NoteListItem From(
         LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked,
-        string hiddenTitle = "Private")
-        => new(note.LocalId, note.Title, note.UpdatedAtUtc, hasUnsentChanges,
-            OfflineEditPolicy.Evaluate(note, networkStatus),
+        Translations translations, string hiddenTitle = "Private")
+    {
+        var refusal = OfflineEditPolicy.Evaluate(note, networkStatus);
+
+        return new(
+            note.LocalId, note.Title, note.UpdatedAtUtc, hasUnsentChanges, refusal,
+            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
+            translations.Format(
+                "Updated {0}", note.UpdatedAtUtc.ToLocalTime().ToString("g", translations.DisplayCulture)),
             IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle);
+    }
 
     /// <summary>What the row shows instead of the title while it is hidden.</summary>
     public string DisplayTitle => IsHidden ? HiddenTitle : Title;
@@ -31,14 +43,6 @@ public sealed record NoteListItem(
     public bool CanBeOpened => !IsHidden;
 
     public bool IsEditable => Refusal is OfflineEditRefusal.None;
-
-    /// <summary>Empty when there is nothing worth saying, which is the common case.</summary>
-    public string Status => Refusal switch
-    {
-        OfflineEditRefusal.SharedWithYou => "Shared with you - read-only until you're back online",
-        OfflineEditRefusal.SharedWithOthers => "Shared with others - read-only until you're back online",
-        _ => HasUnsentChanges ? "Waiting to sync" : string.Empty
-    };
 
     public bool HasStatus => Status.Length > 0;
 
