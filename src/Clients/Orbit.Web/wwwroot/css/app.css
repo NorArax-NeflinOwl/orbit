@@ -3522,3 +3522,14 @@ input.note-editor-title {
     gap: 8px;
     max-width: 520px;
 }
+
+/* The people whose positions are on the map, listed above it - see Pages/MapPage.razor. */
+.shared-position-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.shared-position-row .row-meta {
+    margin-left: auto;
+}
