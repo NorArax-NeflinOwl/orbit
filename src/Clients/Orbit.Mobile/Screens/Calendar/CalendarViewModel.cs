@@ -50,6 +50,68 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     public ObservableCollection<CalendarEventRow> Events { get; } = [];
 
+    /// <summary>The month grid - six weeks of seven days, whatever month it is. See CalendarMonth.</summary>
+    public ObservableCollection<CalendarDay> Days { get; } = [];
+
+    public IReadOnlyList<string> WeekdayNames => CalendarMonth.WeekdayNames(_translations);
+
+    /// <summary>Which month the grid is showing, which is not necessarily the month containing today.</summary>
+    [ObservableProperty]
+    private DateTime _month = DateTime.Today;
+
+    /// <summary>
+    /// The day the list beneath the grid is showing, or null for the whole month. Null rather than
+    /// today by default: opening the calendar on a month with one event on the 3rd should show it.
+    /// </summary>
+    [ObservableProperty]
+    private DateTime? _selectedDay;
+
+    public string MonthLabel => CalendarMonth.Describe(Month, _translations);
+
+    public bool IsShowingOneDay => SelectedDay is not null;
+
+    [RelayCommand]
+    private Task PreviousMonthAsync(CancellationToken cancellationToken)
+    {
+        Month = Month.AddMonths(-1);
+        SelectedDay = null;
+        return ShowStoredEventsAsync(cancellationToken);
+    }
+
+    [RelayCommand]
+    private Task NextMonthAsync(CancellationToken cancellationToken)
+    {
+        Month = Month.AddMonths(1);
+        SelectedDay = null;
+        return ShowStoredEventsAsync(cancellationToken);
+    }
+
+    /// <summary>Back to the month containing today, and to the whole of it.</summary>
+    [RelayCommand]
+    private Task ShowTodayAsync(CancellationToken cancellationToken)
+    {
+        Month = _timeProvider.GetUtcNow().LocalDateTime.Date;
+        SelectedDay = null;
+        return ShowStoredEventsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Tapping a day narrows the list to it; tapping it again widens back to the month. A day outside
+    /// the month being shown moves the grid to its own month, which is what tapping it means.
+    /// </summary>
+    [RelayCommand]
+    private Task ChooseDayAsync(CalendarDay? day, CancellationToken cancellationToken)
+    {
+        if (day is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        SelectedDay = SelectedDay == day.Date ? null : day.Date;
+        Month = day.Date;
+        return ShowStoredEventsAsync(cancellationToken);
+    }
+
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
@@ -95,12 +157,29 @@ public sealed partial class CalendarViewModel : ObservableObject
         var stored = await _events.GetAllAsync(cancellationToken);
         var pending = await _events.GetPendingLocalIdsAsync(cancellationToken);
 
+        Days.Clear();
+        foreach (var day in CalendarMonth.Build(Month, SelectedDay, _timeProvider.GetUtcNow().LocalDateTime, stored))
+        {
+            Days.Add(day);
+        }
+
+        // The list beneath the grid follows it: the chosen day, or the whole month when none is chosen.
+        var shown = stored.Where(calendarEvent => Covers(calendarEvent.Details.StartUtc.ToLocalTime().Date));
+
         Events.Clear();
-        foreach (var calendarEvent in stored)
+        foreach (var calendarEvent in shown)
         {
             Events.Add(CalendarEventRow.From(calendarEvent, pending.Contains(calendarEvent.LocalId), _networkStatus, _translations));
         }
+
+        OnPropertyChanged(nameof(MonthLabel));
+        OnPropertyChanged(nameof(IsShowingOneDay));
     }
+
+    private bool Covers(DateTime date)
+        => SelectedDay is { } chosen
+            ? date == chosen.Date
+            : date.Month == Month.Month && date.Year == Month.Year;
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {

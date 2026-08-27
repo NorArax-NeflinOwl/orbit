@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:calendar="clr-namespace:Orbit.Maui.Features.Calendar"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     x:DataType="screens:CalendarViewModel"
     Title="{controls:Translate 'Calendar'}">
@@ -11,8 +12,72 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
 
+        <!-- The month at a glance. Orbit.Web offers day, month and year; a phone gets the month, which
+             is the one a grid answers - the other two are a list of one day and a list of twelve, and
+             the list beneath this already is the first of those. -->
+        <VerticalStackLayout Grid.Row="0" Spacing="6">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
+                <Button Grid.Column="0" Text="‹" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
+                        Command="{Binding PreviousMonthCommand}" />
+                <Label Grid.Column="1" Text="{Binding MonthLabel}" FontSize="17" FontAttributes="Bold"
+                       HorizontalTextAlignment="Center" VerticalOptions="Center" />
+                <Button Grid.Column="2" Text="›" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
+                        Command="{Binding NextMonthCommand}" />
+                <Button Grid.Column="3" Text="{controls:Translate 'Today'}" FontSize="12" Padding="8,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowTodayCommand}" />
+            </Grid>
+
+            <HorizontalStackLayout BindableLayout.ItemsSource="{Binding WeekdayNames}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Label Text="{Binding .}" FontSize="10" WidthRequest="46" HorizontalTextAlignment="Center"
+                               Style="{StaticResource SubtleLabel}" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+
+            <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Days}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:CalendarDay">
+                        <Grid WidthRequest="46" HeightRequest="40" RowDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseDayCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+
+                            <Label Grid.Row="0" Text="{Binding DayNumber}" FontSize="13" HorizontalTextAlignment="Center"
+                                   VerticalOptions="Center">
+                                <Label.Triggers>
+                                    <!-- The days either side that fill the first and last weeks are shown
+                                         but quiet: a grid with holes is harder to read than one with
+                                         soft edges. -->
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsInMonth}" Value="False">
+                                        <Setter Property="Opacity" Value="0.35" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsToday}" Value="True">
+                                        <Setter Property="FontAttributes" Value="Bold" />
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="FontAttributes" Value="Bold" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+
+                            <!-- One dot for "something happens here", not a count: the number is in the
+                                 list beneath, and a grid cell this size cannot carry both. -->
+                            <Ellipse Grid.Row="1" WidthRequest="5" HeightRequest="5" HorizontalOptions="Center"
+                                     IsVisible="{Binding HasEvents}"
+                                     Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </FlexLayout>
+        </VerticalStackLayout>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'New event'}" Text="{Binding NewEventTitle}"
@@ -25,7 +90,7 @@
             <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" />
         </Grid>
 
-        <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Events}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenCommand}"
@@ -49,7 +114,7 @@
             </CollectionView>
         </RefreshView>
 
-        <Button Grid.Row="4" Text="{controls:Translate 'Back to dashboard'}" Command="{Binding GoBackCommand}"
+        <Button Grid.Row="5" Text="{controls:Translate 'Back to dashboard'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />
 
     </Grid>
