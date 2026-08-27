@@ -5,6 +5,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Tasks;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
@@ -35,6 +36,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         RegisterGoogleIntegrationAccess();
         RegisterChecklistViewPreference();
+        RegisterInventoryApiClient();
     }
 
     [Fact]
@@ -244,6 +246,13 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         {
             _requests.Add(request);
             _requestBodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty);
+            // No warehouse is chosen for these fixtures, which is what the stock check answers 404 to -
+            // and the page reads as "no question to answer" rather than as a failure.
+            if (request.RequestUri!.AbsolutePath.EndsWith("/stock-check", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
             return request.Method == HttpMethod.Put
                 ? new HttpResponseMessage(HttpStatusCode.NoContent)
                 : new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(taskLists) };
@@ -422,5 +431,17 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         module.Setup<string?>("getSavedView", _ => true).SetResult(null);
         module.SetupVoid("saveView", _ => true);
         Services.AddScoped<ChecklistViewPreference>();
+    }
+    /// <summary>
+    /// The checklist offers to price a group list against a warehouse. These tests are about the items,
+    /// so there are no warehouses to choose and the panel stays empty.
+    /// </summary>
+    private void RegisterInventoryApiClient()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(Array.Empty<WarehouseDto>())
+        });
+        Services.AddSingleton(new InventoryApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
     }
 }

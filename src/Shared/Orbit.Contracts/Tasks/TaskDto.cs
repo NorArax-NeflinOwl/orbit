@@ -10,4 +10,6 @@ public sealed record TaskDto(
     bool IsPrivate, EncryptedContentDto? EncryptedContent,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
     bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId,
-    string Priority = "Normal", string Status = "New", bool IsPinned = false);
+    string Priority = "Normal", string Status = "New", bool IsPinned = false,
+    /// <summary>The warehouse this list's work is measured against, when one has been chosen - see the stock check.</summary>
+    Guid? LinkedWarehouseId = null);

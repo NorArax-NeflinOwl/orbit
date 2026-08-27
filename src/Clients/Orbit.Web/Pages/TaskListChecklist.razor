@@ -1,5 +1,6 @@
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
+@using Orbit.Contracts.Inventory
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
@@ -7,6 +8,7 @@
 @inject NavigationManager NavigationManager
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ChecklistViewPreference ChecklistViewPreference
+@inject InventoryApiClient InventoryApiClient
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
 
@@ -60,6 +62,72 @@ else
     @if (_errorMessage is not null)
     {
         <p class="error">@_errorMessage</p>
+    }
+
+    @* What this list's work costs against a warehouse. Offered for a group list, because that is what
+       gathers enough work to be worth counting - see StockRequirementCounter for the counting rule. *@
+    @if (_sections.Count > 0 && _sections[0].TaskList.IsGroup)
+    {
+        <div class="card stock-check-card">
+            <div class="card-header">
+                <span class="card-title">@T["Can this be done?"]</span>
+                <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync">
+                    <option value="">@T["Not measured against a warehouse"]</option>
+                    @foreach (var warehouse in _warehouses)
+                    {
+                        <option value="@warehouse.Id">@warehouse.Name</option>
+                    }
+                </select>
+            </div>
+
+            @if (_stockCheck is { } stockCheck)
+            {
+                <p class="options-subtext">
+                    @if (stockCheck.IsAchievable)
+                    {
+                        <text>@T["Everything this list needs is on the shelf."]</text>
+                    }
+                    else
+                    {
+                        <text>@T.Format("{0} of what this needs is short.", stockCheck.Requirements.Count(requirement => requirement.Missing > 0))</text>
+                    }
+                </p>
+                <table class="permissions-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">@T["What"]</th>
+                            <th scope="col">@T["Needed"]</th>
+                            <th scope="col">@T["On the shelf"]</th>
+                            <th scope="col">@T["Short"]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var requirement in stockCheck.Requirements)
+                        {
+                            <tr class="@(requirement.Missing > 0 ? "stock-check-short" : "")">
+                                <td>@requirement.Name</td>
+                                <td>@requirement.Required</td>
+                                <td>@requirement.Available</td>
+                                <td>@(requirement.Missing > 0 ? requirement.Missing.ToString() : "")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (!stockCheck.IsAchievable)
+                {
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" disabled="@_isRaisingShortfalls" @onclick="RaiseShortfallsAsync">
+                            @T["Add what is missing to the restock list"]
+                        </button>
+                    </div>
+                }
+                @if (_shortfallMessage is not null)
+                {
+                    <p class="info">@_shortfallMessage</p>
+                }
+            }
+        </div>
     }
 
     @if (_view == ChecklistView.Flat)
@@ -158,6 +226,13 @@ else
     private ChecklistView _view = ChecklistView.Tree;
     private ChecklistView? _savedView;
 
+    /// <summary>The warehouses this reader could measure against, and which one is chosen.</summary>
+    private IReadOnlyList<WarehouseDto> _warehouses = [];
+    private string _linkedWarehouseId = string.Empty;
+    private TaskListStockCheckDto? _stockCheck;
+    private bool _isRaisingShortfalls;
+    private string? _shortfallMessage;
+
     /// <summary>
     /// Whether anything here is nested deeply enough to be worth flattening. A group whose members are
     /// all plain lists already reads as one page with headings.
@@ -207,6 +282,7 @@ else
 
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         _sections = BuildSections();
+        await LoadStockCheckAsync();
         // Only asked for once the sections are built: a list with nothing nested in it has no second
         // view to open in, whatever was saved for it before.
         if (HasNestedLists)
@@ -342,6 +418,81 @@ else
 
     /// <summary>One item in the flattened view, with the list it came from - shown beside it, and saved against.</summary>
     private sealed record FlatChecklistEntry(ChecklistSection Section, TaskItemDto Item);
+
+    /// <summary>
+    /// Reads the warehouses to choose from and, when one is already chosen, what the work costs against
+    /// it. Only for a group list: a single list's items are the work in front of you, not a bill of
+    /// materials gathered from several places.
+    /// </summary>
+    private async Task LoadStockCheckAsync()
+    {
+        if (_sections.Count == 0 || !_sections[0].TaskList.IsGroup)
+        {
+            return;
+        }
+
+        try
+        {
+            _warehouses = await InventoryApiClient.GetWarehousesAsync();
+            _linkedWarehouseId = _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty;
+            _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            // The checklist itself is the point of this page; not being able to price it against a
+            // warehouse leaves the panel empty rather than taking the page down.
+            Logger.LogWarning(exception, "Could not read the stock check for task list {TaskListId}", Id);
+        }
+    }
+
+    private async Task OnWarehouseChangedAsync(ChangeEventArgs args)
+    {
+        var chosen = args.Value?.ToString();
+        _linkedWarehouseId = chosen ?? string.Empty;
+        _shortfallMessage = null;
+        Guid? warehouseId = Guid.TryParse(chosen, out var parsed) ? parsed : null;
+        Logger.LogInformation("User measured task list {TaskListId} against warehouse {WarehouseId}", Id, warehouseId);
+
+        try
+        {
+            if (!await TasksApiClient.LinkWarehouseAsync(Id, warehouseId))
+            {
+                return;
+            }
+
+            _stockCheck = warehouseId is null ? null : await TasksApiClient.GetStockCheckAsync(Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to measure task list {TaskListId} against a warehouse", Id);
+        }
+    }
+
+    /// <summary>
+    /// Puts what is short onto the warehouse's standing restock list, where the daily reminder brings it
+    /// up, then re-reads the check - the shelf has not changed, but what is already waiting has.
+    /// </summary>
+    private async Task RaiseShortfallsAsync()
+    {
+        _isRaisingShortfalls = true;
+        _shortfallMessage = null;
+        try
+        {
+            var added = await TasksApiClient.RaiseStockShortfallsAsync(Id);
+            _shortfallMessage = added == 0
+                ? T["Everything short was already on the restock list."]
+                : T.Format("{0} added to the restock list.", added);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to raise stock shortfalls for task list {TaskListId}", Id);
+            _shortfallMessage = T["Couldn't add those to the restock list."];
+        }
+        finally
+        {
+            _isRaisingShortfalls = false;
+        }
+    }
 
     private async Task ToggleViewAsync()
     {

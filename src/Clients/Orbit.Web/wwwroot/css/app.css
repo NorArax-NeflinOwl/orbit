@@ -3548,3 +3548,17 @@ input.note-editor-title {
         border-left: calc(min(var(--checklist-depth, 0), 4) * 3px) solid var(--accent-subtle);
     }
 }
+
+/* Whether a group list's work can be done out of a warehouse - see Pages/TaskListChecklist.razor. */
+.stock-check-card {
+    margin-bottom: 20px;
+}
+
+.stock-check-card .permissions-table td {
+    padding: 10px 18px;
+}
+
+/* The rows that stop the work happening, marked so the table can be scanned rather than read. */
+.stock-check-short td {
+    color: var(--danger);
+}
