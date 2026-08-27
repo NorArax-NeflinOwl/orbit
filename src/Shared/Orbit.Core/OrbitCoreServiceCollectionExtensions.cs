@@ -46,6 +46,9 @@ using Orbit.Core.Inventory.GetWarehouseShareStatus;
 using Orbit.Core.Inventory.ShareWarehouse;
 using Orbit.Core.Inventory.UpdateWarehouse;
 using Orbit.Core.Notes;
+using Orbit.Core.Permissions;
+using Orbit.Core.Permissions.GetUserPermissions;
+using Orbit.Core.Permissions.RedeemPermissionCode;
 using Orbit.Core.Notes.AcceptNoteShare;
 using Orbit.Core.Notes.AcquireNoteLock;
 using Orbit.Core.Notes.CreateNote;
@@ -156,6 +159,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();
+        services.AddScoped<IRequestHandler<GetUserPermissionsQuery, IReadOnlyList<ApplicationPermission>>, GetUserPermissionsQueryHandler>();
+        services.AddScoped<IRequestHandler<RedeemPermissionCodeCommand, ApplicationPermission?>, RedeemPermissionCodeCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptTaskListShareCommand, bool>, AcceptTaskListShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListShareStatusQuery, bool?>, GetTaskListShareStatusQueryHandler>();
         services.AddScoped<IRequestHandler<AcquireTaskListLockCommand, EditOutcome>, AcquireTaskListLockCommandHandler>();

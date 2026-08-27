@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Contracts.Sharing;
+using Orbit.Api.Permissions;
 using Orbit.Contracts;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
@@ -114,7 +115,7 @@ public static class TaskEndpoints
                 new ShareTaskListCommand(GetUserId(user), id, request.RecipientUserId, RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
             return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared, outcome.AccessLevelRaised));
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         // Resolves a share offered to the caller into a copy in their own task lists - see AcceptTaskListShareCommand.
         tasks.MapPost("/shares/{shareId:guid}/accept", async (
@@ -122,7 +123,7 @@ public static class TaskEndpoints
         {
             var accepted = await dispatcher.SendAsync(new AcceptTaskListShareCommand(GetUserId(user), shareId), cancellationToken);
             return accepted ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         // Lets Chat.razor show an accurate "Accept" vs. "already accepted" state for a task-list-share
         // message even after a page reload, instead of only remembering what was clicked this session.
@@ -131,7 +132,7 @@ public static class TaskEndpoints
         {
             var isAccepted = await dispatcher.SendAsync(new GetTaskListShareStatusQuery(GetUserId(user), shareId), cancellationToken);
             return isAccepted is null ? Results.NotFound() : Results.Ok(isAccepted);
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Orbit.Api.Permissions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -83,7 +84,7 @@ public static class CalendarEndpoints
                 new ShareCalendarEventCommand(GetUserId(user), id, request.RecipientUserId, RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
             return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared, outcome.AccessLevelRaised));
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         // Resolves a share offered to the caller into a read-only copy in their own calendar - see
         // AcceptCalendarEventShareCommand.
@@ -92,7 +93,7 @@ public static class CalendarEndpoints
         {
             var accepted = await dispatcher.SendAsync(new AcceptCalendarEventShareCommand(GetUserId(user), shareId), cancellationToken);
             return accepted ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         // Lets Chat.razor show an accurate "Akceptuj" vs. "already accepted" state for an event-share
         // message even after a page reload, instead of only remembering what was clicked this session.
@@ -101,7 +102,7 @@ public static class CalendarEndpoints
         {
             var isAccepted = await dispatcher.SendAsync(new GetCalendarEventShareStatusQuery(GetUserId(user), shareId), cancellationToken);
             return isAccepted is null ? Results.NotFound() : Results.Ok(isAccepted);
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
     }
 
     /// <summary>

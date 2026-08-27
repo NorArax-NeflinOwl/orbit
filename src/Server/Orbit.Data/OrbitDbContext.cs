@@ -36,9 +36,18 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
     public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
+    public DbSet<UserPermissionEntity> UserPermissions => Set<UserPermissionEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<UserPermissionEntity>(entity =>
+        {
+            // The pair is the identity: an account either holds a permission or it does not, and there
+            // is no second way to hold the same one.
+            entity.HasKey(permission => new { permission.UserId, permission.Permission });
+            entity.Property(permission => permission.Permission).IsRequired().HasMaxLength(32);
+        });
+
         modelBuilder.Entity<NoteEntity>(entity =>
         {
             entity.HasKey(note => note.Id);
