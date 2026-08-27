@@ -182,6 +182,7 @@ public sealed class CalendarEventSynchronizer
         calendarEvent.SharedByUserName = incoming.SharedByUserName;
         calendarEvent.IsSharedWithOthers = incoming.IsSharedWithOthers;
         calendarEvent.AccessLevel = incoming.AccessLevel;
+        calendarEvent.OwnerUserId = incoming.OriginalOwnerUserId;
         calendarEvent.LastSyncedAtUtc = _timeProvider.GetUtcNow();
     }
 

@@ -46,6 +46,12 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
     public bool IsSharedWithOthers { get; set; }
 
     public string AccessLevel { get; set; } = "CanEdit";
+    /// <summary>
+    /// Whoever created it, before any sharing - meaningful only when this arrived through a share. Kept
+    /// so somebody holding it read-only can ask them for more: the request is a chat message, and a
+    /// message needs somebody to address it to.
+    /// </summary>
+    public Guid? OwnerUserId { get; set; }
 
     /// <summary>
     /// Kept at the top of the list. Only the owner sets it - pinning moves a card on one person's page,

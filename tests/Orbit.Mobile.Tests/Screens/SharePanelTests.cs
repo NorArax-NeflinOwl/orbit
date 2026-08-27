@@ -182,6 +182,56 @@ public sealed class SharePanelTests
         Assert.True(panel.HasMessage);
     }
 
+    /// <summary>
+    /// Only for something that arrived through somebody else's share and cannot be changed. Your own
+    /// things need no permission, and one you can already edit needs no more.
+    /// </summary>
+    [Fact]
+    public void There_is_nobody_to_ask_about_your_own_thing()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        var panel = Build(context, shares);
+
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+
+        Assert.False(panel.CanAskToEdit);
+    }
+
+    [Fact]
+    public async Task Asking_to_edit_sends_the_owner_a_message()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        await GiveAContactAsync(context, "Anna");
+        var panel = Build(context, shares);
+        var itemId = Guid.NewGuid();
+        panel.Describes(SharedItemKind.Note, itemId, "Shopping", context.OtherUserId);
+
+        Assert.True(panel.CanAskToEdit);
+        await panel.AskToEditCommand.ExecuteAsync(null);
+
+        var sent = Assert.Single(context.Server.Messages);
+        var request = EditAccessRequest.TryRead(context.OpenAsTheOtherParty(sent)!);
+        Assert.Equal(itemId, request!.ItemId);
+        Assert.Equal("Shopping", request.Name);
+    }
+
+    /// <summary>Asking twice says the same thing twice, so the button goes once it has been used.</summary>
+    [Fact]
+    public async Task It_can_only_be_asked_once()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        await GiveAContactAsync(context, "Anna");
+        var panel = Build(context, shares);
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping", context.OtherUserId);
+
+        await panel.AskToEditCommand.ExecuteAsync(null);
+
+        Assert.False(panel.CanAskToEdit);
+    }
+
     private static async Task GiveAContactAsync(ChatContext context, string displayName)
     {
         context.GiveTheOtherPartyAPublishedKey();

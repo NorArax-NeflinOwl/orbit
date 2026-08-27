@@ -82,6 +82,24 @@ public sealed class SharedItemSharing
             _ => _inventory.ShareAsync(itemId, recipientUserId, accessLevel, cancellationToken)
         };
 
+    /// <summary>
+    /// Asks whoever owns something to let this account change it. No server call at all: only the owner
+    /// can widen access, and they do it by sharing again at a higher level - see EditAccessRequest.
+    /// </summary>
+    public async Task<bool> AskToEditAsync(
+        EditAccessRequest request, Guid ownerUserId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _sender.SendAsync(ownerUserId, request.ToMessage(), cancellationToken);
+            return result is { ReachedTheServer: true, GivenUp: 0 };
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>The message that tells them, which is the same shape Orbit.Web sends - see SharedItemInvitation.</summary>
     private static string Announce(SharedItemKind kind, Guid shareId, string name) => kind switch
     {

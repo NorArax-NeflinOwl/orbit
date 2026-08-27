@@ -200,6 +200,7 @@ public sealed class WarehouseSynchronizer
         warehouse.SharedByUserName = incoming.SharedByUserName;
         warehouse.IsSharedWithOthers = incoming.IsSharedWithOthers;
         warehouse.AccessLevel = incoming.AccessLevel;
+        warehouse.OwnerUserId = incoming.OriginalOwnerUserId;
         warehouse.LastSyncedAtUtc = _timeProvider.GetUtcNow();
     }
 

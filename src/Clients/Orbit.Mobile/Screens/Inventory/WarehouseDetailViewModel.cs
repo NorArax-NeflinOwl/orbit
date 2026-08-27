@@ -177,7 +177,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Name = warehouse.Name;
         if (warehouse.ServerId is { } serverId)
         {
-            Share.Describes(SharedItemKind.Warehouse, serverId, warehouse.Name);
+            Share.Describes(
+                SharedItemKind.Warehouse, serverId, warehouse.Name,
+                warehouse.AccessLevel == "CanEdit" ? null : warehouse.OwnerUserId);
         }
 
         _items = warehouse.Items;

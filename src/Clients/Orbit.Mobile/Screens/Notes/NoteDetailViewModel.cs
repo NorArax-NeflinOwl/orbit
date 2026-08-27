@@ -154,7 +154,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         // still waiting in the outbox has none.
         if (note.ServerId is { } serverId)
         {
-            Share.Describes(SharedItemKind.Note, serverId, note.Title);
+            Share.Describes(SharedItemKind.Note, serverId, note.Title, OwnerToAsk(note));
         }
 
         await ShowWhetherItCanBeChangedAsync(note, cancellationToken);
@@ -198,6 +198,13 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             Status = _translations["Saved on this phone - it will sync later"];
         }
     }
+
+    /// <summary>
+    /// Whoever to ask for more access, or null when there is nobody to ask: your own note, or one you
+    /// can already change. Asking about either would be asking for what you have.
+    /// </summary>
+    private static Guid? OwnerToAsk(LocalNote note)
+        => note.AccessLevel == "CanEdit" ? null : note.OwnerUserId;
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string RefusalMessage =

@@ -140,7 +140,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _loaded = calendarEvent.Details;
         if (calendarEvent.ServerId is { } serverId)
         {
-            Share.Describes(SharedItemKind.CalendarEvent, serverId, calendarEvent.Details.Title);
+            Share.Describes(
+                SharedItemKind.CalendarEvent, serverId, calendarEvent.Details.Title,
+                calendarEvent.AccessLevel == "CanEdit" ? null : calendarEvent.OwnerUserId);
         }
 
         Title = calendarEvent.Details.Title;

@@ -95,6 +95,45 @@ public sealed class SharedItemInvitationTests
             new SharedItemInvitation(SharedItemKind.Note, Guid.NewGuid(), "Shopping")));
     }
 
+    /// <summary>
+    /// Asking to be allowed to change something of somebody else's. It travels the same way an offer
+    /// does and for the same reason, and it reaches the server not at all: only the owner can widen
+    /// access, by sharing it again.
+    /// </summary>
+    [Fact]
+    public void An_edit_access_request_survives_the_round_trip()
+    {
+        var itemId = Guid.NewGuid();
+
+        var read = EditAccessRequest.TryRead(
+            new EditAccessRequest(SharedItemKind.TaskList, itemId, "Trip").ToMessage());
+
+        Assert.Equal(SharedItemKind.TaskList, read!.Kind);
+        Assert.Equal(itemId, read.ItemId);
+        Assert.Equal("Trip", read.Name);
+    }
+
+    [Theory]
+    [InlineData("hello")]
+    [InlineData("{}")]
+    [InlineData("")]
+    public void Ordinary_text_is_not_a_request(string plainText)
+        => Assert.Null(EditAccessRequest.TryRead(plainText));
+
+    /// <summary>
+    /// An offer and a request are different messages and must not be read as each other - both are JSON
+    /// with an id and a title, and only the marker tells them apart.
+    /// </summary>
+    [Fact]
+    public void An_offer_is_not_read_as_a_request_nor_the_other_way_round()
+    {
+        var offer = Serialize(new NoteShareMessagePayload(Guid.NewGuid(), "Shopping"));
+        var request = new EditAccessRequest(SharedItemKind.Note, Guid.NewGuid(), "Shopping").ToMessage();
+
+        Assert.Null(EditAccessRequest.TryRead(offer));
+        Assert.Null(SharedItemInvitation.TryRead(request));
+    }
+
     private static SharedItemAcceptance Build(FakeShareServer server)
         => new(
             new NotesClient(server.ToHttpClient()), new TasksClient(server.ToHttpClient()),

@@ -68,7 +68,8 @@ public sealed class EncryptedChatMessageReader
                 // Read up to a point, so everything sent at or before it has been seen.
                 IsReadByThem: isMine && theyReadUpToUtc is { } readUpTo && message.SentAtUtc <= readUpTo,
                 ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
-                Invitation: opened.Invitation));
+                Invitation: opened.Invitation,
+                EditAccessRequest: opened.EditAccessRequest));
         }
 
         foreach (var message in queued)
@@ -117,7 +118,8 @@ public sealed class EncryptedChatMessageReader
                 GroupMessageId: message.GroupMessageId,
                 ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
                 IsReadByEveryone: isMine ? message.IsReadByEveryone : null,
-                Invitation: opened.Invitation));
+                Invitation: opened.Invitation,
+                EditAccessRequest: opened.EditAccessRequest));
         }
 
         foreach (var message in queued)
@@ -134,7 +136,8 @@ public sealed class EncryptedChatMessageReader
     /// One opened message: its words, and who wrote them first if it got here by being passed on.
     /// </summary>
     private readonly record struct OpenedMessage(
-        string? Text, string? ForwardedFromDisplayName, SharedItemInvitation? Invitation = null);
+        string? Text, string? ForwardedFromDisplayName, SharedItemInvitation? Invitation = null,
+        EditAccessRequest? EditAccessRequest = null);
 
     /// <summary>
     /// Decrypts, then unwraps a forward if that is what it is. The two belong together: a forward's
@@ -155,8 +158,15 @@ public sealed class EncryptedChatMessageReader
 
         // An offer to share something, which is an ordinary message whose plaintext is structured - see
         // SharedItemInvitation. Its text is left null so the screen shows the offer rather than the JSON.
-        return SharedItemInvitation.TryRead(plainText) is { } invitation
-            ? new OpenedMessage(null, null, invitation)
+        if (SharedItemInvitation.TryRead(plainText) is { } invitation)
+        {
+            return new OpenedMessage(null, null, invitation);
+        }
+
+        // Somebody asking to be allowed to change something of yours. Nothing to accept in one tap -
+        // widening access means sharing it again - so it is shown as what it is: a sentence.
+        return EditAccessRequest.TryRead(plainText) is { } request
+            ? new OpenedMessage(null, null, null, request)
             : new OpenedMessage(plainText, null);
     }
 

@@ -196,6 +196,7 @@ public sealed class TaskListSynchronizer
         taskList.SharedByUserName = incoming.SharedByUserName;
         taskList.IsSharedWithOthers = incoming.IsSharedWithOthers;
         taskList.AccessLevel = incoming.AccessLevel;
+        taskList.OwnerUserId = incoming.OriginalOwnerUserId;
         taskList.Priority = incoming.Priority;
         taskList.Status = incoming.Status;
         taskList.IsPinned = incoming.IsPinned;

@@ -41,6 +41,8 @@ public sealed class LocalWarehouse : ISharedState
     public bool IsSharedWithOthers { get; set; }
 
     public string AccessLevel { get; set; } = "CanEdit";
+    /// <inheritdoc cref="LocalNote.OwnerUserId"/>
+    public Guid? OwnerUserId { get; set; }
 
     public DateTimeOffset? LastSyncedAtUtc { get; set; }
 }

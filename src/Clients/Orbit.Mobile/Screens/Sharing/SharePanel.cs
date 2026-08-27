@@ -144,11 +144,53 @@ public sealed partial class SharePanel : ObservableObject
     public bool CanSend => Recipient is not null && AccessLevel is not null && !IsSharing;
 
     /// <summary>Points the panel at the thing on screen. Called by the editor as it loads.</summary>
-    public void Describes(SharedItemKind kind, Guid itemId, string name)
+    /// <param name="ownerUserId">
+    /// Whoever created it, when this arrived through somebody else's share. What makes it possible to
+    /// ask them for more - a request is a chat message, and a message needs an addressee.
+    /// </param>
+    public void Describes(SharedItemKind kind, Guid itemId, string name, Guid? ownerUserId = null)
     {
         _kind = kind;
         _itemId = itemId;
         _name = name;
+        _ownerUserId = ownerUserId;
+        OnPropertyChanged(nameof(CanAskToEdit));
+    }
+
+    private Guid? _ownerUserId;
+
+    /// <summary>
+    /// Whether there is somebody to ask. Only for something that arrived through a share and cannot be
+    /// changed - your own things need no permission, and one you can already edit needs no more.
+    /// </summary>
+    public bool CanAskToEdit => _ownerUserId is not null && !_hasBeenAsked;
+
+    private bool _hasBeenAsked;
+
+    /// <summary>
+    /// Asks the owner to widen what this account may do. Nothing reaches the server: only they can grant
+    /// it, and they do so by sharing it again at a level that permits editing.
+    /// </summary>
+    [RelayCommand]
+    private async Task AskToEditAsync(CancellationToken cancellationToken)
+    {
+        if (_ownerUserId is not { } ownerUserId)
+        {
+            return;
+        }
+
+        var result = await _sharing.AskToEditAsync(
+            new EditAccessRequest(_kind, _itemId, _name), ownerUserId, cancellationToken);
+
+        if (result)
+        {
+            _hasBeenAsked = true;
+            OnPropertyChanged(nameof(CanAskToEdit));
+            Message = _translations["Asked them. They will see it in your conversation."];
+            return;
+        }
+
+        Message = _translations["Couldn't send that request."];
     }
 
     [RelayCommand]

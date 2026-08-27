@@ -962,6 +962,11 @@ public static class PolishTranslations
 
         // A link anyone can read the thing by, with no Orbit account and nothing to accept.
         ["Share a link"] = "Udostępnij linkiem",
+
+        // Asking whoever owns something to let you change it, and seeing that ask arrive.
+        ["Asked to edit"] = "Prosi o prawo edycji",
+        ["Asked them. They will see it in your conversation."] = "Poproszono. Zobaczy to w Waszej rozmowie.",
+        ["Couldn't send that request."] = "Nie udało się wysłać tej prośby.",
         ["Stop the link"] = "Wyłącz link",
         ["That link no longer works."] = "Ten link już nie działa.",
         ["Couldn't make a link for that."] = "Nie udało się utworzyć linku do tego.",

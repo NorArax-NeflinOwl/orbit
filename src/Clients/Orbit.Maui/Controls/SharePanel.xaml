@@ -34,6 +34,12 @@
             </HorizontalStackLayout>
         </VerticalStackLayout>
 
+        <!-- On something that arrived through somebody else's share and cannot be changed. Asking is
+             all a reader can do: only the owner can widen access. -->
+        <Button Text="{controls:Translate 'Ask to edit this'}" FontSize="13" Padding="12,4"
+                HorizontalOptions="Start" IsVisible="{Binding CanAskToEdit}"
+                Style="{StaticResource LinkButton}" Command="{Binding AskToEditCommand}" />
+
         <!-- The other kind of sharing: a link anyone can read, with no Orbit account and nothing to
              accept. Offered beside the first because they answer different questions. -->
         <HorizontalStackLayout Spacing="12" IsVisible="{Binding IsClosed}">

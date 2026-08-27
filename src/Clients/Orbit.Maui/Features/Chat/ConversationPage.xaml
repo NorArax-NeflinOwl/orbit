@@ -43,6 +43,15 @@
                             </Label>
                             <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
 
+                            <!-- Somebody asking to be allowed to change something of yours. Nothing to
+                                 accept in one tap: widening access means sharing it again. -->
+                            <VerticalStackLayout Spacing="4" IsVisible="{Binding IsEditAccessRequest}">
+                                <Label Text="{controls:Translate 'Asked to edit'}" FontSize="12"
+                                       Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{Binding EditAccessRequestName}" FontAttributes="Bold"
+                                       LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+
                             <!-- An offer to share something, which arrives as an ordinary message whose
                                  plaintext is structured. Before this the phone showed the JSON. -->
                             <VerticalStackLayout Spacing="4" IsVisible="{Binding IsInvitation}">

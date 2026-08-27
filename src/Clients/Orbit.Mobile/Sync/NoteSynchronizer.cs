@@ -218,6 +218,7 @@ public sealed class NoteSynchronizer
         note.SharedByUserName = incoming.SharedByUserName;
         note.IsSharedWithOthers = incoming.IsSharedWithOthers;
         note.AccessLevel = incoming.AccessLevel;
+        note.OwnerUserId = incoming.OriginalOwnerUserId;
         note.IsPinned = incoming.IsPinned;
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
     }

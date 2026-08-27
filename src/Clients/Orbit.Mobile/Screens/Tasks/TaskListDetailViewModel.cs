@@ -170,7 +170,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         Title = taskList.Title;
         if (taskList.ServerId is { } serverId)
         {
-            Share.Describes(SharedItemKind.TaskList, serverId, taskList.Title);
+            Share.Describes(
+                SharedItemKind.TaskList, serverId, taskList.Title,
+                taskList.AccessLevel == "CanEdit" ? null : taskList.OwnerUserId);
         }
 
         _items = taskList.Items;
