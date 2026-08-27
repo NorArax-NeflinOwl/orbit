@@ -1,5 +1,6 @@
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Notifications;
+using Orbit.Mobile.Security;
 
 namespace Orbit.Maui;
 
@@ -25,7 +26,15 @@ public partial class App : Application
 	/// allowed to. See <see cref="Features.Startup.StartupViewModel"/>.
 	/// </summary>
 	protected override Window CreateWindow(IActivationState? activationState)
-		=> new(_services.GetRequiredService<Features.Startup.StartupPage>());
+	{
+		var window = new Window(_services.GetRequiredService<Features.Startup.StartupPage>());
+
+		// Private things stop being readable the moment the app is put down, which is the moment the
+		// phone can change hands - see PrivateItemGate.
+		window.Deactivated += (_, _) => _services.GetRequiredService<PrivateItemGate>().Lock();
+
+		return window;
+	}
 
 	/// <summary>
 	/// Deliberately checks for a session first. A tap can arrive after the reader has signed out, and

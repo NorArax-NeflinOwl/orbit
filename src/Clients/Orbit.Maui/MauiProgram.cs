@@ -17,6 +17,7 @@ using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Presence;
+using Orbit.Mobile.Security;
 using Orbit.Mobile.Screens.Startup;
 using Orbit.Mobile.Screens.Tasks;
 using Orbit.Mobile.Screens;
@@ -122,11 +123,15 @@ public static class MauiProgram
 		// bar reads the same presence, and every section reports into the same sync state.
 		services.AddSingleton<Orbit.Mobile.Presence.Presence>();
 		services.AddSingleton<SyncState>();
+		// One gate for the whole app: unlocking private things on one screen unlocks them everywhere,
+		// and putting the phone down locks them everywhere.
+		services.AddSingleton<PrivateItemGate>();
 		services.AddTransient<PushRegistration>();
 		services.AddSingleton<IDeviceLocation, PhoneLocation>();
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
 		services.AddSingleton<IDeviceDescription, PhoneDescription>();
+		services.AddSingleton<IDeviceAuthentication, PhoneAuthentication>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)

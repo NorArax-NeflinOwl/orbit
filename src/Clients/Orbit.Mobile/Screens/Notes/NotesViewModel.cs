@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Notes;
@@ -18,6 +19,7 @@ public sealed partial class NotesViewModel : ObservableObject
     private readonly NoteSynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
+    private readonly PrivateItemGate _privateItems;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
 
@@ -32,12 +34,14 @@ public sealed partial class NotesViewModel : ObservableObject
 
     public NotesViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, INetworkStatus networkStatus,
-        SessionStore sessionStore, SyncState syncState, IScreenNavigator navigator)
+        SessionStore sessionStore, PrivateItemGate privateItems, SyncState syncState,
+        IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
         _sessionStore = sessionStore;
+        _privateItems = privateItems;
         _syncState = syncState;
         _navigator = navigator;
     }
@@ -48,6 +52,19 @@ public sealed partial class NotesViewModel : ObservableObject
     /// Shows what is already on the phone first, then synchronises. The other order would leave the
     /// screen blank for the length of a round trip, and empty for as long as there is no network at all.
     /// </summary>
+    /// <summary>
+    /// Asks the phone who is holding it, then redraws. A refusal needs no message of its own - the rows
+    /// simply stay closed, which is the same thing the system's own prompt just said.
+    /// </summary>
+    [RelayCommand]
+    private async Task UnlockPrivateAsync(CancellationToken cancellationToken)
+    {
+        if (await _privateItems.TryUnlockAsync(cancellationToken))
+        {
+            await ShowLocalNotesAsync(cancellationToken);
+        }
+    }
+
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
@@ -80,7 +97,8 @@ public sealed partial class NotesViewModel : ObservableObject
         Notes.Clear();
         foreach (var note in stored)
         {
-            Notes.Add(NoteListItem.From(note, pending.Contains(note.LocalId), _networkStatus));
+            Notes.Add(NoteListItem.From(
+                note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked));
         }
     }
 

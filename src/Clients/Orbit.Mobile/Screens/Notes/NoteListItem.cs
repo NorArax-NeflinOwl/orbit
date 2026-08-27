@@ -9,12 +9,25 @@ namespace Orbit.Mobile.Screens.Notes;
 /// things the user has to be told about it: whether the app is still holding a change, and whether it
 /// can be changed at all right now.
 /// </summary>
+/// <param name="IsHidden">
+/// A private note while private things are locked. The row still appears - a note vanishing from the
+/// list would look like it had been deleted - but says nothing about itself until it is unlocked.
+/// </param>
 public sealed record NoteListItem(
-    Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal)
+    Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
+    bool IsHidden = false)
 {
-    public static NoteListItem From(LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus)
+    public static NoteListItem From(
+        LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked)
         => new(note.LocalId, note.Title, note.UpdatedAtUtc, hasUnsentChanges,
-            OfflineEditPolicy.Evaluate(note, networkStatus));
+            OfflineEditPolicy.Evaluate(note, networkStatus),
+            IsHidden: note.IsPrivate && !privateItemsAreUnlocked);
+
+    /// <summary>What the row shows instead of the title while it is hidden.</summary>
+    public string DisplayTitle => IsHidden ? "Private" : Title;
+
+    /// <summary>Only a hidden row offers to unlock; every other row opens.</summary>
+    public bool CanBeOpened => !IsHidden;
 
     public bool IsEditable => Refusal is OfflineEditRefusal.None;
 

@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
     x:DataType="screens:NotesViewModel"
     Title="Notes">
@@ -38,8 +39,16 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:NoteListItem">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                            <Label Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold" />
+
+                            <!-- A hidden row keeps its place - a note vanishing from the list would look
+                                 like it had been deleted - but says nothing about itself until unlocked. -->
+                            <Button Text="Unlock" IsVisible="{Binding IsHidden}" FontSize="12" Padding="12,2"
+                                    HorizontalOptions="Start" Style="{StaticResource LinkButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=notes:NotesPage}" />
+
                             <Label Text="{Binding UpdatedAtUtc, StringFormat='Updated {0:g}'}"
+                                   IsVisible="{Binding CanBeOpened}"
                                    FontSize="12"
                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <!-- Why a note is waiting, or why it cannot be edited right now. -->
