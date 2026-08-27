@@ -28,31 +28,45 @@
         <!-- Chips and a stepping button rather than a dropdown: the web has room for a select, a phone
              has a thumb. Each chip carries what it would leave, which is what makes it worth tapping. -->
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <!-- Scrolls sideways: five filters do not fit across a phone. A filled pill half off the
+                 edge reads as "there is more this way", which the old text-only chips did not - they
+                 just looked like a word had been cut in half. -->
             <ScrollView Grid.Column="0" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                 <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Filters}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:TaskListFilter">
-                            <Button FontSize="12" Padding="10,4" CornerRadius="14"
-                                    Text="{Binding Label}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.FilterByCommand, x:DataType=tasks:TasksPage}"
-                                    CommandParameter="{Binding .}"
-                                    BackgroundColor="Transparent"
-                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
-                                <Button.Triggers>
-                                    <DataTrigger TargetType="Button" Binding="{Binding IsChosen}" Value="True">
-                                        <Setter Property="TextColor"
+                            <Border Style="{StaticResource FilterChip}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.FilterByCommand, x:DataType=tasks:TasksPage}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
+                                        <Setter Property="BackgroundColor"
                                                 Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                                        <Setter Property="FontAttributes" Value="Bold" />
+                                        <Setter Property="Stroke"
+                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                                     </DataTrigger>
-                                </Button.Triggers>
-                            </Button>
+                                </Border.Triggers>
+
+                                <Label Text="{Binding Label}" Style="{StaticResource FilterChipLabel}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
+                                            <Setter Property="TextColor"
+                                                    Value="{AppThemeBinding Light={StaticResource AccentOnLight}, Dark={StaticResource AccentOnDark}}" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </HorizontalStackLayout>
             </ScrollView>
 
             <Button Grid.Column="1" Text="{Binding SortDescription}" FontSize="12" Padding="8,4"
-                    Style="{StaticResource LinkButton}" Command="{Binding NextSortOrderCommand}" />
+                    VerticalOptions="Start" Style="{StaticResource LinkButton}"
+                    Command="{Binding NextSortOrderCommand}" />
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">

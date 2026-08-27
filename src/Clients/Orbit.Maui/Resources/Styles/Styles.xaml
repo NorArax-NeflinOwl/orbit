@@ -533,6 +533,29 @@
         </Setter>
     </Style>
 
+    <!-- Orbit.Web's .filter-chip: a bordered pill, and the chosen one filled with the accent. The
+         phone marked its chosen filter with text colour alone, which is a lot to ask of a reader
+         glancing at five words in a row.
+
+         A Border rather than a Button: MAUI's implicit Button style owns BackgroundColor through its
+         VisualStateManager, and a VSM setter beats both a style setter and a trigger - so a Button
+         here takes the trigger's text colour and refuses its fill, which is the worst of both. -->
+    <Style x:Key="FilterChip" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="999" />
+        </Setter>
+    </Style>
+
+    <Style x:Key="FilterChipLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
     <!-- A form field's own name, above it. Orbit.Web sets these in small caps with wide tracking, which
          is most of what makes its forms read as forms. -->
     <Style x:Key="FieldLabel" TargetType="Label">
