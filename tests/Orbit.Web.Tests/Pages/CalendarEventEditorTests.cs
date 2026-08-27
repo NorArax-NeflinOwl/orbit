@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -29,6 +30,7 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     public CalendarEventEditorTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        RegisterGoogleIntegrationAccess();
         Services.AddSingleton(new CalendarApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
         Services.AddSingleton(new GeocodingApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
         // CalendarEventEditor.razor fetches notification settings on init - a real (if unreachable)
@@ -192,4 +194,21 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
 
     private static HttpResponseMessage JsonResponse<T>(T body)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(body) };
+
+    /// <summary>
+    /// The editor asks whether to offer the Google Calendar link. These tests are not about that link,
+    /// so the account the gate sees qualifies for none - mirrors CalendarTests.
+    /// </summary>
+    private void RegisterGoogleIntegrationAccess()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new AccountDto(
+                Guid.NewGuid(), "owner@example.com", "owner", "Owner",
+                IsEmailVerified: false, HasPassword: true, IsGoogleLinked: false))
+        });
+        Services.AddSingleton(new GoogleIntegrationAccess(
+            new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
+            NullLogger<GoogleIntegrationAccess>.Instance));
+    }
 }

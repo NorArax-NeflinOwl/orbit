@@ -45,6 +45,8 @@ internal static class PolishTranslations
         ["Group"] = "Grupowa",
         ["Pin"] = "Przypnij",
         ["Pin to top"] = "Przypnij na górę",
+        ["Opens Google's own form with this event filled in. Nothing is saved there until you save it."] = "Otwiera formularz Google z wypełnionym wydarzeniem. Nic się tam nie zapisze, dopóki sam nie zapiszesz.",
+        ["Google Calendar"] = "Kalendarz Google",
         ["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."] = "Zapisywanie swojej pozycji. Udostępnienie jej lub podgląd cudzej wymaga też kontaktów.",
         ["Conversations, with one person or with several."] = "Rozmowy — z jedną osobą lub z kilkoma.",
         ["Finding other people, and being found by them. Everything below needs this first."] = "Znajdowanie innych osób i bycie znajdowanym przez nie. Wszystko poniżej tego wymaga.",
