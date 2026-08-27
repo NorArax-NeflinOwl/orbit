@@ -28,7 +28,9 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
         }
 
         var granted = await _userPermissionRepository.GetForUserAsync(userId, CancellationToken.None);
-        if (granted.Contains(requirement.Permission))
+        // Not "is it held" but "does it apply": group chat and sharing both rest on chat, and holding
+        // one without it grants nothing - see PermissionPrerequisites.
+        if (requirement.Permission.IsEffective(granted))
         {
             context.Succeed(requirement);
         }

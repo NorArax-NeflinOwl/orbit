@@ -10,8 +10,8 @@ public sealed record UserPermissionsDto(IReadOnlyList<string> Granted);
 public sealed record RedeemPermissionCodeRequest(string Code);
 
 /// <summary>
-/// The permission a code unlocked. Granted is null when the code matched nothing - deliberately the
-/// same response either way, so a wrong code cannot be told apart from a right one for a permission the
-/// account already had.
+/// The permission a code unlocked. Granted is null when the code matched nothing, and
+/// MissingPrerequisite names what has to be unlocked first when the code was real but came too early -
+/// see Orbit.Core.Permissions.PermissionPrerequisites.
 /// </summary>
-public sealed record RedeemPermissionCodeResultDto(string? Granted);
+public sealed record RedeemPermissionCodeResultDto(string? Granted, string? MissingPrerequisite = null);

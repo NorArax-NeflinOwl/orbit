@@ -15,8 +15,9 @@ public sealed class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPerm
         GetUserPermissionsQuery request, CancellationToken cancellationToken)
     {
         var granted = await _userPermissionRepository.GetForUserAsync(request.UserId, cancellationToken);
-        // Ordered by the enum rather than by when each was granted, so the list reads the same way every
-        // time it is shown.
-        return [.. Enum.GetValues<ApplicationPermission>().Where(granted.Contains)];
+        // What applies, not what is stored: a permission whose prerequisite is missing lets this account
+        // do nothing, and saying otherwise would put a row in the Permissions tab that the gate refuses.
+        // Ordered by the enum, so the list reads the same way every time it is shown.
+        return PermissionPrerequisites.Effective(granted);
     }
 }

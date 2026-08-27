@@ -456,6 +456,10 @@
                                     {
                                         <span class="verified-badge">@T["Unlocked"]</span>
                                     }
+                                    else if (permission.RequiredBefore() is { } required && !Permissions.Has(required))
+                                    {
+                                        <span class="unverified-badge">@T.Format("Needs {0}", DescribePermission(required))</span>
+                                    }
                                     else
                                     {
                                         <span class="unverified-badge">@T["Locked"]</span>
@@ -631,9 +635,18 @@
         _permissionCodeMessage = null;
         try
         {
-            var granted = await UsersApiClient.RedeemPermissionCodeAsync(_permissionCode);
-            _permissionCodeFailed = granted is null;
-            if (granted is null)
+            var outcome = await UsersApiClient.RedeemPermissionCodeAsync(_permissionCode);
+            _permissionCodeFailed = outcome.Granted is null;
+
+            // A real code that came too early gets its own answer: the person has the right code, and
+            // telling them it unlocks nothing would send them looking for a different one.
+            if (outcome.MissingPrerequisite is { } missing && Enum.TryParse<ApplicationPermission>(missing, out var required))
+            {
+                _permissionCodeMessage = T.Format("{0} has to be unlocked first.", DescribePermission(required));
+                return;
+            }
+
+            if (outcome.Granted is not { } granted)
             {
                 _permissionCodeMessage = T["That code doesn't unlock anything."];
                 return;
