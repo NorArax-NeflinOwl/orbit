@@ -7,6 +7,14 @@ public sealed class TaskItemEntity
 {
     public Guid Id { get; set; }
     public Guid TaskId { get; set; }
+
+    /// <summary>
+    /// Where this entry sits in its list. Stored because nothing else records it: saving a list deletes
+    /// its rows and inserts them again, so without a position the order came back as whatever order the
+    /// database happened to hold them in - which changed every time anything was saved, including
+    /// ticking a box.
+    /// </summary>
+    public int Position { get; set; }
     public string Description { get; set; } = string.Empty;
     public DateTimeOffset? DueDateUtc { get; set; }
     public bool IsCompleted { get; set; }

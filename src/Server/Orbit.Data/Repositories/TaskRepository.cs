@@ -95,7 +95,7 @@ public sealed class TaskRepository : ITaskRepository
             .Where(item => item.TaskId == taskList.Id)
             .ToListAsync(cancellationToken);
         _dbContext.RemoveRange(existingItems);
-        _dbContext.AddRange(taskList.Items.Select(item => ToItemEntity(item, taskList.Id)));
+        _dbContext.AddRange(taskList.Items.Select((item, position) => ToItemEntity(item, taskList.Id, position)));
     }
 
     public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
@@ -128,7 +128,9 @@ public sealed class TaskRepository : ITaskRepository
             entity.Id,
             entity.UserId,
             entity.Title,
-            entity.Items.Select(ToItemDomain).ToList(),
+            // Ordered here rather than trusted from the navigation: a delete-and-reinsert leaves the
+            // rows in no particular order, and the reader's own order is the one that matters.
+            entity.Items.OrderBy(item => item.Position).Select(ToItemDomain).ToList(),
             entity.IsGroup,
             entity.IsPrivate,
             ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
@@ -170,14 +172,15 @@ public sealed class TaskRepository : ITaskRepository
             LockExpiresAtUtc = taskList.LockExpiresAtUtc,
             CreatedAtUtc = taskList.CreatedAtUtc,
             UpdatedAtUtc = taskList.UpdatedAtUtc,
-            Items = taskList.Items.Select(item => ToItemEntity(item, taskList.Id)).ToList()
+            Items = taskList.Items.Select((item, position) => ToItemEntity(item, taskList.Id, position)).ToList()
         };
 
-    private static TaskItemEntity ToItemEntity(TaskItem item, Guid taskId)
+    private static TaskItemEntity ToItemEntity(TaskItem item, Guid taskId, int position)
         => new()
         {
             Id = item.Id,
             TaskId = taskId,
+            Position = position,
             Description = item.Description,
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
