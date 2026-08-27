@@ -154,7 +154,7 @@ public sealed class NavigationBarTests
                 _sessionStore, new NotificationsClient(Server.ToHttpClient()),
                 new AuthenticationClient(Server.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
                 Presence, new Translations(new InMemoryLanguageStore()),
-                new LocalStoreReset(LocalStore), Navigator);
+                new LocalStoreReset(LocalStore), UnlockedPermissions.For(LocalStore), Navigator);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

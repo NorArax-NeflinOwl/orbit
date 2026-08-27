@@ -18,6 +18,12 @@ internal sealed class FakeUsersServer : HttpMessageHandler
     /// <summary>How many lookups have been served, so a test can pin down what a sync costs.</summary>
     public int LookupCount { get; private set; }
 
+    /// <summary>What this account has been unlocked for - see UserPermissions on the phone's side.</summary>
+    public List<string> Granted { get; } = [];
+
+    /// <summary>What a redeemed code answers with. Null means the code matched nothing.</summary>
+    public RedeemPermissionCodeResultDto? RedeemResult { get; set; }
+
     public void Add(Guid userId, string displayName, string? publicKeyBase64)
         => _users[userId] = new UserSearchResultDto(userId, displayName.ToLowerInvariant(), displayName, publicKeyBase64);
 
@@ -31,6 +37,22 @@ internal sealed class FakeUsersServer : HttpMessageHandler
         if (request.RequestUri!.AbsolutePath.EndsWith("/search", StringComparison.Ordinal))
         {
             return Task.FromResult(Search(HttpUtility.ParseQueryString(request.RequestUri.Query)["query"]!));
+        }
+
+        if (request.RequestUri.AbsolutePath.EndsWith("/permissions/redeem", StringComparison.Ordinal))
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(RedeemResult ?? new RedeemPermissionCodeResultDto(Granted: null))
+            });
+        }
+
+        if (request.RequestUri.AbsolutePath.EndsWith("/permissions", StringComparison.Ordinal))
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new UserPermissionsDto(Granted))
+            });
         }
 
         LookupCount++;

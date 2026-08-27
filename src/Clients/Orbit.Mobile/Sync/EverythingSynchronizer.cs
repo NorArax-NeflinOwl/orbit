@@ -1,3 +1,7 @@
+using System.Net;
+using Orbit.Core.Permissions;
+using Orbit.Mobile.Permissions;
+
 namespace Orbit.Mobile.Sync;
 
 /// <summary>
@@ -18,16 +22,18 @@ public sealed class EverythingSynchronizer
     private readonly CalendarEventSynchronizer _calendarEvents;
     private readonly WarehouseSynchronizer _warehouses;
     private readonly ChatSynchronizer _chat;
+    private readonly UserPermissions _permissions;
 
     public EverythingSynchronizer(
         NoteSynchronizer notes, TaskListSynchronizer taskLists, CalendarEventSynchronizer calendarEvents,
-        WarehouseSynchronizer warehouses, ChatSynchronizer chat)
+        WarehouseSynchronizer warehouses, ChatSynchronizer chat, UserPermissions permissions)
     {
         _notes = notes;
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
         _warehouses = warehouses;
         _chat = chat;
+        _permissions = permissions;
     }
 
     public async Task<SyncResult> SynchroniseAsync(CancellationToken cancellationToken = default)
@@ -41,11 +47,30 @@ public sealed class EverythingSynchronizer
 
         // Chat reports only whether it worked, so it contributes reachability rather than counts. The
         // dashboard shows contacts and groups, which is exactly what these two fill in.
-        var contacts = await TryAsync(() => _chat.SynchroniseContactsAsync(cancellationToken));
-        var groups = await TryAsync(() => _chat.SynchroniseGroupsAsync(cancellationToken));
+        //
+        // Skipped outright for an account that has not unlocked them. Not only to save two round trips:
+        // the chat synchroniser answers false for a refusal exactly as it does for a dropped connection,
+        // so asking anyway put "couldn't sync" in the corner of a phone that was perfectly in step with
+        // everything it is allowed to have.
+        var contacts = _permissions.Has(ApplicationPermission.Chat)
+            ? await TryAsync(() => _chat.SynchroniseContactsAsync(cancellationToken))
+            : Refused;
+        var groups = _permissions.Has(ApplicationPermission.GroupChat)
+            ? await TryAsync(() => _chat.SynchroniseGroupsAsync(cancellationToken))
+            : Refused;
 
         return everything.And(contacts).And(groups).ToResult();
     }
+
+    /// <summary>
+    /// Nothing happened, and the server is not to blame. Used for a feature this account has not
+    /// unlocked: the request reached the server and was refused, which is an answer rather than a
+    /// failure - reporting it as one put "couldn't sync" in the corner of a phone that was perfectly in
+    /// step with everything it is allowed to have.
+    /// </summary>
+    private static readonly SyncResult Refused = new(0, 0, 0, 0, ReachedTheServer: true);
+
+    private static readonly SyncResult Unreachable = new(0, 0, 0, 0, ReachedTheServer: false);
 
     private static async Task<SyncResult> TryAsync(Func<Task<SyncResult>> synchronise)
     {
@@ -53,9 +78,9 @@ public sealed class EverythingSynchronizer
         {
             return await synchronise();
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException exception)
         {
-            return new SyncResult(0, 0, 0, 0, ReachedTheServer: false);
+            return exception.StatusCode is HttpStatusCode.Forbidden ? Refused : Unreachable;
         }
     }
 
@@ -65,9 +90,9 @@ public sealed class EverythingSynchronizer
         {
             return new SyncResult(0, 0, 0, 0, ReachedTheServer: await synchronise());
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException exception)
         {
-            return new SyncResult(0, 0, 0, 0, ReachedTheServer: false);
+            return exception.StatusCode is HttpStatusCode.Forbidden ? Refused : Unreachable;
         }
     }
 

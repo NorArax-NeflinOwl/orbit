@@ -15,7 +15,13 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <ScrollView Grid.Row="1">
+        <!-- In place of the whole section when this account has not unlocked it. -->
+        <controls:FeatureLocked Grid.Row="1" Margin="20" VerticalOptions="Start"
+                                IsVisible="{Binding IsLocked}"
+                                Explanation="{Binding LockedExplanation}"
+                                OpenAccountCommand="{Binding OpenAccountCommand}" />
+
+    <ScrollView Grid.Row="1" IsVisible="{Binding IsUnlocked}">
         <VerticalStackLayout Padding="20" Spacing="12">
 
             <Label Text="{controls:Translate 'Location'}" FontSize="26" FontAttributes="Bold" />

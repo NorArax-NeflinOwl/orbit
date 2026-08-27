@@ -235,7 +235,7 @@ public sealed class MapScreenTests
 
         public MapViewModel Open()
             => new(Device, LocationClient, _sharedLocations, _usersClient, _repository, _synchronizer,
-                new Translations(new InMemoryLanguageStore()), Navigator);
+                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator);
 
         public void Dispose()
         {

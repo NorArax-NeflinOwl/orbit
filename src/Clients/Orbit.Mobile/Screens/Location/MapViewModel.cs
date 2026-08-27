@@ -4,7 +4,9 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Core.Permissions;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Sync;
 
@@ -27,6 +29,7 @@ public sealed partial class MapViewModel : ObservableObject
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
     private readonly Translations _translations;
+    private readonly UserPermissions _permissions;
     private readonly IScreenNavigator _navigator;
 
     private SharedPosition? _ownPosition;
@@ -46,7 +49,7 @@ public sealed partial class MapViewModel : ObservableObject
     public MapViewModel(
         IDeviceLocation deviceLocation, LocationClient locationClient, SharedLocations sharedLocations,
         UsersClient usersClient, ChatRepository chatRepository, ChatSynchronizer synchronizer,
-        Translations translations, IScreenNavigator navigator)
+        Translations translations, UserPermissions permissions, IScreenNavigator navigator)
     {
         _deviceLocation = deviceLocation;
         _locationClient = locationClient;
@@ -55,9 +58,20 @@ public sealed partial class MapViewModel : ObservableObject
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _translations = translations;
+        _permissions = permissions;
         _navigator = navigator;
         OwnPositionDescription = _translations["Not read yet."];
     }
+
+    /// <summary>True while this account cannot use the map at all - see LockedFeatureMessage.</summary>
+    public bool IsLocked => !_permissions.Has(ApplicationPermission.Location);
+
+    public bool IsUnlocked => !IsLocked;
+
+    public string LockedExplanation => LockedFeatureMessage.For(ApplicationPermission.Location, _translations);
+
+    [RelayCommand]
+    private void OpenAccount() => _navigator.ShowAccount();
 
     /// <summary>People whose position the reader can currently see.</summary>
     public ObservableCollection<ReceivedPosition> SharedWithMe { get; } = [];
@@ -85,6 +99,11 @@ public sealed partial class MapViewModel : ObservableObject
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
         Message = string.Empty;
+        if (IsLocked)
+        {
+            return;
+        }
+
         IsBusy = true;
         try
         {

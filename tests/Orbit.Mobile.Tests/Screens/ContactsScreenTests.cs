@@ -203,7 +203,8 @@ public sealed class ContactsScreenTests
         public ContactsViewModel OpenContacts()
         {
             var screen = new ContactsViewModel(
-                Repository, _chatClient, UsersClient, _synchronizer, _encryptionKeyProvider, new Translations(new InMemoryLanguageStore()), Navigator);
+                Repository, _chatClient, UsersClient, _synchronizer, _encryptionKeyProvider,
+                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
         }

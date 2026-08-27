@@ -11,6 +11,9 @@ using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Screens.Dashboard;
+using System.Net;
+using Orbit.Core.Permissions;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -234,6 +237,36 @@ public sealed class DashboardScreenTests
         Assert.Equal("Only on the server", Assert.Single(notes.Rows).Title);
     }
 
+    /// <summary>
+    /// A locked section is not a broken one. The chat synchroniser answers false for a refusal exactly
+    /// as it does for a dropped connection, so before this the dashboard of an account without chat put
+    /// "couldn't sync" in the corner while everything it is allowed to have was perfectly in step.
+    /// </summary>
+    [Fact]
+    public async Task An_account_without_chat_is_not_told_the_sync_failed()
+    {
+        using var context = new DashboardContext();
+        await context.LockToAsync(ApplicationPermission.Location);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(SyncCondition.Synced, context.SyncState.Condition);
+    }
+
+    [Fact]
+    public async Task An_account_without_chat_is_shown_no_conversations()
+    {
+        using var context = new DashboardContext();
+        await context.AddContactAsync("Anna", requiresMyApproval: false);
+        await context.LockToAsync(ApplicationPermission.Location);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind is DashboardCardKind.RecentChats or DashboardCardKind.Contacts);
+    }
+
     private sealed class DashboardContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -244,6 +277,8 @@ public sealed class DashboardScreenTests
         private readonly ChatRepository _chat;
         private readonly EverythingSynchronizer _synchronizer;
         private readonly SyncState _syncState;
+        private readonly FakeUsersServer _permissionServer;
+        private readonly UserPermissions _permissions;
         private FakeChatServer _chatServer = null!;
 
         public DashboardContext()
@@ -255,11 +290,34 @@ public sealed class DashboardScreenTests
             _chat = new ChatRepository(_localStore, _clock);
             _syncState = new SyncState(network, _clock);
             NotesServer = new FakeNotesServer(_clock);
+            _permissionServer = new FakeUsersServer();
+            _permissionServer.Granted.AddRange(
+                Enum.GetValues<ApplicationPermission>().Select(permission => permission.ToString()));
+            _permissions = UnlockedPermissions.For(_localStore, _permissionServer);
             _synchronizer = AssembleSynchronizer();
         }
 
         /// <summary>The one server a test reaches into, to put something on it the phone has not seen.</summary>
         public FakeNotesServer NotesServer { get; }
+
+        public SyncState SyncState => _syncState;
+
+        /// <summary>
+        /// Narrows this account to what it has actually unlocked, and makes the chat server refuse the
+        /// way the real one does - a locked endpoint answers 403 rather than simply having nothing.
+        /// </summary>
+        public async Task LockToAsync(params ApplicationPermission[] granted)
+        {
+            _permissionServer.Granted.Clear();
+            _permissionServer.Granted.AddRange(granted.Select(permission => permission.ToString()));
+
+            if (!granted.Contains(ApplicationPermission.Chat))
+            {
+                _chatServer.RefuseEverythingWith = HttpStatusCode.Forbidden;
+            }
+
+            await _permissions.RefreshAsync();
+        }
 
         /// <summary>
         /// A server behind every feature. The dashboard synchronises all of them on load, so leaving any
@@ -296,14 +354,16 @@ public sealed class DashboardScreenTests
                     new EncryptedChatMessageSender(
                         _chat, chatClient, new ChatDirectoryReader(chatClient, usersClient, sessionStore),
                         encryptionKeys, NullLogger<EncryptedChatMessageSender>.Instance),
-                    NullLogger<ChatSynchronizer>.Instance));
+                    NullLogger<ChatSynchronizer>.Instance),
+                _permissions);
         }
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
         public DashboardViewModel Open()
             => new(_notes, _taskLists, _calendarEvents, _chat, _clock, new Translations(new InMemoryLanguageStore()),
-                new PrivateItemGate(new FixedDeviceAuthentication()), _synchronizer, _syncState, Navigator);
+                new PrivateItemGate(new FixedDeviceAuthentication()), _synchronizer, _syncState, _permissions,
+                Navigator);
 
         public async Task AddNoteAsync(string title)
             => await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)]);

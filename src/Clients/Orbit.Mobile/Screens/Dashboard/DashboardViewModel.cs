@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Core.Permissions;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
@@ -34,6 +36,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly PrivateItemGate _privateItems;
     private readonly EverythingSynchronizer _synchronizer;
     private readonly SyncState _syncState;
+    private readonly UserPermissions _permissions;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -46,7 +49,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         LocalNoteRepository notes, LocalTaskListRepository taskLists,
         LocalCalendarEventRepository calendarEvents, ChatRepository chat, TimeProvider timeProvider,
         Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
-        SyncState syncState, IScreenNavigator navigator)
+        SyncState syncState, UserPermissions permissions, IScreenNavigator navigator)
     {
         _notes = notes;
         _taskLists = taskLists;
@@ -57,6 +60,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _privateItems = privateItems;
         _synchronizer = synchronizer;
         _syncState = syncState;
+        _permissions = permissions;
         _navigator = navigator;
     }
 
@@ -65,6 +69,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
+        // Before the summary, not after: a card whose every row leads to "not unlocked" would otherwise
+        // be drawn first and taken away a moment later.
+        await _permissions.EnsureLoadedAsync(cancellationToken);
         await ShowStoredSummaryAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
     }
@@ -101,8 +108,14 @@ public sealed partial class DashboardViewModel : ObservableObject
         var notes = await _notes.GetAllAsync(cancellationToken);
         var taskLists = await _taskLists.GetAllAsync(cancellationToken);
         var events = await _calendarEvents.GetAllAsync(cancellationToken);
-        var contacts = await _chat.GetContactsAsync(cancellationToken);
-        var groups = await _chat.GetGroupsAsync(cancellationToken);
+        // Nothing conversational is shown to an account that cannot hold a conversation, as the web's
+        // dashboard does it - a card whose every row leads to "not unlocked" is worse than no card.
+        var contacts = _permissions.Has(ApplicationPermission.Chat)
+            ? await _chat.GetContactsAsync(cancellationToken)
+            : [];
+        var groups = _permissions.Has(ApplicationPermission.GroupChat)
+            ? await _chat.GetGroupsAsync(cancellationToken)
+            : [];
 
         Today = SummariseToday(taskLists, events, contacts);
 

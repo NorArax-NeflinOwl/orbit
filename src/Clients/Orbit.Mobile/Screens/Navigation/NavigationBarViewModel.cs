@@ -5,6 +5,8 @@ using Orbit.Localization;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Core.Permissions;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Presence;
 
 namespace Orbit.Mobile.Screens.Navigation;
@@ -28,6 +30,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly Presence.Presence _presence;
     private readonly Translations _translations;
     private readonly LocalStoreReset _localStore;
+    private readonly UserPermissions _permissions;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>The signed-in reader's initials, which is what the avatar shows - there are no pictures in Orbit.</summary>
@@ -59,10 +62,22 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [ObservableProperty]
     private bool _isLanguageExpanded;
 
+    /// <summary>Whether the map belongs on the bar at all - see ShowPermissions.</summary>
+    [ObservableProperty]
+    private bool _canUseLocation = true;
+
+    /// <summary>
+    /// Whether the conversations icon belongs on the bar. Either kind of conversation is enough: the
+    /// screen behind it lists both, and hiding it for somebody who has groups but not one-to-one chat
+    /// would put their groups out of reach.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canUseConversations = true;
+
     public NavigationBarViewModel(
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
-        LocalStoreReset localStore, IScreenNavigator navigator)
+        LocalStoreReset localStore, UserPermissions permissions, IScreenNavigator navigator)
     {
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
@@ -70,12 +85,28 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         _presence = presence;
         _translations = translations;
         _localStore = localStore;
+        _permissions = permissions;
         _navigator = navigator;
         _presence.Changed += OnPresenceChanged;
+        _permissions.Changed += OnPermissionsChanged;
         ShowPresence();
+        ShowPermissions();
     }
 
     private void OnPresenceChanged(object? sender, EventArgs e) => ShowPresence();
+
+    private void OnPermissionsChanged(object? sender, EventArgs e) => ShowPermissions();
+
+    /// <summary>
+    /// Which sections this account can reach at all. Hidden rather than shown-and-refused, as the web's
+    /// sidebar does it: a link that only ever leads to "not unlocked" is not a link.
+    /// </summary>
+    private void ShowPermissions()
+    {
+        CanUseLocation = _permissions.Has(ApplicationPermission.Location);
+        CanUseConversations = _permissions.Has(ApplicationPermission.Chat)
+            || _permissions.Has(ApplicationPermission.GroupChat);
+    }
 
     /// <summary>
     /// The dot in the avatar's top-right corner. Kept as the four states rather than a colour, so what
@@ -98,6 +129,10 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         _presence.MarkActive();
         DisplayName = (await _sessionStore.GetAsync())?.DisplayName ?? string.Empty;
         Initials = InitialsOf(DisplayName);
+
+        // Shared with whatever screen is behind the bar, so the two cannot disagree and only one
+        // request is made between them.
+        await _permissions.EnsureLoadedAsync(cancellationToken);
 
         try
         {
@@ -236,6 +271,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         // Everything cached belonged to whoever just left. Guid.Empty marks the database as nobody's,
         // so the next sign-in finds it already clear.
         await _localStore.ClearForAsync(Guid.Empty);
+        _permissions.Forget();
         _navigator.ShowSignIn();
     }
 

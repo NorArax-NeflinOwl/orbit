@@ -37,6 +37,31 @@ public sealed class UsersClient
         return await response.Content.ReadFromJsonAsync<UserSearchResultDto>(cancellationToken);
     }
 
+    /// <summary>
+    /// What this account has been unlocked for, by <c>ApplicationPermission</c> name. Presentation only
+    /// - the server refuses a locked endpoint whatever the phone believes (see PermissionPolicies in
+    /// Orbit.Api).
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetPermissionsAsync(CancellationToken cancellationToken = default)
+    {
+        var permissions = await _httpClient.GetFromJsonAsync<UserPermissionsDto>(
+            "api/users/me/permissions", cancellationToken);
+
+        return permissions?.Granted ?? [];
+    }
+
+    /// <summary>What the code unlocked, and what it needed first when it unlocked nothing.</summary>
+    public async Task<RedeemPermissionCodeResultDto> RedeemPermissionCodeAsync(
+        string code, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            "api/users/me/permissions/redeem", new RedeemPermissionCodeRequest(code), cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RedeemPermissionCodeResultDto>(cancellationToken)
+            ?? new RedeemPermissionCodeResultDto(Granted: null);
+    }
+
     /// <summary>Null when no such account exists - a member of a group whose account was since deleted.</summary>
     public async Task<UserSearchResultDto?> FindAsync(Guid userId, CancellationToken cancellationToken = default)
     {

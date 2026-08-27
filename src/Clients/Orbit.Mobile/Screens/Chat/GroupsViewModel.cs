@@ -5,7 +5,9 @@ using Orbit.Contracts.Chat;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Core.Permissions;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Chat;
@@ -24,6 +26,7 @@ public sealed partial class GroupsViewModel : ObservableObject
     private readonly ChatSynchronizer _synchronizer;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly Translations _translations;
+    private readonly UserPermissions _permissions;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -40,15 +43,24 @@ public sealed partial class GroupsViewModel : ObservableObject
 
     public GroupsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
-        OwnEncryptionKeyProvider encryptionKeyProvider, Translations translations, IScreenNavigator navigator)
+        OwnEncryptionKeyProvider encryptionKeyProvider, Translations translations, UserPermissions permissions,
+        IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _synchronizer = synchronizer;
         _encryptionKeyProvider = encryptionKeyProvider;
         _translations = translations;
+        _permissions = permissions;
         _navigator = navigator;
     }
+
+    /// <summary>True while this account cannot hold a group conversation - see LockedFeatureMessage.</summary>
+    public bool IsLocked => !_permissions.Has(ApplicationPermission.GroupChat);
+
+    public bool IsUnlocked => !IsLocked;
+
+    public string LockedExplanation => LockedFeatureMessage.For(ApplicationPermission.GroupChat, _translations);
 
     public ObservableCollection<LocalChatGroup> Groups { get; } = [];
 
@@ -64,6 +76,13 @@ public sealed partial class GroupsViewModel : ObservableObject
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
         Message = string.Empty;
+
+        // Nothing behind this screen exists for an account that cannot hold a group conversation, and
+        // demanding a chat key of somebody who cannot use one would be a strange way to say so.
+        if (IsLocked)
+        {
+            return;
+        }
 
         // A group conversation is unreadable without the key, so ask for it before showing a list that
         // goes nowhere - exactly as the contact list does.
@@ -178,6 +197,9 @@ public sealed partial class GroupsViewModel : ObservableObject
             _navigator.ShowGroupConversation(group);
         }
     }
+
+    [RelayCommand]
+    private void OpenAccount() => _navigator.ShowAccount();
 
     [RelayCommand]
     private void GoBack() => _navigator.ShowContacts();

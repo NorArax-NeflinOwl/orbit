@@ -978,6 +978,11 @@ public static class PolishTranslations
         ["Couldn't read your notification settings"] = "Nie udało się odczytać ustawień powiadomień",
         ["Couldn't save your notification settings"] = "Nie udało się zapisać ustawień powiadomień",
 
+        // The phone's own way into the permissions the web puts under Options.
+        ["Enter the code for it on the account screen, under Permissions."] =
+            "Wpisz kod do niego na ekranie konta, w sekcji Uprawnienia.",
+        ["{0} is unlocked."] = "{0} — odblokowano.",
+
         // ---- Orbit.Web's newer screens, merged from main. ----
         ["Full screen"] = "Pełny ekran",
         ["Leave full screen"] = "Zamknij pełny ekran",

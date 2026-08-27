@@ -41,6 +41,7 @@ public sealed class LocalStoreReset
         await dbContext.Contacts.ExecuteDeleteAsync(cancellationToken);
         await dbContext.ChatGroups.ExecuteDeleteAsync(cancellationToken);
         await dbContext.StoreOwners.ExecuteDeleteAsync(cancellationToken);
+        await dbContext.Permissions.ExecuteDeleteAsync(cancellationToken);
 
         dbContext.StoreOwners.Add(new LocalStoreOwner { UserId = userId });
         await dbContext.SaveChangesAsync(cancellationToken);

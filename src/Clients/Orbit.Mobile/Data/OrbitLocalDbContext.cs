@@ -43,6 +43,9 @@ public sealed class OrbitLocalDbContext : DbContext
     /// <summary>Whose data this database holds - see LocalStoreOwner and LocalStoreReset.</summary>
     public DbSet<LocalStoreOwner> StoreOwners => Set<LocalStoreOwner>();
 
+    /// <summary>What this account may use - see LocalPermission.</summary>
+    public DbSet<LocalPermission> Permissions => Set<LocalPermission>();
+
     /// <summary>
     /// SQLite has no date type, and EF's default mapping for <see cref="DateTimeOffset"/> cannot be
     /// sorted or compared in SQL - "ORDER BY UpdatedAtUtc" fails outright. Since sync is decided almost
@@ -130,6 +133,10 @@ public sealed class OrbitLocalDbContext : DbContext
                 .HasConversion(MembersConverter)
                 .Metadata.SetValueComparer(MembersComparer);
         });
+
+        // Keyed by the name itself: the server's answer is a set, and holding the same permission twice
+        // means nothing.
+        modelBuilder.Entity<LocalPermission>(permission => permission.HasKey(entity => entity.Name));
     }
 
     /// <summary>
