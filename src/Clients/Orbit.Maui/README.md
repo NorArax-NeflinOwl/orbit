@@ -190,6 +190,16 @@ to its own location, and one installed alongside a different SDK reports that th
 "$HOME/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager" create avd -n Orbit_Pixel_8_API_36 -k "system-images;android-36;google_apis;arm64-v8a" -d pixel_8
 ```
 
+**Worth a second device at the floor.** `SupportedOSPlatformVersion` is 29, and the newest emulator
+cannot show what happens there: API 29 still has the three-button navigation bar and no predictive back
+gesture, its status bar is painted with `colorPrimaryDark` where API 35 and up are edge-to-edge, and
+`BiometricPrompt` only accepts a biometric and the screen lock together from 29 on. Swap the two numbers
+in the commands above (`system-images;android-29;google_apis;arm64-v8a`) for one to check against.
+
+```bash
+"$HOME/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager" create avd -n Orbit_Pixel_8_API_29 -k "system-images;android-29;google_apis;arm64-v8a" -d pixel_8
+```
+
 ## Building for iOS from Windows
 
 Possible, but the Mac is not optional — Apple's toolchain runs only on macOS. Under MAUI it can be a
