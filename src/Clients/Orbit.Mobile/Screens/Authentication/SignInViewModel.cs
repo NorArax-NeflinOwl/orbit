@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Notifications;
 
 namespace Orbit.Mobile.Screens.Authentication;
 
@@ -9,6 +10,7 @@ public sealed partial class SignInViewModel : ObservableObject
 {
     private readonly AuthenticationClient _authenticationClient;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
+    private readonly PushRegistration _pushRegistration;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -24,10 +26,11 @@ public sealed partial class SignInViewModel : ObservableObject
 
     public SignInViewModel(
         AuthenticationClient authenticationClient, OwnEncryptionKeyProvider encryptionKeyProvider,
-        IScreenNavigator navigator)
+        PushRegistration pushRegistration, IScreenNavigator navigator)
     {
         _authenticationClient = authenticationClient;
         _encryptionKeyProvider = encryptionKeyProvider;
+        _pushRegistration = pushRegistration;
         _navigator = navigator;
     }
 
@@ -62,6 +65,11 @@ public sealed partial class SignInViewModel : ObservableObject
         // The one moment the plaintext password exists - see OwnEncryptionKeyProvider. Best-effort:
         // failing here leaves chat locked, which the user can recover from, and must not block sign-in.
         await TryUnlockChatKeyAsync(Password, cancellationToken);
+
+        // Every sign-in, not just the first: a push token changes when the app is reinstalled or its
+        // data cleared, and the old one stops working without saying so. Best-effort like the key
+        // unlock above - push is an addition to the in-app feed, never a reason to fail a sign-in.
+        await _pushRegistration.RegisterThisDeviceAsync(cancellationToken);
 
         Password = string.Empty;
         _navigator.ShowNotes();

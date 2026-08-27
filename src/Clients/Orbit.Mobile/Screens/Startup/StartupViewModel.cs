@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Update;
 
 namespace Orbit.Mobile.Screens.Startup;
@@ -13,6 +14,7 @@ public sealed partial class StartupViewModel : ObservableObject
 {
     private readonly MobileVersionGate _versionGate;
     private readonly SessionStore _sessionStore;
+    private readonly NotificationOpener _notificationOpener;
     private readonly IScreenNavigator _navigator;
     private readonly IUpdateLink _updateLink;
 
@@ -31,10 +33,12 @@ public sealed partial class StartupViewModel : ObservableObject
     private string? _updateUrl;
 
     public StartupViewModel(
-        MobileVersionGate versionGate, SessionStore sessionStore, IScreenNavigator navigator, IUpdateLink updateLink)
+        MobileVersionGate versionGate, SessionStore sessionStore, NotificationOpener notificationOpener,
+        IScreenNavigator navigator, IUpdateLink updateLink)
     {
         _versionGate = versionGate;
         _sessionStore = sessionStore;
+        _notificationOpener = notificationOpener;
         _navigator = navigator;
         _updateLink = updateLink;
     }
@@ -61,11 +65,22 @@ public sealed partial class StartupViewModel : ObservableObject
         return decision;
     }
 
+    /// <summary>
+    /// Where the app opens. A notification the reader tapped to launch it wins over the usual landing
+    /// screen - that tap is the most recent thing they asked for - but only once they are signed in, and
+    /// only if it leads somewhere. Everything else falls through to Notes, so a launch always ends on a
+    /// screen rather than on the splash.
+    /// </summary>
     public async Task ContinueToAppAsync()
     {
         if (await _sessionStore.GetAsync() is null)
         {
             _navigator.ShowSignIn();
+            return;
+        }
+
+        if (await _notificationOpener.FollowTapThatLaunchedTheAppAsync())
+        {
             return;
         }
 

@@ -186,7 +186,7 @@ public sealed class NotificationFeedScreenTests
                 encryptionKeyProvider, NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
-            _opener = new NotificationOpener(repository, _synchronizer, usersClient, Navigator);
+            _opener = new NotificationOpener(repository, _synchronizer, usersClient, new PendingNotificationTap(), Navigator);
         }
 
         public FakeNotificationServer Server { get; } = new();
@@ -194,7 +194,7 @@ public sealed class NotificationFeedScreenTests
         public RecordingScreenNavigator Navigator { get; } = new();
 
         public NotificationFeedViewModel Open()
-            => new(new NotificationsClient(Server.ToHttpClient()), _opener);
+            => new(new NotificationsClient(Server.ToHttpClient()), _opener, Navigator);
 
         public async Task<Guid> AddKnownContactAsync(string displayName)
         {

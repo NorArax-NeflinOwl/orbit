@@ -25,6 +25,14 @@
                         FontSize="13" Padding="8,4" Command="{Binding ShowEverythingCommand}" />
             </Grid>
 
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Grid.Column="0" Text="Settings" FontSize="13" Padding="8,4"
+                        Command="{Binding GoToSettingsCommand}" />
+                <Button Grid.Column="1" Text="Back" FontSize="13" Padding="8,4"
+                        Command="{Binding GoBackCommand}" BackgroundColor="Transparent"
+                        TextColor="{StaticResource Primary}" />
+            </Grid>
+
             <Label Text="Nothing here yet." IsVisible="{Binding HasNothing}"
                    TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Margin="0,20,0,0" />
         </VerticalStackLayout>

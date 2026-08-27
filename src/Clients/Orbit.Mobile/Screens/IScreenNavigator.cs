@@ -46,4 +46,7 @@ public interface IScreenNavigator
 
     /// <summary>What happened while the reader was elsewhere - see NotificationFeedViewModel.</summary>
     void ShowNotifications();
+
+    /// <summary>What Orbit is allowed to interrupt the reader with - see NotificationSettingsViewModel.</summary>
+    void ShowNotificationSettings();
 }

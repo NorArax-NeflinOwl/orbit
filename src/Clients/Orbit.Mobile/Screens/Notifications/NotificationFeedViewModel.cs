@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Notifications;
+using Orbit.Mobile.Screens;
 
 namespace Orbit.Mobile.Screens.Notifications;
 
@@ -18,6 +19,7 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
 {
     private readonly NotificationsClient _notificationsClient;
     private readonly NotificationOpener _opener;
+    private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
     private string _message = string.Empty;
@@ -32,10 +34,12 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     [ObservableProperty]
     private bool _isShowingEverything;
 
-    public NotificationFeedViewModel(NotificationsClient notificationsClient, NotificationOpener opener)
+    public NotificationFeedViewModel(
+        NotificationsClient notificationsClient, NotificationOpener opener, IScreenNavigator navigator)
     {
         _notificationsClient = notificationsClient;
         _opener = opener;
+        _navigator = navigator;
     }
 
     public ObservableCollection<NotificationRow> Rows { get; } = [];
@@ -55,6 +59,12 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
 
     [RelayCommand]
     private Task LoadAsync(CancellationToken cancellationToken) => ShowFeedAsync(cancellationToken);
+
+    [RelayCommand]
+    private void GoToSettings() => _navigator.ShowNotificationSettings();
+
+    [RelayCommand]
+    private void GoBack() => _navigator.ShowNotes();
 
     /// <summary>
     /// Marks the whole feed read. Deliberately separate from clearing: read means "I have seen these",

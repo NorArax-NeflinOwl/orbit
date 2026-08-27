@@ -39,16 +39,33 @@ public sealed class NotificationOpener
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
     private readonly UsersClient _usersClient;
+    private readonly PendingNotificationTap _pendingTap;
     private readonly IScreenNavigator _navigator;
 
     public NotificationOpener(
         ChatRepository chatRepository, ChatSynchronizer synchronizer, UsersClient usersClient,
-        IScreenNavigator navigator)
+        PendingNotificationTap pendingTap, IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _usersClient = usersClient;
+        _pendingTap = pendingTap;
         _navigator = navigator;
+    }
+
+    /// <summary>
+    /// Follows the notification the reader tapped to get here, if they tapped one. False when there was
+    /// nothing waiting or it could not be followed - the caller then sends them wherever they would have
+    /// gone anyway, because a cold start must never end on the splash screen.
+    /// </summary>
+    public async Task<bool> FollowTapThatLaunchedTheAppAsync(CancellationToken cancellationToken = default)
+    {
+        if (_pendingTap.TakeAtStartup() is not { } url)
+        {
+            return false;
+        }
+
+        return await OpenAsync(url, cancellationToken) == NotificationOpenOutcome.Opened;
     }
 
     public Task<NotificationOpenOutcome> OpenAsync(string? url, CancellationToken cancellationToken = default)

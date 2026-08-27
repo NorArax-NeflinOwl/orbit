@@ -176,7 +176,7 @@ public sealed class NotificationOpeningTests
             _synchronizer = new ChatSynchronizer(
                 _repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
 
-            Opener = new NotificationOpener(_repository, _synchronizer, usersClient, Navigator);
+            Opener = new NotificationOpener(_repository, _synchronizer, usersClient, new PendingNotificationTap(), Navigator);
         }
 
         public NotificationOpener Opener { get; }

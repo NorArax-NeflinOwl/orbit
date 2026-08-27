@@ -98,7 +98,12 @@ public static class MauiProgram
 		services.AddTransient<MessageForwarder>();
 		services.AddTransient<SharedLocations>();
 		services.AddTransient<NotificationOpener>();
+		// One holder for the whole app: the tap is recorded by platform code and taken by whatever
+		// screen is ready to follow it, which only works if both see the same instance.
+		services.AddSingleton<PendingNotificationTap>();
+		services.AddTransient<PushRegistration>();
 		services.AddSingleton<IDeviceLocation, PhoneLocation>();
+		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)
@@ -204,5 +209,7 @@ public static class MauiProgram
 		services.AddTransient<WarehouseDetailViewModel>();
 		services.AddTransient<NotificationFeedPage>();
 		services.AddTransient<NotificationFeedViewModel>();
+		services.AddTransient<NotificationSettingsPage>();
+		services.AddTransient<NotificationSettingsViewModel>();
 	}
 }

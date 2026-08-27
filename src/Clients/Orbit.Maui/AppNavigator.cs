@@ -66,6 +66,8 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>();
 
+	public void ShowNotificationSettings() => ShowAsRoot<NotificationSettingsPage>();
+
 	public void ShowTaskList(Guid localId)
 		=> ShowAsRoot<TaskListDetailPage>(page => page.ViewModel.Open(localId));
 
