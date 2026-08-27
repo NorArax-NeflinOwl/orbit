@@ -44,6 +44,7 @@ internal static class PolishTranslations
         ["Shared"] = "Udostępnione",
         ["Group"] = "Grupowa",
         ["Pin"] = "Przypnij",
+        ["Pin to top"] = "Przypnij na górę",
         ["Unpin"] = "Odepnij",
         ["Pinned"] = "Przypięte",
         ["Reply"] = "Odpowiedz",

@@ -54,6 +54,7 @@ using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.ReleaseNoteLock;
+using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
 using Orbit.Core.Notifications;
@@ -151,6 +152,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
         services.AddScoped<IRequestHandler<ShareTaskListCommand, ShareOutcome?>, ShareTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<SetTaskListPinnedCommand, bool>, SetTaskListPinnedCommandHandler>();
+        services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<AcceptTaskListShareCommand, bool>, AcceptTaskListShareCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListShareStatusQuery, bool?>, GetTaskListShareStatusQueryHandler>();
         services.AddScoped<IRequestHandler<AcquireTaskListLockCommand, EditOutcome>, AcquireTaskListLockCommandHandler>();

@@ -12,4 +12,5 @@ namespace Orbit.Contracts.Notes;
 public sealed record NoteDto(
     Guid Id, string Title, IReadOnlyList<NoteContentLineDto> Content, bool IsPrivate, EncryptedContentDto? EncryptedContent,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
-    bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId);
+    bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId,
+    bool IsPinned = false);

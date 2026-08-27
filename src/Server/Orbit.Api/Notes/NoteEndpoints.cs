@@ -13,6 +13,7 @@ using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.ReleaseNoteLock;
+using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
 
@@ -52,6 +53,17 @@ public static class NoteEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateNoteCommand(GetUserId(user), id, request.Title, ToDomainContent(request.Content), request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
             return ToApiResult(outcome);
+        });
+
+        // Separate from the update above because pinning only moves a card on a page: it needs no body
+        // to send back, takes no edit lock, and works from the list page where nothing has been loaded
+        // to edit - see Note.SetPinned.
+        notes.MapPut("/{id:guid}/pinned", async (
+            Guid id, SetNotePinnedRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var pinned = await dispatcher.SendAsync(
+                new SetNotePinnedCommand(GetUserId(user), id, request.IsPinned), cancellationToken);
+            return pinned ? Results.NoContent() : Results.NotFound();
         });
 
         notes.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -139,7 +151,8 @@ public static class NoteEndpoints
         => new(
             note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.IsPrivate, ToDto(note.EncryptedContent),
             note.CreatedAtUtc, note.UpdatedAtUtc,
-            note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null);
+            note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null,
+            note.IsPinned);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

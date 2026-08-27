@@ -105,6 +105,7 @@ builder.Services.AddScoped<GoogleIntegrationAccess>();
 builder.Services.AddScoped<PrivateContentSealer>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
+builder.Services.AddScoped<DashboardPinService>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
 // level from this on every line it considers.
 builder.Services.AddSingleton<DevicePreferences>();

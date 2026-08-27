@@ -1276,6 +1276,51 @@ input.note-editor-title {
     gap: 20px;
 }
 
+/* Pinned cards come first. Done with grid order rather than by reordering the markup, so the cards stay
+   where they are written and a pin only changes where they land. */
+.card-pinned {
+    order: -1;
+}
+
+.card-header-end {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* One pin, shared by notes, task lists and dashboard cards - see Components/PinButton.razor. Quiet until
+   it matters: dimmed while unpinned, full strength once it is holding something at the top. */
+.pin-button {
+    color: var(--text-muted);
+    opacity: 0.55;
+}
+
+.pin-button:hover,
+.pin-button:focus-visible {
+    opacity: 1;
+}
+
+.pin-button-pinned {
+    color: var(--accent);
+    opacity: 1;
+}
+
+.note-row-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.note-row-heading .note-row-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.note-row-pinned {
+    border-left: 3px solid var(--accent);
+}
+
 .today-strip {
     display: flex;
     align-items: center;

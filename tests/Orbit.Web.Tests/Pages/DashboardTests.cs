@@ -30,6 +30,20 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyNotesApiClient();
         RegisterEmptyTasksApiClient();
         RegisterEmptyCalendarApiClient();
+        RegisterDashboardPins();
+    }
+
+    /// <summary>
+    /// Which cards are pinned lives in localStorage, reached through a JS module (see
+    /// DashboardPinService) - stubbed as "nothing pinned" so these tests see the cards in their written
+    /// order rather than an order somebody's browser happened to save.
+    /// </summary>
+    private void RegisterDashboardPins()
+    {
+        var module = JSInterop.SetupModule("./js/dashboardPins.js");
+        module.Setup<string[]>("getPinnedCards").SetResult([]);
+        module.SetupVoid("setPinnedCards", _ => true);
+        Services.AddScoped<DashboardPinService>();
     }
 
     [Fact]
@@ -93,7 +107,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterChatApiClient([], [group]);
         var cut = RenderComponent<Dashboard>();
 
-        FindColumn(cut, "Groups").QuerySelector("button")!.Click();
+        FindColumn(cut, "Groups").QuerySelector(".list-row")!.Click();
 
         Assert.EndsWith($"/chat/groups/{group.Id}", Services.GetRequiredService<NavigationManager>().Uri);
     }
@@ -108,7 +122,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyCalendarApiClient();
         var cut = RenderComponent<Dashboard>();
 
-        FindColumn(cut, "Tasks").QuerySelector("button")!.Click();
+        FindColumn(cut, "Tasks").QuerySelector(".list-row")!.Click();
 
         // Clicking a list here means "let me get on with it", which is ticking things off - reworking
         // the list's own settings is a deliberate trip to the editor from there.
