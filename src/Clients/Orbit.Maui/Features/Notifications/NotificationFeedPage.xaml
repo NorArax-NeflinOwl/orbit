@@ -15,7 +15,11 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20" RowSpacing="12">
 
         <VerticalStackLayout Grid.Row="0" Spacing="12">
-            <Label Text="{controls:Translate 'Notifications'}" FontSize="26" FontAttributes="Bold" />
+            <controls:PageHeader Title="{controls:Translate 'Notifications'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Everything Orbit has told you, newest first." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />

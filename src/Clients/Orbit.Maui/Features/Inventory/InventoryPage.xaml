@@ -14,6 +14,12 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
 
 
+        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Inventory'}">
+            <controls:PageHeader.Subtitle>
+                <controls:Translate Text="Keep separate stocks in separate warehouses, and share one with someone over chat." />
+            </controls:PageHeader.Subtitle>
+        </controls:PageHeader>
+
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'New warehouse'}" Text="{Binding NewWarehouseName}"
                    ReturnType="Done" ReturnCommand="{Binding AddWarehouseCommand}" />

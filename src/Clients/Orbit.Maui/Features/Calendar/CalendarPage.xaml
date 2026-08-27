@@ -17,6 +17,12 @@
         <!-- The month at a glance, or the year. Orbit.Web offers day, month and year; the day here is
              this grid with one of its days chosen, so the switch beneath is the rest of it. -->
         <VerticalStackLayout Grid.Row="0" Spacing="6">
+            <controls:PageHeader Title="{controls:Translate 'Calendar'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Your events, and the ones you have been invited to." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
+
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
                 <Button Grid.Column="0" Text="‹" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
                         Command="{Binding ShowEarlierCommand}" />

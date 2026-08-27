@@ -19,6 +19,12 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
 
 
+        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Tasks'}">
+            <controls:PageHeader.Subtitle>
+                <controls:Translate Text="Every list you own or someone shared with you." />
+            </controls:PageHeader.Subtitle>
+        </controls:PageHeader>
+
         <!-- Chips and a stepping button rather than a dropdown: the web has room for a select, a phone
              has a thumb. Each chip carries what it would leave, which is what makes it worth tapping. -->
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">

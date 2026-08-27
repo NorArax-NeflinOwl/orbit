@@ -870,6 +870,7 @@ public static class PolishTranslations
         ["Waiting to sync"] = "Czeka na synchronizację",
         ["{0} is editing this right now - it stays read-only until they finish."]
             = "{0} właśnie to edytuje - pozostaje tylko do odczytu, dopóki nie skończy.",
+        ["Everything Orbit has told you, newest first."] = "Wszystko, co Orbit Ci powiedział, od najnowszych.",
         ["Moved to {0}."] = "Przeniesiono do: {0}.",
         ["Couldn't move it. Try again."] = "Nie udało się przenieść. Spróbuj ponownie.",
         ["Shared with you - read-only until you're back online"] =

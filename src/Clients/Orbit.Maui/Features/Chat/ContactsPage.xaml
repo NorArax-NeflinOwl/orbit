@@ -26,7 +26,11 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
 
-        <Label Grid.Row="0" Text="{controls:Translate 'Chat'}" FontSize="26" FontAttributes="Bold" />
+        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Contacts'}">
+            <controls:PageHeader.Subtitle>
+                <controls:Translate Text="Search for someone and start a conversation." />
+            </controls:PageHeader.Subtitle>
+        </controls:PageHeader>
 
         <!-- The list below only holds people already spoken to, so without this there is no way to
              start a conversation at all from this device. -->

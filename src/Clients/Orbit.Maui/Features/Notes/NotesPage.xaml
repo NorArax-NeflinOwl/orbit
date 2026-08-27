@@ -18,14 +18,22 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Padding="20" RowSpacing="10">
 
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry Grid.Column="0"
-                   Placeholder="{controls:Translate 'New note'}"
-                   Text="{Binding NewNoteTitle}"
-                   ReturnType="Done"
-                   ReturnCommand="{Binding AddNoteCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddNoteCommand}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="0" Spacing="10">
+            <controls:PageHeader Title="{controls:Translate 'Notes'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Everything you have written down, and anything shared with you." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0"
+                       Placeholder="{controls:Translate 'New note'}"
+                       Text="{Binding NewNoteTitle}"
+                       ReturnType="Done"
+                       ReturnCommand="{Binding AddNoteCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddNoteCommand}" />
+            </Grid>
+        </VerticalStackLayout>
 
         <RefreshView Grid.Row="1"
                      IsRefreshing="{Binding IsRefreshing}"
