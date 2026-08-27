@@ -78,6 +78,20 @@ public sealed class UsersApiClient
     }
 
     /// <summary>The signed-in account's own profile - everything under /me is scoped to the caller's token.</summary>
+    public async Task<bool> SetAvailabilityAsync(string availability, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            "api/users/me/presence", new SetAvailabilityRequest(availability), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>Tells the server this person is still here - see PresenceService for when this is and is not sent.</summary>
+    public async Task SendPresenceHeartbeatAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync("api/users/me/presence/heartbeat", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<AccountDto?> GetAccountAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<AccountDto>("api/users/me", cancellationToken);
 

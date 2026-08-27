@@ -3,6 +3,7 @@
 @using System.Globalization
 @using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Users
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
@@ -15,6 +16,7 @@
 @inject ClientExceptionLog ClientExceptionLog
 @inject ThemeService ThemeService
 @inject DevicePreferences DevicePreferences
+@inject PresenceService Presence
 @inject Translations T
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -98,6 +100,7 @@
                             {
                                 <span class="notif-badge">@FormatUnreadCount(_unreadCount)</span>
                             }
+                            <PresenceDot Status="OwnStatus" />
                         </span>
                         <span class="user-meta">
                             <span class="user-name">@_userName</span>
@@ -108,10 +111,27 @@
                     {
                         <div class="avatar-dropdown" @onclick:stopPropagation="true">
                             <div class="avatar-dropdown-header">
-                                <span class="avatar">@GetInitials(_userName)</span>
+                                <span class="avatar">
+                                    @GetInitials(_userName)
+                                    <PresenceDot Status="OwnStatus" />
+                                </span>
                                 <span class="user-meta">
                                     <span class="user-name">@_userName</span>
                                 </span>
+                            </div>
+                            <div class="availability-picker">
+                                <button type="button"
+                                        class="availability-choice @(Presence.Availability == PresenceAvailability.Available ? "availability-choice-selected" : "")"
+                                        @onclick="() => SetAvailabilityAsync(PresenceAvailability.Available)">
+                                    <PresenceDot Status="PresenceStatus.Available" />
+                                    @T["Available"]
+                                </button>
+                                <button type="button"
+                                        class="availability-choice @(Presence.Availability == PresenceAvailability.DoNotDisturb ? "availability-choice-selected" : "")"
+                                        @onclick="() => SetAvailabilityAsync(PresenceAvailability.DoNotDisturb)">
+                                    <PresenceDot Status="PresenceStatus.DoNotDisturb" />
+                                    @T["Do not disturb"]
+                                </button>
                             </div>
                             <div class="avatar-dropdown-divider"></div>
                             <a class="avatar-dropdown-item options-only" href="/options">
@@ -244,6 +264,11 @@
         T.Changed += OnLanguageChanged;
         await EnsureEncryptionKeyIfAuthenticatedAsync();
         StartSessionHeartbeat();
+        if (_isAuthenticated)
+        {
+            Presence.Changed += OnPresenceChanged;
+            await Presence.StartAsync();
+        }
         await RefreshNotificationStateIfAuthenticatedAsync();
         StartNotificationPoll();
     }
@@ -254,6 +279,24 @@
     /// the page from loading. Called once at startup and, implicitly, by every NotificationPollTickAsync
     /// tick thereafter.
     /// </summary>
+    /// <summary>
+    /// The dot on this account's own avatar. Somebody looking at their own page is by definition here,
+    /// so this only ever reflects what they chose - the away and offline states are what *other* people
+    /// see once the heartbeat stops, and showing them to yourself would be showing you a version of
+    /// yourself that only exists after you have left.
+    /// </summary>
+    private PresenceStatus OwnStatus => Presence.Availability == PresenceAvailability.DoNotDisturb
+        ? PresenceStatus.DoNotDisturb
+        : PresenceStatus.Available;
+
+    private async Task SetAvailabilityAsync(PresenceAvailability availability)
+    {
+        Logger.LogInformation("User set their availability to {Availability}", availability);
+        await Presence.SetAvailabilityAsync(availability);
+    }
+
+    private void OnPresenceChanged() => InvokeAsync(StateHasChanged);
+
     private async Task RefreshNotificationStateIfAuthenticatedAsync()
     {
         if (!_isAuthenticated)
@@ -811,6 +854,7 @@
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
         NavigationManager.LocationChanged -= OnLocationChanged;
         T.Changed -= OnLanguageChanged;
+        Presence.Changed -= OnPresenceChanged;
         StopSessionHeartbeat();
         StopNotificationPoll();
     }

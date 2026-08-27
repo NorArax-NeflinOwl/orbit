@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Orbit.Contracts.Users;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Users;
+using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
 using Orbit.Core.Location.StopSharingLocation;
@@ -42,7 +43,29 @@ public static class UserEndpoints
                 ? Results.NotFound()
                 : Results.Ok(new AccountDto(
                     account.Id, account.Email, account.UserName, account.DisplayName, account.IsEmailVerified,
-                    account.HasPassword, account.GoogleSubjectId is not null, ToDto(account.Location)));
+                    account.HasPassword, account.GoogleSubjectId is not null, ToDto(account.Location),
+                    account.Presence.Availability.ToString(),
+                    account.Presence.StatusAt(DateTimeOffset.UtcNow).ToString()));
+        });
+
+        // What the caller chose to be. Only their own: presence describes whether somebody is there to
+        // answer, which nobody else is in a position to say for them.
+        users.MapPut("/me/presence", async (
+            SetAvailabilityRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var updated = await dispatcher.SendAsync(
+                new SetAvailabilityCommand(GetUserId(user), RequestEnum.Parse<PresenceAvailability>(request.Availability, "availability")),
+                cancellationToken);
+            return updated ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Sent by an open client every so often. The gap since the last one is what turns a green dot
+        // yellow and then grey, so a client that stops sending fades out on its own - see UserPresence.
+        users.MapPost("/me/presence/heartbeat", async (
+            ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var recorded = await dispatcher.SendAsync(new PresenceHeartbeatCommand(GetUserId(user)), cancellationToken);
+            return recorded ? Results.NoContent() : Results.NotFound();
         });
 
 

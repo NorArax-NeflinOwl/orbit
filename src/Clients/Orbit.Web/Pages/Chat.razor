@@ -5,6 +5,7 @@
 @using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Users
+@using Orbit.Core.Users
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
 @inject CalendarApiClient CalendarApiClient
@@ -92,6 +93,7 @@ else
                         {
                             <span class="notif-badge">@FormatUnreadCount(unreadFromContact)</span>
                         }
+                        <PresenceDot Status="StatusOf(contact)" />
                     </span>
                     <span class="chat-list-meta">
                         <span class="chat-list-name">@contact.DisplayName</span>
@@ -303,6 +305,14 @@ else
 }
 
 @code {
+    /// <summary>
+    /// What to show next to this person right now. The API resolves it as the list is read, so an
+    /// unreadable value can only mean a client and server that disagree about the names - offline is
+    /// the honest answer to that, rather than claiming somebody is there.
+    /// </summary>
+    private static PresenceStatus StatusOf(ContactDto contact)
+        => Enum.TryParse<PresenceStatus>(contact.PresenceStatus, out var status) ? status : PresenceStatus.Offline;
+
 
 
     [Parameter]

@@ -28,6 +28,12 @@ public sealed class UserEntity
 
     public DateTimeOffset? LocationRecordedAtUtc { get; set; }
 
+    /// <summary>What this account chose to be, by PresenceAvailability name - see Orbit.Core.Users.UserPresence.</summary>
+    public string PresenceAvailability { get; set; } = Orbit.Core.Users.PresenceAvailability.Available.ToString();
+
+    /// <summary>When this account was last heard from; null for one that has never been seen since presence existed.</summary>
+    public DateTimeOffset? PresenceLastSeenAtUtc { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     /// <summary>When the user last confirmed a code sent to Email, or null if never - see Orbit.Core.Users.User.EmailVerifiedAtUtc.</summary>
     public DateTimeOffset? EmailVerifiedAtUtc { get; set; }

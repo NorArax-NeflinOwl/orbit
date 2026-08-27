@@ -65,7 +65,7 @@ public sealed class UserRepository : IUserRepository
         => User.FromPersistence(
             entity.Id, entity.Email, entity.UserName, entity.DisplayName, entity.PasswordHash, entity.CreatedAtUtc,
             entity.PublicKeyBase64, ToWrappedPrivateKey(entity), entity.EmailVerifiedAtUtc, entity.GoogleSubjectId,
-            ToLocation(entity));
+            ToLocation(entity), ToPresence(entity));
 
     private static UserEntity ToEntity(User user)
         => new()
@@ -86,8 +86,22 @@ public sealed class UserRepository : IUserRepository
             LocationLatitude = user.Location?.Latitude,
             LocationLongitude = user.Location?.Longitude,
             LocationAddress = user.Location?.Address,
-            LocationRecordedAtUtc = user.Location?.RecordedAtUtc
+            LocationRecordedAtUtc = user.Location?.RecordedAtUtc,
+            PresenceAvailability = user.Presence.Availability.ToString(),
+            PresenceLastSeenAtUtc = user.Presence.LastSeenAtUtc
         };
+
+    /// <summary>
+    /// An unreadable stored availability falls back to Available rather than throwing: what somebody
+    /// chose to be is not worth making their whole row unreadable over, and the last-seen timestamp
+    /// alongside it still decides whether they show as here at all.
+    /// </summary>
+    private static UserPresence ToPresence(UserEntity entity)
+        => new(
+            Enum.TryParse<PresenceAvailability>(entity.PresenceAvailability, out var availability)
+                ? availability
+                : PresenceAvailability.Available,
+            entity.PresenceLastSeenAtUtc);
 
     /// <summary>
     /// Read back the same way the wrapped-key columns are: a location exists only when the coordinates
