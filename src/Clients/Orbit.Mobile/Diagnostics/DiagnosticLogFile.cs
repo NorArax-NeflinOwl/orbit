@@ -30,6 +30,9 @@ public sealed partial class DiagnosticLogFile
     /// is replaced before it ever reaches the file. The real defence is not logging such things in the
     /// first place, which is a review rule for every log statement added later (see the plan's §8); this
     /// catches the one that slips through.
+    ///
+    /// It over-matches on purpose: a long filesystem path is made of the same characters and goes too.
+    /// Losing a path from a stack trace is recoverable; leaking a key is not.
     /// </summary>
     [GeneratedRegex(@"[A-Za-z0-9+/_-]{40,}={0,2}")]
     private static partial Regex SomethingSecretShaped();

@@ -41,10 +41,10 @@ public partial class NavigationBar : ContentView
 
 		if (Handler is null)
 		{
-			// The page is going away; stop the timer and let go of the presence subscription with it.
+			// The page is going away; the timer goes with it. The view model does not - it is shared with
+			// the avatar's menu and outlives any one page.
 			_idleTimer?.Stop();
 			_idleTimer = null;
-			_viewModel.Dispose();
 			return;
 		}
 

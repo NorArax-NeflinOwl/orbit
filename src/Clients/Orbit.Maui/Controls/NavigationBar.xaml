@@ -21,13 +21,9 @@
         <x:String x:Key="ContactsIcon">M4,6.5 A3,3 0 1 1 10,6.5 A3,3 0 1 1 4,6.5 Z M1.5,17 C1.5,14 4,12 7,12 C10,12 12.5,14 12.5,17 M12.7,7.5 A2.3,2.3 0 1 1 17.3,7.5 A2.3,2.3 0 1 1 12.7,7.5 Z M13.7,12.2 C16.1,12.5 17.8,14.2 17.8,16.8</x:String>
     </ContentView.Resources>
 
-    <!-- Covers the whole page so the menu can hang over it, but transparent to input except where its
-         children actually are - otherwise a closed menu would swallow every tap on the page beneath. -->
-    <Grid RowDefinitions="Auto,*" InputTransparent="True" CascadeInputTransparent="False">
-
     <!-- The same shape Orbit.Web takes on a narrow window: logo, then the section icons without their
          labels, then the avatar pushed to the far right. See app.css's 680px breakpoint. -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="12,10" ColumnSpacing="6"
+    <Grid ColumnDefinitions="Auto,*,Auto" Padding="12,10" ColumnSpacing="6"
           BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
 
         <!-- The logo is the way back to the dashboard, exactly as it is on the web at this width. -->
@@ -112,85 +108,6 @@
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="7" />
                 </Border.StrokeShape>
-            </Border>
-        </Grid>
-    </Grid>
-
-        <!-- The avatar's menu, as Orbit.Web's dropdown: who you are, then the things that hang off the
-             account. Anchored under the avatar rather than centred, so it reads as belonging to it. -->
-        <Grid Grid.Row="1" IsVisible="{Binding IsMenuOpen}">
-
-            <!-- Tapping anywhere else closes it, which is what a dropdown does everywhere. -->
-            <BoxView Color="Black" Opacity="0.35">
-                <BoxView.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding CloseMenuCommand}" />
-                </BoxView.GestureRecognizers>
-            </BoxView>
-
-            <Border Style="{StaticResource CardBorder}" Margin="0,4,12,0" Padding="0"
-                    WidthRequest="250" HorizontalOptions="End" VerticalOptions="Start"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="12" />
-                </Border.StrokeShape>
-
-                <VerticalStackLayout Padding="14" Spacing="10">
-                    <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-
-                    <BoxView HeightRequest="1"
-                             Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
-
-                    <!-- Folded by default, and readable folded: the row says what is currently set, and
-                         opens the two choices only when somebody wants to change it. -->
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                        <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding ToggleStatusCommand}" />
-                        </Grid.GestureRecognizers>
-                        <Label Grid.Column="0" Text="Status" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="{Binding ChosenDescription}" FontSize="12"
-                               VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
-                    </Grid>
-
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="{Binding IsStatusExpanded}">
-                        <Button Grid.Column="0" Text="Available" FontSize="12" Padding="6,4"
-                                Command="{Binding ChooseAvailableCommand}" IsEnabled="{Binding IsUnavailable}" />
-                        <Button Grid.Column="1" Text="Unavailable" FontSize="12" Padding="6,4"
-                                Command="{Binding ChooseUnavailableCommand}" IsEnabled="{Binding IsAvailable}" />
-                    </Grid>
-
-                    <BoxView HeightRequest="1"
-                             Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
-
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding GoToNotificationsCommand}" />
-                        </Grid.GestureRecognizers>
-                        <Label Grid.Column="0" Text="Notifications" VerticalOptions="Center" />
-                        <Border Grid.Column="1" IsVisible="{Binding HasUnread}" StrokeThickness="0"
-                                HeightRequest="18" MinimumWidthRequest="18" Padding="5,0"
-                                BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="9" />
-                            </Border.StrokeShape>
-                            <Label Text="{Binding UnreadLabel}" FontSize="10" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}"
-                                   HorizontalOptions="Center" VerticalOptions="Center" />
-                        </Border>
-                    </Grid>
-
-                    <Label Text="Account">
-                        <Label.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding GoToAccountCommand}" />
-                        </Label.GestureRecognizers>
-                    </Label>
-
-                    <Label Text="Sign out"
-                           TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}">
-                        <Label.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding SignOutCommand}" />
-                        </Label.GestureRecognizers>
-                    </Label>
-                </VerticalStackLayout>
             </Border>
         </Grid>
     </Grid>

@@ -52,4 +52,7 @@ public interface IScreenNavigator
 
     /// <summary>What Orbit is allowed to interrupt the reader with - see NotificationSettingsViewModel.</summary>
     void ShowNotificationSettings();
+
+    /// <summary>The app's own log, and the one way it leaves the phone - see DiagnosticsViewModel.</summary>
+    void ShowDiagnostics();
 }

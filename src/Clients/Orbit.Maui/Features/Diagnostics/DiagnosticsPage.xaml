@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Diagnostics.DiagnosticsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Diagnostics;assembly=Orbit.Mobile"
+    x:DataType="screens:DiagnosticsViewModel"
+    Title="Diagnostics">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="20" Spacing="12">
+
+                <Label Text="Diagnostics" FontSize="26" FontAttributes="Bold" />
+                <Label Text="Orbit's own log, on this phone. Nothing leaves it unless you send it."
+                       FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+                <Label Text="{Binding DeviceSummary}" FontSize="12" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}" />
+
+                <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
+                       LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Grid.Column="0">
+                        <Label Text="Record everything" />
+                        <Label Text="Warnings and errors otherwise. Goes back to that on the next launch."
+                               FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding IsVerbose}" VerticalOptions="Center" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Grid.Column="0" Text="Send to Orbit" Command="{Binding SendCommand}" />
+                    <Button Grid.Column="1" Text="Clear" Command="{Binding ClearCommand}"
+                            Style="{StaticResource DestructiveButton}" />
+                </Grid>
+
+                <Label Text="Nothing has been logged yet." IsVisible="{Binding HasNothing}"
+                       Style="{StaticResource SubtleLabel}" HorizontalOptions="Center" Margin="0,20" />
+
+                <!-- Monospaced and horizontally scrollable: a log line is a fixed shape, and wrapping one
+                     makes the timestamps stop lining up, which is most of how a log is read. -->
+                <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Default">
+                    <Label Text="{Binding Preview}" FontFamily="Menlo" FontSize="10" LineBreakMode="NoWrap" />
+                </ScrollView>
+
+                <Button Text="Back to account" Command="{Binding GoBackCommand}"
+                        Style="{StaticResource LinkButton}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+        <controls:StatusStrip Grid.Row="2" />
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+</ContentPage>

@@ -47,6 +47,9 @@
                 <Button Text="Change password" Command="{Binding ChangePasswordCommand}" />
             </VerticalStackLayout>
 
+            <Button Text="Diagnostics" Command="{Binding GoToDiagnosticsCommand}"
+                    Style="{StaticResource LinkButton}" />
+
             <Button Text="Chat key"
                     Command="{Binding GoToChatKeyCommand}"
                     Style="{StaticResource LinkButton}" />
@@ -58,7 +61,8 @@
         </VerticalStackLayout>
     </ScrollView>
         <controls:StatusStrip Grid.Row="2" />
-        <controls:NavigationBar Grid.Row="0" Grid.RowSpan="3" />
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

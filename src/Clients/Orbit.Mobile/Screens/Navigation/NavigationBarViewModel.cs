@@ -14,10 +14,10 @@ namespace Orbit.Mobile.Screens.Navigation;
 /// the far right (see app.css's 680px breakpoint). Matching it is the point: somebody who uses both
 /// should not have to learn the app twice.
 ///
-/// One view model per bar rather than one shared instance. The bar is part of each page, and a page
-/// that is not on screen has no business refreshing an unread count.
+/// One shared instance rather than one per page: the bar and the menu the avatar opens are two
+/// controls that have to agree about whether that menu is open, and only one page is ever on screen.
 /// </summary>
-public sealed partial class NavigationBarViewModel : ObservableObject, IDisposable
+public sealed partial class NavigationBarViewModel : ObservableObject
 {
     private readonly SessionStore _sessionStore;
     private readonly NotificationsClient _notificationsClient;
@@ -62,8 +62,6 @@ public sealed partial class NavigationBarViewModel : ObservableObject, IDisposab
         _presence.Changed += OnPresenceChanged;
         ShowPresence();
     }
-
-    public void Dispose() => _presence.Changed -= OnPresenceChanged;
 
     private void OnPresenceChanged(object? sender, EventArgs e) => ShowPresence();
 

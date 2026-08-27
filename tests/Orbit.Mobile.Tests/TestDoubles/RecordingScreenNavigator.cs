@@ -72,4 +72,6 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
     public void ShowNotifications() => _destinations.Add(nameof(ShowNotifications));
 
     public void ShowNotificationSettings() => _destinations.Add(nameof(ShowNotificationSettings));
+
+    public void ShowDiagnostics() => _destinations.Add(nameof(ShowDiagnostics));
 }

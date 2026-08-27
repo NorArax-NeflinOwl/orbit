@@ -10,9 +10,11 @@ using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens.Location;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Dashboard;
+using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Notifications;
+using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Startup;
@@ -24,6 +26,7 @@ using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
 using Orbit.Maui.Features.Dashboard;
+using Orbit.Maui.Features.Diagnostics;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Notifications;
 using Orbit.Maui.Features.Tasks;
@@ -62,6 +65,16 @@ public static class MauiProgram
 #if DEBUG
 		builder.Logging.AddDebug();
 #endif
+
+		// Everything the app already writes through ILogger also lands in a capped file on the phone, so
+		// a report can be sent from the diagnostics screen without anybody having to remember to log
+		// anything specially. Built here rather than resolved, because logging is configured before the
+		// container is.
+		var diagnosticLog = new DiagnosticLogFile(FileSystem.AppDataDirectory, TimeProvider.System);
+		var diagnosticVerbosity = new DiagnosticLogVerbosity();
+		builder.Services.AddSingleton(diagnosticLog);
+		builder.Services.AddSingleton(diagnosticVerbosity);
+		builder.Logging.AddProvider(new DiagnosticLogProvider(diagnosticLog, diagnosticVerbosity));
 
 		var app = builder.Build();
 		LocalDatabase.Migrate(app.Services);
@@ -113,6 +126,7 @@ public static class MauiProgram
 		services.AddSingleton<IDeviceLocation, PhoneLocation>();
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
+		services.AddSingleton<IDeviceDescription, PhoneDescription>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)
@@ -171,6 +185,8 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<NotificationsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<DiagnosticsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
 	}
 
@@ -184,8 +200,8 @@ public static class MauiProgram
 
 		services.AddTransient<DashboardPage>();
 		services.AddTransient<DashboardViewModel>();
-		// One per bar, not one shared: a page that is not on screen has no business refreshing a badge.
-		services.AddTransient<NavigationBarViewModel>();
+		// Shared by the bar and the menu it opens, which have to agree about whether that menu is open.
+		services.AddSingleton<NavigationBarViewModel>();
 		services.AddTransient<StatusStripViewModel>();
 		services.AddTransient<StartupPage>();
 		services.AddTransient<StartupViewModel>();
@@ -225,5 +241,7 @@ public static class MauiProgram
 		services.AddTransient<NotificationFeedViewModel>();
 		services.AddTransient<NotificationSettingsPage>();
 		services.AddTransient<NotificationSettingsViewModel>();
+		services.AddTransient<DiagnosticsPage>();
+		services.AddTransient<DiagnosticsViewModel>();
 	}
 }

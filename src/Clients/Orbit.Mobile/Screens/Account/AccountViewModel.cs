@@ -147,6 +147,9 @@ public sealed partial class AccountViewModel : ObservableObject
     private void GoToChatKey() => _navigator.ShowChatKeyGate();
 
     [RelayCommand]
+    private void GoToDiagnostics() => _navigator.ShowDiagnostics();
+
+    [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();
 
     private async Task RunAsync(Func<Task<AccountOperationResult>> operation, string successMessage)

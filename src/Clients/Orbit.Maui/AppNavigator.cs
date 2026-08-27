@@ -3,6 +3,7 @@ using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Dashboard;
+using Orbit.Maui.Features.Diagnostics;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
 using Orbit.Maui.Features.Notes;
@@ -68,6 +69,8 @@ public sealed class AppNavigator : IScreenNavigator
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>();
 
 	public void ShowNotificationSettings() => ShowAsRoot<NotificationSettingsPage>();
+
+	public void ShowDiagnostics() => ShowAsRoot<DiagnosticsPage>();
 
 	public void ShowTaskList(Guid localId)
 		=> ShowAsRoot<TaskListDetailPage>(page => page.ViewModel.Open(localId));
