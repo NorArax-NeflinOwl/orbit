@@ -113,5 +113,11 @@ public sealed class AppNavigator : IScreenNavigator
 			// asking for it up front is a cycle the container cannot build. Everything else this method
 			// uses is resolved the same way, so it is the shape this class already has.
 			_services.GetRequiredService<UpNavigation>().Showing(screen);
+
+			// The navigation bar is one instance shared by every page, so a menu opened over the screen
+			// being left would still be open over the one arriving. Orbit.Web closes it on every route
+			// change rather than in each thing that navigates - see MainLayout's LocationChanged - and
+			// this is the one place mobile changes screens.
+			_services.GetRequiredService<NavigationBarViewModel>().CloseMenu();
 		});
 }

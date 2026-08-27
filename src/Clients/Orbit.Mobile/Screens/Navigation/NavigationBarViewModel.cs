@@ -184,8 +184,14 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Public because the navigator calls it on every screen change, not only the menu's own dismiss
+    /// button: the bar is one shared instance across every page, so a menu left open outlives the
+    /// screen it was opened over. Orbit.Web closes both its menus from MainLayout's LocationChanged
+    /// handler for exactly this reason.
+    /// </summary>
     [RelayCommand]
-    private void CloseMenu()
+    public void CloseMenu()
     {
         IsMenuOpen = false;
         // Folded away with the menu, so the next visit opens on the list rather than mid-choice.
