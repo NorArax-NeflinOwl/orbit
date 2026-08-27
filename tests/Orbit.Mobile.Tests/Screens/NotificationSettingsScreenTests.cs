@@ -53,6 +53,28 @@ public sealed class NotificationSettingsScreenTests
         Assert.True(context.Server.Settings.AllowEmail);
     }
 
+    /// <summary>
+    /// The button, not just the method behind it. Every other test here runs SaveCommand directly, which
+    /// skips CanExecute - so all of them passed while the Save button on the screen was disabled from the
+    /// moment it opened: the load asks whether saving is possible while it is still marked busy, and
+    /// clearing that afterwards never asked the command again. Settings could be read and never changed.
+    /// </summary>
+    [Fact]
+    public async Task The_save_button_is_offered_once_the_settings_have_been_read()
+    {
+        var context = new SettingsContext();
+        var screen = context.Open();
+
+        // What the button sees, not what the predicate would say if asked: a button only re-asks when
+        // it is told to, so the last thing it was told is the state it is left in.
+        bool? whatTheButtonWasLastTold = null;
+        screen.SaveCommand.CanExecuteChanged += (_, _) => whatTheButtonWasLastTold = screen.SaveCommand.CanExecute(null);
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(whatTheButtonWasLastTold);
+    }
+
     [Fact]
     public async Task Nothing_is_saved_before_anything_was_read()
     {

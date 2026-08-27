@@ -69,7 +69,17 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
-    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanSave));
+    /// <summary>
+    /// Tells the command, not just the binding. Show() runs inside the load's try, so it asks whether
+    /// saving is possible while IsBusy is still true and gets "no"; without re-asking here, when the
+    /// finally clears IsBusy, the Save button stayed disabled for the life of the screen and notification
+    /// settings could be read but never changed.
+    /// </summary>
+    partial void OnIsBusyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanSave));
+        SaveCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnAllowNotificationsChanged(bool value) => OnPropertyChanged(nameof(CanChooseChannels));
 
@@ -118,7 +128,7 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
                     AllowShareNotifications, current.RetentionDays),
                 cancellationToken));
 
-            Message = "Saved.";
+            Message = _translations["Saved."];
         }
         catch (HttpRequestException exception)
         {
