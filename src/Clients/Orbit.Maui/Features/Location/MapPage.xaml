@@ -23,8 +23,12 @@
                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
             <!-- Pins are built in code-behind: the control's pin carries a platform Location, and
-                 keeping that out of the view model is what lets the view model be tested at all. -->
-            <maps:Map x:Name="PositionsMap" HeightRequest="260" IsShowingUser="False" />
+                 keeping that out of the view model is what lets the view model be tested at all.
+                 Held in a container the code-behind can empty, because a build with no map key must
+                 not create the control at all - see MapAvailability. -->
+            <ContentView x:Name="MapArea" HeightRequest="260">
+                <maps:Map x:Name="PositionsMap" IsShowingUser="False" />
+            </ContentView>
 
             <Label Text="{controls:Translate 'Where you are'}" FontAttributes="Bold" />
             <Label Text="{Binding OwnPositionDescription}" LineBreakMode="WordWrap" />

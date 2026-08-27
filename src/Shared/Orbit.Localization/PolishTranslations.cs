@@ -600,6 +600,7 @@ public static class PolishTranslations
         ["Saved. It's in your account now."] = "Zapisano. Jest teraz na Twoim koncie.",
         ["\"{0}\" is no longer available to you."] = "„{0}” nie jest już dla Ciebie dostępne.",
         ["(can't be opened on this device)"] = "(nie da się otworzyć na tym urządzeniu)",
+        ["The map can't be shown in this build."] = "Ta wersja aplikacji nie potrafi pokazać mapy.",
         ["Unreadable - encrypted with an older key"] = "Nieczytelne — zaszyfrowane starszym kluczem",
         ["another list"] = "inną listą",
         ["another user"] = "inny użytkownik",

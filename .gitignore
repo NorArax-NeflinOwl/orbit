@@ -47,3 +47,7 @@ credentials/
 # it from secrets/ if you keep one there.
 google-services.json
 GoogleService-Info.plist
+
+# The Google Maps key for the Android app, merged into the manifest at build time. Same rule again: a
+# placeholder is tracked (AndroidManifestOverlay.xml.example) and the real file is not.
+AndroidManifestOverlay.xml

@@ -93,6 +93,13 @@
 		<PackageReference Include="Xamarin.AndroidX.Biometric" Version="1.1.0.30" />
 	</ItemGroup>
 
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('Platforms\Android\AndroidManifestOverlay.xml')">
+		<!-- Merged into the manifest at build time, and carrying one thing: the Google Maps key, which is
+		deployment-specific and gitignored. Conditional on the file existing so a clone without it still
+		builds - see Platforms/Android/MapAvailability.cs for what the app does then. -->
+		<AndroidManifestOverlay Include="Platforms\Android\AndroidManifestOverlay.xml" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<!-- The same request/response types the API serves and Orbit.Web consumes, rather than a
 		hand-written mirror of them. This is the reason the client is MAUI rather than native: a contract
