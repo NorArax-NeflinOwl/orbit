@@ -53,6 +53,9 @@ public sealed partial class CalendarViewModel : ObservableObject
     /// <summary>The month grid - six weeks of seven days, whatever month it is. See CalendarMonth.</summary>
     public ObservableCollection<CalendarDay> Days { get; } = [];
 
+    /// <summary>The twelve months of the year being shown, for the year overview. See CalendarYear.</summary>
+    public ObservableCollection<CalendarYearMonth> Months { get; } = [];
+
     public IReadOnlyList<string> WeekdayNames => CalendarMonth.WeekdayNames(_translations);
 
     /// <summary>Which month the grid is showing, which is not necessarily the month containing today.</summary>
@@ -66,23 +69,63 @@ public sealed partial class CalendarViewModel : ObservableObject
     [ObservableProperty]
     private DateTime? _selectedDay;
 
-    public string MonthLabel => CalendarMonth.Describe(Month, _translations);
+    /// <summary>
+    /// Whether the year overview is showing in place of the month grid. Orbit.Web switches between day,
+    /// month and year; here the day is the month grid with one of its days chosen, so this is the whole
+    /// of the switch.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isShowingYear;
+
+    /// <summary>What the header says above the grid: a month, or a year when the year is showing.</summary>
+    public string PeriodLabel
+        => IsShowingYear ? CalendarYear.Describe(Month.Year) : CalendarMonth.Describe(Month, _translations);
+
+    public bool IsShowingMonth => !IsShowingYear;
 
     public bool IsShowingOneDay => SelectedDay is not null;
 
+    /// <summary>A step back through whatever is on screen: a month, or a year when the year is showing.</summary>
     [RelayCommand]
-    private Task PreviousMonthAsync(CancellationToken cancellationToken)
+    private Task ShowEarlierAsync(CancellationToken cancellationToken) => StepAsync(-1, cancellationToken);
+
+    [RelayCommand]
+    private Task ShowLaterAsync(CancellationToken cancellationToken) => StepAsync(1, cancellationToken);
+
+    private Task StepAsync(int direction, CancellationToken cancellationToken)
     {
-        Month = Month.AddMonths(-1);
+        Month = IsShowingYear ? Month.AddYears(direction) : Month.AddMonths(direction);
+        SelectedDay = null;
+        return ShowStoredEventsAsync(cancellationToken);
+    }
+
+    /// <summary>The year overview, and back out of it. Choosing a month is the way out that goes somewhere.</summary>
+    [RelayCommand]
+    private Task ShowYearAsync(CancellationToken cancellationToken)
+    {
+        IsShowingYear = true;
         SelectedDay = null;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
     [RelayCommand]
-    private Task NextMonthAsync(CancellationToken cancellationToken)
+    private Task ShowMonthAsync(CancellationToken cancellationToken)
     {
-        Month = Month.AddMonths(1);
-        SelectedDay = null;
+        IsShowingYear = false;
+        return ShowStoredEventsAsync(cancellationToken);
+    }
+
+    /// <summary>Tapping a month in the year overview opens it, which is what the overview is for.</summary>
+    [RelayCommand]
+    private Task ChooseMonthAsync(CalendarYearMonth? month, CancellationToken cancellationToken)
+    {
+        if (month is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        Month = month.Month;
+        IsShowingYear = false;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -92,6 +135,7 @@ public sealed partial class CalendarViewModel : ObservableObject
     {
         Month = _timeProvider.GetUtcNow().LocalDateTime.Date;
         SelectedDay = null;
+        IsShowingYear = false;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -109,6 +153,7 @@ public sealed partial class CalendarViewModel : ObservableObject
 
         SelectedDay = SelectedDay == day.Date ? null : day.Date;
         Month = day.Date;
+        IsShowingYear = false;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -156,11 +201,18 @@ public sealed partial class CalendarViewModel : ObservableObject
     {
         var stored = await _events.GetAllAsync(cancellationToken);
         var pending = await _events.GetPendingLocalIdsAsync(cancellationToken);
+        var today = _timeProvider.GetUtcNow().LocalDateTime;
 
         Days.Clear();
-        foreach (var day in CalendarMonth.Build(Month, SelectedDay, _timeProvider.GetUtcNow().LocalDateTime, stored))
+        foreach (var day in CalendarMonth.Build(Month, SelectedDay, today, stored))
         {
             Days.Add(day);
+        }
+
+        Months.Clear();
+        foreach (var month in CalendarYear.Build(Month.Year, today, stored, _translations))
+        {
+            Months.Add(month);
         }
 
         // The list beneath the grid follows it: the chosen day, or the whole month when none is chosen.
@@ -172,14 +224,27 @@ public sealed partial class CalendarViewModel : ObservableObject
             Events.Add(CalendarEventRow.From(calendarEvent, pending.Contains(calendarEvent.LocalId), _networkStatus, _translations));
         }
 
-        OnPropertyChanged(nameof(MonthLabel));
+        OnPropertyChanged(nameof(PeriodLabel));
         OnPropertyChanged(nameof(IsShowingOneDay));
     }
 
     private bool Covers(DateTime date)
-        => SelectedDay is { } chosen
-            ? date == chosen.Date
+    {
+        if (SelectedDay is { } chosen)
+        {
+            return date == chosen.Date;
+        }
+
+        return IsShowingYear
+            ? date.Year == Month.Year
             : date.Month == Month.Month && date.Year == Month.Year;
+    }
+
+    partial void OnIsShowingYearChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PeriodLabel));
+        OnPropertyChanged(nameof(IsShowingMonth));
+    }
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {

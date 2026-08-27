@@ -14,22 +14,43 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
 
-        <!-- The month at a glance. Orbit.Web offers day, month and year; a phone gets the month, which
-             is the one a grid answers - the other two are a list of one day and a list of twelve, and
-             the list beneath this already is the first of those. -->
+        <!-- The month at a glance, or the year. Orbit.Web offers day, month and year; the day here is
+             this grid with one of its days chosen, so the switch beneath is the rest of it. -->
         <VerticalStackLayout Grid.Row="0" Spacing="6">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
                 <Button Grid.Column="0" Text="‹" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
-                        Command="{Binding PreviousMonthCommand}" />
-                <Label Grid.Column="1" Text="{Binding MonthLabel}" FontSize="17" FontAttributes="Bold"
+                        Command="{Binding ShowEarlierCommand}" />
+                <Label Grid.Column="1" Text="{Binding PeriodLabel}" FontSize="17" FontAttributes="Bold"
                        HorizontalTextAlignment="Center" VerticalOptions="Center" />
                 <Button Grid.Column="2" Text="›" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
-                        Command="{Binding NextMonthCommand}" />
+                        Command="{Binding ShowLaterCommand}" />
                 <Button Grid.Column="3" Text="{controls:Translate 'Today'}" FontSize="12" Padding="8,0"
                         Style="{StaticResource LinkButton}" Command="{Binding ShowTodayCommand}" />
             </Grid>
 
-            <HorizontalStackLayout BindableLayout.ItemsSource="{Binding WeekdayNames}">
+            <!-- Which of the two the grid is showing. The one not showing goes quiet, the way the days
+                 either side of the month do - bold alone is too fine a difference at this size to read. -->
+            <HorizontalStackLayout Spacing="14" HorizontalOptions="Center">
+                <Button Text="{controls:Translate 'Month'}" FontSize="13" Padding="4,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowMonthCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingYear}" Value="True">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="{controls:Translate 'Year'}" FontSize="13" Padding="4,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowYearCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingMonth}" Value="True">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </HorizontalStackLayout>
+
+            <HorizontalStackLayout BindableLayout.ItemsSource="{Binding WeekdayNames}"
+                                   IsVisible="{Binding IsShowingMonth}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="x:String">
                         <Label Text="{Binding .}" FontSize="10" WidthRequest="46" HorizontalTextAlignment="Center"
@@ -38,7 +59,8 @@
                 </BindableLayout.ItemTemplate>
             </HorizontalStackLayout>
 
-            <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Days}">
+            <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Days}"
+                        IsVisible="{Binding IsShowingMonth}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarDay">
                         <Grid WidthRequest="46" HeightRequest="40" RowDefinitions="*,Auto">
@@ -73,6 +95,38 @@
                             <Ellipse Grid.Row="1" WidthRequest="5" HeightRequest="5" HorizontalOptions="Center"
                                      IsVisible="{Binding HasEvents}"
                                      Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </FlexLayout>
+
+            <!-- The year: twelve months and what each holds. Tapping one opens it. -->
+            <FlexLayout Wrap="Wrap" Direction="Row" JustifyContent="Center" AlignContent="Start"
+                        BindableLayout.ItemsSource="{Binding Months}" IsVisible="{Binding IsShowingYear}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:CalendarYearMonth">
+                        <Grid WidthRequest="104" HeightRequest="58" Margin="2" RowDefinitions="Auto,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseMonthCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+
+                            <Label Grid.Row="0" Text="{Binding Name}" FontSize="14" HorizontalTextAlignment="Center"
+                                   VerticalOptions="End">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsThisMonth}" Value="True">
+                                        <Setter Property="FontAttributes" Value="Bold" />
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+
+                            <!-- A count rather than a dot: twelve cells this size can carry the number,
+                                 and "how busy" is what a year is read for. -->
+                            <Label Grid.Row="1" Text="{Binding EventCount}" FontSize="11" IsVisible="{Binding HasEvents}"
+                                   HorizontalTextAlignment="Center" Style="{StaticResource SubtleLabel}" />
                         </Grid>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
