@@ -44,6 +44,19 @@ public sealed class NotesClient
         return ReadOutcome(response);
     }
 
+    /// <summary>
+    /// Its own endpoint rather than part of an update, because pinning is not a change to the note: it
+    /// leaves UpdatedAtUtc alone, and only the owner may do it.
+    /// </summary>
+    public async Task<WriteOutcome> SetPinnedAsync(
+        Guid noteId, bool isPinned, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/notes/{noteId}/pinned", new SetNotePinnedRequest(isPinned), cancellationToken);
+
+        return ReadOutcome(response);
+    }
+
     public async Task<WriteOutcome> DeleteAsync(Guid noteId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/notes/{noteId}", cancellationToken);

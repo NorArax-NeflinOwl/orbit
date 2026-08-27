@@ -47,19 +47,15 @@
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                            <!-- Only on the reader's own messages, and only once the server has one -
-                                 see ReadableChatMessage.CanBeChanged. The commands live on the page's
-                                 view model, so these go through the page's typed ViewModel property. -->
-                            <HorizontalStackLayout Spacing="16" IsVisible="{Binding CanBeChanged}">
-                                <Button Text="{controls:Translate 'Edit'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartEditingCommand, x:DataType=chat:GroupConversationPage}"
-                                        CommandParameter="{Binding .}" />
-                                <Button Text="{controls:Translate 'Delete'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DeleteCommand, x:DataType=chat:GroupConversationPage}"
-                                        CommandParameter="{Binding .}" />
-                            </HorizontalStackLayout>
+                            <!-- One trigger rather than a row of buttons, as the web's group chat now
+                                 does it and as a one-to-one conversation here already did. Only on the
+                                 reader's own messages, and only once the server has one - see
+                                 ReadableChatMessage.CanBeChanged. -->
+                            <Button Text="⋯" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
+                                    HorizontalOptions="Start" IsVisible="{Binding CanBeChanged}"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
+                                    CommandParameter="{Binding .}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

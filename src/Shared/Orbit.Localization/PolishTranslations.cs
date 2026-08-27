@@ -945,6 +945,7 @@ public static class PolishTranslations
         ["This message can't be opened on this device."] = "Tej wiadomości nie da się otworzyć na tym urządzeniu.",
         ["This position can't be opened on this device."] = "Tej lokalizacji nie da się otworzyć na tym urządzeniu.",
         ["Saved."] = "Zapisano.",
+        ["Pinning needs a connection."] = "Przypięcie wymaga połączenia.",
         ["Orbit's own log, on this phone. Nothing leaves it unless you send it."] =
             "Własny dziennik Orbita, na tym telefonie. Nic z niego nie wychodzi, dopóki go nie wyślesz.",
         // The map screen: reading a position, sharing it, and stopping.

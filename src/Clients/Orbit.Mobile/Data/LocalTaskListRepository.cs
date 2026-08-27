@@ -118,6 +118,19 @@ public sealed class LocalTaskListRepository
         return LocalWriteOutcome.Applied;
     }
 
+    /// <inheritdoc cref="LocalNoteRepository.MarkPinnedAsync"/>
+    public async Task MarkPinnedAsync(Guid localId, bool isPinned, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.TaskLists.FirstOrDefaultAsync(list => list.LocalId == localId, cancellationToken) is not { } taskList)
+        {
+            return;
+        }
+
+        taskList.IsPinned = isPinned;
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<LocalWriteOutcome> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);

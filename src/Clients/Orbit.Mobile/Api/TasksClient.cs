@@ -41,6 +41,19 @@ public sealed class TasksClient
         return ReadOutcome(response);
     }
 
+    /// <summary>
+    /// Its own endpoint rather than part of an update, because pinning is not a change to the list: it
+    /// leaves UpdatedAtUtc alone, and only the owner may do it.
+    /// </summary>
+    public async Task<WriteOutcome> SetPinnedAsync(
+        Guid taskListId, bool isPinned, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/pinned", new SetTaskListPinnedRequest(isPinned), cancellationToken);
+
+        return ReadOutcome(response);
+    }
+
     public async Task<WriteOutcome> DeleteAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/tasks/{taskListId}", cancellationToken);

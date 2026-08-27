@@ -9,6 +9,10 @@
     x:DataType="screens:NotesViewModel"
     Title="{controls:Translate 'Notes'}">
 
+    <ContentPage.Resources>
+        <controls:PinGlyphConverter x:Key="PinGlyph" />
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,*,Auto">
 
 
@@ -35,7 +39,19 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:NoteListItem">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Label Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold" />
+                            <!-- The pin sits beside the title as it does on the web. Filled when it is
+                                 set, outlined when it is not, so the row says which it is without a
+                                 word - and absent on a note somebody else owns, whose order is theirs. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold"
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="1" IsVisible="{Binding CanBePinned}"
+                                        Text="{Binding IsPinned, Converter={StaticResource PinGlyph}}"
+                                        FontSize="16" Padding="10,0" BackgroundColor="Transparent"
+                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=notes:NotesPage}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
 
                             <!-- A hidden row keeps its place - a note vanishing from the list would look
                                  like it had been deleted - but says nothing about itself until unlocked. -->

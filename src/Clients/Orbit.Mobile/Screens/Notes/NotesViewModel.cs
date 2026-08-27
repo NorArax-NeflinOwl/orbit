@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Contracts.Sync;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -18,6 +20,7 @@ public sealed partial class NotesViewModel : ObservableObject
 {
     private readonly LocalNoteRepository _notes;
     private readonly NoteSynchronizer _synchronizer;
+    private readonly NotesClient _notesClient;
     private readonly INetworkStatus _networkStatus;
     private readonly Translations _translations;
     private readonly PrivateItemGate _privateItems;
@@ -31,13 +34,19 @@ public sealed partial class NotesViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRefreshing;
 
+    /// <summary>The one thing this screen has to say for itself, which today is only about pinning.</summary>
+    [ObservableProperty]
+    private string _message = string.Empty;
+
     public NotesViewModel(
-        LocalNoteRepository notes, NoteSynchronizer synchronizer, INetworkStatus networkStatus,
+        LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient,
+        INetworkStatus networkStatus,
         Translations translations, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
+        _notesClient = notesClient;
         _networkStatus = networkStatus;
         _translations = translations;
         _privateItems = privateItems;
@@ -69,6 +78,39 @@ public sealed partial class NotesViewModel : ObservableObject
     {
         await ShowLocalNotesAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Moves a note to the top of the list, or lets it back down. Reaches the server rather than only
+    /// the phone, because the next pull overwrites what is held locally - so a pin that stayed here
+    /// would quietly undo itself. Refused rather than queued when there is no connection: the outbox
+    /// carries changes to a note, and this is not one - it leaves UpdatedAtUtc alone on purpose.
+    /// </summary>
+    [RelayCommand]
+    private async Task TogglePinAsync(NoteListItem? row, CancellationToken cancellationToken)
+    {
+        if (row is not { CanBePinned: true }
+            || await _notes.FindAsync(row.LocalId, cancellationToken) is not { ServerId: { } serverId })
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _notesClient.SetPinnedAsync(serverId, !row.IsPinned, cancellationToken) is not WriteOutcome.Applied)
+            {
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Pinning needs a connection."];
+            return;
+        }
+
+        await _notes.MarkPinnedAsync(row.LocalId, !row.IsPinned, cancellationToken);
+        Message = string.Empty;
+        await ShowLocalNotesAsync(cancellationToken);
     }
 
     /// <summary>The way back to the dashboard, as every other list screen has - see NotesPage.</summary>

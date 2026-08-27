@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Contracts.Sync;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
@@ -15,6 +17,7 @@ public sealed partial class TasksViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly TaskListSynchronizer _synchronizer;
+    private readonly TasksClient _tasksClient;
     private readonly INetworkStatus _networkStatus;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
@@ -26,12 +29,18 @@ public sealed partial class TasksViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRefreshing;
 
+    /// <summary>The one thing this screen has to say for itself, which today is only about pinning.</summary>
+    [ObservableProperty]
+    private string _message = string.Empty;
+
     public TasksViewModel(
-        LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, INetworkStatus networkStatus,
+        LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
+        INetworkStatus networkStatus,
         SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
+        _tasksClient = tasksClient;
         _networkStatus = networkStatus;
         _syncState = syncState;
         _navigator = navigator;
@@ -70,6 +79,33 @@ public sealed partial class TasksViewModel : ObservableObject
         {
             _navigator.ShowTaskList(row.LocalId);
         }
+    }
+
+    /// <inheritdoc cref="NotesViewModel.TogglePinAsync"/>
+    [RelayCommand]
+    private async Task TogglePinAsync(TaskListRow? row, CancellationToken cancellationToken)
+    {
+        if (row is null || await _taskLists.FindAsync(row.LocalId, cancellationToken) is not { ServerId: { } serverId })
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _tasksClient.SetPinnedAsync(serverId, !row.IsPinned, cancellationToken) is not WriteOutcome.Applied)
+            {
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Pinning needs a connection."];
+            return;
+        }
+
+        await _taskLists.MarkPinnedAsync(row.LocalId, !row.IsPinned, cancellationToken);
+        Message = string.Empty;
+        await ShowStoredListsAsync(cancellationToken);
     }
 
     [RelayCommand]
