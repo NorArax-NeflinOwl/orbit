@@ -83,6 +83,24 @@
                 <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
             </VerticalStackLayout>
 
+            <!-- A file somebody keeps, not a copy the app maintains. Importing creates new things
+                 rather than restoring old ones, so it never puts what is already here at risk. -->
+            <VerticalStackLayout Spacing="8" IsVisible="{Binding IsShowingAccount}">
+                <Label Text="{controls:Translate 'Export'}" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Button Text="{controls:Translate 'Export everything'}" HorizontalOptions="Start"
+                        IsEnabled="{Binding IsOnline}" Command="{Binding ExportCommand}" />
+
+                <Label Text="{controls:Translate 'Import'}" FontAttributes="Bold" Margin="0,8,0,0" />
+                <Button x:Name="ImportButton" Text="{controls:Translate 'Import'}" HorizontalOptions="Start"
+                        IsEnabled="{Binding IsOnline}" Clicked="OnImportClicked" />
+
+                <Label Text="{Binding TransferMessage}" IsVisible="{Binding HasTransferMessage}"
+                       FontSize="12" LineBreakMode="WordWrap"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </VerticalStackLayout>
+
             <!-- The same list Orbit.Web puts under Options, Permissions, and the same wording: what each
                  part of Orbit is, whether it is unlocked, and what it needs first when it is not. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingPermissions}">

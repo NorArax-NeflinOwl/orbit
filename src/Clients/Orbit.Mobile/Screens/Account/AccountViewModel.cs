@@ -28,6 +28,7 @@ public sealed partial class AccountViewModel : ObservableObject
     private readonly UsersClient _usersClient;
     private readonly UserPermissions _permissions;
     private readonly IThemeStore _themes;
+    private readonly TransferClient _transfer;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -70,7 +71,8 @@ public sealed partial class AccountViewModel : ObservableObject
     public AccountViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
-        UserPermissions permissions, IThemeStore themes, IScreenNavigator navigator)
+        UserPermissions permissions, IThemeStore themes, TransferClient transfer,
+        IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
@@ -80,6 +82,7 @@ public sealed partial class AccountViewModel : ObservableObject
         _usersClient = usersClient;
         _permissions = permissions;
         _themes = themes;
+        _transfer = transfer;
         _theme = themes.Read();
         _navigator = navigator;
     }
@@ -110,6 +113,77 @@ public sealed partial class AccountViewModel : ObservableObject
         if (row is not null)
         {
             Tab = row.Tab;
+        }
+    }
+
+    /// <summary>What the last export or import did, or why it did not.</summary>
+    [ObservableProperty]
+    private string _transferMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isTransferring;
+
+    public bool HasTransferMessage => TransferMessage.Length > 0;
+
+    /// <summary>What the file picker is titled - the picker is the platform's, the words are the app's.</summary>
+    public string ImportPickerTitle => _translations["Import"];
+
+    /// <summary>
+    /// Raised with the file's name and its contents once an export is built. Writing it and handing it
+    /// somewhere is a platform call - the share sheet - and reaching for one here is what would make
+    /// this screen untestable.
+    /// </summary>
+    public event EventHandler<(string FileName, string Json)>? ExportReady;
+
+    [RelayCommand]
+    private async Task ExportAsync(CancellationToken cancellationToken)
+    {
+        IsTransferring = true;
+        try
+        {
+            var json = await _transfer.ExportAsync(cancellationToken);
+            if (json is null)
+            {
+                TransferMessage = _translations["Couldn't build the export. Try again."];
+                return;
+            }
+
+            TransferMessage = string.Empty;
+            ExportReady?.Invoke(this, ($"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", json));
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            TransferMessage = _translations["Couldn't build the export. Try again."];
+        }
+        finally
+        {
+            IsTransferring = false;
+        }
+    }
+
+    /// <summary>
+    /// Reads a file the reader picked. Importing creates new things rather than restoring old ones, so
+    /// running it into an account that already has things in it puts none of them at risk.
+    /// </summary>
+    public async Task ImportAsync(string json, CancellationToken cancellationToken = default)
+    {
+        IsTransferring = true;
+        try
+        {
+            var result = await _transfer.ImportAsync(json, cancellationToken);
+            TransferMessage = result is null
+                ? _translations["That file didn't contain an Orbit export."]
+                : _translations.Format(
+                    "Imported {0} notes, {1} task lists, {2} events and {3} storages.",
+                    result.Notes, result.TaskLists, result.CalendarEvents, result.Warehouses);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            TransferMessage = _translations["Couldn't import that file. Try again."];
+        }
+        finally
+        {
+            IsTransferring = false;
         }
     }
 
@@ -314,6 +388,8 @@ public sealed partial class AccountViewModel : ObservableObject
             // The screen went away mid-request; there is nobody left to tell.
         }
     }
+
+    partial void OnTransferMessageChanged(string value) => OnPropertyChanged(nameof(HasTransferMessage));
 
     partial void OnTabChanged(AccountTab value)
     {

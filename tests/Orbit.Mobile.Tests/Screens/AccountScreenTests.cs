@@ -65,12 +65,81 @@ public sealed class AccountScreenTests
         Assert.Equal(ChosenTheme.Light, context.Open().Theme);
     }
 
+    /// <summary>
+    /// A file somebody keeps, not a copy the app maintains. Building it is the view model's job; writing
+    /// it and handing it somewhere is the page's, which is why this ends in an event rather than a file.
+    /// </summary>
+    [Fact]
+    public async Task Exporting_hands_over_a_named_file()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        (string FileName, string Json)? offered = null;
+        screen.ExportReady += (_, export) => offered = export;
+
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        Assert.NotNull(offered);
+        Assert.StartsWith("orbit-export-", offered!.Value.FileName);
+        Assert.EndsWith(".json", offered.Value.FileName);
+        Assert.Contains("\"version\"", offered.Value.Json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task An_export_that_could_not_be_built_says_so_and_offers_nothing()
+    {
+        using var context = new ScreenContext();
+        context.Transfer.RefusesToExport = true;
+        var screen = context.Open();
+        var offered = false;
+        screen.ExportReady += (_, _) => offered = true;
+
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        Assert.False(offered);
+        Assert.True(screen.HasTransferMessage);
+    }
+
+    [Fact]
+    public async Task Importing_reads_the_file_and_says_what_came_back()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        await screen.ImportAsync(
+            """{"version":1,"exportedAtUtc":"2026-08-27T10:00:00Z","notes":[],"taskLists":[],"calendarEvents":[],"warehouses":[]}""");
+
+        Assert.NotNull(context.Transfer.Imported);
+        Assert.True(screen.HasTransferMessage);
+    }
+
+    /// <summary>
+    /// A file that is not JSON and JSON of some other shape get the same answer: neither is something
+    /// the reader can act on differently, and neither reaches the server.
+    /// </summary>
+    [Theory]
+    [InlineData("not json at all")]
+    [InlineData("{\"something\":\"else\"}")]
+    public async Task A_file_that_is_not_an_export_is_refused_without_asking_the_server(string contents)
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        await screen.ImportAsync(contents);
+
+        Assert.True(screen.HasTransferMessage);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
         private readonly FakeUsersServer _users = new();
 
         public InMemoryThemeStore Themes { get; } = new();
+
+        /// <summary>The account's whole archive, out and back - see TransferClient.</summary>
+        public FakeTransferServer Transfer { get; } = new();
 
         private readonly SessionStore _sessionStore = new(new InMemorySessionStorage(
             new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Me")));
@@ -89,11 +158,13 @@ public sealed class AccountScreenTests
                 new UsersClient(_users.ToHttpClient()),
                 UnlockedPermissions.For(_localStore),
                 Themes,
+                new TransferClient(Transfer.ToHttpClient()),
                 new RecordingScreenNavigator());
 
         public void Dispose()
         {
             _users.Dispose();
+            Transfer.Dispose();
             _localStore.Dispose();
         }
     }
