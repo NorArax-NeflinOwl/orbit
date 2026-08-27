@@ -60,6 +60,14 @@
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>
 
+	<ItemGroup Condition="$(TargetFramework.Contains('-ios'))">
+		<!-- The text in iOS's own location prompt. It cannot come from the app's dictionary: the system
+		shows it before any of Orbit's code has run, and picks the language from the phone's settings
+		rather than from the language chosen inside the app. -->
+		<BundleResource Include="Platforms\iOS\Resources\Base.lproj\InfoPlist.strings" LogicalName="Base.lproj/InfoPlist.strings" />
+		<BundleResource Include="Platforms\iOS\Resources\pl.lproj\InfoPlist.strings" LogicalName="pl.lproj/InfoPlist.strings" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<!-- The map on the location screen. On iOS this is MapKit, which needs no API key and no account -

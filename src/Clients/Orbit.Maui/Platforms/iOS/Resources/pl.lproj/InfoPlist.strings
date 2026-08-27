@@ -1,0 +1,3 @@
+/* iOS picks this by the phone's own language, not by the language chosen inside Orbit: the prompt is
+   the system's, and it is shown before the app can say anything about itself. */
+"NSLocationWhenInUseUsageDescription" = "Orbit używa Twojego położenia, aby je zapisać i udostępnić wybranym przez Ciebie osobom. Zanim opuści telefon, jest dla nich szyfrowane.";
