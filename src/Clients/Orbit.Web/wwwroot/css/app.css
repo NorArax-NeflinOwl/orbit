@@ -1159,6 +1159,11 @@ input.note-editor-title {
 .card-title {
     display: flex;
     align-items: center;
+    /* A list carrying every badge at once - group, priority, status, pinned - is wider than its card.
+       The badges drop onto a second line rather than running past the edge, and min-width lets the
+       title itself shrink instead of holding the row open. */
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 8px;
     font-family: var(--font-display);
     font-weight: 600;
@@ -1170,6 +1175,7 @@ input.note-editor-title {
 }
 
 .card-count {
+    flex-shrink: 0;
     font-size: 11.5px;
     color: var(--text-tertiary);
     background: var(--bg-subtle);
@@ -2807,6 +2813,9 @@ input.note-editor-title {
 
 .card-badge {
     margin-left: 6px;
+    /* Squeezed by a crowded header a badge breaks its own text across two lines; it moves to the next
+       line whole instead. */
+    white-space: nowrap;
     padding: 1px 7px;
     border-radius: 999px;
     background: var(--bg-subtle);
