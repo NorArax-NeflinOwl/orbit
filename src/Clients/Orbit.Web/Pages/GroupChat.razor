@@ -185,19 +185,33 @@
                                 @(readByEveryone ? "✓✓" : "✓")
                             </span>
                         }
-                        <span class="group-message-actions">
-                            @if (CanEdit(message))
+                        @* One trigger with everything behind it, the same shape a one-to-one message
+                           uses - a row of four buttons beside every message read as a toolbar rather
+                           than as chat history. Editing is the sender's alone; deleting an admin can
+                           also do, but putting different words in somebody's mouth is not something
+                           moderation should reach. *@
+                        <span class="chat-bubble-menu">
+                            <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
+                                    disabled="@_isBusy" @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
+                            </button>
+                            @if (_openMessageMenuId == message.Id)
                             {
-                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StartEditing(message)">@T["Edit"]</button>
-                            }
-                            @if (message.GroupMessageId is not null)
-                            {
-                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
-                            }
-                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
-                            @if (CanDelete(message))
-                            {
-                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
+                                <div class="chat-bubble-menu-dropdown" @onclick:stopPropagation="true">
+                                    @if (CanEdit(message))
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartEditing(message)">@T["Edit"]</button>
+                                    }
+                                    @if (message.GroupMessageId is not null)
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
+                                    }
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
+                                    @if (CanDelete(message))
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
+                                    }
+                                </div>
                             }
                         </span>
                     </div>
@@ -290,6 +304,9 @@
         => _groupSearch.Trim() is { Length: > 0 } query
             ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
             : _groups;
+
+    /// <summary>Which message's options menu is open - at most one, the way the one-to-one chat does it.</summary>
+    private Guid? _openMessageMenuId;
 
     /// <summary>Which message has its info panel open, and what that panel is showing.</summary>
     private Guid? _infoMessageId;
@@ -451,9 +468,13 @@
     /// alongside the conversation: it is opened for one message at a time, and drawing it for every
     /// message would be a query per message on every load.
     /// </summary>
+    private void ToggleMessageMenu(Guid messageId)
+        => _openMessageMenuId = _openMessageMenuId == messageId ? null : messageId;
+
     private async Task ShowInfoAsync(ChatMessageDto message)
         => await RunAsync(async () =>
         {
+            _openMessageMenuId = null;
             _editingMessageId = null;
             _forwardingMessageId = null;
             _infoMessageId = message.Id;
@@ -468,6 +489,7 @@
 
     private void StartEditing(ChatMessageDto message)
     {
+        _openMessageMenuId = null;
         _infoMessageId = null;
         _forwardingMessageId = null;
         _editingMessageId = message.Id;
@@ -504,6 +526,7 @@
 
     private void StartForwarding(ChatMessageDto message)
     {
+        _openMessageMenuId = null;
         _editingMessageId = null;
         _forwardingMessageId = message.Id;
         _forwardToUserId = string.Empty;
