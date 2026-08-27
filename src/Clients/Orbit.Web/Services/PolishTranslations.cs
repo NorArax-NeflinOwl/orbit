@@ -76,6 +76,9 @@ internal static class PolishTranslations
         ["Show the lists"] = "Pokaż listy",
         ["Show single items"] = "Pokaż pojedyncze elementy",
         ["In list order"] = "W kolejności listy",
+        ["Show on the dashboard"] = "Pokaż na pulpicie",
+        ["Everything here is hidden. The menu at the top right brings it back."] =
+            "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Opens Google's own form with this event filled in. Nothing is saved there until you save it."] = "Otwiera formularz Google z wypełnionym wydarzeniem. Nic się tam nie zapisze, dopóki sam nie zapiszesz.",
         ["Google Calendar"] = "Kalendarz Google",

@@ -3602,6 +3602,17 @@ input.note-editor-title {
     display: inline-flex;
 }
 
+/* Says what a menu of settings is about, above its entries. */
+.overflow-menu-heading {
+    display: block;
+    padding: 6px 8px 4px 8px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
 .overflow-menu-dropdown {
     position: absolute;
     top: calc(100% + 4px);

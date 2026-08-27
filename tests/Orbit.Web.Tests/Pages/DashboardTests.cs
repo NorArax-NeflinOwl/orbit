@@ -33,6 +33,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyTasksApiClient();
         RegisterEmptyCalendarApiClient();
         RegisterDashboardPins();
+        RegisterDashboardCardVisibility();
         RegisterPermissions();
     }
 
@@ -66,6 +67,18 @@ public sealed class DashboardTests : OrbitTestContext
         module.Setup<string[]>("getPinnedCards").SetResult([]);
         module.SetupVoid("setPinnedCards", _ => true);
         Services.AddScoped<DashboardPinService>();
+    }
+
+    /// <summary>
+    /// What the reader has put away lives in localStorage too (see DashboardCardVisibility) - stubbed as
+    /// "nothing hidden" unless a test says otherwise, so the rest see the whole page.
+    /// </summary>
+    private void RegisterDashboardCardVisibility(params string[] hidden)
+    {
+        var module = JSInterop.SetupModule("./js/dashboardCards.js");
+        module.Setup<string[]>("getHiddenCards").SetResult(hidden);
+        module.SetupVoid("setHiddenCards", _ => true);
+        Services.AddScoped<DashboardCardVisibility>();
     }
 
     [Fact]
@@ -183,6 +196,97 @@ public sealed class DashboardTests : OrbitTestContext
             Enumerable.Range(0, memberCount)
                 .Select(_ => new ChatGroupMemberDto(Guid.NewGuid(), "Member", DateTimeOffset.UtcNow))
                 .ToList());
+
+    [Fact]
+    public void The_menu_offers_every_part_of_the_page()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        var cut = RenderComponent<Dashboard>();
+
+        OpenTheMenu(cut);
+
+        Assert.Equal(
+            ["Today", "Notes", "Tasks", "Upcoming", "Groups", "Shared with you", "Recent chats", "Contacts"],
+            MenuEntries(cut).Select(entry => entry.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_part_the_reader_put_away_is_not_drawn()
+    {
+        RegisterDashboardCardVisibility("chats");
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Empty(cut.FindAll("div.card").Where(card => card.QuerySelector(".card-title")!.TextContent == "Recent chats"));
+        Assert.Contains("Anna Kowalska", FindColumn(cut, "Contacts").TextContent);
+    }
+
+    [Fact]
+    public void Unticking_a_part_in_the_menu_takes_it_off_the_page()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        var cut = RenderComponent<Dashboard>();
+        OpenTheMenu(cut);
+
+        MenuEntries(cut).Single(entry => entry.TextContent.Contains("Recent chats"))
+            .QuerySelector("input")!.Change(false);
+
+        Assert.Empty(cut.FindAll("div.card").Where(card => card.QuerySelector(".card-title")!.TextContent == "Recent chats"));
+    }
+
+    [Fact]
+    public void The_menu_stays_open_while_several_parts_are_changed()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        var cut = RenderComponent<Dashboard>();
+        OpenTheMenu(cut);
+
+        // The click a real browser sends reaches the menu itself, which closes on one when its entries
+        // are actions. Closing after each tick here would make changing two a chore.
+        MenuEntries(cut)[0].Click();
+
+        Assert.NotEmpty(MenuEntries(cut));
+    }
+
+    [Fact]
+    public void Ticking_a_part_back_on_puts_it_back()
+    {
+        RegisterDashboardCardVisibility("chats");
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        var cut = RenderComponent<Dashboard>();
+        OpenTheMenu(cut);
+
+        MenuEntries(cut).Single(entry => entry.TextContent.Contains("Recent chats"))
+            .QuerySelector("input")!.Change(true);
+
+        Assert.Contains("Anna Kowalska", FindColumn(cut, "Recent chats").TextContent);
+    }
+
+    [Fact]
+    public void A_page_with_everything_put_away_says_so()
+    {
+        // Otherwise it reads as a dashboard that failed to load, with nothing saying where its contents went.
+        RegisterDashboardCardVisibility(
+            "today", "notes", "tasks", "upcoming", "groups", "locations", "chats", "contacts");
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Empty(cut.FindAll("div.card"));
+        Assert.Contains("Everything here is hidden", cut.Markup);
+    }
+
+    private static void OpenTheMenu(IRenderedComponent<Dashboard> cut)
+        => cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+
+    private static IReadOnlyList<IElement> MenuEntries(IRenderedComponent<Dashboard> cut)
+        => [.. cut.FindAll(".overflow-menu-dropdown label")];
+
+    private static ContactDto Contact(string displayName)
+        => new(
+            Guid.NewGuid(), displayName.ToLowerInvariant(), displayName, $"{displayName}@example.com", "public-key",
+            DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false);
 
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
         => cut.FindAll("div.card").Single(column => column.QuerySelector(".card-title")!.TextContent == heading);
