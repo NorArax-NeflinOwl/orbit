@@ -26,8 +26,24 @@ public sealed class ChatApiClient
         _logger = logger ?? NullLogger<ChatApiClient>.Instance;
     }
 
+    /// <summary>
+    /// Empty rather than an exception when this account has not unlocked chat (see
+    /// PermissionPolicies in Orbit.Api). Half the app asks this question in passing - a share picker, a
+    /// dashboard card - and a refusal there is not a failure to report, it is the answer: there is
+    /// nobody to show. Left throwing, one 403 in an editor's OnInitializedAsync took down the whole
+    /// renderer.
+    /// </summary>
     public async Task<IReadOnlyList<ContactDto>> GetContactsAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<ContactDto>>("api/chat/contacts", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<ContactDto>>("api/chat/contacts", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
 
     /// <summary>
     /// When sinceUtc is given, only returns messages strictly after it - used to poll for new messages
@@ -119,8 +135,24 @@ public sealed class ChatApiClient
     // Groups. A group's messages are ordinary per-recipient rows behind the scenes (see
     // EncryptedChatMessageSender.SendToGroupAsync), so only the addressing differs from one-to-one chat.
 
+    /// <summary>
+    /// Empty rather than an exception when this account has not unlocked group chat (see
+    /// PermissionPolicies in Orbit.Api). Half the app asks this question in passing - a share picker, a
+    /// dashboard card - and a refusal there is not a failure to report, it is the answer: there is
+    /// nobody to show. Left throwing, one 403 in an editor's OnInitializedAsync took down the whole
+    /// renderer.
+    /// </summary>
     public async Task<IReadOnlyList<ChatGroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<ChatGroupDto>>("api/chat/groups", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<ChatGroupDto>>("api/chat/groups", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
 
     public async Task<Guid> CreateGroupAsync(string name, IReadOnlyList<Guid> memberUserIds, CancellationToken cancellationToken = default)
     {

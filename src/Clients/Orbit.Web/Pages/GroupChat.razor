@@ -3,6 +3,7 @@
 @attribute [Authorize]
 @using System.Text.Json
 @using Orbit.Contracts.Chat
+@using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
 @inject UsersApiClient UsersApiClient
@@ -12,6 +13,7 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<GroupChat> Logger
 @inject IJSRuntime JSRuntime
+@inject UserPermissionState Permissions
 @inject Translations T
 
 <PageTitle>@(_selectedGroup?.Name ?? T["Groups"])</PageTitle>
@@ -27,280 +29,289 @@
     </div>
 </div>
 
-@if (_errorMessage is not null)
+@if (!Permissions.Has(ApplicationPermission.GroupChat))
 {
-    <p class="error">@_errorMessage</p>
+    <FeatureLocked Explanation="@(T["Conversations with more than one other person."])" />
 }
-
-@if (_isCreating)
+else
 {
-    <div class="card group-create-card">
-        <div class="field">
-            <label for="groupNameInput">@T["Group name"]</label>
-            <input id="groupNameInput" @bind="_newGroupName" placeholder="@(T["Weekend trip"])" />
-        </div>
-        <div class="field">
-            <label>@T["Who's in it"]</label>
-            @if (_contacts.Count == 0)
-            {
-                <p class="empty-hint">@T["You need at least one contact to start a group."]</p>
-            }
-            else
-            {
-                @foreach (var contact in _contacts)
-                {
-                    <label class="check-row">
-                        <input type="checkbox" checked="@_selectedContactIds.Contains(contact.UserId)"
-                               @onchange="args => ToggleContact(contact.UserId, (bool)args.Value!)" />
-                        <span class="check-row-text">@contact.DisplayName</span>
-                    </label>
-                }
-            }
-        </div>
-        <div class="form-actions">
-            <button type="button" class="btn-primary" disabled="@(_isBusy || _newGroupName.Trim().Length == 0)" @onclick="CreateGroupAsync">@T["Create"]</button>
-            <button type="button" class="btn-secondary" @onclick="() => _isCreating = false">@T["Cancel"]</button>
-        </div>
-    </div>
-}
 
-<div class="group-layout">
-    <div class="card group-list @(_isGroupListCollapsed ? "collapsed" : "")">
-        <div class="card-header">
-            @* Folds away to a strip of initials, the way the one-to-one chat list does, and starts
-               folded: the conversation is what this page is for, and the list of groups is how you got
-               here. *@
-            <button type="button" class="icon-btn" title="@(_isGroupListCollapsed ? T["Show names"] : T["Hide names"])"
-                    @onclick="() => _isGroupListCollapsed = !_isGroupListCollapsed">
-                @if (_isGroupListCollapsed)
+    @if (_errorMessage is not null)
+    {
+        <p class="error">@_errorMessage</p>
+    }
+
+    @if (_isCreating)
+    {
+        <div class="card group-create-card">
+            <div class="field">
+                <label for="groupNameInput">@T["Group name"]</label>
+                <input id="groupNameInput" @bind="_newGroupName" placeholder="@(T["Weekend trip"])" />
+            </div>
+            <div class="field">
+                <label>@T["Who's in it"]</label>
+                @if (_contacts.Count == 0)
                 {
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
+                    <p class="empty-hint">@T["You need at least one contact to start a group."]</p>
                 }
                 else
                 {
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
+                    @foreach (var contact in _contacts)
+                    {
+                        <label class="check-row">
+                            <input type="checkbox" checked="@_selectedContactIds.Contains(contact.UserId)"
+                                   @onchange="args => ToggleContact(contact.UserId, (bool)args.Value!)" />
+                            <span class="check-row-text">@contact.DisplayName</span>
+                        </label>
+                    }
                 }
-            </button>
-            @if (!_isGroupListCollapsed)
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-primary" disabled="@(_isBusy || _newGroupName.Trim().Length == 0)" @onclick="CreateGroupAsync">@T["Create"]</button>
+                <button type="button" class="btn-secondary" @onclick="() => _isCreating = false">@T["Cancel"]</button>
+            </div>
+        </div>
+    }
+
+    <div class="group-layout">
+        <div class="card group-list @(_isGroupListCollapsed ? "collapsed" : "")">
+            <div class="card-header">
+                @* Folds away to a strip of initials, the way the one-to-one chat list does, and starts
+                   folded: the conversation is what this page is for, and the list of groups is how you got
+                   here. *@
+                <button type="button" class="icon-btn" title="@(_isGroupListCollapsed ? T["Show names"] : T["Hide names"])"
+                        @onclick="() => _isGroupListCollapsed = !_isGroupListCollapsed">
+                    @if (_isGroupListCollapsed)
+                    {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
+                    }
+                    else
+                    {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
+                    }
+                </button>
+                @if (!_isGroupListCollapsed)
+                {
+                    <span class="card-title">@T["Your groups"]</span>
+                    <span class="card-count">@_groups.Count</span>
+                }
+            </div>
+            @if (_groups.Count > 0 && !_isGroupListCollapsed)
             {
-                <span class="card-title">@T["Your groups"]</span>
-                <span class="card-count">@_groups.Count</span>
+                <input class="chat-list-search" type="search" @bind="_groupSearch" @bind:event="oninput"
+                       placeholder="@(T["Search groups"])" aria-label="@(T["Search groups"])" />
+            }
+            @if (_groups.Count == 0)
+            {
+                @if (!_isGroupListCollapsed)
+                {
+                    <p class="empty-hint">@T["No groups yet."]</p>
+                }
+            }
+            else if (!_matchingGroups.Any())
+            {
+                <p class="empty-hint">@T["Nothing matches that."]</p>
+            }
+            else
+            {
+                @foreach (var group in _matchingGroups)
+                {
+                    <button type="button" class="list-row list-row-button @(group.Id == GroupId ? "active" : "")"
+                            title="@group.Name" @onclick="() => OpenGroup(group.Id)">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
+                        @if (!_isGroupListCollapsed)
+                        {
+                            <span class="row-title">@group.Name</span>
+                            @if (group.OwnRole == AdminRole)
+                            {
+                                <span class="card-badge">@T["Admin"]</span>
+                            }
+                            <span class="row-meta">@group.Members.Count</span>
+                        }
+                    </button>
+                }
             }
         </div>
-        @if (_groups.Count > 0 && !_isGroupListCollapsed)
+
+        @if (_selectedGroup is { } selectedGroup)
         {
-            <input class="chat-list-search" type="search" @bind="_groupSearch" @bind:event="oninput"
-                   placeholder="@(T["Search groups"])" aria-label="@(T["Search groups"])" />
-        }
-        @if (_groups.Count == 0)
-        {
-            @if (!_isGroupListCollapsed)
-            {
-                <p class="empty-hint">@T["No groups yet."]</p>
-            }
-        }
-        else if (!_matchingGroups.Any())
-        {
-            <p class="empty-hint">@T["Nothing matches that."]</p>
-        }
-        else
-        {
-            @foreach (var group in _matchingGroups)
-            {
-                <button type="button" class="list-row list-row-button @(group.Id == GroupId ? "active" : "")"
-                        title="@group.Name" @onclick="() => OpenGroup(group.Id)">
-                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
-                    @if (!_isGroupListCollapsed)
+            <div class="card group-conversation">
+                <div class="card-header">
+                    <span class="card-title">@selectedGroup.Name</span>
+                    @* The roster folds away, because the conversation is what the page is for. Expanded by
+                       default it filled the screen above the messages - one row per member, each carrying
+                       two buttons for an admin - and left the chat itself below the fold. *@
+                    <button type="button" class="group-members-toggle" aria-expanded="@(_areMembersVisible ? "true" : "false")"
+                            @onclick="() => _areMembersVisible = !_areMembersVisible">
+                        @T.Format("{0} members", selectedGroup.Members.Count)
+                        <svg class="@(_areMembersVisible ? "open" : "")" width="12" height="12" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 7.5 10 12.5 15 7.5" />
+                        </svg>
+                    </button>
+                </div>
+
+                @* Membership is only editable by an admin - see ChatGroup, which refuses it server-side too. *@
+                <div class="group-members @(_areMembersVisible ? "" : "hidden")">
+                    @foreach (var member in selectedGroup.Members)
                     {
-                        <span class="row-title">@group.Name</span>
-                        @if (group.OwnRole == AdminRole)
-                        {
-                            <span class="card-badge">@T["Admin"]</span>
-                        }
-                        <span class="row-meta">@group.Members.Count</span>
-                    }
-                </button>
-            }
-        }
-    </div>
-
-    @if (_selectedGroup is { } selectedGroup)
-    {
-        <div class="card group-conversation">
-            <div class="card-header">
-                <span class="card-title">@selectedGroup.Name</span>
-                @* The roster folds away, because the conversation is what the page is for. Expanded by
-                   default it filled the screen above the messages - one row per member, each carrying
-                   two buttons for an admin - and left the chat itself below the fold. *@
-                <button type="button" class="group-members-toggle" aria-expanded="@(_areMembersVisible ? "true" : "false")"
-                        @onclick="() => _areMembersVisible = !_areMembersVisible">
-                    @T.Format("{0} members", selectedGroup.Members.Count)
-                    <svg class="@(_areMembersVisible ? "open" : "")" width="12" height="12" viewBox="0 0 20 20" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M5 7.5 10 12.5 15 7.5" />
-                    </svg>
-                </button>
-            </div>
-
-            @* Membership is only editable by an admin - see ChatGroup, which refuses it server-side too. *@
-            <div class="group-members @(_areMembersVisible ? "" : "hidden")">
-                @foreach (var member in selectedGroup.Members)
-                {
-                    <div class="list-row group-member-row">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(member.UserId)">@AvatarHelper.GetInitials(DisplayNameFor(member.UserId))</span>
-                        <span class="row-title">@DisplayNameFor(member.UserId)</span>
-                        @if (member.Role == AdminRole)
-                        {
-                            <span class="card-badge group-member-badge">@T["Admin"]</span>
-                        }
-                        @if (IsOwnAdmin && member.UserId != _ownUserId)
-                        {
-                            <button type="button" class="btn-secondary" disabled="@_isBusy"
-                                    @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
-                                @(member.Role == AdminRole ? T["Demote"] : T["Make admin"])
-                            </button>
-                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
-                        }
-                        @* Showing yourself out is not the same act as removing somebody, and needs no
-                           admin standing - see ChatGroup.RemoveMember. Without this there was no way
-                           out of a group at all. *@
-                        @if (member.UserId == _ownUserId)
-                        {
-                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="LeaveGroupAsync">@T["Leave group"]</button>
-                        }
-                    </div>
-                }
-
-                @if (IsOwnAdmin && _addableContacts.Count > 0)
-                {
-                    <div class="field-row">
-                        <select @bind="_contactToAddId">
-                            <option value="">@T["Add someone…"]</option>
-                            @foreach (var contact in _addableContacts)
+                        <div class="list-row group-member-row">
+                            <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(member.UserId)">@AvatarHelper.GetInitials(DisplayNameFor(member.UserId))</span>
+                            <span class="row-title">@DisplayNameFor(member.UserId)</span>
+                            @if (member.Role == AdminRole)
                             {
-                                <option value="@contact.UserId">@contact.DisplayName</option>
+                                <span class="card-badge group-member-badge">@T["Admin"]</span>
                             }
-                        </select>
-                        <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="AddMemberAsync">@T["Add"]</button>
-                    </div>
-                }
-            </div>
-
-            <div class="group-messages">
-                @if (_messages.Count == 0)
-                {
-                    <p class="empty-hint">@T["Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you."]</p>
-                }
-                @foreach (var message in _messages)
-                {
-                    <div class="list-row group-message @(message.SenderUserId == _ownUserId ? "own" : "")">
-                        @* Sender and text as two elements rather than two lines of markup: Razor drops
-                           the whitespace between them, which ran the name straight into the message. *@
-                        <span class="row-title">
-                            <strong class="group-message-sender">@DisplayNameFor(message.SenderUserId)</strong>
-                            <span class="group-message-text">@(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? "…")</span>
-                        </span>
-                        <span class="row-meta">@message.SentAtUtc.LocalDateTime.ToString("dd.MM HH:mm")@(message.IsEdited ? T["· Edited"] : "")</span>
-                        @* The same three things a one-to-one message offers. Editing is the sender's
-                           alone - deleting a message an admin can also do, but putting different words
-                           in somebody's mouth is not something moderation should reach. *@
-                        @* Two ticks only once every other member has read it - one member still behind
-                           and the sender should not be told the message landed. *@
-                        @if (message.SenderUserId == _ownUserId && message.ReadByEveryone is { } readByEveryone)
-                        {
-                            <span class="group-message-ticks @(readByEveryone ? "read" : "")"
-                                  title="@(readByEveryone ? T["Read by everyone"] : T["Delivered"])">
-                                @(readByEveryone ? "✓✓" : "✓")
-                            </span>
-                        }
-                        @* One trigger with everything behind it, the same shape a one-to-one message
-                           uses - a row of four buttons beside every message read as a toolbar rather
-                           than as chat history. Editing is the sender's alone; deleting an admin can
-                           also do, but putting different words in somebody's mouth is not something
-                           moderation should reach. *@
-                        <span class="chat-bubble-menu">
-                            <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
-                                    disabled="@_isBusy" @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
-                            </button>
-                            @if (_openMessageMenuId == message.Id)
+                            @if (IsOwnAdmin && member.UserId != _ownUserId)
                             {
-                                <div class="chat-bubble-menu-dropdown" @ref="_openMenuElement" @onclick:stopPropagation="true">
-                                    @if (CanEdit(message))
-                                    {
-                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartEditing(message)">@T["Edit"]</button>
-                                    }
-                                    @if (message.GroupMessageId is not null)
-                                    {
-                                        <button type="button" class="avatar-dropdown-item" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
-                                    }
-                                    <button type="button" class="avatar-dropdown-item" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
-                                    @if (CanDelete(message))
-                                    {
-                                        <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
-                                    }
-                                </div>
+                                <button type="button" class="btn-secondary" disabled="@_isBusy"
+                                        @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
+                                    @(member.Role == AdminRole ? T["Demote"] : T["Make admin"])
+                                </button>
+                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
                             }
-                        </span>
-                    </div>
-                    @if (_infoMessageId == message.Id)
-                    {
-                        <div class="group-message-info">
-                            <div class="card-header">
-                                <span class="card-title">@T["Who has read this"]</span>
-                                <button type="button" class="btn-secondary" @onclick="CloseInfo">@T["Close"]</button>
-                            </div>
-                            @* Every member the message actually reached. Somebody who joined afterwards
-                               is absent rather than shown as not having read it: nothing was addressed
-                               to them, which is the same reason they cannot open it. *@
-                            @foreach (var receipt in _infoReceipts)
+                            @* Showing yourself out is not the same act as removing somebody, and needs no
+                               admin standing - see ChatGroup.RemoveMember. Without this there was no way
+                               out of a group at all. *@
+                            @if (member.UserId == _ownUserId)
                             {
-                                <div class="list-row">
-                                    <span class="row-title">@DisplayNameFor(receipt.RecipientUserId)</span>
-                                    <span class="row-meta">
-                                        @(receipt.ReadAtUtc is { } readAt
-                                            ? T.Format("Read {0}", readAt.LocalDateTime.ToString("dd.MM HH:mm"))
-                                            : T["Delivered"])
-                                    </span>
-                                </div>
+                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="LeaveGroupAsync">@T["Leave group"]</button>
                             }
                         </div>
                     }
-                    @if (_editingMessageId == message.Id)
+
+                    @if (IsOwnAdmin && _addableContacts.Count > 0)
                     {
-                        <div class="field-row group-message-edit">
-                            <input @bind="_editDraft" aria-label="@(T["Edit"])" />
-                            <button type="button" class="btn-primary" disabled="@(_isBusy || _editDraft.Trim().Length == 0)" @onclick="() => SaveEditAsync(message)">@T["Save"]</button>
-                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="CancelEditing">@T["Cancel"]</button>
-                        </div>
-                    }
-                    @if (_forwardingMessageId == message.Id)
-                    {
-                        <div class="field-row group-message-edit">
-                            <select @bind="_forwardToUserId" aria-label="@(T["Forward"])">
-                                <option value="">@T["Pick a contact…"]</option>
-                                @foreach (var contact in _contacts)
+                        <div class="field-row">
+                            <select @bind="_contactToAddId">
+                                <option value="">@T["Add someone…"]</option>
+                                @foreach (var contact in _addableContacts)
                                 {
                                     <option value="@contact.UserId">@contact.DisplayName</option>
                                 }
                             </select>
-                            <button type="button" class="btn-primary" disabled="@(_isBusy || _forwardToUserId.Length == 0)" @onclick="() => ForwardAsync(message)">@T["Forward"]</button>
-                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="CancelForwarding">@T["Cancel"]</button>
+                            <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="AddMemberAsync">@T["Add"]</button>
                         </div>
                     }
-                }
-            </div>
+                </div>
 
-            <div class="chat-input-bar">
-                @* Bound on every keystroke, not on losing focus: without it the Send button stayed
-                   greyed out while somebody typed, because _draft was still empty as far as it knew. *@
-                <input class="chat-input" @bind="_draft" @bind:event="oninput"
-                       placeholder="@(T["Write to the group"])" @onkeydown="OnDraftKeyDownAsync" />
-                <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">@T["Send"]</button>
+                <div class="group-messages">
+                    @if (_messages.Count == 0)
+                    {
+                        <p class="empty-hint">@T["Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you."]</p>
+                    }
+                    @foreach (var message in _messages)
+                    {
+                        <div class="list-row group-message @(message.SenderUserId == _ownUserId ? "own" : "")">
+                            @* Sender and text as two elements rather than two lines of markup: Razor drops
+                               the whitespace between them, which ran the name straight into the message. *@
+                            <span class="row-title">
+                                <strong class="group-message-sender">@DisplayNameFor(message.SenderUserId)</strong>
+                                <span class="group-message-text">@(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? "…")</span>
+                            </span>
+                            <span class="row-meta">@message.SentAtUtc.LocalDateTime.ToString("dd.MM HH:mm")@(message.IsEdited ? T["· Edited"] : "")</span>
+                            @* The same three things a one-to-one message offers. Editing is the sender's
+                               alone - deleting a message an admin can also do, but putting different words
+                               in somebody's mouth is not something moderation should reach. *@
+                            @* Two ticks only once every other member has read it - one member still behind
+                               and the sender should not be told the message landed. *@
+                            @if (message.SenderUserId == _ownUserId && message.ReadByEveryone is { } readByEveryone)
+                            {
+                                <span class="group-message-ticks @(readByEveryone ? "read" : "")"
+                                      title="@(readByEveryone ? T["Read by everyone"] : T["Delivered"])">
+                                    @(readByEveryone ? "✓✓" : "✓")
+                                </span>
+                            }
+                            @* One trigger with everything behind it, the same shape a one-to-one message
+                               uses - a row of four buttons beside every message read as a toolbar rather
+                               than as chat history. Editing is the sender's alone; deleting an admin can
+                               also do, but putting different words in somebody's mouth is not something
+                               moderation should reach. *@
+                            <span class="chat-bubble-menu">
+                                <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
+                                        disabled="@_isBusy" @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
+                                </button>
+                                @if (_openMessageMenuId == message.Id)
+                                {
+                                    <div class="chat-bubble-menu-dropdown" @ref="_openMenuElement" @onclick:stopPropagation="true">
+                                        @if (CanEdit(message))
+                                        {
+                                            <button type="button" class="avatar-dropdown-item" @onclick="() => StartEditing(message)">@T["Edit"]</button>
+                                        }
+                                        @if (message.GroupMessageId is not null)
+                                        {
+                                            <button type="button" class="avatar-dropdown-item" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
+                                        }
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
+                                        @if (CanDelete(message))
+                                        {
+                                            <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
+                                        }
+                                    </div>
+                                }
+                            </span>
+                        </div>
+                        @if (_infoMessageId == message.Id)
+                        {
+                            <div class="group-message-info">
+                                <div class="card-header">
+                                    <span class="card-title">@T["Who has read this"]</span>
+                                    <button type="button" class="btn-secondary" @onclick="CloseInfo">@T["Close"]</button>
+                                </div>
+                                @* Every member the message actually reached. Somebody who joined afterwards
+                                   is absent rather than shown as not having read it: nothing was addressed
+                                   to them, which is the same reason they cannot open it. *@
+                                @foreach (var receipt in _infoReceipts)
+                                {
+                                    <div class="list-row">
+                                        <span class="row-title">@DisplayNameFor(receipt.RecipientUserId)</span>
+                                        <span class="row-meta">
+                                            @(receipt.ReadAtUtc is { } readAt
+                                                ? T.Format("Read {0}", readAt.LocalDateTime.ToString("dd.MM HH:mm"))
+                                                : T["Delivered"])
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        @if (_editingMessageId == message.Id)
+                        {
+                            <div class="field-row group-message-edit">
+                                <input @bind="_editDraft" aria-label="@(T["Edit"])" />
+                                <button type="button" class="btn-primary" disabled="@(_isBusy || _editDraft.Trim().Length == 0)" @onclick="() => SaveEditAsync(message)">@T["Save"]</button>
+                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="CancelEditing">@T["Cancel"]</button>
+                            </div>
+                        }
+                        @if (_forwardingMessageId == message.Id)
+                        {
+                            <div class="field-row group-message-edit">
+                                <select @bind="_forwardToUserId" aria-label="@(T["Forward"])">
+                                    <option value="">@T["Pick a contact…"]</option>
+                                    @foreach (var contact in _contacts)
+                                    {
+                                        <option value="@contact.UserId">@contact.DisplayName</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn-primary" disabled="@(_isBusy || _forwardToUserId.Length == 0)" @onclick="() => ForwardAsync(message)">@T["Forward"]</button>
+                                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="CancelForwarding">@T["Cancel"]</button>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <div class="chat-input-bar">
+                    @* Bound on every keystroke, not on losing focus: without it the Send button stayed
+                       greyed out while somebody typed, because _draft was still empty as far as it knew. *@
+                    <input class="chat-input" @bind="_draft" @bind:event="oninput"
+                           placeholder="@(T["Write to the group"])" @onkeydown="OnDraftKeyDownAsync" />
+                    <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">@T["Send"]</button>
+                </div>
             </div>
-        </div>
-    }
-</div>
+        }
+    </div>
+
+}
 
 @code {
     [Parameter]
@@ -372,7 +383,13 @@
             ? _contacts.Where(contact => group.Members.All(member => member.UserId != contact.UserId)).ToList()
             : [];
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        // Waits for the first permission read, so this page never decides it is locked before it
+        // has been told - see UserPermissionState.EnsureLoadedAsync.
+        await Permissions.EnsureLoadedAsync();
+        await LoadAsync();
+    }
 
     /// <summary>
     /// Places the open message menu next to its button. Done after the render because the menu has no

@@ -21,6 +21,7 @@ public sealed class PresenceService(UsersApiClient usersApiClient, IJSRuntime js
 
     private readonly CancellationTokenSource _cancellation = new();
     private PeriodicTimer? _timer;
+    private bool _isStarted;
 
     public PresenceAvailability Availability { get; private set; } = PresenceAvailability.Available;
 
@@ -29,10 +30,18 @@ public sealed class PresenceService(UsersApiClient usersApiClient, IJSRuntime js
 
     /// <summary>
     /// Reads back what this account already chose - a person who set "do not disturb" yesterday should
-    /// find it still set today - then starts the heartbeat.
+    /// find it still set today - then starts the heartbeat. Called both when the app opens on an
+    /// already-signed-in session and when somebody signs in afterwards, so calling it twice leaves the
+    /// one heartbeat running rather than adding a second.
     /// </summary>
     public async Task StartAsync()
     {
+        if (_isStarted)
+        {
+            return;
+        }
+
+        _isStarted = true;
         try
         {
             var account = await usersApiClient.GetAccountAsync();

@@ -419,6 +419,10 @@ input.note-editor-title {
     top: 0;
     height: 100vh;
     align-self: flex-start;
+    /* position: sticky makes this a stacking context, so everything inside it - the notifications popup
+       and the avatar menu included - is trapped below whatever the main content paints. Without this
+       the popup opened underneath the avatars on the page behind it. */
+    z-index: 50;
 }
 
 .sidebar-logo {
@@ -646,8 +650,12 @@ input.note-editor-title {
     bottom: calc(100% + 8px);
     left: 0;
     width: 320px;
-    max-height: 420px;
-    overflow-y: auto;
+    /* As tall as it needs to be, up to what is actually on screen above the trigger. The panel used to
+       scroll as a whole at a fixed height, which took "See all notifications" off the bottom and made
+       every visit a scroll. */
+    max-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -662,6 +670,7 @@ input.note-editor-title {
 }
 
 .notifications-panel-header {
+    flex: 0 0 auto;
     padding: 8px;
     font-size: 13.5px;
     font-weight: 700;
@@ -702,6 +711,13 @@ input.note-editor-title {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    /* min-height: 0 lets a flex child shrink below its content; without it the list refuses to shrink
+       and the panel overflows instead of the list scrolling. */
+    flex: 1 1 auto;
+    /* min-height: 0 would let it shrink to nothing; two entries is the least that is worth showing, so
+       a window too short for that is the only case where this scrolls at all. */
+    min-height: min(128px, 40vh);
+    overflow-y: auto;
 }
 
 .notifications-panel-item {
@@ -755,7 +771,10 @@ input.note-editor-title {
     margin-top: 6px;
     padding-top: 8px;
     text-align: center;
+    /* Never scrolls away: it is the way out of the popup. */
+    flex: 0 0 auto;
 }
+
 
 .notifications-panel-footer a {
     font-size: 12.5px;
@@ -3371,12 +3390,12 @@ input.note-editor-title {
     background: var(--text-tertiary);
 }
 
-/* On an avatar the dot hangs off the bottom-right corner rather than taking space in the row. */
+/* On an avatar the dot hangs off the top-right corner rather than taking space in the row. */
 .avatar .presence-dot,
 .avatar-sm .presence-dot {
     position: absolute;
     right: -1px;
-    bottom: -1px;
+    top: -1px;
 }
 
 .visually-hidden {
@@ -3484,4 +3503,13 @@ input.note-editor-title {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+}
+
+/* Stands in for a part of Orbit this account has not unlocked - see Components/FeatureLocked.razor. */
+.feature-locked {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 520px;
 }

@@ -3,11 +3,13 @@
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Users
 @using Orbit.Core.Users
+@using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<Contacts> Logger
+@inject UserPermissionState Permissions
 @inject Translations T
 
 <PageTitle>@T["Orbit — Contacts"]</PageTitle>
@@ -26,75 +28,84 @@
     <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">@T["Search"]</button>
 </div>
 
-@if (_loadError is not null)
+@if (!Permissions.Has(ApplicationPermission.Chat) || Permissions.Has(ApplicationPermission.GroupChat))
 {
-    <p class="error">
-        @_loadError
-        <button type="button" class="btn-secondary" @onclick="LoadContactsAsync">@T["Retry"]</button>
-    </p>
-}
-
-@if (_searchError is not null)
-{
-    <p class="error">@_searchError</p>
-}
-
-@if (_searchResult is not null)
-{
-    <div class="card" style="margin-bottom:24px;">
-        <div class="chat-list-item" style="cursor:default;">
-            <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(_searchResult.Id)">@AvatarHelper.GetInitials(_searchResult.DisplayName)</span>
-            <span class="chat-list-meta">
-                <span class="chat-list-name">@_searchResult.DisplayName</span>
-                <span class="chat-list-preview">@_searchResult.UserName</span>
-            </span>
-            <button type="button" class="btn-secondary" @onclick="() => OpenChat(_searchResult.Id)">@T["Open chat"]</button>
-        </div>
-    </div>
-}
-
-@if (_contacts is not null && _pendingRequests.Any())
-{
-    <h2>@T["New requests"]</h2>
-    <div class="card" style="margin-bottom:24px;">
-        @foreach (var contact in _pendingRequests)
-        {
-            <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
-                <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
-                <span class="chat-list-meta">
-                    <span class="chat-list-name">@contact.DisplayName</span>
-                    <span class="chat-list-preview">@contact.UserName</span>
-                </span>
-                <span class="chat-request-badge">@T["New request"]</span>
-            </button>
-        }
-    </div>
-}
-
-<h2>@T["Chats"]</h2>
-
-@if (_contacts is null)
-{
-    <p>@T["Loading…"]</p>
-}
-else if (!_establishedChats.Any())
-{
-    <p>@T["No chats. Search for a user by email address or username to start a conversation."]</p>
+    <FeatureLocked Explanation="@(T["Conversations with one other person."])" />
 }
 else
 {
-    <div class="card">
-        @foreach (var contact in _establishedChats)
-        {
-            <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
-                <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
+
+    @if (_loadError is not null)
+    {
+        <p class="error">
+            @_loadError
+            <button type="button" class="btn-secondary" @onclick="LoadContactsAsync">@T["Retry"]</button>
+        </p>
+    }
+
+    @if (_searchError is not null)
+    {
+        <p class="error">@_searchError</p>
+    }
+
+    @if (_searchResult is not null)
+    {
+        <div class="card" style="margin-bottom:24px;">
+            <div class="chat-list-item" style="cursor:default;">
+                <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(_searchResult.Id)">@AvatarHelper.GetInitials(_searchResult.DisplayName)</span>
                 <span class="chat-list-meta">
-                    <span class="chat-list-name">@contact.DisplayName</span>
-                    <span class="chat-list-preview">@contact.UserName</span>
+                    <span class="chat-list-name">@_searchResult.DisplayName</span>
+                    <span class="chat-list-preview">@_searchResult.UserName</span>
                 </span>
-            </button>
-        }
-    </div>
+                <button type="button" class="btn-secondary" @onclick="() => OpenChat(_searchResult.Id)">@T["Open chat"]</button>
+            </div>
+        </div>
+    }
+
+    @if (_contacts is not null && _pendingRequests.Any())
+    {
+        <h2>@T["New requests"]</h2>
+        <div class="card" style="margin-bottom:24px;">
+            @foreach (var contact in _pendingRequests)
+            {
+                <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
+                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
+                    <span class="chat-list-meta">
+                        <span class="chat-list-name">@contact.DisplayName</span>
+                        <span class="chat-list-preview">@contact.UserName</span>
+                    </span>
+                    <span class="chat-request-badge">@T["New request"]</span>
+                </button>
+            }
+        </div>
+    }
+
+    <h2>@T["Chats"]</h2>
+
+    @if (_contacts is null)
+    {
+        <p>@T["Loading…"]</p>
+    }
+    else if (!_establishedChats.Any())
+    {
+        <p>@T["No chats. Search for a user by email address or username to start a conversation."]</p>
+    }
+    else
+    {
+        <div class="card">
+            @foreach (var contact in _establishedChats)
+            {
+                <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
+                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
+                    <span class="chat-list-meta">
+                        <span class="chat-list-name">@contact.DisplayName</span>
+                        <span class="chat-list-preview">@contact.UserName</span>
+                    </span>
+                </button>
+            }
+        </div>
+    }
+
 }
 
 @code {
@@ -126,6 +137,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Waits for the first permission read, so this page never decides it is locked before it
+        // has been told - see UserPermissionState.EnsureLoadedAsync.
+        await Permissions.EnsureLoadedAsync();
         await LoadContactsAsync();
     }
 

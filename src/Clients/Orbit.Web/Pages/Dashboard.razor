@@ -7,6 +7,7 @@
 @using Orbit.Core.Users
 @using Orbit.Contracts.Notes
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject TasksApiClient TasksApiClient
@@ -15,6 +16,7 @@
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<Dashboard> Logger
+@inject UserPermissionState Permissions
 @inject Translations T
 @inject DashboardPinService DashboardPins
 
@@ -231,6 +233,9 @@ else
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Dashboard opened, loading notes/task lists/events/contacts/groups");
+        // Before the loads below, which each ask whether this account has unlocked what they are
+        // for - asked too early, every gated card would be missing from a page that had them.
+        await Permissions.EnsureLoadedAsync();
         await DashboardPins.InitializeAsync();
         try
         {
@@ -318,9 +323,14 @@ else
 
     private async Task LoadEventsAsync() => _events = await CalendarApiClient.GetCalendarEventsAsync();
 
-    private async Task LoadContactsAsync() => _contacts = await ChatApiClient.GetContactsAsync();
+    // Not asked at all without the permission for it, rather than asked and refused: the dashboard is
+    // one page made of several separate questions, and a card nobody unlocked should be absent, not the
+    // reason the whole page says it could not load.
+    private async Task LoadContactsAsync()
+        => _contacts = Permissions.Has(ApplicationPermission.Chat) ? await ChatApiClient.GetContactsAsync() : [];
 
-    private async Task LoadGroupsAsync() => _groups = await ChatApiClient.GetGroupsAsync();
+    private async Task LoadGroupsAsync()
+        => _groups = Permissions.Has(ApplicationPermission.GroupChat) ? await ChatApiClient.GetGroupsAsync() : [];
 
     /// <summary>
     /// Only who is sharing, not where they are. Opening a position means decrypting it, which is the
@@ -328,7 +338,9 @@ else
     /// says who and sends them there.
     /// </summary>
     private async Task LoadSharedLocationsAsync()
-        => _sharedLocations = await UsersApiClient.GetLocationsSharedWithMeAsync();
+        => _sharedLocations = Permissions.Has(ApplicationPermission.Location)
+            ? await UsersApiClient.GetLocationsSharedWithMeAsync()
+            : [];
 
     private static int CompletionPercent(TaskDto taskList)
         => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);
