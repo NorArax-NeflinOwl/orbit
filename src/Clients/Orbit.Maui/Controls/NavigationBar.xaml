@@ -35,13 +35,7 @@
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding GoToDashboardCommand}" />
             </Grid.GestureRecognizers>
-            <Ellipse WidthRequest="22" HeightRequest="11" Rotation="-28"
-                     Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                     StrokeThickness="1.6" Fill="Transparent"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            <Ellipse WidthRequest="6" HeightRequest="6"
-                     Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
+            <controls:OrbitMark MarkSize="26" HorizontalOptions="Center" VerticalOptions="Center" />
         </Grid>
 
         <ScrollView Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"

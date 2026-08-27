@@ -3,12 +3,15 @@
     x:Class="Orbit.Maui.Features.Authentication.SignInPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Authentication;assembly=Orbit.Mobile"
     x:DataType="screens:SignInViewModel"
     Title="Sign in">
 
     <ScrollView>
         <VerticalStackLayout Padding="32" Spacing="20" VerticalOptions="Center">
+
+            <controls:OrbitMark MarkSize="80" HorizontalOptions="Center" />
 
             <Label Text="Orbit" FontSize="40" FontAttributes="Bold" HorizontalOptions="Center" />
 
