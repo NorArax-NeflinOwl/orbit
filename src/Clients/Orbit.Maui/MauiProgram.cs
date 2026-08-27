@@ -142,6 +142,7 @@ public static class MauiProgram
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
 		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
+		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
 		services.AddSingleton<IDeviceDescription, PhoneDescription>();
 		services.AddSingleton<IDeviceAuthentication, PhoneAuthentication>();

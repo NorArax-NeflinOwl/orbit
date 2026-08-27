@@ -27,6 +27,7 @@ public sealed partial class AccountViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly UsersClient _usersClient;
     private readonly UserPermissions _permissions;
+    private readonly IThemeStore _themes;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -69,7 +70,7 @@ public sealed partial class AccountViewModel : ObservableObject
     public AccountViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
-        UserPermissions permissions, IScreenNavigator navigator)
+        UserPermissions permissions, IThemeStore themes, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
@@ -78,7 +79,53 @@ public sealed partial class AccountViewModel : ObservableObject
         _translations = translations;
         _usersClient = usersClient;
         _permissions = permissions;
+        _themes = themes;
+        _theme = themes.Read();
         _navigator = navigator;
+    }
+
+    /// <summary>
+    /// Which section is showing. Tabs rather than one long scroll, as Orbit.Web's Options page has -
+    /// changing a password and unlocking a feature are different errands and were stacked on top of
+    /// each other.
+    /// </summary>
+    [ObservableProperty]
+    private AccountTab _tab = AccountTab.Account;
+
+    public IReadOnlyList<AccountTabRow> Tabs
+        => [.. Enum.GetValues<AccountTab>()
+            .Select(tab => new AccountTabRow(tab, AccountTabRow.Describe(tab, _translations), tab == Tab))];
+
+    public bool IsShowingAccount => Tab is AccountTab.Account;
+
+    public bool IsShowingAppearance => Tab is AccountTab.Appearance;
+
+    public bool IsShowingPermissions => Tab is AccountTab.Permissions;
+
+    public bool IsShowingDebug => Tab is AccountTab.Debug;
+
+    [RelayCommand]
+    private void ChooseTab(AccountTabRow? row)
+    {
+        if (row is not null)
+        {
+            Tab = row.Tab;
+        }
+    }
+
+    /// <summary>How Orbit looks on this device - see ChosenTheme.</summary>
+    [ObservableProperty]
+    private ChosenTheme _theme;
+
+    public IReadOnlyList<ThemeChoice> Themes
+        => [.. Enum.GetValues<ChosenTheme>()
+            .Select(theme => new ThemeChoice(theme, ThemeChoice.Describe(theme, _translations)))];
+
+    /// <summary>What the picker has selected. Its own property because a picker names objects, not enums.</summary>
+    public ThemeChoice ChosenThemeOption
+    {
+        get => Themes.Single(choice => choice.Value == Theme);
+        set => Theme = value.Value;
     }
 
     /// <summary>What this account may use, and what it would take to unlock the rest.</summary>
@@ -267,6 +314,29 @@ public sealed partial class AccountViewModel : ObservableObject
             // The screen went away mid-request; there is nobody left to tell.
         }
     }
+
+    partial void OnTabChanged(AccountTab value)
+    {
+        OnPropertyChanged(nameof(Tabs));
+        OnPropertyChanged(nameof(IsShowingAccount));
+        OnPropertyChanged(nameof(IsShowingAppearance));
+        OnPropertyChanged(nameof(IsShowingPermissions));
+        OnPropertyChanged(nameof(IsShowingDebug));
+    }
+
+    /// <summary>Written down and applied at once - a theme that took a restart would read as broken.</summary>
+    partial void OnThemeChanged(ChosenTheme value)
+    {
+        _themes.Write(value);
+        OnPropertyChanged(nameof(ChosenThemeOption));
+        ThemeChanged?.Invoke(this, value);
+    }
+
+    /// <summary>
+    /// Raised so the platform can apply it. The view model cannot: setting the app's theme is a MAUI
+    /// call, and reaching for one here is what would make this screen untestable.
+    /// </summary>
+    public event EventHandler<ChosenTheme>? ThemeChanged;
 
     partial void OnPermissionCodeChanged(string value) => RedeemCodeCommand.NotifyCanExecuteChanged();
 

@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:account="clr-namespace:Orbit.Maui.Features.Account"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Account;assembly=Orbit.Mobile"
     x:DataType="screens:AccountViewModel"
     Title="{controls:Translate 'Account'}">
@@ -16,6 +17,40 @@
 
             <Label Text="{controls:Translate 'Account'}" FontSize="26" FontAttributes="Bold" />
 
+            <!-- Tabs rather than one long scroll, as Orbit.Web's Options page has: changing a password
+                 and unlocking a feature are different errands. -->
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Tabs}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:AccountTabRow">
+                            <Button Text="{Binding Name}" FontSize="13" Padding="12,4" BackgroundColor="Transparent"
+                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseTabCommand, x:DataType=account:AccountPage}"
+                                    CommandParameter="{Binding .}">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding IsChosen}" Value="True">
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                        <Setter Property="FontAttributes" Value="Bold" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+
+            <!-- How Orbit looks on this device. Kept here rather than on the server for the same reason
+                 the web keeps it in the browser: a phone in a pocket and a browser at a desk want
+                 different answers. The language stays in the avatar's menu, where it was asked for. -->
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingAppearance}">
+                <Label Text="{controls:Translate 'Appearance'}" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Choose how Orbit looks on this device.'}" FontSize="12"
+                       LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Picker ItemsSource="{Binding Themes}" SelectedItem="{Binding ChosenThemeOption}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:ThemeChoice}" />
+            </VerticalStackLayout>
+
             <!-- One statement for the whole screen: none of this can happen without the server. -->
             <Label Text="{controls:Translate 'Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later.'}"
                    IsVisible="{Binding IsOffline}"
@@ -24,7 +59,8 @@
 
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
 
-            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
+
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Username'}" FontAttributes="Bold" />
                 <!-- See RegisterPage for why this is not the default text keyboard. -->
                 <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
@@ -32,7 +68,7 @@
                 <Button Text="{controls:Translate 'Change username'}" Command="{Binding ChangeUserNameCommand}" />
             </VerticalStackLayout>
 
-            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Email address'}" FontAttributes="Bold" />
                 <Entry Placeholder="{controls:Translate 'New email address'}" Text="{Binding NewEmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
                 <Button Text="{controls:Translate 'Send confirmation code'}" Command="{Binding RequestEmailChangeCommand}" />
@@ -40,7 +76,7 @@
                 <Button Text="{controls:Translate 'Confirm new address'}" Command="{Binding ConfirmEmailChangeCommand}" />
             </VerticalStackLayout>
 
-            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}">
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Password'}" FontAttributes="Bold" />
                 <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />
                 <Entry Placeholder="{controls:Translate 'New password'}" Text="{Binding NewPassword}" IsPassword="True" />
@@ -49,7 +85,7 @@
 
             <!-- The same list Orbit.Web puts under Options, Permissions, and the same wording: what each
                  part of Orbit is, whether it is unlocked, and what it needs first when it is not. -->
-            <VerticalStackLayout Spacing="10">
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingPermissions}">
                 <Label Text="{controls:Translate 'Permissions'}" FontAttributes="Bold" />
 
                 <CollectionView ItemsSource="{Binding Permissions}" SelectionMode="None">
@@ -82,12 +118,13 @@
                 </Grid>
             </VerticalStackLayout>
 
-            <Button Text="{controls:Translate 'Diagnostics'}" Command="{Binding GoToDiagnosticsCommand}"
-                    Style="{StaticResource LinkButton}" />
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingDebug}">
+                <Button Text="{controls:Translate 'Diagnostics'}" Command="{Binding GoToDiagnosticsCommand}"
+                        HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
 
-            <Button Text="{controls:Translate 'Chat key'}"
-                    Command="{Binding GoToChatKeyCommand}"
-                    Style="{StaticResource LinkButton}" />
+                <Button Text="{controls:Translate 'Chat key'}" Command="{Binding GoToChatKeyCommand}"
+                        HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
+            </VerticalStackLayout>
 
             <Button Text="{controls:Translate 'Back to dashboard'}"
                     Command="{Binding GoBackCommand}"
