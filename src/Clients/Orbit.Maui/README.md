@@ -58,11 +58,12 @@ fails on this one every time. Keep it switched off.
 
 ## Debugging from VS Code
 
-`.vscode/launch.json` carries **Orbit.Maui (iOS simulator)**, and a compound that starts `Orbit.Api`
-alongside it — the app talks to `http://localhost:5080` on a simulator, so without the server it gets no
-further than the sign-in screen. Breakpoints need the **.NET MAUI extension**
-(`ms-dotnettools.dotnet-maui`, recommended in `.vscode/extensions.json`); it owns the `maui` debug type
-and the device picker in the status bar. Pick a simulator there before pressing F5.
+`.vscode/launch.json` carries **Orbit.Maui (iOS simulator)** and **Orbit.Maui (Android emulator)**, and a
+compound for each that starts `Orbit.Api` alongside it — without the server the app gets no further than
+the sign-in screen. Breakpoints need the **.NET MAUI extension** (`ms-dotnettools.dotnet-maui`,
+recommended in `.vscode/extensions.json`); it owns the `maui` debug type and the device picker in the
+status bar. Pick a device there before pressing F5 — the picker lists what is *running*, so an emulator
+has to be booted first.
 
 Without that extension the app can still be built and run, just with no debugger attached — the tasks in
 `.vscode/tasks.json` do it:
@@ -74,12 +75,23 @@ Without that extension the app can still be built and run, just with no debugger
 | `maui-ios: reinstall clean` | The same but wipes the app's container first, for testing a fresh install |
 | `ios-simulator: list iPhones` | What the installed Xcode actually ships, which is what the next task accepts |
 | `ios-simulator: boot a chosen iPhone` | Switches which model everything targets, shutting the current one down first |
+| `maui-android: build` | The Android build. No runtime identifier: one build carries every architecture |
+| `maui-android: run on emulator` | Builds, installs **over the top**, launches — keeps the local database |
+| `maui-android: reinstall clean` | Uninstalls first, for testing a fresh install |
+| `android-emulator: list AVDs` | The virtual devices this machine has |
+| `android-emulator: boot a chosen AVD` | Starts one detached and waits for Android to finish booting |
 
-Everything targets `booted`, which is the only handle `simctl` offers once a device is running — so
+The iOS tasks all target `booted`, which is the only handle `simctl` offers once a device is running — so
 choosing the model is a step of its own, and only one may be booted at a time or `booted` is ambiguous.
+The Android tasks reach the SDK through `ANDROID_HOME`, falling back to `~/Library/Android/sdk`.
 
-An uninstall clears the local SQLite database but **not** the chat key: that lives in the Keychain, which
-survives it.
+**Wait for the emulator, not just for `adb`.** `adb wait-for-device` returns as soon as the device is
+listed, which is well before Android has finished booting; an install into that window fails. The boot
+task polls `sys.boot_completed` afterwards for that reason.
+
+An uninstall clears the local SQLite database on both platforms. On iOS it leaves the **chat key**,
+which lives in the Keychain and survives one; on Android the key is app data and goes with everything
+else, so a clean reinstall there means restoring the key backup on the next sign-in.
 
 ## Running it against a local server
 
@@ -106,6 +118,17 @@ dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-ios -p:RuntimeI
 xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app
 ```
 
+Android has one command for the lot — `-t:Run` is the Android SDK's own build, install and launch target,
+so nothing has to name the activity, whose class name carries a generated hash:
+
+```bash
+dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -t:Run
+```
+
+Android refuses cleartext HTTP the way iOS does, and the exception is
+`Platforms/Android/Resources/xml/network_security_config.xml`: `10.0.2.2` and loopback only. A LAN
+address needs HTTPS or its own entry there.
+
 ## Prerequisites
 
 The .NET workloads (`maui`, `ios`, `android`) are only half of it — each platform also needs its own
@@ -121,6 +144,26 @@ the Command Line Tools, which are **not** enough — the iOS build fails with "C
 Xcode app bundle".
 
 If the Android SDK lives somewhere non-standard, point the build at it with `AndroidSdkDirectory`.
+
+The Android SDK is not one download but a set of packages, and the workload installs none of them. With
+the command-line tools on `PATH` (`brew install --cask android-commandlinetools`), this is the set the
+app needs, installed where the build looks for it without being told:
+
+```bash
+sdkmanager --sdk_root="$HOME/Library/Android/sdk" --licenses
+```
+
+```bash
+sdkmanager --sdk_root="$HOME/Library/Android/sdk" "platform-tools" "build-tools;36.0.0" "platforms;android-36" "emulator" "system-images;android-36;google_apis;arm64-v8a" "cmdline-tools;latest"
+```
+
+Then a device to run it on. **Pixel 8 is the reference**, the Android counterpart of the plan's iPhone 15
+Pro. Use the `avdmanager` inside the SDK rather than one from elsewhere: it finds system images relative
+to its own location, and one installed alongside a different SDK reports that there are none.
+
+```bash
+"$HOME/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager" create avd -n Orbit_Pixel_8_API_36 -k "system-images;android-36;google_apis;arm64-v8a" -d pixel_8
+```
 
 ## Building for iOS from Windows
 

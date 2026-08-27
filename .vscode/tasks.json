@@ -105,6 +105,71 @@
             "dependsOrder": "sequence",
             "dependsOn": ["ios-simulator: open", "maui-ios: build"],
             "problemMatcher": []
+        },
+        {
+            "label": "android-emulator: list AVDs",
+            // What the next task will accept as a name. The emulator lives in the SDK rather than on
+            // PATH, and the SDK is wherever ANDROID_HOME says - falling back to the location the
+            // command-line tools and Android Studio both use by default. Spelled out in shell rather
+            // than as ${env:ANDROID_HOME}, because VS Code substitutes an unset one with nothing and
+            // the task would then look for the emulator at the filesystem root.
+            "type": "shell",
+            "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; \"$SDK/emulator/emulator\" -list-avds",
+            "problemMatcher": []
+        },
+        {
+            "label": "android-emulator: boot a chosen AVD",
+            // Detached, because the emulator runs for as long as it is being used and a VS Code task
+            // that never returns would block everything that depends on it. The wait afterwards is not
+            // optional: adb answers as soon as the device is listed, which is minutes before Android
+            // has finished booting, and an install into that window fails.
+            "type": "shell",
+            "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; nohup \"$SDK/emulator/emulator\" -avd '${input:androidAvdName}' -no-boot-anim >/dev/null 2>&1 & \"$SDK/platform-tools/adb\" wait-for-device; until [ \"$(\"$SDK/platform-tools/adb\" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done; echo booted",
+            "problemMatcher": []
+        },
+        {
+            "label": "maui-android: build",
+            // No runtime identifier, unlike the iOS build: one Android build carries every architecture
+            // it supports, and the emulator picks the one it can run.
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj",
+                "-f", "net10.0-android",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "maui-android: run on emulator",
+            // -t:Run is the Android SDK's own build-install-launch target, so nothing here has to name
+            // the activity - which is generated with a hashed prefix and would go stale. Installs over
+            // the top, keeping the app's local database.
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj",
+                "-f", "net10.0-android",
+                "-t:Run",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "maui-android: reinstall clean",
+            // Wipes the app's data, and with it the local SQLite database - for testing a fresh install
+            // or a migration path from nothing. Unlike iOS, this also takes the chat key: Android's
+            // secure storage is app data, so an uninstall clears it where the Keychain survives one.
+            "type": "shell",
+            "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; \"$SDK/platform-tools/adb\" uninstall com.orbitmaui.android; dotnet build \"${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj\" -f net10.0-android -t:Run",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
         }
     ],
     "inputs": [
@@ -116,6 +181,14 @@
             "type": "promptString",
             "description": "Which iPhone to simulate (see the \"ios-simulator: list iPhones\" task)",
             "default": "iPhone 17 Pro"
+        },
+        {
+            // Free text for the same reason as the iPhone above: the AVDs are whatever this machine has
+            // been given, and "android-emulator: list AVDs" prints them.
+            "id": "androidAvdName",
+            "type": "promptString",
+            "description": "Which Android virtual device to boot (see the \"android-emulator: list AVDs\" task)",
+            "default": "Orbit_Pixel_8_API_36"
         }
     ]
 }

@@ -43,6 +43,17 @@
             "preLaunchTask": "maui-ios: build",
             "projectPath": "${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj",
             "configuration": "Debug"
+        },
+        {
+            "name": "Orbit.Maui (Android emulator)",
+            // Same extension and the same device picker as the iOS configuration above; pick a running
+            // emulator there before pressing F5. Boot one first with the "android-emulator: boot a
+            // chosen AVD" task - the picker lists devices, not virtual ones that could be started.
+            "type": "maui",
+            "request": "launch",
+            "preLaunchTask": "maui-android: build",
+            "projectPath": "${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj",
+            "configuration": "Debug"
         }
     ],
     "compounds": [
@@ -55,6 +66,12 @@
             // the API running to get past the version gate and the sign-in screen.
             "name": "Orbit.Api + Orbit.Maui (iOS simulator)",
             "configurations": ["Orbit.Api", "Orbit.Maui (iOS simulator)"]
+        },
+        {
+            // The emulator reaches the API at http://10.0.2.2:5080 rather than localhost - that alias
+            // is its host, which localhost on a phone is not. See OrbitApiSettings.
+            "name": "Orbit.Api + Orbit.Maui (Android emulator)",
+            "configurations": ["Orbit.Api", "Orbit.Maui (Android emulator)"]
         }
     ]
 }
