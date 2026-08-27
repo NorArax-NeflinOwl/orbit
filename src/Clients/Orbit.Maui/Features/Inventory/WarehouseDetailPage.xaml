@@ -75,9 +75,10 @@
                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AddOneCommand, x:DataType=inventory:WarehouseDetailPage}"
                                 CommandParameter="{Binding .}" />
-                        <Button Grid.Column="4" Text="{controls:Translate '✕'}" WidthRequest="44" BackgroundColor="Transparent"
+                        <Button Grid.Column="4" Text="⋯" FontSize="18" WidthRequest="44" Padding="0"
+                                BackgroundColor="Transparent"
                                 TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveItemCommand, x:DataType=inventory:WarehouseDetailPage}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowItemMenuCommand, x:DataType=inventory:WarehouseDetailPage}"
                                 CommandParameter="{Binding .}" />
                     </Grid>
                 </DataTemplate>

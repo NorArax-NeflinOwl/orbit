@@ -873,6 +873,8 @@ public static class PolishTranslations
         ["Who you are to Orbit, and what this device is allowed to do."]
             = "Kim jesteś dla Orbita i co wolno temu urządzeniu.",
         ["Already accepted"] = "Już przyjęto",
+        ["Item options"] = "Opcje pozycji",
+        ["Delete item"] = "Usuń pozycję",
         ["Line options"] = "Opcje wiersza",
         ["Make it a checklist item"] = "Zmień w pozycję listy",
         ["Make it an ordinary line"] = "Zmień w zwykły wiersz",

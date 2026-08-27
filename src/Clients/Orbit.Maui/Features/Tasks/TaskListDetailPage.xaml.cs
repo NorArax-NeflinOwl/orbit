@@ -1,3 +1,5 @@
+using Orbit.Mobile.Localization;
+using System.Windows.Input;
 using Orbit.Mobile.Screens.Tasks;
 
 namespace Orbit.Maui.Features.Tasks;
@@ -11,12 +13,15 @@ public partial class TaskListDetailPage : ContentPage
 	public TaskListDetailViewModel ViewModel => _viewModel;
 
 	private readonly TaskListDetailViewModel _viewModel;
+	private readonly Translations _translations;
 
-	public TaskListDetailPage(TaskListDetailViewModel viewModel)
+	public TaskListDetailPage(TaskListDetailViewModel viewModel, Translations translations)
 	{
 		InitializeComponent();
+		_translations = translations;
 		_viewModel = viewModel;
 		BindingContext = viewModel;
+		ShowItemMenuCommand = new Command<TaskItemRow>(item => _ = ShowItemMenuAsync(item));
 	}
 
 	protected override void OnAppearing()
@@ -39,5 +44,32 @@ public partial class TaskListDetailPage : ContentPage
 	{
 		base.OnDisappearing();
 		await _viewModel.CloseAsync();
+	}
+
+	/// <summary>
+	/// What a row's "⋯" opens. On the page rather than the view model because an action sheet is a
+	/// page's own presentation - the same reason ConversationPage keeps its message menu here.
+	/// </summary>
+	public ICommand ShowItemMenuCommand { get; }
+
+	private async Task ShowItemMenuAsync(TaskItemRow? item)
+	{
+		if (item is null)
+		{
+			return;
+		}
+
+		var remove = _translations["Delete item"];
+		var chosen = await DisplayActionSheet(
+			_translations["Item options"], _translations["Cancel"], remove, _translations["Edit"]);
+
+		if (chosen == remove)
+		{
+			_viewModel.RemoveItemCommand.Execute(item);
+		}
+		else if (chosen == _translations["Edit"])
+		{
+			_viewModel.EditItemCommand.Execute(item);
+		}
 	}
 }
