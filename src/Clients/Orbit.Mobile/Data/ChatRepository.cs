@@ -164,6 +164,7 @@ public sealed class ChatRepository
             message.NonceBase64 = incoming.NonceBase64;
             message.SentAtUtc = incoming.SentAtUtc;
             message.IsEdited = incoming.IsEdited;
+            message.IsReadByEveryone = incoming.ReadByEveryone;
         }
 
         return await dbContext.SaveChangesAsync(cancellationToken);

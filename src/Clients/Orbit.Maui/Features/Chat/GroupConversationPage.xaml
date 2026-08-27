@@ -10,6 +10,10 @@
     x:DataType="screens:GroupConversationViewModel"
     Title="{Binding Title}">
 
+    <ContentPage.Resources>
+        <controls:GroupDeliveryConverter x:Key="GroupDelivery" />
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,*,Auto">
 
 
@@ -47,6 +51,11 @@
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <!-- How far this got. Read means every other member has seen it - one still
+                                 behind and it is only delivered, which is the honest reading. -->
+                            <Label IsVisible="{Binding HasGroupDelivery}" FontSize="11"
+                                   Text="{Binding IsReadByTheWholeGroup, Converter={StaticResource GroupDelivery}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <!-- One trigger rather than a row of buttons, as the web's group chat now
                                  does it and as a one-to-one conversation here already did. Only on the
                                  reader's own messages, and only once the server has one - see

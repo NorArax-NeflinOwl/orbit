@@ -1,6 +1,7 @@
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Chat;
 
@@ -16,13 +17,16 @@ public sealed class EncryptedChatMessageReader
     private readonly ChatRepository _chatRepository;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly SessionStore _sessionStore;
+    private readonly Translations _translations;
 
     public EncryptedChatMessageReader(
-        ChatRepository chatRepository, OwnEncryptionKeyProvider encryptionKeyProvider, SessionStore sessionStore)
+        ChatRepository chatRepository, OwnEncryptionKeyProvider encryptionKeyProvider, SessionStore sessionStore,
+        Translations translations)
     {
         _chatRepository = chatRepository;
         _encryptionKeyProvider = encryptionKeyProvider;
         _sessionStore = sessionStore;
+        _translations = translations;
     }
 
     /// <summary>
@@ -107,16 +111,18 @@ public sealed class EncryptedChatMessageReader
                 message.SentAtUtc,
                 message.IsEdited,
                 IsWaitingToSend: false,
-                SenderName: isMine ? "You" : NameOf(members, message.SenderUserId),
+                SenderName: isMine ? _translations["You"] : NameOf(members, message.SenderUserId),
                 MessageId: message.Id,
                 GroupMessageId: message.GroupMessageId,
-                ForwardedFromDisplayName: opened.ForwardedFromDisplayName));
+                ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
+                IsReadByEveryone: isMine ? message.IsReadByEveryone : null));
         }
 
         foreach (var message in queued)
         {
             conversation.Add(new ReadableChatMessage(
-                IsMine: true, message.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true, SenderName: "You"));
+                IsMine: true, message.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true,
+                SenderName: _translations["You"]));
         }
 
         return conversation;

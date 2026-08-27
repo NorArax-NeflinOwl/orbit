@@ -63,7 +63,8 @@ internal sealed class ChatContext : IDisposable
             Repository, ChatClient, directoryReader, encryptionKeyProvider,
             NullLogger<EncryptedChatMessageEditor>.Instance);
         Forwarder = new MessageForwarder(Sender);
-        Reader = new EncryptedChatMessageReader(Repository, encryptionKeyProvider, sessionStore);
+        Reader = new EncryptedChatMessageReader(
+            Repository, encryptionKeyProvider, sessionStore, new Translations(new InMemoryLanguageStore()));
         Synchronizer = new ChatSynchronizer(
             Repository, ChatClient, usersClient, Sender, NullLogger<ChatSynchronizer>.Instance);
     }

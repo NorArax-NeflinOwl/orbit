@@ -184,7 +184,8 @@ public sealed class ContactsScreenTests
         /// <summary>The conversation screen for one person, which is where the compose box lives.</summary>
         public ConversationViewModel Conversation(LocalContact contact)
         {
-            var reader = new EncryptedChatMessageReader(Repository, _encryptionKeyProvider, _sessionStore);
+            var reader = new EncryptedChatMessageReader(
+                Repository, _encryptionKeyProvider, _sessionStore, new Translations(new InMemoryLanguageStore()));
             var directoryReader = new ChatDirectoryReader(_chatClient, UsersClient, _sessionStore);
             var sender = new EncryptedChatMessageSender(
                 Repository, _chatClient, directoryReader, _encryptionKeyProvider,
