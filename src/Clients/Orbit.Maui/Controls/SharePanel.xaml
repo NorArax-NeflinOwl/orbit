@@ -34,6 +34,20 @@
             </HorizontalStackLayout>
         </VerticalStackLayout>
 
+        <!-- The other kind of sharing: a link anyone can read, with no Orbit account and nothing to
+             accept. Offered beside the first because they answer different questions. -->
+        <HorizontalStackLayout Spacing="12" IsVisible="{Binding IsClosed}">
+            <Button Text="{controls:Translate 'Share a link'}" FontSize="13" Padding="12,4"
+                    Style="{StaticResource LinkButton}" Command="{Binding CreateLinkCommand}" />
+            <Button Text="{controls:Translate 'Stop the link'}" FontSize="13" Padding="12,4"
+                    IsVisible="{Binding HasLink}" Style="{StaticResource LinkButton}"
+                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
+                    Command="{Binding RevokeLinkCommand}" />
+        </HorizontalStackLayout>
+
+        <Label Text="{Binding LinkAddress}" IsVisible="{Binding HasLink}" FontSize="11" LineBreakMode="CharacterWrap"
+               Style="{StaticResource SubtleLabel}" />
+
         <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12" LineBreakMode="WordWrap"
                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
     </VerticalStackLayout>

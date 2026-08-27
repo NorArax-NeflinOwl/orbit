@@ -959,6 +959,14 @@ public static class PolishTranslations
         // Somebody offering to share something, which arrives in a conversation.
         ["Shared something with you"] = "Udostępnił(a) Ci coś",
         ["Read only"] = "Tylko do odczytu",
+
+        // A link anyone can read the thing by, with no Orbit account and nothing to accept.
+        ["Share a link"] = "Udostępnij linkiem",
+        ["Stop the link"] = "Wyłącz link",
+        ["That link no longer works."] = "Ten link już nie działa.",
+        ["Couldn't make a link for that."] = "Nie udało się utworzyć linku do tego.",
+        ["This Orbit doesn't have a web address set, so a link can't be built."] =
+            "Ten Orbit nie ma ustawionego adresu wersji webowej, więc nie da się zbudować linku.",
         ["Sharing needs a connection."] = "Udostępnianie wymaga połączenia.",
         ["Couldn't share that."] = "Nie udało się tego udostępnić.",
         ["{0} is yours now."] = "{0} — już Twoje.",

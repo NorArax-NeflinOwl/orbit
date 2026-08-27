@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Permissions;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -25,6 +26,7 @@ public sealed partial class SharePanel : ObservableObject
 {
     private readonly ChatRepository _chatRepository;
     private readonly SharedItemSharing _sharing;
+    private readonly PublicShareClient _links;
     private readonly UserPermissions _permissions;
     private readonly Translations _translations;
 
@@ -48,11 +50,12 @@ public sealed partial class SharePanel : ObservableObject
     private bool _isSharing;
 
     public SharePanel(
-        ChatRepository chatRepository, SharedItemSharing sharing, UserPermissions permissions,
-        Translations translations)
+        ChatRepository chatRepository, SharedItemSharing sharing, PublicShareClient links,
+        UserPermissions permissions, Translations translations)
     {
         _chatRepository = chatRepository;
         _sharing = sharing;
+        _links = links;
         _permissions = permissions;
         _translations = translations;
         AccessLevels = [.. Enum.GetValues<ShareAccessLevel>().Select(level => new AccessLevelChoice(level, Describe(level)))];
@@ -71,6 +74,72 @@ public sealed partial class SharePanel : ObservableObject
 
     /// <summary>The panel folded away, which is when the button that opens it is the thing on screen.</summary>
     public bool IsClosed => !IsOpen;
+
+    /// <summary>
+    /// The link anyone can read this by, or empty when there is none. A different kind of sharing from
+    /// offering a copy: nobody accepts it, and whoever holds it can read without an Orbit account.
+    /// </summary>
+    [ObservableProperty]
+    private string _linkAddress = string.Empty;
+
+    public bool HasLink => LinkAddress.Length > 0;
+
+    /// <summary>
+    /// Raised when there is a link to hand somewhere. Handing it over is a platform call - the system
+    /// share sheet - and reaching for one from here is what would make this untestable.
+    /// </summary>
+    public event EventHandler<string>? LinkReady;
+
+    /// <summary>
+    /// Makes a link if there is not one already, and offers it. Asking first rather than always making
+    /// one: a second link would leave the first working, and revoking then only stops one of them.
+    /// </summary>
+    [RelayCommand]
+    private async Task CreateLinkAsync(CancellationToken cancellationToken)
+    {
+        Message = string.Empty;
+        try
+        {
+            var token = await _links.FindLinkAsync(_kind.ToString(), _itemId, cancellationToken)
+                ?? await _links.CreateLinkAsync(_kind.ToString(), _itemId, cancellationToken);
+
+            if (token is null)
+            {
+                Message = _translations["Couldn't make a link for that."];
+                return;
+            }
+
+            var webAddress = await _links.WebAddressAsync(cancellationToken);
+            if (webAddress.Length == 0)
+            {
+                // Nothing to build a link around. Saying so beats handing somebody a broken URL.
+                Message = _translations["This Orbit doesn't have a web address set, so a link can't be built."];
+                return;
+            }
+
+            LinkAddress = $"{webAddress.TrimEnd('/')}/s/{token}";
+            LinkReady?.Invoke(this, LinkAddress);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Sharing needs a connection."];
+        }
+    }
+
+    [RelayCommand]
+    private async Task RevokeLinkAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _links.RevokeLinkAsync(_kind.ToString(), _itemId, cancellationToken);
+            LinkAddress = string.Empty;
+            Message = _translations["That link no longer works."];
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Sharing needs a connection."];
+        }
+    }
 
     public bool CanSend => Recipient is not null && AccessLevel is not null && !IsSharing;
 
@@ -152,6 +221,8 @@ public sealed partial class SharePanel : ObservableObject
     };
 
     partial void OnIsOpenChanged(bool value) => OnPropertyChanged(nameof(IsClosed));
+
+    partial void OnLinkAddressChanged(string value) => OnPropertyChanged(nameof(HasLink));
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 

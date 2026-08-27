@@ -15,8 +15,16 @@ public static class ConfigEndpoints
     public static void MapConfigEndpoints(this WebApplication app)
     {
         app.MapGet("/api/config/client-flags", (
-            IWebHostEnvironment environment, IOptionsMonitor<GoogleAuthSettings> googleAuthSettings) =>
-            Results.Ok(new ClientFlagsDto(environment.IsDevelopment(), googleAuthSettings.CurrentValue.ClientId)));
+            IWebHostEnvironment environment, IOptionsMonitor<GoogleAuthSettings> googleAuthSettings,
+            IConfiguration configuration) =>
+            Results.Ok(new ClientFlagsDto(
+                environment.IsDevelopment(),
+                googleAuthSettings.CurrentValue.ClientId,
+                // The first configured web origin - the same list CORS is built from, so a deployment
+                // that lets the browser client talk to this server has already said where it lives.
+                (configuration["WebClientOrigins"] ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .FirstOrDefault() ?? string.Empty)));
 
         // Deliberately unauthenticated, like the endpoint above: a build too old to sign in still has to
         // be able to find out that it must update. The app caches the answer so it can decide offline -

@@ -110,6 +110,78 @@ public sealed class SharePanelTests
         Assert.False(panel.CanShare);
     }
 
+    [Fact]
+    public async Task A_link_is_built_around_the_token_and_offered()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        using var links = new FakePublicShareServer { WebAddress = "https://orbit.example/" };
+        var panel = Build(context, shares, links: links);
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+        string? offered = null;
+        panel.LinkReady += (_, address) => offered = address;
+
+        await panel.CreateLinkCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("https://orbit.example/s/", panel.LinkAddress);
+        Assert.Equal(panel.LinkAddress, offered);
+    }
+
+    /// <summary>
+    /// A second link would leave the first working, so revoking would then stop only one of them. The
+    /// panel asks whether there is one before making another.
+    /// </summary>
+    [Fact]
+    public async Task Asking_twice_reuses_the_link_it_already_made()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        using var links = new FakePublicShareServer();
+        var panel = Build(context, shares, links: links);
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+
+        await panel.CreateLinkCommand.ExecuteAsync(null);
+        var first = panel.LinkAddress;
+        await panel.CreateLinkCommand.ExecuteAsync(null);
+
+        Assert.Equal(first, panel.LinkAddress);
+        Assert.Equal(1, links.LinksCreated);
+    }
+
+    [Fact]
+    public async Task Stopping_the_link_forgets_it()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        using var links = new FakePublicShareServer();
+        var panel = Build(context, shares, links: links);
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+        await panel.CreateLinkCommand.ExecuteAsync(null);
+
+        await panel.RevokeLinkCommand.ExecuteAsync(null);
+
+        Assert.False(panel.HasLink);
+    }
+
+    /// <summary>
+    /// A deployment that has not said where its browser client lives cannot have a link built for it.
+    /// Saying so beats handing somebody a URL that goes nowhere.
+    /// </summary>
+    [Fact]
+    public async Task With_no_web_address_it_says_so_rather_than_building_a_broken_link()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        using var links = new FakePublicShareServer { WebAddress = string.Empty };
+        var panel = Build(context, shares, links: links);
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+
+        await panel.CreateLinkCommand.ExecuteAsync(null);
+
+        Assert.False(panel.HasLink);
+        Assert.True(panel.HasMessage);
+    }
+
     private static async Task GiveAContactAsync(ChatContext context, string displayName)
     {
         context.GiveTheOtherPartyAPublishedKey();
@@ -118,7 +190,8 @@ public sealed class SharePanelTests
     }
 
     private static SharePanel Build(
-        ChatContext context, FakeShareServer shares, Orbit.Mobile.Permissions.UserPermissions? permissions = null)
+        ChatContext context, FakeShareServer shares, Orbit.Mobile.Permissions.UserPermissions? permissions = null,
+        FakePublicShareServer? links = null)
     {
         var http = shares.ToHttpClient();
 
@@ -127,6 +200,7 @@ public sealed class SharePanelTests
             new SharedItemSharing(
                 new NotesClient(http), new TasksClient(http), new CalendarClient(http), new InventoryClient(http),
                 context.Sender),
+            new PublicShareClient((links ?? new FakePublicShareServer()).ToHttpClient()),
             permissions ?? UnlockedPermissions.For(new LocalStore()),
             new Translations(new InMemoryLanguageStore()));
     }

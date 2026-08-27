@@ -14,7 +14,7 @@ internal static class ShareTestPanel
 {
     public static SharePanel For(
         LocalStore localStore, ChatRepository chatRepository, FakeShareServer? shareServer = null,
-        FakeChatServer? chatServer = null)
+        FakeChatServer? chatServer = null, FakePublicShareServer? linkServer = null)
     {
         var shares = (shareServer ?? new FakeShareServer()).ToHttpClient();
 
@@ -23,6 +23,7 @@ internal static class ShareTestPanel
             new SharedItemSharing(
                 new NotesClient(shares), new TasksClient(shares), new CalendarClient(shares),
                 new InventoryClient(shares), Sender(chatRepository, chatServer)),
+            new PublicShareClient((linkServer ?? new FakePublicShareServer()).ToHttpClient()),
             UnlockedPermissions.For(localStore),
             new Translations(new InMemoryLanguageStore()));
     }
