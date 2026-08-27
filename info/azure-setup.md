@@ -310,6 +310,34 @@ happened because a shell command's warning output got captured into the variable
 connection string. Always `echo` and eyeball a fetched connection string before feeding it into
 `secret set`.
 
+## Permission unlock codes
+
+They are rows in the database, not configuration: made on the first start that finds a permission
+without one, and left alone by every start after that, so a deploy never changes a code somebody was
+told. Read them with a plain query (see [PostgreSQL CLI gotchas](#postgresql-cli-gotchas) for getting a
+`psql` session against the Azure server):
+
+```sql
+SELECT "Permission", "Code" FROM "PermissionCodes";
+```
+
+Rotating one is an `UPDATE`, run when it is wanted rather than on every release - whoever holds the old
+code loses it the moment it runs, which is the point. Nothing caches a code, so it takes effect on the
+next code somebody types, with no restart. The deployment's own note (git-ignored, since it names
+accounts) carries the statements.
+
+There is nothing to configure in the Container App for this. An earlier design derived the codes from a
+`Permissions__Secret` environment variable backed by a `permission-secret` secret; both are **left over
+and unused** - nothing in the repository reads either. Removing them:
+
+```bash
+az containerapp update -g Orbit -n orbit-api --remove-env-vars Permissions__Secret
+az containerapp secret remove -g Orbit -n orbit-api --secret-names permission-secret
+```
+
+The env-var removal starts a new revision, as any template change does. The secret has to go second: a
+secret still referenced by an environment variable cannot be removed.
+
 ## PostgreSQL CLI gotchas
 
 Small `az` CLI quirks hit while setting this up, kept here so they don't have to be rediscovered:

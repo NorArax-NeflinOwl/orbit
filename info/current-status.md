@@ -21,6 +21,9 @@ unbuilt of the product's stated scope.
 | Inventory planner (warehouses, sharing, restock tasks, expiry warnings) | Implemented | [Functionality — Inventory](functionality.md#inventory) |
 | End-to-end-encrypted 1:1 chat (including editing a sent message) | Implemented | [Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat) |
 | Group chats, with admin and member roles | Implemented | [Functionality — Group chats](functionality.md#group-chats) |
+| Permissions (Contacts, Chat, Sharing, Location) and their unlock codes | Implemented | [Functionality — Permissions](functionality.md#permissions) |
+| Counting a task list's work against a warehouse, and generating one from it | Implemented | [Functionality — Tasks](functionality.md#can-this-list-be-done) |
+| Priorities on notes, task lists and events, and the dashboard filters that read them | Implemented | [Functionality — Priorities](functionality.md#priorities) |
 | Push notifications | Implemented | [Functionality — Push notifications](functionality.md#push-notifications) |
 | In-app notification feed, badge, and banner | Implemented | [Functionality — In-app notifications](functionality.md#in-app-notifications) |
 | Blazor WebAssembly web client | Implemented (only client so far) | [Architecture](architecture.md#orbitweb) |
