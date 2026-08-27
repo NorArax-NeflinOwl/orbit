@@ -38,9 +38,15 @@
 		<ApplicationVersion>1</ApplicationVersion>
 
 		<!-- iOS 17 is the floor: it is what the iPhone 15 Pro shipped with, and what Live Activities,
-		interactive widgets, and App Intents need in their current form. -->
+		interactive widgets, and App Intents need in their current form.
+
+		Android 10 (API 29) is the floor rather than the template's 21, and the reason is the screen lock:
+		BiometricPrompt only accepts a biometric and the device credential together from API 29 on, and
+		below that the fallback to a PIN needs a second, deprecated code path. Orbit's private notes rely
+		on that fallback - see Platforms/Android/PhoneAuthentication.cs. Scoped storage and the system
+		dark theme land in the same release, so the whole app has one shape to build for. -->
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">17.0</SupportedOSPlatformVersion>
-		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">29.0</SupportedOSPlatformVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -73,6 +79,18 @@
 		<!-- IHttpClientFactory: three clients with different handler pipelines (see MauiProgram), which is
 		the part that has to stay straight - only one of them may carry the access token. -->
 		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<!-- The prompt that confirms who is holding the phone before private notes open. Android only:
+		iOS asks the same question through LocalAuthentication, which is part of the platform and needs
+		no package.
+
+		Pinned below the newest build on purpose. These bindings carry exact AndroidX dependency ranges,
+		and from 1.1.0.31 they want a Lifecycle newer than the one MAUI 10.0.20 pins - which restores as
+		a pile of NU1608 warnings and two AndroidX versions in one app. 1.1.0.30 binds the same
+		androidx.biometric 1.1.0 against the versions MAUI already brings. Raise it when MAUI does. -->
+		<PackageReference Include="Xamarin.AndroidX.Biometric" Version="1.1.0.30" />
 	</ItemGroup>
 
 	<ItemGroup>
