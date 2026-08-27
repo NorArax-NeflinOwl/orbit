@@ -434,7 +434,7 @@
     {
         <div class="options-section">
             <h2 class="options-heading">@T["In Orbit"]</h2>
-            <p class="options-subtext">@T["Parts of Orbit this account can use. Each is unlocked separately, with a code entered under Debug."]</p>
+            <p class="options-subtext">@T["Parts of Orbit this account can use. Each is unlocked separately, with its own code."]</p>
             <div class="options-card">
                 <table class="permissions-table">
                     <thead>
@@ -472,29 +472,10 @@
             </div>
         </div>
 
-        <div class="options-section">
-            <h2 class="options-heading">@T["Location"]</h2>
-            <p class="options-subtext">@T["Kept on this device, because a browser grants location per device."]</p>
-            <div class="options-card">
-                <div class="options-row options-row-stacked">
-                    <div>
-                        <div class="options-row-title">@T["Use my location"]</div>
-                        <div class="options-row-desc">
-                            @T["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."]
-                        </div>
-                    </div>
-                    <button type="button" class="switch @(DevicePreferences.AllowLocation ? "on" : "")" role="switch"
-                            aria-checked="@DevicePreferences.AllowLocation"
-                            @onclick="ToggleAllowLocationAsync">
-                        <span class="switch-knob"></span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    }
-
-    @if (_activeTab == OptionsTab.Debug)
-    {
+        @* Only while something is still locked: an account that has unlocked everything has no use for
+           a code box, and leaving it there would invite typing into it forever. *@
+        @if (!HasEverythingUnlocked)
+        {
         <div class="options-section">
             <h2 class="options-heading">@T["Unlock code"]</h2>
             <p class="options-subtext">@T["One code per part of Orbit. Whoever deployed this Orbit has them - they are generated when it is built, and change every time it is."]</p>
@@ -520,7 +501,31 @@
                 </div>
             </div>
         </div>
+        }
 
+        <div class="options-section">
+            <h2 class="options-heading">@T["Location"]</h2>
+            <p class="options-subtext">@T["Kept on this device, because a browser grants location per device."]</p>
+            <div class="options-card">
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Use my location"]</div>
+                        <div class="options-row-desc">
+                            @T["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."]
+                        </div>
+                    </div>
+                    <button type="button" class="switch @(DevicePreferences.AllowLocation ? "on" : "")" role="switch"
+                            aria-checked="@DevicePreferences.AllowLocation"
+                            @onclick="ToggleAllowLocationAsync">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_activeTab == OptionsTab.Debug)
+    {
         <div class="options-section">
             <h2 class="options-heading">@T["Debugger"]</h2>
             <p class="options-subtext">@T["What this browser reports about Orbit itself. Kept on this device."]</p>
@@ -593,6 +598,8 @@
     }
 
     private OptionsTab _activeTab = OptionsTab.Account;
+
+    private bool HasEverythingUnlocked => Enum.GetValues<ApplicationPermission>().All(Permissions.Has);
 
     /// <summary>What the reader has typed into the unlock field, and how the last attempt went.</summary>
     private string _permissionCode = string.Empty;
