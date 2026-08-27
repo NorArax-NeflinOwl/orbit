@@ -416,7 +416,8 @@
         => GoogleCalendarEventLink.ForEvent(
             calendarEvent.Details.Title, calendarEvent.Details.StartUtc, calendarEvent.Details.EndUtc,
             calendarEvent.Details.IsAllDay, calendarEvent.Details.Description,
-            calendarEvent.Details.Location is { } location ? FormatLocation(location) : null);
+            calendarEvent.Details.Location is { } location ? FormatLocation(location) : null,
+            calendarEvent.Details.Recurrence);
 
     private string FormatLocation(EventLocationDto location)
         => string.IsNullOrWhiteSpace(location.Address)
