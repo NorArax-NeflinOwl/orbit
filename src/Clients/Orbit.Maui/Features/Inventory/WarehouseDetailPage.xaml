@@ -121,8 +121,11 @@
                     Command="{Binding CancelItemEditCommand}" />
         </HorizontalStackLayout>
 
-        <controls:SharePanel Grid.Row="4" BindingContext="{Binding Share}"
-                             IsVisible="{Binding IsShowingList}" Margin="0,4" />
+        <!-- The panel's own BindingContext would decide its IsVisible too, so the visibility lives on a
+             wrapper that still reads the view model. -->
+        <VerticalStackLayout Grid.Row="4" IsVisible="{Binding IsShowingList}">
+            <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
+        </VerticalStackLayout>
 
         <Button Grid.Row="5" Text="{controls:Translate 'Back'}" Command="{Binding GoBackCommand}"
                 IsVisible="{Binding IsShowingList}"
