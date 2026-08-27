@@ -59,6 +59,9 @@ public sealed class User
     /// </summary>
     public WrappedPrivateKey? WrappedPrivateKey { get; private set; }
 
+    /// <summary>What this account chose to be, and when it was last heard from - see <see cref="UserPresence"/>.</summary>
+    public UserPresence Presence { get; private set; } = UserPresence.NeverSeen;
+
     private User(
         Guid id, string email, string userName, string displayName, string? passwordHash, DateTimeOffset createdAtUtc,
         string? publicKeyBase64, WrappedPrivateKey? wrappedPrivateKey, DateTimeOffset? emailVerifiedAtUtc, string? googleSubjectId)
@@ -97,14 +100,26 @@ public sealed class User
     public static User FromPersistence(
         Guid id, string email, string userName, string displayName, string? passwordHash, DateTimeOffset createdAtUtc,
         string? publicKeyBase64, WrappedPrivateKey? wrappedPrivateKey = null, DateTimeOffset? emailVerifiedAtUtc = null,
-        string? googleSubjectId = null, UserLocation? location = null)
+        string? googleSubjectId = null, UserLocation? location = null, UserPresence? presence = null)
     {
         var user = new User(
             id, email, userName, displayName, passwordHash, createdAtUtc, publicKeyBase64, wrappedPrivateKey,
             emailVerifiedAtUtc, googleSubjectId);
         user.Location = location;
+        user.Presence = presence ?? UserPresence.NeverSeen;
         return user;
     }
+
+    /// <summary>Records that this account is here right now - see PresenceHeartbeatCommandHandler.</summary>
+    public void RecordSeen(DateTimeOffset nowUtc) => Presence = Presence.SeenAt(nowUtc);
+
+    /// <summary>
+    /// Changes what this person chose to be. Counts as being seen too: choosing a status is itself proof
+    /// that somebody is at the keyboard, and without it setting "available" from a stale session would
+    /// leave them showing as offline until the next heartbeat.
+    /// </summary>
+    public void SetAvailability(PresenceAvailability availability, DateTimeOffset nowUtc)
+        => Presence = Presence.WithAvailability(availability).SeenAt(nowUtc);
 
     /// <summary>Ties an existing account to a Google identity, so signing in with Google finds this account instead of creating a second one.</summary>
     public void LinkGoogle(string googleSubjectId) => GoogleSubjectId = googleSubjectId;

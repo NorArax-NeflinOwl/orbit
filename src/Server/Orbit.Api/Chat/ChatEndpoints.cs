@@ -260,7 +260,7 @@ public static class ChatEndpoints
         => new(
             contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64,
             contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty,
-            contact.UnreadCount);
+            contact.UnreadCount, contact.User.Presence.StatusAt(DateTimeOffset.UtcNow).ToString());
 
     private static ChatMessageDto ToDto(GroupConversationEntry entry)
         => ToDto(entry.Message) with { ReadByEveryone = entry.ReadByEveryone };

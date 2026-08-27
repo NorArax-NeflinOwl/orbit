@@ -1,0 +1,22 @@
+@using Orbit.Core.Users
+@using Orbit.Web.Services
+@inject Translations T
+
+@* The one indicator, used on the avatar, the chat list and the contact list, so the same colour always
+   means the same thing: green there, yellow away, red not to be disturbed, grey not around. *@
+<span class="presence-dot presence-dot-@Status.ToString().ToLowerInvariant()" title="@Describe(Status)">
+    @* Named for screen readers, which get nothing from a coloured circle. *@
+    <span class="visually-hidden">@Describe(Status)</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public PresenceStatus Status { get; set; }
+
+    private string Describe(PresenceStatus status) => status switch
+    {
+        PresenceStatus.Available => T["Available"],
+        PresenceStatus.Away => T["Away"],
+        PresenceStatus.DoNotDisturb => T["Do not disturb"],
+        _ => T["Offline"]
+    };
+}

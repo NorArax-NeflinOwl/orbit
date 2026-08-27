@@ -11,7 +11,14 @@ public sealed record AccountDto(
     bool HasPassword,
     bool IsGoogleLinked,
     /// <summary>Null until the user records one - see UserLocationDto.</summary>
-    UserLocationDto? Location = null);
+    UserLocationDto? Location = null,
+    /// <summary>What this account chose to be: "Available" or "DoNotDisturb" - see Orbit.Core.Users.PresenceAvailability.</summary>
+    string Availability = "Available",
+    /// <summary>What everybody else currently sees: "Available", "Away", "DoNotDisturb" or "Offline" - see Orbit.Core.Users.PresenceStatus.</summary>
+    string PresenceStatus = "Offline");
+
+/// <summary>Changes what the caller chose to be - see Orbit.Core.Users.PresenceAvailability for the accepted names.</summary>
+public sealed record SetAvailabilityRequest(string Availability);
 
 /// <summary>
 /// A point a user recorded for themselves: coordinates, the address reverse geocoding resolved if it
