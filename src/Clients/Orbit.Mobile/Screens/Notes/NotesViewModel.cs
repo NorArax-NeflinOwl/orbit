@@ -19,14 +19,11 @@ public sealed partial class NotesViewModel : ObservableObject
     private readonly LocalNoteRepository _notes;
     private readonly NoteSynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
-    private readonly SessionStore _sessionStore;
     private readonly Translations _translations;
     private readonly PrivateItemGate _privateItems;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
 
-    [ObservableProperty]
-    private string _greeting = string.Empty;
 
     [ObservableProperty]
     private string _newNoteTitle = string.Empty;
@@ -36,13 +33,12 @@ public sealed partial class NotesViewModel : ObservableObject
 
     public NotesViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, INetworkStatus networkStatus,
-        SessionStore sessionStore, Translations translations, PrivateItemGate privateItems,
+        Translations translations, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
-        _sessionStore = sessionStore;
         _translations = translations;
         _privateItems = privateItems;
         _syncState = syncState;
@@ -71,14 +67,13 @@ public sealed partial class NotesViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        if (await _sessionStore.GetAsync() is { } session)
-        {
-            Greeting = _translations.Format("Signed in as {0}", session.DisplayName);
-        }
-
         await ShowLocalNotesAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
     }
+
+    /// <summary>The way back to the dashboard, as every other list screen has - see NotesPage.</summary>
+    [RelayCommand]
+    private void GoBack() => _navigator.ShowDashboard();
 
     [RelayCommand(CanExecute = nameof(CanAddNote))]
     private async Task AddNoteAsync(CancellationToken cancellationToken)
