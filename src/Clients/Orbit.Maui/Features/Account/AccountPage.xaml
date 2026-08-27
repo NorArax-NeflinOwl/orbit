@@ -15,7 +15,11 @@
     <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="24" Spacing="18">
 
-            <Label Text="{controls:Translate 'Account'}" FontSize="26" FontAttributes="Bold" />
+            <controls:PageHeader Title="{controls:Translate 'Account'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Who you are to Orbit, and what this device is allowed to do." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
 
             <!-- Tabs rather than one long scroll, as Orbit.Web's Options page has: changing a password
                  and unlocking a feature are different errands. -->
@@ -44,7 +48,7 @@
                  the web keeps it in the browser: a phone in a pocket and a browser at a desk want
                  different answers. The language stays in the avatar's menu, where it was asked for. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingAppearance}">
-                <Label Text="{controls:Translate 'Appearance'}" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Appearance'}" Style="{StaticResource FieldLabel}" />
                 <Label Text="{controls:Translate 'Choose how Orbit looks on this device.'}" FontSize="12"
                        LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Picker ItemsSource="{Binding Themes}" SelectedItem="{Binding ChosenThemeOption}"
@@ -61,7 +65,7 @@
 
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Username'}" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Username'}" Style="{StaticResource FieldLabel}" />
                 <!-- See RegisterPage for why this is not the default text keyboard. -->
                 <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
                 <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
@@ -69,7 +73,7 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Email address'}" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Email address'}" Style="{StaticResource FieldLabel}" />
                 <Entry Placeholder="{controls:Translate 'New email address'}" Text="{Binding NewEmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
                 <Button Text="{controls:Translate 'Send confirmation code'}" Command="{Binding RequestEmailChangeCommand}" />
                 <Entry Placeholder="{controls:Translate 'Confirmation code'}" Text="{Binding EmailConfirmationCode}" Keyboard="Numeric" />
@@ -77,7 +81,7 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Password'}" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Password'}" Style="{StaticResource FieldLabel}" />
                 <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />
                 <Entry Placeholder="{controls:Translate 'New password'}" Text="{Binding NewPassword}" IsPassword="True" />
                 <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
@@ -86,7 +90,7 @@
             <!-- A file somebody keeps, not a copy the app maintains. Importing creates new things
                  rather than restoring old ones, so it never puts what is already here at risk. -->
             <VerticalStackLayout Spacing="8" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Export'}" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Export'}" Style="{StaticResource FieldLabel}" />
                 <Label Text="{controls:Translate 'Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed.'}"
                        FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Button Text="{controls:Translate 'Export everything'}" HorizontalOptions="Start"
@@ -104,7 +108,7 @@
             <!-- The same list Orbit.Web puts under Options, Permissions, and the same wording: what each
                  part of Orbit is, whether it is unlocked, and what it needs first when it is not. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingPermissions}">
-                <Label Text="{controls:Translate 'Permissions'}" FontAttributes="Bold" />
+                <Label Text="{controls:Translate 'Permissions'}" Style="{StaticResource FieldLabel}" />
 
                 <CollectionView ItemsSource="{Binding Permissions}" SelectionMode="None">
                     <CollectionView.ItemTemplate>
