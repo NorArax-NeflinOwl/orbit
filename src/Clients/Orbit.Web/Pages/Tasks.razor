@@ -88,7 +88,15 @@ else
                             <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
                         }
                     </span>
-                    <span class="card-count">@CompletionSummary(taskList)</span>
+                    <span class="card-header-end">
+                        <span class="card-count">@CompletionSummary(taskList)</span>
+                        @* Only for a list you own: pinning moves the card on its owner's page, so a
+                           recipient pinning a shared list would be rearranging someone else's. *@
+                        @if (!taskList.IsShared)
+                        {
+                            <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
+                        }
+                    </span>
                 </div>
 
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
@@ -121,12 +129,6 @@ else
 
                 <div class="card-actions">
                     <button type="button" class="btn-primary" @onclick="() => GoToChecklist(taskList.Id)">@T["Open checklist"]</button>
-                    @if (!taskList.IsShared)
-                    {
-                        @* Only for a list you own: pinning moves the card on its owner's page, so a
-                           recipient pinning a shared list would be rearranging someone else's. *@
-                        <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
-                    }
                     <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
                     <button type="button" class="btn-secondary" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
                 </div>

@@ -218,7 +218,7 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        Assert.Empty(cut.FindAll("div.card").Where(card => card.QuerySelector(".card-title")!.TextContent == "Recent chats"));
+        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Recent chats");
         Assert.Contains("Anna Kowalska", FindColumn(cut, "Contacts").TextContent);
     }
 
@@ -232,7 +232,7 @@ public sealed class DashboardTests : OrbitTestContext
         MenuEntries(cut).Single(entry => entry.TextContent.Contains("Recent chats"))
             .QuerySelector("input")!.Change(false);
 
-        Assert.Empty(cut.FindAll("div.card").Where(card => card.QuerySelector(".card-title")!.TextContent == "Recent chats"));
+        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Recent chats");
     }
 
     [Fact]
