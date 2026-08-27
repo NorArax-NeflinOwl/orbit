@@ -53,6 +53,12 @@ public sealed class TaskList
     /// </summary>
     public bool IsGroup { get; private set; }
 
+    /// <summary>
+    /// The warehouse this list's work is measured against, when one has been chosen - see
+    /// StockRequirementCounter. Null for a list nobody has asked that question of.
+    /// </summary>
+    public Guid? LinkedWarehouseId { get; private set; }
+
     /// <summary>The user id currently holding the edit lock, if any - see AcquireLock/ReleaseLock.</summary>
     public Guid? LockedByUserId { get; private set; }
 
@@ -123,9 +129,13 @@ public sealed class TaskList
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        TaskListPriority priority, bool isPinned)
-        => new(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, createdAtUtc, updatedAtUtc,
-            lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+        TaskListPriority priority, bool isPinned, Guid? linkedWarehouseId = null)
+    {
+        var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
+            createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+        taskList.LinkedWarehouseId = linkedWarehouseId;
+        return taskList;
+    }
 
     /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
     /// <summary>Tells the owner that somebody else holds accepted access - the mirror of <see cref="IsShared"/>.</summary>
@@ -162,6 +172,12 @@ public sealed class TaskList
     /// without loading, editing and saving the whole thing - and so it never collides with someone
     /// else's edit lock, which is about the content rather than where the card sits.
     /// </summary>
+    /// <summary>
+    /// Points this list at a warehouse, or at none. Its own command rather than part of an update, for
+    /// the same reason pinning is: it changes what the list is measured against, not what is on it.
+    /// </summary>
+    public void LinkToWarehouse(Guid? warehouseId) => LinkedWarehouseId = warehouseId;
+
     public void SetPinned(bool isPinned)
     {
         if (IsPinned == isPinned)

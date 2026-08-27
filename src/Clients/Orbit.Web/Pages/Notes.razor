@@ -24,6 +24,11 @@
     </div>
 </div>
 
+@if (_deleteMessage is not null)
+{
+    <p class="info">@_deleteMessage</p>
+}
+
 @if (_notes is null)
 {
     <p>@T["Loading…"]</p>
@@ -69,7 +74,7 @@ else
                 <button @onclick="() => GoToEditNote(note.Id)">@T["Edit"]</button>
                 @* Somebody else's note is not this reader's to delete: pressing this takes it off their
                    list and leaves the owner's alone, so it says that rather than "Delete". *@
-                <button @onclick="() => DeleteNoteAsync(note)">@(note.IsShared ? T["Remove from my list"] : T["Delete"])</button>
+                <button disabled="@(_deletingNoteId == note.Id)" @onclick="() => DeleteNoteAsync(note)">@(note.IsShared ? T["Remove from my list"] : T["Delete"])</button>
             </li>
         }
     </ul>
@@ -150,9 +155,21 @@ else
             .ToList();
     }
 
+    /// <summary>Which note is being deleted right now, so a second press cannot ask twice.</summary>
+    private Guid? _deletingNoteId;
+
+    /// <summary>What to say about the last delete - empty while nothing needs saying.</summary>
+    private string? _deleteMessage;
+
     private async Task DeleteNoteAsync(NoteDto note)
     {
+        if (_deletingNoteId is not null)
+        {
+            return;
+        }
+
         Logger.LogInformation("User clicked 'Delete' for note {NoteId}", note.Id);
+        _deleteMessage = null;
         var confirmed = await JSRuntime.InvokeAsync<bool>(
             "confirm",
             note.IsShared
@@ -163,6 +180,7 @@ else
             return;
         }
 
+        _deletingNoteId = note.Id;
         try
         {
             await NotesApiClient.DeleteNoteAsync(note.Id);
@@ -172,10 +190,25 @@ else
             NavigationManager.NavigateTo("/login");
             return;
         }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
+        {
+            // Already gone - deleted from another tab, or on a device that has since synced. The row was
+            // being left on screen, so pressing Delete again asked about a note that no longer existed
+            // and was refused again, for as long as anybody kept pressing.
+            Logger.LogInformation("Note {NoteId} was already gone; taking it off the list", note.Id);
+            _notes = _notes!.Where(existingNote => existingNote.Id != note.Id).ToList();
+            _deleteMessage = T["That note was already gone. The list has been brought up to date."];
+            return;
+        }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to delete note {NoteId}", note.Id);
+            _deleteMessage = T["Couldn't delete that note. Try again."];
             return;
+        }
+        finally
+        {
+            _deletingNoteId = null;
         }
 
         _notes = _notes!.Where(existingNote => existingNote.Id != note.Id).ToList();

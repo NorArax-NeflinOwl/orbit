@@ -113,10 +113,10 @@ public sealed partial class DashboardViewModel : ObservableObject
         var events = await _calendarEvents.GetAllAsync(cancellationToken);
         // Nothing conversational is shown to an account that cannot hold a conversation, as the web's
         // dashboard does it - a card whose every row leads to "not unlocked" is worse than no card.
-        var contacts = _permissions.Has(ApplicationPermission.Chat)
+        var contacts = _permissions.Has(ApplicationPermission.Contacts)
             ? await _chat.GetContactsAsync(cancellationToken)
             : [];
-        var groups = _permissions.Has(ApplicationPermission.GroupChat)
+        var groups = _permissions.Has(ApplicationPermission.Chat)
             ? await _chat.GetGroupsAsync(cancellationToken)
             : [];
 

@@ -202,19 +202,6 @@ try
                 ClockSkew = TimeSpan.FromSeconds(30)
             };
         });
-    // One secret, four derived codes - see PermissionSettings for where the secret comes from. Making
-    // one up when it is unset keeps `dotnet run` and docker-compose working with no configuration at
-    // all; the codes are logged below, because a code nobody can read grants nothing.
-    builder.Services.Configure<PermissionSettings>(builder.Configuration.GetSection(PermissionSettings.SectionName));
-    var permissionSecret = builder.Configuration.GetSection(PermissionSettings.SectionName).Get<PermissionSettings>()?.Secret;
-    var permissionSecretWasGenerated = string.IsNullOrWhiteSpace(permissionSecret);
-    if (permissionSecretWasGenerated)
-    {
-        permissionSecret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-    }
-
-    var permissionCodeAuthority = new PermissionCodeAuthority(permissionSecret!);
-    builder.Services.AddSingleton(permissionCodeAuthority);
     builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
     builder.Services.AddAuthorization(options => options.AddPermissionPolicies());
 
@@ -294,17 +281,18 @@ try
         dbContext.Database.Migrate();
     }
 
-    // A generated secret exists only for as long as this process does, so its codes are printed where
-    // whoever started the server will see them. A configured one is not printed: on a real deployment
-    // the codes belong in the run summary of the workflow that generated the secret, not in a log file
-    // that outlives it.
-    if (permissionSecretWasGenerated)
+    // Every permission gets a code the first time this deployment starts without one, and keeps it
+    // afterwards - a code that changed under whoever was told it would be worse than no code at all.
+    // They are rows, so reading them back is a plain query rather than a search through a build log:
+    //
+    //     SELECT "Permission", "Code" FROM "PermissionCodes";
+    using (var scope = app.Services.CreateScope())
     {
-        Log.Warning(
-            "Permissions:Secret is not configured, so one was generated for this run. Unlock codes: {Codes}. "
-            + "Set Permissions__Secret to keep the same codes across restarts.",
-            string.Join(", ", Enum.GetValues<ApplicationPermission>()
-                .Select(permission => $"{permission}={permissionCodeAuthority.CodeFor(permission)}")));
+        var codes = await scope.ServiceProvider.GetRequiredService<PermissionCodeStore>()
+            .EnsureEveryPermissionHasOneAsync(CancellationToken.None);
+        Log.Information(
+            "{CodeCount} permission unlock codes are in place - read them with: SELECT \"Permission\", \"Code\" FROM \"PermissionCodes\";",
+            codes.Count);
     }
 
     app.UseSerilogRequestLogging(options =>

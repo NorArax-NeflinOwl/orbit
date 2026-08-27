@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Orbit.Contracts;
 using Orbit.Api.Permissions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Sharing;
@@ -193,6 +194,9 @@ public static class CalendarEndpoints
     {
         EditOutcomeKind.Success => Results.NoContent(),
         EditOutcomeKind.Locked => Results.Json(new LockConflictDto(outcome.LockedByUserName!), statusCode: StatusCodes.Status409Conflict),
+        // 403 rather than 404: the caller can see this, so hiding it from them now would only confuse.
+        EditOutcomeKind.ReadOnly => Results.Json(
+            new RefusalDto("This was shared with you to read, not to change."), statusCode: StatusCodes.Status403Forbidden),
         _ => Results.NotFound()
     };
 }

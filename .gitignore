@@ -47,3 +47,7 @@ credentials/
 # it from secrets/ if you keep one there.
 google-services.json
 GoogleService-Info.plist
+
+# Deployment notes that name real accounts - see notes/permissions.local.md. Kept out of git because
+# which account may do what is a deployment's own business, not the source's.
+*.local.md

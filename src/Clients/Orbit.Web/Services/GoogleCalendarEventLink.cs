@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Web;
+using Orbit.Contracts.Calendar;
 
 namespace Orbit.Web.Services;
 
@@ -23,7 +24,7 @@ public static class GoogleCalendarEventLink
     /// </summary>
     public static string ForEvent(
         string title, DateTimeOffset startUtc, DateTimeOffset endUtc, bool isAllDay = false,
-        string? description = null, string? location = null)
+        string? description = null, string? location = null, RecurrenceDto? recurrence = null)
     {
         var dates = isAllDay
             ? $"{FormatDate(startUtc)}/{FormatDate(endUtc.Date > startUtc.Date ? endUtc : endUtc.AddDays(1))}"
@@ -40,7 +41,66 @@ public static class GoogleCalendarEventLink
             url += $"&location={Encode(location)}";
         }
 
+        if (ToRecurrenceRule(recurrence) is { } rule)
+        {
+            url += $"&recur={Encode(rule)}";
+        }
+
+        // Guests are deliberately left out. Google's template links take them as "&add=<address>", which
+        // would put other people's email addresses into a URL - in this reader's history, in whatever
+        // logs it passes through - to save them a step they can do in Google's own form.
         return url;
+    }
+
+    /// <summary>
+    /// Orbit's recurrence as the iCalendar rule Google's template links read. Null for an event that
+    /// does not repeat, and for a frequency this version does not know - an unrecognised rule makes
+    /// Google drop the whole link's recurrence silently, and one occurrence is a better wrong answer
+    /// than a link that opens an empty form.
+    /// </summary>
+    private static string? ToRecurrenceRule(RecurrenceDto? recurrence)
+    {
+        if (recurrence is null)
+        {
+            return null;
+        }
+
+        var frequency = recurrence.Frequency switch
+        {
+            nameof(RecurrenceFrequencyNames.Daily) => "DAILY",
+            nameof(RecurrenceFrequencyNames.Weekly) => "WEEKLY",
+            nameof(RecurrenceFrequencyNames.Monthly) => "MONTHLY",
+            _ => null
+        };
+        if (frequency is null)
+        {
+            return null;
+        }
+
+        var rule = $"RRULE:FREQ={frequency}";
+        // INTERVAL=1 is the default, so saying it adds length and nothing else.
+        if (recurrence.IntervalCount > 1)
+        {
+            rule += $";INTERVAL={recurrence.IntervalCount.ToString(CultureInfo.InvariantCulture)}";
+        }
+
+        if (recurrence.UntilUtc is { } until)
+        {
+            rule += $";UNTIL={FormatInstant(until)}";
+        }
+
+        return rule;
+    }
+
+    /// <summary>
+    /// The frequency names as they travel in RecurrenceDto.Frequency - see Orbit.Core's
+    /// RecurrenceFrequency, which the API serialises by name.
+    /// </summary>
+    private enum RecurrenceFrequencyNames
+    {
+        Daily,
+        Weekly,
+        Monthly
     }
 
     /// <summary>

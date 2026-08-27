@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Permissions;
 
 namespace Orbit.Core.Users.GetUserById;
 
@@ -10,12 +11,21 @@ namespace Orbit.Core.Users.GetUserById;
 public sealed class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, User?>
 {
     private readonly IUserRepository _userRepository;
+    private readonly UserVisibility _userVisibility;
 
-    public GetUserByIdQueryHandler(IUserRepository userRepository)
+    public GetUserByIdQueryHandler(IUserRepository userRepository, UserVisibility userVisibility)
     {
         _userRepository = userRepository;
+        _userVisibility = userVisibility;
     }
 
-    public Task<User?> HandleAsync(GetUserByIdQuery request, CancellationToken cancellationToken)
-        => _userRepository.GetByIdAsync(request.Id, cancellationToken);
+    /// <summary>
+    /// Nothing for an account that has not unlocked Contacts: knowing an id is not supposed to be a way
+    /// around being invisible - see UserVisibility.
+    /// </summary>
+    public async Task<User?> HandleAsync(GetUserByIdQuery request, CancellationToken cancellationToken)
+    {
+        var user = await _userRepository.GetByIdAsync(request.Id, cancellationToken);
+        return user is not null && await _userVisibility.IsFindableAsync(user.Id, cancellationToken) ? user : null;
+    }
 }

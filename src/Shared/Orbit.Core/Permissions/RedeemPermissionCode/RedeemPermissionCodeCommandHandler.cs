@@ -10,18 +10,18 @@ namespace Orbit.Core.Permissions.RedeemPermissionCode;
 public sealed class RedeemPermissionCodeCommandHandler : IRequestHandler<RedeemPermissionCodeCommand, RedeemPermissionCodeOutcome>
 {
     private readonly IUserPermissionRepository _userPermissionRepository;
-    private readonly PermissionCodeAuthority _permissionCodeAuthority;
+    private readonly PermissionCodeStore _permissionCodeStore;
 
     public RedeemPermissionCodeCommandHandler(
-        IUserPermissionRepository userPermissionRepository, PermissionCodeAuthority permissionCodeAuthority)
+        IUserPermissionRepository userPermissionRepository, PermissionCodeStore permissionCodeStore)
     {
         _userPermissionRepository = userPermissionRepository;
-        _permissionCodeAuthority = permissionCodeAuthority;
+        _permissionCodeStore = permissionCodeStore;
     }
 
     public async Task<RedeemPermissionCodeOutcome> HandleAsync(RedeemPermissionCodeCommand request, CancellationToken cancellationToken)
     {
-        if (_permissionCodeAuthority.Match(request.Code) is not { } permission)
+        if (await _permissionCodeStore.MatchAsync(request.Code, cancellationToken) is not { } permission)
         {
             return new RedeemPermissionCodeOutcome(Granted: null, MissingPrerequisite: null);
         }

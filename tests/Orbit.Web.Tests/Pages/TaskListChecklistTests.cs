@@ -5,6 +5,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Tasks;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
@@ -34,6 +35,8 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         RegisterGoogleIntegrationAccess();
+        RegisterChecklistViewPreference();
+        RegisterInventoryApiClient();
     }
 
     [Fact]
@@ -243,6 +246,13 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         {
             _requests.Add(request);
             _requestBodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty);
+            // No warehouse is chosen for these fixtures, which is what the stock check answers 404 to -
+            // and the page reads as "no question to answer" rather than as a failure.
+            if (request.RequestUri!.AbsolutePath.EndsWith("/stock-check", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
             return request.Method == HttpMethod.Put
                 ? new HttpResponseMessage(HttpStatusCode.NoContent)
                 : new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(taskLists) };
@@ -262,4 +272,176 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             Guid.NewGuid(), description, dueDateUtc, isCompleted, linkedTaskListId,
             OverdueNotificationChannel: "None", RemindDaily: false,
             DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: default);
+
+    [Fact]
+    public void A_group_shows_the_lists_below_its_own_members_too()
+    {
+        // Renovation -> Kitchen -> Tiling. Stopping at Kitchen would hide the work that is actually left.
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id)) with { IsGroup = true };
+        var renovation = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([renovation, kitchen, tiling]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, renovation.Id));
+
+        Assert.Equal(["Kitchen", "Tiling"], cut.FindAll(".checklist-card .card-title").Select(card => card.TextContent.Trim()));
+        Assert.Contains("Grout", cut.Markup);
+    }
+
+    [Fact]
+    public void A_list_appears_directly_under_the_one_that_links_to_it()
+    {
+        // Depth-first: Kitchen's own subtree comes before Garden, not after every sibling.
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id)) with { IsGroup = true };
+        var garden = TaskList("Garden", Item("Mow"));
+        var renovation = TaskList("Renovation",
+            Item("Kitchen done", linkedTaskListId: kitchen.Id),
+            Item("Garden done", linkedTaskListId: garden.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([renovation, kitchen, tiling, garden]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, renovation.Id));
+
+        Assert.Equal(["Kitchen", "Tiling", "Garden"],
+            cut.FindAll(".checklist-card .card-title").Select(card => card.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void How_deep_a_list_sits_is_written_on_its_card()
+    {
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id)) with { IsGroup = true };
+        var renovation = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([renovation, kitchen, tiling]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, renovation.Id));
+
+        // The indent is CSS's business; the depth it reads is this page's.
+        var depths = cut.FindAll(".checklist-card").Select(card => card.GetAttribute("style")).ToArray();
+        Assert.Contains("--checklist-depth: 0", depths[0]);
+        Assert.Contains("--checklist-depth: 1", depths[1]);
+        Assert.Contains("--checklist-depth: 2", depths[2]);
+    }
+
+    [Fact]
+    public void A_list_that_links_back_to_an_ancestor_does_not_unfold_forever()
+    {
+        // Two lists pointing at each other. Without the guard this is a stack overflow, not a page.
+        var firstId = Guid.NewGuid();
+        var second = TaskList("Second", Item("Back to the first", linkedTaskListId: firstId)) with { IsGroup = true };
+        var first = new TaskDto(
+            firstId, "First", [Item("On to the second", linkedTaskListId: second.Id)], IsCompleted: false,
+            IsGroup: true, IsPrivate: false, EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+        RegisterTasksApiClient([first, second]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, first.Id));
+
+        Assert.Equal(["Second"], cut.FindAll(".checklist-card .card-title").Select(card => card.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_list_linked_from_two_places_is_shown_once()
+    {
+        // The second copy would carry the same items and the same checkboxes, and ticking one would
+        // leave the other looking untouched.
+        var shared = TaskList("Shopping", Item("Milk"));
+        var group = TaskList("Weekend",
+            Item("Shopping done", linkedTaskListId: shared.Id),
+            Item("Shopping again", linkedTaskListId: shared.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([group, shared]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
+
+        Assert.Equal(["Shopping"], cut.FindAll(".checklist-card .card-title").Select(card => card.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_list_that_is_not_a_group_shows_only_itself()
+    {
+        var other = TaskList("Other", Item("Something"));
+        var plain = TaskList("Errands", Item("Buy milk"));
+        RegisterTasksApiClient([plain, other]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, plain.Id));
+
+        Assert.Empty(cut.FindAll(".checklist-card .card-title"));
+    }
+
+    [Fact]
+    public void A_group_with_nothing_nested_in_it_is_not_offered_a_flat_view()
+    {
+        // One row of plain members already reads as one page with headings - there is nothing to flatten.
+        var kitchen = TaskList("Kitchen", Item("Tiles"));
+        var group = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([group, kitchen]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
+
+        Assert.DoesNotContain("Show single items", cut.Markup);
+    }
+
+    [Fact]
+    public void A_tree_deeper_than_one_level_is_offered_a_flat_view()
+    {
+        var tree = ARenovationTree();
+        RegisterTasksApiClient(tree);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, tree[0].Id));
+
+        Assert.Contains("Show single items", cut.Markup);
+    }
+
+    [Fact]
+    public void The_flat_view_shows_every_item_in_the_tree_and_no_headings()
+    {
+        var tree = ARenovationTree();
+        RegisterTasksApiClient(tree);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, tree[0].Id));
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Show single items")).Click();
+
+        var rows = cut.FindAll(".check-row").Select(row => row.TextContent).ToList();
+        Assert.Contains(rows, row => row.Contains("Grout"));
+        Assert.Contains(rows, row => row.Contains("Mow"));
+        // The rows that only point at another list are how the tree is held together, not work to tick.
+        Assert.DoesNotContain(rows, row => row.Contains("Kitchen done"));
+        Assert.Empty(cut.FindAll(".checklist-card .card-title"));
+    }
+
+    /// <summary>Renovation -> Kitchen -> Tiling, plus a plain Garden - two levels below the root.</summary>
+    private static IReadOnlyList<TaskDto> ARenovationTree()
+    {
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id)) with { IsGroup = true };
+        var garden = TaskList("Garden", Item("Mow"));
+        var renovation = TaskList("Renovation",
+            Item("Kitchen done", linkedTaskListId: kitchen.Id),
+            Item("Garden done", linkedTaskListId: garden.Id)) with { IsGroup = true };
+        return [renovation, kitchen, tiling, garden];
+    }
+    /// <summary>
+    /// Which view a list opens in lives in localStorage, reached through a JS module (see
+    /// ChecklistViewPreference) - stubbed as "never saved", so these tests see the tree view unless they
+    /// press the button themselves.
+    /// </summary>
+    private void RegisterChecklistViewPreference()
+    {
+        var module = JSInterop.SetupModule("./js/checklistView.js");
+        module.Setup<string?>("getSavedView", _ => true).SetResult(null);
+        module.SetupVoid("saveView", _ => true);
+        Services.AddScoped<ChecklistViewPreference>();
+    }
+    /// <summary>
+    /// The checklist offers to price a group list against a warehouse. These tests are about the items,
+    /// so there are no warehouses to choose and the panel stays empty.
+    /// </summary>
+    private void RegisterInventoryApiClient()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(Array.Empty<WarehouseDto>())
+        });
+        Services.AddSingleton(new InventoryApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
+    }
 }

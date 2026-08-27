@@ -2,6 +2,7 @@
 @page "/calendar/{Id:guid}"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using System.Globalization
 @using System.Text.Json
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
@@ -14,6 +15,7 @@
 @inject UsersApiClient UsersApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject GeocodingApiClient GeocodingApiClient
+@inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
@@ -259,6 +261,18 @@ else
         <ShareLinkButton ItemType="CalendarEvent" ItemId="calendarEventId" />
     }
 
+    @* An event is worth having in the calendar somebody actually lives out of. The link hands Google
+       what this event says and opens its own form, so what lands there is still their decision - see
+       GoogleCalendarEventLink for why this is a link and not an API call. *@
+    @if (!IsNewEvent && _hasGoogleExtras && _savedDetails is { } savedDetails)
+    {
+        <h2>@T["Google Calendar"]</h2>
+        <p class="options-subtext">@T["Opens Google's own form with this event filled in. Nothing is saved there until you save it."]</p>
+        <a class="btn-secondary" href="@GoogleCalendarLinkFor(savedDetails)" target="_blank" rel="noopener">
+            @T["Add to Google Calendar"]
+        </a>
+    }
+
     @if (_errorMessage is not null)
     {
         <p class="error">@_errorMessage</p>
@@ -272,6 +286,17 @@ else
     public Guid? Id { get; set; }
 
     private bool IsNewEvent => Id is null;
+
+    private string GoogleCalendarLinkFor(CalendarEventDetailsDto details)
+        => GoogleCalendarEventLink.ForEvent(
+            details.Title, details.StartUtc, details.EndUtc, details.IsAllDay, details.Description,
+            details.Location is { } location ? LocationLabel(location) : null, details.Recurrence);
+
+    /// <summary>What Google should show as the place: the address when there is one, coordinates otherwise.</summary>
+    private static string LocationLabel(EventLocationDto location)
+        => string.IsNullOrWhiteSpace(location.Address)
+            ? $"{location.Latitude.ToString(CultureInfo.InvariantCulture)}, {location.Longitude.ToString(CultureInfo.InvariantCulture)}"
+            : location.Address;
     private bool _isLoading = true;
     private CalendarEventFormModel _formModel = new();
     private string? _errorMessage;
@@ -297,6 +322,15 @@ else
     private string? _sharedByUserName;
     private bool _isSaving;
     private bool _isDeleting;
+
+    /// <summary>
+    /// The event as it is stored, kept for the Google Calendar link. The form model would export what is
+    /// half-typed on screen instead, which is not what "add this event to my calendar" means.
+    /// </summary>
+    private CalendarEventDetailsDto? _savedDetails;
+
+    /// <summary>Whether to offer the Google link at all - see GoogleIntegrationAccess for who qualifies and why.</summary>
+    private bool _hasGoogleExtras;
 
     /// <summary>Mirrors NoteEditor's field of the same name - see its comment.</summary>
     private string? _lockedByUserName;
@@ -364,6 +398,7 @@ else
     {
         try
         {
+            _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
             _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
                 ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
 
@@ -386,6 +421,7 @@ else
                 if (calendarEvent is not null)
                 {
                     _formModel = CalendarEventFormModel.FromDto(calendarEvent.Details);
+                    _savedDetails = calendarEvent.Details;
                     _isShared = calendarEvent.IsShared;
                     _access = SharedItemAccess.For(calendarEvent.IsShared, calendarEvent.AccessLevel);
                     _isSharedReadOnly = calendarEvent.IsShared && !_access.CanEdit;
@@ -640,6 +676,12 @@ else
                             _lockedByUserName = outcome.LockedByUserName;
                             StopLockHeartbeat();
                             _errorMessage = T.Format("{0} is currently editing this event - try again in a moment.", outcome.LockedByUserName);
+                            return;
+                        }
+
+                        if (outcome.Kind == EditOutcomeKind.Refused)
+                        {
+                            _errorMessage = outcome.Reason;
                             return;
                         }
 

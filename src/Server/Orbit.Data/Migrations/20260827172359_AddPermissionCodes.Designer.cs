@@ -12,8 +12,8 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    [Migration("20260827081202_GrantAdminAllPermissions")]
-    partial class GrantAdminAllPermissions
+    [Migration("20260827172359_AddPermissionCodes")]
+    partial class AddPermissionCodes
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -608,6 +608,25 @@ namespace Orbit.Data.Migrations
                     b.ToTable("NotificationSettings");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.PermissionCodeEntity", b =>
+                {
+                    b.Property<string>("Permission")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Permission");
+
+                    b.ToTable("PermissionCodes");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.PublicShareLinkEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -798,6 +817,9 @@ namespace Orbit.Data.Migrations
 
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("boolean");
+
+                    b.Property<Guid?>("LinkedWarehouseId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("LockExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");

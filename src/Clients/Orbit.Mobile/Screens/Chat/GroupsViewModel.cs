@@ -56,11 +56,11 @@ public sealed partial class GroupsViewModel : ObservableObject
     }
 
     /// <summary>True while this account cannot hold a group conversation - see LockedFeatureMessage.</summary>
-    public bool IsLocked => !_permissions.Has(ApplicationPermission.GroupChat);
+    public bool IsLocked => !_permissions.Has(ApplicationPermission.Chat);
 
     public bool IsUnlocked => !IsLocked;
 
-    public string LockedExplanation => LockedFeatureMessage.For(ApplicationPermission.GroupChat, _translations);
+    public string LockedExplanation => LockedFeatureMessage.For(ApplicationPermission.Chat, _translations);
 
     public ObservableCollection<LocalChatGroup> Groups { get; } = [];
 

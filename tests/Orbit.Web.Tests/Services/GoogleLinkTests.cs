@@ -1,4 +1,5 @@
 using System.Globalization;
+using Orbit.Contracts.Calendar;
 using Orbit.Web.Services;
 using Xunit;
 
@@ -134,5 +135,76 @@ public sealed class GoogleLinkTests
         // recorded position would look more precise and be worse - that point is whatever they last
         // recorded deliberately, which may be another city days ago.
         Assert.Equal("https://www.google.com/maps/dir/?api=1&destination=50.0617,19.9373", link);
+    }
+
+    [Fact]
+    public void A_repeating_event_carries_its_rule()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            "Standup", TenAm, TenAm.AddMinutes(15), recurrence: new RecurrenceDto("Daily", 1, null));
+
+        // Google reads an iCalendar RRULE here; anything it does not recognise it drops silently, which
+        // is why the shape matters more than usual.
+        Assert.Contains("recur=RRULE%3aFREQ%3dDAILY", link, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void An_interval_of_one_is_left_unsaid()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            "Standup", TenAm, TenAm.AddMinutes(15), recurrence: new RecurrenceDto("Weekly", 1, null));
+
+        // INTERVAL=1 is the default, so saying it adds length and nothing else.
+        Assert.DoesNotContain("INTERVAL", link, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Every_other_week_says_so()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            "Retro", TenAm, TenAm.AddHours(1), recurrence: new RecurrenceDto("Weekly", 2, null));
+
+        Assert.Contains("FREQ%3dWEEKLY%3bINTERVAL%3d2", link, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void An_end_date_travels_as_an_instant_in_utc()
+    {
+        var until = new DateTimeOffset(2026, 12, 31, 23, 0, 0, TimeSpan.FromHours(2));
+        var link = GoogleCalendarEventLink.ForEvent(
+            "Course", TenAm, TenAm.AddHours(1), recurrence: new RecurrenceDto("Monthly", 1, until));
+
+        // 23:00 in Warsaw is 21:00 UTC - handing Google the local time would end the series two hours late.
+        Assert.Contains("UNTIL%3d20261231T210000Z", link, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void An_event_that_does_not_repeat_says_nothing_about_repeating()
+    {
+        var link = GoogleCalendarEventLink.ForEvent("Dentist", TenAm, TenAm.AddHours(1));
+
+        Assert.DoesNotContain("recur", link, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void A_frequency_this_version_does_not_know_is_left_out_rather_than_guessed()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            "Something", TenAm, TenAm.AddHours(1), recurrence: new RecurrenceDto("Fortnightly", 1, null));
+
+        // A rule Google cannot parse makes it drop the recurrence silently; one occurrence is a better
+        // wrong answer than a link that opens an empty form.
+        Assert.DoesNotContain("recur", link, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("text=Something", link);
+    }
+
+    [Fact]
+    public void Guests_are_left_out_of_the_link()
+    {
+        var link = GoogleCalendarEventLink.ForEvent("Dinner", TenAm, TenAm.AddHours(2), description: "With the team");
+
+        // Google takes guests as "&add=<address>", which would put other people's email addresses into
+        // a URL to save them a step they can do in Google's own form.
+        Assert.DoesNotContain("add=", link, StringComparison.OrdinalIgnoreCase);
     }
 }

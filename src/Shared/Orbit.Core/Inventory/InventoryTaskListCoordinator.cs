@@ -135,11 +135,62 @@ public sealed class InventoryTaskListCoordinator
                 $"The restock list for this warehouse is private, so Orbit can't add \"{item.Name}\" to it. Turn privacy off for that list first.");
         }
 
-        var restockItem = TaskItem.Create($"Restock: {item.Name}", dueDateUtc: null, isCompleted: false);
+        var restockItem = TaskItem.Create($"{RestockDescriptionPrefix}{item.Name}", dueDateUtc: null, isCompleted: false);
         taskList.Update(taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 
         item.SetPendingRestockTask(taskListId, restockItem.Id);
         return item;
     }
+
+    /// <summary>
+    /// Puts what a task list's work is short of onto the warehouse's standing restock list, so the
+    /// missing things arrive with the daily reminder rather than only on the screen that worked them out.
+    ///
+    /// Names already sitting there unticked are left alone: the same shortfall recalculated tomorrow is
+    /// the same errand, not a second one. Returns how many were actually added.
+    /// </summary>
+    public async Task<int> EnsureShortfallTasksAsync(
+        Guid warehouseId, IReadOnlyCollection<string> names, CancellationToken cancellationToken)
+    {
+        if (names.Count == 0 || await EnsureManagedTaskListAsync(warehouseId, cancellationToken) is not { } taskListId)
+        {
+            return 0;
+        }
+
+        var ownerUserId = await _warehouseRepository.GetOwnerUserIdAsync(warehouseId, cancellationToken)
+            ?? throw new InvalidOperationException($"Warehouse {warehouseId} disappeared between ensuring its task list and using it.");
+        var taskList = await _taskRepository.GetByIdAsync(ownerUserId, taskListId, cancellationToken)
+            ?? throw new InvalidOperationException($"Managed task list {taskListId} for warehouse {warehouseId} disappeared between ensuring it and using it.");
+
+        if (taskList.IsPrivate)
+        {
+            // Same reason as EnsureRestockTaskAsync above: a private list keeps no readable items, so
+            // appending here would be quietly dropped.
+            throw new InvalidRequestException(
+                "The restock list for this warehouse is private, so Orbit can't add what's missing to it. Turn privacy off for that list first.");
+        }
+
+        var alreadyWaiting = taskList.Items
+            .Where(item => !item.IsCompleted)
+            .Select(item => item.Description.Trim())
+            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+
+        var added = names
+            .Select(name => $"{RestockDescriptionPrefix}{name.Trim()}")
+            .Where(description => alreadyWaiting.Add(description))
+            .Select(description => TaskItem.Create(description, dueDateUtc: null, isCompleted: false))
+            .ToList();
+        if (added.Count == 0)
+        {
+            return 0;
+        }
+
+        taskList.Update(taskList.Title, [.. taskList.Items, .. added], taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
+        await _taskRepository.UpdateAsync(taskList, cancellationToken);
+        return added.Count;
+    }
+
+    /// <summary>What a restock entry is called, so the two places that create one agree.</summary>
+    private const string RestockDescriptionPrefix = "Restock: ";
 }

@@ -142,7 +142,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     {
         CanUseLocation = _permissions.Has(ApplicationPermission.Location);
         CanUseConversations = _permissions.Has(ApplicationPermission.Chat)
-            || _permissions.Has(ApplicationPermission.GroupChat);
+            || _permissions.Has(ApplicationPermission.Contacts);
     }
 
     /// <summary>

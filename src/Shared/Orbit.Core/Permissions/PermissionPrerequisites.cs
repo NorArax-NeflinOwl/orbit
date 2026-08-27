@@ -1,9 +1,9 @@
 namespace Orbit.Core.Permissions;
 
 /// <summary>
-/// What has to be unlocked before something else can be. Chat is the one everything conversational
-/// rests on: a group conversation is a conversation, and sharing an item with somebody works by sending
-/// it to them, so neither means anything on an account that cannot talk to anyone.
+/// What has to be unlocked before something else can be. Contacts is the one everything social rests
+/// on: talking to somebody and handing something to somebody both begin with there being a somebody,
+/// and an account that cannot see anyone has nobody to do either with.
 ///
 /// The rule lives here rather than at each place that checks a permission, so the server's gate, the
 /// code redemption and the client's own list cannot disagree about it.
@@ -13,7 +13,7 @@ public static class PermissionPrerequisites
     /// <summary>What this permission needs first, or null when it stands on its own.</summary>
     public static ApplicationPermission? RequiredBefore(this ApplicationPermission permission) => permission switch
     {
-        ApplicationPermission.GroupChat or ApplicationPermission.Sharing => ApplicationPermission.Chat,
+        ApplicationPermission.Chat or ApplicationPermission.Sharing => ApplicationPermission.Contacts,
         _ => null
     };
 
