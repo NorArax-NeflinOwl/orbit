@@ -2,6 +2,7 @@ using Orbit.Mobile.Data;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Tests.Notes;
 
@@ -43,5 +44,7 @@ public sealed class PrivateNoteTests
     }
 
     private static NoteListItem Describe(LocalNote note, bool privateItemsAreUnlocked)
-        => NoteListItem.From(note, hasUnsentChanges: false, FixedNetworkStatus.Online, privateItemsAreUnlocked);
+        => NoteListItem.From(
+            note, hasUnsentChanges: false, FixedNetworkStatus.Online, privateItemsAreUnlocked,
+            new Translations(new InMemoryLanguageStore()));
 }

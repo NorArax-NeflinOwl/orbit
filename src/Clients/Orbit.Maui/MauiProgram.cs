@@ -17,6 +17,7 @@ using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Presence;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Screens.Startup;
@@ -113,6 +114,7 @@ public static class MauiProgram
 		services.AddTransient<EncryptedChatMessageReader>();
 		services.AddTransient<EncryptedChatMessageSender>();
 		services.AddTransient<ChatSynchronizer>();
+		services.AddTransient<EverythingSynchronizer>();
 		services.AddTransient<ChatDirectoryReader>();
 		services.AddTransient<EncryptedChatMessageEditor>();
 		services.AddTransient<MessageForwarder>();
@@ -130,6 +132,11 @@ public static class MauiProgram
 		services.AddSingleton<SyncState>();
 		// One instance: every screen reads the same chosen language.
 		services.AddSingleton<Translations>();
+		// One instance: the navigation bar, the screens it leads to and the account screen all have to
+		// agree about what this account may use, and only one page is ever on screen.
+		services.AddSingleton<UserPermissions>();
+		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
+		services.AddSingleton<PresenceReporter>();
 		// One gate for the whole app: unlocking private things on one screen unlocks them everywhere,
 		// and putting the phone down locks them everywhere.
 		services.AddSingleton<PrivateItemGate>();

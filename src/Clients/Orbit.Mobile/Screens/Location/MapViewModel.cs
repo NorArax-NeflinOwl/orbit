@@ -4,7 +4,9 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Core.Permissions;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Sync;
 
@@ -27,6 +29,7 @@ public sealed partial class MapViewModel : ObservableObject
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
     private readonly Translations _translations;
+    private readonly UserPermissions _permissions;
     private readonly IScreenNavigator _navigator;
 
     private SharedPosition? _ownPosition;
@@ -46,7 +49,7 @@ public sealed partial class MapViewModel : ObservableObject
     public MapViewModel(
         IDeviceLocation deviceLocation, LocationClient locationClient, SharedLocations sharedLocations,
         UsersClient usersClient, ChatRepository chatRepository, ChatSynchronizer synchronizer,
-        Translations translations, IScreenNavigator navigator)
+        Translations translations, UserPermissions permissions, IScreenNavigator navigator)
     {
         _deviceLocation = deviceLocation;
         _locationClient = locationClient;
@@ -54,9 +57,21 @@ public sealed partial class MapViewModel : ObservableObject
         _usersClient = usersClient;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
+        _translations = translations;
+        _permissions = permissions;
         _navigator = navigator;
-        OwnPositionDescription = translations["Not read yet."];
+        OwnPositionDescription = _translations["Not read yet."];
     }
+
+    /// <summary>True while this account cannot use the map at all - see LockedFeatureMessage.</summary>
+    public bool IsLocked => !_permissions.Has(ApplicationPermission.Location);
+
+    public bool IsUnlocked => !IsLocked;
+
+    public string LockedExplanation => LockedFeatureMessage.For(ApplicationPermission.Location, _translations);
+
+    [RelayCommand]
+    private void OpenAccount() => _navigator.ShowAccount();
 
     /// <summary>People whose position the reader can currently see.</summary>
     public ObservableCollection<ReceivedPosition> SharedWithMe { get; } = [];
@@ -84,6 +99,11 @@ public sealed partial class MapViewModel : ObservableObject
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
         Message = string.Empty;
+        if (IsLocked)
+        {
+            return;
+        }
+
         IsBusy = true;
         try
         {
@@ -94,7 +114,7 @@ public sealed partial class MapViewModel : ObservableObject
         {
             // See ContactsViewModel: refused rather than unreachable, and it must not escape a command
             // nobody is awaiting.
-            Message = "Couldn't reach Orbit just now.";
+            Message = _translations["Couldn't reach Orbit just now."];
         }
         catch (EncryptionKeyLockedException)
         {
@@ -126,8 +146,8 @@ public sealed partial class MapViewModel : ObservableObject
             if (reading.Outcome is not DeviceLocationOutcome.Found)
             {
                 Message = reading.Outcome is DeviceLocationOutcome.NotPermitted
-                    ? "Orbit needs permission to use your location. Turn it on in Settings."
-                    : "Couldn't get a position - try again outdoors.";
+                    ? _translations["Orbit needs permission to use your location. Turn it on in Settings."]
+                    : _translations["Couldn't get a position - try again outdoors."];
                 return;
             }
 
@@ -146,8 +166,8 @@ public sealed partial class MapViewModel : ObservableObject
             // when the server answered is unactionable - the same mistake the sync layer makes a point
             // of not making. A null status is the only thing that means the request never landed.
             Message = exception.StatusCode is null
-                ? "Read your position, but couldn't save it - Orbit is out of reach."
-                : "Read your position, but Orbit wouldn't store it. Try signing in again.";
+                ? _translations["Read your position, but couldn't save it - Orbit is out of reach."]
+                : _translations["Read your position, but Orbit wouldn't store it. Try signing in again."];
         }
         catch (OperationCanceledException)
         {
@@ -165,7 +185,7 @@ public sealed partial class MapViewModel : ObservableObject
         Message = string.Empty;
         if (_ownPosition is null)
         {
-            Message = "Read your position first.";
+            Message = _translations["Read your position first."];
             return;
         }
 
@@ -181,7 +201,7 @@ public sealed partial class MapViewModel : ObservableObject
         if (Candidates.Count == 0)
         {
             // Sealing needs their key, and a key only exists once they have used Orbit.
-            Message = "Nobody to share with yet - start a conversation first.";
+            Message = _translations["Nobody to share with yet - start a conversation first."];
             return;
         }
 
@@ -207,7 +227,7 @@ public sealed partial class MapViewModel : ObservableObject
         try
         {
             Message = await _sharedLocations.ShareAsync(contact.UserId, _ownPosition, isContinuous: false, cancellationToken)
-                ? $"Shared with {contact.DisplayName}."
+                ? _translations.Format("Shared with {0}.", contact.DisplayName)
                 : $"{contact.DisplayName} hasn't set up Orbit's encryption yet, so there is nothing to share to.";
 
             await ShowWhoCanSeeMeAsync(cancellationToken);
@@ -215,8 +235,8 @@ public sealed partial class MapViewModel : ObservableObject
         catch (HttpRequestException exception)
         {
             Message = exception.StatusCode is null
-                ? "Sharing a position needs a connection."
-                : "Orbit wouldn't accept that share. Try signing in again.";
+                ? _translations["Sharing a position needs a connection."]
+                : _translations["Orbit wouldn't accept that share. Try signing in again."];
         }
         catch (EncryptionKeyLockedException)
         {
@@ -247,8 +267,8 @@ public sealed partial class MapViewModel : ObservableObject
             // Worth being precise about: whoever it is can still see the reader either way, and saying
             // "you are offline" when they are not sends them looking in the wrong place.
             Message = exception.StatusCode is null
-                ? "Stopping needs a connection - they can still see you until it goes through."
-                : "Orbit wouldn't stop that share - they can still see you.";
+                ? _translations["Stopping needs a connection - they can still see you until it goes through."]
+                : _translations["Orbit wouldn't stop that share - they can still see you."];
         }
         catch (OperationCanceledException)
         {
@@ -282,7 +302,7 @@ public sealed partial class MapViewModel : ObservableObject
 
         if (_ownPosition is { } own)
         {
-            Points.Add(new MapPoint("You", own.Address, own.Latitude, own.Longitude, IsMine: true));
+            Points.Add(new MapPoint(_translations["You"], own.Address, own.Latitude, own.Longitude, IsMine: true));
         }
 
         foreach (var received in SharedWithMe)
@@ -311,9 +331,10 @@ public sealed partial class MapViewModel : ObservableObject
         {
             var displayName = contacts.GetValueOrDefault(share.RecipientUserId)
                 ?? (await _usersClient.FindAsync(share.RecipientUserId, cancellationToken))?.DisplayName
-                ?? "Someone";
+                ?? _translations["Someone"];
 
-            SharingWith.Add(new SharingWithRow(share.RecipientUserId, displayName, share.IsContinuous, share.UpdatedAtUtc));
+            SharingWith.Add(SharingWithRow.From(
+                share.RecipientUserId, displayName, share.IsContinuous, share.UpdatedAtUtc, _translations));
         }
     }
 

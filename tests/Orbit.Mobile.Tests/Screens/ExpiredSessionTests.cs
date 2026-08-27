@@ -107,14 +107,18 @@ public sealed class ExpiredSessionTests
 
         public ContactsViewModel Contacts()
             => new(_repository, _chatClient, _usersClient, _synchronizer, _encryptionKeyProvider,
-                new Translations(new InMemoryLanguageStore()), Navigator);
+                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator);
 
         public GroupsViewModel Groups()
-            => new(_repository, _chatClient, _synchronizer, _encryptionKeyProvider, Navigator);
+            => new(
+                _repository, _chatClient, _synchronizer, _encryptionKeyProvider,
+                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator);
 
         public GroupDetailViewModel GroupDetail(LocalChatGroup group)
         {
-            var screen = new GroupDetailViewModel(_repository, _chatClient, _synchronizer, _sessionStore, Navigator);
+            var screen = new GroupDetailViewModel(
+                _repository, _chatClient, _synchronizer, _sessionStore,
+                new Translations(new InMemoryLanguageStore()), Navigator);
             screen.Open(group);
             return screen;
         }

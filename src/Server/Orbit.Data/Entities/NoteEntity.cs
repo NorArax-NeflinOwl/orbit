@@ -14,6 +14,9 @@ public sealed class NoteEntity
     public Guid UserId { get; set; }
     public string Title { get; set; } = string.Empty;
 
+    /// <summary>Whether the owner has pinned this note to the top of their list - see Orbit.Core.Notes.Note.IsPinned.</summary>
+    public bool IsPinned { get; set; }
+
     /// <summary>Whether this note is readable only by its owner - see Orbit.Core's IsPrivate.</summary>
     public bool IsPrivate { get; set; }
 

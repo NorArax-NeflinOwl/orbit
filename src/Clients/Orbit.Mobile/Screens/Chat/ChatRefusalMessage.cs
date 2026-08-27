@@ -1,4 +1,5 @@
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Chat;
 
@@ -8,11 +9,14 @@ namespace Orbit.Mobile.Screens.Chat;
 /// </summary>
 public static class ChatRefusalMessage
 {
-    public static string For(ChatSendRefusal refusal) => refusal switch
+    public static string For(ChatSendRefusal refusal, Translations translations) => refusal switch
     {
-        ChatSendRefusal.WaitingToBeAccepted => "Accept their chat request first - your message wasn't sent.",
-        ChatSendRefusal.SomebodyHasNoChatKey => "Somebody here hasn't set up chat yet, so this couldn't be encrypted.",
-        ChatSendRefusal.NoLongerThere => "This conversation is no longer available - your message wasn't sent.",
-        _ => "Your message couldn't be sent."
+        ChatSendRefusal.WaitingToBeAccepted
+            => translations["Accept their chat request first - your message wasn't sent."],
+        ChatSendRefusal.SomebodyHasNoChatKey
+            => translations["Somebody here hasn't set up chat yet, so this couldn't be encrypted."],
+        ChatSendRefusal.NoLongerThere
+            => translations["This conversation is no longer available - your message wasn't sent."],
+        _ => translations["Your message couldn't be sent."]
     };
 }

@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Orbit.Api.Permissions;
 using Orbit.Contracts.Chat;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Chat;
@@ -9,6 +10,8 @@ using Orbit.Core.Chat.Groups.SendGroupMessage;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.Groups.EditGroupMessage;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
+using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
+using Orbit.Core.Chat.Groups.GetGroupMessageReceipts;
 using Orbit.Core.Chat.Groups.GetChatGroups;
 using Orbit.Core.Chat.Groups.CreateChatGroup;
 using Orbit.Core.Chat.Groups;
@@ -28,7 +31,11 @@ public static class ChatEndpoints
     {
         // Every contact list and conversation belongs to exactly one user (see GetUserId below), so the
         // whole group requires a valid, authenticated caller.
-        var chat = app.MapGroup("/api/chat").RequireAuthorization();
+        // One-to-one conversations and group conversations are separately unlocked (see
+        // PermissionPolicies), so they are separate route groups rather than one - "/api/chat/groups"
+        // still, but gated on its own.
+        var chat = app.MapGroup("/api/chat").RequireAuthorization(PermissionPolicies.Chat);
+        var groups = app.MapGroup("/api/chat/groups").RequireAuthorization(PermissionPolicies.GroupChat);
 
         chat.MapGet("/contacts", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -114,7 +121,7 @@ public static class ChatEndpoints
 
         // Groups. Membership decides everything here, so a caller who isn't in a group gets the same
         // 404 as one asking about a group that doesn't exist - see IChatGroupRepository's comment.
-        chat.MapPost("/groups", async (
+        groups.MapPost("/", async (
             CreateChatGroupRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var groupId = await dispatcher.SendAsync(
@@ -122,14 +129,14 @@ public static class ChatEndpoints
             return Results.Created($"/api/chat/groups/{groupId}", groupId);
         });
 
-        chat.MapGet("/groups", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        groups.MapGet("/", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var callerId = GetUserId(user);
             var groups = await dispatcher.SendAsync(new GetChatGroupsQuery(callerId), cancellationToken);
             return Results.Ok(groups.Select(group => ToDto(group, callerId)));
         });
 
-        chat.MapPost("/groups/{groupId:guid}/members", async (
+        groups.MapPost("/{groupId:guid}/members", async (
             Guid groupId, AddChatGroupMemberRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
@@ -138,7 +145,7 @@ public static class ChatEndpoints
             return added ? Results.NoContent() : Results.NotFound();
         });
 
-        chat.MapDelete("/groups/{groupId:guid}/members/{userId:guid}", async (
+        groups.MapDelete("/{groupId:guid}/members/{userId:guid}", async (
             Guid groupId, Guid userId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var removed = await dispatcher.SendAsync(
@@ -146,7 +153,7 @@ public static class ChatEndpoints
             return removed ? Results.NoContent() : Results.NotFound();
         });
 
-        chat.MapPut("/groups/{groupId:guid}/members/{userId:guid}/role", async (
+        groups.MapPut("/{groupId:guid}/members/{userId:guid}/role", async (
             Guid groupId, Guid userId, ChangeChatGroupMemberRoleRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
@@ -159,16 +166,37 @@ public static class ChatEndpoints
 
         // sinceUtc matches the one-to-one conversation's own cursor: a client polling a group can ask
         // for what it has not seen instead of the whole conversation every tick.
-        chat.MapGet("/groups/{groupId:guid}/messages", async (
+        groups.MapGet("/{groupId:guid}/messages", async (
             Guid groupId, DateTimeOffset? sinceUtc, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
             var messages = await dispatcher.SendAsync(
                 new GetGroupConversationQuery(GetUserId(user), groupId, sinceUtc), cancellationToken);
-            return Results.Ok(messages.Select(ToDto));
+            return Results.Ok(messages.Select(ToDto).ToList());
         });
 
-        chat.MapPost("/groups/{groupId:guid}/messages", async (
+        // Who this message reached and who has read it, for the message's own info view. Separate from
+        // the conversation because it is opened per message, not drawn for every one of them.
+        groups.MapGet("/{groupId:guid}/messages/{groupMessageId:guid}/receipts", async (
+            Guid groupId, Guid groupMessageId, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var receipts = await dispatcher.SendAsync(
+                new GetGroupMessageReceiptsQuery(GetUserId(user), groupId, groupMessageId), cancellationToken);
+            return Results.Ok(receipts.Select(ToDto).ToList());
+        });
+
+        // Marks everything addressed to this reader in the group as read - the group counterpart of the
+        // one-to-one route above.
+        groups.MapPut("/{groupId:guid}/read", async (
+            Guid groupId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var marked = await dispatcher.SendAsync(
+                new MarkGroupConversationAsReadCommand(GetUserId(user), groupId), cancellationToken);
+            return marked ? Results.NoContent() : Results.NotFound();
+        });
+
+        groups.MapPost("/{groupId:guid}/messages", async (
             Guid groupId, SendGroupMessageRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
@@ -179,7 +207,7 @@ public static class ChatEndpoints
             return sent ? Results.NoContent() : Results.NotFound();
         });
 
-        chat.MapPut("/groups/{groupId:guid}/messages/{groupMessageId:guid}", async (
+        groups.MapPut("/{groupId:guid}/messages/{groupMessageId:guid}", async (
             Guid groupId, Guid groupMessageId, SendGroupMessageRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
@@ -237,7 +265,13 @@ public static class ChatEndpoints
         => new(
             contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64,
             contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty,
-            contact.UnreadCount);
+            contact.UnreadCount, contact.User.Presence.StatusAt(DateTimeOffset.UtcNow).ToString());
+
+    private static ChatMessageDto ToDto(GroupConversationEntry entry)
+        => ToDto(entry.Message) with { ReadByEveryone = entry.ReadByEveryone };
+
+    private static GroupMessageReceiptDto ToDto(GroupMessageReceipt receipt)
+        => new(receipt.RecipientUserId, receipt.ReadAtUtc);
 
     private static ChatMessageDto ToDto(ChatMessage message)
         => new(

@@ -7,6 +7,7 @@ using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Tests.TestDoubles;
 using Orbit.Mobile.Update;
 using Xunit;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -152,6 +153,7 @@ public sealed class DiagnosticsScreenTests : IDisposable
         public DiagnosticsViewModel Open()
             => new(
                 Log, new DiagnosticLogVerbosity(), new DiagnosticsClient(Server.ToHttpClient()),
-                new FixedDeviceDescription(), new AppVersion(MobilePlatform.Ios, "0.1.0"), Navigator);
+                new FixedDeviceDescription(), new AppVersion(MobilePlatform.Ios, "0.1.0"),
+                new Translations(new InMemoryLanguageStore()), Navigator);
     }
 }

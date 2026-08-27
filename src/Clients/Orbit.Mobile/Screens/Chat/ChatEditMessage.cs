@@ -1,4 +1,5 @@
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Chat;
 
@@ -8,11 +9,12 @@ namespace Orbit.Mobile.Screens.Chat;
 /// </summary>
 public static class ChatEditMessage
 {
-    public static string For(ChatEditOutcome outcome) => outcome switch
+    public static string For(ChatEditOutcome outcome, Translations translations) => outcome switch
     {
-        ChatEditOutcome.Offline => "Changing a message needs a connection.",
-        ChatEditOutcome.NotAllowed => "That message can't be changed any more.",
-        ChatEditOutcome.SomebodyHasNoChatKey => "Somebody here hasn't set up chat, so it couldn't be re-encrypted.",
+        ChatEditOutcome.Offline => translations["Changing a message needs a connection."],
+        ChatEditOutcome.NotAllowed => translations["That message can't be changed any more."],
+        ChatEditOutcome.SomebodyHasNoChatKey
+            => translations["Somebody here hasn't set up chat, so it couldn't be re-encrypted."],
         _ => string.Empty
     };
 }

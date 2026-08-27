@@ -7,6 +7,7 @@ using Orbit.Mobile.Screens.Tasks;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -104,7 +105,8 @@ public sealed class TaskListDetailScreenTests
         public TaskListDetailViewModel OpenTaskList(string title)
         {
             var created = _taskLists.CreateAsync(title, []).GetAwaiter().GetResult();
-            var screen = new TaskListDetailViewModel(_taskLists, Synchronizer, Navigator);
+            var screen = new TaskListDetailViewModel(
+                _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), Navigator);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;

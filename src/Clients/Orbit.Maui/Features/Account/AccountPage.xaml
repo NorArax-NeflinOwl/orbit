@@ -47,6 +47,41 @@
                 <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
             </VerticalStackLayout>
 
+            <!-- The same list Orbit.Web puts under Options, Permissions, and the same wording: what each
+                 part of Orbit is, whether it is unlocked, and what it needs first when it is not. -->
+            <VerticalStackLayout Spacing="10">
+                <Label Text="{controls:Translate 'Permissions'}" FontAttributes="Bold" />
+
+                <CollectionView ItemsSource="{Binding Permissions}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="screens:PermissionRow">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,6">
+                                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                    <Label Text="{Binding Name}" FontSize="15" />
+                                    <Label Text="{Binding Explanation}" FontSize="12" LineBreakMode="WordWrap"
+                                           Style="{StaticResource SubtleLabel}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                       FontSize="12" VerticalOptions="Center" LineBreakMode="WordWrap"
+                                       Style="{StaticResource SubtleLabel}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Label Text="{Binding PermissionMessage}" IsVisible="{Binding HasPermissionMessage}"
+                       FontSize="12" LineBreakMode="WordWrap"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Entry Grid.Column="0" Placeholder="{controls:Translate 'Unlock code'}"
+                           Text="{Binding PermissionCode}"
+                           ReturnType="Go" ReturnCommand="{Binding RedeemCodeCommand}" />
+                    <Button Grid.Column="1" Text="{controls:Translate 'Unlock'}"
+                            Command="{Binding RedeemCodeCommand}" />
+                </Grid>
+            </VerticalStackLayout>
+
             <Button Text="{controls:Translate 'Diagnostics'}" Command="{Binding GoToDiagnosticsCommand}"
                     Style="{StaticResource LinkButton}" />
 

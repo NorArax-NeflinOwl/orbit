@@ -1,9 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using Orbit.Api.Permissions;
+using Orbit.Core.Permissions.RedeemPermissionCode;
+using Orbit.Core.Permissions.GetUserPermissions;
 using Orbit.Contracts.Users;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Users;
+using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
 using Orbit.Core.Location.StopSharingLocation;
@@ -33,6 +37,10 @@ public static class UserEndpoints
         // is asking, so the whole group requires a valid, authenticated caller.
         var users = app.MapGroup("/api/users").RequireAuthorization();
 
+        // Everything about where somebody is - their own position, who they share it with, and whose
+        // positions they can see - is unlocked as one thing, so it is one route group.
+        var location = users.MapGroup("/me/location").RequireAuthorization(PermissionPolicies.Location);
+
         // The signed-in account itself: everything under /me is scoped to the caller's own token, never
         // to an id in the route, so one account can never read or edit another's profile.
         users.MapGet("/me", async (ClaimsPrincipal user, IUserRepository userRepository, CancellationToken cancellationToken) =>
@@ -42,13 +50,54 @@ public static class UserEndpoints
                 ? Results.NotFound()
                 : Results.Ok(new AccountDto(
                     account.Id, account.Email, account.UserName, account.DisplayName, account.IsEmailVerified,
-                    account.HasPassword, account.GoogleSubjectId is not null, ToDto(account.Location)));
+                    account.HasPassword, account.GoogleSubjectId is not null, ToDto(account.Location),
+                    account.Presence.Availability.ToString(),
+                    account.Presence.StatusAt(DateTimeOffset.UtcNow).ToString()));
+        });
+
+        // What this account may use. Always readable, and always about the caller alone - a page that
+        // cannot ask what it is allowed to do can only find out by trying and being refused.
+        users.MapGet("/me/permissions", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var granted = await dispatcher.SendAsync(new GetUserPermissionsQuery(GetUserId(user)), cancellationToken);
+            return Results.Ok(new UserPermissionsDto([.. granted.Select(permission => permission.ToString())]));
+        });
+
+        // Typing a code is the only way to gain a permission. Rate-limited like the other endpoints that
+        // change an account, so the twelve characters cannot be worked out by trying them all.
+        users.MapPost("/me/permissions/redeem", async (
+            RedeemPermissionCodeRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new RedeemPermissionCodeCommand(GetUserId(user), request.Code), cancellationToken);
+            return Results.Ok(new RedeemPermissionCodeResultDto(
+                outcome.Granted?.ToString(), outcome.MissingPrerequisite?.ToString()));
+        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
+
+        // What the caller chose to be. Only their own: presence describes whether somebody is there to
+        // answer, which nobody else is in a position to say for them.
+        users.MapPut("/me/presence", async (
+            SetAvailabilityRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var updated = await dispatcher.SendAsync(
+                new SetAvailabilityCommand(GetUserId(user), RequestEnum.Parse<PresenceAvailability>(request.Availability, "availability")),
+                cancellationToken);
+            return updated ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Sent by an open client every so often. The gap since the last one is what turns a green dot
+        // yellow and then grey, so a client that stops sending fades out on its own - see UserPresence.
+        users.MapPost("/me/presence/heartbeat", async (
+            ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var recorded = await dispatcher.SendAsync(new PresenceHeartbeatCommand(GetUserId(user)), cancellationToken);
+            return recorded ? Results.NoContent() : Results.NotFound();
         });
 
 
         // Recording a location is always the user's own doing - there is no endpoint for writing anyone
         // else's, and none for reading one either: the account's own /me above is the only way out.
-        users.MapPut("/me/location", async (
+        location.MapPut("/", async (
             SaveOwnLocationRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var location = new UserLocation(request.Address, request.Latitude, request.Longitude, DateTimeOffset.UtcNow);
@@ -56,7 +105,7 @@ public static class UserEndpoints
             return saved ? Results.NoContent() : Results.NotFound();
         });
 
-        users.MapDelete("/me/location", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        location.MapDelete("/", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var cleared = await dispatcher.SendAsync(new SaveOwnLocationCommand(GetUserId(user), Location: null), cancellationToken);
             return cleared ? Results.NoContent() : Results.NotFound();
@@ -66,7 +115,7 @@ public static class UserEndpoints
         // Sharing a position with one contact. Everything here is the caller's own doing: they share,
         // they refresh, they stop - and stopping deletes the row rather than flagging it, so a position
         // nobody is sharing any more is a position the database no longer holds.
-        users.MapPut("/me/location/shares", async (
+        location.MapPut("/shares", async (
             ShareLocationRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             await dispatcher.SendAsync(
@@ -76,21 +125,21 @@ public static class UserEndpoints
             return Results.NoContent();
         });
 
-        users.MapDelete("/me/location/shares/{recipientUserId:guid}", async (
+        location.MapDelete("/shares/{recipientUserId:guid}", async (
             Guid recipientUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             await dispatcher.SendAsync(new StopSharingLocationCommand(GetUserId(user), recipientUserId), cancellationToken);
             return Results.NoContent();
         });
 
-        users.MapDelete("/me/location/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        location.MapDelete("/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             await dispatcher.SendAsync(new StopSharingLocationCommand(GetUserId(user), RecipientUserId: null), cancellationToken);
             return Results.NoContent();
         });
 
         // Who the caller is currently sharing with, so they can see it and end any of it.
-        users.MapGet("/me/location/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        location.MapGet("/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var shares = await dispatcher.SendAsync(new GetOwnLocationSharesQuery(GetUserId(user)), cancellationToken);
             return Results.Ok(shares.Select(ToDto));
@@ -98,7 +147,7 @@ public static class UserEndpoints
 
         // What other people are sharing with the caller - the endpoint a recipient polls for the latest
         // point. Returns ciphertext; only the recipient's own browser can open it.
-        users.MapGet("/me/location/shared-with-me", async (
+        location.MapGet("/shared-with-me", async (
             ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var shares = await dispatcher.SendAsync(new GetSharedLocationsQuery(GetUserId(user)), cancellationToken);

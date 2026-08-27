@@ -12,13 +12,9 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Padding="20" RowSpacing="10">
 
-        <VerticalStackLayout Grid.Row="0" Spacing="2">
-            <Label Text="{Binding Greeting}" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-        </VerticalStackLayout>
-
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry Grid.Column="0"
                    Placeholder="{controls:Translate 'New note'}"
                    Text="{Binding NewNoteTitle}"
@@ -27,7 +23,7 @@
             <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddNoteCommand}" />
         </Grid>
 
-        <RefreshView Grid.Row="2"
+        <RefreshView Grid.Row="1"
                      IsRefreshing="{Binding IsRefreshing}"
                      Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Notes}">
@@ -47,7 +43,7 @@
                                     HorizontalOptions="Start" Style="{StaticResource LinkButton}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=notes:NotesPage}" />
 
-                            <Label Text="{Binding UpdatedAtUtc, StringFormat='Updated {0:g}'}"
+                            <Label Text="{Binding Updated}"
                                    IsVisible="{Binding CanBeOpened}"
                                    FontSize="12"
                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
@@ -63,6 +59,8 @@
             </CollectionView>
         </RefreshView>
 
+        <Button Grid.Row="2" Text="{controls:Translate 'Back to dashboard'}" Command="{Binding GoBackCommand}"
+                Style="{StaticResource LinkButton}" />
 
     </Grid>
         <controls:StatusStrip Grid.Row="2" />

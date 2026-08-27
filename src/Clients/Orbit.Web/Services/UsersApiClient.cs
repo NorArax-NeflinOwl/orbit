@@ -78,6 +78,36 @@ public sealed class UsersApiClient
     }
 
     /// <summary>The signed-in account's own profile - everything under /me is scoped to the caller's token.</summary>
+    public async Task<IReadOnlyList<string>> GetPermissionsAsync(CancellationToken cancellationToken = default)
+    {
+        var permissions = await _httpClient.GetFromJsonAsync<UserPermissionsDto>("api/users/me/permissions", cancellationToken);
+        return permissions?.Granted ?? [];
+    }
+
+    /// <summary>What the code unlocked, and what it needed first when it unlocked nothing - see RedeemPermissionCodeResultDto.</summary>
+    public async Task<RedeemPermissionCodeResultDto> RedeemPermissionCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/users/me/permissions/redeem", new RedeemPermissionCodeRequest(code), cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RedeemPermissionCodeResultDto>(cancellationToken)
+            ?? new RedeemPermissionCodeResultDto(Granted: null);
+    }
+
+    public async Task<bool> SetAvailabilityAsync(string availability, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            "api/users/me/presence", new SetAvailabilityRequest(availability), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>Tells the server this person is still here - see PresenceService for when this is and is not sent.</summary>
+    public async Task SendPresenceHeartbeatAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync("api/users/me/presence/heartbeat", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<AccountDto?> GetAccountAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<AccountDto>("api/users/me", cancellationToken);
 
@@ -266,13 +296,39 @@ public sealed class UsersApiClient
     }
 
     /// <summary>Who the caller is currently sharing their position with.</summary>
+    /// <summary>
+    /// Empty rather than an exception when this account has not unlocked location (see
+    /// PermissionPolicies in Orbit.Api). Half the app asks this question in passing - a share picker, a
+    /// dashboard card - and a refusal there is not a failure to report, it is the answer: there is
+    /// nobody to show. Left throwing, one 403 in an editor's OnInitializedAsync took down the whole
+    /// renderer.
+    /// </summary>
     public async Task<IReadOnlyList<SharedLocationDto>> GetOwnLocationSharesAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shares", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shares", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
 
     /// <summary>
     /// Positions other people are sharing with the caller, still encrypted - this is the call a recipient
     /// polls. Opening them needs the pairwise key, so it happens in the page (see EncryptedChatMessageReader).
     /// </summary>
     public async Task<IReadOnlyList<SharedLocationDto>> GetLocationsSharedWithMeAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shared-with-me", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<SharedLocationDto>>("api/users/me/location/shared-with-me", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            // Same as GetOwnLocationSharesAsync above: not allowed to ask means nobody to show.
+            return [];
+        }
+    }
 }

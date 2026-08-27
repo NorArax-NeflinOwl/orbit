@@ -14,8 +14,11 @@
             <VerticalStackLayout Padding="20" Spacing="12">
 
                 <Label Text="{controls:Translate 'Diagnostics'}" FontSize="26" FontAttributes="Bold" />
-                <Label Text="Orbit's own log, on this phone. Nothing leaves it unless you send it."
-                       FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Label FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}">
+                    <Label.Text>
+                        <controls:Translate Text="Orbit's own log, on this phone. Nothing leaves it unless you send it." />
+                    </Label.Text>
+                </Label>
 
                 <Label Text="{Binding DeviceSummary}" FontSize="12" LineBreakMode="WordWrap"
                        Style="{StaticResource SubtleLabel}" />

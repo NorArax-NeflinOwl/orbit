@@ -43,4 +43,14 @@ public sealed class LocalContact
 
     /// <summary>A chat request the signed-in user sent that this person hasn't approved yet.</summary>
     public bool IsPendingApprovalFromOtherParty { get; set; }
+
+    /// <summary>
+    /// What to show beside this person's name: "Available", "Away", "DoNotDisturb" or "Offline" - see
+    /// Orbit.Core.Users.PresenceStatus. The server resolves it when the list is read, so it ages the
+    /// moment it arrives; the chat list refreshes on the same poll that keeps the rest current.
+    ///
+    /// Cached with the rest of the row rather than left out because the list has to open offline, and a
+    /// row with a missing dot reads as a different person from one with a grey dot.
+    /// </summary>
+    public string PresenceStatus { get; set; } = nameof(Orbit.Core.Users.PresenceStatus.Offline);
 }

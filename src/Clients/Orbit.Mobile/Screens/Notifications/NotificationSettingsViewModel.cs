@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notifications;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 
 namespace Orbit.Mobile.Screens.Notifications;
@@ -18,6 +19,7 @@ namespace Orbit.Mobile.Screens.Notifications;
 public sealed partial class NotificationSettingsViewModel : ObservableObject
 {
     private readonly NotificationsClient _notificationsClient;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>
@@ -46,9 +48,11 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _allowShareNotifications;
 
-    public NotificationSettingsViewModel(NotificationsClient notificationsClient, IScreenNavigator navigator)
+    public NotificationSettingsViewModel(
+        NotificationsClient notificationsClient, Translations translations, IScreenNavigator navigator)
     {
         _notificationsClient = notificationsClient;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -65,7 +69,17 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
-    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanSave));
+    /// <summary>
+    /// Tells the command, not just the binding. Show() runs inside the load's try, so it asks whether
+    /// saving is possible while IsBusy is still true and gets "no"; without re-asking here, when the
+    /// finally clears IsBusy, the Save button stayed disabled for the life of the screen and notification
+    /// settings could be read but never changed.
+    /// </summary>
+    partial void OnIsBusyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanSave));
+        SaveCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnAllowNotificationsChanged(bool value) => OnPropertyChanged(nameof(CanChooseChannels));
 
@@ -83,7 +97,7 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
         }
         catch (HttpRequestException exception)
         {
-            Message = Explain(exception, "Couldn't read your notification settings");
+            Message = Explain(exception, _translations["Couldn't read your notification settings"]);
         }
         catch (OperationCanceledException)
         {
@@ -114,11 +128,11 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
                     AllowShareNotifications, current.RetentionDays),
                 cancellationToken));
 
-            Message = "Saved.";
+            Message = _translations["Saved."];
         }
         catch (HttpRequestException exception)
         {
-            Message = Explain(exception, "Couldn't save your notification settings");
+            Message = Explain(exception, _translations["Couldn't save your notification settings"]);
         }
         catch (OperationCanceledException)
         {
@@ -145,8 +159,9 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
     /// the request never landed, and telling somebody they are offline when the server answered sends
     /// them looking in the wrong place.
     /// </summary>
-    private static string Explain(HttpRequestException exception, string what)
+    /// <param name="what">Already translated - see the call sites, which ask the dictionary themselves.</param>
+    private string Explain(HttpRequestException exception, string what)
         => exception.StatusCode is null
-            ? $"{what} - Orbit is out of reach."
-            : $"{what}. Try signing in again.";
+            ? _translations.Format("{0} - Orbit is out of reach.", what)
+            : _translations.Format("{0}. Try signing in again.", what);
 }

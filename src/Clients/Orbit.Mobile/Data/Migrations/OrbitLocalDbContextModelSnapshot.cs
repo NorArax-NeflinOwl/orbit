@@ -147,6 +147,10 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<long>("LastMessageAtUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("PresenceStatus")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PublicKeyBase64")
                         .HasColumnType("TEXT");
 
@@ -217,6 +221,16 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasFilter("\"ServerId\" IS NOT NULL");
 
                     b.ToTable("Notes");
+                });
+
+            modelBuilder.Entity("Orbit.Mobile.Data.LocalPermission", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Name");
+
+                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("Orbit.Mobile.Data.LocalStoreOwner", b =>

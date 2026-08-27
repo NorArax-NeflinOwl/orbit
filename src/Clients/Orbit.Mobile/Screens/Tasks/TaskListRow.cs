@@ -1,5 +1,6 @@
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -8,30 +9,35 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// One row of the task lists screen - the task-list counterpart of NoteListItem, and shaped the same
 /// way: what to show, plus the two things the user has to be told about it.
 /// </summary>
+/// <param name="Progress">Already in the reader's language, so the row itself needs no dictionary.</param>
 public sealed record TaskListRow(
     Guid LocalId, string Title, int ItemCount, int CompletedCount, bool IsPinned,
-    DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal)
+    DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
+    string Progress, string Status)
 {
-    public static TaskListRow From(LocalTaskList taskList, bool hasUnsentChanges, INetworkStatus networkStatus)
-        => new(
-            taskList.LocalId, taskList.Title, taskList.Items.Count,
-            taskList.Items.Count(item => item.IsCompleted), taskList.IsPinned, taskList.UpdatedAtUtc,
-            hasUnsentChanges, OfflineEditPolicy.Evaluate(taskList, networkStatus));
+    public static TaskListRow From(
+        LocalTaskList taskList, bool hasUnsentChanges, INetworkStatus networkStatus, Translations translations)
+    {
+        var itemCount = taskList.Items.Count;
+        var completedCount = taskList.Items.Count(item => item.IsCompleted);
+        var refusal = OfflineEditPolicy.Evaluate(taskList, networkStatus);
+
+        return new(
+            taskList.LocalId, taskList.Title, itemCount, completedCount, taskList.IsPinned,
+            taskList.UpdatedAtUtc, hasUnsentChanges, refusal,
+            Describe(itemCount, completedCount, translations),
+            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations));
+    }
 
     public bool IsEditable => Refusal is OfflineEditRefusal.None;
-
-    public string Progress => ItemCount == 0 ? "No items yet" : $"{CompletedCount} of {ItemCount} done";
-
-    /// <summary>Empty when there is nothing worth saying, which is the common case.</summary>
-    public string Status => Refusal switch
-    {
-        OfflineEditRefusal.SharedWithYou => "Shared with you - read-only until you're back online",
-        OfflineEditRefusal.SharedWithOthers => "Shared with others - read-only until you're back online",
-        _ => HasUnsentChanges ? "Waiting to sync" : string.Empty
-    };
 
     public bool HasStatus => Status.Length > 0;
 
     /// <summary>A new list starts empty; items are added by editing it.</summary>
     public static IReadOnlyList<TaskItemDto> NoItems => [];
+
+    private static string Describe(int itemCount, int completedCount, Translations translations)
+        => itemCount == 0
+            ? translations["No items yet"]
+            : translations.Format("Done: {0} of {1}", completedCount, itemCount);
 }

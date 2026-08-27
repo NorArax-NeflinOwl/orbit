@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -17,6 +18,7 @@ public sealed partial class TasksViewModel : ObservableObject
     private readonly INetworkStatus _networkStatus;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
+    private readonly Translations _translations;
 
     [ObservableProperty]
     private string _newListTitle = string.Empty;
@@ -26,13 +28,14 @@ public sealed partial class TasksViewModel : ObservableObject
 
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, INetworkStatus networkStatus,
-        SyncState syncState, IScreenNavigator navigator)
+        SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
         _syncState = syncState;
         _navigator = navigator;
+        _translations = translations;
     }
 
     public ObservableCollection<TaskListRow> TaskLists { get; } = [];
@@ -80,7 +83,7 @@ public sealed partial class TasksViewModel : ObservableObject
         TaskLists.Clear();
         foreach (var taskList in stored)
         {
-            TaskLists.Add(TaskListRow.From(taskList, pending.Contains(taskList.LocalId), _networkStatus));
+            TaskLists.Add(TaskListRow.From(taskList, pending.Contains(taskList.LocalId), _networkStatus, _translations));
         }
     }
 

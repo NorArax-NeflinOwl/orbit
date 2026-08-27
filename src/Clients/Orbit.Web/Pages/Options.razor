@@ -5,6 +5,7 @@
 @using Orbit.Contracts.Users
 @using System.Text.Json
 @using Microsoft.AspNetCore.Components.Forms
+@using Orbit.Core.Permissions
 @using Orbit.Core.Transfer
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
@@ -21,6 +22,7 @@
 @inject IJSRuntime JSRuntime
 @inject TransferApiClient TransferApiClient
 @inject DevicePreferences DevicePreferences
+@inject UserPermissionState Permissions
 @inject ILogger<Options> Logger
 
 <PageTitle>@T["Orbit — Options"]</PageTitle>
@@ -33,371 +35,488 @@
 </div>
 
 <div class="options-page">
-    <div class="options-section">
-        <h2 class="options-heading">@T["Account"]</h2>
-        <p class="options-subtext">@T["Your profile, sign-in address, and password."]</p>
-        <div class="options-card">
-            <div class="options-row options-row-stacked">
-                <div class="field">
-                    <label for="displayNameInput">@T["Display name"]</label>
-                    <input id="displayNameInput" @bind="_profileForm.DisplayName" />
-                </div>
-                <div class="field">
-                    <label for="userNameInput">@T["Username"]</label>
-                    <input id="userNameInput" @bind="_profileForm.UserName" />
-                </div>
-                <div class="field">
-                    <label for="emailInput">
-                        @T["Email address"]
-                        @if (_account?.IsEmailVerified == true)
-                        {
-                            <span class="verified-badge">@T["Verified"]</span>
-                        }
-                        else
-                        {
-                            <span class="unverified-badge">@T["Not verified"]</span>
-                        }
-                    </label>
-                    <input id="emailInput" type="email" @bind="_profileForm.EmailAddress" />
-                    <div class="options-row-desc">
-                        @T["Saving a different address doesn't move the account to it on its own - that only happens once you confirm the code sent to the new address."]
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn-primary" disabled="@_isSavingProfile" @onclick="SaveProfileAsync">@T["Save profile"]</button>
-                </div>
-                @if (_profileMessage is not null)
-                {
-                    <p class="@(_profileFailed ? "error" : "info")">@_profileMessage</p>
-                }
-            </div>
-
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">@T["Email verification"]</div>
-                    <div class="options-row-desc">@T["A verified address is what a password reset is sent to, so it has to be one you can read."]</div>
-                </div>
-                @if (_emailForm.IsCodePending)
-                {
-                    <div class="field">
-                        <label for="emailCodeInput">@T["Code sent to"]@Space<strong>@_emailForm.SentToAddress</strong></label>
-                        <input id="emailCodeInput" inputmode="numeric" autocomplete="one-time-code" @bind="_emailForm.Code" />
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary" disabled="@_isConfirmingCode" @onclick="ConfirmEmailCodeAsync">@T["Confirm"]</button>
-                        <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">@T["Send again"]</button>
-                    </div>
-                }
-                else
-                {
-                    <div class="options-row-desc">@T["The code goes to"]@Space<strong>@VerificationTargetAddress</strong>.</div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">@T["Send code"]</button>
-                    </div>
-                }
-                @if (_emailMessage is not null)
-                {
-                    <p class="@(_emailFailed ? "error" : "info")">@_emailMessage</p>
-                }
-            </div>
-
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">
-                        @T["Google extras"]
-                        @if (_account is not null && GoogleIntegrationAccess.Qualifies(_account))
-                        {
-                            <span class="verified-badge">@T["On"]</span>
-                        }
-                        else
-                        {
-                            <span class="unverified-badge">@T["Not available yet"]</span>
-                        }
-                    </div>
-                    <div class="options-row-desc">
-                        @T["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."]
-                    </div>
-                </div>
-            </div>
-
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">
-                        Google
-                        @if (_account?.IsGoogleLinked == true)
-                        {
-                            <span class="verified-badge">@T["Connected"]</span>
-                        }
-                    </div>
-                    <div class="options-row-desc">
-                        @T["Connecting Google lets you sign in with it as well as with your password."]
-                        @if (_account?.HasPassword == false)
-                        {
-                            <text>@T["Your account has no password yet, so Google is currently the only way in - set one below before disconnecting."]</text>
-                        }
-                    </div>
-                </div>
-                @if (_account?.IsGoogleLinked == true)
-                {
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" disabled="@_isChangingGoogleLink" @onclick="UnlinkGoogleAsync">@T["Disconnect"]</button>
-                    </div>
-                }
-                else
-                {
-                    <GoogleSignInButton OnCredential="LinkGoogleAsync" />
-                }
-                @if (_googleMessage is not null)
-                {
-                    <p class="@(_googleFailed ? "error" : "info")">@_googleMessage</p>
-                }
-            </div>
-
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">@T["Password"]</div>
-                    <div class="options-row-desc">@T["Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere."]</div>
-                </div>
-                <div class="field">
-                    <label for="currentPasswordInput">@T["Current password"]</label>
-                    <input type="password" id="currentPasswordInput" @bind="_passwordForm.CurrentPassword" />
-                </div>
-                <div class="field">
-                    <label for="newPasswordInput">@T["New password"]</label>
-                    <input type="password" id="newPasswordInput" @bind="_passwordForm.NewPassword" />
-                </div>
-                <div class="field">
-                    <label for="repeatNewPasswordInput">@T["Repeat new password"]</label>
-                    <input type="password" id="repeatNewPasswordInput" @bind="_passwordForm.RepeatNewPassword" />
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn-primary" disabled="@_isChangingPassword" @onclick="ChangePasswordAsync">@T["Change password"]</button>
-                </div>
-                @if (_passwordMessage is not null)
-                {
-                    <p class="@(_passwordFailed ? "error" : "info")">@_passwordMessage</p>
-                }
-            </div>
-        </div>
-    </div>
-
-    <div class="options-section">
-        <h2 class="options-heading">@T["Appearance"]</h2>
-        <p class="options-subtext">@T["Choose how Orbit looks on this device."]</p>
-        <div class="theme-picker">
-            <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Light ? "active" : "")"
-                    @onclick="() => SetThemeAsync(ThemePreference.Light)">
-                <span class="theme-preview theme-preview-light"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
-                <span class="theme-option-label">@T["Light"]</span>
-            </button>
-            <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Dark ? "active" : "")"
-                    @onclick="() => SetThemeAsync(ThemePreference.Dark)">
-                <span class="theme-preview theme-preview-dark"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
-                <span class="theme-option-label">@T["Dark"]</span>
-            </button>
-            <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.System ? "active" : "")"
-                    @onclick="() => SetThemeAsync(ThemePreference.System)">
-                <span class="theme-preview theme-preview-system"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
-                <span class="theme-option-label">@T["System"]</span>
-            </button>
-        </div>
-    </div>
-
-    <div class="options-section">
-        <h2 class="options-heading">@T["Notifications"]</h2>
-        <div class="options-card">
-            <div class="options-row">
-                <div>
-                    <div class="options-row-title">@T["Push notifications"]</div>
-                    <div class="options-row-desc">@T["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."]</div>
-                </div>
-                @if (_pushNotificationsSupported == false)
-                {
-                    <span class="options-row-desc">@T["Not supported in this browser"]</span>
-                }
-                else
-                {
-                    <button type="button" class="switch @(_pushNotificationsEnabled ? "on" : "")" role="switch"
-                            aria-checked="@_pushNotificationsEnabled" disabled="@(_pushNotificationsSupported is null || _pushNotificationActionInProgress)"
-                            @onclick="TogglePushNotificationsAsync">
-                        <span class="switch-knob"></span>
-                    </button>
-                }
-            </div>
-            <div class="options-row">
-                <div>
-                    <div class="options-row-title">@T["Allow notifications"]</div>
-                    <div class="options-row-desc">@T["Master switch for everything below, and for the notifications panel itself."]</div>
-                </div>
-                <button type="button" class="switch @(_notificationSettings.AllowNotifications ? "on" : "")" role="switch"
-                        aria-checked="@_notificationSettings.AllowNotifications" disabled="@_isSavingNotificationSettings"
-                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowNotifications = !_notificationSettings.AllowNotifications })">
-                    <span class="switch-knob"></span>
-                </button>
-            </div>
-            <div class="options-row options-row-child">
-                <div>
-                    <div class="options-row-title">@T["Allow push"]</div>
-                    <div class="options-row-desc">@T["Lets any calendar event, task, or inventory item's own push setting actually send a push notification."]</div>
-                </div>
-                <button type="button" class="switch @(_notificationSettings.AllowPush ? "on" : "")" role="switch"
-                        aria-checked="@_notificationSettings.AllowPush"
-                        disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
-                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowPush = !_notificationSettings.AllowPush })">
-                    <span class="switch-knob"></span>
-                </button>
-            </div>
-            <div class="options-row options-row-child">
-                <div>
-                    <div class="options-row-title">@T["Tell me when something is shared with me"]</div>
-                    <div class="options-row-desc">
-                        @T["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."]
-                    </div>
-                </div>
-                <button type="button" class="switch @(_notificationSettings.AllowShareNotifications ? "on" : "")" role="switch"
-                        aria-checked="@_notificationSettings.AllowShareNotifications"
-                        disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
-                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowShareNotifications = !_notificationSettings.AllowShareNotifications })">
-                    <span class="switch-knob"></span>
-                </button>
-            </div>
-            <div class="options-row options-row-child">
-                <div>
-                    <div class="options-row-title">@T["Allow email"]</div>
-                    <div class="options-row-desc">@T["Lets any calendar event, task, or inventory item's own email setting actually send an email."]</div>
-                </div>
-                <button type="button" class="switch @(_notificationSettings.AllowEmail ? "on" : "")" role="switch"
-                        aria-checked="@_notificationSettings.AllowEmail"
-                        disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
-                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowEmail = !_notificationSettings.AllowEmail })">
-                    <span class="switch-knob"></span>
-                </button>
-            </div>
-            <div class="options-row options-row-child">
-                <div>
-                    <div class="options-row-title">@T["Allow mobile notification"]</div>
-                    <div class="options-row-desc">@T["Shows a short banner at the top of the page when a new notification arrives while Orbit is open."]</div>
-                </div>
-                <button type="button" class="switch @(_notificationSettings.AllowMobileBanner ? "on" : "")" role="switch"
-                        aria-checked="@_notificationSettings.AllowMobileBanner"
-                        disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
-                        @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowMobileBanner = !_notificationSettings.AllowMobileBanner })">
-                    <span class="switch-knob"></span>
-                </button>
-            </div>
-            <div class="options-row options-row-child">
-                <div>
-                    <div class="options-row-title">@T["Banner duration (seconds)"]</div>
-                    <div class="options-row-desc">@T["How long a notification banner stays on screen (1-30)."]</div>
-                </div>
-                <input type="number" id="bannerVisibleSecondsInput" class="options-number-input" min="1" max="30"
-                       value="@_notificationSettings.BannerVisibleSeconds"
-                       disabled="@(!_notificationSettings.AllowNotifications || !_notificationSettings.AllowMobileBanner || _isSavingNotificationSettings)"
-                       @onchange="@(args => UpdateNumericSettingAsync(args, seconds => _notificationSettings with { BannerVisibleSeconds = seconds }))" />
-            </div>
-            <div class="options-row options-row-child">
-                <div>
-                    <div class="options-row-title">@T["Banner interval (seconds)"]</div>
-                    <div class="options-row-desc">@T["Minimum quiet time before the next banner may appear (1-300)."]</div>
-                </div>
-                <input type="number" id="bannerMinimumGapSecondsInput" class="options-number-input" min="1" max="300"
-                       value="@_notificationSettings.BannerMinimumGapSeconds"
-                       disabled="@(!_notificationSettings.AllowNotifications || !_notificationSettings.AllowMobileBanner || _isSavingNotificationSettings)"
-                       @onchange="@(args => UpdateNumericSettingAsync(args, seconds => _notificationSettings with { BannerMinimumGapSeconds = seconds }))" />
-            </div>
-            <div class="options-row options-row-child">
-                <div>
-                    <div class="options-row-title">@T["Keep notifications for (days)"]</div>
-                    <div class="options-row-desc">@T["How long a notification stays on the"]@Space<a href="/notifications">@T["notifications page"]</a> @T["before it is deleted for good (1-90). Clearing the panel only tidies them out of the way; this is what actually removes them."]
-                    </div>
-                </div>
-                <input type="number" id="retentionDaysInput" class="options-number-input" min="1" max="90"
-                       value="@_notificationSettings.RetentionDays"
-                       disabled="@_isSavingNotificationSettings"
-                       @onchange="@(args => UpdateNumericSettingAsync(args, days => _notificationSettings with { RetentionDays = days }))" />
-            </div>
-        </div>
-        @if (_pushNotificationErrorMessage is not null)
+    @* Four tabs rather than nine sections stacked on one page: the page had grown to where finding
+       the password field meant scrolling past every notification switch. *@
+    <div class="options-tabs" role="tablist">
+        @foreach (var tab in Enum.GetValues<OptionsTab>())
         {
-            <p class="error">@_pushNotificationErrorMessage</p>
-        }
-        @if (_notificationSettingsErrorMessage is not null)
-        {
-            <p class="error">@_notificationSettingsErrorMessage</p>
+            <button type="button" class="options-tab @(_activeTab == tab ? "active" : "")" role="tab"
+                    aria-selected="@(_activeTab == tab)" @onclick="() => _activeTab = tab">
+                @DescribeTab(tab)
+            </button>
         }
     </div>
 
-    <div class="options-section">
-        <h2 class="options-heading">@T["Location"]</h2>
-        <p class="options-subtext">@T["Kept on this device, because a browser grants location per device."]</p>
-        <div class="options-card">
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">@T["Use my location"]</div>
-                    <div class="options-row-desc">
-                        @T["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."]
-                    </div>
-                </div>
-                <button type="button" class="switch @(DevicePreferences.AllowLocation ? "on" : "")" role="switch"
-                        aria-checked="@DevicePreferences.AllowLocation"
-                        @onclick="ToggleAllowLocationAsync">
-                    <span class="switch-knob"></span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div class="options-section">
-        <h2 class="options-heading">@T["Debugger"]</h2>
-        <p class="options-subtext">@T["What this browser reports about Orbit itself. Kept on this device."]</p>
-        <div class="options-card">
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">@T["Mode"]</div>
-                    <div class="options-row-desc">
-                        @T["Debug shows the captured log and the detail behind an error. Release hides both."]
-                    </div>
-                </div>
-                <select id="diagnosticsModeSelect" class="options-select"
-                        value="@DevicePreferences.DiagnosticsMode"
-                        @onchange="OnDiagnosticsModeChangedAsync">
-                    <option value="@DiagnosticsMode.Release">@T["Release"]</option>
-                    <option value="@DiagnosticsMode.Debug">@T["Debug"]</option>
-                </select>
-            </div>
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">@T["Frontend log level"]</div>
-                    <div class="options-row-desc">
-                        @T["The least severe line this browser keeps. Warning by default, so routine noise doesn't crowd out a real failure."]
-                    </div>
-                </div>
-                <select id="frontendLogLevelSelect" class="options-select"
-                        value="@DevicePreferences.MinimumLogLevel"
-                        @onchange="OnLogLevelChangedAsync">
-                    @foreach (var level in SelectableLogLevels)
-                    {
-                        <option value="@level">@level</option>
-                    }
-                </select>
-            </div>
-        </div>
-    </div>
-
-    @if (_exceptionDetailsAllowedByServer)
+    @if (_activeTab == OptionsTab.Account)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["Diagnostics"]</h2>
-            <p class="options-subtext">@T["Only shown in non-production environments."]</p>
+            <h2 class="options-heading">@T["Account"]</h2>
+            <p class="options-subtext">@T["Your profile, sign-in address, and password."]</p>
+            <div class="options-card">
+                <div class="options-row options-row-stacked">
+                    <div class="field">
+                        <label for="displayNameInput">@T["Display name"]</label>
+                        <input id="displayNameInput" @bind="_profileForm.DisplayName" />
+                    </div>
+                    <div class="field">
+                        <label for="userNameInput">@T["Username"]</label>
+                        <input id="userNameInput" @bind="_profileForm.UserName" />
+                    </div>
+                    <div class="field">
+                        <label for="emailInput">
+                            @T["Email address"]
+                            @if (_account?.IsEmailVerified == true)
+                            {
+                                <span class="verified-badge">@T["Verified"]</span>
+                            }
+                            else
+                            {
+                                <span class="unverified-badge">@T["Not verified"]</span>
+                            }
+                        </label>
+                        <input id="emailInput" type="email" @bind="_profileForm.EmailAddress" />
+                        <div class="options-row-desc">
+                            @T["Saving a different address doesn't move the account to it on its own - that only happens once you confirm the code sent to the new address."]
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" disabled="@_isSavingProfile" @onclick="SaveProfileAsync">@T["Save profile"]</button>
+                    </div>
+                    @if (_profileMessage is not null)
+                    {
+                        <p class="@(_profileFailed ? "error" : "info")">@_profileMessage</p>
+                    }
+                </div>
+
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Email verification"]</div>
+                        <div class="options-row-desc">@T["A verified address is what a password reset is sent to, so it has to be one you can read."]</div>
+                    </div>
+                    @if (_emailForm.IsCodePending)
+                    {
+                        <div class="field">
+                            <label for="emailCodeInput">@T["Code sent to"]@Space<strong>@_emailForm.SentToAddress</strong></label>
+                            <input id="emailCodeInput" inputmode="numeric" autocomplete="one-time-code" @bind="_emailForm.Code" />
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn-primary" disabled="@_isConfirmingCode" @onclick="ConfirmEmailCodeAsync">@T["Confirm"]</button>
+                            <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">@T["Send again"]</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="options-row-desc">@T["The code goes to"]@Space<strong>@VerificationTargetAddress</strong>.</div>
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" disabled="@_isSendingCode" @onclick="SendEmailCodeAsync">@T["Send code"]</button>
+                        </div>
+                    }
+                    @if (_emailMessage is not null)
+                    {
+                        <p class="@(_emailFailed ? "error" : "info")">@_emailMessage</p>
+                    }
+                </div>
+
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">
+                            @T["Google extras"]
+                            @if (_account is not null && GoogleIntegrationAccess.Qualifies(_account))
+                            {
+                                <span class="verified-badge">@T["On"]</span>
+                            }
+                            else
+                            {
+                                <span class="unverified-badge">@T["Not available yet"]</span>
+                            }
+                        </div>
+                        <div class="options-row-desc">
+                            @T["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."]
+                        </div>
+                    </div>
+                </div>
+
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">
+                            Google
+                            @if (_account?.IsGoogleLinked == true)
+                            {
+                                <span class="verified-badge">@T["Connected"]</span>
+                            }
+                        </div>
+                        <div class="options-row-desc">
+                            @T["Connecting Google lets you sign in with it as well as with your password."]
+                            @if (_account?.HasPassword == false)
+                            {
+                                <text>@T["Your account has no password yet, so Google is currently the only way in - set one below before disconnecting."]</text>
+                            }
+                        </div>
+                    </div>
+                    @if (_account?.IsGoogleLinked == true)
+                    {
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" disabled="@_isChangingGoogleLink" @onclick="UnlinkGoogleAsync">@T["Disconnect"]</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <GoogleSignInButton OnCredential="LinkGoogleAsync" />
+                    }
+                    @if (_googleMessage is not null)
+                    {
+                        <p class="@(_googleFailed ? "error" : "info")">@_googleMessage</p>
+                    }
+                </div>
+
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Password"]</div>
+                        <div class="options-row-desc">@T["Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere."]</div>
+                    </div>
+                    <div class="field">
+                        <label for="currentPasswordInput">@T["Current password"]</label>
+                        <input type="password" id="currentPasswordInput" @bind="_passwordForm.CurrentPassword" />
+                    </div>
+                    <div class="field">
+                        <label for="newPasswordInput">@T["New password"]</label>
+                        <input type="password" id="newPasswordInput" @bind="_passwordForm.NewPassword" />
+                    </div>
+                    <div class="field">
+                        <label for="repeatNewPasswordInput">@T["Repeat new password"]</label>
+                        <input type="password" id="repeatNewPasswordInput" @bind="_passwordForm.RepeatNewPassword" />
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" disabled="@_isChangingPassword" @onclick="ChangePasswordAsync">@T["Change password"]</button>
+                    </div>
+                    @if (_passwordMessage is not null)
+                    {
+                        <p class="@(_passwordFailed ? "error" : "info")">@_passwordMessage</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="options-section">
+            <h2 class="options-heading">@T["Your data"]</h2>
+            <p class="options-subtext">@T["Everything you own — notes, task lists, events and storages — as one JSON file, and back again."]</p>
+            <div class="options-card">
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Export"]</div>
+                        <div class="options-row-desc">
+                            @T["Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed."]
+                        </div>
+                    </div>
+                    <button type="button" class="btn-secondary" disabled="@_isExporting" @onclick="ExportAsync">
+                        @(_isExporting ? T["Preparing…"] : T["Export everything"])
+                    </button>
+                </div>
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Import"]</div>
+                        <div class="options-row-desc">
+                            @T["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."]
+                        </div>
+                    </div>
+                    <InputFile OnChange="ImportAsync" accept=".json,application/json" disabled="@_isImporting" />
+                </div>
+                @if (_transferMessage is not null)
+                {
+                    <p class="options-subtext">@_transferMessage</p>
+                }
+                @if (_transferErrorMessage is not null)
+                {
+                    <p class="error">@_transferErrorMessage</p>
+                }
+            </div>
+        </div>
+
+        <div class="options-section">
+            <h2 class="options-heading">@T["Danger zone"]</h2>
+            <p class="options-subtext">@T["Deleting your account is permanent and cannot be undone."]</p>
+            <div class="options-card options-card-danger">
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Delete account"]</div>
+                        <div class="options-row-desc">
+                            @T["Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]
+                        </div>
+                    </div>
+                    @if (_account?.HasPassword == true)
+                    {
+                        <div class="field">
+                            <label for="deleteAccountPasswordInput">@T["Password"]</label>
+                            <input type="password" id="deleteAccountPasswordInput" @bind="_deleteAccountForm.Password" />
+                        </div>
+                    }
+                    <div class="form-actions">
+                        <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">@T["Delete account"]</button>
+                    </div>
+                    @if (_deleteAccountMessage is not null)
+                    {
+                        <p class="@(_deleteAccountFailed ? "error" : "info")">@_deleteAccountMessage</p>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_activeTab == OptionsTab.Appearance)
+    {
+        <div class="options-section">
+            <h2 class="options-heading">@T["Appearance"]</h2>
+            <p class="options-subtext">@T["Choose how Orbit looks on this device."]</p>
+            <div class="theme-picker">
+                <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Light ? "active" : "")"
+                        @onclick="() => SetThemeAsync(ThemePreference.Light)">
+                    <span class="theme-preview theme-preview-light"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
+                    <span class="theme-option-label">@T["Light"]</span>
+                </button>
+                <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Dark ? "active" : "")"
+                        @onclick="() => SetThemeAsync(ThemePreference.Dark)">
+                    <span class="theme-preview theme-preview-dark"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
+                    <span class="theme-option-label">@T["Dark"]</span>
+                </button>
+                <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.System ? "active" : "")"
+                        @onclick="() => SetThemeAsync(ThemePreference.System)">
+                    <span class="theme-preview theme-preview-system"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
+                    <span class="theme-option-label">@T["System"]</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="options-section">
+            <h2 class="options-heading">@T["Language"]</h2>
+            <p class="options-subtext">@T["The language Orbit's own interface is written in. Kept on this device."]</p>
             <div class="options-card">
                 <div class="options-row">
                     <div>
-                        <div class="options-row-title">@T["Show exceptions"]</div>
-                        <div class="options-row-desc">@T["Lets the Notifications panel list this browser's own recent errors, each with a \"Copy\" button for reporting a bug."]</div>
+                        <div class="options-row-title">@T["Language"]</div>
                     </div>
-                    <button type="button" class="switch @(_notificationSettings.ShowExceptionDetails ? "on" : "")" role="switch"
-                            aria-checked="@_notificationSettings.ShowExceptionDetails" disabled="@_isSavingNotificationSettings"
-                            @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { ShowExceptionDetails = !_notificationSettings.ShowExceptionDetails })">
+                    <select id="languageSelect" class="options-select" value="@T.Language" @onchange="OnLanguageChangedAsync">
+                        @* Each language named in its own language, the way a language picker is read: the
+                           list means the same thing whichever one you are currently in. Translating only
+                           one of the two gave "angielski" beside "Polski". *@
+                        <option value="@AppLanguage.English">English</option>
+                        <option value="@AppLanguage.Polish">Polski</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="options-section">
+            <h2 class="options-heading">@T["Notifications"]</h2>
+            <div class="options-card">
+                <div class="options-row">
+                    <div>
+                        <div class="options-row-title">@T["Push notifications"]</div>
+                        <div class="options-row-desc">@T["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."]</div>
+                    </div>
+                    @if (_pushNotificationsSupported == false)
+                    {
+                        <span class="options-row-desc">@T["Not supported in this browser"]</span>
+                    }
+                    else
+                    {
+                        <button type="button" class="switch @(_pushNotificationsEnabled ? "on" : "")" role="switch"
+                                aria-checked="@_pushNotificationsEnabled" disabled="@(_pushNotificationsSupported is null || _pushNotificationActionInProgress)"
+                                @onclick="TogglePushNotificationsAsync">
+                            <span class="switch-knob"></span>
+                        </button>
+                    }
+                </div>
+                <div class="options-row">
+                    <div>
+                        <div class="options-row-title">@T["Allow notifications"]</div>
+                        <div class="options-row-desc">@T["Master switch for everything below, and for the notifications panel itself."]</div>
+                    </div>
+                    <button type="button" class="switch @(_notificationSettings.AllowNotifications ? "on" : "")" role="switch"
+                            aria-checked="@_notificationSettings.AllowNotifications" disabled="@_isSavingNotificationSettings"
+                            @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowNotifications = !_notificationSettings.AllowNotifications })">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+                <div class="options-row options-row-child">
+                    <div>
+                        <div class="options-row-title">@T["Allow push"]</div>
+                        <div class="options-row-desc">@T["Lets any calendar event, task, or inventory item's own push setting actually send a push notification."]</div>
+                    </div>
+                    <button type="button" class="switch @(_notificationSettings.AllowPush ? "on" : "")" role="switch"
+                            aria-checked="@_notificationSettings.AllowPush"
+                            disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
+                            @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowPush = !_notificationSettings.AllowPush })">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+                <div class="options-row options-row-child">
+                    <div>
+                        <div class="options-row-title">@T["Tell me when something is shared with me"]</div>
+                        <div class="options-row-desc">
+                            @T["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."]
+                        </div>
+                    </div>
+                    <button type="button" class="switch @(_notificationSettings.AllowShareNotifications ? "on" : "")" role="switch"
+                            aria-checked="@_notificationSettings.AllowShareNotifications"
+                            disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
+                            @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowShareNotifications = !_notificationSettings.AllowShareNotifications })">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+                <div class="options-row options-row-child">
+                    <div>
+                        <div class="options-row-title">@T["Allow email"]</div>
+                        <div class="options-row-desc">@T["Lets any calendar event, task, or inventory item's own email setting actually send an email."]</div>
+                    </div>
+                    <button type="button" class="switch @(_notificationSettings.AllowEmail ? "on" : "")" role="switch"
+                            aria-checked="@_notificationSettings.AllowEmail"
+                            disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
+                            @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowEmail = !_notificationSettings.AllowEmail })">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+                <div class="options-row options-row-child">
+                    <div>
+                        <div class="options-row-title">@T["Allow mobile notification"]</div>
+                        <div class="options-row-desc">@T["Shows a short banner at the top of the page when a new notification arrives while Orbit is open."]</div>
+                    </div>
+                    <button type="button" class="switch @(_notificationSettings.AllowMobileBanner ? "on" : "")" role="switch"
+                            aria-checked="@_notificationSettings.AllowMobileBanner"
+                            disabled="@(!_notificationSettings.AllowNotifications || _isSavingNotificationSettings)"
+                            @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { AllowMobileBanner = !_notificationSettings.AllowMobileBanner })">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+                <div class="options-row options-row-child">
+                    <div>
+                        <div class="options-row-title">@T["Banner duration (seconds)"]</div>
+                        <div class="options-row-desc">@T["How long a notification banner stays on screen (1-30)."]</div>
+                    </div>
+                    <input type="number" id="bannerVisibleSecondsInput" class="options-number-input" min="1" max="30"
+                           value="@_notificationSettings.BannerVisibleSeconds"
+                           disabled="@(!_notificationSettings.AllowNotifications || !_notificationSettings.AllowMobileBanner || _isSavingNotificationSettings)"
+                           @onchange="@(args => UpdateNumericSettingAsync(args, seconds => _notificationSettings with { BannerVisibleSeconds = seconds }))" />
+                </div>
+                <div class="options-row options-row-child">
+                    <div>
+                        <div class="options-row-title">@T["Banner interval (seconds)"]</div>
+                        <div class="options-row-desc">@T["Minimum quiet time before the next banner may appear (1-300)."]</div>
+                    </div>
+                    <input type="number" id="bannerMinimumGapSecondsInput" class="options-number-input" min="1" max="300"
+                           value="@_notificationSettings.BannerMinimumGapSeconds"
+                           disabled="@(!_notificationSettings.AllowNotifications || !_notificationSettings.AllowMobileBanner || _isSavingNotificationSettings)"
+                           @onchange="@(args => UpdateNumericSettingAsync(args, seconds => _notificationSettings with { BannerMinimumGapSeconds = seconds }))" />
+                </div>
+                <div class="options-row options-row-child">
+                    <div>
+                        <div class="options-row-title">@T["Keep notifications for (days)"]</div>
+                        <div class="options-row-desc">@T["How long a notification stays on the"]@Space<a href="/notifications">@T["notifications page"]</a> @T["before it is deleted for good (1-90). Clearing the panel only tidies them out of the way; this is what actually removes them."]
+                        </div>
+                    </div>
+                    <input type="number" id="retentionDaysInput" class="options-number-input" min="1" max="90"
+                           value="@_notificationSettings.RetentionDays"
+                           disabled="@_isSavingNotificationSettings"
+                           @onchange="@(args => UpdateNumericSettingAsync(args, days => _notificationSettings with { RetentionDays = days }))" />
+                </div>
+            </div>
+            @if (_pushNotificationErrorMessage is not null)
+            {
+                <p class="error">@_pushNotificationErrorMessage</p>
+            }
+            @if (_notificationSettingsErrorMessage is not null)
+            {
+                <p class="error">@_notificationSettingsErrorMessage</p>
+            }
+        </div>
+    }
+
+    @if (_activeTab == OptionsTab.Permissions)
+    {
+        <div class="options-section">
+            <h2 class="options-heading">@T["In Orbit"]</h2>
+            <p class="options-subtext">@T["Parts of Orbit this account can use. Each is unlocked separately, with its own code."]</p>
+            <div class="options-card">
+                <table class="permissions-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">@T["Part of Orbit"]</th>
+                            <th scope="col">@T["State"]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var permission in Enum.GetValues<ApplicationPermission>())
+                        {
+                            <tr>
+                                <td>
+                                    <div class="options-row-title">@DescribePermission(permission)</div>
+                                    <div class="options-row-desc">@ExplainPermission(permission)</div>
+                                </td>
+                                <td>
+                                    @if (Permissions.Has(permission))
+                                    {
+                                        <span class="verified-badge">@T["Unlocked"]</span>
+                                    }
+                                    else if (permission.RequiredBefore() is { } required && !Permissions.Has(required))
+                                    {
+                                        <span class="unverified-badge">@T.Format("Needs {0}", DescribePermission(required))</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="unverified-badge">@T["Locked"]</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @* Only while something is still locked: an account that has unlocked everything has no use for
+           a code box, and leaving it there would invite typing into it forever. *@
+        @if (!HasEverythingUnlocked)
+        {
+        <div class="options-section">
+            <h2 class="options-heading">@T["Unlock code"]</h2>
+            <p class="options-subtext">@T["One code per part of Orbit. Whoever deployed this Orbit has them - they are generated when it is built, and change every time it is."]</p>
+            <div class="options-card">
+                <div class="options-row options-row-stacked">
+                    <div class="field">
+                        <label for="permissionCodeInput">@T["Code"]</label>
+                        @* Bound on every keystroke: bound on losing focus instead, Unlock stays greyed
+                           out while somebody types the code into the box next to it. *@
+                        <input id="permissionCodeInput" class="permission-code-input" @bind="_permissionCode" @bind:event="oninput"
+                               placeholder="@(T["e.g. 7Q31KS0KB4Y0"])" autocomplete="off" spellcheck="false" />
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" disabled="@(_isRedeemingCode || _permissionCode.Trim().Length == 0)"
+                                @onclick="RedeemPermissionCodeAsync">
+                            @T["Unlock"]
+                        </button>
+                    </div>
+                    @if (_permissionCodeMessage is not null)
+                    {
+                        <p class="@(_permissionCodeFailed ? "error" : "info")">@_permissionCodeMessage</p>
+                    }
+                </div>
+            </div>
+        </div>
+        }
+
+        <div class="options-section">
+            <h2 class="options-heading">@T["Location"]</h2>
+            <p class="options-subtext">@T["Kept on this device, because a browser grants location per device."]</p>
+            <div class="options-card">
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Use my location"]</div>
+                        <div class="options-row-desc">
+                            @T["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."]
+                        </div>
+                    </div>
+                    <button type="button" class="switch @(DevicePreferences.AllowLocation ? "on" : "")" role="switch"
+                            aria-checked="@DevicePreferences.AllowLocation"
+                            @onclick="ToggleAllowLocationAsync">
                         <span class="switch-knob"></span>
                     </button>
                 </div>
@@ -405,91 +524,159 @@
         </div>
     }
 
-    <div class="options-section">
-        <h2 class="options-heading">@T["Language"]</h2>
-        <p class="options-subtext">@T["The language Orbit's own interface is written in. Kept on this device."]</p>
-        <div class="options-card">
-            <div class="options-row">
-                <div>
-                    <div class="options-row-title">@T["Language"]</div>
+    @if (_activeTab == OptionsTab.Debug)
+    {
+        <div class="options-section">
+            <h2 class="options-heading">@T["Debugger"]</h2>
+            <p class="options-subtext">@T["What this browser reports about Orbit itself. Kept on this device."]</p>
+            <div class="options-card">
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Mode"]</div>
+                        <div class="options-row-desc">
+                            @T["Debug shows the captured log and the detail behind an error. Release hides both."]
+                        </div>
+                    </div>
+                    <select id="diagnosticsModeSelect" class="options-select"
+                            value="@DevicePreferences.DiagnosticsMode"
+                            @onchange="OnDiagnosticsModeChangedAsync">
+                        <option value="@DiagnosticsMode.Release">@T["Release"]</option>
+                        <option value="@DiagnosticsMode.Debug">@T["Debug"]</option>
+                    </select>
                 </div>
-                <select id="languageSelect" class="options-select" value="@T.Language" @onchange="OnLanguageChangedAsync">
-                    @* Each language named in its own language, the way a language picker is read: the
-                       list means the same thing whichever one you are currently in. Translating only
-                       one of the two gave "angielski" beside "Polski". *@
-                    <option value="@AppLanguage.English">English</option>
-                    <option value="@AppLanguage.Polish">Polski</option>
-                </select>
+                <div class="options-row options-row-stacked">
+                    <div>
+                        <div class="options-row-title">@T["Frontend log level"]</div>
+                        <div class="options-row-desc">
+                            @T["The least severe line this browser keeps. Warning by default, so routine noise doesn't crowd out a real failure."]
+                        </div>
+                    </div>
+                    <select id="frontendLogLevelSelect" class="options-select"
+                            value="@DevicePreferences.MinimumLogLevel"
+                            @onchange="OnLogLevelChangedAsync">
+                        @foreach (var level in SelectableLogLevels)
+                        {
+                            <option value="@level">@level</option>
+                        }
+                    </select>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="options-section">
-        <h2 class="options-heading">@T["Your data"]</h2>
-        <p class="options-subtext">@T["Everything you own — notes, task lists, events and storages — as one JSON file, and back again."]</p>
-        <div class="options-card">
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">@T["Export"]</div>
-                    <div class="options-row-desc">
-                        @T["Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed."]
+        @if (_exceptionDetailsAllowedByServer)
+        {
+            <div class="options-section">
+                <h2 class="options-heading">@T["Diagnostics"]</h2>
+                <p class="options-subtext">@T["Only shown in non-production environments."]</p>
+                <div class="options-card">
+                    <div class="options-row">
+                        <div>
+                            <div class="options-row-title">@T["Show exceptions"]</div>
+                            <div class="options-row-desc">@T["Lets the Notifications panel list this browser's own recent errors, each with a \"Copy\" button for reporting a bug."]</div>
+                        </div>
+                        <button type="button" class="switch @(_notificationSettings.ShowExceptionDetails ? "on" : "")" role="switch"
+                                aria-checked="@_notificationSettings.ShowExceptionDetails" disabled="@_isSavingNotificationSettings"
+                                @onclick="() => UpdateNotificationSettingsAsync(_notificationSettings with { ShowExceptionDetails = !_notificationSettings.ShowExceptionDetails })">
+                            <span class="switch-knob"></span>
+                        </button>
                     </div>
                 </div>
-                <button type="button" class="btn-secondary" disabled="@_isExporting" @onclick="ExportAsync">
-                    @(_isExporting ? T["Preparing…"] : T["Export everything"])
-                </button>
             </div>
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">@T["Import"]</div>
-                    <div class="options-row-desc">
-                        @T["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."]
-                    </div>
-                </div>
-                <InputFile OnChange="ImportAsync" accept=".json,application/json" disabled="@_isImporting" />
-            </div>
-            @if (_transferMessage is not null)
-            {
-                <p class="options-subtext">@_transferMessage</p>
-            }
-            @if (_transferErrorMessage is not null)
-            {
-                <p class="error">@_transferErrorMessage</p>
-            }
-        </div>
-    </div>
+        }
+    }
 
-    <div class="options-section">
-        <h2 class="options-heading">@T["Danger zone"]</h2>
-        <p class="options-subtext">@T["Deleting your account is permanent and cannot be undone."]</p>
-        <div class="options-card options-card-danger">
-            <div class="options-row options-row-stacked">
-                <div>
-                    <div class="options-row-title">@T["Delete account"]</div>
-                    <div class="options-row-desc">
-                        @T["Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]
-                    </div>
-                </div>
-                @if (_account?.HasPassword == true)
-                {
-                    <div class="field">
-                        <label for="deleteAccountPasswordInput">@T["Password"]</label>
-                        <input type="password" id="deleteAccountPasswordInput" @bind="_deleteAccountForm.Password" />
-                    </div>
-                }
-                <div class="form-actions">
-                    <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">@T["Delete account"]</button>
-                </div>
-                @if (_deleteAccountMessage is not null)
-                {
-                    <p class="@(_deleteAccountFailed ? "error" : "info")">@_deleteAccountMessage</p>
-                }
-            </div>
-        </div>
-    </div>
 </div>
 
 @code {
+    /// <summary>The four groups this page is divided into - see the tab bar above for why it is divided at all.</summary>
+    private enum OptionsTab
+    {
+        Account,
+        Appearance,
+        Permissions,
+        Debug
+    }
+
+    private OptionsTab _activeTab = OptionsTab.Account;
+
+    private bool HasEverythingUnlocked => Enum.GetValues<ApplicationPermission>().All(Permissions.Has);
+
+    /// <summary>What the reader has typed into the unlock field, and how the last attempt went.</summary>
+    private string _permissionCode = string.Empty;
+    private bool _isRedeemingCode;
+    private string? _permissionCodeMessage;
+    private bool _permissionCodeFailed;
+
+    private string DescribeTab(OptionsTab tab) => tab switch
+    {
+        OptionsTab.Account => T["Account"],
+        OptionsTab.Appearance => T["Appearance"],
+        OptionsTab.Permissions => T["Permissions"],
+        _ => T["Debug"]
+    };
+
+    private string DescribePermission(ApplicationPermission permission) => permission switch
+    {
+        ApplicationPermission.Location => T["Location"],
+        ApplicationPermission.Chat => T["Chat"],
+        ApplicationPermission.GroupChat => T["Group chats"],
+        _ => T["Sharing"]
+    };
+
+    private string ExplainPermission(ApplicationPermission permission) => permission switch
+    {
+        ApplicationPermission.Location => T["Recording where you are, sharing it, and seeing where others are."],
+        ApplicationPermission.Chat => T["Conversations with one other person."],
+        ApplicationPermission.GroupChat => T["Conversations with more than one other person."],
+        _ => T["Handing a note, task list, event or storage to somebody else."]
+    };
+
+    /// <summary>
+    /// The server answers the same way for a code that matched nothing and one that matched something,
+    /// so the message here is the only place the difference is said out loud - to the person who typed it.
+    /// </summary>
+    private async Task RedeemPermissionCodeAsync()
+    {
+        Logger.LogInformation("User submitted an unlock code");
+        _isRedeemingCode = true;
+        _permissionCodeMessage = null;
+        try
+        {
+            var outcome = await UsersApiClient.RedeemPermissionCodeAsync(_permissionCode);
+            _permissionCodeFailed = outcome.Granted is null;
+
+            // A real code that came too early gets its own answer: the person has the right code, and
+            // telling them it unlocks nothing would send them looking for a different one.
+            if (outcome.MissingPrerequisite is { } missing && Enum.TryParse<ApplicationPermission>(missing, out var required))
+            {
+                _permissionCodeMessage = T.Format("{0} has to be unlocked first.", DescribePermission(required));
+                return;
+            }
+
+            if (outcome.Granted is not { } granted)
+            {
+                _permissionCodeMessage = T["That code doesn't unlock anything."];
+                return;
+            }
+
+            await Permissions.RefreshAsync();
+            _permissionCode = string.Empty;
+            _permissionCodeMessage = T.Format(
+                "{0} is now unlocked.",
+                Enum.TryParse<ApplicationPermission>(granted, out var permission) ? DescribePermission(permission) : granted);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to redeem an unlock code");
+            _permissionCodeFailed = true;
+            _permissionCodeMessage = T["Couldn't reach the server. Try again."];
+        }
+        finally
+        {
+            _isRedeemingCode = false;
+        }
+    }
+
     /// <summary>Everything above None, which would mean keeping nothing and is what turning the log off would look like - Options has no reason to offer that separately from picking Critical.</summary>
     private static readonly LogLevel[] SelectableLogLevels =
         [LogLevel.Trace, LogLevel.Debug, LogLevel.Information, LogLevel.Warning, LogLevel.Error, LogLevel.Critical];

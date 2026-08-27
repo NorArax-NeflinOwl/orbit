@@ -1,0 +1,16 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* Shown in place of a part of Orbit this account has not unlocked. Says what is missing and where to
+   fix it - an empty list here would be a lie, because there may well be plenty to show once it is. *@
+<div class="card feature-locked">
+    <p class="options-row-title">@T["Not unlocked yet"]</p>
+    <p class="options-row-desc">@Explanation</p>
+    <p class="options-row-desc">@T["Enter the code for it under Options, Permissions."]</p>
+    <a class="btn-secondary" href="/options">@T["Open Options"]</a>
+</div>
+
+@code {
+    /// <summary>What this account cannot use, in a sentence - see Options' own ExplainPermission for the wording.</summary>
+    [Parameter, EditorRequired] public string Explanation { get; set; } = string.Empty;
+}

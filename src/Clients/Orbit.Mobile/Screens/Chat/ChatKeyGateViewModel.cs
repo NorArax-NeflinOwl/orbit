@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Users;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Chat;
 
@@ -39,6 +40,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
 {
     private readonly AccountClient _accountClient;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     private AccountDto? _account;
@@ -62,10 +64,12 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
     private string _message = string.Empty;
 
     public ChatKeyGateViewModel(
-        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, IScreenNavigator navigator)
+        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, Translations translations,
+        IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -87,6 +91,9 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
 
     public string EmailAddress => _account?.Email ?? string.Empty;
 
+    /// <summary>Where the reset code is going, said in the reader's language rather than formatted in markup.</summary>
+    public string ResetCodeDestination => _translations.Format("We will email a code to {0}.", EmailAddress);
+
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
@@ -103,7 +110,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
         catch (Exception exception) when (exception is HttpRequestException or EncryptionKeyLockedException)
         {
             SetMode(ChatKeyGateMode.EnterPassword);
-            Message = "Couldn't load your account. Check your connection and try again.";
+            Message = _translations["Couldn't load your account. Check your connection and try again."];
         }
     }
 
@@ -119,7 +126,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
         var result = await _accountClient.SetFirstPasswordAsync(Password, cancellationToken);
         if (!result.Succeeded)
         {
-            Message = result.Message ?? "Couldn't set that password.";
+            Message = result.Message ?? _translations["Couldn't set that password."];
             return;
         }
 
@@ -135,7 +142,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
         var result = await _accountClient.RequestPasswordResetAsync(EmailAddress, cancellationToken);
         if (!result.Succeeded)
         {
-            Message = result.Message ?? "Couldn't send a reset code.";
+            Message = result.Message ?? _translations["Couldn't send a reset code."];
             return;
         }
 
@@ -158,7 +165,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
         var result = await _accountClient.ResetPasswordAsync(EmailAddress, Code, Password, cancellationToken);
         if (!result.Succeeded)
         {
-            Message = result.Message ?? "That code isn't valid any more. Request a new one.";
+            Message = result.Message ?? _translations["That code isn't valid any more. Request a new one."];
             return;
         }
 
@@ -192,8 +199,9 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
             {
                 // Deliberately not "wrong password": it is also what a lost connection looks like, and
                 // the app will not replace a key it could not check.
-                Message = "Couldn't unlock your chat key. Either that isn't the password it was saved " +
-                    "under, or Orbit couldn't be reached. Nothing was changed.";
+                Message = _translations[
+                    "Couldn't unlock your chat key. Either that isn't the password it was saved under, "
+                    + "or Orbit couldn't be reached. Nothing was changed."];
                 return;
             }
 
@@ -201,7 +209,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Message = "Something went wrong. Try again.";
+            Message = _translations["Something went wrong. Try again."];
             System.Diagnostics.Debug.WriteLine($"Chat key gate failed to unlock: {exception}");
         }
     }
@@ -210,13 +218,13 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
     {
         if (Password.Length == 0)
         {
-            Message = "Enter a password.";
+            Message = _translations["Enter a password."];
             return false;
         }
 
         if (Password != RepeatPassword)
         {
-            Message = "The two passwords don't match.";
+            Message = _translations["The two passwords don't match."];
             return false;
         }
 
@@ -241,6 +249,7 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
         OnPropertyChanged(nameof(IsUnlocked));
         OnPropertyChanged(nameof(CanReset));
         OnPropertyChanged(nameof(EmailAddress));
+        OnPropertyChanged(nameof(ResetCodeDestination));
     }
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));

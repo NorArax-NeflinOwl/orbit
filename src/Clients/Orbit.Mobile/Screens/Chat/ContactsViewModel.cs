@@ -4,7 +4,9 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Core.Permissions;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Chat;
@@ -22,6 +24,7 @@ public sealed partial class ContactsViewModel : ObservableObject
     private readonly ChatSynchronizer _synchronizer;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly Translations _translations;
+    private readonly UserPermissions _permissions;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -40,7 +43,7 @@ public sealed partial class ContactsViewModel : ObservableObject
     public ContactsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, UsersClient usersClient,
         ChatSynchronizer synchronizer, OwnEncryptionKeyProvider encryptionKeyProvider,
-        Translations translations, IScreenNavigator navigator)
+        Translations translations, UserPermissions permissions, IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
@@ -48,8 +51,19 @@ public sealed partial class ContactsViewModel : ObservableObject
         _synchronizer = synchronizer;
         _encryptionKeyProvider = encryptionKeyProvider;
         _translations = translations;
+        _permissions = permissions;
         _navigator = navigator;
     }
+
+    /// <summary>
+    /// True while this account cannot hold a one-to-one conversation. The screen shows why instead of
+    /// an empty list, which would claim there is nothing to show - see LockedFeatureMessage.
+    /// </summary>
+    public bool IsLocked => !_permissions.Has(ApplicationPermission.Chat);
+
+    public bool IsUnlocked => !IsLocked;
+
+    public string LockedExplanation => LockedFeatureMessage.For(ApplicationPermission.Chat, _translations);
 
     public ObservableCollection<LocalContact> Contacts { get; } = [];
 
@@ -103,6 +117,13 @@ public sealed partial class ContactsViewModel : ObservableObject
     {
         Message = string.Empty;
 
+        // Nothing behind this screen exists for an account that cannot hold a conversation, and the
+        // chat-key gate below would be a strange thing to demand of somebody who cannot chat at all.
+        if (IsLocked)
+        {
+            return;
+        }
+
         // Chat is unreadable without the key, so ask for it before showing a list that goes nowhere.
         if (!await _encryptionKeyProvider.HasKeyAsync(cancellationToken))
         {
@@ -123,8 +144,8 @@ public sealed partial class ContactsViewModel : ObservableObject
             else
             {
                 Message = Contacts.Count == 0
-                    ? "Offline, and this device hasn't seen your conversations yet."
-                    : "Offline - showing what's on this phone";
+                    ? _translations["Offline, and this device hasn't seen your conversations yet."]
+                    : _translations["Offline - showing what's on this phone"];
             }
         }
         catch (HttpRequestException)
@@ -133,7 +154,7 @@ public sealed partial class ContactsViewModel : ObservableObject
             // has already cleared it and AppNavigator is watching, so the app is on its way to sign-in;
             // what matters here is that this does not escape. These commands are started from
             // OnAppearing without being awaited, and an unobserved failure kills the process.
-            Message = "Couldn't refresh just now";
+            Message = _translations["Couldn't refresh just now"];
         }
         catch (OperationCanceledException)
         {
@@ -189,7 +210,7 @@ public sealed partial class ContactsViewModel : ObservableObject
         }
         catch (HttpRequestException)
         {
-            Message = "Accepting a chat request needs a connection.";
+            Message = _translations["Accepting a chat request needs a connection."];
             return;
         }
         catch (OperationCanceledException)
@@ -202,6 +223,9 @@ public sealed partial class ContactsViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenGroups() => _navigator.ShowGroups();
+
+    [RelayCommand]
+    private void OpenAccount() => _navigator.ShowAccount();
 
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();

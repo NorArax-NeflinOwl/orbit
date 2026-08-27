@@ -19,6 +19,7 @@
     --task: oklch(52% 0.14 55);
     --success: oklch(58% 0.13 150);
     --danger: oklch(58% 0.16 25);
+    --away: oklch(75% 0.15 85);
     --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
     --font-body: 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
@@ -38,6 +39,7 @@
     --task: oklch(72% 0.13 55);
     --success: oklch(72% 0.12 150);
     --danger: oklch(70% 0.15 25);
+    --away: oklch(80% 0.14 85);
 }
 
 * {
@@ -417,6 +419,10 @@ input.note-editor-title {
     top: 0;
     height: 100vh;
     align-self: flex-start;
+    /* position: sticky makes this a stacking context, so everything inside it - the notifications popup
+       and the avatar menu included - is trapped below whatever the main content paints. Without this
+       the popup opened underneath the avatars on the page behind it. */
+    z-index: 50;
 }
 
 .sidebar-logo {
@@ -644,8 +650,12 @@ input.note-editor-title {
     bottom: calc(100% + 8px);
     left: 0;
     width: 320px;
-    max-height: 420px;
-    overflow-y: auto;
+    /* As tall as it needs to be, up to what is actually on screen above the trigger. The panel used to
+       scroll as a whole at a fixed height, which took "See all notifications" off the bottom and made
+       every visit a scroll. */
+    max-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -660,6 +670,7 @@ input.note-editor-title {
 }
 
 .notifications-panel-header {
+    flex: 0 0 auto;
     padding: 8px;
     font-size: 13.5px;
     font-weight: 700;
@@ -700,6 +711,13 @@ input.note-editor-title {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    /* min-height: 0 lets a flex child shrink below its content; without it the list refuses to shrink
+       and the panel overflows instead of the list scrolling. */
+    flex: 1 1 auto;
+    /* min-height: 0 would let it shrink to nothing; two entries is the least that is worth showing, so
+       a window too short for that is the only case where this scrolls at all. */
+    min-height: min(128px, 40vh);
+    overflow-y: auto;
 }
 
 .notifications-panel-item {
@@ -753,7 +771,10 @@ input.note-editor-title {
     margin-top: 6px;
     padding-top: 8px;
     text-align: center;
+    /* Never scrolls away: it is the way out of the popup. */
+    flex: 0 0 auto;
 }
+
 
 .notifications-panel-footer a {
     font-size: 12.5px;
@@ -910,13 +931,6 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
-/* The message's own actions, kept together so they wrap as a unit rather than one button at a time. */
-.group-message-actions {
-    display: inline-flex;
-    gap: 4px;
-    flex-wrap: wrap;
-}
-
 .group-message-edit {
     margin: 0 0 8px 0;
 }
@@ -944,6 +958,26 @@ input.note-editor-title {
 
 .note-row small {
     color: var(--text-tertiary);
+}
+
+/* One tick means the server has it for everyone; two mean everyone has read it. Muted until then, so a
+   glance down the conversation shows what has landed without reading the marks one by one. */
+.group-message-ticks {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    letter-spacing: -1px;
+}
+
+.group-message-ticks.read {
+    color: var(--accent);
+}
+
+.group-message-info {
+    margin: 0 0 8px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-subtle);
 }
 
 .icon-btn {
@@ -1261,6 +1295,51 @@ input.note-editor-title {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 20px;
+}
+
+/* Pinned cards come first. Done with grid order rather than by reordering the markup, so the cards stay
+   where they are written and a pin only changes where they land. */
+.card-pinned {
+    order: -1;
+}
+
+.card-header-end {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* One pin, shared by notes, task lists and dashboard cards - see Components/PinButton.razor. Quiet until
+   it matters: dimmed while unpinned, full strength once it is holding something at the top. */
+.pin-button {
+    color: var(--text-muted);
+    opacity: 0.55;
+}
+
+.pin-button:hover,
+.pin-button:focus-visible {
+    opacity: 1;
+}
+
+.pin-button-pinned {
+    color: var(--accent);
+    opacity: 1;
+}
+
+.note-row-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.note-row-heading .note-row-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.note-row-pinned {
+    border-left: 3px solid var(--accent);
 }
 
 .today-strip {
@@ -1655,8 +1734,17 @@ input.note-editor-title {
 }
 
 .chat-bubble-wrap:hover .chat-bubble-menu-trigger,
+.group-message:hover .chat-bubble-menu-trigger,
 .chat-bubble-menu-trigger:focus-visible {
     opacity: 1;
+}
+
+/* A group message is a row rather than a bubble, so the trigger has no hover state to inherit on a
+   touch screen - where nothing hovers, it stays visible instead of being unreachable. */
+@media (hover: none) {
+    .chat-bubble-menu-trigger {
+        opacity: 1;
+    }
 }
 
 .chat-bubble-menu-dropdown {
@@ -2787,6 +2875,23 @@ input.note-editor-title {
     margin-bottom: 16px;
 }
 
+/* Folded, the group list is a strip of initials - the same shape .chat-list.collapsed takes, so the two
+   chat pages fold the same way. The grid column has to shrink with it, or the strip would sit in a
+   280px gap. */
+.group-layout:has(.group-list.collapsed) {
+    grid-template-columns: 68px 1fr;
+}
+
+.group-list.collapsed .card-header,
+.group-list.collapsed .list-row-button {
+    justify-content: center;
+}
+
+.group-list.collapsed .list-row-button {
+    padding-left: 0;
+    padding-right: 0;
+}
+
 .list-row-button.active {
     background: var(--bg-subtle);
 }
@@ -2837,38 +2942,78 @@ input.note-editor-title {
 
 /* MapPage.razor: the map fills the screen rather than sitting in a box - it is the point of the page,
    and a location is easier to place with more of its surroundings visible. */
+/* No longer pinned to the viewport. The map used to take whatever height was left over, which is why
+   the page had to be exactly one screen tall; a square map has its own height, so the page scrolls like
+   every other one. */
 .map-page {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    /* .main-content's own vertical padding (28px top, 40px bottom) is what's taken off the viewport. */
-    height: calc(100dvh - 68px);
 }
 
 .location-card {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    flex: 1;
-    /* Without this a flex child refuses to shrink below its content, and the map pushes the card past
-       the bottom of the screen instead of fitting inside it. */
-    min-height: 0;
 }
 
-.location-map {
-    flex: 1;
-    min-height: 0;
+/* As tall as it is wide. The frame carries the shape so the map inside can simply fill it - and so the
+   full-screen button has something to sit over that is not Leaflet's own container. */
+.location-map-frame {
+    position: relative;
     width: 100%;
+    aspect-ratio: 1 / 1;
     border-radius: 10px;
     overflow: hidden;
 }
 
-@media (max-width: 680px) {
-    .map-page {
-        /* The sidebar is a top bar at this width (see its own rule), so it takes its height out of the
-           viewport before the content gets any. */
-        height: calc(100dvh - 129px);
-    }
+.location-map {
+    width: 100%;
+    height: 100%;
+}
+
+.map-fullscreen-button {
+    position: absolute;
+    /* Leaflet's own controls sit at z-index 1000 in the top left; this stays clear of them. */
+    top: 10px;
+    right: 10px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px oklch(20% 0.02 60 / 0.25);
+}
+
+/* Which half of the button shows is decided here rather than in code, so leaving full screen with Esc
+   or a back gesture - neither of which the app is told about - still leaves the button saying the right
+   thing. */
+.map-fullscreen-exit {
+    display: none;
+}
+
+.location-map-frame:fullscreen {
+    aspect-ratio: auto;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+}
+
+.location-map-frame:fullscreen .map-fullscreen-enter {
+    display: none;
+}
+
+.location-map-frame:fullscreen .map-fullscreen-exit {
+    display: inline;
 }
 
 /* MapPage.razor's sharing panel, above the map it feeds. */
@@ -3216,4 +3361,164 @@ input.note-editor-title {
     width: auto;
     min-width: 140px;
     flex: 0 0 auto;
+}
+
+/* Presence - see Components/PresenceDot.razor. Sits on the edge of the avatar it belongs to, with a ring
+   in the page background so a dark dot on a dark avatar still reads as a separate thing. */
+.presence-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 2px var(--bg-elevated);
+    background: var(--text-tertiary);
+}
+
+.presence-dot-available {
+    background: var(--success);
+}
+
+.presence-dot-away {
+    background: var(--away);
+}
+
+.presence-dot-donotdisturb {
+    background: var(--danger);
+}
+
+.presence-dot-offline {
+    background: var(--text-tertiary);
+}
+
+/* On an avatar the dot hangs off the top-right corner rather than taking space in the row. */
+.avatar .presence-dot,
+.avatar-sm .presence-dot {
+    position: absolute;
+    right: -1px;
+    top: -1px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* The availability picker in the avatar menu: two choices, side by side, each one its own dot. */
+.availability-picker {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+}
+
+.availability-choice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.availability-choice:hover {
+    background: var(--bg-subtle);
+}
+
+.availability-choice-selected {
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
+/* Options is four tabs rather than nine stacked sections - see Pages/Options.razor. */
+.options-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    overflow-x: auto;
+}
+
+.options-tab {
+    padding: 10px 16px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-display);
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.options-tab:hover {
+    color: var(--text-primary);
+}
+
+.options-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.permissions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Inset to the same 18px the ordinary rows use (see .options-row), so nothing runs into the card's own
+   border - a table dropped straight into .options-card has no padding of its own, and both the labels
+   and the state badges ended up sitting on the frame. */
+.permissions-table th {
+    text-align: left;
+    padding: 14px 18px 8px;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    font-weight: 600;
+}
+
+.permissions-table td {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+}
+
+/* The row separators still run the full width, the way .options-row's do - it is the content that is
+   inset, not the line. */
+.permissions-table tr:last-child td {
+    padding-bottom: 16px;
+}
+
+.permissions-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* A code is read off one screen and typed into this one, so it is set in a face where every character
+   is its own width and nothing runs together. */
+.permission-code-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* Stands in for a part of Orbit this account has not unlocked - see Components/FeatureLocked.razor. */
+.feature-locked {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 520px;
 }

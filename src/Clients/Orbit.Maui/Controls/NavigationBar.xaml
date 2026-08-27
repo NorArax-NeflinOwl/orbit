@@ -61,13 +61,15 @@
                     </Grid.GestureRecognizers>
                     <Path Data="{StaticResource InventoryIcon}" Style="{StaticResource NavigationBarIconPath}" />
                 </Grid>
-                <Grid Style="{StaticResource NavigationBarIcon}">
+                <!-- Hidden rather than shown-and-refused, as the web's sidebar does it: a link that
+                     only ever leads to "not unlocked" is not a link. -->
+                <Grid Style="{StaticResource NavigationBarIcon}" IsVisible="{Binding CanUseLocation}">
                     <Grid.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding GoToMapCommand}" />
                     </Grid.GestureRecognizers>
                     <Path Data="{StaticResource MapIcon}" Style="{StaticResource NavigationBarIconPath}" />
                 </Grid>
-                <Grid Style="{StaticResource NavigationBarIcon}">
+                <Grid Style="{StaticResource NavigationBarIcon}" IsVisible="{Binding CanUseConversations}">
                     <Grid.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding GoToContactsCommand}" />
                     </Grid.GestureRecognizers>

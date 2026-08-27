@@ -1,11 +1,20 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
+using Orbit.Mobile.Api;
+using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Chat;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Screens.Dashboard;
+using System.Net;
+using Orbit.Core.Permissions;
+using Orbit.Mobile.Permissions;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 
@@ -208,6 +217,56 @@ public sealed class DashboardScreenTests
         Assert.Equal("Untitled", Assert.Single(Assert.Single(screen.Cards).Rows).Title);
     }
 
+    /// <summary>
+    /// The dashboard used to read the local store and stop there, on the assumption that each section
+    /// keeps itself current. A section only does that once its own screen has been opened, so after a
+    /// sign-in - or after the cache was emptied - the landing screen sat empty until the reader had
+    /// visited Notes, then Tasks, then the calendar, each filling in its own row. Found by walking the
+    /// app: every other screen had the account's data and the dashboard had none of it.
+    /// </summary>
+    [Fact]
+    public async Task The_dashboard_fetches_what_this_phone_has_not_seen_yet()
+    {
+        using var context = new DashboardContext();
+        context.NotesServer.AddNote("Only on the server");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var notes = Assert.Single(screen.Cards);
+        Assert.Equal("Only on the server", Assert.Single(notes.Rows).Title);
+    }
+
+    /// <summary>
+    /// A locked section is not a broken one. The chat synchroniser answers false for a refusal exactly
+    /// as it does for a dropped connection, so before this the dashboard of an account without chat put
+    /// "couldn't sync" in the corner while everything it is allowed to have was perfectly in step.
+    /// </summary>
+    [Fact]
+    public async Task An_account_without_chat_is_not_told_the_sync_failed()
+    {
+        using var context = new DashboardContext();
+        await context.LockToAsync(ApplicationPermission.Location);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(SyncCondition.Synced, context.SyncState.Condition);
+    }
+
+    [Fact]
+    public async Task An_account_without_chat_is_shown_no_conversations()
+    {
+        using var context = new DashboardContext();
+        await context.AddContactAsync("Anna", requiresMyApproval: false);
+        await context.LockToAsync(ApplicationPermission.Location);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind is DashboardCardKind.RecentChats or DashboardCardKind.Contacts);
+    }
+
     private sealed class DashboardContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -216,6 +275,11 @@ public sealed class DashboardScreenTests
         private readonly LocalTaskListRepository _taskLists;
         private readonly LocalCalendarEventRepository _calendarEvents;
         private readonly ChatRepository _chat;
+        private readonly EverythingSynchronizer _synchronizer;
+        private readonly SyncState _syncState;
+        private readonly FakeUsersServer _permissionServer;
+        private readonly UserPermissions _permissions;
+        private FakeChatServer _chatServer = null!;
 
         public DashboardContext()
         {
@@ -224,13 +288,82 @@ public sealed class DashboardScreenTests
             _taskLists = new LocalTaskListRepository(_localStore, _clock, network);
             _calendarEvents = new LocalCalendarEventRepository(_localStore, _clock, network);
             _chat = new ChatRepository(_localStore, _clock);
+            _syncState = new SyncState(network, _clock);
+            NotesServer = new FakeNotesServer(_clock);
+            _permissionServer = new FakeUsersServer();
+            _permissionServer.Granted.AddRange(
+                Enum.GetValues<ApplicationPermission>().Select(permission => permission.ToString()));
+            _permissions = UnlockedPermissions.For(_localStore, _permissionServer);
+            _synchronizer = AssembleSynchronizer();
+        }
+
+        /// <summary>The one server a test reaches into, to put something on it the phone has not seen.</summary>
+        public FakeNotesServer NotesServer { get; }
+
+        public SyncState SyncState => _syncState;
+
+        /// <summary>
+        /// Narrows this account to what it has actually unlocked, and makes the chat server refuse the
+        /// way the real one does - a locked endpoint answers 403 rather than simply having nothing.
+        /// </summary>
+        public async Task LockToAsync(params ApplicationPermission[] granted)
+        {
+            _permissionServer.Granted.Clear();
+            _permissionServer.Granted.AddRange(granted.Select(permission => permission.ToString()));
+
+            if (!granted.Contains(ApplicationPermission.Chat))
+            {
+                _chatServer.RefuseEverythingWith = HttpStatusCode.Forbidden;
+            }
+
+            await _permissions.RefreshAsync();
+        }
+
+        /// <summary>
+        /// A server behind every feature. The dashboard synchronises all of them on load, so leaving any
+        /// one out would have the screen under test talk to something that is not there.
+        /// </summary>
+        private EverythingSynchronizer AssembleSynchronizer()
+        {
+            var gate = new SyncGate();
+            var ownUserId = Guid.NewGuid();
+            var sessionStore = new SessionStore(new InMemorySessionStorage(
+                new UserSession("access", "refresh", ownUserId, "me@orbit.example", "Me")));
+            _chatServer = new FakeChatServer(_clock) { CallerUserId = ownUserId };
+            var usersClient = new UsersClient(new FakeUsersServer().ToHttpClient());
+            var chatClient = new ChatClient(_chatServer.ToHttpClient());
+            var encryptionKeys = new OwnEncryptionKeyProvider(
+                new InMemoryChatKeyStorage(), new EncryptionKeyClient(new FakeEncryptionKeyServer().ToHttpClient()),
+                sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance);
+
+            return new EverythingSynchronizer(
+                new NoteSynchronizer(
+                    _localStore, new NotesClient(NotesServer.ToHttpClient()), _clock, gate,
+                    NullLogger<NoteSynchronizer>.Instance),
+                new TaskListSynchronizer(
+                    _localStore, new TasksClient(new FakeTasksServer(_clock).ToHttpClient()), _clock, gate,
+                    NullLogger<TaskListSynchronizer>.Instance),
+                new CalendarEventSynchronizer(
+                    _localStore, new CalendarClient(new FakeCalendarServer(_clock).ToHttpClient()), _clock, gate,
+                    NullLogger<CalendarEventSynchronizer>.Instance),
+                new WarehouseSynchronizer(
+                    _localStore, new InventoryClient(new FakeInventoryServer(_clock).ToHttpClient()), _clock, gate,
+                    NullLogger<WarehouseSynchronizer>.Instance),
+                new ChatSynchronizer(
+                    _chat, chatClient, usersClient,
+                    new EncryptedChatMessageSender(
+                        _chat, chatClient, new ChatDirectoryReader(chatClient, usersClient, sessionStore),
+                        encryptionKeys, NullLogger<EncryptedChatMessageSender>.Instance),
+                    NullLogger<ChatSynchronizer>.Instance),
+                _permissions);
         }
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
         public DashboardViewModel Open()
             => new(_notes, _taskLists, _calendarEvents, _chat, _clock, new Translations(new InMemoryLanguageStore()),
-                new PrivateItemGate(new FixedDeviceAuthentication()), Navigator);
+                new PrivateItemGate(new FixedDeviceAuthentication()), _synchronizer, _syncState, _permissions,
+                Navigator);
 
         public async Task AddNoteAsync(string title)
             => await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)]);
@@ -251,18 +384,17 @@ public sealed class DashboardScreenTests
                 title, null, null, null, startUtc, startUtc.AddHours(1), false, null, [], [], "None", "None"));
 
         /// <summary>
-        /// Kept and re-stored together, because StoreContactsAsync replaces the whole list - the server
-        /// owns it, so a second call with one contact means the reader now has exactly one contact.
+        /// Put on the server as well as in the local store, because the dashboard now synchronises on
+        /// load and the server owns the contact list: a contact only this phone knew about would be
+        /// replaced away by the first sync, as it would be on a real device.
         /// </summary>
-        private readonly List<Contracts.Chat.ContactDto> _contacts = [];
-
         public async Task<Guid> AddContactAsync(string displayName, bool requiresMyApproval)
         {
             var userId = Guid.NewGuid();
-            _contacts.Add(new Contracts.Chat.ContactDto(
+            _chatServer.Contacts.Add(new Contracts.Chat.ContactDto(
                 userId, $"user{userId:N}", displayName, $"{userId:N}@orbit.example", null,
                 _clock.GetUtcNow(), requiresMyApproval, IsPendingApprovalFromOtherParty: false));
-            await _chat.StoreContactsAsync(_contacts);
+            await _chat.StoreContactsAsync(_chatServer.Contacts);
             return userId;
         }
 

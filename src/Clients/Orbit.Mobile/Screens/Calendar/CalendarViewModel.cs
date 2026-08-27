@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Calendar;
@@ -20,6 +21,7 @@ public sealed partial class CalendarViewModel : ObservableObject
     private readonly TimeProvider _timeProvider;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
+    private readonly Translations _translations;
 
     [ObservableProperty]
     private string _newEventTitle = string.Empty;
@@ -35,7 +37,7 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     public CalendarViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, INetworkStatus networkStatus,
-        TimeProvider timeProvider, SyncState syncState, IScreenNavigator navigator)
+        TimeProvider timeProvider, SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _events = events;
         _synchronizer = synchronizer;
@@ -43,6 +45,7 @@ public sealed partial class CalendarViewModel : ObservableObject
         _timeProvider = timeProvider;
         _syncState = syncState;
         _navigator = navigator;
+        _translations = translations;
     }
 
     public ObservableCollection<CalendarEventRow> Events { get; } = [];
@@ -85,7 +88,7 @@ public sealed partial class CalendarViewModel : ObservableObject
         Events.Clear();
         foreach (var calendarEvent in stored)
         {
-            Events.Add(CalendarEventRow.From(calendarEvent, pending.Contains(calendarEvent.LocalId), _networkStatus));
+            Events.Add(CalendarEventRow.From(calendarEvent, pending.Contains(calendarEvent.LocalId), _networkStatus, _translations));
         }
     }
 

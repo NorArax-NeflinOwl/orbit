@@ -45,7 +45,7 @@ public partial class ConversationPage : ContentPage
 			actions.Add(_translations["Forward"]);
 		}
 
-		var chosen = await DisplayActionSheet(
+		var chosen = await DisplayActionSheetAsync(
 			_translations["Message options"], _translations["Cancel"], destruction: null, actions.ToArray());
 
 		if (chosen == _translations["Edit"])

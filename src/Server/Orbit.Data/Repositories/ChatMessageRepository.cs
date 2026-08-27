@@ -173,4 +173,35 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         return entities.Select(ToDomain).ToList();
     }
+    public async Task MarkGroupConversationAsReadAsync(
+        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
+    {
+        await _dbContext.ChatMessages
+            .Where(message =>
+                message.GroupId == groupId && message.RecipientUserId == readerUserId && message.ReadAtUtc == null)
+            .ExecuteUpdateAsync(update => update.SetProperty(message => message.ReadAtUtc, readAtUtc), cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>>> GetGroupReceiptsAsync(
+        IReadOnlyCollection<Guid> groupMessageIds, CancellationToken cancellationToken)
+    {
+        if (groupMessageIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<GroupMessageReceipt>>();
+        }
+
+        var rows = await _dbContext.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.GroupMessageId != null && groupMessageIds.Contains(message.GroupMessageId.Value))
+            .Select(message => new { GroupMessageId = message.GroupMessageId!.Value, message.RecipientUserId, message.ReadAtUtc })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(row => row.GroupMessageId)
+            .ToDictionary(
+                byMessage => byMessage.Key,
+                byMessage => (IReadOnlyList<GroupMessageReceipt>)byMessage
+                    .Select(row => new GroupMessageReceipt(row.RecipientUserId, row.ReadAtUtc))
+                    .ToList());
+    }
 }

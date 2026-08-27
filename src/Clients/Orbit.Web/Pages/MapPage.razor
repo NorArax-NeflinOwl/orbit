@@ -5,6 +5,7 @@
 @using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Users
+@using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject UsersApiClient UsersApiClient
 @inject GeocodingApiClient GeocodingApiClient
@@ -18,6 +19,7 @@
 @inject DevicePreferences DevicePreferences
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
+@inject UserPermissionState Permissions
 @inject Translations T
 
 <PageTitle>@T["Orbit — Map"]</PageTitle>
@@ -39,100 +41,129 @@
         </div>
     </div>
 
-    @if (_message is not null)
+    @if (!Permissions.Has(ApplicationPermission.Location))
     {
-        <p class="@(_hasFailed ? "error" : "info")">@_message</p>
-    }
-
-    @if (_contacts.Count > 0)
-    {
-        <div class="card share-location-card">
-            <div class="card-header">
-                <span class="card-title">@T["Share where you are"]</span>
-                @if (_ownShares.Count > 0)
-                {
-                    <span class="card-count">@T.Format("{0} sharing", _ownShares.Count)</span>
-                }
-            </div>
-            <div class="field-row">
-                <select @bind="_shareWithUserId">
-                    <option value="">@T["Pick a contact…"]</option>
-                    @foreach (var contact in _contacts)
-                    {
-                        <option value="@contact.UserId">@contact.DisplayName</option>
-                    }
-                </select>
-                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: false)">@T["Send once"]</button>
-                <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: true)">@T["Keep sharing"]</button>
-            </div>
-
-            @foreach (var share in _ownShares)
-            {
-                <div class="list-row">
-                    <span class="row-title">@DisplayNameFor(share.SharerUserId == _ownUserId ? share.RecipientUserId : share.SharerUserId)</span>
-                    <span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"]) · @FormatRecordedAt(share.UpdatedAtUtc)</span>
-                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StopSharingAsync(share.RecipientUserId)">@T["Stop"]</button>
-                </div>
-            }
-
-            @if (_isLiveSharing)
-            {
-                <p class="empty-hint">
-                    @T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]
-                </p>
-            }
-        </div>
-    }
-
-    @if (_isLoading)
-    {
-        <p>@T["Loading…"]</p>
-    }
-    else if (_location is null)
-    {
-        <div class="card">
-            <p class="empty-hint">
-                @T["Nothing recorded yet. Orbit asks your browser for your position only when you press the button, and keeps one point with no history."]
-            </p>
-        </div>
-        @* Somebody else's position does not wait on the reader having recorded their own. Without this
-           the map was drawn only for people who had, so a notification saying someone had shared their
-           location led to a page that showed nothing of it. *@
-        @if (_receivedPositions.Count > 0)
-        {
-            <div class="card location-card">
-                <div class="card-header">
-                    <span class="card-title">@T["Shared with you"]</span>
-                    <span class="card-count">@_receivedPositions.Count</span>
-                </div>
-                <div id="@MapElementId" class="location-map"></div>
-            </div>
-        }
+        <FeatureLocked Explanation="@(T["Recording where you are, sharing it, and seeing where others are."])" />
     }
     else
     {
-        <div class="card location-card">
-            <div class="card-header">
-                <span class="card-title">
-                @if (_hasGoogleExtras)
+
+        @if (_message is not null)
+        {
+            <p class="@(_hasFailed ? "error" : "info")">@_message</p>
+        }
+
+        @if (_contacts.Count > 0)
+        {
+            <div class="card share-location-card">
+                <div class="card-header">
+                    <span class="card-title">@T["Share where you are"]</span>
+                    @if (_ownShares.Count > 0)
+                    {
+                        <span class="card-count">@T.Format("{0} sharing", _ownShares.Count)</span>
+                    }
+                </div>
+                <div class="field-row">
+                    <select @bind="_shareWithUserId">
+                        <option value="">@T["Pick a contact…"]</option>
+                        @foreach (var contact in _contacts)
+                        {
+                            <option value="@contact.UserId">@contact.DisplayName</option>
+                        }
+                    </select>
+                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: false)">@T["Send once"]</button>
+                    <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: true)">@T["Keep sharing"]</button>
+                </div>
+
+                @foreach (var share in _ownShares)
                 {
-                    @* The street name itself opens the place in Google Maps. *@
-                    <a href="@GoogleMapsLink.ToPlace(_location.Latitude, _location.Longitude)" target="_blank" rel="noopener">@(_location.Address ?? T["Recorded location"])</a>
+                    <div class="list-row">
+                        <span class="row-title">@DisplayNameFor(share.SharerUserId == _ownUserId ? share.RecipientUserId : share.SharerUserId)</span>
+                        <span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"]) · @FormatRecordedAt(share.UpdatedAtUtc)</span>
+                        <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StopSharingAsync(share.RecipientUserId)">@T["Stop"]</button>
+                    </div>
                 }
-                else
+
+                @if (_isLiveSharing)
                 {
-                    @(_location.Address ?? T["Recorded location"])
+                    <p class="empty-hint">
+                        @T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]
+                    </p>
                 }
-            </span>
-                <span class="card-count">@FormatRecordedAt(_location.RecordedAtUtc)</span>
             </div>
-            <div class="list-row">
-                <span class="row-title">@FormatCoordinates(_location)</span>
+        }
+
+        @if (_isLoading)
+        {
+            <p>@T["Loading…"]</p>
+        }
+        else if (_location is null)
+        {
+            <div class="card">
+                <p class="empty-hint">
+                    @T["Nothing recorded yet. Orbit asks your browser for your position only when you press the button, and keeps one point with no history."]
+                </p>
             </div>
-            @* The map itself is drawn by Leaflet into this element - see locationMap.js. *@
-            <div id="@MapElementId" class="location-map"></div>
-        </div>
+            @* Somebody else's position does not wait on the reader having recorded their own. Without this
+               the map was drawn only for people who had, so a notification saying someone had shared their
+               location led to a page that showed nothing of it. *@
+            @if (_receivedPositions.Count > 0)
+            {
+                <div class="card location-card">
+                    <div class="card-header">
+                        <span class="card-title">@T["Shared with you"]</span>
+                        <span class="card-count">@_receivedPositions.Count</span>
+                    </div>
+                    <div class="location-map-frame">
+                    <div id="@MapElementId" class="location-map"></div>
+                    @* Sits over the map rather than inside it: Leaflet owns its container's children, and
+                       the frame is what goes fullscreen, so the button stays reachable once it is. Which of
+                       the two labels shows is decided by CSS :fullscreen, so leaving fullscreen with Esc or
+                       the back gesture - neither of which this code sees - still leaves the button right. *@
+                    <button type="button" class="map-fullscreen-button" @onclick="ToggleFullscreenAsync">
+                        <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
+                        <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
+                    </button>
+                </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="card location-card">
+                <div class="card-header">
+                    <span class="card-title">
+                    @if (_hasGoogleExtras)
+                    {
+                        @* The street name itself opens the place in Google Maps. *@
+                        <a href="@GoogleMapsLink.ToPlace(_location.Latitude, _location.Longitude)" target="_blank" rel="noopener">@(_location.Address ?? T["Recorded location"])</a>
+                    }
+                    else
+                    {
+                        @(_location.Address ?? T["Recorded location"])
+                    }
+                </span>
+                    <span class="card-count">@FormatRecordedAt(_location.RecordedAtUtc)</span>
+                </div>
+                <div class="list-row">
+                    <span class="row-title">@FormatCoordinates(_location)</span>
+                </div>
+                @* The map itself is drawn by Leaflet into this element - see locationMap.js. *@
+                <div class="location-map-frame">
+                    <div id="@MapElementId" class="location-map"></div>
+                    @* Sits over the map rather than inside it: Leaflet owns its container's children, and
+                       the frame is what goes fullscreen, so the button stays reachable once it is. Which of
+                       the two labels shows is decided by CSS :fullscreen, so leaving fullscreen with Esc or
+                       the back gesture - neither of which this code sees - still leaves the button right. *@
+                    <button type="button" class="map-fullscreen-button" @onclick="ToggleFullscreenAsync">
+                        <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
+                        <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
+                    </button>
+                </div>
+            </div>
+        }
     }
+
 </div>
 
 @code {
@@ -177,6 +208,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Waits for the first permission read, so this page never decides it is locked before it
+        // has been told - see UserPermissionState.EnsureLoadedAsync.
+        await Permissions.EnsureLoadedAsync();
+        // Nothing below is reachable without this, and the page draws its locked notice instead - so it
+        // does not ask and get turned away, which only fills the console with refusals that are not news.
+        if (!Permissions.Has(ApplicationPermission.Location))
+        {
+            return;
+        }
+
         _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         await LoadAsync();
@@ -564,6 +605,29 @@
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogWarning(exception, "Shared a location but could not announce it in the chat with {RecipientUserId}", recipientUserId);
+        }
+    }
+
+    /// <summary>
+    /// Puts the map full screen and back. Esc and the back gesture also leave it, and neither reaches
+    /// here - which is why nothing about the state is kept in this component; see the CSS that decides
+    /// which half of the button shows.
+    /// </summary>
+    private async Task ToggleFullscreenAsync()
+    {
+        try
+        {
+            _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
+            var frame = await JSRuntime.InvokeAsync<IJSObjectReference>(
+                "document.querySelector", ".location-map-frame");
+            await using (frame)
+            {
+                await _mapModule.InvokeAsync<bool>("toggleFullscreen", frame);
+            }
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not put the map full screen");
         }
     }
 

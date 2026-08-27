@@ -1,5 +1,6 @@
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Notifications;
+using Orbit.Mobile.Presence;
 using Orbit.Mobile.Security;
 
 namespace Orbit.Maui;
@@ -31,7 +32,16 @@ public partial class App : Application
 
 		// Private things stop being readable the moment the app is put down, which is the moment the
 		// phone can change hands - see PrivateItemGate.
-		window.Deactivated += (_, _) => _services.GetRequiredService<PrivateItemGate>().Lock();
+		window.Deactivated += (_, _) =>
+		{
+			_services.GetRequiredService<PrivateItemGate>().Lock();
+
+			// And this account stops being shown as present. Going quiet is how that works - the server
+			// ages a silent account out on its own - so stopping is the whole mechanism.
+			_services.GetRequiredService<PresenceReporter>().Stop();
+		};
+
+		window.Activated += (_, _) => _services.GetRequiredService<PresenceReporter>().Start();
 
 		return window;
 	}

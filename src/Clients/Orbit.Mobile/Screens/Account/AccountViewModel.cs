@@ -2,6 +2,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
+using System.Collections.ObjectModel;
+using Orbit.Core.Permissions;
+using Orbit.Mobile.Localization;
+using Orbit.Mobile.Api;
+using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Account;
@@ -19,6 +24,9 @@ public sealed partial class AccountViewModel : ObservableObject
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
+    private readonly Translations _translations;
+    private readonly UsersClient _usersClient;
+    private readonly UserPermissions _permissions;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -45,16 +53,38 @@ public sealed partial class AccountViewModel : ObservableObject
     [ObservableProperty]
     private bool _messageIsFailure;
 
+    [ObservableProperty]
+    private string _permissionCode = string.Empty;
+
+    /// <summary>
+    /// What the code did. Its own line rather than the shared one above, because unlocking something is
+    /// a different subject from changing a password and the two overwriting each other reads as a bug.
+    /// </summary>
+    [ObservableProperty]
+    private string _permissionMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isRedeemingCode;
+
     public AccountViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
-        SessionStore sessionStore, IScreenNavigator navigator)
+        SessionStore sessionStore, Translations translations, UsersClient usersClient,
+        UserPermissions permissions, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         _networkStatus = networkStatus;
         _sessionStore = sessionStore;
+        _translations = translations;
+        _usersClient = usersClient;
+        _permissions = permissions;
         _navigator = navigator;
     }
+
+    /// <summary>What this account may use, and what it would take to unlock the rest.</summary>
+    public ObservableCollection<PermissionRow> Permissions { get; } = [];
+
+    public bool HasPermissionMessage => PermissionMessage.Length > 0;
 
     /// <summary>Everything on this screen is unavailable offline, so the whole form reflects one flag.</summary>
     public bool IsOnline => _networkStatus.IsOnline;
@@ -73,6 +103,67 @@ public sealed partial class AccountViewModel : ObservableObject
 
         OnPropertyChanged(nameof(IsOnline));
         OnPropertyChanged(nameof(IsOffline));
+
+        await _permissions.EnsureLoadedAsync();
+        ShowPermissions();
+    }
+
+    /// <summary>
+    /// The server answers the same way for a code that matched nothing and one that came too early, so
+    /// the message here is the only place the difference is said out loud - to whoever typed it.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanRedeemCode))]
+    private async Task RedeemCodeAsync(CancellationToken cancellationToken)
+    {
+        IsRedeemingCode = true;
+        try
+        {
+            var outcome = await _usersClient.RedeemPermissionCodeAsync(PermissionCode.Trim(), cancellationToken);
+            PermissionCode = string.Empty;
+
+            if (outcome.MissingPrerequisite is { } missing
+                && Enum.TryParse<ApplicationPermission>(missing, out var required))
+            {
+                PermissionMessage = _translations.Format(
+                    "{0} has to be unlocked first.", LockedFeatureMessage.Describe(required, _translations));
+            }
+            else if (outcome.Granted is { } granted && Enum.TryParse<ApplicationPermission>(granted, out var permission))
+            {
+                PermissionMessage = _translations.Format(
+                    "{0} is unlocked.", LockedFeatureMessage.Describe(permission, _translations));
+            }
+            else
+            {
+                PermissionMessage = _translations["That code doesn't unlock anything."];
+            }
+
+            await _permissions.RefreshAsync(cancellationToken);
+            ShowPermissions();
+        }
+        catch (HttpRequestException)
+        {
+            PermissionMessage = _translations["Couldn't reach Orbit. Check your connection and try again."];
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            IsRedeemingCode = false;
+        }
+    }
+
+    private bool CanRedeemCode => PermissionCode.Trim().Length > 0 && !IsRedeemingCode && IsOnline;
+
+    private void ShowPermissions()
+    {
+        var granted = _permissions.Granted;
+
+        Permissions.Clear();
+        foreach (var permission in Enum.GetValues<ApplicationPermission>())
+        {
+            Permissions.Add(PermissionRow.For(permission, granted, _translations));
+        }
     }
 
     [RelayCommand]
@@ -130,15 +221,17 @@ public sealed partial class AccountViewModel : ObservableObject
             var outcome = await _encryptionKeyProvider.RewrapAsync(currentPassword, newPassword, cancellationToken);
             if (outcome is EncryptionKeyOutcome.StillLocked)
             {
-                Message = "Password changed, but your chat key backup couldn't be updated. " +
-                    "Open \"Chat key\" to fix it, or older messages may not open on a new device.";
+                Message = _translations[
+                    "Password changed, but your chat key backup couldn't be updated. "
+                    + "Open \"Chat key\" to fix it, or older messages may not open on a new device."];
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             MessageIsFailure = true;
-            Message = "Password changed, but your chat key backup couldn't be updated. " +
-                "Sign in again while online to fix it.";
+            Message = _translations[
+                "Password changed, but your chat key backup couldn't be updated. "
+                + "Sign in again while online to fix it."];
             System.Diagnostics.Debug.WriteLine($"Could not re-wrap the chat key backup: {exception}");
         }
     }
@@ -152,24 +245,34 @@ public sealed partial class AccountViewModel : ObservableObject
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();
 
+    /// <param name="successMessage">
+    /// A dictionary key rather than the text itself, so every caller gets translated without each one
+    /// having to remember to ask - see <see cref="Translations"/>.
+    /// </param>
     private async Task RunAsync(Func<Task<AccountOperationResult>> operation, string successMessage)
     {
         try
         {
             var result = await operation();
             MessageIsFailure = !result.Succeeded;
-            Message = result.Succeeded ? successMessage : result.Message ?? "That didn't work.";
+            Message = result.Succeeded ? _translations[successMessage] : result.Message ?? _translations["That didn't work."];
         }
         catch (HttpRequestException)
         {
             MessageIsFailure = true;
-            Message = "Couldn't reach Orbit. Check your connection and try again.";
+            Message = _translations["Couldn't reach Orbit. Check your connection and try again."];
         }
         catch (OperationCanceledException)
         {
             // The screen went away mid-request; there is nobody left to tell.
         }
     }
+
+    partial void OnPermissionCodeChanged(string value) => RedeemCodeCommand.NotifyCanExecuteChanged();
+
+    partial void OnIsRedeemingCodeChanged(bool value) => RedeemCodeCommand.NotifyCanExecuteChanged();
+
+    partial void OnPermissionMessageChanged(string value) => OnPropertyChanged(nameof(HasPermissionMessage));
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 }

@@ -48,7 +48,8 @@ public sealed class ChatRepository
             PublicKeyBase64 = contact.PublicKeyBase64,
             LastMessageAtUtc = contact.LastMessageAtUtc,
             RequiresApprovalFromCurrentUser = contact.RequiresApprovalFromCurrentUser,
-            IsPendingApprovalFromOtherParty = contact.IsPendingApprovalFromOtherParty
+            IsPendingApprovalFromOtherParty = contact.IsPendingApprovalFromOtherParty,
+            PresenceStatus = contact.PresenceStatus
         }));
 
         await dbContext.SaveChangesAsync(cancellationToken);

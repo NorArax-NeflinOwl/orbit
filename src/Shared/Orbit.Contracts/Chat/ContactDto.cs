@@ -11,4 +11,10 @@ namespace Orbit.Contracts.Chat;
 /// </param>
 public sealed record ContactDto(
     Guid UserId, string UserName, string DisplayName, string Email, string? PublicKeyBase64, DateTimeOffset LastMessageAtUtc,
-    bool RequiresApprovalFromCurrentUser, bool IsPendingApprovalFromOtherParty, int UnreadCount = 0);
+    bool RequiresApprovalFromCurrentUser, bool IsPendingApprovalFromOtherParty, int UnreadCount = 0,
+    /// <summary>
+    /// What to show next to this person's name right now: "Available", "Away", "DoNotDisturb" or
+    /// "Offline" - see Orbit.Core.Users.PresenceStatus. Resolved when the list is read, so it ages the
+    /// moment it arrives; the chat list already refreshes on a poll, which is what keeps it current.
+    /// </summary>
+    string PresenceStatus = "Offline");

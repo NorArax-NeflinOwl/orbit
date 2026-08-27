@@ -504,6 +504,9 @@ namespace Orbit.Data.Migrations
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("boolean");
 
@@ -958,6 +961,9 @@ namespace Orbit.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("RemindDaily")
                         .HasColumnType("boolean");
 
@@ -1064,6 +1070,13 @@ namespace Orbit.Data.Migrations
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");
 
+                    b.Property<string>("PresenceAvailability")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("PresenceLastSeenAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int?>("PrivateKeyDerivationIterations")
                         .HasColumnType("integer");
 
@@ -1099,6 +1112,23 @@ namespace Orbit.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.UserPermissionEntity", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Permission")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("GrantedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "Permission");
+
+                    b.ToTable("UserPermissions");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.UserVerificationCodeEntity", b =>

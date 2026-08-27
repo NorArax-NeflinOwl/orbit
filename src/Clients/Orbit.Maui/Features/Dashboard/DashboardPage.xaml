@@ -29,24 +29,27 @@
                         <Label FontSize="13">
                             <Label.FormattedText>
                                 <FormattedString>
+                                    <Span Text="{controls:Translate 'Tasks due today'}" />
+                                    <Span Text=": " />
                                     <Span Text="{Binding TasksDueToday}" FontAttributes="Bold" />
-                                    <Span Text="{controls:Translate ' tasks due today'}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
                         <Label FontSize="13">
                             <Label.FormattedText>
                                 <FormattedString>
+                                    <Span Text="{controls:Translate 'Events today'}" />
+                                    <Span Text=": " />
                                     <Span Text="{Binding EventsToday}" FontAttributes="Bold" />
-                                    <Span Text="{controls:Translate ' events today'}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
                         <Label FontSize="13">
                             <Label.FormattedText>
                                 <FormattedString>
+                                    <Span Text="{controls:Translate 'New chat requests'}" />
+                                    <Span Text=": " />
                                     <Span Text="{Binding PendingChatRequests}" FontAttributes="Bold" />
-                                    <Span Text="{controls:Translate ' new chat requests'}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>

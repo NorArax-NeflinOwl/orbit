@@ -223,7 +223,7 @@ public sealed partial class ConversationViewModel : ObservableObject
 
         if (ForwardTargets.Count == 0)
         {
-            SayWhatHappened("No other conversations to forward this to yet.");
+            SayWhatHappened(_translations["No other conversations to forward this to yet."]);
             return;
         }
 
@@ -255,7 +255,7 @@ public sealed partial class ConversationViewModel : ObservableObject
                 forwarded, _contact.UserId, _contact.DisplayName, target, cancellationToken);
 
             SayWhatHappened(result is { Sent: > 0 }
-                ? $"Forwarded to {target.DisplayName}."
+                ? _translations.Format("Forwarded to {0}.", target.DisplayName)
                 : Describe(result));
         }
         catch (EncryptionKeyLockedException)
@@ -287,7 +287,7 @@ public sealed partial class ConversationViewModel : ObservableObject
 
         try
         {
-            SayWhatHappened(ChatEditMessage.For(await _editor.DeleteAsync(messageId, cancellationToken)));
+            SayWhatHappened(ChatEditMessage.For(await _editor.DeleteAsync(messageId, cancellationToken), _translations));
         }
         catch (OperationCanceledException)
         {
@@ -304,7 +304,8 @@ public sealed partial class ConversationViewModel : ObservableObject
 
         try
         {
-            SayWhatHappened(ChatEditMessage.For(await _editor.EditAsync(messageId, _contact!.UserId, text, cancellationToken)));
+            SayWhatHappened(ChatEditMessage.For(
+                await _editor.EditAsync(messageId, _contact!.UserId, text, cancellationToken), _translations));
         }
         catch (EncryptionKeyLockedException)
         {
@@ -368,7 +369,7 @@ public sealed partial class ConversationViewModel : ObservableObject
     {
         if (_contact?.PublicKeyBase64 is not { } otherPublicKey)
         {
-            Status = "This person hasn't set up chat yet.";
+            Status = _translations["This person hasn't set up chat yet."];
             return;
         }
 
@@ -409,7 +410,7 @@ public sealed partial class ConversationViewModel : ObservableObject
             }
             if (!_statusExplainsTheLastAction)
             {
-                Status = result.ReachedTheServer ? string.Empty : "Offline - showing what's on this phone";
+                Status = result.ReachedTheServer ? string.Empty : _translations["Offline - showing what's on this phone"];
             }
 
             // Redrawn when somebody has now read something too, not only when messages moved - otherwise
@@ -421,7 +422,7 @@ public sealed partial class ConversationViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is HttpRequestException or EncryptionKeyLockedException)
         {
-            Status = "Couldn't sync this conversation just now";
+            Status = _translations["Couldn't sync this conversation just now"];
         }
         catch (OperationCanceledException)
         {
@@ -437,14 +438,14 @@ public sealed partial class ConversationViewModel : ObservableObject
     /// A refused message is dropped, so saying nothing would leave the text gone and unexplained. Offline
     /// is the opposite case - it is kept - and the two must not read alike.
     /// </summary>
-    private static string Describe(ChatSendResult result)
+    private string Describe(ChatSendResult result)
     {
         if (!result.ReachedTheServer)
         {
-            return "Offline - your message is saved and will send later";
+            return _translations["Offline - your message is saved and will send later"];
         }
 
-        return result.GivenUp > 0 ? ChatRefusalMessage.For(result.Refusal) : string.Empty;
+        return result.GivenUp > 0 ? ChatRefusalMessage.For(result.Refusal, _translations) : string.Empty;
     }
 
     partial void OnDraftChanged(string value)
