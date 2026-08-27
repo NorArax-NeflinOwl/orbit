@@ -34,4 +34,30 @@ public sealed class SharedItemAcceptance
             SharedItemKind.CalendarEvent => _calendar.AcceptShareAsync(invitation.ShareId, cancellationToken),
             _ => _inventory.AcceptShareAsync(invitation.ShareId, cancellationToken)
         };
+
+    /// <summary>
+    /// Whether the offer has already been taken up. False when the server cannot be reached or has
+    /// never heard of the share: an offer that might still be open is worth showing, and one shown in
+    /// error costs a tap and an honest answer.
+    /// </summary>
+    public async Task<bool> WasAcceptedAsync(
+        SharedItemInvitation invitation, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var accepted = invitation.Kind switch
+            {
+                SharedItemKind.Note => await _notes.IsShareAcceptedAsync(invitation.ShareId, cancellationToken),
+                SharedItemKind.TaskList => await _tasks.IsShareAcceptedAsync(invitation.ShareId, cancellationToken),
+                SharedItemKind.CalendarEvent => await _calendar.IsShareAcceptedAsync(invitation.ShareId, cancellationToken),
+                _ => await _inventory.IsShareAcceptedAsync(invitation.ShareId, cancellationToken)
+            };
+
+            return accepted is true;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            return false;
+        }
+    }
 }

@@ -289,6 +289,36 @@ public sealed partial class ConversationViewModel : ObservableObject
     }
 
     /// <summary>
+    /// An offer already taken up - here, or by this account somewhere else - is shown as a line rather
+    /// than a button that can only disappoint. Asked once per offer, and offers are rare in a
+    /// conversation; the answer is remembered for as long as the screen holds the message.
+    /// </summary>
+    private async Task<ReadableChatMessage> AskWhetherItWasTakenUpAsync(
+        ReadableChatMessage message, CancellationToken cancellationToken)
+    {
+        if (message.Invitation is not { } invitation)
+        {
+            return message;
+        }
+
+        if (_takenUp.Contains(invitation.ShareId))
+        {
+            return message with { WasAccepted = true };
+        }
+
+        if (!await _acceptance.WasAcceptedAsync(invitation, cancellationToken))
+        {
+            return message;
+        }
+
+        _takenUp.Add(invitation.ShareId);
+        return message with { WasAccepted = true };
+    }
+
+    /// <summary>Offers this screen already knows are taken, so a reload does not ask about them again.</summary>
+    private readonly HashSet<Guid> _takenUp = [];
+
+    /// <summary>
     /// Takes up an offer to share something. The copy appears once the feature's own synchroniser next
     /// runs - accepting creates it on the server, and nothing about it belongs in this conversation.
     /// </summary>
@@ -302,9 +332,14 @@ public sealed partial class ConversationViewModel : ObservableObject
 
         try
         {
-            SayWhatHappened(await _acceptance.AcceptAsync(invitation, cancellationToken)
+            var accepted = await _acceptance.AcceptAsync(invitation, cancellationToken);
+            SayWhatHappened(accepted
                 ? _translations.Format("{0} is yours now.", invitation.Name)
                 : _translations["That offer is no longer available."]);
+
+            // Either way it is not on offer any more, so the button goes.
+            _takenUp.Add(invitation.ShareId);
+            await ShowStoredConversationAsync(cancellationToken);
         }
         catch (HttpRequestException)
         {
@@ -463,7 +498,7 @@ public sealed partial class ConversationViewModel : ObservableObject
             Messages.Clear();
             foreach (var message in conversation)
             {
-                Messages.Add(message);
+                Messages.Add(message.IsInvitation ? await AskWhetherItWasTakenUpAsync(message, cancellationToken) : message);
             }
         }
         catch (EncryptionKeyLockedException)

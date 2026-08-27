@@ -47,6 +47,16 @@ public sealed record ReadableChatMessage(
     /// <summary>Whether this message is an offer to share something - see SharedItemInvitation.</summary>
     public bool IsInvitation => Invitation is not null;
 
+    /// <summary>
+    /// Set once the server has said this offer was already taken up - here or on another device. Not
+    /// part of the message: it is a fact about the share, which outlives the message and changes
+    /// without it. See ConversationViewModel, which asks.
+    /// </summary>
+    public bool WasAccepted { get; init; }
+
+    /// <summary>An offer still worth a button. One already taken up is a line, not a choice.</summary>
+    public bool CanBeAccepted => IsInvitation && !WasAccepted;
+
     /// <summary>What the offer is called, for the line the screen shows in place of the text.</summary>
     public string InvitationName => Invitation?.Name ?? string.Empty;
 

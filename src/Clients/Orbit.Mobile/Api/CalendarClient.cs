@@ -85,6 +85,20 @@ public sealed class CalendarClient : ILockableItems
     }
 
     /// <summary>
+    /// Whether this offer has already been taken up - by this phone, or by the same account somewhere
+    /// else. Null when the server has never heard of the share, which a message older than the offer
+    /// can produce. Orbit.Web asks the same question for the same reason: an "Accept" that has already
+    /// been accepted is a button that can only disappoint.
+    /// </summary>
+    public async Task<bool?> IsShareAcceptedAsync(Guid shareId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"api/calendar-events/shares/{shareId}/status", cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<bool>(cancellationToken)
+            : null;
+    }
+
+    /// <summary>
     /// Claims this item while it is being edited, so a second editor is told rather than left to find
     /// out when their save is refused. Calling it again refreshes the claim - see EditLock.
     /// </summary>

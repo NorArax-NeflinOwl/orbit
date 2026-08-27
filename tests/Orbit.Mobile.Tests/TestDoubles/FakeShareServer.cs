@@ -30,6 +30,9 @@ internal sealed class FakeShareServer : HttpMessageHandler
     /// <summary>The paths accepted, in order - "api/notes/shares/{id}/accept" and its three siblings.</summary>
     public IReadOnlyList<string> Accepted => _accepted;
 
+    /// <summary>Offers this server says have already been taken up - see the /status endpoints.</summary>
+    public HashSet<Guid> AlreadyTakenUp { get; } = [];
+
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         if (IsUnreachable)
@@ -43,6 +46,16 @@ internal sealed class FakeShareServer : HttpMessageHandler
         if (RefusesEverything)
         {
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+
+        // api/{kind}/shares/{id}/status
+        if (path.EndsWith("/status", StringComparison.Ordinal))
+        {
+            var shareId = Guid.Parse(path.Split('/')[^2]);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(AlreadyTakenUp.Contains(shareId))
+            });
         }
 
         return Task.FromResult(path.EndsWith("/shares", StringComparison.Ordinal)

@@ -85,6 +85,41 @@ public sealed class SharedItemInvitationTests
             server.Accepted);
     }
 
+    /// <summary>
+    /// The phone offered "Accept" on a share message for ever, with no memory of having taken it up -
+    /// so a conversation reopened a week later still asked, and the only way to find out was to tap and
+    /// be told no. Asked of the server rather than remembered, so an offer accepted on another device
+    /// counts too.
+    /// </summary>
+    [Fact]
+    public async Task An_offer_already_taken_up_says_so_without_being_tapped()
+    {
+        using var server = new FakeShareServer();
+        var acceptance = Build(server);
+        var taken = new SharedItemInvitation(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+        var open = new SharedItemInvitation(SharedItemKind.TaskList, Guid.NewGuid(), "Trip");
+        server.AlreadyTakenUp.Add(taken.ShareId);
+
+        Assert.True(await acceptance.WasAcceptedAsync(taken));
+        Assert.False(await acceptance.WasAcceptedAsync(open));
+    }
+
+    /// <summary>
+    /// A question that could not be asked is not evidence the offer is gone. Still open is the answer
+    /// that costs a tap when wrong; still taken is the one that hides something the reader could have.
+    /// </summary>
+    [Fact]
+    public async Task An_offer_it_could_not_ask_about_stays_on_offer()
+    {
+        using var unreachable = new FakeShareServer { IsUnreachable = true };
+        using var refusing = new FakeShareServer { RefusesEverything = true };
+
+        Assert.False(await Build(unreachable).WasAcceptedAsync(
+            new SharedItemInvitation(SharedItemKind.Note, Guid.NewGuid(), "Shopping")));
+        Assert.False(await Build(refusing).WasAcceptedAsync(
+            new SharedItemInvitation(SharedItemKind.Note, Guid.NewGuid(), "Shopping")));
+    }
+
     /// <summary>An offer already taken up, or withdrawn, is refused rather than throwing.</summary>
     [Fact]
     public async Task An_offer_that_is_gone_says_no_rather_than_failing()

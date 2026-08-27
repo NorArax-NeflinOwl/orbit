@@ -72,9 +72,11 @@
                                        Style="{StaticResource SubtleLabel}" />
                                 <Label Text="{Binding InvitationName}" FontAttributes="Bold" LineBreakMode="WordWrap" />
                                 <Button Text="{controls:Translate 'Accept'}" FontSize="12" Padding="12,4"
-                                        HorizontalOptions="Start"
+                                        HorizontalOptions="Start" IsVisible="{Binding CanBeAccepted}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AcceptShareCommand, x:DataType=chat:ConversationPage}"
                                         CommandParameter="{Binding .}" />
+                                <Label Text="{controls:Translate 'Already accepted'}" FontSize="12"
+                                       IsVisible="{Binding WasAccepted}" Style="{StaticResource SubtleLabel}" />
                             </VerticalStackLayout>
                             <!-- A message sealed under a key pair since replaced can never be opened. -->
                             <Label IsVisible="{Binding CannotBeOpened}"

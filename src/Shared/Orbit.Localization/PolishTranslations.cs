@@ -872,6 +872,7 @@ public static class PolishTranslations
             = "{0} właśnie to edytuje - pozostaje tylko do odczytu, dopóki nie skończy.",
         ["Who you are to Orbit, and what this device is allowed to do."]
             = "Kim jesteś dla Orbita i co wolno temu urządzeniu.",
+        ["Already accepted"] = "Już przyjęto",
         ["Everything Orbit has told you, newest first."] = "Wszystko, co Orbit Ci powiedział, od najnowszych.",
         ["Moved to {0}."] = "Przeniesiono do: {0}.",
         ["Couldn't move it. Try again."] = "Nie udało się przenieść. Spróbuj ponownie.",
