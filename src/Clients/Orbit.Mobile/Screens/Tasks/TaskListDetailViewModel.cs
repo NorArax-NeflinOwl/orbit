@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Tasks;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -22,6 +24,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly TaskListSynchronizer _synchronizer;
+    private readonly TasksClient _tasksClient;
+    private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly TimeProvider _timeProvider;
     private readonly IScreenNavigator _navigator;
@@ -51,7 +55,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
-        TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator)
+        TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
+        TasksClient tasksClient, EditLock editLock)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
@@ -59,6 +64,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _timeProvider = timeProvider;
         Share = share;
         _navigator = navigator;
+        _tasksClient = tasksClient;
+        _editLock = editLock;
+        _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
     }
 
     public ObservableCollection<TaskItemRow> Items { get; } = [];
@@ -178,6 +186,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _items = taskList.Items;
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
+        ReadOnlyReason = string.Empty;
+
+        if (!IsReadOnly && taskList.ServerId is { } lockedServerId)
+        {
+            // Claimed for as long as this screen is open, so somebody editing the same thing on the web
+            // is told rather than left to have their save refused - see EditLock.
+            await _editLock.HoldAsync(_tasksClient, lockedServerId, cancellationToken);
+            ShowWhoElseIsEditing();
+        }
 
         Items.Clear();
         foreach (var item in taskList.Items)
@@ -223,4 +240,26 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
     partial void OnNewItemDescriptionChanged(string value) => AddItemCommand.NotifyCanExecuteChanged();
+
+    /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
+    [ObservableProperty]
+    private string _readOnlyReason = string.Empty;
+
+    public bool HasReadOnlyReason => ReadOnlyReason.Length > 0;
+
+    private void ShowWhoElseIsEditing()
+    {
+        if (!_editLock.IsHeldByAnother)
+        {
+            return;
+        }
+
+        IsReadOnly = true;
+        ReadOnlyReason = _editLock.RefusalMessage;
+    }
+
+    /// <summary>Lets it go when the screen does, rather than leaving it claimed for a minute.</summary>
+    public Task CloseAsync() => _editLock.ReleaseAsync();
+
+    partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
 }

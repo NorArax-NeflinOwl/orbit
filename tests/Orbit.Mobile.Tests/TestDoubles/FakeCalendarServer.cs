@@ -52,6 +52,12 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
             throw new HttpRequestException("No such host is known.");
         }
 
+        // Nobody else is ever in it here; EditLockTests covers the answer where somebody is.
+        if (path.EndsWith("/lock", StringComparison.Ordinal))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
         if (path.EndsWith("/changes", StringComparison.Ordinal))
         {
             var since = DateTimeOffset.Parse(HttpUtility.ParseQueryString(request.RequestUri.Query)["since"]!);

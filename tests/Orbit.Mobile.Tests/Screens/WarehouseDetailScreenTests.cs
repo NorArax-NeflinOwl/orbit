@@ -5,6 +5,7 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Inventory;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -169,12 +170,20 @@ public sealed class WarehouseDetailScreenTests
             var screen = new WarehouseDetailViewModel(
                 _warehouses, _synchronizer, new Translations(new InMemoryLanguageStore()),
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
-                new RecordingScreenNavigator());
+                new RecordingScreenNavigator(),
+                new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }
+
+        /// <summary>
+        /// A lock over a fake server that answers every claim with "yours" - these tests are about the
+        /// editor, and EditLockTests covers what happens when somebody else is in it.
+        /// </summary>
+        private static EditLock NothingIsBeingEdited(TimeProvider clock)
+            => new(FixedNetworkStatus.Online, clock, new Translations(new InMemoryLanguageStore()));
 
         public void Dispose()
         {

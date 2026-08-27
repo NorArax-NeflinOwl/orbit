@@ -24,4 +24,11 @@ public partial class WarehouseDetailPage : ContentPage
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
 	}
+
+	/// <summary>Lets go of the edit lock as the screen leaves - see EditLock.</summary>
+	protected override async void OnDisappearing()
+	{
+		base.OnDisappearing();
+		await _viewModel.CloseAsync();
+	}
 }

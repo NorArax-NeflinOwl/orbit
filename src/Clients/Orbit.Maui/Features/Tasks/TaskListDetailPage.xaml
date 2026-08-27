@@ -16,8 +16,12 @@
 
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
 
-        <Label Grid.Row="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" LineBreakMode="WordWrap" />
+        <VerticalStackLayout Grid.Row="1" Spacing="4">
+            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" LineBreakMode="WordWrap" />
+            <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
+                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+        </VerticalStackLayout>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsShowingList}">
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemDescription}"

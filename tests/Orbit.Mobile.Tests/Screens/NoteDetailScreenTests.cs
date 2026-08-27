@@ -160,13 +160,21 @@ public sealed class NoteDetailScreenTests
         public async Task<NoteDetailViewModel> OpenAsync(Guid localId)
         {
             var screen = new NoteDetailViewModel(
-                Notes, _synchronizer, new Translations(new InMemoryLanguageStore()),
+                Notes, _synchronizer, new NotesClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock),
+                new Translations(new InMemoryLanguageStore()),
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }
+
+        /// <summary>
+        /// A lock over a fake server that answers every claim with "yours" - these tests are about the
+        /// editor, and EditLockTests covers what happens when somebody else is in it.
+        /// </summary>
+        private static EditLock NothingIsBeingEdited(TimeProvider clock)
+            => new(FixedNetworkStatus.Online, clock, new Translations(new InMemoryLanguageStore()));
 
         public void Dispose()
         {

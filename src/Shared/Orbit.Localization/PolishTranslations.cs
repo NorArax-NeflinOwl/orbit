@@ -831,6 +831,8 @@ public static class PolishTranslations
         // was refused, and the short lines under a row. Composed in code, so the XAML sweep that
         // came first could not see any of it. ----
         ["Waiting to sync"] = "Czeka na synchronizację",
+        ["{0} is editing this right now - it stays read-only until they finish."]
+            = "{0} właśnie to edytuje - pozostaje tylko do odczytu, dopóki nie skończy.",
         ["Shared with you - read-only until you're back online"] =
             "Udostępnione Tobie — tylko do odczytu, dopóki nie wrócisz online",
         ["Shared with others - read-only until you're back online"] =

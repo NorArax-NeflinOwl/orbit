@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Inventory;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Inventory;
@@ -19,6 +21,8 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 {
     private readonly LocalWarehouseRepository _warehouses;
     private readonly WarehouseSynchronizer _synchronizer;
+    private readonly InventoryClient _inventoryClient;
+    private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -39,13 +43,17 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     public WarehouseDetailViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
-        SharePanel share, IScreenNavigator navigator)
+        SharePanel share, IScreenNavigator navigator,
+        InventoryClient inventoryClient, EditLock editLock)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
         _translations = translations;
         Share = share;
         _navigator = navigator;
+        _inventoryClient = inventoryClient;
+        _editLock = editLock;
+        _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
     }
 
     public ObservableCollection<WarehouseItemRow> Items { get; } = [];
@@ -184,6 +192,15 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
         _items = warehouse.Items;
         IsReadOnly = !await _warehouses.CanEditAsync(_localId, cancellationToken);
+        ReadOnlyReason = string.Empty;
+
+        if (!IsReadOnly && warehouse.ServerId is { } lockedServerId)
+        {
+            // Claimed for as long as this screen is open, so somebody editing the same thing on the web
+            // is told rather than left to have their save refused - see EditLock.
+            await _editLock.HoldAsync(_inventoryClient, lockedServerId, cancellationToken);
+            ShowWhoElseIsEditing();
+        }
 
         Items.Clear();
         foreach (var item in warehouse.Items)
@@ -221,4 +238,26 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
     partial void OnNewItemNameChanged(string value) => AddItemCommand.NotifyCanExecuteChanged();
+
+    /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
+    [ObservableProperty]
+    private string _readOnlyReason = string.Empty;
+
+    public bool HasReadOnlyReason => ReadOnlyReason.Length > 0;
+
+    private void ShowWhoElseIsEditing()
+    {
+        if (!_editLock.IsHeldByAnother)
+        {
+            return;
+        }
+
+        IsReadOnly = true;
+        ReadOnlyReason = _editLock.RefusalMessage;
+    }
+
+    /// <summary>Lets it go when the screen does, rather than leaving it claimed for a minute.</summary>
+    public Task CloseAsync() => _editLock.ReleaseAsync();
+
+    partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
 }

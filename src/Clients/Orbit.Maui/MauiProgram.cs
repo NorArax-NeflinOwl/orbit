@@ -253,6 +253,8 @@ public static class MauiProgram
 		services.AddTransient<NoteDetailPage>();
 		services.AddTransient<CalendarEventDetailPage>();
 		services.AddTransient<NotesViewModel>();
+		// One lock per editor, not one for the app: two editors open at once each hold their own item.
+		services.AddTransient<EditLock>();
 		services.AddTransient<NoteDetailViewModel>();
 		services.AddTransient<CalendarEventDetailViewModel>();
 		services.AddTransient<TasksPage>();

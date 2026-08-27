@@ -9,7 +9,7 @@ namespace Orbit.Mobile.Api;
 /// <summary>
 /// The calendar half of the API. Only the synchroniser calls this - screens read the local database.
 /// </summary>
-public sealed class CalendarClient
+public sealed class CalendarClient : ILockableItems
 {
     private readonly HttpClient _httpClient;
 
@@ -83,4 +83,14 @@ public sealed class CalendarClient
                 return WriteOutcome.Applied;
         }
     }
+
+    /// <summary>
+    /// Claims this item while it is being edited, so a second editor is told rather than left to find
+    /// out when their save is refused. Calling it again refreshes the claim - see EditLock.
+    /// </summary>
+    public Task<EditClaim> AcquireLockAsync(Guid serverId, CancellationToken cancellationToken = default)
+        => EditLocking.AcquireAsync(_httpClient, $"api/calendar-events/{serverId}/lock", cancellationToken);
+
+    public Task ReleaseLockAsync(Guid serverId, CancellationToken cancellationToken = default)
+        => EditLocking.ReleaseAsync(_httpClient, $"api/calendar-events/{serverId}/lock", cancellationToken);
 }

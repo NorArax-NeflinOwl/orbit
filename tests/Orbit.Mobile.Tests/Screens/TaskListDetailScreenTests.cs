@@ -4,6 +4,7 @@ using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Screens.Tasks;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -175,13 +176,21 @@ public sealed class TaskListDetailScreenTests
             var created = _taskLists.CreateAsync(title, []).GetAwaiter().GetResult();
             var screen = new TaskListDetailViewModel(
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
-                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator);
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
+                new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock));
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
         }
 
         public Task<SyncResult> SynchroniseAsync() => Synchronizer.SynchroniseAsync(CancellationToken.None);
+
+        /// <summary>
+        /// A lock over a fake server that answers every claim with "yours" - these tests are about the
+        /// editor, and EditLockTests covers what happens when somebody else is in it.
+        /// </summary>
+        private static EditLock NothingIsBeingEdited(TimeProvider clock)
+            => new(FixedNetworkStatus.Online, clock, new Translations(new InMemoryLanguageStore()));
 
         public void Dispose()
         {

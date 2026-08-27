@@ -1,10 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Calendar;
@@ -22,6 +24,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
 {
     private readonly LocalCalendarEventRepository _events;
     private readonly CalendarEventSynchronizer _synchronizer;
+    private readonly CalendarClient _calendarClient;
+    private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -59,13 +63,17 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
 
     public CalendarEventDetailViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, Translations translations,
-        SharePanel share, IScreenNavigator navigator)
+        SharePanel share, IScreenNavigator navigator,
+        CalendarClient calendarClient, EditLock editLock)
     {
         _events = events;
         _synchronizer = synchronizer;
         _translations = translations;
         Share = share;
         _navigator = navigator;
+        _calendarClient = calendarClient;
+        _editLock = editLock;
+        _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
     }
 
     /// <summary>Offering this to somebody else - see SharePanel.</summary>
@@ -157,6 +165,15 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
 
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _events.CanEditAsync(_localId, cancellationToken);
+        ReadOnlyReason = string.Empty;
+
+        if (!IsReadOnly && calendarEvent.ServerId is { } lockedServerId)
+        {
+            // Claimed for as long as this screen is open, so somebody editing the same thing on the web
+            // is told rather than left to have their save refused - see EditLock.
+            await _editLock.HoldAsync(_calendarClient, lockedServerId, cancellationToken);
+            ShowWhoElseIsEditing();
+        }
         SaveCommand.NotifyCanExecuteChanged();
     }
 
@@ -189,4 +206,26 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(CanEdit));
         SaveCommand.NotifyCanExecuteChanged();
     }
+
+    /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
+    [ObservableProperty]
+    private string _readOnlyReason = string.Empty;
+
+    public bool HasReadOnlyReason => ReadOnlyReason.Length > 0;
+
+    private void ShowWhoElseIsEditing()
+    {
+        if (!_editLock.IsHeldByAnother)
+        {
+            return;
+        }
+
+        IsReadOnly = true;
+        ReadOnlyReason = _editLock.RefusalMessage;
+    }
+
+    /// <summary>Lets it go when the screen does, rather than leaving it claimed for a minute.</summary>
+    public Task CloseAsync() => _editLock.ReleaseAsync();
+
+    partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
 }

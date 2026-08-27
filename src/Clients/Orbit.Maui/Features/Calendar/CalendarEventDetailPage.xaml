@@ -19,6 +19,9 @@
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12" LineBreakMode="WordWrap"
                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
 
+            <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
+                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
             <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" HeightRequest="110"
                     Placeholder="{controls:Translate 'Description'}" />
 

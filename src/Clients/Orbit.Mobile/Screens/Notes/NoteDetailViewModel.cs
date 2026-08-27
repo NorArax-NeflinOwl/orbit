@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notes;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
@@ -24,6 +25,8 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 {
     private readonly LocalNoteRepository _notes;
     private readonly NoteSynchronizer _synchronizer;
+    private readonly NotesClient _notesClient;
+    private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -46,14 +49,17 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     private string _readOnlyReason = string.Empty;
 
     public NoteDetailViewModel(
-        LocalNoteRepository notes, NoteSynchronizer synchronizer, Translations translations,
-        SharePanel share, IScreenNavigator navigator)
+        LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
+        Translations translations, SharePanel share, IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
+        _notesClient = notesClient;
+        _editLock = editLock;
         _translations = translations;
         Share = share;
         _navigator = navigator;
+        _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
     }
 
     public ObservableCollection<NoteLineRow> Lines { get; } = [];
@@ -178,7 +184,31 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _notes.CanEditAsync(_localId, cancellationToken);
         ReadOnlyReason = IsReadOnly ? _translations[RefusalMessage] : string.Empty;
+
+        if (IsReadOnly || note.ServerId is not { } serverId)
+        {
+            return;
+        }
+
+        // Claimed for as long as this screen is open, so somebody editing the same note on the web is
+        // told rather than left to have their save refused - see EditLock.
+        await _editLock.HoldAsync(_notesClient, serverId, cancellationToken);
+        ShowWhoElseIsEditing();
     }
+
+    private void ShowWhoElseIsEditing()
+    {
+        if (!_editLock.IsHeldByAnother)
+        {
+            return;
+        }
+
+        IsReadOnly = true;
+        ReadOnlyReason = _editLock.RefusalMessage;
+    }
+
+    /// <summary>Lets the note go when the screen does, rather than leaving it claimed for a minute.</summary>
+    public Task CloseAsync() => _editLock.ReleaseAsync();
 
     /// <summary>
     /// Pushes what was just queued, and says so if it could not go. Nothing is lost either way - the
