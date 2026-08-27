@@ -49,6 +49,9 @@ public sealed record ReadableChatMessage(
     /// Whether this can be passed on. Needs something to pass: a message that could not be opened here
     /// has no text to re-encrypt for somebody else, and one still queued has not been sent even once.
     /// </summary>
+    /// <summary>Whether the message has any action at all - what decides if it gets a menu trigger.</summary>
+    public bool HasActions => CanBeChanged || CanBeForwarded;
+
     public bool CanBeForwarded => Text is { Length: > 0 } && !IsWaitingToSend;
 
     /// <summary>

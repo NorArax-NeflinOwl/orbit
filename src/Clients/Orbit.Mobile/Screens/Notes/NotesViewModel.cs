@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
@@ -19,6 +20,7 @@ public sealed partial class NotesViewModel : ObservableObject
     private readonly NoteSynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
+    private readonly Translations _translations;
     private readonly PrivateItemGate _privateItems;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
@@ -34,13 +36,14 @@ public sealed partial class NotesViewModel : ObservableObject
 
     public NotesViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, INetworkStatus networkStatus,
-        SessionStore sessionStore, PrivateItemGate privateItems, SyncState syncState,
-        IScreenNavigator navigator)
+        SessionStore sessionStore, Translations translations, PrivateItemGate privateItems,
+        SyncState syncState, IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
         _sessionStore = sessionStore;
+        _translations = translations;
         _privateItems = privateItems;
         _syncState = syncState;
         _navigator = navigator;
@@ -70,7 +73,7 @@ public sealed partial class NotesViewModel : ObservableObject
     {
         if (await _sessionStore.GetAsync() is { } session)
         {
-            Greeting = $"Signed in as {session.DisplayName}";
+            Greeting = _translations.Format("Signed in as {0}", session.DisplayName);
         }
 
         await ShowLocalNotesAsync(cancellationToken);
@@ -98,7 +101,8 @@ public sealed partial class NotesViewModel : ObservableObject
         foreach (var note in stored)
         {
             Notes.Add(NoteListItem.From(
-                note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked));
+                note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
+                _translations["Private"]));
         }
     }
 

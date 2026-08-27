@@ -40,6 +40,9 @@ public sealed class OrbitLocalDbContext : DbContext
 
     public DbSet<LocalChatGroup> ChatGroups => Set<LocalChatGroup>();
 
+    /// <summary>Whose data this database holds - see LocalStoreOwner and LocalStoreReset.</summary>
+    public DbSet<LocalStoreOwner> StoreOwners => Set<LocalStoreOwner>();
+
     /// <summary>
     /// SQLite has no date type, and EF's default mapping for <see cref="DateTimeOffset"/> cannot be
     /// sorted or compared in SQL - "ORDER BY UpdatedAtUtc" fails outright. Since sync is decided almost

@@ -15,16 +15,17 @@ namespace Orbit.Mobile.Screens.Notes;
 /// </param>
 public sealed record NoteListItem(
     Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
-    bool IsHidden = false)
+    bool IsHidden = false, string HiddenTitle = "Private")
 {
     public static NoteListItem From(
-        LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked)
+        LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked,
+        string hiddenTitle = "Private")
         => new(note.LocalId, note.Title, note.UpdatedAtUtc, hasUnsentChanges,
             OfflineEditPolicy.Evaluate(note, networkStatus),
-            IsHidden: note.IsPrivate && !privateItemsAreUnlocked);
+            IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle);
 
     /// <summary>What the row shows instead of the title while it is hidden.</summary>
-    public string DisplayTitle => IsHidden ? "Private" : Title;
+    public string DisplayTitle => IsHidden ? HiddenTitle : Title;
 
     /// <summary>Only a hidden row offers to unlock; every other row opens.</summary>
     public bool CanBeOpened => !IsHidden;

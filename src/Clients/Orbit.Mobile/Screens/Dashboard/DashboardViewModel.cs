@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Security;
 
 namespace Orbit.Mobile.Screens.Dashboard;
 
@@ -26,6 +27,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly ChatRepository _chat;
     private readonly TimeProvider _timeProvider;
     private readonly Translations _translations;
+    private readonly PrivateItemGate _privateItems;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -37,7 +39,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     public DashboardViewModel(
         LocalNoteRepository notes, LocalTaskListRepository taskLists,
         LocalCalendarEventRepository calendarEvents, ChatRepository chat, TimeProvider timeProvider,
-        Translations translations, IScreenNavigator navigator)
+        Translations translations, PrivateItemGate privateItems, IScreenNavigator navigator)
     {
         _notes = notes;
         _taskLists = taskLists;
@@ -45,6 +47,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _chat = chat;
         _timeProvider = timeProvider;
         _translations = translations;
+        _privateItems = privateItems;
         _navigator = navigator;
     }
 
@@ -64,12 +67,14 @@ public sealed partial class DashboardViewModel : ObservableObject
         Cards.Clear();
         // An empty card is worse than no card: it takes up a phone's screen to say nothing. Each is
         // added only when it has something in it, which is also how the web's dashboard behaves.
-        AddCardIfAnything(DashboardCardKind.Notes, _translations["Notes"], notes.Count, DescribeNotes(notes));
-        AddCardIfAnything(DashboardCardKind.Tasks, _translations["Tasks"], taskLists.Count, DescribeTaskLists(taskLists));
-        AddCardIfAnything(DashboardCardKind.Upcoming, _translations["Upcoming"], events.Count, DescribeEvents(events));
-        AddCardIfAnything(DashboardCardKind.Groups, _translations["Groups"], groups.Count, DescribeGroups(groups));
-        AddCardIfAnything(DashboardCardKind.RecentChats, "Recent chats", contacts.Count, DescribeRecentChats(contacts));
-        AddCardIfAnything(DashboardCardKind.Contacts, _translations["Contacts"], DirectoryOf(contacts).Count, DescribeDirectory(contacts));
+        AddCardIfAnything(
+            DashboardCardKind.Notes, _translations["Notes"], DescribeNotes(notes), notes.Count(CanBeShown));
+        AddCardIfAnything(
+            DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(taskLists), taskLists.Count(CanBeShown));
+        AddCardIfAnything(DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(events), events.Count);
+        AddCardIfAnything(DashboardCardKind.Groups, _translations["Groups"], DescribeGroups(groups), groups.Count);
+        AddCardIfAnything(DashboardCardKind.RecentChats, _translations["Recent chats"], DescribeRecentChats(contacts), contacts.Count);
+        AddCardIfAnything(DashboardCardKind.Contacts, _translations["Contacts"], DescribeDirectory(contacts), DirectoryOf(contacts).Count);
 
         HasNothing = Cards.Count == 0;
     }
@@ -127,7 +132,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private DashboardCard? FindCardFor(DashboardRow row)
         => Cards.FirstOrDefault(card => card.Rows.Contains(row));
 
-    private void AddCardIfAnything(DashboardCardKind kind, string title, int total, IReadOnlyList<DashboardRow> rows)
+    private void AddCardIfAnything(DashboardCardKind kind, string title, IReadOnlyList<DashboardRow> rows, int total)
     {
         if (rows.Count == 0)
         {
@@ -136,6 +141,11 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         Cards.Add(new DashboardCard(kind, title, total.ToString(), rows));
     }
+
+    /// <summary>Whether something private may be named here at all - see PrivateItemGate.</summary>
+    private bool CanBeShown(LocalNote note) => !note.IsPrivate || _privateItems.IsUnlocked;
+
+    private bool CanBeShown(LocalTaskList list) => !list.IsPrivate || _privateItems.IsUnlocked;
 
     private TodaySummary SummariseToday(
         IReadOnlyList<LocalTaskList> taskLists, IReadOnlyList<LocalCalendarEvent> events,
@@ -153,8 +163,14 @@ public sealed partial class DashboardViewModel : ObservableObject
             contacts.Count(contact => contact.RequiresApprovalFromCurrentUser));
     }
 
+    /// <summary>
+    /// A private note's title is the thing the gate hides, and the dashboard shows titles - so leaving
+    /// it out here would have hidden a note on its own screen and named it on the landing one. Found by
+    /// walking the app: the gate was locked and the title was on the dashboard.
+    /// </summary>
     private IReadOnlyList<DashboardRow> DescribeNotes(IReadOnlyList<LocalNote> notes)
         => notes
+            .Where(CanBeShown)
             .OrderByDescending(note => note.UpdatedAtUtc)
             .Take(RowsPerCard)
             .Select(note => new DashboardRow(note.LocalId, TitleOrPlaceholder(note.Title, _translations["Untitled"]), Ago(note.UpdatedAtUtc)))
@@ -162,6 +178,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private IReadOnlyList<DashboardRow> DescribeTaskLists(IReadOnlyList<LocalTaskList> taskLists)
         => taskLists
+            .Where(CanBeShown)
             .OrderByDescending(list => list.IsPinned)
             .ThenByDescending(list => list.UpdatedAtUtc)
             .Take(RowsPerCard)

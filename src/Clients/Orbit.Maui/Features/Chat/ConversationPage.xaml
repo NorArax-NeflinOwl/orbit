@@ -46,25 +46,14 @@
                             <!-- Only ever on the reader's own messages - see ReadableChatMessage. -->
                             <Label Text="{controls:Translate 'Read'}" IsVisible="{Binding IsReadByThem}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                            <!-- Only on the reader's own messages, and only once the server has one -
-                                 see ReadableChatMessage.CanBeChanged. The commands live on the page's
-                                 view model, so these go through the page's typed ViewModel property. -->
-                            <HorizontalStackLayout Spacing="16" IsVisible="{Binding CanBeChanged}">
-                                <Button Text="{controls:Translate 'Edit'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartEditingCommand, x:DataType=chat:ConversationPage}"
-                                        CommandParameter="{Binding .}" />
-                                <Button Text="{controls:Translate 'Delete'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DeleteCommand, x:DataType=chat:ConversationPage}"
-                                        CommandParameter="{Binding .}" />
-                            </HorizontalStackLayout>
-                            <!-- Offered on anybody's message, unlike Edit and Delete: passing on what
-                                 somebody else wrote is the case this exists for. -->
-                            <Button Text="{controls:Translate 'Forward'}" FontSize="12" Padding="10,2" HorizontalOptions="Start"
+                            <!-- One trigger rather than three buttons, as Orbit.Web's bubbles have. The
+                                 menu itself is an action sheet rather than a hovering dropdown: on a
+                                 phone that is the same affordance in the shape the platform uses, and
+                                 it is what a thumb can actually hit. -->
+                            <Button Text="⋯" FontSize="18" Padding="12,0" HorizontalOptions="Start"
+                                    IsVisible="{Binding HasActions}"
                                     Style="{StaticResource LinkButton}"
-                                    IsVisible="{Binding CanBeForwarded}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StartForwardingCommand, x:DataType=chat:ConversationPage}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:ConversationPage}"
                                     CommandParameter="{Binding .}" />
                         </VerticalStackLayout>
                     </DataTemplate>

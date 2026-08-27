@@ -30,9 +30,14 @@
             <Label Text="{Binding OwnPositionDescription}" LineBreakMode="WordWrap" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
 
+            <!-- Wrapping rather than truncating: a translated label is routinely longer than the
+                 English it replaces, and a button that reads "Odczytaj moje położen" is worse than one
+                 that takes two lines. -->
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsNotChoosing}">
-                <Button Grid.Column="0" Text="{controls:Translate 'Read my position'}" Command="{Binding ReadMyPositionCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Share it'}" Command="{Binding StartSharingCommand}"
+                <Button Grid.Column="0" Text="{controls:Translate 'Read my position'}" FontSize="14"
+                        LineBreakMode="WordWrap" Command="{Binding ReadMyPositionCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Share it'}" FontSize="14"
+                        LineBreakMode="WordWrap" Command="{Binding StartSharingCommand}"
                         IsEnabled="{Binding HasOwnPosition}" />
             </Grid>
 

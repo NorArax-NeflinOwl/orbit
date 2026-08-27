@@ -1,6 +1,7 @@
 using Orbit.Mobile.Api;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Navigation;
@@ -142,6 +143,8 @@ public sealed class NavigationBarTests
             => _sessionStore = new SessionStore(new InMemorySessionStorage(
                 new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", displayName)));
 
+        public LocalStore LocalStore { get; } = new();
+
         public FakeNotificationServer Server { get; } = new();
 
         public RecordingScreenNavigator Navigator { get; } = new();
@@ -150,7 +153,8 @@ public sealed class NavigationBarTests
             => new(
                 _sessionStore, new NotificationsClient(Server.ToHttpClient()),
                 new AuthenticationClient(Server.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
-                Presence, new Translations(new InMemoryLanguageStore()), Navigator);
+                Presence, new Translations(new InMemoryLanguageStore()),
+                new LocalStoreReset(LocalStore), Navigator);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

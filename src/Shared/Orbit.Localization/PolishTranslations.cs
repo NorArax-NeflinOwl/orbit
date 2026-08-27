@@ -799,5 +799,7 @@ public static class PolishTranslations
             "Nikt nie ma takiego adresu e-mail ani nazwy użytkownika. Musi się zgadzać dokładnie.",
         ["{0} hasn't set up chat yet, so there is nothing to encrypt a message for. They need to open Orbit's chat once, on any device."] =
             "{0} nie ma jeszcze skonfigurowanych rozmów, więc nie ma czym zaszyfrować wiadomości. Musi raz otworzyć rozmowy w Orbicie, na dowolnym urządzeniu.",
+        ["Not read yet."] = "Jeszcze nie odczytano.",
+        ["Signed in as {0}"] = "Zalogowano jako {0}",
     };
 }

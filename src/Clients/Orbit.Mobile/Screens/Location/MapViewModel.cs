@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Sync;
 
@@ -25,12 +26,13 @@ public sealed partial class MapViewModel : ObservableObject
     private readonly UsersClient _usersClient;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     private SharedPosition? _ownPosition;
 
     [ObservableProperty]
-    private string _ownPositionDescription = "Not read yet.";
+    private string _ownPositionDescription = string.Empty;
 
     [ObservableProperty]
     private string _message = string.Empty;
@@ -44,7 +46,7 @@ public sealed partial class MapViewModel : ObservableObject
     public MapViewModel(
         IDeviceLocation deviceLocation, LocationClient locationClient, SharedLocations sharedLocations,
         UsersClient usersClient, ChatRepository chatRepository, ChatSynchronizer synchronizer,
-        IScreenNavigator navigator)
+        Translations translations, IScreenNavigator navigator)
     {
         _deviceLocation = deviceLocation;
         _locationClient = locationClient;
@@ -53,6 +55,7 @@ public sealed partial class MapViewModel : ObservableObject
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _navigator = navigator;
+        OwnPositionDescription = translations["Not read yet."];
     }
 
     /// <summary>People whose position the reader can currently see.</summary>

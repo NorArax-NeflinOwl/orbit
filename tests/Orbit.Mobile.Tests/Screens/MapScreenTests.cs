@@ -5,6 +5,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Location;
 using Orbit.Mobile.Sync;
@@ -233,7 +234,8 @@ public sealed class MapScreenTests
         }
 
         public MapViewModel Open()
-            => new(Device, LocationClient, _sharedLocations, _usersClient, _repository, _synchronizer, Navigator);
+            => new(Device, LocationClient, _sharedLocations, _usersClient, _repository, _synchronizer,
+                new Translations(new InMemoryLanguageStore()), Navigator);
 
         public void Dispose()
         {

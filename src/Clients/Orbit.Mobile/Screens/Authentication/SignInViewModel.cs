@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Notifications;
 
 namespace Orbit.Mobile.Screens.Authentication;
@@ -11,6 +12,8 @@ public sealed partial class SignInViewModel : ObservableObject
     private readonly AuthenticationClient _authenticationClient;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly PushRegistration _pushRegistration;
+    private readonly SessionStore _sessionStore;
+    private readonly LocalStoreReset _localStore;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -26,11 +29,14 @@ public sealed partial class SignInViewModel : ObservableObject
 
     public SignInViewModel(
         AuthenticationClient authenticationClient, OwnEncryptionKeyProvider encryptionKeyProvider,
-        PushRegistration pushRegistration, IScreenNavigator navigator)
+        PushRegistration pushRegistration, SessionStore sessionStore, LocalStoreReset localStore,
+        IScreenNavigator navigator)
     {
         _authenticationClient = authenticationClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         _pushRegistration = pushRegistration;
+        _sessionStore = sessionStore;
+        _localStore = localStore;
         _navigator = navigator;
     }
 
@@ -60,6 +66,14 @@ public sealed partial class SignInViewModel : ObservableObject
             // Connectivity said yes and the request still failed - a captive portal, most likely.
             ErrorMessage = "Couldn't reach Orbit. Check your connection and try again.";
             return;
+        }
+
+        // Before anything is read from the local store: on a phone that somebody else was signed
+        // into, everything cached - notes, the calendar, decrypted messages - is still there, and the
+        // sign-in screen is reached without a sign-out whenever a session simply expires.
+        if (await _sessionStore.GetAsync() is { } session)
+        {
+            await _localStore.ClearIfSomebodyElsesAsync(session.UserId, cancellationToken);
         }
 
         // The one moment the plaintext password exists - see OwnEncryptionKeyProvider. Best-effort:

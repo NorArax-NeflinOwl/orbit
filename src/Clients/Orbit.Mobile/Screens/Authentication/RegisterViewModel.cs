@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Authentication;
@@ -16,6 +17,7 @@ public sealed partial class RegisterViewModel : ObservableObject
     private readonly AccountClient _accountClient;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly INetworkStatus _networkStatus;
+    private readonly LocalStoreReset _localStore;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -35,11 +37,12 @@ public sealed partial class RegisterViewModel : ObservableObject
 
     public RegisterViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider,
-        INetworkStatus networkStatus, IScreenNavigator navigator)
+        INetworkStatus networkStatus, LocalStoreReset localStore, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         _networkStatus = networkStatus;
+        _localStore = localStore;
         _navigator = navigator;
     }
 

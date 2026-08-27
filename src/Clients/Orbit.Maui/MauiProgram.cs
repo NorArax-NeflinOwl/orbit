@@ -109,6 +109,7 @@ public static class MauiProgram
 		services.AddTransient<CalendarEventSynchronizer>();
 		services.AddTransient<WarehouseSynchronizer>();
 		services.AddSingleton<ChatRepository>();
+		services.AddTransient<LocalStoreReset>();
 		services.AddTransient<EncryptedChatMessageReader>();
 		services.AddTransient<EncryptedChatMessageSender>();
 		services.AddTransient<ChatSynchronizer>();

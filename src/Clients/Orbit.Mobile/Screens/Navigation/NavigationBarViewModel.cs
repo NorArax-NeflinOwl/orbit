@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Localization;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Presence;
 
@@ -26,6 +27,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly AuthenticationClient _authenticationClient;
     private readonly Presence.Presence _presence;
     private readonly Translations _translations;
+    private readonly LocalStoreReset _localStore;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>The signed-in reader's initials, which is what the avatar shows - there are no pictures in Orbit.</summary>
@@ -60,13 +62,14 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     public NavigationBarViewModel(
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
-        IScreenNavigator navigator)
+        LocalStoreReset localStore, IScreenNavigator navigator)
     {
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
         _authenticationClient = authenticationClient;
         _presence = presence;
         _translations = translations;
+        _localStore = localStore;
         _navigator = navigator;
         _presence.Changed += OnPresenceChanged;
         ShowPresence();
@@ -230,6 +233,9 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     {
         IsMenuOpen = false;
         await _authenticationClient.SignOutAsync();
+        // Everything cached belonged to whoever just left. Guid.Empty marks the database as nobody's,
+        // so the next sign-in finds it already clear.
+        await _localStore.ClearForAsync(Guid.Empty);
         _navigator.ShowSignIn();
     }
 
