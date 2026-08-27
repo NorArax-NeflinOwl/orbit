@@ -44,9 +44,19 @@ public static class InventoryEndpoints
             return warehouse is null ? Results.NotFound() : Results.Ok(ToDto(warehouse, callerId));
         });
 
+        // Creating a warehouse takes its name, not its contents - items are created through the save
+        // below, exactly as task items are through their task list. Anything sent here would have been
+        // dropped without a word, leaving the caller holding a warehouse that quietly lost what it was
+        // told to keep, so it is refused instead.
         warehouses.MapPost("/", async (
             SaveWarehouseRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
+            if (request.Items.Count > 0)
+            {
+                throw new InvalidRequestException(
+                    "A warehouse is created with a name and filled afterwards - send its items to PUT /api/warehouses/{id} instead.");
+            }
+
             var id = await dispatcher.SendAsync(new CreateWarehouseCommand(GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
             return Results.Created($"/api/warehouses/{id}", id);
         });
@@ -174,6 +184,9 @@ public static class InventoryEndpoints
         {
             EditOutcomeKind.Success => Results.NoContent(),
             EditOutcomeKind.Locked => Results.Json(new LockConflictDto(outcome.LockedByUserName!), statusCode: StatusCodes.Status409Conflict),
+            // 403 rather than 404: the caller can see this, so hiding it from them now would only confuse.
+            EditOutcomeKind.ReadOnly => Results.Json(
+                new RefusalDto("This was shared with you to read, not to change."), statusCode: StatusCodes.Status403Forbidden),
             _ => Results.NotFound()
         };
 }

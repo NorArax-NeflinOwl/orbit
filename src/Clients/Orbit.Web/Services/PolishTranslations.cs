@@ -45,6 +45,7 @@ internal static class PolishTranslations
         ["Group"] = "Grupowa",
         ["Pin"] = "Przypnij",
         ["Pin to top"] = "Przypnij na górę",
+        ["This was shared with you to read, not to change."] = "To zostało Ci udostępnione do czytania, nie do zmieniania.",
         ["Couldn't delete that note. Try again."] = "Nie udało się usunąć tej notatki. Spróbuj ponownie.",
         ["That note was already gone. The list has been brought up to date."] = "Tej notatki już nie było. Lista została odświeżona.",
         ["Orbit refused that change."] = "Orbit odrzucił tę zmianę.",

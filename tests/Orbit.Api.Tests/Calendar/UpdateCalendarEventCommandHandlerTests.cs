@@ -70,7 +70,7 @@ public sealed class UpdateCalendarEventCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_returns_NotFound_and_does_not_update_a_shared_read_only_event()
+    public async Task HandleAsync_returns_ReadOnly_and_does_not_update_a_shared_read_only_event()
     {
         var calendarEventShareRepository = new InMemoryCalendarEventShareRepository();
         var (calendarEventRepository, _, recipientId, calendarEvent) =
@@ -80,11 +80,11 @@ public sealed class UpdateCalendarEventCommandHandlerTests
         var outcome = await handler.HandleAsync(
             new UpdateCalendarEventCommand(recipientId, calendarEvent.Id, DefaultDetails with { Title = "Edited title" }), CancellationToken.None);
 
-        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
+        Assert.Equal(EditOutcomeKind.ReadOnly, outcome.Kind);
     }
 
     [Fact]
-    public async Task HandleAsync_returns_NotFound_and_does_not_update_an_event_shared_at_the_Share_tier()
+    public async Task HandleAsync_returns_ReadOnly_and_does_not_update_an_event_shared_at_the_Share_tier()
     {
         var calendarEventShareRepository = new InMemoryCalendarEventShareRepository();
         var (calendarEventRepository, _, recipientId, calendarEvent) =
@@ -94,7 +94,7 @@ public sealed class UpdateCalendarEventCommandHandlerTests
         var outcome = await handler.HandleAsync(
             new UpdateCalendarEventCommand(recipientId, calendarEvent.Id, DefaultDetails with { Title = "Edited title" }), CancellationToken.None);
 
-        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
+        Assert.Equal(EditOutcomeKind.ReadOnly, outcome.Kind);
     }
 
     [Fact]

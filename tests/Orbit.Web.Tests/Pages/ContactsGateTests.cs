@@ -59,4 +59,27 @@ public sealed class ContactsGateTests : OrbitTestContext
         Services.AddSingleton(new ChatApiClient(httpClient));
         Services.AddSingleton(new UsersApiClient(httpClient));
     }
+    [Fact]
+    public void A_locked_page_offers_no_search_box()
+    {
+        // A search box that answers every query with a refusal is worse than no search box.
+        RegisterPermissions([]);
+        RegisterContacts();
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.Empty(cut.FindAll("input"));
+        Assert.DoesNotContain("Group chats", cut.Markup);
+    }
+
+    [Fact]
+    public void An_unlocked_page_still_has_one()
+    {
+        RegisterPermissions([nameof(ApplicationPermission.Contacts)]);
+        RegisterContacts();
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.NotEmpty(cut.FindAll("input"));
+    }
 }

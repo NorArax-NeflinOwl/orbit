@@ -146,6 +146,12 @@ public sealed class InventoryApiClient
             return EditOutcome.LockedBy(conflict?.LockedByUserName ?? Translated("another user"));
         }
 
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            var refusal = await response.Content.ReadFromJsonAsync<RefusalDto>(cancellationToken: cancellationToken);
+            return EditOutcome.RefusedBecause(refusal?.Message ?? Translated("This was shared with you to read, not to change."));
+        }
+
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             // The server explains a refusal in the body (see InvalidRequestExceptionHandler); throwing

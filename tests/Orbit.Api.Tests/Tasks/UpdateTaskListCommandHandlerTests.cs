@@ -91,7 +91,7 @@ public sealed class UpdateTaskListCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_returns_NotFound_and_does_not_update_a_shared_read_only_task_list()
+    public async Task HandleAsync_returns_ReadOnly_and_does_not_update_a_shared_read_only_task_list()
     {
         var taskListShareRepository = new InMemoryTaskListShareRepository();
         var (taskRepository, _, recipientId, taskList) = await CreateSharedTaskListAsync(taskListShareRepository, ShareAccessLevel.ReadOnly);
@@ -99,11 +99,11 @@ public sealed class UpdateTaskListCommandHandlerTests
 
         var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "Edited title", [], IsGroup: false, IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
-        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
+        Assert.Equal(EditOutcomeKind.ReadOnly, outcome.Kind);
     }
 
     [Fact]
-    public async Task HandleAsync_returns_NotFound_and_does_not_update_a_task_list_shared_at_the_Share_tier()
+    public async Task HandleAsync_returns_ReadOnly_and_does_not_update_a_task_list_shared_at_the_Share_tier()
     {
         var taskListShareRepository = new InMemoryTaskListShareRepository();
         var (taskRepository, _, recipientId, taskList) = await CreateSharedTaskListAsync(taskListShareRepository, ShareAccessLevel.Share);
@@ -111,7 +111,7 @@ public sealed class UpdateTaskListCommandHandlerTests
 
         var outcome = await handler.HandleAsync(new UpdateTaskListCommand(recipientId, taskList.Id, "Edited title", [], IsGroup: false, IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
-        Assert.Equal(EditOutcomeKind.NotFound, outcome.Kind);
+        Assert.Equal(EditOutcomeKind.ReadOnly, outcome.Kind);
     }
 
     [Fact]
