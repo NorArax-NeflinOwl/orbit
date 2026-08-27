@@ -953,6 +953,12 @@ public static class PolishTranslations
         ["Back to notes"] = "Wróć do notatek",
         ["Delete note"] = "Usuń notatkę",
 
+        // A warehouse item's own details, which the phone could neither show nor set.
+        ["Quantity"] = "Ilość",
+        ["Minimum"] = "Minimum",
+        ["Minimum: {0}"] = "Minimum: {0}",
+        ["Expires {0}"] = "Termin: {0}",
+
         // The event editor - the screen a calendar entry opens into.
         ["When"] = "Kiedy",
         ["Back to calendar"] = "Wróć do kalendarza",

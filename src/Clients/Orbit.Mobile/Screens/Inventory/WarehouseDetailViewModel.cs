@@ -45,7 +45,19 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         _navigator = navigator;
     }
 
-    public ObservableCollection<WarehouseItemDto> Items { get; } = [];
+    public ObservableCollection<WarehouseItemRow> Items { get; } = [];
+
+    /// <summary>
+    /// The item whose details are open, or null while the list is. One at a time and in place rather
+    /// than on a screen of its own: a warehouse is a list of small things, and a page per row would be
+    /// two taps away from everything.
+    /// </summary>
+    [ObservableProperty]
+    private WarehouseItemEditor? _beingEdited;
+
+    public bool IsEditingItem => BeingEdited is not null;
+
+    public bool IsShowingList => BeingEdited is null;
 
     public bool HasStatus => Status.Length > 0;
 
@@ -72,12 +84,46 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private bool CanAddItem => NewItemName.Trim().Length > 0;
 
     [RelayCommand]
-    private Task AddOneAsync(WarehouseItemDto? item, CancellationToken cancellationToken)
-        => ChangeQuantityAsync(item, by: 1, cancellationToken);
+    private Task AddOneAsync(WarehouseItemRow? row, CancellationToken cancellationToken)
+        => ChangeQuantityAsync(row?.Item, by: 1, cancellationToken);
 
     [RelayCommand]
-    private Task RemoveOneAsync(WarehouseItemDto? item, CancellationToken cancellationToken)
-        => ChangeQuantityAsync(item, by: -1, cancellationToken);
+    private Task RemoveOneAsync(WarehouseItemRow? row, CancellationToken cancellationToken)
+        => ChangeQuantityAsync(row?.Item, by: -1, cancellationToken);
+
+    /// <summary>Opens one item's details - what kind of thing it is, its minimum, when it goes off.</summary>
+    [RelayCommand]
+    private void EditItem(WarehouseItemRow? row)
+    {
+        if (row is not null && CanEdit)
+        {
+            BeingEdited = WarehouseItemEditor.For(row.Item);
+        }
+    }
+
+    [RelayCommand]
+    private void CancelItemEdit() => BeingEdited = null;
+
+    [RelayCommand]
+    private Task SaveItemAsync(CancellationToken cancellationToken)
+    {
+        if (BeingEdited is not { CanSave: true } editor)
+        {
+            return Task.CompletedTask;
+        }
+
+        var edited = editor.ToDto();
+        BeingEdited = null;
+
+        // Matched by id, and by name for one that has never been saved - a new item has no id until the
+        // push comes back with one. See WarehouseItemDto.Id.
+        return SaveAsync(
+            [.. _items.Select(candidate => Matches(candidate, edited) ? edited : candidate)],
+            cancellationToken);
+    }
+
+    private static bool Matches(WarehouseItemDto candidate, WarehouseItemDto edited)
+        => edited.Id is { } id ? candidate.Id == id : candidate.Id is null && candidate.Name == edited.Name;
 
     /// <summary>Never below zero - a negative count of something on a shelf is not a state that exists.</summary>
     private Task ChangeQuantityAsync(WarehouseItemDto? item, decimal by, CancellationToken cancellationToken)
@@ -91,10 +137,10 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
                 cancellationToken);
 
     [RelayCommand]
-    private Task RemoveItemAsync(WarehouseItemDto? item, CancellationToken cancellationToken)
-        => item is null
+    private Task RemoveItemAsync(WarehouseItemRow? row, CancellationToken cancellationToken)
+        => row is null
             ? Task.CompletedTask
-            : SaveAsync(_items.Where(candidate => candidate.Id != item.Id).ToList(), cancellationToken);
+            : SaveAsync([.. _items.Where(candidate => !Matches(candidate, row.Item))], cancellationToken);
 
     [RelayCommand]
     private void GoBack() => _navigator.ShowInventory();
@@ -129,7 +175,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in warehouse.Items)
         {
-            Items.Add(item);
+            Items.Add(WarehouseItemRow.From(item, _translations));
         }
     }
 
@@ -149,6 +195,12 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         {
             Status = _translations["Saved on this phone - it will sync later"];
         }
+    }
+
+    partial void OnBeingEditedChanged(WarehouseItemEditor? value)
+    {
+        OnPropertyChanged(nameof(IsEditingItem));
+        OnPropertyChanged(nameof(IsShowingList));
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
