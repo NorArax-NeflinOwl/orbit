@@ -131,7 +131,7 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     {
         _log.Clear();
         ShowTail();
-        Message = "Cleared.";
+        Message = _translations["Cleared."];
     }
 
     [RelayCommand]

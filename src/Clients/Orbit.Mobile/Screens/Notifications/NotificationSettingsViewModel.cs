@@ -97,7 +97,7 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
         }
         catch (HttpRequestException exception)
         {
-            Message = Explain(exception, "Couldn't read your notification settings");
+            Message = Explain(exception, _translations["Couldn't read your notification settings"]);
         }
         catch (OperationCanceledException)
         {
@@ -132,7 +132,7 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
         }
         catch (HttpRequestException exception)
         {
-            Message = Explain(exception, "Couldn't save your notification settings");
+            Message = Explain(exception, _translations["Couldn't save your notification settings"]);
         }
         catch (OperationCanceledException)
         {
@@ -159,9 +159,9 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
     /// the request never landed, and telling somebody they are offline when the server answered sends
     /// them looking in the wrong place.
     /// </summary>
-    /// <param name="what">A dictionary key naming the thing that failed, not the text itself.</param>
+    /// <param name="what">Already translated - see the call sites, which ask the dictionary themselves.</param>
     private string Explain(HttpRequestException exception, string what)
         => exception.StatusCode is null
-            ? _translations.Format("{0} - Orbit is out of reach.", _translations[what])
-            : _translations.Format("{0}. Try signing in again.", _translations[what]);
+            ? _translations.Format("{0} - Orbit is out of reach.", what)
+            : _translations.Format("{0}. Try signing in again.", what);
 }

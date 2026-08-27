@@ -920,5 +920,35 @@ public static class PolishTranslations
         ["Saved."] = "Zapisano.",
         ["Orbit's own log, on this phone. Nothing leaves it unless you send it."] =
             "Własny dziennik Orbita, na tym telefonie. Nic z niego nie wychodzi, dopóki go nie wyślesz.",
+        // The map screen: reading a position, sharing it, and stopping.
+        ["You"] = "Ty",
+        ["Couldn't reach Orbit just now."] = "Nie udało się teraz połączyć z Orbitem.",
+        ["Orbit needs permission to use your location. Turn it on in Settings."] =
+            "Orbit potrzebuje zgody na dostęp do Twojej lokalizacji. Włącz ją w Ustawieniach.",
+        ["Couldn't get a position - try again outdoors."] =
+            "Nie udało się ustalić położenia — spróbuj ponownie na zewnątrz.",
+        ["Read your position, but couldn't save it - Orbit is out of reach."] =
+            "Odczytano Twoje położenie, ale nie udało się go zapisać — Orbit jest poza zasięgiem.",
+        ["Read your position, but Orbit wouldn't store it. Try signing in again."] =
+            "Odczytano Twoje położenie, ale Orbit go nie zapisał. Spróbuj zalogować się ponownie.",
+        ["Read your position first."] = "Najpierw odczytaj swoje położenie.",
+        ["Nobody to share with yet - start a conversation first."] =
+            "Nie masz jeszcze komu udostępnić — zacznij najpierw rozmowę.",
+        ["Shared with {0}."] = "Udostępniono: {0}.",
+        ["Sharing a position needs a connection."] = "Udostępnienie położenia wymaga połączenia.",
+        ["Orbit wouldn't accept that share. Try signing in again."] =
+            "Orbit nie przyjął tego udostępnienia. Spróbuj zalogować się ponownie.",
+        ["Stopping needs a connection - they can still see you until it goes through."] =
+            "Zatrzymanie wymaga połączenia — do tego czasu ta osoba nadal Cię widzi.",
+        ["Orbit wouldn't stop that share - they can still see you."] =
+            "Orbit nie zatrzymał tego udostępnienia — ta osoba nadal Cię widzi.",
+
+        ["Cleared."] = "Wyczyszczono.",
+
+        ["Couldn't mark them read"] = "Nie udało się oznaczyć ich jako przeczytane",
+        ["Couldn't clear them"] = "Nie udało się ich wyczyścić",
+        ["Couldn't read your notifications"] = "Nie udało się odczytać Twoich powiadomień",
+        ["Couldn't read your notification settings"] = "Nie udało się odczytać ustawień powiadomień",
+        ["Couldn't save your notification settings"] = "Nie udało się zapisać ustawień powiadomień",
     };
 }
