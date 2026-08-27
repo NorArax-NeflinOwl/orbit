@@ -3533,3 +3533,18 @@ input.note-editor-title {
 .shared-position-row .row-meta {
     margin-left: auto;
 }
+
+/* A group list unfolds into the whole tree below it (see Pages/TaskListChecklist.razor), so each card
+   is stepped in by how deep it sits - otherwise a nested list and its parent's sibling look alike. The
+   step is capped so a deep tree still leaves room to read the items. */
+.checklist-card {
+    margin-left: min(calc(var(--checklist-depth, 0) * 20px), 120px);
+}
+
+@media (max-width: 768px) {
+    /* A phone has no width to give away: depth shows as a rule down the left instead of an indent. */
+    .checklist-card {
+        margin-left: 0;
+        border-left: calc(min(var(--checklist-depth, 0), 4) * 3px) solid var(--accent-subtle);
+    }
+}

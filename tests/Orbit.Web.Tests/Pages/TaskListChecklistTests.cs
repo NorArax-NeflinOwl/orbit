@@ -262,4 +262,99 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             Guid.NewGuid(), description, dueDateUtc, isCompleted, linkedTaskListId,
             OverdueNotificationChannel: "None", RemindDaily: false,
             DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: default);
+
+    [Fact]
+    public void A_group_shows_the_lists_below_its_own_members_too()
+    {
+        // Renovation -> Kitchen -> Tiling. Stopping at Kitchen would hide the work that is actually left.
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id)) with { IsGroup = true };
+        var renovation = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([renovation, kitchen, tiling]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, renovation.Id));
+
+        Assert.Equal(["Kitchen", "Tiling"], cut.FindAll(".checklist-card .card-title").Select(card => card.TextContent.Trim()));
+        Assert.Contains("Grout", cut.Markup);
+    }
+
+    [Fact]
+    public void A_list_appears_directly_under_the_one_that_links_to_it()
+    {
+        // Depth-first: Kitchen's own subtree comes before Garden, not after every sibling.
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id)) with { IsGroup = true };
+        var garden = TaskList("Garden", Item("Mow"));
+        var renovation = TaskList("Renovation",
+            Item("Kitchen done", linkedTaskListId: kitchen.Id),
+            Item("Garden done", linkedTaskListId: garden.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([renovation, kitchen, tiling, garden]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, renovation.Id));
+
+        Assert.Equal(["Kitchen", "Tiling", "Garden"],
+            cut.FindAll(".checklist-card .card-title").Select(card => card.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void How_deep_a_list_sits_is_written_on_its_card()
+    {
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id)) with { IsGroup = true };
+        var renovation = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([renovation, kitchen, tiling]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, renovation.Id));
+
+        // The indent is CSS's business; the depth it reads is this page's.
+        var depths = cut.FindAll(".checklist-card").Select(card => card.GetAttribute("style")).ToArray();
+        Assert.Contains("--checklist-depth: 0", depths[0]);
+        Assert.Contains("--checklist-depth: 1", depths[1]);
+        Assert.Contains("--checklist-depth: 2", depths[2]);
+    }
+
+    [Fact]
+    public void A_list_that_links_back_to_an_ancestor_does_not_unfold_forever()
+    {
+        // Two lists pointing at each other. Without the guard this is a stack overflow, not a page.
+        var firstId = Guid.NewGuid();
+        var second = TaskList("Second", Item("Back to the first", linkedTaskListId: firstId)) with { IsGroup = true };
+        var first = new TaskDto(
+            firstId, "First", [Item("On to the second", linkedTaskListId: second.Id)], IsCompleted: false,
+            IsGroup: true, IsPrivate: false, EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+        RegisterTasksApiClient([first, second]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, first.Id));
+
+        Assert.Equal(["Second"], cut.FindAll(".checklist-card .card-title").Select(card => card.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_list_linked_from_two_places_is_shown_once()
+    {
+        // The second copy would carry the same items and the same checkboxes, and ticking one would
+        // leave the other looking untouched.
+        var shared = TaskList("Shopping", Item("Milk"));
+        var group = TaskList("Weekend",
+            Item("Shopping done", linkedTaskListId: shared.Id),
+            Item("Shopping again", linkedTaskListId: shared.Id)) with { IsGroup = true };
+        RegisterTasksApiClient([group, shared]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
+
+        Assert.Equal(["Shopping"], cut.FindAll(".checklist-card .card-title").Select(card => card.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_list_that_is_not_a_group_shows_only_itself()
+    {
+        var other = TaskList("Other", Item("Something"));
+        var plain = TaskList("Errands", Item("Buy milk"));
+        RegisterTasksApiClient([plain, other]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, plain.Id));
+
+        Assert.Empty(cut.FindAll(".checklist-card .card-title"));
+    }
 }

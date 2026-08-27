@@ -52,7 +52,7 @@ else
 
     @foreach (var section in _sections)
     {
-        <div class="card checklist-card">
+        <div class="card checklist-card" style="--checklist-depth: @section.Depth">
             @if (section.IsMember)
             {
                 <div class="card-header">
@@ -145,9 +145,13 @@ else
     }
 
     /// <summary>
-    /// A group list is followed one level down, to the lists its own items link to - those are its
-    /// members. Deeper links aren't expanded: a member that is itself a group stays a single line here,
-    /// so one screen can't unfold into an unbounded tree.
+    /// A group list is followed all the way down: the lists its items link to, the lists those link to,
+    /// and so on, so one screen shows the whole tree rather than stopping at the first row of members.
+    ///
+    /// Depth-first, so a list appears directly under the one that linked to it rather than after all of
+    /// its siblings' subtrees. Each list is shown once however many places link to it - the second
+    /// appearance would carry the same items and the same checkboxes, and ticking one would leave the
+    /// other looking untouched.
     /// </summary>
     private IReadOnlyList<ChecklistSection> BuildSections()
     {
@@ -157,22 +161,36 @@ else
             return [];
         }
 
-        var sections = new List<ChecklistSection> { new(taskList, IsMember: false) };
-        if (!taskList.IsGroup)
+        var sections = new List<ChecklistSection>();
+        AppendWithMembers(taskList, depth: 0, [], sections);
+        return sections;
+    }
+
+    /// <summary>
+    /// Adds one list and everything below it. <paramref name="alreadyShown"/> is what stops a list that
+    /// links back to one of its own ancestors - or to itself - from unfolding forever.
+    /// </summary>
+    private void AppendWithMembers(
+        TaskDto taskList, int depth, HashSet<Guid> alreadyShown, List<ChecklistSection> sections)
+    {
+        if (!alreadyShown.Add(taskList.Id))
         {
-            return sections;
+            return;
         }
 
-        var memberIds = taskList.Items
-            .Select(item => item.LinkedTaskListId)
-            .OfType<Guid>()
-            .Distinct();
-        sections.AddRange(memberIds
-            .Select(memberId => _allTaskLists.FirstOrDefault(candidate => candidate.Id == memberId))
-            .OfType<TaskDto>()
-            .Select(member => new ChecklistSection(member, IsMember: true)));
+        sections.Add(new ChecklistSection(taskList, IsMember: depth > 0, depth));
+        if (!taskList.IsGroup)
+        {
+            return;
+        }
 
-        return sections;
+        foreach (var memberId in taskList.Items.Select(item => item.LinkedTaskListId).OfType<Guid>())
+        {
+            if (_allTaskLists.FirstOrDefault(candidate => candidate.Id == memberId) is { } member)
+            {
+                AppendWithMembers(member, depth + 1, alreadyShown, sections);
+            }
+        }
     }
 
     /// <summary>
@@ -245,5 +263,6 @@ else
     private void GoToTaskLists() => NavigationManager.NavigateTo("/tasks");
 
     /// <summary>One list rendered in this view - the list being viewed, or one of a group list's members.</summary>
-    private sealed record ChecklistSection(TaskDto TaskList, bool IsMember);
+    /// <param name="Depth">How far below the list being viewed this one sits - 0 for that list itself.</param>
+    private sealed record ChecklistSection(TaskDto TaskList, bool IsMember, int Depth);
 }
