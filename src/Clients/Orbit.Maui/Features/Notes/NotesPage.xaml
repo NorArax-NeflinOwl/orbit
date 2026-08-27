@@ -10,7 +10,6 @@
     Title="{controls:Translate 'Notes'}">
 
     <ContentPage.Resources>
-        <controls:PinGlyphConverter x:Key="PinGlyph" />
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -56,12 +55,10 @@
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                 <Label Grid.Column="0" Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold"
                                        VerticalOptions="Center" />
-                                <Button Grid.Column="1" IsVisible="{Binding CanBePinned}"
-                                        Text="{Binding IsPinned, Converter={StaticResource PinGlyph}}"
-                                        FontSize="16" Padding="10,0" BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=notes:NotesPage}"
-                                        CommandParameter="{Binding .}" />
+                                <controls:PinButton Grid.Column="1" IsVisible="{Binding CanBePinned}"
+                                                    IsPinned="{Binding IsPinned}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=notes:NotesPage}"
+                                                    CommandParameter="{Binding .}" />
                             </Grid>
 
                             <!-- A hidden row keeps its place - a note vanishing from the list would look
@@ -79,6 +76,8 @@
                                    IsVisible="{Binding HasStatus}"
                                    FontSize="12"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <BoxView HeightRequest="1" Margin="0,12,0,0"
+                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

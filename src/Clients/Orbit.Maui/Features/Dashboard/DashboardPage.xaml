@@ -10,7 +10,6 @@
     Title="{controls:Translate 'Dashboard'}">
 
     <ContentPage.Resources>
-        <controls:PinGlyphConverter x:Key="PinGlyph" />
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -75,11 +74,9 @@
                                         <Border Grid.Column="1" Style="{StaticResource CardCount}">
                                             <Label Text="{Binding Count}" Style="{StaticResource CardCountLabel}" />
                                         </Border>
-                                        <Button Grid.Column="2" FontSize="14" Padding="8,0" BackgroundColor="Transparent"
-                                                Text="{Binding IsPinned, Converter={StaticResource PinGlyph}}"
-                                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=dashboard:DashboardPage}"
-                                                CommandParameter="{Binding .}" />
+                                        <controls:PinButton Grid.Column="2" IsPinned="{Binding IsPinned}"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=dashboard:DashboardPage}"
+                                                            CommandParameter="{Binding .}" />
                                     </Grid>
 
                                     <BoxView HeightRequest="1"

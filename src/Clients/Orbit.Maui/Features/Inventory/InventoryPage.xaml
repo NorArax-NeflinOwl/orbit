@@ -43,6 +43,8 @@
                             <Label Text="{Binding Contents}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <BoxView HeightRequest="1" Margin="0,12,0,0"
+                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
