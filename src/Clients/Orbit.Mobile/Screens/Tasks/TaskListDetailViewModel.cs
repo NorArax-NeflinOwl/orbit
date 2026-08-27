@@ -21,6 +21,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly LocalTaskListRepository _taskLists;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly Translations _translations;
+    private readonly TimeProvider _timeProvider;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -38,13 +39,22 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReadOnly;
 
+    /// <inheritdoc cref="Inventory.WarehouseDetailViewModel.BeingEdited"/>
+    [ObservableProperty]
+    private TaskItemEditor? _beingEdited;
+
+    public bool IsEditingItem => BeingEdited is not null;
+
+    public bool IsShowingList => BeingEdited is null;
+
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
-        IScreenNavigator navigator)
+        TimeProvider timeProvider, IScreenNavigator navigator)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _translations = translations;
+        _timeProvider = timeProvider;
         _navigator = navigator;
     }
 
@@ -71,6 +81,33 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     private bool CanAddItem => NewItemDescription.Trim().Length > 0;
+
+    /// <summary>Opens one entry's details - when it is due, and what it says when it is late.</summary>
+    [RelayCommand]
+    private void EditItem(TaskItemRow? row)
+    {
+        if (row is not null && CanEdit)
+        {
+            BeingEdited = TaskItemEditor.For(row.Item);
+        }
+    }
+
+    [RelayCommand]
+    private void CancelItemEdit() => BeingEdited = null;
+
+    [RelayCommand]
+    private Task SaveItemAsync(CancellationToken cancellationToken)
+    {
+        if (BeingEdited is not { CanSave: true } editor)
+        {
+            return Task.CompletedTask;
+        }
+
+        var edited = editor.ToDto();
+        BeingEdited = null;
+
+        return SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
+    }
 
     [RelayCommand]
     private Task ToggleItemAsync(TaskItemRow? row, CancellationToken cancellationToken)
@@ -132,7 +169,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in taskList.Items)
         {
-            Items.Add(TaskItemRow.From(item));
+            Items.Add(TaskItemRow.From(item, _translations, _timeProvider.GetUtcNow()));
         }
     }
 
@@ -161,6 +198,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string RefusalMessage =
         "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
+
+    partial void OnBeingEditedChanged(TaskItemEditor? value)
+    {
+        OnPropertyChanged(nameof(IsEditingItem));
+        OnPropertyChanged(nameof(IsShowingList));
+    }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 

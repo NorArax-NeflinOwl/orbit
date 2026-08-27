@@ -955,6 +955,14 @@ public static class PolishTranslations
 
         // A warehouse item's own details, which the phone could neither show nor set.
         ["Quantity"] = "Ilość",
+
+        // A task-list entry's own details, and the filters over the lists themselves.
+        ["New"] = "Nowe",
+        ["Pending"] = "W toku",
+        ["Due {0}"] = "Termin: {0}",
+        ["Daily at {0}"] = "Codziennie o {0}",
+        ["When it is overdue"] = "Gdy termin minie",
+        ["Remind me daily"] = "Przypominaj codziennie",
         ["Minimum"] = "Minimum",
         ["Minimum: {0}"] = "Minimum: {0}",
         ["Expires {0}"] = "Termin: {0}",

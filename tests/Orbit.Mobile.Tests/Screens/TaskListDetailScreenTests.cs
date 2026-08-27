@@ -80,6 +80,73 @@ public sealed class TaskListDetailScreenTests
         Assert.Equal(breadId, remaining.Id);
     }
 
+    /// <summary>
+    /// The rest of an entry, which the phone could neither see nor set: a due date, what happens when
+    /// it passes, and whether it says something every day until the entry is done.
+    /// </summary>
+    [Fact]
+    public async Task An_entrys_due_date_and_reminders_can_be_set()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Trip");
+        screen.NewItemDescription = "pack";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.HasDueDate = true;
+        screen.BeingEdited.DueDate = new DateTime(2027, 3, 1);
+        screen.BeingEdited.OverdueNotificationChannel = "Push";
+        screen.BeingEdited.RemindDaily = true;
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var item = Assert.Single(screen.Items).Item;
+        Assert.Equal(new DateTime(2027, 3, 1), item.DueDateUtc!.Value.LocalDateTime.Date);
+        Assert.Equal("Push", item.OverdueNotificationChannel);
+        Assert.True(item.RemindDaily);
+    }
+
+    /// <summary>
+    /// Everything the editor does not show travels through untouched. An entry linked to an inventory
+    /// item's restock task must come back linked, or the shelf loses its reminder.
+    /// </summary>
+    [Fact]
+    public async Task Editing_an_entry_keeps_what_the_editor_does_not_show()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Trip");
+        screen.NewItemDescription = "pack";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Description = "pack properly";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var item = Assert.Single(screen.Items).Item;
+        Assert.Equal("pack properly", item.Description);
+        Assert.True(item.IsCompleted);
+    }
+
+    /// <summary>A finished entry cannot be late any more, whatever its date says.</summary>
+    [Fact]
+    public async Task A_completed_entry_is_never_overdue()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Trip");
+        screen.NewItemDescription = "pack";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.HasDueDate = true;
+        screen.BeingEdited.DueDate = new DateTime(2020, 1, 1);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        Assert.True(screen.Items[0].IsOverdue);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+
+        Assert.False(screen.Items[0].IsOverdue);
+    }
+
     /// <summary>A phone with a local store and a server it can sometimes reach, and no MAUI in sight.</summary>
     private sealed class ScreenContext : IDisposable
     {
@@ -106,7 +173,7 @@ public sealed class TaskListDetailScreenTests
         {
             var created = _taskLists.CreateAsync(title, []).GetAwaiter().GetResult();
             var screen = new TaskListDetailViewModel(
-                _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), Navigator);
+                _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock, Navigator);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
