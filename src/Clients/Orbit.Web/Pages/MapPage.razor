@@ -93,6 +93,31 @@
             </div>
         }
 
+        @if (!_isLoading && _receivedPositions.Count > 0)
+        {
+            @* Who is on the map, written out. The name was only ever inside a pin's own popup, so a map
+               with two pins on it said nothing about whose they were until one was clicked - and when the
+               reader has recorded a position of their own, everyone shares the one map. *@
+            <div class="card location-card">
+                <div class="card-header">
+                    <span class="card-title">@T["Shared with you"]</span>
+                    <span class="card-count">@_receivedPositions.Count</span>
+                </div>
+                @foreach (var received in _receivedPositions)
+                {
+                    <div class="list-row shared-position-row">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(received.SharerUserId)">@AvatarHelper.GetInitials(DisplayNameFor(received.SharerUserId))</span>
+                        <span class="row-title">@DisplayNameFor(received.SharerUserId)</span>
+                        @if (received.IsContinuous)
+                        {
+                            <span class="card-badge">@T["live"]</span>
+                        }
+                        <span class="row-meta">@DescribePosition(received)</span>
+                    </div>
+                }
+            </div>
+        }
+
         @if (_isLoading)
         {
             <p>@T["Loading…"]</p>
@@ -110,10 +135,6 @@
             @if (_receivedPositions.Count > 0)
             {
                 <div class="card location-card">
-                    <div class="card-header">
-                        <span class="card-title">@T["Shared with you"]</span>
-                        <span class="card-count">@_receivedPositions.Count</span>
-                    </div>
                     <div class="location-map-frame">
                     <div id="@MapElementId" class="location-map"></div>
                     @* Sits over the map rather than inside it: Leaflet owns its container's children, and
@@ -244,14 +265,14 @@
             var points = new List<object>();
             if (_location is { } own)
             {
-                points.Add(new { latitude = own.Latitude, longitude = own.Longitude, label = own.Address ?? "You" });
+                points.Add(new { latitude = own.Latitude, longitude = own.Longitude, label = own.Address ?? T["You"] });
             }
 
             points.AddRange(_receivedPositions.Select(received => (object)new
             {
                 latitude = received.Position.Latitude,
                 longitude = received.Position.Longitude,
-                label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? "shared a position"}"
+                label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}"
             }));
 
             await _mapModule.InvokeVoidAsync("showLocations", MapElementId, points);
@@ -635,13 +656,26 @@
     private bool _hasGoogleExtras;
 
     private string DisplayNameFor(Guid userId)
-        => _contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? "Someone";
+        => _contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? T["Someone"];
+
+    /// <summary>
+    /// Where somebody is and when they were last there. Falls back to the coordinates when reverse
+    /// geocoding had nothing to say - a pair of numbers still tells the reader where to look.
+    /// </summary>
+    private string DescribePosition(ReceivedPosition received)
+    {
+        var place = received.Position.Address ?? FormatCoordinates(received.Position.Latitude, received.Position.Longitude);
+        return $"{place} · {FormatRecordedAt(received.Position.RecordedAtUtc)}";
+    }
 
     /// <summary>One position someone is sharing with this user, already opened.</summary>
     private sealed record ReceivedPosition(Guid SharerUserId, bool IsContinuous, SharedLocationSender.SharedPosition Position);
 
     private static string FormatCoordinates(UserLocationDto location)
-        => $"{location.Latitude.ToString("F5", CoordinateCulture)}, {location.Longitude.ToString("F5", CoordinateCulture)}";
+        => FormatCoordinates(location.Latitude, location.Longitude);
+
+    private static string FormatCoordinates(double latitude, double longitude)
+        => $"{latitude.ToString("F5", CoordinateCulture)}, {longitude.ToString("F5", CoordinateCulture)}";
 
     private string FormatRecordedAt(DateTimeOffset recordedAtUtc)
         => recordedAtUtc.ToLocalTime().ToString("d MMM yyyy, HH:mm", T.DisplayCulture);

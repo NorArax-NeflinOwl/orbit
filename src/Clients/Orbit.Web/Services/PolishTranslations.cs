@@ -45,6 +45,8 @@ internal static class PolishTranslations
         ["Group"] = "Grupowa",
         ["Pin"] = "Przypnij",
         ["Pin to top"] = "Przypnij na górę",
+        ["shared a position"] = "udostępnił pozycję",
+        ["You"] = "Ty",
         ["Needs {0}"] = "Wymaga: {0}",
         ["{0} has to be unlocked first."] = "Najpierw trzeba odblokować: {0}.",
         ["Open Options"] = "Otwórz opcje",
