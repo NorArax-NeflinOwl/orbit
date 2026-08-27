@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Permissions;
 
 namespace Orbit.Core.Users.GetUsersByIds;
 
@@ -28,6 +29,10 @@ public sealed class GetUsersByIdsQueryHandler : IRequestHandler<GetUsersByIdsQue
             throw new InvalidRequestException($"Ask about at most {MaxIds} people at a time.");
         }
 
+        // Deliberately not filtered by UserVisibility: this resolves names for people the caller already
+        // has a conversation or a group with, and blanking those would turn an existing chat into a row
+        // of "Someone" without hiding anybody from anybody. Being invisible is about not being *found* -
+        // see SearchUserQueryHandler and GetUserByIdQueryHandler, which do filter.
         return await _userRepository.GetByIdsAsync(ids, cancellationToken);
     }
 }

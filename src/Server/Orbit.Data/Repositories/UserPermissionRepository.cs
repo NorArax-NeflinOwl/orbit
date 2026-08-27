@@ -37,6 +37,40 @@ public sealed class UserPermissionRepository : IUserPermissionRepository
         return granted;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlySet<ApplicationPermission>>> GetForUsersAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlySet<ApplicationPermission>>();
+        }
+
+        var rows = await _dbContext.UserPermissions
+            .AsNoTracking()
+            .Where(permission => userIds.Contains(permission.UserId))
+            .Select(permission => new { permission.UserId, permission.Permission })
+            .ToListAsync(cancellationToken);
+
+        var byUser = new Dictionary<Guid, IReadOnlySet<ApplicationPermission>>();
+        foreach (var row in rows)
+        {
+            if (!Enum.TryParse<ApplicationPermission>(row.Permission, out var permission))
+            {
+                continue;
+            }
+
+            if (!byUser.TryGetValue(row.UserId, out var granted))
+            {
+                granted = new HashSet<ApplicationPermission>();
+                byUser[row.UserId] = granted;
+            }
+
+            ((HashSet<ApplicationPermission>)granted).Add(permission);
+        }
+
+        return byUser;
+    }
+
     public async Task GrantAsync(Guid userId, ApplicationPermission permission, CancellationToken cancellationToken)
     {
         var name = permission.ToString();

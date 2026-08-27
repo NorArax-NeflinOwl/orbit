@@ -71,10 +71,10 @@ public sealed class PermissionCodeAuthorityTests
         // is now printing codes that this server will refuse.
         var authority = new PermissionCodeAuthority("a-known-secret-for-checking-the-derivation");
 
-        Assert.Equal("J6HJCF9VRCQT", authority.CodeFor(ApplicationPermission.Location));
+        Assert.Equal("QV39RXWJXHDR", authority.CodeFor(ApplicationPermission.Contacts));
         Assert.Equal("9C0B3Z0G3RTD", authority.CodeFor(ApplicationPermission.Chat));
-        Assert.Equal("TMF60HJ602HC", authority.CodeFor(ApplicationPermission.GroupChat));
         Assert.Equal("ZTFTXQEBR0E8", authority.CodeFor(ApplicationPermission.Sharing));
+        Assert.Equal("J6HJCF9VRCQT", authority.CodeFor(ApplicationPermission.Location));
     }
 
     [Fact]

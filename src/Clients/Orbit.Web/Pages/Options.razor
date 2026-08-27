@@ -617,17 +617,17 @@
 
     private string DescribePermission(ApplicationPermission permission) => permission switch
     {
-        ApplicationPermission.Location => T["Location"],
+        ApplicationPermission.Contacts => T["Contacts"],
         ApplicationPermission.Chat => T["Chat"],
-        ApplicationPermission.GroupChat => T["Group chats"],
+        ApplicationPermission.Location => T["Location"],
         _ => T["Sharing"]
     };
 
     private string ExplainPermission(ApplicationPermission permission) => permission switch
     {
-        ApplicationPermission.Location => T["Recording where you are, sharing it, and seeing where others are."],
-        ApplicationPermission.Chat => T["Conversations with one other person."],
-        ApplicationPermission.GroupChat => T["Conversations with more than one other person."],
+        ApplicationPermission.Contacts => T["Finding other people, and being found by them. Everything below needs this first."],
+        ApplicationPermission.Chat => T["Conversations, with one person or with several."],
+        ApplicationPermission.Location => T["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."],
         _ => T["Handing a note, task list, event or storage to somebody else."]
     };
 
