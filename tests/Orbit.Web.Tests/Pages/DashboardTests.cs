@@ -275,4 +275,60 @@ public sealed class DashboardTests : OrbitTestContext
 
     private static HttpResponseMessage JsonResponse<TItem>(IReadOnlyList<TItem> items)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(items) };
+    [Fact]
+    public void An_event_that_has_already_finished_is_not_upcoming()
+    {
+        // A card headed "Upcoming" that opens with last month is a card nobody reads twice.
+        RegisterChatApiClient([]);
+        RegisterCalendarApiClient([Event("Last month", DateTimeOffset.UtcNow.AddDays(-30))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain("Upcoming", cut.Markup);
+        Assert.DoesNotContain("Last month", cut.Markup);
+    }
+
+    [Fact]
+    public void An_event_still_ahead_is()
+    {
+        RegisterChatApiClient([]);
+        RegisterCalendarApiClient([
+            Event("Last month", DateTimeOffset.UtcNow.AddDays(-30)),
+            Event("Next week", DateTimeOffset.UtcNow.AddDays(7))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Next week", cut.Markup);
+        Assert.DoesNotContain("Last month", cut.Markup);
+    }
+
+    [Fact]
+    public void An_event_running_right_now_has_not_been_and_gone()
+    {
+        RegisterChatApiClient([]);
+        RegisterCalendarApiClient([Event("Happening now", DateTimeOffset.UtcNow.AddMinutes(-30), lengthHours: 2)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Happening now", cut.Markup);
+    }
+
+    private void RegisterCalendarApiClient(IReadOnlyList<CalendarEventDto> events)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(events)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        Services.AddSingleton(new CalendarApiClient(httpClient));
+    }
+
+    private static CalendarEventDto Event(string title, DateTimeOffset startUtc, int lengthHours = 1)
+        => new(
+            Guid.NewGuid(),
+            new CalendarEventDetailsDto(
+                title, Description: null, Location: null, Color: null, startUtc, startUtc.AddHours(lengthHours),
+                IsAllDay: false, Recurrence: null, Guests: [], ReminderMinutesBeforeStart: [],
+                CreationNotificationChannel: "None", ReminderNotificationChannel: "None"),
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 }

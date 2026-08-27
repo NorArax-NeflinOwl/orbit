@@ -45,6 +45,8 @@ internal static class PolishTranslations
         ["Group"] = "Grupowa",
         ["Pin"] = "Przypnij",
         ["Pin to top"] = "Przypnij na górę",
+        ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
+        ["Nothing in this period."] = "Nic w tym okresie.",
         ["View saved"] = "Widok zapisany",
         ["Save view"] = "Zapisz widok",
         ["Show the lists"] = "Pokaż listy",

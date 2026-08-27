@@ -64,14 +64,14 @@
                 {
                     <p>@T["Loading…"]</p>
                 }
-                else if (_events.Count == 0)
+                else if (_listedEvents.Count == 0)
                 {
-                    <p>@T["No events."]</p>
+                    <p>@T["Nothing in this period."]</p>
                 }
                 else
                 {
                     <div class="event-list">
-                        @foreach (var calendarEvent in _events)
+                        @foreach (var calendarEvent in _listedEvents)
                         {
                             @* One row per event: colour, title, when. Location, repeats and guests
                                open underneath, so a busy day stays a list rather than a wall. *@
@@ -149,14 +149,14 @@
                 {
                     <p>@T["Loading…"]</p>
                 }
-                else if (_dueTasks.Count == 0)
+                else if (_listedDueTasks.Count == 0)
                 {
-                    <p>@T["No tasks with a due date."]</p>
+                    <p>@T["Nothing due in this period."]</p>
                 }
                 else
                 {
                     <div class="event-list">
-                        @foreach (var dueTask in _dueTasks)
+                        @foreach (var dueTask in _listedDueTasks)
                         {
                             <div class="list-row task-preview-row @(dueTask.IsCompleted ? "completed" : "")">
                                 <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
@@ -231,6 +231,37 @@
     private IReadOnlyList<DueTaskDto>? _dueTasks;
     private IReadOnlyList<ContactDto> _contacts = [];
     private readonly CalendarViewState _viewState = new();
+
+    /// <summary>
+    /// The events the list beside the grid shows: the ones touching the period on screen, soonest first.
+    /// Listing the whole calendar meant scrolling past last spring to find next week.
+    /// </summary>
+    private IReadOnlyList<CalendarEventDto> _listedEvents
+    {
+        get
+        {
+            var (from, toExclusive) = _viewState.ListedPeriod();
+            // An event that starts before the period and runs into it belongs to it as much as one that
+            // starts inside it.
+            return [.. (_events ?? [])
+                .Where(calendarEvent => DateOnly.FromDateTime(calendarEvent.Details.StartUtc.LocalDateTime) < toExclusive
+                    && DateOnly.FromDateTime(calendarEvent.Details.EndUtc.LocalDateTime) >= from)
+                .OrderBy(calendarEvent => calendarEvent.Details.StartUtc)];
+        }
+    }
+
+    /// <summary>The due tasks in the same period, by when they are due.</summary>
+    private IReadOnlyList<DueTaskDto> _listedDueTasks
+    {
+        get
+        {
+            var (from, toExclusive) = _viewState.ListedPeriod();
+            return [.. (_dueTasks ?? [])
+                .Where(dueTask => DateOnly.FromDateTime(dueTask.DueDateUtc.LocalDateTime) is var due
+                    && due >= from && due < toExclusive)
+                .OrderBy(dueTask => dueTask.DueDateUtc)];
+        }
+    }
 
     /// <summary>
     /// Login of every guest not found among <see cref="_contacts"/>, resolved once via UsersApiClient
@@ -481,6 +512,23 @@
             CalendarViewMode.Year => ReferenceDate.Year.ToString(CultureInfo.InvariantCulture),
             _ => string.Empty
         };
+
+        /// <summary>
+        /// The stretch of time the lists beside the grid cover. A year in the year view, and the whole
+        /// month otherwise - including the day view, where a single day's worth is usually too little to
+        /// be worth a panel and the month around it is what somebody is actually planning against.
+        /// </summary>
+        public (DateOnly From, DateOnly ToExclusive) ListedPeriod()
+        {
+            if (ViewMode == CalendarViewMode.Year)
+            {
+                var yearStart = new DateOnly(ReferenceDate.Year, 1, 1);
+                return (yearStart, yearStart.AddYears(1));
+            }
+
+            var monthStart = new DateOnly(ReferenceDate.Year, ReferenceDate.Month, 1);
+            return (monthStart, monthStart.AddMonths(1));
+        }
 
         public void SwitchView(CalendarViewMode viewMode) => ViewMode = viewMode;
 
