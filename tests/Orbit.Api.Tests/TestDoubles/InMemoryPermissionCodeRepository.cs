@@ -9,9 +9,9 @@ internal sealed class InMemoryPermissionCodeRepository : IPermissionCodeReposito
     public Task<IReadOnlyList<PermissionCode>> GetAllAsync(CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<PermissionCode>>([.. _codes.Values]);
 
-    public Task AddIfAbsentAsync(PermissionCode code, CancellationToken cancellationToken)
+    public Task SaveAsync(PermissionCode code, CancellationToken cancellationToken)
     {
-        _codes.TryAdd(code.Permission, code);
+        _codes[code.Permission] = code;
         return Task.CompletedTask;
     }
 }
