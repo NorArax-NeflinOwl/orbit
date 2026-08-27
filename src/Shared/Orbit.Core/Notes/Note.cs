@@ -27,6 +27,12 @@ public sealed class Note
     /// </summary>
     public bool IsPrivate { get; private set; }
 
+    /// <summary>
+    /// Whether this note sits at the top of its owner's list. Only the owner's pin counts - see
+    /// SetNotePinnedCommandHandler for why a recipient cannot pin a note shared with them.
+    /// </summary>
+    public bool IsPinned { get; private set; }
+
     /// <summary>The sealed title and lines of a private note; null for an ordinary one. See <see cref="EncryptedPayload"/>.</summary>
     public EncryptedPayload? EncryptedContent { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
@@ -61,7 +67,7 @@ public sealed class Note
     private Note(
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned)
     {
         Id = id;
         UserId = userId;
@@ -71,26 +77,28 @@ public sealed class Note
         LockedByUserId = lockedByUserId;
         LockedByUserName = lockedByUserName;
         LockExpiresAtUtc = lockExpiresAtUtc;
+        IsPinned = isPinned;
     }
 
     public static Note Create(
-        Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate = false, EncryptedPayload? encryptedContent = null)
+        Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate = false,
+        EncryptedPayload? encryptedContent = null, bool isPinned = false)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(title, content, isPrivate);
         var now = DateTimeOffset.UtcNow;
         return new Note(
             Guid.NewGuid(), userId, title, content, isPrivate, encryptedContent, now, now,
-            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null, isPinned);
     }
 
     /// <summary>Rebuilds a note from already-persisted values, bypassing creation rules.</summary>
     public static Note FromPersistence(
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned = false)
         => new(id, userId, title, content, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
-            lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+            lockedByUserId, lockedByUserName, lockExpiresAtUtc, isPinned);
 
     /// <summary>
     /// Stamps how the current caller relates to this note - see the class comment. Called exactly once,
@@ -179,6 +187,15 @@ public sealed class Note
 
         // No check for a missing payload here - see EnsureSealedWhenPrivate for where that lives and why.
         return (string.Empty, [], true, encryptedContent);
+    }
+
+    /// <summary>
+    /// Pinning is deliberately not part of Update: it moves a card on a page, it does not change what the
+    /// note says, so it must not touch UpdatedAtUtc, take the edit lock, or need a body to send back.
+    /// </summary>
+    public void SetPinned(bool isPinned)
+    {
+        IsPinned = isPinned;
     }
 
     public bool IsLockedByAnotherUser(Guid callerId, DateTimeOffset nowUtc)

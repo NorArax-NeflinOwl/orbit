@@ -9,6 +9,7 @@ namespace Orbit.Contracts.Notes;
 /// person from the "share with" contact picker when re-sharing a received copy (see
 /// ShareNoteCommandHandler's class comment for why sharing back to them is never allowed).
 /// </summary>
+/// <param name="IsPinned">Sorts this note above the others, on every client that shows a list of them.</param>
 /// <param name="IsSharedWithOthers">
 /// The owner's side of sharing: somebody else holds accepted access to this note. Always false when
 /// <paramref name="IsShared"/> is true, since that describes the other end of the same relationship.
@@ -20,4 +21,4 @@ public sealed record NoteDto(
     Guid Id, string Title, IReadOnlyList<NoteContentLineDto> Content, bool IsPrivate, EncryptedContentDto? EncryptedContent,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
     bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId,
-    bool IsSharedWithOthers = false);
+    bool IsSharedWithOthers = false, bool IsPinned = false);

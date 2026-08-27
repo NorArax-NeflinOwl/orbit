@@ -37,6 +37,28 @@ public sealed class NotesTests : OrbitTestContext
     }
 
     [Fact]
+    public void A_pinned_note_is_listed_first()
+    {
+        RegisterNotesApiClient([Note("Shopping"), Note("Ideas") with { IsPinned = true }]);
+
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        var titles = cut.FindAll(".note-row-title").Select(element => element.TextContent.Trim()).ToList();
+        Assert.Equal(["Ideas", "Shopping"], titles);
+    }
+
+    [Fact]
+    public void A_note_shared_with_you_has_no_pin()
+    {
+        // Pinning a note moves it on its owner's page, so the control is not offered to a recipient.
+        RegisterNotesApiClient([Note("Shopping") with { IsShared = true, SharedByUserName = "anna" }]);
+
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        Assert.Empty(cut.FindAll(".pin-button"));
+    }
+
+    [Fact]
     public void An_account_with_no_notes_says_so()
     {
         RegisterNotesApiClient([]);

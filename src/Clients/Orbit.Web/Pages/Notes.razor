@@ -35,10 +35,18 @@ else if (_notes.Count == 0)
 else
 {
     <ul>
-        @foreach (var note in _notes)
+        @foreach (var note in Ordered(_notes))
         {
-            <li class="note-row">
-                <strong class="note-row-title">@note.Title</strong>
+            <li class="note-row @(note.IsPinned ? "note-row-pinned" : "")">
+                <div class="note-row-heading">
+                    <strong class="note-row-title">@note.Title</strong>
+                    @* Only for a note you own: pinning moves it on its owner's page, so a recipient
+                       pinning a note shared with them would be rearranging someone else's list. *@
+                    @if (!note.IsShared)
+                    {
+                        <PinButton IsPinned="note.IsPinned" OnPinnedChanged="pinned => SetPinnedAsync(note, pinned)" />
+                    }
+                </div>
                 @* One line, not the whole note - enough to recognise which note this is, with the
                    editor one click away for reading it. A checklist line shows whether it is done, the
                    same mark the task list preview uses. *@
@@ -69,6 +77,10 @@ else
 
 @code {
     private IReadOnlyList<NoteDto>? _notes;
+
+    /// <summary>Pinned notes first, and the rest in the order the API sent them - most recently updated first.</summary>
+    private static IEnumerable<NoteDto> Ordered(IReadOnlyList<NoteDto> notes)
+        => notes.OrderByDescending(note => note.IsPinned);
 
     /// <summary>Joins a note's lines back into a single line of text for the list preview, since Content is now structured rather than a flat string.</summary>
     /// <summary>
@@ -106,6 +118,36 @@ else
     {
         Logger.LogInformation("User clicked 'Edit' for note {NoteId}", noteId);
         NavigationManager.NavigateTo($"/notes/{noteId}");
+    }
+
+    /// <summary>
+    /// Saves the pin and reflects it locally rather than reloading the whole list: nothing else about
+    /// the note changed, and a reload here would throw away the reader's scroll position.
+    /// </summary>
+    private async Task SetPinnedAsync(NoteDto note, bool isPinned)
+    {
+        Logger.LogInformation("User clicked '{Action}' for note {NoteId}", isPinned ? "Pin" : "Unpin", note.Id);
+        try
+        {
+            if (!await NotesApiClient.SetPinnedAsync(note.Id, isPinned))
+            {
+                return;
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to pin note {NoteId}", note.Id);
+            return;
+        }
+
+        _notes = _notes!
+            .Select(existingNote => existingNote.Id == note.Id ? existingNote with { IsPinned = isPinned } : existingNote)
+            .ToList();
     }
 
     private async Task DeleteNoteAsync(NoteDto note)

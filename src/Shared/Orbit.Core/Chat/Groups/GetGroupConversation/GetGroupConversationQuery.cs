@@ -8,4 +8,4 @@ namespace Orbit.Core.Chat.Groups.GetGroupConversation;
 /// which is what a window opening for the first time wants.
 /// </summary>
 public sealed record GetGroupConversationQuery(Guid UserId, Guid GroupId, DateTimeOffset? SinceUtc = null)
-    : IRequest<IReadOnlyList<ChatMessage>>;
+    : IRequest<IReadOnlyList<GroupConversationEntry>>;

@@ -158,6 +158,13 @@ public sealed class NotesApiClient
         }
     }
 
+    public async Task<bool> SetPinnedAsync(Guid noteId, bool isPinned, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/notes/{noteId}/pinned", new SetNotePinnedRequest(isPinned), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task DeleteNoteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/notes/{id}", cancellationToken);

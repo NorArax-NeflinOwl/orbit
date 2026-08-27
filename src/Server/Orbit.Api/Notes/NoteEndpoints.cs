@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Orbit.Api.Permissions;
 using Orbit.Contracts;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
@@ -15,6 +16,7 @@ using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.ReleaseNoteLock;
+using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
 using Orbit.Core.Notes.UpdateNote;
 
@@ -73,6 +75,17 @@ public static class NoteEndpoints
             return ToApiResult(outcome);
         });
 
+        // Separate from the update above because pinning only moves a card on a page: it needs no body
+        // to send back, takes no edit lock, and works from the list page where nothing has been loaded
+        // to edit - see Note.SetPinned.
+        notes.MapPut("/{id:guid}/pinned", async (
+            Guid id, SetNotePinnedRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var pinned = await dispatcher.SendAsync(
+                new SetNotePinnedCommand(GetUserId(user), id, request.IsPinned), cancellationToken);
+            return pinned ? Results.NoContent() : Results.NotFound();
+        });
+
         notes.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var deleted = await dispatcher.SendAsync(new DeleteNoteCommand(GetUserId(user), id), cancellationToken);
@@ -108,7 +121,7 @@ public static class NoteEndpoints
                 new ShareNoteCommand(GetUserId(user), id, request.RecipientUserId, RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
             return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared, outcome.AccessLevelRaised));
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         // Resolves a share offered to the caller into a copy in their own notes - see AcceptNoteShareCommand.
         notes.MapPost("/shares/{shareId:guid}/accept", async (
@@ -116,7 +129,7 @@ public static class NoteEndpoints
         {
             var accepted = await dispatcher.SendAsync(new AcceptNoteShareCommand(GetUserId(user), shareId), cancellationToken);
             return accepted ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         // Lets Chat.razor show an accurate "Accept" vs. "already accepted" state for a note-share message
         // even after a page reload, instead of only remembering what was clicked this session.
@@ -125,7 +138,7 @@ public static class NoteEndpoints
         {
             var isAccepted = await dispatcher.SendAsync(new GetNoteShareStatusQuery(GetUserId(user), shareId), cancellationToken);
             return isAccepted is null ? Results.NotFound() : Results.Ok(isAccepted);
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
     }
 
     /// <summary>
@@ -159,7 +172,7 @@ public static class NoteEndpoints
             note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.IsPrivate, ToDto(note.EncryptedContent),
             note.CreatedAtUtc, note.UpdatedAtUtc,
             note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null,
-            note.IsSharedWithOthers);
+            note.IsSharedWithOthers, note.IsPinned);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

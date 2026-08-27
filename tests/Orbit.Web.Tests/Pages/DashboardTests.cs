@@ -1,4 +1,6 @@
 using System.Net;
+using Orbit.Core.Permissions;
+using System.Text;
 using System.Net.Http.Json;
 using AngleSharp.Dom;
 using Bunit;
@@ -8,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Users;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
@@ -23,11 +26,46 @@ public sealed class DashboardTests : OrbitTestContext
     public DashboardTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        RegisterUsersApiClient();
         // Notes/task lists/events aren't what these tests exercise - each is stubbed to an empty list so
         // the dashboard finishes loading without depending on unrelated fixture data.
         RegisterEmptyNotesApiClient();
         RegisterEmptyTasksApiClient();
         RegisterEmptyCalendarApiClient();
+        RegisterDashboardPins();
+        RegisterPermissions();
+    }
+
+    /// <summary>
+    /// The dashboard only asks for chats, groups and shared positions once this account has unlocked
+    /// them (see UserPermissionState), so these tests grant everything - what they are about is what the
+    /// columns show, not what is unlocked. PermissionsTests below covers the locked case.
+    /// </summary>
+    private void RegisterPermissions(params ApplicationPermission[] granted)
+    {
+        var names = (granted.Length > 0 ? granted : Enum.GetValues<ApplicationPermission>())
+            .Select(permission => $"\"{permission}\"");
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent($"{{\"granted\":[{string.Join(",", names)}]}}", Encoding.UTF8, "application/json")
+        });
+        var permissions = new UserPermissionState(
+            new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
+        permissions.RefreshAsync().GetAwaiter().GetResult();
+        Services.AddSingleton(permissions);
+    }
+
+    /// <summary>
+    /// Which cards are pinned lives in localStorage, reached through a JS module (see
+    /// DashboardPinService) - stubbed as "nothing pinned" so these tests see the cards in their written
+    /// order rather than an order somebody's browser happened to save.
+    /// </summary>
+    private void RegisterDashboardPins()
+    {
+        var module = JSInterop.SetupModule("./js/dashboardPins.js");
+        module.Setup<string[]>("getPinnedCards").SetResult([]);
+        module.SetupVoid("setPinnedCards", _ => true);
+        Services.AddScoped<DashboardPinService>();
     }
 
     [Fact]
@@ -85,13 +123,39 @@ public sealed class DashboardTests : OrbitTestContext
     }
 
     [Fact]
+    public void An_account_that_has_unlocked_nothing_still_gets_its_notes_and_tasks()
+    {
+        // What this pins: the dashboard is one page built from several separate questions, and the ones
+        // this account may not ask must not take the page down with them. Before the permission gate
+        // had this, a 403 on contacts or shared positions turned the entire dashboard - notes and task
+        // lists included - into "Couldn't load the dashboard", which is what everybody saw on the
+        // release that introduced it.
+        Services.Remove(Services.Single(service => service.ServiceType == typeof(UserPermissionState)));
+        RegisterPermissions(ApplicationPermission.Sharing);
+        RegisterNotesApiClient([new NoteDto(
+            Guid.NewGuid(), "Shopping", [], IsPrivate: false, EncryptedContent: null,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null)]);
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Shopping", cut.Markup);
+        Assert.DoesNotContain("Couldn't load the dashboard", cut.Markup);
+        // Nothing was asked for, so nothing is claimed: no contacts column rather than an empty one.
+        Assert.DoesNotContain("Anna Kowalska", cut.Markup);
+    }
+
+    [Fact]
     public void Clicking_a_group_opens_it()
     {
         var group = Group("Weekend trip", memberCount: 3);
         RegisterChatApiClient([], [group]);
         var cut = RenderComponent<Dashboard>();
 
-        FindColumn(cut, "Groups").QuerySelector("button")!.Click();
+        FindColumn(cut, "Groups").QuerySelector(".list-row")!.Click();
 
         Assert.EndsWith($"/chat/groups/{group.Id}", Services.GetRequiredService<NavigationManager>().Uri);
     }
@@ -106,7 +170,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyCalendarApiClient();
         var cut = RenderComponent<Dashboard>();
 
-        FindColumn(cut, "Tasks").QuerySelector("button")!.Click();
+        FindColumn(cut, "Tasks").QuerySelector(".list-row")!.Click();
 
         // Clicking a list here means "let me get on with it", which is ticking things off - reworking
         // the list's own settings is a deliberate trip to the editor from there.
@@ -137,9 +201,55 @@ public sealed class DashboardTests : OrbitTestContext
         Services.AddSingleton(new ChatApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
     }
 
-    private void RegisterEmptyNotesApiClient()
+    /// <summary>
+    /// The dashboard asks who is sharing a position with the reader. These tests are about the other
+    /// columns, so it answers "nobody" - the column then draws nothing, which is what they expect.
+    /// </summary>
+    private void RegisterUsersApiClient() => RegisterSharedLocations([]);
+
+    private void RegisterSharedLocations(IReadOnlyList<SharedLocationDto> shares)
     {
-        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(Array.Empty<NoteDto>()))) { BaseAddress = new Uri("https://example.test/") };
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(shares)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        Services.AddSingleton(new UsersApiClient(httpClient));
+    }
+
+    [Fact]
+    public void Somebody_sharing_their_position_shows_up_on_the_dashboard()
+    {
+        var sharerId = Guid.NewGuid();
+        RegisterChatApiClient([new ContactDto(
+            sharerId, "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
+        RegisterSharedLocations([new SharedLocationDto(
+            sharerId, Guid.NewGuid(), "cipher", "nonce", IsContinuous: true, DateTimeOffset.UtcNow)]);
+
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        // The name and that it is live - not the position itself, which only the map page can open.
+        Assert.Contains("Anna Kowalska", cut.Markup);
+        Assert.Contains("Shared with you", cut.Markup);
+    }
+
+    [Fact]
+    public void Nobody_sharing_a_position_gets_no_column_for_it()
+    {
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        Assert.DoesNotContain("Shared with you", cut.Markup);
+    }
+
+    private void RegisterEmptyNotesApiClient() => RegisterNotesApiClient([]);
+
+    private void RegisterNotesApiClient(IReadOnlyList<NoteDto> notes)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(notes))) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new NotesApiClient(httpClient));
     }
 

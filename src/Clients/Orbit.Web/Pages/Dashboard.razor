@@ -3,16 +3,22 @@
 @implements IDisposable
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Users
+@using Orbit.Core.Users
 @using Orbit.Contracts.Notes
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<Dashboard> Logger
+@inject UserPermissionState Permissions
 @inject Translations T
+@inject DashboardPinService DashboardPins
 
 <PageTitle>@T["Orbit — Dashboard"]</PageTitle>
 
@@ -27,7 +33,8 @@
 {
     <p>@_loadErrorMessage</p>
 }
-else if (_notes is null || _taskLists is null || _events is null || _contacts is null || _groups is null)
+else if (_notes is null || _taskLists is null || _events is null || _contacts is null || _groups is null
+    || _sharedLocations is null)
 {
     <p>@T["Loading…"]</p>
 }
@@ -47,8 +54,8 @@ else
     <div class="card-grid">
         @if (_notes.Count > 0)
         {
-            <div class="card">
-                <div class="card-header"><span class="card-title">@T["Notes"]</span><span class="card-count">@_notes.Count</span></div>
+            <div class="card @(DashboardPins.IsPinned("notes") ? "card-pinned" : "")">
+                <div class="card-header"><span class="card-title">@T["Notes"]</span><span class="card-header-end"><span class="card-count">@_notes.Count</span><PinButton IsPinned='DashboardPins.IsPinned("notes")' OnPinnedChanged='pinned => SetCardPinnedAsync("notes", pinned)' /></span></div>
                 @foreach (var note in _notes)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditNote(note.Id)">
@@ -61,8 +68,8 @@ else
 
         @if (_taskLists.Count > 0)
         {
-            <div class="card">
-                <div class="card-header"><span class="card-title">@T["Tasks"]</span><span class="card-count">@T.Format("{0} lists", _taskLists.Count)</span></div>
+            <div class="card @(DashboardPins.IsPinned("tasks") ? "card-pinned" : "")">
+                <div class="card-header"><span class="card-title">@T["Tasks"]</span><span class="card-header-end"><span class="card-count">@T.Format("{0} lists", _taskLists.Count)</span><PinButton IsPinned='DashboardPins.IsPinned("tasks")' OnPinnedChanged='pinned => SetCardPinnedAsync("tasks", pinned)' /></span></div>
                 @foreach (var taskList in _taskLists)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToTaskList(taskList.Id)">
@@ -83,8 +90,8 @@ else
 
         @if (_events.Count > 0)
         {
-            <div class="card">
-                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-count">@_events.Count</span></div>
+            <div class="card @(DashboardPins.IsPinned("upcoming") ? "card-pinned" : "")">
+                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-header-end"><span class="card-count">@_events.Count</span><PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' /></span></div>
                 @foreach (var calendarEvent in _events.OrderBy(e => e.Details.StartUtc).Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditEvent(calendarEvent.Id)">
@@ -100,8 +107,8 @@ else
 
         @if (_groups.Count > 0)
         {
-            <div class="card">
-                <div class="card-header"><span class="card-title">@T["Groups"]</span><span class="card-count">@_groups.Count</span></div>
+            <div class="card @(DashboardPins.IsPinned("groups") ? "card-pinned" : "")">
+                <div class="card-header"><span class="card-title">@T["Groups"]</span><span class="card-header-end"><span class="card-count">@_groups.Count</span><PinButton IsPinned='DashboardPins.IsPinned("groups")' OnPinnedChanged='pinned => SetCardPinnedAsync("groups", pinned)' /></span></div>
                 @foreach (var group in _groups)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToGroup(group.Id)">
@@ -117,26 +124,48 @@ else
             </div>
         }
 
+        @if (_sharedLocations!.Count > 0)
+        {
+            <div class="card @(DashboardPins.IsPinned("locations") ? "card-pinned" : "")">
+                <div class="card-header">
+                    <span class="card-title">@T["Shared with you"]</span>
+                    <span class="card-header-end">
+                        <span class="card-count">@_sharedLocations!.Count</span>
+                        <PinButton IsPinned='DashboardPins.IsPinned("locations")'
+                                   OnPinnedChanged='pinned => SetCardPinnedAsync("locations", pinned)' />
+                    </span>
+                </div>
+                @foreach (var share in _sharedLocations!)
+                {
+                    <button type="button" class="list-row list-row-button" @onclick="GoToMap">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(share.SharerUserId)">@AvatarHelper.GetInitials(DisplayNameFor(share.SharerUserId))</span>
+                        <span class="row-title">@DisplayNameFor(share.SharerUserId)</span>
+                        <span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"])</span>
+                    </button>
+                }
+            </div>
+        }
+
         @if (_contacts.Count > 0)
         {
-            <div class="card">
-                <div class="card-header"><span class="card-title">@T["Recent chats"]</span></div>
+            <div class="card @(DashboardPins.IsPinned("chats") ? "card-pinned" : "")">
+                <div class="card-header"><span class="card-title">@T["Recent chats"]</span><span class="card-header-end"><PinButton IsPinned='DashboardPins.IsPinned("chats")' OnPinnedChanged='pinned => SetCardPinnedAsync("chats", pinned)' /></span></div>
                 @foreach (var contact in _recentContacts.Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                         <span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span>
                     </button>
                 }
             </div>
 
-            <div class="card">
-                <div class="card-header"><span class="card-title">@T["Contacts"]</span><span class="card-count">@_contactsAlphabetically.Count()</span></div>
+            <div class="card @(DashboardPins.IsPinned("contacts") ? "card-pinned" : "")">
+                <div class="card-header"><span class="card-title">@T["Contacts"]</span><span class="card-header-end"><span class="card-count">@_contactsAlphabetically.Count()</span><PinButton IsPinned='DashboardPins.IsPinned("contacts")' OnPinnedChanged='pinned => SetCardPinnedAsync("contacts", pinned)' /></span></div>
                 @foreach (var contact in _contactsAlphabetically)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)</span>
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="StatusOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                     </button>
                 }
@@ -146,11 +175,30 @@ else
 }
 
 @code {
+    /// <summary>
+    /// What to show next to this person right now. The API resolves it as the list is read, so an
+    /// unreadable value can only mean a client and server that disagree about the names - offline is
+    /// the honest answer to that, rather than claiming somebody is there.
+    /// </summary>
+    private static PresenceStatus StatusOf(ContactDto contact)
+        => Enum.TryParse<PresenceStatus>(contact.PresenceStatus, out var status) ? status : PresenceStatus.Offline;
+
     private IReadOnlyList<NoteDto>? _notes;
     private IReadOnlyList<TaskDto>? _taskLists;
     private IReadOnlyList<CalendarEventDto>? _events;
     private IReadOnlyList<ContactDto>? _contacts;
     private IReadOnlyList<ChatGroupDto>? _groups;
+    private IReadOnlyList<SharedLocationDto>? _sharedLocations;
+
+    /// <summary>
+    /// Moves a card to the top of the page for this reader, on this device - see DashboardPinService for
+    /// why that is not stored server-side the way a pinned note or task list is.
+    /// </summary>
+    private async Task SetCardPinnedAsync(string cardKey, bool isPinned)
+    {
+        Logger.LogInformation("User clicked '{Action}' for dashboard card {CardKey}", isPinned ? "Pin" : "Unpin", cardKey);
+        await DashboardPins.SetPinnedAsync(cardKey, isPinned);
+    }
 
     /// <summary>Matches Orbit.Core.Chat.Groups.ChatGroupRole.Admin, which the API sends by name.</summary>
     private const string AdminRole = "Admin";
@@ -185,12 +233,17 @@ else
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Dashboard opened, loading notes/task lists/events/contacts/groups");
+        // Before the loads below, which each ask whether this account has unlocked what they are
+        // for - asked too early, every gated card would be missing from a page that had them.
+        await Permissions.EnsureLoadedAsync();
+        await DashboardPins.InitializeAsync();
         try
         {
             // Loaded together rather than one after another, so the dashboard's total load time is the
             // slowest single call instead of the sum of all of them.
             await Task.WhenAll(
-                LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync());
+                LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync(),
+                LoadSharedLocationsAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -249,7 +302,8 @@ else
     {
         try
         {
-            await Task.WhenAll(LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync());
+            await Task.WhenAll(
+                LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadSharedLocationsAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -269,9 +323,24 @@ else
 
     private async Task LoadEventsAsync() => _events = await CalendarApiClient.GetCalendarEventsAsync();
 
-    private async Task LoadContactsAsync() => _contacts = await ChatApiClient.GetContactsAsync();
+    // Not asked at all without the permission for it, rather than asked and refused: the dashboard is
+    // one page made of several separate questions, and a card nobody unlocked should be absent, not the
+    // reason the whole page says it could not load.
+    private async Task LoadContactsAsync()
+        => _contacts = Permissions.Has(ApplicationPermission.Chat) ? await ChatApiClient.GetContactsAsync() : [];
 
-    private async Task LoadGroupsAsync() => _groups = await ChatApiClient.GetGroupsAsync();
+    private async Task LoadGroupsAsync()
+        => _groups = Permissions.Has(ApplicationPermission.GroupChat) ? await ChatApiClient.GetGroupsAsync() : [];
+
+    /// <summary>
+    /// Only who is sharing, not where they are. Opening a position means decrypting it, which is the
+    /// map page's job and needs this reader's key - the dashboard is a list of what is waiting, so it
+    /// says who and sends them there.
+    /// </summary>
+    private async Task LoadSharedLocationsAsync()
+        => _sharedLocations = Permissions.Has(ApplicationPermission.Location)
+            ? await UsersApiClient.GetLocationsSharedWithMeAsync()
+            : [];
 
     private static int CompletionPercent(TaskDto taskList)
         => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);
@@ -322,6 +391,15 @@ else
         _pollCancellation?.Cancel();
         _pollTimer?.Dispose();
     }
+
+    /// <summary>
+    /// The sharer's name from the contact list this page already loaded - somebody can only share a
+    /// position with a contact, so the name is always here to be found.
+    /// </summary>
+    private string DisplayNameFor(Guid userId)
+        => _contacts?.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? T["Someone"];
+
+    private void GoToMap() => NavigationManager.NavigateTo("/map");
 
     private void GoToGroup(Guid groupId)
     {

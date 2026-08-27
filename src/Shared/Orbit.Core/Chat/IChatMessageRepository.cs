@@ -58,4 +58,19 @@ public interface IChatMessageRepository
     /// asks for all of them on every poll tick.
     /// </summary>
     Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(Guid readerUserId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Marks every copy addressed to readerUserId in this group as read. The group counterpart of
+    /// <see cref="MarkConversationAsReadAsync"/>, and a no-op for copies already marked, so it is safe
+    /// to call on every poll tick rather than only once.
+    /// </summary>
+    Task MarkGroupConversationAsReadAsync(
+        Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Who each of these group messages reached and which of them have read it, keyed by GroupMessageId.
+    /// Asked for a whole page of messages at once, because the conversation needs it for every message
+    /// it draws.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>>> GetGroupReceiptsAsync(
+        IReadOnlyCollection<Guid> groupMessageIds, CancellationToken cancellationToken);
 }

@@ -125,9 +125,7 @@ else
                     {
                         @* Only for a list you own: pinning moves the card on its owner's page, so a
                            recipient pinning a shared list would be rearranging someone else's. *@
-                        <button type="button" class="btn-secondary" @onclick="() => TogglePinnedAsync(taskList)">
-                            @(taskList.IsPinned ? T["Unpin"] : T["Pin"])
-                        </button>
+                        <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
                     }
                     <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
                     <button type="button" class="btn-secondary" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>

@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Orbit.Api.Permissions;
 using Orbit.Contracts;
 using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Sharing;
@@ -95,14 +96,14 @@ public static class InventoryEndpoints
                     RequestEnum.Parse<ShareAccessLevel>(request.AccessLevel, "accessLevel")),
                 cancellationToken);
             return outcome is null ? Results.NotFound() : Results.Ok(new ShareResultDto(outcome.ShareId, outcome.AlreadyShared, outcome.AccessLevelRaised));
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         warehouses.MapPost("/shares/{shareId:guid}/accept", async (
             Guid shareId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var accepted = await dispatcher.SendAsync(new AcceptWarehouseShareCommand(GetUserId(user), shareId), cancellationToken);
             return accepted ? Results.NoContent() : Results.NotFound();
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         // Lets Chat.razor show an accurate "Accept" vs. "already accepted" state for a warehouse-share
         // message even after a page reload, instead of only remembering what was clicked this session.
@@ -111,7 +112,7 @@ public static class InventoryEndpoints
         {
             var isAccepted = await dispatcher.SendAsync(new GetWarehouseShareStatusQuery(GetUserId(user), shareId), cancellationToken);
             return isAccepted is null ? Results.NotFound() : Results.Ok(isAccepted);
-        });
+        }).RequireAuthorization(PermissionPolicies.Sharing);
 
         warehouses.MapGet("/{warehouseId:guid}/items", async (
             Guid warehouseId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>

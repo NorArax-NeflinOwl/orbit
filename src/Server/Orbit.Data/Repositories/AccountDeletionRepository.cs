@@ -45,6 +45,7 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
         await _dbContext.NotificationEntries.Where(entry => entry.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.DiagnosticLogEntries.Where(entry => entry.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.SyncTombstones.Where(tombstone => tombstone.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.UserPermissions.Where(permission => permission.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         // Normally already gone: DeleteAccountCommandHandler takes the account out of its groups through
         // the domain first, so an emptied group is removed and a group left without its only admin gets a
         // new one. Swept here too because this method's contract is "every row this account owns", and a

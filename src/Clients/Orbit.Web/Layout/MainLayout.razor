@@ -3,6 +3,8 @@
 @using System.Globalization
 @using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Permissions
+@using Orbit.Core.Users
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
@@ -15,6 +17,8 @@
 @inject ClientExceptionLog ClientExceptionLog
 @inject ThemeService ThemeService
 @inject DevicePreferences DevicePreferences
+@inject PresenceService Presence
+@inject UserPermissionState Permissions
 @inject Translations T
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -64,15 +68,25 @@
                         <span class="label">@T["Inventory"]</span>
                         @RenderSectionBadge("/inventory")
                     </NavLink>
+                    @* Hidden rather than shown-and-refused: the API turns these away without the matching
+                       permission (see PermissionPolicies in Orbit.Api), so offering the link would only
+                       promise a page that cannot load. Unlocked under Options, Debug. *@
+                    @if (Permissions.Has(ApplicationPermission.Location))
+                    {
                     <NavLink class="nav-item" href="/map" title="@(T["Map"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
                         <span class="label">@T["Map"]</span>
                     </NavLink>
+                    }
+                    @* Either kind of conversation is reached from here, so one of the two is enough. *@
+                    @if (Permissions.Has(ApplicationPermission.Chat) || Permissions.Has(ApplicationPermission.GroupChat))
+                    {
                     <NavLink class="nav-item" href="/contacts" title="@(T["Contacts"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="6.5" r="3" /><path d="M1.5 17c0-3 2.5-5 5.5-5s5.5 2 5.5 5" /><circle cx="15" cy="7.5" r="2.3" /><path d="M13.7 12.2c2.4.3 4.1 2 4.1 4.6" /></svg>
                         <span class="label">@T["Contacts"]</span>
                         @RenderSectionBadge("/chat")
                     </NavLink>
+                    }
 
                     <div class="nav-divider"></div>
 
@@ -98,6 +112,7 @@
                             {
                                 <span class="notif-badge">@FormatUnreadCount(_unreadCount)</span>
                             }
+                            <PresenceDot Status="OwnStatus" />
                         </span>
                         <span class="user-meta">
                             <span class="user-name">@_userName</span>
@@ -108,10 +123,27 @@
                     {
                         <div class="avatar-dropdown" @onclick:stopPropagation="true">
                             <div class="avatar-dropdown-header">
-                                <span class="avatar">@GetInitials(_userName)</span>
+                                <span class="avatar">
+                                    @GetInitials(_userName)
+                                    <PresenceDot Status="OwnStatus" />
+                                </span>
                                 <span class="user-meta">
                                     <span class="user-name">@_userName</span>
                                 </span>
+                            </div>
+                            <div class="availability-picker">
+                                <button type="button"
+                                        class="availability-choice @(Presence.Availability == PresenceAvailability.Available ? "availability-choice-selected" : "")"
+                                        @onclick="() => SetAvailabilityAsync(PresenceAvailability.Available)">
+                                    <PresenceDot Status="PresenceStatus.Available" />
+                                    @T["Available"]
+                                </button>
+                                <button type="button"
+                                        class="availability-choice @(Presence.Availability == PresenceAvailability.DoNotDisturb ? "availability-choice-selected" : "")"
+                                        @onclick="() => SetAvailabilityAsync(PresenceAvailability.DoNotDisturb)">
+                                    <PresenceDot Status="PresenceStatus.DoNotDisturb" />
+                                    @T["Do not disturb"]
+                                </button>
                             </div>
                             <div class="avatar-dropdown-divider"></div>
                             <a class="avatar-dropdown-item options-only" href="/options">
@@ -244,6 +276,9 @@
         T.Changed += OnLanguageChanged;
         await EnsureEncryptionKeyIfAuthenticatedAsync();
         StartSessionHeartbeat();
+        Presence.Changed += OnPresenceChanged;
+        Permissions.Changed += OnPermissionsChanged;
+        await StartPresenceAndPermissionsIfAuthenticatedAsync();
         await RefreshNotificationStateIfAuthenticatedAsync();
         StartNotificationPoll();
     }
@@ -254,6 +289,26 @@
     /// the page from loading. Called once at startup and, implicitly, by every NotificationPollTickAsync
     /// tick thereafter.
     /// </summary>
+    /// <summary>
+    /// The dot on this account's own avatar. Somebody looking at their own page is by definition here,
+    /// so this only ever reflects what they chose - the away and offline states are what *other* people
+    /// see once the heartbeat stops, and showing them to yourself would be showing you a version of
+    /// yourself that only exists after you have left.
+    /// </summary>
+    private PresenceStatus OwnStatus => Presence.Availability == PresenceAvailability.DoNotDisturb
+        ? PresenceStatus.DoNotDisturb
+        : PresenceStatus.Available;
+
+    private async Task SetAvailabilityAsync(PresenceAvailability availability)
+    {
+        Logger.LogInformation("User set their availability to {Availability}", availability);
+        await Presence.SetAvailabilityAsync(availability);
+    }
+
+    private void OnPresenceChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnPermissionsChanged() => InvokeAsync(StateHasChanged);
+
     private async Task RefreshNotificationStateIfAuthenticatedAsync()
     {
         if (!_isAuthenticated)
@@ -365,8 +420,25 @@
         // above) - MainLayout itself is never recreated across that transition, so nothing else would.
         // A no-op while it's already running (StartSessionHeartbeat only starts one if none exists yet).
         StartSessionHeartbeat();
+        // Same reason as the heartbeat above: this layout is not recreated when somebody signs in, and
+        // when the app was opened at the login page there was nobody to report presence for or ask what
+        // they are allowed to do. Without this the navigation stays missing its gated entries, and the
+        // account shows as offline to everyone else, until the page is reloaded.
+        await StartPresenceAndPermissionsIfAuthenticatedAsync();
         await RefreshNotificationStateIfAuthenticatedAsync();
         StartNotificationPoll();
+    }
+
+    /// <summary>Safe to call again: PresenceService only ever starts one heartbeat.</summary>
+    private async Task StartPresenceAndPermissionsIfAuthenticatedAsync()
+    {
+        if (!_isAuthenticated)
+        {
+            return;
+        }
+
+        await Presence.StartAsync();
+        await Permissions.RefreshAsync();
     }
 
     /// <summary>
@@ -811,6 +883,8 @@
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
         NavigationManager.LocationChanged -= OnLocationChanged;
         T.Changed -= OnLanguageChanged;
+        Presence.Changed -= OnPresenceChanged;
+        Permissions.Changed -= OnPermissionsChanged;
         StopSessionHeartbeat();
         StopNotificationPoll();
     }

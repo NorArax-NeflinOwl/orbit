@@ -9,6 +9,8 @@ using Orbit.Core.Chat.Groups;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.Groups.EditGroupMessage;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
+using Orbit.Core.Chat.Groups.GetGroupMessageReceipts;
+using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
 using Orbit.Core.Chat.Groups.SendGroupMessage;
 using Xunit;
 
@@ -323,6 +325,79 @@ public sealed class GroupMessagingTests
         Assert.True(group.IsMember(context.AdminId));
     }
 
+    [Fact]
+    public async Task A_message_is_not_read_by_everyone_until_the_last_member_has_read_it()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+
+        Assert.False(Assert.Single(await context.ReadEntriesAsync(context.AdminId)).ReadByEveryone);
+
+        await context.MarkReadAsync(context.MemberId);
+        // One of the two - still one tick. Reporting "read" here is what the whole feature exists to
+        // avoid: the sender would think a message had landed when half the group had not seen it.
+        Assert.False(Assert.Single(await context.ReadEntriesAsync(context.AdminId)).ReadByEveryone);
+
+        await context.MarkReadAsync(context.SecondMemberId);
+        Assert.True(Assert.Single(await context.ReadEntriesAsync(context.AdminId)).ReadByEveryone);
+    }
+
+    [Fact]
+    public async Task Whether_everyone_has_caught_up_is_only_told_to_the_sender()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        await context.MarkReadAsync(context.MemberId);
+        await context.MarkReadAsync(context.SecondMemberId);
+
+        // Reporting on who has read what, to somebody who did not write it, is telling one member about
+        // another's habits.
+        Assert.Null(Assert.Single(await context.ReadEntriesAsync(context.MemberId)).ReadByEveryone);
+    }
+
+    [Fact]
+    public async Task A_receipt_names_every_member_the_message_reached_and_whether_they_read_it()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        await context.MarkReadAsync(context.MemberId);
+        var groupMessageId = context.MessageRepository.All[0].GroupMessageId!.Value;
+
+        var receipts = await context.ReceiptsAsync(context.AdminId, groupMessageId);
+
+        // Delivered is the copy existing at all - the message reached the server addressed to them.
+        Assert.Equal(2, receipts.Count);
+        Assert.True(receipts.Single(r => r.RecipientUserId == context.MemberId).IsRead);
+        Assert.False(receipts.Single(r => r.RecipientUserId == context.SecondMemberId).IsRead);
+    }
+
+    [Fact]
+    public async Task Somebody_who_joined_after_a_message_appears_in_no_receipt_for_it()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        var groupMessageId = context.MessageRepository.All[0].GroupMessageId!.Value;
+
+        await context.ContactRepository.EnsureContactAsync(
+            context.AdminId, context.OutsiderId, DateTimeOffset.UtcNow, CancellationToken.None);
+        await context.AddMemberAsync(context.AdminId, context.OutsiderId);
+
+        // Nothing was ever addressed to them, which is the same reason they cannot read it - so a
+        // receipt claiming it was "delivered" to them would be untrue.
+        var receipts = await context.ReceiptsAsync(context.AdminId, groupMessageId);
+        Assert.DoesNotContain(receipts, receipt => receipt.RecipientUserId == context.OutsiderId);
+    }
+
+    [Fact]
+    public async Task Somebody_outside_the_group_is_told_nothing_about_who_read_what()
+    {
+        var context = new GroupMessagingTestContext();
+        await context.SendAsync(context.AdminId, [context.MemberId, context.SecondMemberId]);
+        var groupMessageId = context.MessageRepository.All[0].GroupMessageId!.Value;
+
+        Assert.Empty(await context.ReceiptsAsync(context.OutsiderId, groupMessageId));
+    }
+
     /// <summary>A group of three, wired the way DI wires the real thing.</summary>
     private sealed class GroupMessagingTestContext
     {
@@ -354,7 +429,11 @@ public sealed class GroupMessagingTests
                         senderId, GroupId, recipientIds.Select(id => new GroupMessageCopy(id, $"cipher-for-{id}", "nonce")).ToList()),
                     CancellationToken.None);
 
-        public Task<IReadOnlyList<ChatMessage>> ReadAsync(Guid callerId, DateTimeOffset? sinceUtc = null)
+        public async Task<IReadOnlyList<ChatMessage>> ReadAsync(Guid callerId, DateTimeOffset? sinceUtc = null)
+            => (await ReadEntriesAsync(callerId, sinceUtc)).Select(entry => entry.Message).ToList();
+
+        public Task<IReadOnlyList<GroupConversationEntry>> ReadEntriesAsync(
+            Guid callerId, DateTimeOffset? sinceUtc = null)
             => new GetGroupConversationQueryHandler(GroupRepository, MessageRepository)
                 .HandleAsync(new GetGroupConversationQuery(callerId, GroupId, sinceUtc), CancellationToken.None);
 
@@ -366,6 +445,14 @@ public sealed class GroupMessagingTests
                         new InMemoryPushSubscriptionRepository(), [PushSender], NullLogger<PushNotificationDispatcher>.Instance))
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
 
+
+        public Task MarkReadAsync(Guid readerId)
+            => new MarkGroupConversationAsReadCommandHandler(GroupRepository, MessageRepository)
+                .HandleAsync(new MarkGroupConversationAsReadCommand(readerId, GroupId), CancellationToken.None);
+
+        public Task<IReadOnlyList<GroupMessageReceipt>> ReceiptsAsync(Guid callerId, Guid groupMessageId)
+            => new GetGroupMessageReceiptsQueryHandler(GroupRepository, MessageRepository)
+                .HandleAsync(new GetGroupMessageReceiptsQuery(callerId, GroupId, groupMessageId), CancellationToken.None);
 
         public Task<bool> EditAsync(Guid actorId, Guid groupMessageId, IReadOnlyList<Guid> recipientIds, string newText)
             => new EditGroupMessageCommandHandler(MessageRepository)
