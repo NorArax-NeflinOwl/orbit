@@ -99,6 +99,11 @@
                 IsVisible="{Binding IsForwarding}"
                 Style="{StaticResource LinkButton}" />
 
+        <!-- Somebody who has never opened chat has no key to encrypt for. Saying so is the difference
+             between a screen that is waiting on them and a screen that looks broken. -->
+        <Label Grid.Row="3" Text="{Binding CannotWriteReason}" IsVisible="{Binding CannotWrite}"
+               FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
         <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanCompose}">
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
                    ReturnType="Send" ReturnCommand="{Binding SendCommand}" />

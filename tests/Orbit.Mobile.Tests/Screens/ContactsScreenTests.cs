@@ -5,6 +5,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.Crypto;
@@ -102,6 +103,32 @@ public sealed class ContactsScreenTests
         Assert.Equal(string.Empty, screen.SearchQuery);
     }
 
+    [Fact]
+    public void Somebody_who_has_never_opened_chat_is_told_why_they_cannot_be_written_to()
+    {
+        // Reported from using it: search for a new person, open the conversation, and find "no messages
+        // yet" and no way to write one. Hiding the compose box was right - there is no key to encrypt
+        // for - but saying nothing about it reads as the app being broken.
+        using var context = new ContactsContext();
+        var screen = context.Conversation(LocalContact.ForSomebodyNotYetSpokenTo(
+            Guid.NewGuid(), "nokey", "Bez klucza", publicKeyBase64: null));
+
+        Assert.False(screen.CanCompose);
+        Assert.True(screen.CannotWrite);
+        Assert.Contains("Bez klucza", screen.CannotWriteReason);
+    }
+
+    [Fact]
+    public void Somebody_with_a_published_key_gets_the_compose_box_and_no_explanation()
+    {
+        using var context = new ContactsContext();
+        var screen = context.Conversation(LocalContact.ForSomebodyNotYetSpokenTo(
+            Guid.NewGuid(), "bob", "Bob", BrowserVectorsFile.Read().Bob.PublicKeyBase64));
+
+        Assert.True(screen.CanCompose);
+        Assert.False(screen.CannotWrite);
+    }
+
     private sealed class ContactsContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -129,7 +156,8 @@ public sealed class ContactsScreenTests
             }
 
             var session = new UserSession("access", "refresh", ownUserId, "me@orbit.example", "Me");
-            var sessionStore = new SessionStore(new InMemorySessionStorage(session));
+            _sessionStore = new SessionStore(new InMemorySessionStorage(session));
+            var sessionStore = _sessionStore;
             _encryptionKeyProvider = new OwnEncryptionKeyProvider(
                 keyStorage, new EncryptionKeyClient(new FakeEncryptionKeyServer().ToHttpClient()),
                 sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance);
@@ -145,16 +173,37 @@ public sealed class ContactsScreenTests
                 Repository, _chatClient, UsersClient, sender, NullLogger<ChatSynchronizer>.Instance);
         }
 
+        private readonly SessionStore _sessionStore;
+
         public FakeUsersServer Users { get; }
         public UsersClient UsersClient { get; }
         public ChatRepository Repository { get; }
         public RecordingScreenNavigator Navigator { get; } = new();
         public Guid StrangerUserId { get; }
 
+        /// <summary>The conversation screen for one person, which is where the compose box lives.</summary>
+        public ConversationViewModel Conversation(LocalContact contact)
+        {
+            var reader = new EncryptedChatMessageReader(Repository, _encryptionKeyProvider, _sessionStore);
+            var directoryReader = new ChatDirectoryReader(_chatClient, UsersClient, _sessionStore);
+            var sender = new EncryptedChatMessageSender(
+                Repository, _chatClient, directoryReader, _encryptionKeyProvider,
+                NullLogger<EncryptedChatMessageSender>.Instance);
+            var screen = new ConversationViewModel(
+                reader, sender,
+                new EncryptedChatMessageEditor(
+                    Repository, _chatClient, directoryReader, _encryptionKeyProvider,
+                    NullLogger<EncryptedChatMessageEditor>.Instance),
+                new MessageForwarder(sender), Repository, _synchronizer,
+                new Translations(new InMemoryLanguageStore()), Navigator);
+            screen.Open(contact);
+            return screen;
+        }
+
         public ContactsViewModel OpenContacts()
         {
             var screen = new ContactsViewModel(
-                Repository, _chatClient, UsersClient, _synchronizer, _encryptionKeyProvider, Navigator);
+                Repository, _chatClient, UsersClient, _synchronizer, _encryptionKeyProvider, new Translations(new InMemoryLanguageStore()), Navigator);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
         }

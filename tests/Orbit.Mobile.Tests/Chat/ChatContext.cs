@@ -5,6 +5,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.Crypto;
 using Orbit.Mobile.Tests.TestDoubles;

@@ -6,6 +6,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.Crypto;
@@ -105,7 +106,8 @@ public sealed class ExpiredSessionTests
         public RecordingScreenNavigator Navigator { get; } = new();
 
         public ContactsViewModel Contacts()
-            => new(_repository, _chatClient, _usersClient, _synchronizer, _encryptionKeyProvider, Navigator);
+            => new(_repository, _chatClient, _usersClient, _synchronizer, _encryptionKeyProvider,
+                new Translations(new InMemoryLanguageStore()), Navigator);
 
         public GroupsViewModel Groups()
             => new(_repository, _chatClient, _synchronizer, _encryptionKeyProvider, Navigator);

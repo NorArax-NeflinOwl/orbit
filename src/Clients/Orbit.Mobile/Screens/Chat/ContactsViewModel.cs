@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Chat;
@@ -20,6 +21,7 @@ public sealed partial class ContactsViewModel : ObservableObject
     private readonly UsersClient _usersClient;
     private readonly ChatSynchronizer _synchronizer;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -37,13 +39,15 @@ public sealed partial class ContactsViewModel : ObservableObject
 
     public ContactsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, UsersClient usersClient,
-        ChatSynchronizer synchronizer, OwnEncryptionKeyProvider encryptionKeyProvider, IScreenNavigator navigator)
+        ChatSynchronizer synchronizer, OwnEncryptionKeyProvider encryptionKeyProvider,
+        Translations translations, IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _usersClient = usersClient;
         _synchronizer = synchronizer;
         _encryptionKeyProvider = encryptionKeyProvider;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -77,7 +81,7 @@ public sealed partial class ContactsViewModel : ObservableObject
         {
             if (await _usersClient.SearchAsync(identifier, cancellationToken) is not { } found)
             {
-                Message = "Nobody has that email address or username. It has to match exactly.";
+                Message = _translations["Nobody has that email address or username. It has to match exactly."];
                 return;
             }
 
@@ -86,7 +90,7 @@ public sealed partial class ContactsViewModel : ObservableObject
         }
         catch (HttpRequestException)
         {
-            Message = "Finding somebody new needs a connection.";
+            Message = _translations["Finding somebody new needs a connection."];
         }
         catch (OperationCanceledException)
         {
@@ -150,7 +154,7 @@ public sealed partial class ContactsViewModel : ObservableObject
             Contacts.Add(contact);
         }
 
-        Message = Contacts.Count == 0 ? "No conversations yet." : string.Empty;
+        Message = Contacts.Count == 0 ? _translations["No conversations yet."] : string.Empty;
     }
 
     [RelayCommand]

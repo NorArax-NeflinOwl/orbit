@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Sync;
 
@@ -21,6 +22,7 @@ public sealed partial class ConversationViewModel : ObservableObject
     private readonly MessageForwarder _forwarder;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
+    private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>
@@ -79,7 +81,7 @@ public sealed partial class ConversationViewModel : ObservableObject
     public ConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         MessageForwarder forwarder, ChatRepository chatRepository, ChatSynchronizer synchronizer,
-        IScreenNavigator navigator)
+        Translations translations, IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
@@ -87,6 +89,7 @@ public sealed partial class ConversationViewModel : ObservableObject
         _forwarder = forwarder;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
+        _translations = translations;
         _navigator = navigator;
     }
 
@@ -106,6 +109,19 @@ public sealed partial class ConversationViewModel : ObservableObject
     /// <summary>The compose box and the forward picker share the bottom of the screen, so only one shows.</summary>
     public bool CanCompose => CanWrite && !IsForwarding;
 
+    /// <summary>
+    /// Hiding the compose box was right - a message with nothing to encrypt it for could never be sent -
+    /// but saying nothing about why left a screen that reads as broken. Reported from using it: somebody
+    /// searched for a new person, opened the conversation, and found "no messages yet" and no way to
+    /// write one.
+    /// </summary>
+    public bool CannotWrite => _contact is not null && !CanWrite && !IsForwarding;
+
+    public string CannotWriteReason
+        => _translations.Format(
+            "{0} hasn't set up chat yet, so there is nothing to encrypt a message for. They need to open Orbit's chat once, on any device.",
+            _contact?.DisplayName ?? string.Empty);
+
     public bool IsNotForwarding => !IsForwarding;
 
     public void Open(LocalContact contact)
@@ -114,6 +130,8 @@ public sealed partial class ConversationViewModel : ObservableObject
         Title = contact.DisplayName;
         OnPropertyChanged(nameof(CanWrite));
         OnPropertyChanged(nameof(CanCompose));
+        OnPropertyChanged(nameof(CannotWrite));
+        OnPropertyChanged(nameof(CannotWriteReason));
     }
 
     [RelayCommand]
@@ -448,6 +466,9 @@ public sealed partial class ConversationViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsNotForwarding));
         OnPropertyChanged(nameof(CanCompose));
+        // The explanation shares the corner with the compose box and the forward picker, so all three
+        // move together or two of them end up on screen at once.
+        OnPropertyChanged(nameof(CannotWrite));
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));

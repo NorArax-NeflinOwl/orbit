@@ -793,5 +793,11 @@ public static class PolishTranslations
         ["Untitled list"] = "Lista bez tytułu",
         ["Wants to chat"] = "Chce porozmawiać",
         ["{0}d ago"] = "{0} dni temu",
+        ["Finding somebody new needs a connection."] = "Znalezienie nowej osoby wymaga połączenia.",
+        ["No conversations yet."] = "Nie ma jeszcze rozmów.",
+        ["Nobody has that email address or username. It has to match exactly."] =
+            "Nikt nie ma takiego adresu e-mail ani nazwy użytkownika. Musi się zgadzać dokładnie.",
+        ["{0} hasn't set up chat yet, so there is nothing to encrypt a message for. They need to open Orbit's chat once, on any device."] =
+            "{0} nie ma jeszcze skonfigurowanych rozmów, więc nie ma czym zaszyfrować wiadomości. Musi raz otworzyć rozmowy w Orbicie, na dowolnym urządzeniu.",
     };
 }
