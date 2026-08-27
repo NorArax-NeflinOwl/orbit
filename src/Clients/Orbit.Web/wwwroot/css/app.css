@@ -2709,6 +2709,29 @@ input.note-editor-title {
     margin-bottom: 8px;
 }
 
+/* The row that is currently being carried somewhere else, kept visible but clearly picked up. */
+.editor-item.dragging {
+    opacity: 0.45;
+    border-style: dashed;
+}
+
+.drag-handle {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 2px;
+    color: var(--text-tertiary);
+    cursor: grab;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.drag-handle:hover {
+    color: var(--text-secondary);
+}
+
 .editor-item-summary {
     display: flex;
     align-items: center;

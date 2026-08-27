@@ -59,12 +59,14 @@ public sealed class GenerateWarehouseFromTaskListCommandHandler : IRequestHandle
         // The rows go in one at a time rather than through UpdateWarehouseCommand: that command writes
         // the warehouse row as well, and a warehouse created and updated inside one request leaves the
         // same key tracked twice.
-        foreach (var requirement in needed)
+        // In the order the work asks for things rather than alphabetically: a shelf built from a
+        // shopping list reads best in the order the list reads - see InventoryItem.Position.
+        foreach (var (requirement, position) in needed.Select((requirement, position) => (requirement, position)))
         {
             await _inventoryRepository.AddAsync(
                 InventoryItem.Create(
                     warehouseId, requirement.Name, GeneratedProductType, GeneratedCategory, quantity: 0,
-                    minimumQuantity: requirement.Required, expiryDate: null, NotificationChannel.None),
+                    minimumQuantity: requirement.Required, expiryDate: null, NotificationChannel.None, position),
                 cancellationToken);
         }
 

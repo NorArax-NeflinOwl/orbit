@@ -260,6 +260,79 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         Services.AddSingleton(new TasksApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
     }
 
+    [Fact]
+    public void The_list_is_read_in_its_own_order_until_another_one_is_asked_for()
+    {
+        var taskList = TaskList("Zakupy", Item("Ser"), Item("Bułki"), Item("Makaron"));
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Equal(["Ser", "Bułki", "Makaron"], ItemTextsIn(cut));
+    }
+
+    [Fact]
+    public void Choosing_A_to_Z_reads_the_list_alphabetically()
+    {
+        var taskList = TaskList("Zakupy", Item("Ser"), Item("Bułki"), Item("Makaron"));
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".list-sort select").Change(nameof(ChecklistOrder.Alphabetical));
+
+        Assert.Equal(["Bułki", "Makaron", "Ser"], ItemTextsIn(cut));
+    }
+
+    [Fact]
+    public void A_saved_order_is_what_the_list_opens_in()
+    {
+        var taskList = TaskList("Zakupy", Item("Ser"), Item("Bułki"));
+        RegisterTasksApiClient([taskList]);
+        RegisterChecklistViewPreference(new ChecklistViewPreference.SavedReading("tree", "alphabetical"));
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Equal(["Bułki", "Ser"], ItemTextsIn(cut));
+        // Nothing has been changed since it was opened, so there is nothing to save.
+        Assert.True(FindSaveViewButton(cut).HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void Changing_the_order_is_something_to_save()
+    {
+        var taskList = TaskList("Zakupy", Item("Ser"), Item("Bułki"));
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".list-sort select").Change(nameof(ChecklistOrder.Alphabetical));
+
+        Assert.False(FindSaveViewButton(cut).HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void Alphabetical_runs_across_the_whole_tree_when_the_lists_are_flattened()
+    {
+        // Renovation -> Kitchen -> Tiling, read as one run of items: sorting list by list would look
+        // random once the headings are gone.
+        var tiling = TaskList("Tiling", Item("Grout"));
+        var kitchen = TaskList("Kitchen", Item("Tiling done", linkedTaskListId: tiling.Id), Item("Hinge")) with { IsGroup = true };
+        var renovation = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id), Item("Screw")) with { IsGroup = true };
+        RegisterTasksApiClient([renovation, kitchen, tiling]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, renovation.Id));
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Show single items")).Click();
+        cut.Find(".list-sort select").Change(nameof(ChecklistOrder.Alphabetical));
+
+        Assert.Equal(["Grout", "Hinge", "Screw"], ItemTextsIn(cut));
+    }
+
+    /// <summary>What each tickable row says, without the list name and due date the row also carries.</summary>
+    private static IReadOnlyList<string> ItemTextsIn(IRenderedComponent<TaskListChecklist> cut)
+        => [.. cut.FindAll(".check-row .check-row-text").Select(row => row.TextContent.Trim())];
+
+    private static AngleSharp.Dom.IElement FindSaveViewButton(IRenderedComponent<TaskListChecklist> cut)
+        => cut.FindAll("button").First(button => button.TextContent.Contains("view", StringComparison.OrdinalIgnoreCase));
+
     private static TaskDto TaskList(string title, params TaskItemDto[] items)
         => new(
             Guid.NewGuid(), title, items, IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
@@ -425,11 +498,11 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     /// ChecklistViewPreference) - stubbed as "never saved", so these tests see the tree view unless they
     /// press the button themselves.
     /// </summary>
-    private void RegisterChecklistViewPreference()
+    private void RegisterChecklistViewPreference(ChecklistViewPreference.SavedReading? saved = null)
     {
         var module = JSInterop.SetupModule("./js/checklistView.js");
-        module.Setup<string?>("getSavedView", _ => true).SetResult(null);
-        module.SetupVoid("saveView", _ => true);
+        module.Setup<ChecklistViewPreference.SavedReading?>("getSavedReading", _ => true).SetResult(saved);
+        module.SetupVoid("saveReading", _ => true);
         Services.AddScoped<ChecklistViewPreference>();
     }
     /// <summary>

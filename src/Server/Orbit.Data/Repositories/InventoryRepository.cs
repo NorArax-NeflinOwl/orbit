@@ -21,8 +21,11 @@ public sealed class InventoryRepository : IInventoryRepository
             .Where(entity => entity.WarehouseId == warehouseId)
             .ToListAsync(cancellationToken);
 
+        // As arranged, then alphabetically - which is the whole order for a warehouse nobody has
+        // arranged yet, since everything in one sits at position zero.
         return entities
-            .OrderBy(entity => entity.Name)
+            .OrderBy(entity => entity.Position)
+            .ThenBy(entity => entity.Name)
             .Select(ToDomain)
             .ToList();
     }
@@ -60,6 +63,7 @@ public sealed class InventoryRepository : IInventoryRepository
         entity.ExpiryNotificationChannel = item.ExpiryNotificationChannel.ToString();
         entity.PendingRestockTaskListId = item.PendingRestockTaskListId;
         entity.PendingRestockTaskItemId = item.PendingRestockTaskItemId;
+        entity.Position = item.Position;
         entity.UpdatedAtUtc = item.UpdatedAtUtc;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -96,7 +100,8 @@ public sealed class InventoryRepository : IInventoryRepository
         => InventoryItem.FromPersistence(
             entity.Id, entity.WarehouseId, entity.Name, entity.ProductType, entity.Category, entity.Quantity, entity.MinimumQuantity,
             entity.ExpiryDate, Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true),
-            entity.PendingRestockTaskListId, entity.PendingRestockTaskItemId, entity.CreatedAtUtc, entity.UpdatedAtUtc);
+            entity.PendingRestockTaskListId, entity.PendingRestockTaskItemId, entity.Position, entity.CreatedAtUtc,
+            entity.UpdatedAtUtc);
 
     private static InventoryItemEntity ToEntity(InventoryItem item)
         => new()
@@ -112,6 +117,7 @@ public sealed class InventoryRepository : IInventoryRepository
             ExpiryNotificationChannel = item.ExpiryNotificationChannel.ToString(),
             PendingRestockTaskListId = item.PendingRestockTaskListId,
             PendingRestockTaskItemId = item.PendingRestockTaskItemId,
+            Position = item.Position,
             CreatedAtUtc = item.CreatedAtUtc,
             UpdatedAtUtc = item.UpdatedAtUtc
         };

@@ -67,10 +67,22 @@ else
             {
                 @foreach (var item in _formModel.Items)
                 {
-                    <div class="editor-item" @key="item">
+                    <div class="editor-item @(_itemOrder.IsDragging(item) ? "dragging" : "")" @key="item"
+                         @ondragover:preventDefault="true" @ondrop="() => DropItemOn(item)">
                         @* Name and the two numbers that decide whether it needs restocking stay on the
                            row; everything else waits behind the toggle so a full warehouse is readable. *@
                         <div class="editor-item-summary">
+                            @* Only the handle is draggable: a row full of boxes would otherwise start a
+                               drag whenever somebody selected what they had typed. *@
+                            <span class="drag-handle" draggable="true" title="@(T["Drag to reorder"])"
+                                  aria-label="@(T["Drag to reorder"])"
+                                  @ondragstart="() => _itemOrder.Start(item)" @ondragend="_itemOrder.Finish">
+                                <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">
+                                    <circle cx="4" cy="4" r="1.3" /><circle cx="8" cy="4" r="1.3" />
+                                    <circle cx="4" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" />
+                                    <circle cx="4" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" />
+                                </svg>
+                            </span>
                             <InputText class="editor-item-main" placeholder="@(T["Item name"])" @bind-Value="item.Name" />
                             <span class="editor-item-aside">
                                 @if (NeedsRestocking(item))
@@ -158,6 +170,9 @@ else
     private WarehouseItemFormModel? _expandedItem;
     private bool _isSaving;
     private WarehouseFormModel _formModel = new();
+
+    /// <summary>The row being dragged to a new place on the shelf, while one is - see DragReordering.</summary>
+    private readonly DragReordering<WarehouseItemFormModel> _itemOrder = new();
     private string? _saveErrorMessage;
 
     private bool _isShared;
@@ -246,6 +261,16 @@ else
     private bool IsExpanded(WarehouseItemFormModel item) => ReferenceEquals(_expandedItem, item);
 
     private void ToggleExpanded(WarehouseItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
+
+    /// <summary>
+    /// Where an item was dropped is where it belongs: the shelf is saved in the order it is written in
+    /// - see InventoryItem.Position - so arranging it here is the order it is read back in.
+    /// </summary>
+    private void DropItemOn(WarehouseItemFormModel target)
+    {
+        _itemOrder.DropOn(_formModel.Items, target);
+        _itemOrder.Finish();
+    }
 
     private void RemoveItem(WarehouseItemFormModel item)
     {
