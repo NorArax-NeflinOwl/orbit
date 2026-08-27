@@ -1,23 +1,84 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary 
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- Note: For Android please see also Platforms\Android\Resources\values\colors.xml -->
+    <!-- Orbit.Web's palette, converted from its oklch tokens (see wwwroot/css/app.css's :root) to the
+         hex MAUI reads. Same colours in both clients, so a person who uses Orbit in a browser and on
+         their phone is looking at one product rather than two.
 
-    <Color x:Key="Primary">#512BD4</Color>
-    <Color x:Key="PrimaryDark">#ac99ea</Color>
-    <Color x:Key="PrimaryDarkText">#242424</Color>
-    <Color x:Key="Secondary">#DFD8F7</Color>
-    <Color x:Key="SecondaryDarkText">#9880e5</Color>
-    <Color x:Key="Tertiary">#2B0B98</Color>
+         Roles, not shades: every one is a Light/Dark pair, because a screen asking for "subtle text"
+         should get something legible either way rather than asking for a grey and being unreadable on
+         one of the two backgrounds.
 
+         Note: for Android please see also Platforms\Android\Resources\values\colors.xml -->
+
+    <!-- accent / accent-hover. Named Primary because that is what MAUI's own styles look for. -->
+    <Color x:Key="Primary">#7260CB</Color>
+    <Color x:Key="PrimaryDark">#A79DF8</Color>
+    <Color x:Key="AccentHoverLight">#624BBC</Color>
+    <Color x:Key="AccentHoverDark">#BAB2FF</Color>
+    <!-- accent-subtle: a tint of the accent to sit behind it, not beside it. -->
+    <Color x:Key="AccentSubtleLight">#E6E5FF</Color>
+    <Color x:Key="AccentSubtleDark">#312D50</Color>
+    <!-- accent-on: what is legible written on the accent. -->
+    <Color x:Key="AccentOnLight">#FBFBFF</Color>
+    <Color x:Key="AccentOnDark">#090811</Color>
+
+    <!-- bg: what the whole page sits on. Warm rather than pure white or pure black, which is most of
+         why the web looks like itself. -->
+    <Color x:Key="PageBackgroundLight">#FAF6F2</Color>
+    <Color x:Key="PageBackgroundDark">#1B1410</Color>
+    <!-- bg-elevated: a card or panel lifted off that background. -->
+    <Color x:Key="SurfaceLight">#FFFDFB</Color>
+    <Color x:Key="SurfaceDark">#251D19</Color>
+    <!-- bg-subtle: a quiet fill inside a card - a count pill, a chosen row. -->
+    <Color x:Key="SurfaceSubtleLight">#F2EEE7</Color>
+    <Color x:Key="SurfaceSubtleDark">#312823</Color>
+    <!-- border -->
+    <Color x:Key="CardStrokeLight">#DFDAD2</Color>
+    <Color x:Key="CardStrokeDark">#3C332E</Color>
+
+    <!-- text-primary / text-secondary / text-tertiary. SubtleText is the secondary one: the line
+         under a title, which is what the phone reaches for most. -->
+    <Color x:Key="TextPrimaryLight">#251E19</Color>
+    <Color x:Key="TextPrimaryDark">#F1EEEA</Color>
+    <Color x:Key="SubtleTextLight">#60564F</Color>
+    <Color x:Key="SubtleTextDark">#BCB6AF</Color>
+    <Color x:Key="TertiaryTextLight">#8D847E</Color>
+    <Color x:Key="TertiaryTextDark">#7F7973</Color>
+
+    <!-- task: the colour tasks are marked in, distinct from the accent. -->
+    <Color x:Key="TaskLight">#A34D00</Color>
+    <Color x:Key="TaskDark">#E28D4F</Color>
+    <!-- success -->
+    <Color x:Key="SuccessLight">#348F4F</Color>
+    <Color x:Key="SuccessDark">#69BA7C</Color>
+    <!-- danger. The web has one red, and the phone's "warning" and "danger" are both it: a line
+         saying something is wrong and a button that destroys something want the same colour. -->
+    <Color x:Key="DangerLight">#C74B47</Color>
+    <Color x:Key="DangerDark">#ED756E</Color>
+    <Color x:Key="WarningLight">#C74B47</Color>
+    <Color x:Key="WarningDark">#ED756E</Color>
+    <!-- away -->
+    <Color x:Key="AwayLight">#D9A514</Color>
+    <Color x:Key="AwayDark">#E7B643</Color>
+
+    <!-- The dot on the avatar. Green, amber and red all mean reachable; grey means the phone cannot
+         reach Orbit at all, whatever its owner chose. Drawn from the same four web tokens. -->
+    <Color x:Key="PresenceActiveLight">#348F4F</Color>
+    <Color x:Key="PresenceActiveDark">#69BA7C</Color>
+    <Color x:Key="PresenceIdleLight">#D9A514</Color>
+    <Color x:Key="PresenceIdleDark">#E7B643</Color>
+    <Color x:Key="PresenceUnavailableLight">#C74B47</Color>
+    <Color x:Key="PresenceUnavailableDark">#ED756E</Color>
+    <Color x:Key="PresenceOfflineLight">#8D847E</Color>
+    <Color x:Key="PresenceOfflineDark">#7F7973</Color>
+
+    <!-- Kept because MAUI's own control styles in Styles.xaml name them. Nothing Orbit draws should
+         reach for a bare shade - the roles above are what a screen asks for. -->
     <Color x:Key="White">White</Color>
     <Color x:Key="Black">Black</Color>
-    <Color x:Key="Magenta">#D600AA</Color>
-    <Color x:Key="MidnightBlue">#190649</Color>
-    <Color x:Key="OffBlack">#1f1f1f</Color>
-
     <Color x:Key="Gray100">#E1E1E1</Color>
     <Color x:Key="Gray200">#C8C8C8</Color>
     <Color x:Key="Gray300">#ACACAC</Color>
@@ -26,6 +87,13 @@
     <Color x:Key="Gray600">#404040</Color>
     <Color x:Key="Gray900">#212121</Color>
     <Color x:Key="Gray950">#141414</Color>
+    <Color x:Key="Secondary">#DFD8F7</Color>
+    <Color x:Key="SecondaryDarkText">#9880e5</Color>
+    <Color x:Key="Tertiary">#2B0B98</Color>
+    <Color x:Key="PrimaryDarkText">#090811</Color>
+    <Color x:Key="OffBlack">#1B1410</Color>
+    <Color x:Key="Magenta">#D600AA</Color>
+    <Color x:Key="MidnightBlue">#190649</Color>
 
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
@@ -41,30 +109,5 @@
     <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}"/>
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}"/>
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}"/>
-    <!-- Roles rather than shades. Every one of these is read in both themes, so the pair belongs
-         together in one place: a screen asks for "subtle text" and gets something legible either way,
-         instead of asking for Gray500 and being unreadable on black. -->
-    <Color x:Key="SubtleTextLight">#6E6E6E</Color>
-    <Color x:Key="SubtleTextDark">#A0A0A0</Color>
-    <Color x:Key="CardStrokeLight">#DCDCDC</Color>
-    <Color x:Key="CardStrokeDark">#3A3A3C</Color>
-    <Color x:Key="SurfaceLight">#FFFFFF</Color>
-    <Color x:Key="SurfaceDark">#1C1C1E</Color>
-    <!-- Primary is too dark to read on a dark background; PrimaryDark is the template's answer. -->
-    <Color x:Key="WarningLight">#C2185B</Color>
-    <Color x:Key="WarningDark">#FF80AB</Color>
-    <Color x:Key="DangerLight">#C62828</Color>
-    <Color x:Key="DangerDark">#FF8A80</Color>
-
-    <!-- The dot on the avatar. Green, amber and red all mean reachable; grey means the phone cannot
-         reach Orbit at all, whatever its owner chose. -->
-    <Color x:Key="PresenceActiveLight">#2E7D32</Color>
-    <Color x:Key="PresenceActiveDark">#81C784</Color>
-    <Color x:Key="PresenceIdleLight">#F9A825</Color>
-    <Color x:Key="PresenceIdleDark">#FFD54F</Color>
-    <Color x:Key="PresenceUnavailableLight">#C62828</Color>
-    <Color x:Key="PresenceUnavailableDark">#FF8A80</Color>
-    <Color x:Key="PresenceOfflineLight">#9E9E9E</Color>
-    <Color x:Key="PresenceOfflineDark">#757575</Color>
 
 </ResourceDictionary>

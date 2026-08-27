@@ -201,7 +201,8 @@ public sealed partial class DashboardViewModel : ObservableObject
             return;
         }
 
-        _built.Add(new DashboardCard(kind, title, total.ToString(), rows, _pins.Read().Contains(kind)));
+        var ruled = rows.Select((row, position) => row with { ShowsSeparator = position > 0 }).ToList();
+        _built.Add(new DashboardCard(kind, title, total.ToString(), ruled, _pins.Read().Contains(kind)));
     }
 
     /// <summary>The cards as built, before pinning moves any of them.</summary>
@@ -258,6 +259,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         var today = _timeProvider.GetUtcNow().Date;
 
         return new TodaySummary(
+            // "Thursday, 27 August", as Orbit.Web's today strip opens - it says what "today" means
+            // before saying what is in it.
+            today.ToString("dddd, d MMMM", _translations.DisplayCulture),
             taskLists
                 .SelectMany(list => list.Items)
                 .Count(item => !item.IsCompleted && item.DueDateUtc?.Date == today),

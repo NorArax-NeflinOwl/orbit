@@ -18,45 +18,42 @@
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Padding="20" Spacing="14">
 
-                <Label Text="{controls:Translate 'Dashboard'}" FontSize="26" FontAttributes="Bold" />
-                <Label Text="{controls:Translate 'Everything on your plate, in one place.'}" FontSize="13"
-                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                <Label Text="{controls:Translate 'Dashboard'}" Style="{StaticResource PageTitle}" />
+                <Label Text="{controls:Translate 'Everything on your plate, in one place.'}"
+                       Style="{StaticResource PageSubtitle}" />
 
                 <!-- What is happening today, rather than how much there is in total - the same three
                      counts Orbit.Web puts in its "today strip". -->
-                <Border StrokeThickness="1" Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" Padding="14" Margin="0,4">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="10" />
-                    </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="6" BindingContext="{Binding Today}"
+                <Border Style="{StaticResource CardBorder}" Padding="18,16" Margin="0,4">
+                    <VerticalStackLayout Spacing="8" BindingContext="{Binding Today}"
                                          x:DataType="screens:TodaySummary">
-                        <Label FontSize="13">
-                            <Label.FormattedText>
-                                <FormattedString>
-                                    <Span Text="{controls:Translate 'Tasks due today'}" />
-                                    <Span Text=": " />
-                                    <Span Text="{Binding TasksDueToday}" FontAttributes="Bold" />
-                                </FormattedString>
-                            </Label.FormattedText>
-                        </Label>
-                        <Label FontSize="13">
-                            <Label.FormattedText>
-                                <FormattedString>
-                                    <Span Text="{controls:Translate 'Events today'}" />
-                                    <Span Text=": " />
-                                    <Span Text="{Binding EventsToday}" FontAttributes="Bold" />
-                                </FormattedString>
-                            </Label.FormattedText>
-                        </Label>
-                        <Label FontSize="13">
-                            <Label.FormattedText>
-                                <FormattedString>
-                                    <Span Text="{controls:Translate 'New chat requests'}" />
-                                    <Span Text=": " />
-                                    <Span Text="{Binding PendingChatRequests}" FontAttributes="Bold" />
-                                </FormattedString>
-                            </Label.FormattedText>
-                        </Label>
+                        <Label Text="{Binding Date}" FontSize="15" FontAttributes="Bold" />
+
+                        <!-- A dot, the count, then what it counts - the shape of Orbit.Web's today
+                             strip. Three across there, stacked here, because a phone is not that wide. -->
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                            <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
+                                     Fill="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
+                            <Label Grid.Column="1" Text="{Binding TasksDueToday}" FontSize="14" FontAttributes="Bold" />
+                            <Label Grid.Column="2" Text="{controls:Translate 'tasks due today'}" FontSize="14"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                            <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
+                                     Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <Label Grid.Column="1" Text="{Binding EventsToday}" FontSize="14" FontAttributes="Bold" />
+                            <Label Grid.Column="2" Text="{controls:Translate 'events today'}" FontSize="14"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                            <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
+                                     Fill="{AppThemeBinding Light={StaticResource SuccessLight}, Dark={StaticResource SuccessDark}}" />
+                            <Label Grid.Column="1" Text="{Binding PendingChatRequests}" FontSize="14" FontAttributes="Bold" />
+                            <Label Grid.Column="2" Text="{controls:Translate 'new chat requests'}" FontSize="14"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </Grid>
                     </VerticalStackLayout>
                 </Border>
 
@@ -67,19 +64,17 @@
                 <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Cards}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:DashboardCard">
-                            <Border StrokeThickness="1" Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" Padding="14">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="10" />
-                                </Border.StrokeShape>
+                            <Border Style="{StaticResource CardBorder}">
                                 <VerticalStackLayout Spacing="8">
                                     <!-- The heading is a heading: larger than the rows beneath it and
                                          ruled off from them, so the card's name does not read as its
                                          first entry. -->
                                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                                        <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
+                                        <Label Grid.Column="0" Text="{Binding Title}" Style="{StaticResource CardTitle}"
                                                VerticalOptions="Center" />
-                                        <Label Grid.Column="1" Text="{Binding Count}" FontSize="12"
-                                               VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                                        <Border Grid.Column="1" Style="{StaticResource CardCount}">
+                                            <Label Text="{Binding Count}" Style="{StaticResource CardCountLabel}" />
+                                        </Border>
                                         <Button Grid.Column="2" FontSize="14" Padding="8,0" BackgroundColor="Transparent"
                                                 Text="{Binding IsPinned, Converter={StaticResource PinGlyph}}"
                                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
@@ -93,15 +88,19 @@
                                     <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Rows}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="screens:DashboardRow">
-                                                <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+                                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto"
+                                                      Padding="0,8" ColumnSpacing="8">
+                                                    <BoxView Grid.Row="0" Grid.ColumnSpan="2" HeightRequest="1"
+                                                             Margin="0,-8,0,8" IsVisible="{Binding ShowsSeparator}"
+                                                             Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
                                                     <Grid.GestureRecognizers>
                                                         <TapGestureRecognizer
                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=dashboard:DashboardPage}"
                                                             CommandParameter="{Binding .}" />
                                                     </Grid.GestureRecognizers>
-                                                    <Label Grid.Column="0" Text="{Binding Title}" FontSize="15"
+                                                    <Label Grid.Row="1" Grid.Column="0" Text="{Binding Title}" FontSize="15"
                                                            LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                                                    <Label Grid.Column="1" Text="{Binding Detail}" FontSize="12"
+                                                    <Label Grid.Row="1" Grid.Column="1" Text="{Binding Detail}" FontSize="12"
                                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" VerticalOptions="Center" />
                                                 </Grid>
                                             </DataTemplate>
