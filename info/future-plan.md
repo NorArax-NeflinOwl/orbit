@@ -134,6 +134,12 @@ as not covered by an automated test today, together with why:
   push subscription/service worker lifecycle have no automated coverage at all. bUnit doesn't
   execute real browser crypto/IndexedDB/Push/Notification APIs, and this project has no
   browser-driven test infrastructure (e.g. Playwright) yet.
+- **What Google actually does with an "Add to Google Calendar" link.** The URL is built and pinned by
+  `GoogleLinkTests` - the shape of the dates, the RRULE, what is escaped - but whether Google renders
+  a pre-filled event form from it has only ever been checked by reading its documentation. Opening
+  the link in a browser that is not signed in to a Google account lands on a marketing page, which is
+  Google's own path for an anonymous visitor and tells us nothing either way. Checking the real thing
+  needs a signed-in Google session, which no automated test here has.
 
 ## Deployment
 

@@ -38,6 +38,7 @@ public static class OrbitDataServiceCollectionExtensions
 
         services.AddDbContext<OrbitDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
+        services.AddScoped<IPermissionCodeRepository, PermissionCodeRepository>();
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();

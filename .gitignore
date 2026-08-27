@@ -38,3 +38,7 @@ credentials/
 
 *.DS_Store
 *.Development.json
+
+# Deployment notes that name real accounts - see notes/permissions.local.md. Kept out of git because
+# which account may do what is a deployment's own business, not the source's.
+*.local.md
