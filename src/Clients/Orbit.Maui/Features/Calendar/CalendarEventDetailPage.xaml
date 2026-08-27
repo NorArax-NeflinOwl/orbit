@@ -45,6 +45,8 @@
 
             <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveCommand}" />
 
+            <controls:SharePanel BindingContext="{Binding Share}" />
+
             <HorizontalStackLayout Spacing="16">
                 <Button Text="{controls:Translate 'Back to calendar'}" Command="{Binding GoBackCommand}"
                         Style="{StaticResource LinkButton}" />

@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notes;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Chat;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Notes;
@@ -45,15 +47,19 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     public NoteDetailViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, Translations translations,
-        IScreenNavigator navigator)
+        SharePanel share, IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
         _translations = translations;
+        Share = share;
         _navigator = navigator;
     }
 
     public ObservableCollection<NoteLineRow> Lines { get; } = [];
+
+    /// <summary>Offering this to somebody else - see SharePanel.</summary>
+    public SharePanel Share { get; }
 
     public bool HasStatus => Status.Length > 0;
 
@@ -143,6 +149,14 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         }
 
         Title = note.Title;
+
+        // Only a note the server knows about can be offered: a share names it by its server id, and one
+        // still waiting in the outbox has none.
+        if (note.ServerId is { } serverId)
+        {
+            Share.Describes(SharedItemKind.Note, serverId, note.Title);
+        }
+
         await ShowWhetherItCanBeChangedAsync(note, cancellationToken);
 
         Lines.Clear();

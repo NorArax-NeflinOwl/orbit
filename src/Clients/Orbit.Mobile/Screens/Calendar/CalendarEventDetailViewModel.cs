@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Chat;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Calendar;
@@ -57,13 +59,17 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
 
     public CalendarEventDetailViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, Translations translations,
-        IScreenNavigator navigator)
+        SharePanel share, IScreenNavigator navigator)
     {
         _events = events;
         _synchronizer = synchronizer;
         _translations = translations;
+        Share = share;
         _navigator = navigator;
     }
+
+    /// <summary>Offering this to somebody else - see SharePanel.</summary>
+    public SharePanel Share { get; }
 
     public bool HasStatus => Status.Length > 0;
 
@@ -132,6 +138,11 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         }
 
         _loaded = calendarEvent.Details;
+        if (calendarEvent.ServerId is { } serverId)
+        {
+            Share.Describes(SharedItemKind.CalendarEvent, serverId, calendarEvent.Details.Title);
+        }
+
         Title = calendarEvent.Details.Title;
         Description = calendarEvent.Details.Description ?? string.Empty;
 

@@ -179,6 +179,13 @@ public sealed class ContactsScreenTests
         public UsersClient UsersClient { get; }
         public ChatRepository Repository { get; }
         public RecordingScreenNavigator Navigator { get; } = new();
+
+        /// <summary>Taking up an offer to share something - see SharedItemAcceptance.</summary>
+        public SharedItemAcceptance Acceptance => new(
+            new NotesClient(_shareServer.ToHttpClient()), new TasksClient(_shareServer.ToHttpClient()),
+            new CalendarClient(_shareServer.ToHttpClient()), new InventoryClient(_shareServer.ToHttpClient()));
+
+        private readonly FakeShareServer _shareServer = new();
         public Guid StrangerUserId { get; }
 
         /// <summary>The conversation screen for one person, which is where the compose box lives.</summary>
@@ -195,7 +202,7 @@ public sealed class ContactsScreenTests
                 new EncryptedChatMessageEditor(
                     Repository, _chatClient, directoryReader, _encryptionKeyProvider,
                     NullLogger<EncryptedChatMessageEditor>.Instance),
-                new MessageForwarder(sender), Repository, _synchronizer,
+                new MessageForwarder(sender), Acceptance, Repository, _synchronizer,
                 new Translations(new InMemoryLanguageStore()), Navigator);
             screen.Open(contact);
             return screen;

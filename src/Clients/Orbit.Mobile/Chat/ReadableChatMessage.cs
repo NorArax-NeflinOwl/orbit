@@ -35,10 +35,20 @@ namespace Orbit.Mobile.Chat;
 public sealed record ReadableChatMessage(
     bool IsMine, string? Text, DateTimeOffset SentAtUtc, bool IsEdited, bool IsWaitingToSend,
     string? SenderName = null, Guid? MessageId = null, Guid? GroupMessageId = null, bool IsReadByThem = false,
-    string? ForwardedFromDisplayName = null, bool? IsReadByEveryone = null)
+    string? ForwardedFromDisplayName = null, bool? IsReadByEveryone = null,
+    SharedItemInvitation? Invitation = null)
 {
-    /// <summary>True when this device could not open it - the screen shows a placeholder in its place.</summary>
-    public bool CannotBeOpened => Text is null;
+    /// <summary>
+    /// True when this device could not open it - the screen shows a placeholder in its place. An offer
+    /// to share something is not that: it opened perfectly well, and what it says is the offer.
+    /// </summary>
+    public bool CannotBeOpened => Text is null && Invitation is null;
+
+    /// <summary>Whether this message is an offer to share something - see SharedItemInvitation.</summary>
+    public bool IsInvitation => Invitation is not null;
+
+    /// <summary>What the offer is called, for the line the screen shows in place of the text.</summary>
+    public string InvitationName => Invitation?.Name ?? string.Empty;
 
     /// <summary>Whether to label the bubble with its author, which only a group conversation does.</summary>
     public bool HasSenderName => SenderName is not null;

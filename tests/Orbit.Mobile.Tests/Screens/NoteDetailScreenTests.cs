@@ -9,6 +9,7 @@ using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
+using Orbit.Mobile.Chat;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -159,7 +160,8 @@ public sealed class NoteDetailScreenTests
         public async Task<NoteDetailViewModel> OpenAsync(Guid localId)
         {
             var screen = new NoteDetailViewModel(
-                Notes, _synchronizer, new Translations(new InMemoryLanguageStore()), Navigator);
+                Notes, _synchronizer, new Translations(new InMemoryLanguageStore()),
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

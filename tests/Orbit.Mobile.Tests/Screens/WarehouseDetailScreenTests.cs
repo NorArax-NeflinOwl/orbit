@@ -8,6 +8,7 @@ using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
+using Orbit.Mobile.Chat;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -167,6 +168,7 @@ public sealed class WarehouseDetailScreenTests
         {
             var screen = new WarehouseDetailViewModel(
                 _warehouses, _synchronizer, new Translations(new InMemoryLanguageStore()),
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
                 new RecordingScreenNavigator());
 
             screen.Open(localId);

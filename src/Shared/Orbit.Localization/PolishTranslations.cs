@@ -956,6 +956,15 @@ public static class PolishTranslations
         // A warehouse item's own details, which the phone could neither show nor set.
         ["Quantity"] = "Ilość",
 
+        // Somebody offering to share something, which arrives in a conversation.
+        ["Shared something with you"] = "Udostępnił(a) Ci coś",
+        ["Read only"] = "Tylko do odczytu",
+        ["Sharing needs a connection."] = "Udostępnianie wymaga połączenia.",
+        ["Couldn't share that."] = "Nie udało się tego udostępnić.",
+        ["{0} is yours now."] = "{0} — już Twoje.",
+        ["That offer is no longer available."] = "Ta oferta nie jest już dostępna.",
+        ["Accepting what somebody shared needs a connection."] = "Przyjęcie udostępnionej rzeczy wymaga połączenia.",
+
         // A task-list entry's own details, and the filters over the lists themselves.
         ["New"] = "Nowe",
         ["Pending"] = "W toku",

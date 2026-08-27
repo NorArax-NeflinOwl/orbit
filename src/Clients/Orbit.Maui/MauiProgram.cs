@@ -13,6 +13,7 @@ using Orbit.Mobile.Screens.Dashboard;
 using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
@@ -118,6 +119,9 @@ public static class MauiProgram
 		services.AddTransient<ChatDirectoryReader>();
 		services.AddTransient<EncryptedChatMessageEditor>();
 		services.AddTransient<MessageForwarder>();
+		services.AddTransient<SharedItemAcceptance>();
+		services.AddTransient<SharedItemSharing>();
+		services.AddTransient<SharePanel>();
 		services.AddTransient<SharedLocations>();
 		services.AddTransient<NotificationOpener>();
 		// One holder for the whole app: the tap is recorded by platform code and taken by whatever

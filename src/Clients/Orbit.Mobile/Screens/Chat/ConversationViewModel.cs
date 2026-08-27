@@ -20,6 +20,7 @@ public sealed partial class ConversationViewModel : ObservableObject
     private readonly EncryptedChatMessageSender _sender;
     private readonly EncryptedChatMessageEditor _editor;
     private readonly MessageForwarder _forwarder;
+    private readonly SharedItemAcceptance _acceptance;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
     private readonly Translations _translations;
@@ -80,13 +81,15 @@ public sealed partial class ConversationViewModel : ObservableObject
 
     public ConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
-        MessageForwarder forwarder, ChatRepository chatRepository, ChatSynchronizer synchronizer,
+        MessageForwarder forwarder, SharedItemAcceptance acceptance, ChatRepository chatRepository,
+        ChatSynchronizer synchronizer,
         Translations translations, IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
         _editor = editor;
         _forwarder = forwarder;
+        _acceptance = acceptance;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _translations = translations;
@@ -229,6 +232,33 @@ public sealed partial class ConversationViewModel : ObservableObject
 
         _beingForwarded = message;
         IsForwarding = true;
+    }
+
+    /// <summary>
+    /// Takes up an offer to share something. The copy appears once the feature's own synchroniser next
+    /// runs - accepting creates it on the server, and nothing about it belongs in this conversation.
+    /// </summary>
+    [RelayCommand]
+    private async Task AcceptShareAsync(ReadableChatMessage? message, CancellationToken cancellationToken)
+    {
+        if (message?.Invitation is not { } invitation)
+        {
+            return;
+        }
+
+        try
+        {
+            SayWhatHappened(await _acceptance.AcceptAsync(invitation, cancellationToken)
+                ? _translations.Format("{0} is yours now.", invitation.Name)
+                : _translations["That offer is no longer available."]);
+        }
+        catch (HttpRequestException)
+        {
+            SayWhatHappened(_translations["Accepting what somebody shared needs a connection."]);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     [RelayCommand]

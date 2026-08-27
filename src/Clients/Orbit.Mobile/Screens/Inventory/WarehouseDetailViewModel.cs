@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Inventory;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Chat;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Inventory;
@@ -37,11 +39,12 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     public WarehouseDetailViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
-        IScreenNavigator navigator)
+        SharePanel share, IScreenNavigator navigator)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
         _translations = translations;
+        Share = share;
         _navigator = navigator;
     }
 
@@ -58,6 +61,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     public bool IsEditingItem => BeingEdited is not null;
 
     public bool IsShowingList => BeingEdited is null;
+
+    /// <summary>Offering this to somebody else - see SharePanel.</summary>
+    public SharePanel Share { get; }
 
     public bool HasStatus => Status.Length > 0;
 
@@ -169,6 +175,11 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
 
         Name = warehouse.Name;
+        if (warehouse.ServerId is { } serverId)
+        {
+            Share.Describes(SharedItemKind.Warehouse, serverId, warehouse.Name);
+        }
+
         _items = warehouse.Items;
         IsReadOnly = !await _warehouses.CanEditAsync(_localId, cancellationToken);
 

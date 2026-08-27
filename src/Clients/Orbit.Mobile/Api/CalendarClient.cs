@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Sync;
+using Orbit.Contracts.Sharing;
 
 namespace Orbit.Mobile.Api;
 
@@ -28,6 +29,30 @@ public sealed class CalendarClient
         var response = await _httpClient.PostAsJsonAsync("api/calendar-events", request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
+    }
+
+    /// <summary>
+    /// Offers a copy to another account. The server records the offer; telling the recipient is this
+    /// client's job, because the message that does it is end-to-end encrypted and only a client holds
+    /// the key - see SharedItemSharing.
+    /// </summary>
+    public async Task<ShareResultDto?> ShareAsync(
+        Guid calendarEventId, Guid recipientUserId, string accessLevel, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            $"api/calendar-events/{calendarEventId}/shares", new { RecipientUserId = recipientUserId, AccessLevel = accessLevel },
+            cancellationToken);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ShareResultDto>(cancellationToken)
+            : null;
+    }
+
+    /// <inheritdoc cref="NotesClient.AcceptShareAsync"/>
+    public async Task<bool> AcceptShareAsync(Guid shareId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync($"api/calendar-events/shares/{shareId}/accept", null, cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task<WriteOutcome> UpdateAsync(

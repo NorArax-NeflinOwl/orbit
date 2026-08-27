@@ -13,7 +13,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
         <Label Grid.Row="0" Text="{Binding Name}" FontSize="22" FontAttributes="Bold" />
 
@@ -117,7 +117,10 @@
                     Command="{Binding CancelItemEditCommand}" />
         </HorizontalStackLayout>
 
-        <Button Grid.Row="4" Text="{controls:Translate 'Back'}" Command="{Binding GoBackCommand}"
+        <controls:SharePanel Grid.Row="4" BindingContext="{Binding Share}"
+                             IsVisible="{Binding IsShowingList}" Margin="0,4" />
+
+        <Button Grid.Row="5" Text="{controls:Translate 'Back'}" Command="{Binding GoBackCommand}"
                 IsVisible="{Binding IsShowingList}"
                 Style="{StaticResource LinkButton}" />
 

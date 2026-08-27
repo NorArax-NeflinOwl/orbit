@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Chat;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -49,16 +51,20 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
-        TimeProvider timeProvider, IScreenNavigator navigator)
+        TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _translations = translations;
         _timeProvider = timeProvider;
+        Share = share;
         _navigator = navigator;
     }
 
     public ObservableCollection<TaskItemRow> Items { get; } = [];
+
+    /// <summary>Offering this to somebody else - see SharePanel.</summary>
+    public SharePanel Share { get; }
 
     public bool HasStatus => Status.Length > 0;
 
@@ -162,6 +168,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         Title = taskList.Title;
+        if (taskList.ServerId is { } serverId)
+        {
+            Share.Describes(SharedItemKind.TaskList, serverId, taskList.Title);
+        }
+
         _items = taskList.Items;
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);

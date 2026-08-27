@@ -42,6 +42,18 @@
                                 </Label.FormattedText>
                             </Label>
                             <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
+
+                            <!-- An offer to share something, which arrives as an ordinary message whose
+                                 plaintext is structured. Before this the phone showed the JSON. -->
+                            <VerticalStackLayout Spacing="4" IsVisible="{Binding IsInvitation}">
+                                <Label Text="{controls:Translate 'Shared something with you'}" FontSize="12"
+                                       Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{Binding InvitationName}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                                <Button Text="{controls:Translate 'Accept'}" FontSize="12" Padding="12,4"
+                                        HorizontalOptions="Start"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AcceptShareCommand, x:DataType=chat:ConversationPage}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
                             <!-- A message sealed under a key pair since replaced can never be opened. -->
                             <Label IsVisible="{Binding CannotBeOpened}"
                                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">

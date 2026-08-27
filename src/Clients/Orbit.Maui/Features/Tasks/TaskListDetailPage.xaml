@@ -12,7 +12,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
 
@@ -104,7 +104,10 @@
                     Command="{Binding CancelItemEditCommand}" />
         </HorizontalStackLayout>
 
-        <Grid Grid.Row="4" ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">
+        <controls:SharePanel Grid.Row="4" BindingContext="{Binding Share}"
+                             IsVisible="{Binding IsShowingList}" Margin="0,4" />
+
+        <Grid Grid.Row="5" ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">
             <Button Grid.Column="0" Text="{controls:Translate 'Back'}" Command="{Binding GoBackCommand}"
                     Style="{StaticResource LinkButton}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Delete list'}" Command="{Binding DeleteListCommand}"

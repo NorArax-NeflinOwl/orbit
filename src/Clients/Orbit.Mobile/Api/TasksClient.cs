@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Tasks;
+using Orbit.Contracts.Sharing;
 
 namespace Orbit.Mobile.Api;
 
@@ -39,6 +40,33 @@ public sealed class TasksClient
     {
         var response = await _httpClient.PutAsJsonAsync($"api/tasks/{taskListId}", request, cancellationToken);
         return ReadOutcome(response);
+    }
+
+    /// <summary>
+    /// Offers a copy to another account. The server records the offer; telling the recipient is this
+    /// client's job, because the message that does it is end-to-end encrypted and only a client holds
+    /// the key - see SharedItemSharing.
+    /// </summary>
+    public async Task<ShareResultDto?> ShareAsync(
+        Guid taskListId, Guid recipientUserId, string accessLevel, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            $"api/tasks/{taskListId}/shares", new { RecipientUserId = recipientUserId, AccessLevel = accessLevel },
+            cancellationToken);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ShareResultDto>(cancellationToken)
+            : null;
+    }
+
+    /// <summary>
+    /// Turns an offer into a copy in this account's own task lists. The offer itself arrived as a chat
+    /// message; this is the half the server acts on - see SharedItemInvitation.
+    /// </summary>
+    public async Task<bool> AcceptShareAsync(Guid shareId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync($"api/tasks/shares/{shareId}/accept", null, cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     /// <summary>

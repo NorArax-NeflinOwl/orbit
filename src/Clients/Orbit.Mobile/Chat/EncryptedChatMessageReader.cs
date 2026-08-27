@@ -67,7 +67,8 @@ public sealed class EncryptedChatMessageReader
                 MessageId: message.Id,
                 // Read up to a point, so everything sent at or before it has been seen.
                 IsReadByThem: isMine && theyReadUpToUtc is { } readUpTo && message.SentAtUtc <= readUpTo,
-                ForwardedFromDisplayName: opened.ForwardedFromDisplayName));
+                ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
+                Invitation: opened.Invitation));
         }
 
         foreach (var message in queued)
@@ -115,7 +116,8 @@ public sealed class EncryptedChatMessageReader
                 MessageId: message.Id,
                 GroupMessageId: message.GroupMessageId,
                 ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
-                IsReadByEveryone: isMine ? message.IsReadByEveryone : null));
+                IsReadByEveryone: isMine ? message.IsReadByEveryone : null,
+                Invitation: opened.Invitation));
         }
 
         foreach (var message in queued)
@@ -131,7 +133,8 @@ public sealed class EncryptedChatMessageReader
     /// <summary>
     /// One opened message: its words, and who wrote them first if it got here by being passed on.
     /// </summary>
-    private readonly record struct OpenedMessage(string? Text, string? ForwardedFromDisplayName);
+    private readonly record struct OpenedMessage(
+        string? Text, string? ForwardedFromDisplayName, SharedItemInvitation? Invitation = null);
 
     /// <summary>
     /// Decrypts, then unwraps a forward if that is what it is. The two belong together: a forward's
@@ -145,8 +148,15 @@ public sealed class EncryptedChatMessageReader
             return new OpenedMessage(null, null);
         }
 
-        return ForwardedMessage.TryUnwrap(plainText) is { } forwarded
-            ? new OpenedMessage(forwarded.Content, forwarded.OriginalAuthorDisplayName)
+        if (ForwardedMessage.TryUnwrap(plainText) is { } forwarded)
+        {
+            return new OpenedMessage(forwarded.Content, forwarded.OriginalAuthorDisplayName);
+        }
+
+        // An offer to share something, which is an ordinary message whose plaintext is structured - see
+        // SharedItemInvitation. Its text is left null so the screen shows the offer rather than the JSON.
+        return SharedItemInvitation.TryRead(plainText) is { } invitation
+            ? new OpenedMessage(null, null, invitation)
             : new OpenedMessage(plainText, null);
     }
 
