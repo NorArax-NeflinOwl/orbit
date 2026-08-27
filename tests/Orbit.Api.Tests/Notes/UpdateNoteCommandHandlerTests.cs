@@ -16,6 +16,24 @@ public sealed class UpdateNoteCommandHandlerTests
             noteRepository);
 
     [Fact]
+    public async Task HandleAsync_changes_the_priority_along_with_the_rest()
+    {
+        var repository = new InMemoryNoteRepository();
+        var userId = Guid.NewGuid();
+        var note = Note.Create(userId, "Title", [NoteContentLine.PlainText("Content")], priority: ItemPriority.Low);
+        await repository.AddAsync(note, CancellationToken.None);
+
+        await CreateHandler(repository).HandleAsync(
+            new UpdateNoteCommand(
+                userId, note.Id, "Title", [NoteContentLine.PlainText("Content")], IsPrivate: false,
+                EncryptedContent: null, ItemPriority.High),
+            CancellationToken.None);
+
+        var stored = await repository.GetByIdAsync(userId, note.Id, CancellationToken.None);
+        Assert.Equal(ItemPriority.High, stored!.Priority);
+    }
+
+    [Fact]
     public async Task HandleAsync_updates_a_note_owned_by_the_requesting_user()
     {
         var repository = new InMemoryNoteRepository();

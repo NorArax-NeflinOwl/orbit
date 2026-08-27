@@ -13,4 +13,6 @@ public sealed record NoteDto(
     Guid Id, string Title, IReadOnlyList<NoteContentLineDto> Content, bool IsPrivate, EncryptedContentDto? EncryptedContent,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
     bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId,
-    bool IsPinned = false);
+    bool IsPinned = false,
+    /// <summary>ItemPriority by name - "Low", "Normal" or "High".</summary>
+    string Priority = "Normal");

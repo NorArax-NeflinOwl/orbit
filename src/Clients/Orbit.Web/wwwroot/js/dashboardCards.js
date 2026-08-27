@@ -19,3 +19,20 @@ export function getHiddenCards() {
 export function setHiddenCards(keys) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(keys ?? []));
 }
+
+// What each card is filtered down to, by card key - see DashboardCardFilter. A card showing everything
+// is simply absent, so the stored shape stays as small as what the reader actually changed.
+const FILTER_KEY = 'orbit-dashboard-card-filters';
+
+export function getCardFilters() {
+    try {
+        const stored = JSON.parse(window.localStorage.getItem(FILTER_KEY) ?? '{}');
+        return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    } catch {
+        return {};
+    }
+}
+
+export function setCardFilters(filters) {
+    window.localStorage.setItem(FILTER_KEY, JSON.stringify(filters ?? {}));
+}

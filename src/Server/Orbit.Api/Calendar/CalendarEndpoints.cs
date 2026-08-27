@@ -131,7 +131,8 @@ public static class CalendarEndpoints
             request.Guests,
             request.ReminderMinutesBeforeStart,
             RequestEnum.Parse<NotificationChannel>(request.CreationNotificationChannel, "creationNotificationChannel"),
-            RequestEnum.Parse<NotificationChannel>(request.ReminderNotificationChannel, "reminderNotificationChannel"));
+            RequestEnum.Parse<NotificationChannel>(request.ReminderNotificationChannel, "reminderNotificationChannel"),
+            RequestEnum.Parse<ItemPriority>(request.Priority, "priority"));
 
     private static EventLocation? ToDomainLocation(EventLocationRequest? request)
         => request is null ? null : new EventLocation(request.Address, request.Latitude, request.Longitude);
@@ -156,7 +157,8 @@ public static class CalendarEndpoints
             details.Guests,
             details.ReminderMinutesBeforeStart,
             details.CreationNotificationChannel.ToString(),
-            details.ReminderNotificationChannel.ToString());
+            details.ReminderNotificationChannel.ToString(),
+            details.Priority.ToString());
 
         return new CalendarEventDto(
             calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,

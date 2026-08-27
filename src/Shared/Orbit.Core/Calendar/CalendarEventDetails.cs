@@ -1,3 +1,4 @@
+using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
 
 namespace Orbit.Core.Calendar;
@@ -35,4 +36,6 @@ public sealed record CalendarEventDetails(
     IReadOnlyList<Guid> Guests,
     IReadOnlyList<int> ReminderMinutesBeforeStart,
     NotificationChannel CreationNotificationChannel,
-    NotificationChannel ReminderNotificationChannel);
+    NotificationChannel ReminderNotificationChannel,
+    /// <summary>How much this event matters - see ItemPriority. Defaulted, so every existing caller reads as Normal.</summary>
+    ItemPriority Priority = ItemPriority.Normal);

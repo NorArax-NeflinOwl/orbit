@@ -77,7 +77,12 @@ internal static class PolishTranslations
         ["Show single items"] = "Pokaż pojedyncze elementy",
         ["In list order"] = "W kolejności listy",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
+        ["Show"] = "Pokaż",
         ["Search conversations"] = "Szukaj rozmów",
+        ["Sorts this note against the others, and is what the dashboard's filter reads."] =
+            "Sortuje tę notatkę względem innych i jest tym, co czyta filtr na pulpicie.",
+        ["Sorts this event against the others, and is what the dashboard's filter reads."] =
+            "Sortuje to wydarzenie względem innych i jest tym, co czyta filtr na pulpicie.",
         ["Group chat"] = "Czat grupowy",
         ["Everything here is hidden. The menu at the top right brings it back."] =
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",

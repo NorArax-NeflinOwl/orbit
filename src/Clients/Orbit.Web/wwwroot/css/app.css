@@ -3618,6 +3618,18 @@ input.note-editor-title {
     display: inline-flex;
 }
 
+/* The chosen entry in a menu of choices, and the column its tick sits in. */
+.avatar-dropdown-item.chosen {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.card-filter-mark {
+    display: inline-block;
+    width: 12px;
+    color: var(--accent);
+}
+
 /* Says what a menu of settings is about, above its entries. */
 .overflow-menu-heading {
     display: block;

@@ -52,6 +52,9 @@ public sealed class CalendarEventEntity
     /// </summary>
     public string ReminderNotificationChannel { get; set; } = "None";
 
+    /// <summary>Stored by name, like every other enum here - see Orbit.Core.Abstractions.ItemPriority.</summary>
+    public string Priority { get; set; } = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
+
     /// <summary>The user id currently holding the edit lock, if any - see Orbit.Core.Calendar.CalendarEvent.LockedByUserId.</summary>
     public Guid? LockedByUserId { get; set; }
 
