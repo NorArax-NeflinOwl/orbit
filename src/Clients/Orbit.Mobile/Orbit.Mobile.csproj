@@ -24,7 +24,14 @@
     advisory (GHSA-2m69-gcr7-jv3q). Pinned directly to the first patched release so the resolved version
     clears the NuGet audit check - the same treatment AngleSharp gets in Orbit.Web.Tests. Remove once the
     provider's own floor moves past it. -->
-    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
+    <!-- PrivateAssets="native" because this is the desktop build of the SQLite engine, and it must not
+    reach the app heads. This project is plain net10.0, so NuGet resolves the portable variant here; the
+    heads resolve the platform one (lib.e_sqlite3.android's AAR, lib.e_sqlite3.ios) for themselves. Left
+    to flow, the portable copy's runtimes/linux-arm64 build wins the packaging race and lands in the APK
+    as lib/arm64-v8a/libe_sqlite3.so - an aarch64 ELF built against glibc, which Android cannot load, so
+    the app dies on its first database call with DllNotFoundException: e_sqlite3. The unit tests still
+    need the native engine here, which is why it is private rather than excluded. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" PrivateAssets="native" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
     <!-- Design-time only: generates the local migrations. Not used at runtime by either app head. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
