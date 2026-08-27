@@ -60,6 +60,28 @@ export async function showLocations(elementId, points) {
     mapInstancesByElementId.set(elementId, { map, resizeObserver });
 }
 
+/// Puts the map's frame full screen, or takes it back out. Nothing here tracks the state: leaving can
+/// also happen through Esc or a back gesture, which this code never sees, so the button's own label is
+/// decided by CSS :fullscreen instead of by anything remembered here.
+///
+/// The map itself needs no telling - the ResizeObserver set up in showLocations already reports the new
+/// size, which is the same path a window resize takes.
+export async function toggleFullscreen(frameElement) {
+    if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return false;
+    }
+
+    if (!frameElement?.requestFullscreen) {
+        // Older iOS Safari has no Fullscreen API on ordinary elements. Saying so beats a button that
+        // looks live and does nothing.
+        return false;
+    }
+
+    await frameElement.requestFullscreen();
+    return true;
+}
+
 export function dispose(elementId) {
     const instance = mapInstancesByElementId.get(elementId);
     if (instance) {

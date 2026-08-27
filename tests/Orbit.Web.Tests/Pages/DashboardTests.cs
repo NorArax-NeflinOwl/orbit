@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Users;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
@@ -23,6 +24,7 @@ public sealed class DashboardTests : OrbitTestContext
     public DashboardTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        RegisterUsersApiClient();
         // Notes/task lists/events aren't what these tests exercise - each is stubbed to an empty list so
         // the dashboard finishes loading without depending on unrelated fixture data.
         RegisterEmptyNotesApiClient();
@@ -135,6 +137,50 @@ public sealed class DashboardTests : OrbitTestContext
                 ? JsonResponse(groups ?? [])
                 : JsonResponse(contacts));
         Services.AddSingleton(new ChatApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
+    }
+
+    /// <summary>
+    /// The dashboard asks who is sharing a position with the reader. These tests are about the other
+    /// columns, so it answers "nobody" - the column then draws nothing, which is what they expect.
+    /// </summary>
+    private void RegisterUsersApiClient() => RegisterSharedLocations([]);
+
+    private void RegisterSharedLocations(IReadOnlyList<SharedLocationDto> shares)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(shares)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        Services.AddSingleton(new UsersApiClient(httpClient));
+    }
+
+    [Fact]
+    public void Somebody_sharing_their_position_shows_up_on_the_dashboard()
+    {
+        var sharerId = Guid.NewGuid();
+        RegisterChatApiClient([new ContactDto(
+            sharerId, "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
+        RegisterSharedLocations([new SharedLocationDto(
+            sharerId, Guid.NewGuid(), "cipher", "nonce", IsContinuous: true, DateTimeOffset.UtcNow)]);
+
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        // The name and that it is live - not the position itself, which only the map page can open.
+        Assert.Contains("Anna Kowalska", cut.Markup);
+        Assert.Contains("Shared with you", cut.Markup);
+    }
+
+    [Fact]
+    public void Nobody_sharing_a_position_gets_no_column_for_it()
+    {
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        Assert.DoesNotContain("Shared with you", cut.Markup);
     }
 
     private void RegisterEmptyNotesApiClient()

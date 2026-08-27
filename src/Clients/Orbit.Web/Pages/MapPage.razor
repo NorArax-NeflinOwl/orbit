@@ -105,7 +105,17 @@
                     <span class="card-title">@T["Shared with you"]</span>
                     <span class="card-count">@_receivedPositions.Count</span>
                 </div>
+                <div class="location-map-frame">
                 <div id="@MapElementId" class="location-map"></div>
+                @* Sits over the map rather than inside it: Leaflet owns its container's children, and
+                   the frame is what goes fullscreen, so the button stays reachable once it is. Which of
+                   the two labels shows is decided by CSS :fullscreen, so leaving fullscreen with Esc or
+                   the back gesture - neither of which this code sees - still leaves the button right. *@
+                <button type="button" class="map-fullscreen-button" @onclick="ToggleFullscreenAsync">
+                    <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
+                    <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
+                </button>
+            </div>
             </div>
         }
     }
@@ -130,7 +140,17 @@
                 <span class="row-title">@FormatCoordinates(_location)</span>
             </div>
             @* The map itself is drawn by Leaflet into this element - see locationMap.js. *@
-            <div id="@MapElementId" class="location-map"></div>
+            <div class="location-map-frame">
+                <div id="@MapElementId" class="location-map"></div>
+                @* Sits over the map rather than inside it: Leaflet owns its container's children, and
+                   the frame is what goes fullscreen, so the button stays reachable once it is. Which of
+                   the two labels shows is decided by CSS :fullscreen, so leaving fullscreen with Esc or
+                   the back gesture - neither of which this code sees - still leaves the button right. *@
+                <button type="button" class="map-fullscreen-button" @onclick="ToggleFullscreenAsync">
+                    <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
+                    <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
+                </button>
+            </div>
         </div>
     }
 </div>
@@ -564,6 +584,29 @@
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogWarning(exception, "Shared a location but could not announce it in the chat with {RecipientUserId}", recipientUserId);
+        }
+    }
+
+    /// <summary>
+    /// Puts the map full screen and back. Esc and the back gesture also leave it, and neither reaches
+    /// here - which is why nothing about the state is kept in this component; see the CSS that decides
+    /// which half of the button shows.
+    /// </summary>
+    private async Task ToggleFullscreenAsync()
+    {
+        try
+        {
+            _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
+            var frame = await JSRuntime.InvokeAsync<IJSObjectReference>(
+                "document.querySelector", ".location-map-frame");
+            await using (frame)
+            {
+                await _mapModule.InvokeAsync<bool>("toggleFullscreen", frame);
+            }
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not put the map full screen");
         }
     }
 

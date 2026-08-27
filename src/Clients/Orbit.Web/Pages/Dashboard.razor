@@ -3,6 +3,7 @@
 @implements IDisposable
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Users
 @using Orbit.Contracts.Notes
 @using Orbit.Contracts.Tasks
 @using Orbit.Web.Services
@@ -10,6 +11,7 @@
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<Dashboard> Logger
 @inject Translations T
@@ -27,7 +29,8 @@
 {
     <p>@_loadErrorMessage</p>
 }
-else if (_notes is null || _taskLists is null || _events is null || _contacts is null || _groups is null)
+else if (_notes is null || _taskLists is null || _events is null || _contacts is null || _groups is null
+    || _sharedLocations is null)
 {
     <p>@T["Loading…"]</p>
 }
@@ -117,6 +120,24 @@ else
             </div>
         }
 
+        @if (_sharedLocations!.Count > 0)
+        {
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">@T["Shared with you"]</span>
+                    <span class="card-count">@_sharedLocations!.Count</span>
+                </div>
+                @foreach (var share in _sharedLocations!)
+                {
+                    <button type="button" class="list-row list-row-button" @onclick="GoToMap">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(share.SharerUserId)">@AvatarHelper.GetInitials(DisplayNameFor(share.SharerUserId))</span>
+                        <span class="row-title">@DisplayNameFor(share.SharerUserId)</span>
+                        <span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"])</span>
+                    </button>
+                }
+            </div>
+        }
+
         @if (_contacts.Count > 0)
         {
             <div class="card">
@@ -151,6 +172,7 @@ else
     private IReadOnlyList<CalendarEventDto>? _events;
     private IReadOnlyList<ContactDto>? _contacts;
     private IReadOnlyList<ChatGroupDto>? _groups;
+    private IReadOnlyList<SharedLocationDto>? _sharedLocations;
 
     /// <summary>Matches Orbit.Core.Chat.Groups.ChatGroupRole.Admin, which the API sends by name.</summary>
     private const string AdminRole = "Admin";
@@ -190,7 +212,8 @@ else
             // Loaded together rather than one after another, so the dashboard's total load time is the
             // slowest single call instead of the sum of all of them.
             await Task.WhenAll(
-                LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync());
+                LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync(),
+                LoadSharedLocationsAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -249,7 +272,8 @@ else
     {
         try
         {
-            await Task.WhenAll(LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync());
+            await Task.WhenAll(
+                LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadSharedLocationsAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -272,6 +296,14 @@ else
     private async Task LoadContactsAsync() => _contacts = await ChatApiClient.GetContactsAsync();
 
     private async Task LoadGroupsAsync() => _groups = await ChatApiClient.GetGroupsAsync();
+
+    /// <summary>
+    /// Only who is sharing, not where they are. Opening a position means decrypting it, which is the
+    /// map page's job and needs this reader's key - the dashboard is a list of what is waiting, so it
+    /// says who and sends them there.
+    /// </summary>
+    private async Task LoadSharedLocationsAsync()
+        => _sharedLocations = await UsersApiClient.GetLocationsSharedWithMeAsync();
 
     private static int CompletionPercent(TaskDto taskList)
         => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);
@@ -322,6 +354,15 @@ else
         _pollCancellation?.Cancel();
         _pollTimer?.Dispose();
     }
+
+    /// <summary>
+    /// The sharer's name from the contact list this page already loaded - somebody can only share a
+    /// position with a contact, so the name is always here to be found.
+    /// </summary>
+    private string DisplayNameFor(Guid userId)
+        => _contacts?.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? T["Someone"];
+
+    private void GoToMap() => NavigationManager.NavigateTo("/map");
 
     private void GoToGroup(Guid groupId)
     {

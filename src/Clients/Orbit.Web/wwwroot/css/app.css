@@ -2837,38 +2837,78 @@ input.note-editor-title {
 
 /* MapPage.razor: the map fills the screen rather than sitting in a box - it is the point of the page,
    and a location is easier to place with more of its surroundings visible. */
+/* No longer pinned to the viewport. The map used to take whatever height was left over, which is why
+   the page had to be exactly one screen tall; a square map has its own height, so the page scrolls like
+   every other one. */
 .map-page {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    /* .main-content's own vertical padding (28px top, 40px bottom) is what's taken off the viewport. */
-    height: calc(100dvh - 68px);
 }
 
 .location-card {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    flex: 1;
-    /* Without this a flex child refuses to shrink below its content, and the map pushes the card past
-       the bottom of the screen instead of fitting inside it. */
-    min-height: 0;
 }
 
-.location-map {
-    flex: 1;
-    min-height: 0;
+/* As tall as it is wide. The frame carries the shape so the map inside can simply fill it - and so the
+   full-screen button has something to sit over that is not Leaflet's own container. */
+.location-map-frame {
+    position: relative;
     width: 100%;
+    aspect-ratio: 1 / 1;
     border-radius: 10px;
     overflow: hidden;
 }
 
-@media (max-width: 680px) {
-    .map-page {
-        /* The sidebar is a top bar at this width (see its own rule), so it takes its height out of the
-           viewport before the content gets any. */
-        height: calc(100dvh - 129px);
-    }
+.location-map {
+    width: 100%;
+    height: 100%;
+}
+
+.map-fullscreen-button {
+    position: absolute;
+    /* Leaflet's own controls sit at z-index 1000 in the top left; this stays clear of them. */
+    top: 10px;
+    right: 10px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px oklch(20% 0.02 60 / 0.25);
+}
+
+/* Which half of the button shows is decided here rather than in code, so leaving full screen with Esc
+   or a back gesture - neither of which the app is told about - still leaves the button saying the right
+   thing. */
+.map-fullscreen-exit {
+    display: none;
+}
+
+.location-map-frame:fullscreen {
+    aspect-ratio: auto;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+}
+
+.location-map-frame:fullscreen .map-fullscreen-enter {
+    display: none;
+}
+
+.location-map-frame:fullscreen .map-fullscreen-exit {
+    display: inline;
 }
 
 /* MapPage.razor's sharing panel, above the map it feeds. */
