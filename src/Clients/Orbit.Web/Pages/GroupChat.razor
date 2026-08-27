@@ -11,6 +11,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<GroupChat> Logger
+@inject IJSRuntime JSRuntime
 @inject Translations T
 
 <PageTitle>@(_selectedGroup?.Name ?? T["Groups"])</PageTitle>
@@ -64,16 +65,39 @@
 }
 
 <div class="group-layout">
-    <div class="card group-list">
-        <div class="card-header"><span class="card-title">@T["Your groups"]</span><span class="card-count">@_groups.Count</span></div>
-        @if (_groups.Count > 0)
+    <div class="card group-list @(_isGroupListCollapsed ? "collapsed" : "")">
+        <div class="card-header">
+            @* Folds away to a strip of initials, the way the one-to-one chat list does, and starts
+               folded: the conversation is what this page is for, and the list of groups is how you got
+               here. *@
+            <button type="button" class="icon-btn" title="@(_isGroupListCollapsed ? T["Show names"] : T["Hide names"])"
+                    @onclick="() => _isGroupListCollapsed = !_isGroupListCollapsed">
+                @if (_isGroupListCollapsed)
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5L13 10l-5.5 5.5" /></svg>
+                }
+                else
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5L7 10l5.5 5.5" /></svg>
+                }
+            </button>
+            @if (!_isGroupListCollapsed)
+            {
+                <span class="card-title">@T["Your groups"]</span>
+                <span class="card-count">@_groups.Count</span>
+            }
+        </div>
+        @if (_groups.Count > 0 && !_isGroupListCollapsed)
         {
             <input class="chat-list-search" type="search" @bind="_groupSearch" @bind:event="oninput"
                    placeholder="@(T["Search groups"])" aria-label="@(T["Search groups"])" />
         }
         @if (_groups.Count == 0)
         {
-            <p class="empty-hint">@T["No groups yet."]</p>
+            @if (!_isGroupListCollapsed)
+            {
+                <p class="empty-hint">@T["No groups yet."]</p>
+            }
         }
         else if (!_matchingGroups.Any())
         {
@@ -84,13 +108,17 @@
             @foreach (var group in _matchingGroups)
             {
                 <button type="button" class="list-row list-row-button @(group.Id == GroupId ? "active" : "")"
-                        @onclick="() => OpenGroup(group.Id)">
-                    <span class="row-title">@group.Name</span>
-                    @if (group.OwnRole == AdminRole)
+                        title="@group.Name" @onclick="() => OpenGroup(group.Id)">
+                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
+                    @if (!_isGroupListCollapsed)
                     {
-                        <span class="card-badge">@T["Admin"]</span>
+                        <span class="row-title">@group.Name</span>
+                        @if (group.OwnRole == AdminRole)
+                        {
+                            <span class="card-badge">@T["Admin"]</span>
+                        }
+                        <span class="row-meta">@group.Members.Count</span>
                     }
-                    <span class="row-meta">@group.Members.Count</span>
                 </button>
             }
         }
@@ -197,7 +225,7 @@
                             </button>
                             @if (_openMessageMenuId == message.Id)
                             {
-                                <div class="chat-bubble-menu-dropdown" @onclick:stopPropagation="true">
+                                <div class="chat-bubble-menu-dropdown" @ref="_openMenuElement" @onclick:stopPropagation="true">
                                     @if (CanEdit(message))
                                     {
                                         <button type="button" class="avatar-dropdown-item" @onclick="() => StartEditing(message)">@T["Edit"]</button>
@@ -263,8 +291,11 @@
                 }
             </div>
 
-            <div class="field-row">
-                <input @bind="_draft" placeholder="@(T["Write to the group"])" @onkeydown="OnDraftKeyDownAsync" />
+            <div class="chat-input-bar">
+                @* Bound on every keystroke, not on losing focus: without it the Send button stayed
+                   greyed out while somebody typed, because _draft was still empty as far as it knew. *@
+                <input class="chat-input" @bind="_draft" @bind:event="oninput"
+                       placeholder="@(T["Write to the group"])" @onkeydown="OnDraftKeyDownAsync" />
                 <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">@T["Send"]</button>
             </div>
         </div>
@@ -296,6 +327,12 @@
     /// <summary>Whether the roster is unfolded. Closed to begin with: the messages are what the reader came for.</summary>
     private bool _areMembersVisible;
 
+    /// <summary>
+    /// Whether the group list is folded to a strip of initials - see .group-list.collapsed in app.css.
+    /// Starts folded, so a visit lands on the conversation rather than on the way back to it.
+    /// </summary>
+    private bool _isGroupListCollapsed = true;
+
     /// <summary>What the reader has typed into the group search box.</summary>
     private string _groupSearch = string.Empty;
 
@@ -307,6 +344,12 @@
 
     /// <summary>Which message's options menu is open - at most one, the way the one-to-one chat does it.</summary>
     private Guid? _openMessageMenuId;
+
+    /// <summary>
+    /// The open message menu, so it can be lifted out of the scrolling message list it would otherwise
+    /// be clipped by - see wwwroot/js/menuAnchor.js.
+    /// </summary>
+    private ElementReference? _openMenuElement;
 
     /// <summary>Which message has its info panel open, and what that panel is showing.</summary>
     private Guid? _infoMessageId;
@@ -330,6 +373,29 @@
             : [];
 
     protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    /// <summary>
+    /// Places the open message menu next to its button. Done after the render because the menu has no
+    /// size to measure until it exists, and from here rather than in CSS because the message list scrolls
+    /// and would otherwise cut the menu off - see wwwroot/js/menuAnchor.js.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_openMenuElement is not { } menuElement)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/menuAnchor.js");
+            await module.InvokeVoidAsync("anchorToTrigger", menuElement, ".chat-bubble-menu-trigger");
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away; there is nothing left to position.
+        }
+    }
 
     private async Task LoadAsync()
     {
@@ -469,12 +535,16 @@
     /// message would be a query per message on every load.
     /// </summary>
     private void ToggleMessageMenu(Guid messageId)
-        => _openMessageMenuId = _openMessageMenuId == messageId ? null : messageId;
+    {
+        _openMessageMenuId = _openMessageMenuId == messageId ? null : messageId;
+        _openMenuElement = null;
+    }
 
     private async Task ShowInfoAsync(ChatMessageDto message)
         => await RunAsync(async () =>
         {
             _openMessageMenuId = null;
+            _openMenuElement = null;
             _editingMessageId = null;
             _forwardingMessageId = null;
             _infoMessageId = message.Id;
@@ -490,6 +560,7 @@
     private void StartEditing(ChatMessageDto message)
     {
         _openMessageMenuId = null;
+        _openMenuElement = null;
         _infoMessageId = null;
         _forwardingMessageId = null;
         _editingMessageId = message.Id;
@@ -527,6 +598,7 @@
     private void StartForwarding(ChatMessageDto message)
     {
         _openMessageMenuId = null;
+        _openMenuElement = null;
         _editingMessageId = null;
         _forwardingMessageId = message.Id;
         _forwardToUserId = string.Empty;

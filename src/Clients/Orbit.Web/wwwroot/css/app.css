@@ -2856,6 +2856,23 @@ input.note-editor-title {
     margin-bottom: 16px;
 }
 
+/* Folded, the group list is a strip of initials - the same shape .chat-list.collapsed takes, so the two
+   chat pages fold the same way. The grid column has to shrink with it, or the strip would sit in a
+   280px gap. */
+.group-layout:has(.group-list.collapsed) {
+    grid-template-columns: 68px 1fr;
+}
+
+.group-list.collapsed .card-header,
+.group-list.collapsed .list-row-button {
+    justify-content: center;
+}
+
+.group-list.collapsed .list-row-button {
+    padding-left: 0;
+    padding-right: 0;
+}
+
 .list-row-button.active {
     background: var(--bg-subtle);
 }
