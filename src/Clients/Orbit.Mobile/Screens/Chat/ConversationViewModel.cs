@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Crypto;
@@ -23,6 +24,7 @@ public sealed partial class ConversationViewModel : ObservableObject
     private readonly SharedItemAcceptance _acceptance;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
+    private readonly ChatClient _chatClient;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -82,7 +84,7 @@ public sealed partial class ConversationViewModel : ObservableObject
     public ConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         MessageForwarder forwarder, SharedItemAcceptance acceptance, ChatRepository chatRepository,
-        ChatSynchronizer synchronizer,
+        ChatSynchronizer synchronizer, ChatClient chatClient,
         Translations translations, IScreenNavigator navigator)
     {
         _reader = reader;
@@ -92,6 +94,7 @@ public sealed partial class ConversationViewModel : ObservableObject
         _acceptance = acceptance;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
+        _chatClient = chatClient;
         _translations = translations;
         _navigator = navigator;
     }
@@ -135,7 +138,58 @@ public sealed partial class ConversationViewModel : ObservableObject
         OnPropertyChanged(nameof(CanCompose));
         OnPropertyChanged(nameof(CannotWrite));
         OnPropertyChanged(nameof(CannotWriteReason));
+        ShowWhetherItIsStillARequest();
     }
+
+    /// <summary>
+    /// Whether this conversation is still a request, and whose move it is. Orbit.Web asks the server
+    /// for this on opening a chat; the phone already has both answers on the contact row it synced, so
+    /// it reads them there rather than spending a round trip on what it was already told.
+    /// </summary>
+    [ObservableProperty]
+    private string _requestNotice = string.Empty;
+
+    /// <summary>True only when the move is the reader's - the other case is a notice, not a choice.</summary>
+    [ObservableProperty]
+    private bool _canApproveRequest;
+
+    public bool HasRequestNotice => RequestNotice.Length > 0;
+
+    [RelayCommand]
+    private async Task ApproveRequestAsync(CancellationToken cancellationToken)
+    {
+        if (_contact is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _chatClient.ApproveConversationAsync(_contact.UserId, cancellationToken);
+            _contact.RequiresApprovalFromCurrentUser = false;
+            ShowWhetherItIsStillARequest();
+            await _synchronizer.SynchroniseContactsAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            SayWhatHappened(_translations["Couldn't reach Orbit just now."]);
+        }
+    }
+
+    private void ShowWhetherItIsStillARequest()
+    {
+        var name = _contact?.DisplayName ?? string.Empty;
+        CanApproveRequest = _contact?.RequiresApprovalFromCurrentUser == true;
+
+        RequestNotice = _contact switch
+        {
+            { RequiresApprovalFromCurrentUser: true } => _translations.Format("{0} wants to chat with you.", name),
+            { IsPendingApprovalFromOtherParty: true } => _translations.Format("Message is waiting for {0} to approve.", name),
+            _ => string.Empty
+        };
+    }
+
+    partial void OnRequestNoticeChanged(string value) => OnPropertyChanged(nameof(HasRequestNotice));
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)

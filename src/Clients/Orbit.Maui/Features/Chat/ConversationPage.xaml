@@ -17,8 +17,21 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
-        <Label Grid.Row="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+        <VerticalStackLayout Grid.Row="1" Spacing="8">
+            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+
+            <!-- Orbit.Web's .chat-request-banner: a conversation still waiting on somebody says so at
+                 the top, rather than letting the reader write and find out when the send is refused. -->
+            <Border Style="{StaticResource CardBorder}" Padding="14,12" IsVisible="{Binding HasRequestNotice}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding RequestNotice}" FontSize="13" LineBreakMode="WordWrap" />
+                    <Button Text="{controls:Translate 'Allow chatting'}" HorizontalOptions="Start"
+                            FontSize="13" Padding="12,6" IsVisible="{Binding CanApproveRequest}"
+                            Command="{Binding ApproveRequestCommand}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
 
         <RefreshView Grid.Row="2" IsVisible="{Binding IsNotForwarding}"
                      IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
