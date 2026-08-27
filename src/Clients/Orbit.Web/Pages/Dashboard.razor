@@ -327,10 +327,10 @@ else
     // one page made of several separate questions, and a card nobody unlocked should be absent, not the
     // reason the whole page says it could not load.
     private async Task LoadContactsAsync()
-        => _contacts = Permissions.Has(ApplicationPermission.Chat) ? await ChatApiClient.GetContactsAsync() : [];
+        => _contacts = Permissions.Has(ApplicationPermission.Contacts) ? await ChatApiClient.GetContactsAsync() : [];
 
     private async Task LoadGroupsAsync()
-        => _groups = Permissions.Has(ApplicationPermission.GroupChat) ? await ChatApiClient.GetGroupsAsync() : [];
+        => _groups = Permissions.Has(ApplicationPermission.Chat) ? await ChatApiClient.GetGroupsAsync() : [];
 
     /// <summary>
     /// Only who is sharing, not where they are. Opening a position means decrypting it, which is the
@@ -338,7 +338,7 @@ else
     /// says who and sends them there.
     /// </summary>
     private async Task LoadSharedLocationsAsync()
-        => _sharedLocations = Permissions.Has(ApplicationPermission.Location)
+        => _sharedLocations = Permissions.Has(ApplicationPermission.Location) && Permissions.Has(ApplicationPermission.Contacts)
             ? await UsersApiClient.GetLocationsSharedWithMeAsync()
             : [];
 

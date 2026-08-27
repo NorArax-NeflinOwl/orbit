@@ -34,10 +34,13 @@ public static class ChatEndpoints
         // One-to-one conversations and group conversations are separately unlocked (see
         // PermissionPolicies), so they are separate route groups rather than one - "/api/chat/groups"
         // still, but gated on its own.
+        // The contact list is about other people existing; the conversations are about talking to them.
+        // They unlock separately, so they are separate route groups - see PermissionPolicies.
+        var contacts = app.MapGroup("/api/chat").RequireAuthorization(PermissionPolicies.Contacts);
         var chat = app.MapGroup("/api/chat").RequireAuthorization(PermissionPolicies.Chat);
-        var groups = app.MapGroup("/api/chat/groups").RequireAuthorization(PermissionPolicies.GroupChat);
+        var groups = app.MapGroup("/api/chat/groups").RequireAuthorization(PermissionPolicies.Chat);
 
-        chat.MapGet("/contacts", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        contacts.MapGet("/contacts", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var result = await dispatcher.SendAsync(new GetContactsQuery(GetUserId(user)), cancellationToken);
             return Results.Ok(result.Select(ToDto));

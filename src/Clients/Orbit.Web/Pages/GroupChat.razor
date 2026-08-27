@@ -29,9 +29,9 @@
     </div>
 </div>
 
-@if (!Permissions.Has(ApplicationPermission.GroupChat))
+@if (!Permissions.Has(ApplicationPermission.Chat))
 {
-    <FeatureLocked Explanation="@(T["Conversations with more than one other person."])" />
+    <FeatureLocked Explanation="@(T["Conversations, with one person or with several."])" />
 }
 else
 {
@@ -390,7 +390,7 @@ else
         await Permissions.EnsureLoadedAsync();
         // Nothing below is reachable without this, and the page draws its locked notice instead - so it
         // does not ask and get turned away, which only fills the console with refusals that are not news.
-        if (!Permissions.Has(ApplicationPermission.GroupChat))
+        if (!Permissions.Has(ApplicationPermission.Chat))
         {
             return;
         }

@@ -15,7 +15,7 @@ public sealed class RedeemPermissionCodeCommandHandlerTests
     {
         var repository = new InMemoryUserPermissionRepository();
         var userId = Guid.NewGuid();
-        await repository.GrantAsync(userId, ApplicationPermission.Chat, CancellationToken.None);
+        await repository.GrantAsync(userId, ApplicationPermission.Contacts, CancellationToken.None);
         return (repository, new RedeemPermissionCodeCommandHandler(repository, Authority), userId);
     }
 
@@ -25,10 +25,10 @@ public sealed class RedeemPermissionCodeCommandHandlerTests
         var (repository, handler, userId) = await AnAccountWithChatAsync();
 
         var outcome = await handler.HandleAsync(
-            new RedeemPermissionCodeCommand(userId, Authority.CodeFor(ApplicationPermission.GroupChat)), CancellationToken.None);
+            new RedeemPermissionCodeCommand(userId, Authority.CodeFor(ApplicationPermission.Chat)), CancellationToken.None);
 
-        Assert.Equal(ApplicationPermission.GroupChat, outcome.Granted);
-        Assert.Contains(ApplicationPermission.GroupChat, await repository.GetForUserAsync(userId, CancellationToken.None));
+        Assert.Equal(ApplicationPermission.Chat, outcome.Granted);
+        Assert.Contains(ApplicationPermission.Chat, await repository.GetForUserAsync(userId, CancellationToken.None));
     }
 
     [Fact]
@@ -39,12 +39,12 @@ public sealed class RedeemPermissionCodeCommandHandlerTests
         var userId = Guid.NewGuid();
 
         await handler.HandleAsync(
-            new RedeemPermissionCodeCommand(userId, Authority.CodeFor(ApplicationPermission.Chat)), CancellationToken.None);
+            new RedeemPermissionCodeCommand(userId, Authority.CodeFor(ApplicationPermission.Contacts)), CancellationToken.None);
 
         // One-to-one chat and group chat are unlocked separately, which is the whole reason there are
         // four codes rather than one.
         var held = await repository.GetForUserAsync(userId, CancellationToken.None);
-        Assert.DoesNotContain(ApplicationPermission.GroupChat, held);
+        Assert.DoesNotContain(ApplicationPermission.Chat, held);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class RedeemPermissionCodeCommandHandlerTests
 
         Assert.Null(outcome.Granted);
         Assert.Null(outcome.MissingPrerequisite);
-        Assert.DoesNotContain(ApplicationPermission.GroupChat, await repository.GetForUserAsync(userId, CancellationToken.None));
+        Assert.DoesNotContain(ApplicationPermission.Chat, await repository.GetForUserAsync(userId, CancellationToken.None));
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class RedeemPermissionCodeCommandHandlerTests
     }
 
     [Theory]
-    [InlineData(ApplicationPermission.GroupChat)]
+    [InlineData(ApplicationPermission.Chat)]
     [InlineData(ApplicationPermission.Sharing)]
     public async Task What_rests_on_chat_is_refused_until_chat_is_unlocked(ApplicationPermission dependent)
     {
@@ -88,7 +88,7 @@ public sealed class RedeemPermissionCodeCommandHandlerTests
         // Refused rather than stored and inert - a code that appeared to work and changed nothing would
         // be worse than being told what to unlock first.
         Assert.Null(outcome.Granted);
-        Assert.Equal(ApplicationPermission.Chat, outcome.MissingPrerequisite);
+        Assert.Equal(ApplicationPermission.Contacts, outcome.MissingPrerequisite);
         Assert.Empty(await repository.GetForUserAsync(userId, CancellationToken.None));
     }
 
@@ -99,9 +99,9 @@ public sealed class RedeemPermissionCodeCommandHandlerTests
         var handler = new RedeemPermissionCodeCommandHandler(repository, Authority);
 
         var outcome = await handler.HandleAsync(
-            new RedeemPermissionCodeCommand(Guid.NewGuid(), Authority.CodeFor(ApplicationPermission.Chat)), CancellationToken.None);
+            new RedeemPermissionCodeCommand(Guid.NewGuid(), Authority.CodeFor(ApplicationPermission.Contacts)), CancellationToken.None);
 
-        Assert.Equal(ApplicationPermission.Chat, outcome.Granted);
+        Assert.Equal(ApplicationPermission.Contacts, outcome.Granted);
     }
 
     [Fact]

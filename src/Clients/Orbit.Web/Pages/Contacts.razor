@@ -28,9 +28,9 @@
     <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">@T["Search"]</button>
 </div>
 
-@if (!(Permissions.Has(ApplicationPermission.Chat) || Permissions.Has(ApplicationPermission.GroupChat)))
+@if (!Permissions.Has(ApplicationPermission.Contacts))
 {
-    <FeatureLocked Explanation="@(T["Conversations with one other person."])" />
+    <FeatureLocked Explanation="@(T["Finding other people, and being found by them. Everything below needs this first."])" />
 }
 else
 {
@@ -142,7 +142,7 @@ else
         await Permissions.EnsureLoadedAsync();
         // Nothing below is reachable without this, and the page draws its locked notice instead - so it
         // does not ask and get turned away, which only fills the console with refusals that are not news.
-        if (!(Permissions.Has(ApplicationPermission.Chat) || Permissions.Has(ApplicationPermission.GroupChat)))
+        if (!Permissions.Has(ApplicationPermission.Contacts))
         {
             return;
         }

@@ -32,7 +32,7 @@ public sealed class UserPermissionStateTests
         // The bug this pins: RefreshAsync used to mark the first read finished the moment it started, so
         // a page awaiting EnsureLoadedAsync carried on against an empty answer and drew "not unlocked
         // yet" for an account that had unlocked it - and, deciding its gating once, left it there.
-        var handler = new HeldPermissionsHandler(nameof(ApplicationPermission.Chat));
+        var handler = new HeldPermissionsHandler(nameof(ApplicationPermission.Contacts));
         var state = new UserPermissionState(
             new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
 
@@ -43,7 +43,7 @@ public sealed class UserPermissionStateTests
         handler.Release();
         await Task.WhenAll(refresh, waiting);
 
-        Assert.True(state.Has(ApplicationPermission.Chat));
+        Assert.True(state.Has(ApplicationPermission.Contacts));
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed class UserPermissionStateTests
             requests++;
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("""{"granted":["Chat"]}""", Encoding.UTF8, "application/json")
+                Content = new StringContent("""{"granted":["Contacts"]}""", Encoding.UTF8, "application/json")
             };
         });
         var state = new UserPermissionState(
@@ -74,7 +74,7 @@ public sealed class UserPermissionStateTests
             ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
             : new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("""{"granted":["Chat"]}""", Encoding.UTF8, "application/json")
+                Content = new StringContent("""{"granted":["Contacts"]}""", Encoding.UTF8, "application/json")
             });
         var state = new UserPermissionState(
             new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
@@ -84,6 +84,6 @@ public sealed class UserPermissionStateTests
         await state.RefreshAsync();
 
         // A dropped request is not evidence that somebody lost a permission.
-        Assert.True(state.Has(ApplicationPermission.Chat));
+        Assert.True(state.Has(ApplicationPermission.Contacts));
     }
 }

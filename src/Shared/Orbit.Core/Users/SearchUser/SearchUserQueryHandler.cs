@@ -1,14 +1,17 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Permissions;
 
 namespace Orbit.Core.Users.SearchUser;
 
 public sealed class SearchUserQueryHandler : IRequestHandler<SearchUserQuery, User?>
 {
     private readonly IUserRepository _userRepository;
+    private readonly UserVisibility _userVisibility;
 
-    public SearchUserQueryHandler(IUserRepository userRepository)
+    public SearchUserQueryHandler(IUserRepository userRepository, UserVisibility userVisibility)
     {
         _userRepository = userRepository;
+        _userVisibility = userVisibility;
     }
 
     /// <summary>
@@ -23,6 +26,13 @@ public sealed class SearchUserQueryHandler : IRequestHandler<SearchUserQuery, Us
         var user = await _userRepository.GetByEmailAsync(identifier, cancellationToken)
             ?? await _userRepository.GetByUserNameAsync(identifier, cancellationToken);
 
-        return user is null || user.Id == request.RequestingUserId ? null : user;
+        if (user is null || user.Id == request.RequestingUserId)
+        {
+            return null;
+        }
+
+        // An account that has not unlocked Contacts is not findable - the same "no such user" a made-up
+        // address gets, because saying "found, but hidden" would be finding them.
+        return await _userVisibility.IsFindableAsync(user.Id, cancellationToken) ? user : null;
     }
 }
