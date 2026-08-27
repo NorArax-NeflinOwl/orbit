@@ -1,5 +1,5 @@
 @using Orbit.Web.Services
-@implements IDisposable
+@implements IAsyncDisposable
 @inject ClientFlagsApiClient ClientFlagsApiClient
 @inject IJSRuntime JSRuntime
 @inject ILogger<GoogleSignInButton> Logger
@@ -81,5 +81,29 @@
     [JSInvokable]
     public Task OnGoogleCredential(string credential) => OnCredential.InvokeAsync(credential);
 
-    public void Dispose() => _selfReference?.Dispose();
+    /// <summary>
+    /// Tells Google to stop before dropping what it would call. The other order leaves its script
+    /// holding a reference .NET has already released, and the next credential it produces - a late
+    /// click, One Tap deciding for itself - fails against nothing.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_isButtonRendered)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("OrbitGoogleSignIn.dispose", _containerId);
+            }
+            catch (JSException exception)
+            {
+                Logger.LogWarning(exception, "Failed to dismiss the Google sign-in button");
+            }
+            catch (JSDisconnectedException)
+            {
+                // The page is going away, which is what this was trying to arrange.
+            }
+        }
+
+        _selfReference?.Dispose();
+    }
 }

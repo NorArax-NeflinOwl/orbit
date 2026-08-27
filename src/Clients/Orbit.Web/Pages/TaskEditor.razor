@@ -522,9 +522,14 @@ else
             var outcome = await TasksApiClient.MoveTaskItemAsync(sourceTaskListId, itemId, targetTaskListId);
             if (outcome.Kind != EditOutcomeKind.Success)
             {
-                _moveErrorMessage = outcome.Kind == EditOutcomeKind.Locked
-                    ? $"Can't move this item right now - {outcome.LockedByUserName} is editing one of the lists."
-                    : "Failed to move this item. Try again.";
+                // A refusal carries its own reason - "items can't be moved into a private task list"
+                // is the answer, and "try again" is not.
+                _moveErrorMessage = outcome.Kind switch
+                {
+                    EditOutcomeKind.Locked => T.Format("Can't move this item right now - {0} is editing one of the lists.", outcome.LockedByUserName),
+                    EditOutcomeKind.Refused => outcome.Reason,
+                    _ => T["Failed to move this item. Try again."]
+                };
                 _moveErrorMessageForItemId = itemId;
                 return;
             }
@@ -585,6 +590,13 @@ else
                     _lockedByUserName = outcome.LockedByUserName;
                     StopLockHeartbeat();
                     _saveErrorMessage = T.Format("{0} is currently editing this task list - try again in a moment.", outcome.LockedByUserName);
+                    return;
+                }
+
+                if (outcome.Kind == EditOutcomeKind.Refused)
+                {
+                    // The server said why; repeating "try again" over the top of it would hide the answer.
+                    _saveErrorMessage = outcome.Reason;
                     return;
                 }
 
