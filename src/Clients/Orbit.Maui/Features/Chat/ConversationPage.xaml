@@ -43,9 +43,12 @@
                             </Label>
                             <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
                             <!-- A message sealed under a key pair since replaced can never be opened. -->
-                            <Label Text="This message can't be opened on this device."
-                                   IsVisible="{Binding CannotBeOpened}"
-                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <Label IsVisible="{Binding CannotBeOpened}"
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                <Label.Text>
+                                    <controls:Translate Text="This message can't be opened on this device." />
+                                </Label.Text>
+                            </Label>
                             <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"

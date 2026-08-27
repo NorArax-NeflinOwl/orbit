@@ -96,9 +96,12 @@
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <!-- Listed rather than dropped: that somebody is sharing and it cannot be
                                  opened is worth seeing. -->
-                            <Label Text="This position can't be opened on this device."
-                                   IsVisible="{Binding CannotBeOpened}"
-                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <Label IsVisible="{Binding CannotBeOpened}"
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                <Label.Text>
+                                    <controls:Translate Text="This position can't be opened on this device." />
+                                </Label.Text>
+                            </Label>
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

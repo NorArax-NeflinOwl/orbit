@@ -907,5 +907,17 @@ public static class PolishTranslations
             "Ta wersja Orbita nie jest już wspierana. Zaktualizuj, aby kontynuować.",
         ["This version of Orbit is no longer supported. Update to {0} to continue."] =
             "Ta wersja Orbita nie jest już wspierana. Zaktualizuj do {0}, aby kontynuować.",
+        // The longer explanations on Orbit.Maui's own screens. They were written straight into the
+        // markup rather than asked of the dictionary, which is why the first sweep walked past them.
+        ["Chat is end-to-end encrypted and your key is protected with a password. This account signs in with Google and doesn't have one yet, so pick one now - it's also what lets you read your messages on another device."] =
+            "Rozmowy są szyfrowane end-to-end, a klucz chroni hasło. To konto loguje się przez Google i jeszcze go nie ma, więc ustaw je teraz — to również ono pozwala czytać wiadomości na innym urządzeniu.",
+        ["This device doesn't have a copy of your encryption key yet. Enter your password to restore it from your encrypted backup - it never leaves this device."] =
+            "To urządzenie nie ma jeszcze kopii Twojego klucza szyfrującego. Wpisz hasło, aby odtworzyć go z zaszyfrowanej kopii — klucz nie opuszcza tego urządzenia.",
+        ["Setting a new password starts your chat over: messages encrypted under the old one stay unreadable, because Orbit's servers never had the key to them."] =
+            "Nowe hasło zaczyna rozmowy od nowa: wiadomości zaszyfrowane starym pozostaną nieczytelne, bo serwery Orbita nigdy nie miały do nich klucza.",
+        ["This message can't be opened on this device."] = "Tej wiadomości nie da się otworzyć na tym urządzeniu.",
+        ["This position can't be opened on this device."] = "Tej lokalizacji nie da się otworzyć na tym urządzeniu.",
+        ["Orbit's own log, on this phone. Nothing leaves it unless you send it."] =
+            "Własny dziennik Orbita, na tym telefonie. Nic z niego nie wychodzi, dopóki go nie wyślesz.",
     };
 }

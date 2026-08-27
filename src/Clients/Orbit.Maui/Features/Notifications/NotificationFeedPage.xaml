@@ -20,13 +20,15 @@
                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
 
+            <!-- Wrapping, not truncating: Polish says "Oznacz wszystkie" where English says "Mark all
+                 read", and a third of the width cuts it off mid-word. -->
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                <Button Grid.Column="0" Text="{controls:Translate 'Mark all read'}" FontSize="13" Padding="8,4"
-                        Command="{Binding MarkEverythingReadCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" FontSize="13" Padding="8,4"
-                        Command="{Binding ClearCommand}" />
-                <Button Grid.Column="2" Text="{Binding ShowEverythingLabel}"
-                        FontSize="13" Padding="8,4" Command="{Binding ShowEverythingCommand}" />
+                <Button Grid.Column="0" Text="{controls:Translate 'Mark all read'}" FontSize="12" Padding="6,4"
+                        LineBreakMode="WordWrap" Command="{Binding MarkEverythingReadCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" FontSize="12" Padding="6,4"
+                        LineBreakMode="WordWrap" Command="{Binding ClearCommand}" />
+                <Button Grid.Column="2" Text="{Binding ShowEverythingLabel}" FontSize="12" Padding="6,4"
+                        LineBreakMode="WordWrap" Command="{Binding ShowEverythingCommand}" />
             </Grid>
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">

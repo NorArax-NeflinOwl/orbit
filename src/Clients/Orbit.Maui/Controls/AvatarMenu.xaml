@@ -46,10 +46,12 @@
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="{Binding IsStatusExpanded}">
-                    <Button Grid.Column="0" Text="Available" FontSize="12" Padding="6,4"
-                            Command="{Binding ChooseAvailableCommand}" IsEnabled="{Binding IsUnavailable}" />
-                    <Button Grid.Column="1" Text="Unavailable" FontSize="12" Padding="6,4"
-                            Command="{Binding ChooseUnavailableCommand}" IsEnabled="{Binding IsAvailable}" />
+                    <Button Grid.Column="0" Text="{controls:Translate 'Available'}" FontSize="12" Padding="6,4"
+                            LineBreakMode="WordWrap" Command="{Binding ChooseAvailableCommand}"
+                            IsEnabled="{Binding IsUnavailable}" />
+                    <Button Grid.Column="1" Text="{controls:Translate 'Unavailable'}" FontSize="12" Padding="6,4"
+                            LineBreakMode="WordWrap" Command="{Binding ChooseUnavailableCommand}"
+                            IsEnabled="{Binding IsAvailable}" />
                 </Grid>
 
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
