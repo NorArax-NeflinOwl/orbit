@@ -8,12 +8,16 @@ namespace Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 
 /// <summary>
 /// Turns a list of work into the shelf that work needs: one entry per distinct thing it calls for, each
-/// starting at nothing, and the list pointed at the result so the stock check can be run straight away.
+/// carrying how many the job needs as its minimum, and the list pointed at the result so the stock check
+/// can be run straight away.
 ///
-/// Everything the tree names is included, including lines dated in the future - the shelf is for what
-/// the job will need, while the check counts only what is due. Quantities start at zero rather than at
-/// what the work needs: a shelf that began full would report the job as doable before anybody had
-/// fetched anything.
+/// The minimum is counted the same way the check counts - repetition is quantity, so pasta named in
+/// three recipes has a minimum of three - which is what makes a generated shelf a shopping list rather
+/// than a list of headings. Quantities start at zero: none of it has been fetched yet, so every entry
+/// reads as below its minimum until somebody puts something on the shelf.
+///
+/// Everything the tree names is included, including lines dated in the future - the shelf holds what the
+/// whole job will need, while the check counts only what is due.
 /// </summary>
 public sealed class GenerateWarehouseFromTaskListCommandHandler : IRequestHandler<GenerateWarehouseFromTaskListCommand, Guid?>
 {
@@ -45,11 +49,9 @@ public sealed class GenerateWarehouseFromTaskListCommandHandler : IRequestHandle
         }
 
         var reachable = await _taskRepository.GetAllAsync(request.UserId, cancellationToken);
-        var names = LinkedTaskListTree.WorkIn(taskList, reachable)
-            .Select(item => item.Description.Trim())
-            .Where(description => description.Length > 0)
-            .DistinctBy(description => description.ToLowerInvariant())
-            .ToList();
+        var needed = StockRequirementCounter
+            .CountRegardlessOfDueDate(LinkedTaskListTree.WorkIn(taskList, reachable))
+            .Requirements;
 
         var warehouseId = await _dispatcher.SendAsync(
             new CreateWarehouseCommand(request.UserId, taskList.Title), cancellationToken);
@@ -57,18 +59,18 @@ public sealed class GenerateWarehouseFromTaskListCommandHandler : IRequestHandle
         // The rows go in one at a time rather than through UpdateWarehouseCommand: that command writes
         // the warehouse row as well, and a warehouse created and updated inside one request leaves the
         // same key tracked twice.
-        foreach (var name in names)
+        foreach (var requirement in needed)
         {
             await _inventoryRepository.AddAsync(
                 InventoryItem.Create(
-                    warehouseId, name, GeneratedProductType, GeneratedCategory, quantity: 0,
-                    minimumQuantity: null, expiryDate: null, NotificationChannel.None),
+                    warehouseId, requirement.Name, GeneratedProductType, GeneratedCategory, quantity: 0,
+                    minimumQuantity: requirement.Required, expiryDate: null, NotificationChannel.None),
                 cancellationToken);
         }
 
         // The standing "keep your stock updated" reminder exists from a warehouse's first item, the same
         // as when items are added through the warehouse editor.
-        if (names.Count > 0)
+        if (needed.Count > 0)
         {
             await _taskListCoordinator.EnsureManagedTaskListAsync(warehouseId, cancellationToken);
         }
