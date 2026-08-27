@@ -27,12 +27,24 @@ public sealed class UserPermissionState(UsersApiClient usersApiClient)
     public Task EnsureLoadedAsync() => _firstRead ??= RefreshAsync();
 
     /// <summary>
+    /// Re-reads what this account holds. Records the read itself as the first one, not the fact that a
+    /// read was started: marking it finished up front made every page waiting on it carry on against an
+    /// empty answer, and since a page decides its own gating once, "not unlocked yet" then stayed on
+    /// screen for an account that had unlocked it.
+    /// </summary>
+    public Task RefreshAsync()
+    {
+        var read = ReadAsync();
+        _firstRead = read;
+        return read;
+    }
+
+    /// <summary>
     /// Leaves the previous answer in place when the call fails. A transient failure is not evidence that
     /// somebody lost a permission, and blanking the navigation on a dropped request would say it was.
     /// </summary>
-    public async Task RefreshAsync()
+    private async Task ReadAsync()
     {
-        _firstRead = Task.CompletedTask;
         IReadOnlyList<string> granted;
         try
         {
