@@ -10,8 +10,10 @@ internal sealed class InMemoryInventoryRepository : IInventoryRepository
 {
     private readonly List<InventoryItem> _items = [];
 
+    /// <summary>As arranged, then by name - the order InventoryRepository reads a shelf back in.</summary>
     public Task<IReadOnlyList<InventoryItem>> GetAllAsync(Guid warehouseId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<InventoryItem>>(_items.Where(item => item.WarehouseId == warehouseId).ToList());
+        => Task.FromResult<IReadOnlyList<InventoryItem>>(
+            [.. _items.Where(item => item.WarehouseId == warehouseId).OrderBy(item => item.Position).ThenBy(item => item.Name)]);
 
     public Task<InventoryItem?> GetByIdAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
         => Task.FromResult(_items.FirstOrDefault(item => item.Id == id && item.WarehouseId == warehouseId));

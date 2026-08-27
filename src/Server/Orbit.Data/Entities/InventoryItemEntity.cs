@@ -22,6 +22,9 @@ public sealed class InventoryItemEntity
     public Guid? PendingRestockTaskListId { get; set; }
     public Guid? PendingRestockTaskItemId { get; set; }
 
+    /// <summary>Where the item sits on its warehouse's shelf. Zero for everything stocked before shelves could be arranged.</summary>
+    public int Position { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

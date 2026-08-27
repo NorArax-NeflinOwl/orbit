@@ -177,6 +177,46 @@ public sealed class UpdateWarehouseCommandHandlerTests
         Assert.Equal(EditOutcomeKind.Success, outcome.Kind);
     }
 
+    [Fact]
+    public async Task HandleAsync_keeps_the_shelf_in_the_order_the_items_arrive_in()
+    {
+        // The editor sends its rows in the order somebody arranged them, so that is the order the shelf
+        // is stored and read back in - not the alphabetical one it would fall back to.
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+
+        await CreateHandler(context).HandleAsync(
+            new UpdateWarehouseCommand(
+                userId, warehouseId, "Kitchen",
+                [NewItem("Sugar", 1m), NewItem("Flour", 1m), NewItem("Milk", 1m)], IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var stored = await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None);
+        Assert.Equal(["Sugar", "Flour", "Milk"], stored.Select(item => item.Name));
+        Assert.Equal([0, 1, 2], stored.Select(item => item.Position));
+    }
+
+    [Fact]
+    public async Task HandleAsync_moves_an_item_that_comes_back_in_a_different_place()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+        var sugar = await AddStoredItemAsync(context, warehouseId, "Sugar", quantity: 1m);
+        var flour = await AddStoredItemAsync(context, warehouseId, "Flour", quantity: 1m);
+
+        await CreateHandler(context).HandleAsync(
+            new UpdateWarehouseCommand(
+                userId, warehouseId, "Kitchen",
+                [NewItem("Flour", 1m) with { Id = flour.Id }, NewItem("Sugar", 1m) with { Id = sugar.Id }],
+                IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var stored = await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None);
+        Assert.Equal([flour.Id, sugar.Id], stored.Select(item => item.Id));
+    }
+
     private static UpdateWarehouseCommandHandler CreateHandler(InventoryTestContext context)
         => new(context.AccessResolver, context.WarehouseRepository, context.InventoryRepository, context.TaskListCoordinator);
 
