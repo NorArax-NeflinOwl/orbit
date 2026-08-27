@@ -75,7 +75,7 @@ else
     <div class="group-layout">
         <ConversationList Conversations="Conversations" ActiveId="GroupId" IsCollapsed="_isGroupListCollapsed"
                           OnToggleCollapsed="() => _isGroupListCollapsed = !_isGroupListCollapsed"
-                          Search="_groupSearch" SearchChanged="value => _groupSearch = value"
+                          Search="@_groupSearch" SearchChanged="value => _groupSearch = value"
                           OnSelected="OpenConversation" OnNewGroup="StartCreating" />
 
         @if (_selectedGroup is { } selectedGroup)

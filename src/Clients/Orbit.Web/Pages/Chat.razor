@@ -68,7 +68,7 @@ else
             <div class="chat-list-backdrop @(_isDrawerOpen ? "open" : "")" @onclick="CloseDrawer"></div>
             <ConversationList Conversations="Conversations" ActiveId="UserId" IsOpen="_isDrawerOpen"
                               IsCollapsed="_isContactListCollapsed" OnToggleCollapsed="ToggleContactListCollapsed"
-                              Search="_chatSearch" SearchChanged="value => _chatSearch = value"
+                              Search="@_chatSearch" SearchChanged="value => _chatSearch = value"
                               OnSelected="OpenConversation" OnNewGroup="GoToNewGroup" />
 
             <div class="chat-thread">

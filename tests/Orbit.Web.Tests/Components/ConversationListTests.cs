@@ -101,6 +101,32 @@ public sealed class ConversationListTests : OrbitTestContext
     }
 
     [Fact]
+    public void The_search_box_shows_what_has_been_typed_into_it()
+    {
+        // A page passing its own field has to see it back: the box once rendered the literal name of it.
+        var cut = RenderComponent<ConversationList>(parameters => parameters
+            .Add(list => list.Conversations, [Person("Anna")])
+            .Add(list => list.OnSelected, _ => { })
+            .Add(list => list.Search, "ann"));
+
+        Assert.Equal("ann", cut.Find(".chat-list-search").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Typing_in_the_search_box_is_handed_back_to_the_page()
+    {
+        string? typed = null;
+        var cut = RenderComponent<ConversationList>(parameters => parameters
+            .Add(list => list.Conversations, [Person("Anna")])
+            .Add(list => list.OnSelected, _ => { })
+            .Add(list => list.SearchChanged, value => typed = value));
+
+        cut.Find(".chat-list-search").Input("we");
+
+        Assert.Equal("we", typed);
+    }
+
+    [Fact]
     public void Nothing_matching_the_search_says_so_rather_than_showing_an_empty_panel()
     {
         var cut = Render([]);
