@@ -132,6 +132,8 @@ public static class MauiProgram
 		// One instance: the navigation bar, the screens it leads to and the account screen all have to
 		// agree about what this account may use, and only one page is ever on screen.
 		services.AddSingleton<UserPermissions>();
+		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
+		services.AddSingleton<PresenceReporter>();
 		// One gate for the whole app: unlocking private things on one screen unlocks them everywhere,
 		// and putting the phone down locks them everywhere.
 		services.AddSingleton<PrivateItemGate>();

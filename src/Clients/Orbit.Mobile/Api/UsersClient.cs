@@ -50,6 +50,28 @@ public sealed class UsersClient
         return permissions?.Granted ?? [];
     }
 
+    /// <summary>
+    /// Tells the server what this account chose to be - "Available" or "DoNotDisturb". Only its own:
+    /// presence describes whether somebody is there to answer, which nobody else can say for them.
+    /// </summary>
+    public async Task<bool> SetAvailabilityAsync(string availability, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync(
+            "api/users/me/presence", new SetAvailabilityRequest(availability), cancellationToken);
+
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// A sign of life. The gap since the last one is what turns somebody's dot yellow and then grey, so
+    /// a client that stops sending fades out on its own - see Orbit.Core.Users.UserPresence.
+    /// </summary>
+    public async Task SendPresenceHeartbeatAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync("api/users/me/presence/heartbeat", null, cancellationToken);
+        _ = response;
+    }
+
     /// <summary>What the code unlocked, and what it needed first when it unlocked nothing.</summary>
     public async Task<RedeemPermissionCodeResultDto> RedeemPermissionCodeAsync(
         string code, CancellationToken cancellationToken = default)

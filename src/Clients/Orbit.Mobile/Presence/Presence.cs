@@ -33,8 +33,10 @@ public enum ChosenAvailability
 /// which is a decision and outranks anything inferred. Only then the guess - idle after a minute of not
 /// touching anything.
 ///
-/// <b>Local to this device.</b> Orbit's server has no notion of presence, so nothing here reaches
-/// anybody else yet; the dot tells the reader what they have set, not what a contact sees.
+/// This is the phone's own view of itself. What everybody else sees is the server's, kept current by
+/// <see cref="PresenceReporter"/> - which is why choosing something raises
+/// <see cref="ChosenChanged"/> as well as <see cref="Changed"/>: the dot has to redraw, and the server
+/// has to be told, and those are two different audiences.
 /// </summary>
 public sealed class Presence
 {
@@ -60,6 +62,13 @@ public sealed class Presence
 
     /// <summary>Raised when <see cref="Appearance"/> may have changed, so the bar can redraw its dot.</summary>
     public event EventHandler? Changed;
+
+    /// <summary>
+    /// Raised only when the reader actually picks something, as opposed to every idleness tick. What
+    /// goes to the server is the choice; how long the phone has been idle is the server's own to work
+    /// out from the heartbeats.
+    /// </summary>
+    public event EventHandler? ChosenChanged;
 
     /// <summary>
     /// What the reader picked. Read from storage once at construction rather than on every glance, and
@@ -92,6 +101,7 @@ public sealed class Presence
         Chosen = availability;
         _store.Write(availability);
         Changed?.Invoke(this, EventArgs.Empty);
+        ChosenChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

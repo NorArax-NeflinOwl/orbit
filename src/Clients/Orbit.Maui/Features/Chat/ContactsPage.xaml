@@ -10,6 +10,10 @@
     x:DataType="screens:ContactsViewModel"
     Title="{controls:Translate 'Chat'}">
 
+    <ContentPage.Resources>
+        <controls:PresenceColorConverter x:Key="PresenceColor" />
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,*,Auto">
 
 
@@ -57,7 +61,13 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="data:LocalContact">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Label Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold" />
+                            <!-- The same dot as on the avatar, and the same colours mean the same
+                                 things - see PresenceColorConverter. -->
+                            <HorizontalStackLayout Spacing="8">
+                                <Ellipse WidthRequest="9" HeightRequest="9" VerticalOptions="Center"
+                                         Fill="{Binding PresenceStatus, Converter={StaticResource PresenceColor}}" />
+                                <Label Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold" />
+                            </HorizontalStackLayout>
                             <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12"
                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{controls:Translate 'Waiting for them to accept your request'}"
