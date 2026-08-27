@@ -306,6 +306,11 @@ public sealed partial class ConversationViewModel : ObservableObject
             return message with { WasAccepted = true };
         }
 
+        if (_withdrawn.Contains(invitation.ShareId))
+        {
+            return message with { IsNoLongerOnOffer = true };
+        }
+
         if (!await _acceptance.WasAcceptedAsync(invitation, cancellationToken))
         {
             return message;
@@ -317,6 +322,9 @@ public sealed partial class ConversationViewModel : ObservableObject
 
     /// <summary>Offers this screen already knows are taken, so a reload does not ask about them again.</summary>
     private readonly HashSet<Guid> _takenUp = [];
+
+    /// <summary>Offers the server refused to hand over. Not the same thing - see ReadableChatMessage.</summary>
+    private readonly HashSet<Guid> _withdrawn = [];
 
     /// <summary>
     /// Takes up an offer to share something. The copy appears once the feature's own synchroniser next
@@ -337,8 +345,8 @@ public sealed partial class ConversationViewModel : ObservableObject
                 ? _translations.Format("{0} is yours now.", invitation.Name)
                 : _translations["That offer is no longer available."]);
 
-            // Either way it is not on offer any more, so the button goes.
-            _takenUp.Add(invitation.ShareId);
+            // Either way it stops being an offer, but only one of the two is now yours.
+            _ = accepted ? _takenUp.Add(invitation.ShareId) : _withdrawn.Add(invitation.ShareId);
             await ShowStoredConversationAsync(cancellationToken);
         }
         catch (HttpRequestException)

@@ -120,6 +120,25 @@ public sealed class SharedItemInvitationTests
             new SharedItemInvitation(SharedItemKind.Note, Guid.NewGuid(), "Shopping")));
     }
 
+    /// <summary>
+    /// A withdrawn offer and an accepted one both stop being offers, and the phone said "already
+    /// accepted" about both - which is untrue of the first, and the reader would go looking for
+    /// something they do not have.
+    /// </summary>
+    [Fact]
+    public void An_offer_withdrawn_is_not_an_offer_accepted()
+    {
+        var message = new ReadableChatMessage(
+            IsMine: false, Text: null, DateTimeOffset.UnixEpoch, IsEdited: false, IsWaitingToSend: false,
+            Invitation: new SharedItemInvitation(SharedItemKind.Note, Guid.NewGuid(), "Shopping"));
+
+        Assert.True(message.CanBeAccepted);
+        Assert.False((message with { WasAccepted = true }).CanBeAccepted);
+        Assert.False((message with { IsNoLongerOnOffer = true }).CanBeAccepted);
+        // Only the one that is now theirs says so.
+        Assert.False((message with { IsNoLongerOnOffer = true }).WasAccepted);
+    }
+
     /// <summary>An offer already taken up, or withdrawn, is refused rather than throwing.</summary>
     [Fact]
     public async Task An_offer_that_is_gone_says_no_rather_than_failing()

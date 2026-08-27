@@ -54,8 +54,15 @@ public sealed record ReadableChatMessage(
     /// </summary>
     public bool WasAccepted { get; init; }
 
+    /// <summary>
+    /// Set when accepting came back refused. Deliberately not the same as <see cref="WasAccepted"/>:
+    /// a withdrawn offer and an accepted one both stop being offers, but only one of them is now
+    /// yours, and saying "already accepted" about the other would be untrue.
+    /// </summary>
+    public bool IsNoLongerOnOffer { get; init; }
+
     /// <summary>An offer still worth a button. One already taken up is a line, not a choice.</summary>
-    public bool CanBeAccepted => IsInvitation && !WasAccepted;
+    public bool CanBeAccepted => IsInvitation && !WasAccepted && !IsNoLongerOnOffer;
 
     /// <summary>What the offer is called, for the line the screen shows in place of the text.</summary>
     public string InvitationName => Invitation?.Name ?? string.Empty;
