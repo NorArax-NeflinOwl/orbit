@@ -553,6 +553,10 @@ else
     }
 
     /// <summary>Asks the question again - the shelf moves without this page hearing about it.</summary>
+    /// <summary>
+    /// Reads the warehouse again and crosses off the work it turns out to cover, then redraws both the
+    /// panel and the lists - the point of asking is to have the answer applied, not just shown.
+    /// </summary>
     private async Task RecalculateAsync()
     {
         _isWorkingOnInventory = true;
@@ -560,11 +564,18 @@ else
         Logger.LogInformation("User recalculated the stock check for task list {TaskListId}", Id);
         try
         {
+            var completed = await TasksApiClient.CompleteWorkCoveredByStockAsync(Id);
+            _shortfallMessage = completed > 0
+                ? T.Format("{0} crossed off, because the warehouse covers them.", completed)
+                : T["Nothing new is covered by the warehouse."];
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
             _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to recalculate the stock check for task list {TaskListId}", Id);
+            _errorMessage = T["Couldn't recalculate against the warehouse. Try again."];
         }
         finally
         {

@@ -13,3 +13,6 @@ public sealed record TaskListStockCheckDto(bool IsAchievable, IReadOnlyList<Stoc
 
 /// <param name="AddedCount">How many entries were put on the restock list - zero when nothing was short, or when everything short was already waiting there.</param>
 public sealed record RaiseStockShortfallsResultDto(int AddedCount);
+
+/// <summary>How many entries the warehouse turned out to cover, and so crossed off.</summary>
+public sealed record CompleteWorkCoveredByStockResultDto(int CompletedCount);

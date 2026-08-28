@@ -77,6 +77,10 @@ internal static class PolishTranslations
         ["Show single items"] = "Pokaż pojedyncze elementy",
         ["In list order"] = "W kolejności listy",
         ["Left to do first"] = "Najpierw do zrobienia",
+        ["{0} crossed off, because the warehouse covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
+        ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
+        ["Couldn't recalculate against the warehouse. Try again."] =
+            "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
         ["Hide"] = "Ukryj",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
         ["Show"] = "Pokaż",
