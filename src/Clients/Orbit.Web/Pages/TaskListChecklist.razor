@@ -1,3 +1,11 @@
+@* Opening a task list means this, whichever way you got here: from its card, from a deadline on the
+   calendar, from a dashboard row, from an overdue-task notification. Ticking something off is what
+   somebody opening a list nearly always came to do, and the deep editor is one named click away (see
+   TaskEditor, which lives at "/tasks/{id}/edit").
+
+   The second route is what every link written before that was true still says. Kept so a bookmark, or a
+   push notification already sitting on somebody's phone, lands here rather than nowhere. *@
+@page "/tasks/{Id:guid}"
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
 @using Orbit.Contracts.Inventory
@@ -472,7 +480,7 @@ else
     private void GoToDeepEditor()
     {
         _menu?.Close();
-        NavigationManager.NavigateTo($"/tasks/{Id}");
+        NavigationManager.NavigateTo($"/tasks/{Id}/edit");
     }
 
     private void GoToTaskLists() => NavigationManager.NavigateTo("/tasks");

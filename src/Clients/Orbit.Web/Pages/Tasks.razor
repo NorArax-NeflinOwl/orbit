@@ -417,17 +417,18 @@ else
         NavigationManager.NavigateTo("/tasks/new");
     }
 
+    /// <summary>The deep editing level, which has to be asked for by name - see TaskEditor.razor.</summary>
     private void GoToEditTaskList(Guid taskListId)
     {
         Logger.LogInformation("User clicked 'Edit' for task list {TaskListId}", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}");
+        NavigationManager.NavigateTo($"/tasks/{taskListId}/edit");
     }
 
-    /// <summary>Opens the shallow editing level - see TaskListChecklist.razor.</summary>
+    /// <summary>What opening a list means, here and everywhere else - see TaskListChecklist.razor.</summary>
     private void GoToChecklist(Guid taskListId)
     {
         Logger.LogInformation("User clicked 'Open checklist' for task list {TaskListId}", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}/checklist");
+        NavigationManager.NavigateTo($"/tasks/{taskListId}");
     }
 
     private async Task DeleteTaskListAsync(TaskDto taskList)

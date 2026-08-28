@@ -379,7 +379,7 @@
         Logger.LogInformation(
             "User clicked a due-task entry on the calendar for task list {TaskListId}, opening {OpenedTaskListId}",
             taskListId, opened);
-        NavigationManager.NavigateTo($"/tasks/{opened}/checklist");
+        NavigationManager.NavigateTo($"/tasks/{opened}");
     }
 
     /// <summary>

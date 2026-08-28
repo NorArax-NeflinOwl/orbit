@@ -1,5 +1,7 @@
 @page "/tasks/new"
-@page "/tasks/{Id:guid}"
+@* The deep level has to be asked for by name. "/tasks/{id}" is the checklist - see TaskListChecklist,
+   and see Tasks.razor's card for the two ways in. *@
+@page "/tasks/{Id:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Text.Json

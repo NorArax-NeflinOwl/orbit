@@ -230,8 +230,9 @@ public sealed class DashboardTests : OrbitTestContext
         FindColumn(cut, "Tasks").QuerySelector(".list-row")!.Click();
 
         // Clicking a list here means "let me get on with it", which is ticking things off - reworking
-        // the list's own settings is a deliberate trip to the editor from there.
-        Assert.EndsWith($"/tasks/{taskList.Id}/checklist", Services.GetRequiredService<NavigationManager>().Uri);
+        // the list's own settings is a deliberate trip to the editor from there. "/tasks/{id}" is the
+        // checklist; the editor is at "/tasks/{id}/edit".
+        Assert.EndsWith($"/tasks/{taskList.Id}", Services.GetRequiredService<NavigationManager>().Uri);
     }
 
     private static ChatGroupDto Group(string name, int memberCount, string ownRole = "Member")

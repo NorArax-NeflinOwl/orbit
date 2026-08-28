@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -118,6 +119,25 @@ public sealed class TasksTests : OrbitTestContext
         var actions = cut.Find(".card-actions").TextContent;
         Assert.Contains("Open checklist", actions);
         Assert.Contains("Edit", actions);
+    }
+
+    [Fact]
+    public void Opening_a_list_means_its_checklist_and_the_editor_has_to_be_asked_for()
+    {
+        var taskList = TaskList("Kitchen", Item("Paint walls"));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".card-actions button").First(button => button.TextContent.Contains("Open checklist")).Click();
+
+        // "/tasks/{id}" is the shallow level, wherever somebody arrives from; the deep editor lives one
+        // named click further on, so nothing lands there by default.
+        Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+
+        cut.FindAll(".card-actions button").First(button => button.TextContent.Trim() == "Edit").Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}/edit", navigationManager.Uri);
     }
 
     [Fact]

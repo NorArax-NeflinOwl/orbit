@@ -549,7 +549,7 @@ else
     private void GoToTaskList(Guid taskListId)
     {
         Logger.LogInformation("User clicked a task list on the dashboard ({TaskListId})", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}/checklist");
+        NavigationManager.NavigateTo($"/tasks/{taskListId}");
     }
 
     private void GoToEditEvent(Guid eventId)

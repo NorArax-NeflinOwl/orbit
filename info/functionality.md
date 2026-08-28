@@ -550,15 +550,23 @@ Pinned lists lead every order except that one, which already says where every ca
 
 A task list can be opened at either of two depths, both reachable from the task list page:
 
-- **Deep** (`/tasks/{id}`, `TaskEditor.razor`) — the full editor: title, grouping, every item's text,
-  due date, link, notification settings, adding and removing items. This is the level that takes the
-  edit lock described under [Edit locking](#edit-locking).
-- **Shallow** (`/tasks/{id}/checklist`, `TaskListChecklist.razor`) — the whole list as nothing but
-  tickable rows. The only thing it can change is whether an item is checked off, which is what lets it
-  show the entire list at once. It deliberately takes **no** edit lock: ticking items off is not an
-  editing session, and two people doing it at the same time is normal rather than a conflict. It still
-  goes through the same `PUT /api/tasks/{id}`, so it does respect someone else's lock — a save during
-  another user's deep edit comes back 409 and the checkbox snaps back to what the server holds.
+- **Shallow** (`/tasks/{id}`, `TaskListChecklist.razor`) — the whole list as nothing but tickable rows.
+  The only thing it can change is whether an item is checked off, which is what lets it show the entire
+  list at once. It deliberately takes **no** edit lock: ticking items off is not an editing session, and
+  two people doing it at the same time is normal rather than a conflict. It still goes through the same
+  `PUT /api/tasks/{id}`, so it does respect someone else's lock — a save during another user's deep edit
+  comes back 409 and the checkbox snaps back to what the server holds.
+- **Deep** (`/tasks/{id}/edit`, `TaskEditor.razor`) — the full editor: title, kind, grouping, every
+  item's text, due date, link, notification settings, adding and removing items. This is the level that
+  takes the edit lock described under [Edit locking](#edit-locking).
+
+**The shallow level is what opening a list means.** It owns the plain `/tasks/{id}` route, so every way
+into a list lands there whether or not the code that sent you thought about it: the card on the task
+list page, a deadline clicked on the calendar, a row on the dashboard, an overdue-task or daily-reminder
+notification, a bookmark, a push notification already sitting on somebody's phone. Ticking something off
+is what somebody opening a list nearly always came to do; reworking the list itself is a named click
+from there. `/tasks/{id}/checklist` is kept as a second route on the same page, so links written before
+that was true still work.
 
 Rows that can't be ticked by hand render as disabled checkboxes: items whose completion follows a
 linked list (see above), and any list reached through a read-only share.
@@ -1014,8 +1022,9 @@ than one after another so the page's load time is the slowest of the three calls
 Each item type gets its own column, but only if it actually has items in it — an empty column (e.g. no
 task lists yet) is left out entirely rather than shown with a "nothing here yet" placeholder, since the
 point of this page is a quick glance at what exists, not a third copy of each list page's empty state.
-Clicking any item navigates straight to its editor (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`),
-the same page `Notes`/`Tasks`/`Calendar`'s own "Edit" button opens — the dashboard has no editing of its own.
+Clicking any item navigates straight to it (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`) — the
+dashboard has no editing of its own. For a task list that is its checklist, not its settings: see
+[Two editing levels](#two-editing-levels) for why the shallow level is what opening a list means.
 
 ### Deciding what the page shows
 
