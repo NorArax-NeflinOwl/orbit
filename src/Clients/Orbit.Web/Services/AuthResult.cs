@@ -19,6 +19,13 @@ public enum AuthOutcome
     /// <summary>The account signs in with Google and has never set a password.</summary>
     PasswordNotSet,
 
+    /// <summary>
+    /// The server is refusing to look at any more attempts for a moment (see the auth rate limit in
+    /// Program.cs). Its own outcome rather than a generic failure: "try again" is exactly the wrong
+    /// advice here, and somebody told only that "an error occurred" retries straight into the same wall.
+    /// </summary>
+    TooManyAttempts,
+
     // Told apart rather than lumped together: refusing a registration is only useful if the reader
     // learns which of the two fields to change (see RegistrationConflictDto).
     EmailAlreadyTaken,

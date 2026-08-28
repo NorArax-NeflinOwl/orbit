@@ -31,6 +31,16 @@ push notification it sends the recipient; subscribing/unsubscribing a push endpo
 notification scheduling logic (see
 [Functionality — Push notifications](functionality.md#push-notifications)).
 
+A few of these run against a real database rather than an in-memory double, because what they pin lives
+in storage itself — the order a checklist comes back in, and which tables account deletion empties. They
+use SQLite in a temporary file (`TemporarySqliteDatabase`), with **connection pooling turned off**. That
+is not a detail: `Microsoft.Data.Sqlite` pools by default, so disposing the context hands its connection
+back to the pool rather than closing the file, and the pooled handle outlives the test. Windows then
+refuses to delete the file and the run fails in teardown with every assertion having passed; POSIX
+unlinks an open file without complaint, so the same mistake is silent on macOS and Linux and waits for
+somebody to run the suite on Windows. Anything else that needs a real database here should use that
+class rather than opening its own connection.
+
 ### `tests/Orbit.Web.Tests`
 
 Covers the Blazor client's auth wiring: the token store; the handler that attaches the access token to

@@ -268,7 +268,7 @@ public sealed class PublicShareLinkTests
         public async Task MakeNotePrivateAsync(Guid noteId)
         {
             var note = await _noteRepository.GetByIdAsync(OwnerId, noteId, CancellationToken.None);
-            note!.Update(string.Empty, [], isPrivate: true, new EncryptedPayload("c2VhbGVk", "bm9uY2U="));
+            note!.Update(string.Empty, [], isPrivate: true, new EncryptedPayload("c2VhbGVk", "bm9uY2U="), note.Priority);
             await _noteRepository.UpdateAsync(note, CancellationToken.None);
         }
 

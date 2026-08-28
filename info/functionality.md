@@ -21,6 +21,11 @@ Orbit's users is the rate limit on the whole auth group. Password reset stays si
 does not apply here: it sends mail to an address the caller named, so an answer there would be an oracle
 anybody could point at anybody.
 
+That rate limit is said out loud too. A 429 from any of the three auth calls (login, registration,
+Google) shows "too many attempts, wait a minute" rather than the generic "an error occurred, try again"
+it used to — which was both wrong and the worst possible advice, since trying again is what keeps the
+window shut.
+
 `token` is a short-lived JWT (15 minutes by default, `Jwt:ExpiryMinutes`). `refreshToken` is a
 long-lived (30 days), single-use, opaque value: `POST /api/auth/refresh` (`refreshToken`) exchanges it
 for a new `{ token, refreshToken, ... }` pair and revokes the one that was redeemed, so a leaked refresh

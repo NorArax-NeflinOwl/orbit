@@ -91,6 +91,7 @@
 
         _errorMessage = result.Outcome switch
         {
+            AuthOutcome.TooManyAttempts => T["Too many attempts. Wait a minute and try again."],
             AuthOutcome.NoSuchAccount => T["No account uses that email address or login."],
             AuthOutcome.WrongPassword => T["That password is wrong."],
             AuthOutcome.PasswordNotSet => T["This account signs in with Google and has no password yet. Use the Google button below."],
@@ -150,7 +151,10 @@
 
         if (result.Outcome != AuthOutcome.Success)
         {
-            _errorMessage = T["Couldn't sign in with Google. Try again."];
+            // The rate limit is worth saying out loud: "try again" is exactly the wrong advice for it.
+            _errorMessage = result.Outcome == AuthOutcome.TooManyAttempts
+                ? T["Too many attempts. Wait a minute and try again."]
+                : T["Couldn't sign in with Google. Try again."];
             return;
         }
 

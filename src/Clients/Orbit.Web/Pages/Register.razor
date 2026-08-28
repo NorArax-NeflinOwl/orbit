@@ -103,6 +103,7 @@
 
         _errorMessage = result.Outcome switch
         {
+            AuthOutcome.TooManyAttempts => T["Too many attempts. Wait a minute and try again."],
             AuthOutcome.EmailAlreadyTaken => T["An account with this email address already exists."],
             AuthOutcome.UserNameAlreadyTaken => T["This login is already taken."],
             _ => T["An error occurred while registering. Try again."]

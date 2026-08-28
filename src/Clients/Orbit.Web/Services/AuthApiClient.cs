@@ -30,6 +30,11 @@ public sealed class AuthApiClient
         var response = await _httpClient.PostAsJsonAsync(
             "api/auth/register", new RegisterUserRequest(email, userName, displayName, password), cancellationToken);
 
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            return AuthResult.Refused(AuthOutcome.TooManyAttempts);
+        }
+
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
             // A 409 is a refusal whether or not a body came with it, so reading the reason must not be
@@ -52,6 +57,11 @@ public sealed class AuthApiClient
     {
         var response = await _httpClient.PostAsJsonAsync(
             "api/auth/google", new GoogleSignInRequest(idToken), cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            return AuthResult.Refused(AuthOutcome.TooManyAttempts);
+        }
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -88,6 +98,13 @@ public sealed class AuthApiClient
     {
         var response = await _httpClient.PostAsJsonAsync(
             "api/auth/login", new LoginRequest(emailOrUserName, password), cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            // Answered before the reason is read: a 429 carries no LoginRejectionDto, and "wrong
+            // password" is not what happened.
+            return AuthResult.Refused(AuthOutcome.TooManyAttempts);
+        }
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {

@@ -110,6 +110,20 @@ public sealed class LoginTests : OrbitTestContext
         Assert.Contains("Invalid email, login, or password.", cut.Markup);
     }
 
+    [Fact]
+    public void Being_rate_limited_says_so_rather_than_asking_for_another_go()
+    {
+        RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+
+        var cut = RenderComponent<Login>();
+        cut.Find("#emailOrUserName").Change("user@example.com");
+        cut.Find("#password").Change("wrong-password");
+        cut.Find("form").Submit();
+
+        // "An error occurred, try again" sent somebody straight back into the same wall, none the wiser.
+        Assert.Contains("Too many attempts.", cut.Markup);
+    }
+
     [Theory]
     [InlineData("NoSuchAccount", "No account uses that email address or login.")]
     [InlineData("WrongPassword", "That password is wrong.")]
