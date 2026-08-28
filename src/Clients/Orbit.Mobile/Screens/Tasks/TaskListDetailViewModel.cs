@@ -104,7 +104,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = TaskItemEditor.For(row.Item);
+            BeingEdited = TaskItemEditor.For(row.Item, _translations);
             MoveTarget = null;
             OnPropertyChanged(nameof(CanMoveItem));
         }

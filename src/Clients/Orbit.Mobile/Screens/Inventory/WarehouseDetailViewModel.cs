@@ -111,7 +111,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = WarehouseItemEditor.For(row.Item);
+            BeingEdited = WarehouseItemEditor.For(row.Item, _translations);
         }
     }
 

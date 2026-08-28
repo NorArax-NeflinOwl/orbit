@@ -1,4 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Contracts.Inventory;
 using Orbit.Core.Notifications;
 
@@ -15,9 +17,25 @@ namespace Orbit.Mobile.Screens.Inventory;
 /// </summary>
 public sealed partial class WarehouseItemEditor : ObservableObject
 {
-    /// <summary>What the web's dropdown offers, in the same order - see NotificationChannel.</summary>
-    public static IReadOnlyList<string> Channels { get; } =
-        [.. Enum.GetValues<NotificationChannel>().Select(channel => channel.ToString())];
+    /// <summary>
+    /// What the web's dropdown offers, in the same order and with the same wording - see
+    /// NotificationChannelChoice. Taken in the factory rather than set afterwards: the picker reads it
+    /// once, when the form appears, and a list handed over after that is never looked at.
+    /// </summary>
+    public IReadOnlyList<NotificationChannelChoice> Channels { get; private init; } = [];
+
+    /// <summary>Bound to the picker, which needs a choice out of Channels rather than a string.</summary>
+    public NotificationChannelChoice? ChosenExpiryNotificationChannel
+    {
+        get => NotificationChannelChoice.For(Channels, ExpiryNotificationChannel);
+        set
+        {
+            if (value is not null)
+            {
+                ExpiryNotificationChannel = value.Value;
+            }
+        }
+    }
 
     private readonly Guid? _id;
 
@@ -48,9 +66,10 @@ public sealed partial class WarehouseItemEditor : ObservableObject
 
     private WarehouseItemEditor(Guid? id) => _id = id;
 
-    public static WarehouseItemEditor For(WarehouseItemDto item)
+    public static WarehouseItemEditor For(WarehouseItemDto item, Translations translations)
         => new(item.Id)
         {
+            Channels = NotificationChannelChoice.All(translations),
             Name = item.Name,
             ProductType = item.ProductType,
             Category = item.Category,

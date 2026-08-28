@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:common="clr-namespace:Orbit.Mobile.Screens;assembly=Orbit.Mobile"
     xmlns:contracts="clr-namespace:Orbit.Contracts.Inventory;assembly=Orbit.Contracts"
     xmlns:inventory="clr-namespace:Orbit.Maui.Features.Inventory"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
@@ -112,8 +113,9 @@
 
                 <Label Text="{controls:Translate 'Expiry notification'}" FontSize="12"
                        Style="{StaticResource SubtleLabel}" />
-                <Picker ItemsSource="{x:Static screens:WarehouseItemEditor.Channels}"
-                        SelectedItem="{Binding ExpiryNotificationChannel}" />
+                <Picker ItemsSource="{Binding Channels}"
+                        SelectedItem="{Binding ChosenExpiryNotificationChannel}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}" />
             </VerticalStackLayout>
         </ScrollView>
 

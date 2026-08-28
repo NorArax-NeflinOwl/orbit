@@ -1,4 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Notifications;
 
@@ -14,9 +16,38 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// </summary>
 public sealed partial class TaskItemEditor : ObservableObject
 {
-    /// <inheritdoc cref="Inventory.WarehouseItemEditor.Channels"/>
-    public static IReadOnlyList<string> Channels { get; } =
-        [.. Enum.GetValues<NotificationChannel>().Select(channel => channel.ToString())];
+    /// <summary>
+    /// What the web's dropdown offers, in the same order and with the same wording - see
+    /// NotificationChannelChoice. Taken in the factory rather than set afterwards: the picker reads it
+    /// once, when the form appears, and a list handed over after that is never looked at.
+    /// </summary>
+    public IReadOnlyList<NotificationChannelChoice> Channels { get; private init; } = [];
+
+    /// <summary>Bound to the picker, which needs a choice out of Channels rather than a string.</summary>
+    public NotificationChannelChoice? ChosenOverdueNotificationChannel
+    {
+        get => NotificationChannelChoice.For(Channels, OverdueNotificationChannel);
+        set
+        {
+            if (value is not null)
+            {
+                OverdueNotificationChannel = value.Value;
+            }
+        }
+    }
+
+    /// <summary>Bound to the picker, which needs a choice out of Channels rather than a string.</summary>
+    public NotificationChannelChoice? ChosenDailyReminderNotificationChannel
+    {
+        get => NotificationChannelChoice.For(Channels, DailyReminderNotificationChannel);
+        set
+        {
+            if (value is not null)
+            {
+                DailyReminderNotificationChannel = value.Value;
+            }
+        }
+    }
 
     private readonly TaskItemDto _item;
 
@@ -43,9 +74,10 @@ public sealed partial class TaskItemEditor : ObservableObject
 
     private TaskItemEditor(TaskItemDto item) => _item = item;
 
-    public static TaskItemEditor For(TaskItemDto item)
+    public static TaskItemEditor For(TaskItemDto item, Translations translations)
         => new(item)
         {
+            Channels = NotificationChannelChoice.All(translations),
             Description = item.Description,
             HasDueDate = item.DueDateUtc is not null,
             DueDate = item.DueDateUtc?.LocalDateTime.Date ?? DateTime.Today,
