@@ -41,7 +41,28 @@
                                     </FormattedString>
                                 </Label.FormattedText>
                             </Label>
-                            <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding Text}" IsVisible="{Binding ShowsItsText}" LineBreakMode="WordWrap" />
+
+                            <!-- A share is not a message to read but an offer to take up: its plaintext
+                                 is the payload naming the share (see ShareOffer), so the bubble shows
+                                 what is on offer and the one action there is. -->
+                            <Border IsVisible="{Binding IsShareOffer}" Padding="12" Margin="0,2"
+                                    StrokeThickness="1"
+                                    Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="{Binding ShareLabel}" LineBreakMode="WordWrap" FontAttributes="Bold" />
+                                    <Button Text="{controls:Translate 'Accept'}" IsVisible="{Binding IsShareWaiting}"
+                                            HorizontalOptions="Start" FontSize="13" Padding="16,4"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AcceptShareCommand, x:DataType=chat:ConversationPage}"
+                                            CommandParameter="{Binding .}" />
+                                    <Label Text="{controls:Translate 'Accepted - added to your account.'}"
+                                           IsVisible="{Binding IsShareAccepted}" FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                </VerticalStackLayout>
+                            </Border>
                             <!-- A message sealed under a key pair since replaced can never be opened. -->
                             <Label IsVisible="{Binding CannotBeOpened}"
                                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">

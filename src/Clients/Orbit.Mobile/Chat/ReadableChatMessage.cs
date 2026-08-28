@@ -32,11 +32,38 @@ namespace Orbit.Mobile.Chat;
 /// one-to-one conversation: the server tracks reading per conversation, not per message, and offers it
 /// for groups not at all.
 /// </param>
+/// <param name="ShareLabel">
+/// What the share card says, in the reader's language - built by the screen, which is where the
+/// dictionary is. Empty for an ordinary message.
+/// </param>
+/// <param name="IsShareAccepted">
+/// Whether the share this message carries has already been taken up. Only ever meaningful alongside
+/// <see cref="Offer"/>, and set by the screen from the server's answer rather than remembered here - an
+/// offer accepted on another device has to stop reading as waiting on this one.
+/// </param>
 public sealed record ReadableChatMessage(
     bool IsMine, string? Text, DateTimeOffset SentAtUtc, bool IsEdited, bool IsWaitingToSend,
     string? SenderName = null, Guid? MessageId = null, Guid? GroupMessageId = null, bool IsReadByThem = false,
-    string? ForwardedFromDisplayName = null)
+    string? ForwardedFromDisplayName = null, bool IsShareAccepted = false, string ShareLabel = "")
 {
+    /// <summary>
+    /// The share offered here, or null for an ordinary message. Worked out once when the message is
+    /// built rather than each time the screen asks, which for a conversation is once per binding.
+    /// </summary>
+    public ShareOffer? Offer { get; } = ShareOffer.TryUnwrap(Text);
+
+    /// <summary>Whether to draw this as a share to take up rather than as a bubble of text.</summary>
+    public bool IsShareOffer => Offer is not null;
+
+    /// <summary>The offer still waiting for an answer - what decides whether "Accept" is shown.</summary>
+    public bool IsShareWaiting => IsShareOffer && !IsShareAccepted;
+
+    /// <summary>
+    /// Whether to show the message's own text. False for a share, whose plaintext is the payload naming
+    /// it - printing that would put a line of JSON in the conversation, which is what the phone did
+    /// before it understood shares at all.
+    /// </summary>
+    public bool ShowsItsText => !IsShareOffer;
     /// <summary>True when this device could not open it - the screen shows a placeholder in its place.</summary>
     public bool CannotBeOpened => Text is null;
 
@@ -52,12 +79,20 @@ public sealed record ReadableChatMessage(
     /// <summary>Whether the message has any action at all - what decides if it gets a menu trigger.</summary>
     public bool HasActions => CanBeChanged || CanBeForwarded;
 
-    public bool CanBeForwarded => Text is { Length: > 0 } && !IsWaitingToSend;
+    /// <summary>
+    /// A share offer is excluded: it names a share the server recorded for one particular recipient, so
+    /// passing the message on would hand somebody an offer that can only ever be refused.
+    /// </summary>
+    public bool CanBeForwarded => Text is { Length: > 0 } && !IsWaitingToSend && !IsShareOffer;
 
     /// <summary>
     /// Whether to offer editing and deleting. Only the reader's own messages, and only once the server
     /// has one - there is nothing to rewrite while it is still waiting to go out. The server decides for
     /// certain (a group admin may also delete somebody else's); this is what the screen offers.
     /// </summary>
-    public bool CanBeChanged => IsMine && !IsWaitingToSend && MessageId is not null;
+    /// <summary>
+    /// A share offer is excluded here too: its text is the payload naming the share, and rewriting it
+    /// would leave the recipient an offer pointing at nothing.
+    /// </summary>
+    public bool CanBeChanged => IsMine && !IsWaitingToSend && MessageId is not null && !IsShareOffer;
 }

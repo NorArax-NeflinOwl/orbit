@@ -195,6 +195,13 @@ public static class PolishTranslations
         ["Allow editing"] = "Pozwól edytować",
         ["They can edit it now."] = "Teraz może to edytować.",
         ["Accepted - added to your account."] = "Przyjęte — dodane do Twojego konta.",
+        ["Shared a note: {0}"] = "Udostępnił(a) notatkę: {0}",
+        ["Shared a task list: {0}"] = "Udostępnił(a) listę zadań: {0}",
+        ["Shared an event: {0}"] = "Udostępnił(a) wydarzenie: {0}",
+        ["Shared a warehouse: {0}"] = "Udostępnił(a) magazyn: {0}",
+        ["That share isn't available any more."] = "To udostępnienie nie jest już dostępne.",
+        ["Couldn't reach the server - the share is still waiting."] =
+            "Nie udało się połączyć z serwerem — udostępnienie nadal czeka.",
         ["No chats. Search for a user by email address or username to start a conversation."] =
             "Brak rozmów. Wyszukaj kogoś po adresie e-mail lub nazwie użytkownika, żeby zacząć.",
         ["Search for someone and start a conversation."] = "Znajdź kogoś i zacznij rozmowę.",
