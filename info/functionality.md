@@ -11,6 +11,16 @@ success. Login accepts either the account's email address or its username in the
 unique, so there's no ambiguity. Send the access token on every `/api/notes`-style request as
 `Authorization: Bearer <token>`; without it, the API returns 401.
 
+A refused sign-in comes back as a 401 carrying a `LoginRejectionDto` naming which half was wrong:
+`NoSuchAccount`, `WrongPassword`, or `NoPasswordSet` (an account made with Google that has never set
+one, where reporting a wrong password would send somebody looking for a password that does not exist).
+This is a deliberate trade — it makes the endpoint an account-existence oracle — taken because
+registration already answers the same question by name, so keeping login silent protected nothing while
+leaving a reader to guess which of the two fields to change. What still stands between it and a list of
+Orbit's users is the rate limit on the whole auth group. Password reset stays silent for a reason that
+does not apply here: it sends mail to an address the caller named, so an answer there would be an oracle
+anybody could point at anybody.
+
 `token` is a short-lived JWT (15 minutes by default, `Jwt:ExpiryMinutes`). `refreshToken` is a
 long-lived (30 days), single-use, opaque value: `POST /api/auth/refresh` (`refreshToken`) exchanges it
 for a new `{ token, refreshToken, ... }` pair and revokes the one that was redeemed, so a leaked refresh

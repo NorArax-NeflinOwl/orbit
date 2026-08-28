@@ -228,7 +228,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<ConfirmEmailVerificationCommand, EmailVerificationConfirmResult>, ConfirmEmailVerificationCommandHandler>();
         services.AddScoped<IRequestHandler<RequestPasswordResetCommand, bool>, RequestPasswordResetCommandHandler>();
         services.AddScoped<IRequestHandler<ResetPasswordCommand, bool>, ResetPasswordCommandHandler>();
-        services.AddScoped<IRequestHandler<LoginQuery, User?>, LoginQueryHandler>();
+        services.AddScoped<IRequestHandler<LoginQuery, LoginResult>, LoginQueryHandler>();
         services.AddScoped<IRequestHandler<SearchUserQuery, User?>, SearchUserQueryHandler>();
         services.AddScoped<IRequestHandler<GetUserByIdQuery, User?>, GetUserByIdQueryHandler>();
         services.AddScoped<IRequestHandler<GetUsersByIdsQuery, IReadOnlyList<User>>, GetUsersByIdsQueryHandler>();

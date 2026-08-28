@@ -179,6 +179,10 @@ internal static class PolishTranslations
         ["Don't have an account? "] = "Nie masz konta? ",
         ["Already have an account? "] = "Masz już konto? ",
         ["Invalid email, login, or password."] = "Nieprawidłowy e-mail, login lub hasło.",
+        ["No account uses that email address or login."] = "Żadne konto nie ma takiego adresu e-mail ani loginu.",
+        ["That password is wrong."] = "Nieprawidłowe hasło.",
+        ["This account signs in with Google and has no password yet. Use the Google button below."] =
+            "To konto loguje się przez Google i nie ma jeszcze hasła. Skorzystaj z przycisku Google poniżej.",
 
         // ---- Dashboard ----
         ["Everything on your plate, in one place."] = "Wszystko, co masz na głowie, w jednym miejscu.",

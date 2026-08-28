@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Orbit.Contracts.Users;
+using Orbit.Core.Users.Login;
 using Orbit.Core.Users.RegisterUser;
 
 namespace Orbit.Web.Services;
@@ -90,7 +91,16 @@ public sealed class AuthApiClient
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
-            return AuthResult.InvalidCredentials();
+            // A 401 is a refusal whether or not a body came with it, so reading the reason must not be
+            // able to turn one into an exception - an unfamiliar or missing reason falls back to saying
+            // only that something was wrong, which is what this used to say in every case.
+            return AuthResult.Refused(await ReadLoginRejectionAsync(response, cancellationToken) switch
+            {
+                nameof(LoginRejection.NoSuchAccount) => AuthOutcome.NoSuchAccount,
+                nameof(LoginRejection.WrongPassword) => AuthOutcome.WrongPassword,
+                nameof(LoginRejection.NoPasswordSet) => AuthOutcome.PasswordNotSet,
+                _ => AuthOutcome.InvalidCredentials
+            });
         }
 
         return await StoreTokensAndSucceedAsync(response, cancellationToken);
@@ -133,6 +143,21 @@ public sealed class AuthApiClient
         {
             var conflict = await response.Content.ReadFromJsonAsync<RegistrationConflictDto>(cancellationToken: cancellationToken);
             return conflict?.Reason;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Mirrors ReadRejectionReasonAsync above, for the refusal a sign-in comes back with.</summary>
+    private static async Task<string?> ReadLoginRejectionAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var rejection = await response.Content.ReadFromJsonAsync<LoginRejectionDto>(cancellationToken: cancellationToken);
+            return rejection?.Reason;
         }
         catch (JsonException)
         {

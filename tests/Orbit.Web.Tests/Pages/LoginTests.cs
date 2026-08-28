@@ -98,7 +98,7 @@ public sealed class LoginTests : OrbitTestContext
     }
 
     [Fact]
-    public void Submitting_invalid_credentials_shows_an_error_message()
+    public void A_refusal_with_no_reason_still_says_something_went_wrong()
     {
         RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
 
@@ -108,6 +108,26 @@ public sealed class LoginTests : OrbitTestContext
         cut.Find("form").Submit();
 
         Assert.Contains("Invalid email, login, or password.", cut.Markup);
+    }
+
+    [Theory]
+    [InlineData("NoSuchAccount", "No account uses that email address or login.")]
+    [InlineData("WrongPassword", "That password is wrong.")]
+    [InlineData("NoPasswordSet", "This account signs in with Google and has no password yet.")]
+    public void A_refusal_says_which_half_of_it_was_wrong(string reason, string expectedMessage)
+    {
+        RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
+        {
+            Content = JsonContent.Create(new LoginRejectionDto(reason, "ignored"))
+        });
+
+        var cut = RenderComponent<Login>();
+        cut.Find("#emailOrUserName").Change("user@example.com");
+        cut.Find("#password").Change("wrong-password");
+        cut.Find("form").Submit();
+
+        // The reader is told which of the two fields to change, rather than left to guess at both.
+        Assert.Contains(expectedMessage, cut.Markup);
     }
 
     private void RegisterAuthApiClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

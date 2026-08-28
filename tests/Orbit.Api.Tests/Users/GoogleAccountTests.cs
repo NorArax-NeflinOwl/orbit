@@ -92,9 +92,12 @@ public sealed class GoogleAccountTests
         var loggedIn = await handler.HandleAsync(new LoginQuery("alice@example.com", "anything"), CancellationToken.None);
 
         // There is no hash to check against, so no password can ever be right - and the empty string is
-        // no more special than any other guess.
-        Assert.Null(loggedIn);
-        Assert.Null(await handler.HandleAsync(new LoginQuery("alice@example.com", ""), CancellationToken.None));
+        // no more special than any other guess. Refused as "no password set" rather than as a wrong one,
+        // which would send somebody looking for a password that does not exist.
+        Assert.Null(loggedIn.User);
+        Assert.Equal(LoginRejection.NoPasswordSet, loggedIn.Rejection);
+        var withNothingTyped = await handler.HandleAsync(new LoginQuery("alice@example.com", ""), CancellationToken.None);
+        Assert.Null(withNothingTyped.User);
     }
 
     [Fact]
@@ -109,7 +112,7 @@ public sealed class GoogleAccountTests
         Assert.True(set);
         var loggedIn = await new LoginQueryHandler(context.UserRepository, context.PasswordHasher)
             .HandleAsync(new LoginQuery("alice@example.com", "chat-password"), CancellationToken.None);
-        Assert.NotNull(loggedIn);
+        Assert.NotNull(loggedIn.User);
     }
 
     [Fact]

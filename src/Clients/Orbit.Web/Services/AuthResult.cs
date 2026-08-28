@@ -7,7 +7,18 @@ namespace Orbit.Web.Services;
 public enum AuthOutcome
 {
     Success,
+
+    /// <summary>Refused, without the server saying which half was wrong - what a Google sign-in gets.</summary>
     InvalidCredentials,
+
+    // Told apart for the same reason the registration refusals below are: a reader who is not told
+    // which of the two fields to change has to guess at both (see LoginRejection).
+    NoSuchAccount,
+    WrongPassword,
+
+    /// <summary>The account signs in with Google and has never set a password.</summary>
+    PasswordNotSet,
+
     // Told apart rather than lumped together: refusing a registration is only useful if the reader
     // learns which of the two fields to change (see RegistrationConflictDto).
     EmailAlreadyTaken,
@@ -30,6 +41,8 @@ public sealed class AuthResult
     public static AuthResult Success() => new(AuthOutcome.Success);
 
     public static AuthResult InvalidCredentials() => new(AuthOutcome.InvalidCredentials);
+
+    public static AuthResult Refused(AuthOutcome outcome) => new(outcome);
 
     public static AuthResult EmailAlreadyTaken() => new(AuthOutcome.EmailAlreadyTaken);
 

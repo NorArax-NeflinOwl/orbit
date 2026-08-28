@@ -91,6 +91,9 @@
 
         _errorMessage = result.Outcome switch
         {
+            AuthOutcome.NoSuchAccount => T["No account uses that email address or login."],
+            AuthOutcome.WrongPassword => T["That password is wrong."],
+            AuthOutcome.PasswordNotSet => T["This account signs in with Google and has no password yet. Use the Google button below."],
             AuthOutcome.InvalidCredentials => T["Invalid email, login, or password."],
             _ => T["An error occurred while logging in. Try again."]
         };
