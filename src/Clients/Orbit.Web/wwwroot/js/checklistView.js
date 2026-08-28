@@ -18,18 +18,22 @@ export function getSavedReading(taskListId) {
     const saved = read()[taskListId];
     // Before an order could be chosen, what was stored was the view's name on its own.
     if (saved === 'flat' || saved === 'tree') {
-        return { view: saved, order: 'as-arranged' };
+        return { view: saved, order: 'as-arranged', isStockCheckHidden: false };
     }
 
     if (saved && typeof saved === 'object' && typeof saved.view === 'string') {
-        return { view: saved.view, order: typeof saved.order === 'string' ? saved.order : 'as-arranged' };
+        return {
+            view: saved.view,
+            order: typeof saved.order === 'string' ? saved.order : 'as-arranged',
+            isStockCheckHidden: saved.isStockCheckHidden === true
+        };
     }
 
     return null;
 }
 
-export function saveReading(taskListId, view, order) {
+export function saveReading(taskListId, view, order, isStockCheckHidden) {
     const stored = read();
-    stored[taskListId] = { view, order };
+    stored[taskListId] = { view, order, isStockCheckHidden };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 }

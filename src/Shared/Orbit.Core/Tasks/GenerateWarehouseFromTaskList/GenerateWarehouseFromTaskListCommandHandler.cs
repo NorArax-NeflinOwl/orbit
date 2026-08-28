@@ -13,8 +13,9 @@ namespace Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 ///
 /// The minimum is counted the same way the check counts - repetition is quantity, so pasta named in
 /// three recipes has a minimum of three - which is what makes a generated shelf a shopping list rather
-/// than a list of headings. Quantities start at zero: none of it has been fetched yet, so every entry
-/// reads as below its minimum until somebody puts something on the shelf.
+/// than a list of headings. What starts on the shelf is what the work has already ticked off: a line
+/// somebody has crossed out is a thing they have, so three recipes with one done reads as one of three
+/// rather than none.
 ///
 /// Everything the tree names is included, including lines dated in the future - the shelf holds what the
 /// whole job will need, while the check counts only what is due.
@@ -65,7 +66,7 @@ public sealed class GenerateWarehouseFromTaskListCommandHandler : IRequestHandle
         {
             await _inventoryRepository.AddAsync(
                 InventoryItem.Create(
-                    warehouseId, requirement.Name, GeneratedProductType, GeneratedCategory, quantity: 0,
+                    warehouseId, requirement.Name, GeneratedProductType, GeneratedCategory, requirement.Done,
                     minimumQuantity: requirement.Required, expiryDate: null, NotificationChannel.None, position),
                 cancellationToken);
         }

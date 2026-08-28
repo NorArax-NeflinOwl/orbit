@@ -78,7 +78,7 @@ public sealed class UpdateWarehouseCommandHandlerTests
         var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
         Assert.NotNull(stored.PendingRestockTaskItemId);
         var taskList = await context.TaskRepository.GetByIdAsync(userId, stored.PendingRestockTaskListId!.Value, CancellationToken.None);
-        Assert.Contains(taskList!.Items, item => item.Description == "Restock: Milk");
+        Assert.Contains(taskList!.Items, item => RestockTaskNaming.ProductIn(item.Description) == "Milk");
     }
 
     [Fact]

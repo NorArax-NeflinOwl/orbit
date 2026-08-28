@@ -33,6 +33,7 @@ using Orbit.Core.Chat.GetReadReceipt;
 using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Inventory;
+using Orbit.Core.Inventory.FinishRestocking;
 using Orbit.Core.Inventory.ExpiryReminders;
 using Orbit.Core.Inventory.GetInventoryItems;
 using Orbit.Core.Inventory.AcceptWarehouseShare;
@@ -92,6 +93,7 @@ using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
+using Orbit.Core.Tasks.CompleteWorkCoveredByStock;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.StockCheck;
@@ -165,6 +167,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetTaskListStockCheckQuery, TaskListStockCheck?>, GetTaskListStockCheckQueryHandler>();
         services.AddScoped<IRequestHandler<RaiseStockShortfallsCommand, int>, RaiseStockShortfallsCommandHandler>();
         services.AddScoped<IRequestHandler<GenerateWarehouseFromTaskListCommand, Guid?>, GenerateWarehouseFromTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<CompleteWorkCoveredByStockCommand, int>, CompleteWorkCoveredByStockCommandHandler>();
         services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();
@@ -293,6 +296,8 @@ public static class OrbitCoreServiceCollectionExtensions
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
         services.AddScoped<PendingRestockTaskResolver>();
         services.AddScoped<InventoryTaskListCoordinator>();
+        services.AddScoped<RestockCompletion>();
+        services.AddScoped<IRequestHandler<FinishRestockingCommand, int>, FinishRestockingCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>?>, GetInventoryItemsQueryHandler>();
 
         // Warehouses - the container inventory items now belong to, with Notes-style sharing on top.

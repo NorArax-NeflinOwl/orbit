@@ -1,6 +1,7 @@
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
 @using Orbit.Contracts.Inventory
+@using Orbit.Core.Inventory
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
@@ -9,6 +10,7 @@
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ChecklistViewPreference ChecklistViewPreference
 @inject InventoryApiClient InventoryApiClient
+@inject IJSRuntime JSRuntime
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
 
@@ -50,6 +52,7 @@ else
                 <select value="@_reading.Order" @onchange="OnOrderChanged">
                     <option value="@nameof(ChecklistOrder.AsArranged)">@T["In list order"]</option>
                     <option value="@nameof(ChecklistOrder.Alphabetical)">@T["A to Z"]</option>
+                    <option value="@nameof(ChecklistOrder.UndoneFirst)">@T["Left to do first"]</option>
                 </select>
             </label>
             @* Only for a tree deep enough to be worth flattening. A group whose members are plain lists
@@ -92,6 +95,11 @@ else
         <div class="card stock-check-card">
             <div class="card-header">
                 <span class="card-title">@T["Can this be done?"]</span>
+                @* Kept with the view and the order, so a list that is never priced opens without the
+                   panel rather than with it every time. *@
+                <button type="button" class="btn-secondary" @onclick="ToggleStockCheckHidden">
+                    @(_reading.IsStockCheckHidden ? T["Show"] : T["Hide"])
+                </button>
                 <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync">
                     <option value="">@T["Not measured against a warehouse"]</option>
                     @foreach (var warehouse in _warehouses)
@@ -101,7 +109,7 @@ else
                 </select>
             </div>
 
-            @if (_stockCheck is { } stockCheck)
+            @if (_stockCheck is { } stockCheck && !_reading.IsStockCheckHidden)
             {
                 <p class="options-subtext">
                     @if (stockCheck.IsAchievable)
@@ -384,6 +392,11 @@ else
     private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, bool isCompleted)
     {
         _errorMessage = null;
+        if (isCompleted && await AskedToFinishTheWholeRestockAsync(taskList, item))
+        {
+            return;
+        }
+
         var toggledIndex = taskList.Items.ToList().IndexOf(item);
         var items = taskList.Items
             .Select((existingItem, index) => new TaskItemRequest(
@@ -547,6 +560,48 @@ else
     }
 
     /// <summary>Asks the question again - the shelf moves without this page hearing about it.</summary>
+    /// <summary>
+    /// Crossing off "Update stock levels" while errands are still open on the same list is either the
+    /// end of a round of restocking or a tick on one reminder. Only the reader knows which, so they are
+    /// asked - and answering yes finishes the rest and brings the shelf up to its minimums in one go.
+    /// Answers whether it handled the tick, so the ordinary save is skipped when it did.
+    /// </summary>
+    private async Task<bool> AskedToFinishTheWholeRestockAsync(TaskDto taskList, TaskItemDto item)
+    {
+        if (item.Description != RestockTaskNaming.UpdateStockReminderDescription
+            || !taskList.Items.Any(other => other.Id != item.Id && !other.IsCompleted))
+        {
+            return false;
+        }
+
+        if (!await JSRuntime.InvokeAsync<bool>(
+                "confirm", T["Finish this list and set every item in the warehouse to its minimum?"]))
+        {
+            return false;
+        }
+
+        try
+        {
+            var toppedUp = await TasksApiClient.FinishRestockingAsync(taskList.Id);
+            Logger.LogInformation(
+                "User finished restocking from task list {TaskListId}, topping up {ToppedUpCount} items", taskList.Id, toppedUp);
+            _shortfallMessage = T.Format("{0} brought up to their minimum.", toppedUp);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to finish restocking from task list {TaskListId}", taskList.Id);
+            _errorMessage = T["Couldn't finish the restocking. Try again."];
+            return true;
+        }
+
+        await LoadAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Reads the warehouse again and crosses off the work it turns out to cover, then redraws both the
+    /// panel and the lists - the point of asking is to have the answer applied, not just shown.
+    /// </summary>
     private async Task RecalculateAsync()
     {
         _isWorkingOnInventory = true;
@@ -554,11 +609,18 @@ else
         Logger.LogInformation("User recalculated the stock check for task list {TaskListId}", Id);
         try
         {
+            var completed = await TasksApiClient.CompleteWorkCoveredByStockAsync(Id);
+            _shortfallMessage = completed > 0
+                ? T.Format("{0} crossed off, because the warehouse covers them.", completed)
+                : T["Nothing new is covered by the warehouse."];
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
             _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to recalculate the stock check for task list {TaskListId}", Id);
+            _errorMessage = T["Couldn't recalculate against the warehouse. Try again."];
         }
         finally
         {
@@ -570,6 +632,17 @@ else
     {
         _reading = _reading with { View = _reading.View == ChecklistView.Flat ? ChecklistView.Tree : ChecklistView.Flat };
         Logger.LogInformation("User switched the checklist to the {View} view", _reading.View);
+    }
+
+    /// <summary>
+    /// Puts the panel that prices this list against a warehouse out of the way, or brings it back. Kept
+    /// with the rest of how this list reads, so "Save view" keeps it too.
+    /// </summary>
+    private void ToggleStockCheckHidden()
+    {
+        _reading = _reading with { IsStockCheckHidden = !_reading.IsStockCheckHidden };
+        Logger.LogInformation(
+            "User {Action} the stock check on task list {TaskListId}", _reading.IsStockCheckHidden ? "hid" : "showed", Id);
     }
 
     private void OnOrderChanged(ChangeEventArgs args)
@@ -602,17 +675,25 @@ else
     /// which is how a shopping list gets read off in a shop; as arranged is the order the list was
     /// written in, which is what dragging items about in the editor sets.
     /// </summary>
-    private IReadOnlyList<TaskItemDto> ItemsToShow(TaskDto taskList)
-        => _reading.Order == ChecklistOrder.Alphabetical
-            ? [.. taskList.Items.OrderBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase)]
-            : taskList.Items;
+    private IReadOnlyList<TaskItemDto> ItemsToShow(TaskDto taskList) => _reading.Order switch
+    {
+        ChecklistOrder.Alphabetical => [.. taskList.Items.OrderBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        ChecklistOrder.UndoneFirst => [.. taskList.Items
+            .OrderBy(item => item.IsCompleted)
+            .ThenBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        _ => taskList.Items
+    };
 
     /// <summary>
     /// The flat view's items in the chosen order. Alphabetical runs across the whole tree here rather
     /// than list by list: the headings are gone in this view, so a list-by-list sort would look random.
     /// </summary>
-    private IReadOnlyList<FlatChecklistEntry> FlatItemsToShow
-        => _reading.Order == ChecklistOrder.Alphabetical
-            ? [.. _flatItems.OrderBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)]
-            : _flatItems;
+    private IReadOnlyList<FlatChecklistEntry> FlatItemsToShow => _reading.Order switch
+    {
+        ChecklistOrder.Alphabetical => [.. _flatItems.OrderBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        ChecklistOrder.UndoneFirst => [.. _flatItems
+            .OrderBy(entry => entry.Item.IsCompleted)
+            .ThenBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        _ => _flatItems
+    };
 }

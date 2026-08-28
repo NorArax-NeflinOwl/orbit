@@ -19,7 +19,7 @@ public sealed class InventoryTaskListCoordinatorTests
 
         var taskList = await context.TaskRepository.GetByIdAsync(userId, taskListId!.Value, CancellationToken.None);
         Assert.NotNull(taskList);
-        Assert.Equal(InventoryTaskListCoordinator.ManagedTaskListTitle, taskList!.Title);
+        Assert.Equal(RestockTaskNaming.TitleFor("Kitchen"), taskList!.Title);
         var reminder = Assert.Single(taskList.Items);
         Assert.Equal(InventoryTaskListCoordinator.UpdateStockReminderDescription, reminder.Description);
         Assert.True(reminder.RemindDaily);
@@ -103,7 +103,9 @@ public sealed class InventoryTaskListCoordinatorTests
         Assert.NotNull(result.PendingRestockTaskListId);
         Assert.NotNull(result.PendingRestockTaskItemId);
         var taskList = await context.TaskRepository.GetByIdAsync(userId, result.PendingRestockTaskListId!.Value, CancellationToken.None);
-        Assert.Contains(taskList!.Items, taskItem => taskItem.Id == result.PendingRestockTaskItemId && taskItem.Description == "Restock: Milk");
+        var raised = Assert.Single(taskList!.Items, taskItem => taskItem.Id == result.PendingRestockTaskItemId);
+        // The number is the minimum the shelf is meant to hold, so the errand can be read on its own.
+        Assert.Equal("Restock: Milk (1)", raised.Description);
     }
     [Fact]
     public async Task A_product_that_is_still_low_reopens_its_task_instead_of_growing_a_second_one()
@@ -130,7 +132,9 @@ public sealed class InventoryTaskListCoordinatorTests
         // One entry, brought back - not a fresh one beside the finished one, which is how a product that
         // stayed low grew a new "Restock: Milk" on every save.
         var afterwards = await context.TaskRepository.GetByIdAsync(userId, taskListId, CancellationToken.None);
-        var restockEntries = afterwards!.Items.Where(taskItem => taskItem.Description == "Restock: Milk").ToList();
+        var restockEntries = afterwards!.Items
+            .Where(taskItem => RestockTaskNaming.ProductIn(taskItem.Description) == "Milk")
+            .ToList();
         Assert.Single(restockEntries);
         Assert.False(restockEntries[0].IsCompleted);
         Assert.Equal(item.PendingRestockTaskItemId, result.PendingRestockTaskItemId);
@@ -148,7 +152,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
         var taskList = await context.TaskRepository.GetByIdAsync(userId, result.PendingRestockTaskListId!.Value, CancellationToken.None);
-        Assert.Single(taskList!.Items.Where(taskItem => taskItem.Description == "Restock: Milk"));
+        Assert.Single(taskList!.Items, taskItem => RestockTaskNaming.ProductIn(taskItem.Description) == "Milk");
     }
 
     [Fact]

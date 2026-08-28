@@ -530,7 +530,9 @@ and wrong for working through it. **Show single items** folds the whole tree int
 labelled with the list it came from, leaving out the rows that only point at another list. It is offered
 only where there is something to flatten.
 
-**Sort** chooses between the list's own order and A to Z. Flattened, A to Z runs across the whole tree -
+**Sort** chooses between the list's own order, A to Z, and what is left to do first - which puts the
+undone at the top and the done at the bottom, each alphabetically, so a half-finished list reads as what
+is left of it. Flattened, A to Z runs across the whole tree -
 sorting list by list would look random once the headings are gone. **Save view** keeps both the view and
 the order as the way that list opens next time, on that device (`ChecklistViewPreference`, localStorage,
 the same category as the dashboard's own layout).
@@ -552,11 +554,19 @@ A group list can be pointed at a warehouse (`PUT /api/tasks/{id}/warehouse`), an
 to type a number beside every line. A line with a due date in the future is not counted - that work has
 not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
 puts what is short onto the warehouse's standing restock list, where the daily reminder brings it up;
-names already waiting are left alone.
+names already waiting are left alone. The panel can be put away with its own Hide button, kept by the
+same "Save view" as the view and the order - a list nobody prices should not open with it every time.
+
+`POST /api/tasks/{id}/stock-check/completed` is the other half, and what "recalculate against the
+inventory" does: it crosses off the work the warehouse already covers. Counted per product rather than
+per line, so three jars on the shelf finish three of the five lines asking for one, oldest first; stock
+spent on a line already crossed off is not spent again, and work dated in the future is left alone
+because the check does not count it either.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
-distinct thing, **each carrying how many the job needs as its minimum**, everything at zero on the shelf
-- and points the list at the result. Everything the tree names is included, including lines dated in the
+distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
+list has already crossed off, since a ticked line is something somebody has fetched - and points the list
+at the result. Everything the tree names is included, including lines dated in the
 future: the shelf holds what the whole job will need, while the check counts only what is due. Both are
 reached from the three-dot menu on the checklist and the deep editor, where "recalculate" is offered
 greyed until a warehouse is chosen rather than hidden.
@@ -679,6 +689,25 @@ the top and shows a passive "Expires soon"/"Expired" badge, computed client-side
 today — keeping that half of the feature entirely client-side rather than adding another notification
 path.
 
+### The restock list
+
+One per warehouse, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless
+the reader renamed the list themselves. It holds one standing "Update stock levels" reminder that comes
+back daily, plus an errand per product that has gone low.
+
+An errand says how many to bring: "Restock: Flour (5)" is the level the shelf is meant to hold when a
+product goes low, and how many are short when a task list comes up short. Entries are matched on the
+product rather than the whole line, so raising one for eight after one for five does not put a second
+copy on the list.
+
+Crossing an errand off brings its item up to that level - saying it once, on the list, rather than twice.
+Only ever upwards: somebody who stocked more than the minimum keeps it, because finishing an errand is
+not a claim about how much is there beyond it.
+
+Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
+Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the warehouse
+up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
+
 ## Calendar
 
 `POST /api/calendar-events` and `PUT /api/calendar-events/{id}` both take `{ details }`, where `details`
@@ -747,7 +776,26 @@ endpoints. Any reminder claims already recorded for it in `EventReminderDeliveri
 since they're not a foreign key relationship and a deleted event simply stops producing new reminders.
 The Blazor client's calendar page asks for confirmation before calling this endpoint.
 
-### Calendar event reminders
+#### The restock list
+
+One per warehouse, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless
+the reader renamed the list themselves. It holds one standing "Update stock levels" reminder that comes
+back daily, plus an errand per product that has gone low.
+
+An errand says how many to bring: "Restock: Flour (5)" is the level the shelf is meant to hold when a
+product goes low, and how many are short when a task list comes up short. Entries are matched on the
+product rather than the whole line, so raising one for eight after one for five does not put a second
+copy on the list.
+
+Crossing an errand off brings its item up to that level - saying it once, on the list, rather than twice.
+Only ever upwards: somebody who stocked more than the minimum keeps it, because finishing an errand is
+not a claim about how much is there beyond it.
+
+Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
+Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the warehouse
+up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
+
+## Calendar event reminders
 
 Two independent notification emails can go to the event's owner and to every guest who has accepted a
 share of it (see `ResolveRecipientsAsync`) — the `guests` list on the event itself is the editor's
