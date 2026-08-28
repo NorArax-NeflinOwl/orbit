@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Orbit.Contracts;
 using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -143,6 +144,20 @@ public sealed class InventoryApiClient
         {
             var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
             return EditOutcome.LockedBy(conflict?.LockedByUserName ?? Translated("another user"));
+        }
+
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            var refusal = await response.Content.ReadFromJsonAsync<RefusalDto>(cancellationToken: cancellationToken);
+            return EditOutcome.RefusedBecause(refusal?.Message ?? Translated("This was shared with you to read, not to change."));
+        }
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // The server explains a refusal in the body (see InvalidRequestExceptionHandler); throwing
+            // that away left the reader with "something went wrong" and no way to find out what.
+            var refusal = await response.Content.ReadFromJsonAsync<RefusalDto>(cancellationToken: cancellationToken);
+            return EditOutcome.RefusedBecause(refusal?.Message ?? Translated("Orbit refused that change."));
         }
 
         response.EnsureSuccessStatusCode();

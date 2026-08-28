@@ -28,6 +28,23 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public IReadOnlyCollection<TaskDto> TaskLists => _taskLists.Values;
 
+    /// <summary>What the stock check answers, or null for "no warehouse chosen".</summary>
+    public TaskListStockCheckDto? StockCheck { get; set; }
+
+    /// <summary>What generating a warehouse hands back, or null when there was nothing to build.</summary>
+    public Guid? GeneratedWarehouseId { get; set; } = Guid.NewGuid();
+
+    public int RaisedShortfallCount { get; set; }
+
+    /// <summary>The warehouse a list was last pointed at.</summary>
+    public Guid? LinkedWarehouseId { get; private set; }
+
+    /// <summary>Named apart from the contract so this fake does not depend on its property name.</summary>
+    private sealed record LinkTaskItemToWarehouseBody(Guid? WarehouseId);
+
+    public IReadOnlyList<TaskItemDto> ItemsIn(Guid taskListId)
+        => _taskLists.TryGetValue(taskListId, out var taskList) ? taskList.Items : [];
+
     public TaskDto AddTaskList(string title, bool isShared = false, bool isSharedWithOthers = false)
     {
         var now = _timeProvider.GetUtcNow();
@@ -63,6 +80,12 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             throw new HttpRequestException("No such host is known.");
         }
 
+        // Nobody else is ever in it here; EditLockTests covers the answer where somebody is.
+        if (path.EndsWith("/lock", StringComparison.Ordinal))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
         if (path.EndsWith("/changes", StringComparison.Ordinal))
         {
             var since = DateTimeOffset.Parse(HttpUtility.ParseQueryString(request.RequestUri.Query)["since"]!);
@@ -72,6 +95,41 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 _timeProvider.GetUtcNow().UtcDateTime.ToString("O")));
         }
 
+        // api/tasks/{id}/stock-check and its two siblings - see StockCheckPanel.
+        if (path.EndsWith("/stock-check", StringComparison.Ordinal))
+        {
+            return StockCheck is null
+                ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                : Json(StockCheck);
+        }
+
+        if (path.EndsWith("/stock-check/shortfalls", StringComparison.Ordinal))
+        {
+            return Json(new RaiseStockShortfallsResultDto(RaisedShortfallCount));
+        }
+
+        if (path.EndsWith("/inventory", StringComparison.Ordinal))
+        {
+            return GeneratedWarehouseId is { } generated
+                ? Json(generated)
+                : new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        if (path.EndsWith("/warehouse", StringComparison.Ordinal))
+        {
+            var body = await ReadAsync<LinkTaskItemToWarehouseBody>(request, cancellationToken);
+            LinkedWarehouseId = body?.WarehouseId;
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        // api/tasks/{sourceId}/items/{itemId}/move
+        if (path.EndsWith("/move", StringComparison.Ordinal))
+        {
+            var segments = path.Split('/');
+            return await MoveItemAsync(
+                request, Guid.Parse(segments[^4]), Guid.Parse(segments[^2]), cancellationToken);
+        }
+
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
@@ -79,6 +137,31 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             "DELETE" => Delete(path),
             _ => Json(_taskLists.Values.ToList())
         };
+    }
+
+    /// <summary>
+    /// As MoveTaskItemCommandHandler does it: the entry leaves one list and arrives in the other, and
+    /// both lists count as changed so a delta pull brings them both back.
+    /// </summary>
+    private async Task<HttpResponseMessage> MoveItemAsync(
+        HttpRequestMessage request, Guid sourceId, Guid itemId, CancellationToken cancellationToken)
+    {
+        var body = await ReadAsync<MoveTaskItemRequest>(request, cancellationToken);
+        if (!_taskLists.TryGetValue(sourceId, out var source)
+            || !_taskLists.TryGetValue(body!.TargetTaskListId, out var target)
+            || source.Items.FirstOrDefault(item => item.Id == itemId) is not { } moved)
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var movedAt = _timeProvider.GetUtcNow();
+        _taskLists[sourceId] = source with
+        {
+            Items = [.. source.Items.Where(item => item.Id != itemId)],
+            UpdatedAtUtc = movedAt
+        };
+        _taskLists[target.Id] = target with { Items = [.. target.Items, moved], UpdatedAtUtc = movedAt };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
     private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -102,6 +185,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         {
             Title = body!.Title,
             Items = ToDtos(body.Items),
+            // Sent on every update and stored by the real endpoint - a fake that dropped it made
+            // "this list is now a group list" look like a client that had not sent it.
+            IsGroup = body.IsGroup,
             IsPrivate = body.IsPrivate,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };

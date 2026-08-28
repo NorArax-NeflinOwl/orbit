@@ -345,63 +345,17 @@ jobs:
       # version is always traceable back to the workflow run that produced it. (":latest" is also
       # pushed above for convenience, e.g. manual `az containerapp up` testing, but isn't what gets
       # deployed here.)
-      # Every permission unlock code is derived from one secret (see PermissionCodeAuthority in
-      # Orbit.Core). Generating it here rather than storing it means it is never committed, never sits
-      # in a repository secret, and is different for every deploy - so a code that leaked stops working
-      # at the next release. Already-granted permissions are rows in the database and survive the
-      # rotation; only the codes for granting new ones change.
+      # Permission unlock codes are rows in the database now, made once on the first start that finds
+      # them missing and kept afterwards - so there is nothing to generate or inject here, and nothing
+      # that changes under whoever was told a code. Read them with:
       #
-      # It is stored as a Container App secret rather than a plain environment variable, so it cannot be
-      # read back out of the app afterwards - `az containerapp show` returns "secretref:permission-secret"
-      # and not the value. That makes the run summary written below the only place the codes ever exist:
-      # if it is lost, the way back is another deploy, which issues new ones.
-      #
-      # Deliberately NOT added to the "required environment variable" check above: that step lists
-      # variables a human has to set, and this one is set right here, so listing it would fail the very
-      # first deploy that introduces it.
-      - name: Generate this release's permission unlock codes
-        run: |
-          # Hex rather than base64: the value travels through GITHUB_ENV and an az CLI
-          # name=value pair, and hex has no character that either of them treats specially.
-          SECRET=$(openssl rand -hex 32)
-          echo "::add-mask::$SECRET"
-          echo "PERMISSION_SECRET=$SECRET" >> "$GITHUB_ENV"
-
-          # Mirrors PermissionCodeAuthority.CodeFor: HMAC-SHA256 of the permission name, first twelve
-          # bytes, each mapped into Crockford base32 minus I/L/O/U. PermissionCodeAuthorityTests pins
-          # those constants on the C# side - if this ever stops agreeing with them, that test is where
-          # the change was made.
-          {
-            echo "### Permission unlock codes for this release"
-            echo
-            echo "Enter one under Options → Debug to unlock that part of Orbit for your account."
-            echo
-            echo "| Part of Orbit | Code |"
-            echo "| --- | --- |"
-            for permission in Location Chat GroupChat Sharing; do
-              code=$(printf '%s' "$permission" \
-                | openssl dgst -sha256 -mac HMAC -macopt "key:$SECRET" -binary \
-                | od -An -tu1 -N12 \
-                | awk '{alphabet="0123456789ABCDEFGHJKMNPQRSTVWXYZ"; code=""; for (i=1; i<=NF; i++) code = code substr(alphabet, ($i % 32) + 1, 1); print code}')
-              echo "| $permission | \`$code\` |"
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # Two commands rather than one because `az containerapp update` cannot write secrets: the value
-      # goes in first, and only then does the environment variable point at it. Both are idempotent -
-      # the reference is the same on every deploy, and only what it points at changes.
+      #     SELECT "Permission", "Code" FROM "PermissionCodes";
       - name: Deploy orbit-api
         run: |
-          az containerapp secret set \
-            --name orbit-api \
-            --resource-group ${{ env.resourceGroupName }} \
-            --secrets permission-secret="$PERMISSION_SECRET"
-
           az containerapp update \
             --name orbit-api \
             --resource-group ${{ env.resourceGroupName }} \
-            --image ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }} \
-            --set-env-vars Permissions__Secret=secretref:permission-secret
+            --image ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }}
 
       - name: Deploy orbit-web
         run: |

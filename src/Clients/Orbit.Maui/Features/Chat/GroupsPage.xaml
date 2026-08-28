@@ -21,7 +21,11 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
 
-        <Label Grid.Row="0" Text="{controls:Translate 'Groups'}" FontSize="26" FontAttributes="Bold" />
+        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Groups'}">
+            <controls:PageHeader.Subtitle>
+                <controls:Translate Text="Conversations with more than one other person." />
+            </controls:PageHeader.Subtitle>
+        </controls:PageHeader>
         <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
@@ -86,7 +90,6 @@
                 Style="{StaticResource LinkButton}" />
 
     </Grid>
-        <controls:StatusStrip Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

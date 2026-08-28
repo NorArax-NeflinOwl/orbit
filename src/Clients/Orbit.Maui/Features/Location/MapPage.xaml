@@ -24,7 +24,11 @@
     <ScrollView Grid.Row="1" IsVisible="{Binding IsUnlocked}">
         <VerticalStackLayout Padding="20" Spacing="12">
 
-            <Label Text="{controls:Translate 'Location'}" FontSize="26" FontAttributes="Bold" />
+            <controls:PageHeader Title="{controls:Translate 'Map'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="The one location you've recorded for yourself, and where it is." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
@@ -122,7 +126,6 @@
 
         </VerticalStackLayout>
     </ScrollView>
-        <controls:StatusStrip Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

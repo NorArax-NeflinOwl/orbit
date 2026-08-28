@@ -30,7 +30,8 @@ public sealed class PermissionGateTests
     public async Task What_the_server_did_not_grant_is_hidden()
     {
         using var localStore = new LocalStore();
-        var permissions = await UnlockedPermissions.LockedTo(localStore, ApplicationPermission.Chat);
+        var permissions = await UnlockedPermissions.LockedTo(
+            localStore, ApplicationPermission.Contacts, ApplicationPermission.Chat);
 
         Assert.True(permissions.Has(ApplicationPermission.Chat));
         Assert.False(permissions.Has(ApplicationPermission.Location));
@@ -38,17 +39,17 @@ public sealed class PermissionGateTests
     }
 
     /// <summary>
-    /// The prerequisite is checked on every read rather than only when a code is redeemed, so chat taken
-    /// away stops the group chat that rests on it there and then - see PermissionPrerequisites.
+    /// The prerequisite is checked on every read rather than only when a code is redeemed, so contacts
+    /// taken away stops the chat that rests on it there and then - see PermissionPrerequisites.
     /// </summary>
     [Fact]
     public async Task A_permission_whose_prerequisite_is_missing_does_not_count()
     {
         using var localStore = new LocalStore();
-        var permissions = await UnlockedPermissions.LockedTo(localStore, ApplicationPermission.GroupChat);
+        var permissions = await UnlockedPermissions.LockedTo(localStore, ApplicationPermission.Chat);
 
-        Assert.Contains(ApplicationPermission.GroupChat, permissions.Granted);
-        Assert.False(permissions.Has(ApplicationPermission.GroupChat));
+        Assert.Contains(ApplicationPermission.Chat, permissions.Granted);
+        Assert.False(permissions.Has(ApplicationPermission.Chat));
     }
 
     /// <summary>
@@ -59,7 +60,8 @@ public sealed class PermissionGateTests
     public async Task What_the_server_last_said_survives_a_restart_with_no_connection()
     {
         using var localStore = new LocalStore();
-        await UnlockedPermissions.LockedTo(localStore, ApplicationPermission.Chat);
+        await UnlockedPermissions.LockedTo(
+            localStore, ApplicationPermission.Contacts, ApplicationPermission.Chat);
 
         using var users = new FakeUsersServer { IsUnreachable = true };
         var afterRestart = new UserPermissions(new UsersClient(users.ToHttpClient()), localStore);
@@ -79,6 +81,7 @@ public sealed class PermissionGateTests
     {
         using var localStore = new LocalStore();
         using var users = new FakeUsersServer();
+        users.Granted.Add(nameof(ApplicationPermission.Contacts));
         users.Granted.Add(nameof(ApplicationPermission.Chat));
 
         var permissions = new UserPermissions(new UsersClient(users.ToHttpClient()), localStore);
@@ -95,10 +98,12 @@ public sealed class PermissionGateTests
     {
         using var localStore = new LocalStore();
         using var users = new FakeUsersServer();
+        users.Granted.Add(nameof(ApplicationPermission.Contacts));
         users.Granted.Add(nameof(ApplicationPermission.Chat));
 
         var permissions = new UserPermissions(new UsersClient(users.ToHttpClient()), localStore);
         await permissions.RefreshAsync();
+        Assert.True(permissions.Has(ApplicationPermission.Chat));
 
         users.Granted.Clear();
         await permissions.RefreshAsync();

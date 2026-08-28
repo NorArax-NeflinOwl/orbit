@@ -37,6 +37,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly EverythingSynchronizer _synchronizer;
     private readonly SyncState _syncState;
     private readonly UserPermissions _permissions;
+    private readonly IDashboardPinStore _pins;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -49,7 +50,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         LocalNoteRepository notes, LocalTaskListRepository taskLists,
         LocalCalendarEventRepository calendarEvents, ChatRepository chat, TimeProvider timeProvider,
         Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
-        SyncState syncState, UserPermissions permissions, IScreenNavigator navigator)
+        SyncState syncState, UserPermissions permissions, IDashboardPinStore pins,
+        IScreenNavigator navigator)
     {
         _notes = notes;
         _taskLists = taskLists;
@@ -61,6 +63,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _synchronizer = synchronizer;
         _syncState = syncState;
         _permissions = permissions;
+        _pins = pins;
         _navigator = navigator;
     }
 
@@ -110,16 +113,16 @@ public sealed partial class DashboardViewModel : ObservableObject
         var events = await _calendarEvents.GetAllAsync(cancellationToken);
         // Nothing conversational is shown to an account that cannot hold a conversation, as the web's
         // dashboard does it - a card whose every row leads to "not unlocked" is worse than no card.
-        var contacts = _permissions.Has(ApplicationPermission.Chat)
+        var contacts = _permissions.Has(ApplicationPermission.Contacts)
             ? await _chat.GetContactsAsync(cancellationToken)
             : [];
-        var groups = _permissions.Has(ApplicationPermission.GroupChat)
+        var groups = _permissions.Has(ApplicationPermission.Chat)
             ? await _chat.GetGroupsAsync(cancellationToken)
             : [];
 
         Today = SummariseToday(taskLists, events, contacts);
 
-        Cards.Clear();
+        _built.Clear();
         // An empty card is worse than no card: it takes up a phone's screen to say nothing. Each is
         // added only when it has something in it, which is also how the web's dashboard behaves.
         AddCardIfAnything(
@@ -131,7 +134,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         AddCardIfAnything(DashboardCardKind.RecentChats, _translations["Recent chats"], DescribeRecentChats(contacts), contacts.Count);
         AddCardIfAnything(DashboardCardKind.Contacts, _translations["Contacts"], DescribeDirectory(contacts), DirectoryOf(contacts).Count);
 
-        HasNothing = Cards.Count == 0;
+        ShowCards();
     }
 
     /// <summary>Opens whatever a row stands for, which depends on the card it came from.</summary>
@@ -187,6 +190,10 @@ public sealed partial class DashboardViewModel : ObservableObject
     private DashboardCard? FindCardFor(DashboardRow row)
         => Cards.FirstOrDefault(card => card.Rows.Contains(row));
 
+    /// <summary>
+    /// Cards are built in the order Orbit.Web lays them out, then the pinned ones are lifted to the top
+    /// - so pinning changes where a card sits without changing the order of everything else.
+    /// </summary>
     private void AddCardIfAnything(DashboardCardKind kind, string title, IReadOnlyList<DashboardRow> rows, int total)
     {
         if (rows.Count == 0)
@@ -194,7 +201,50 @@ public sealed partial class DashboardViewModel : ObservableObject
             return;
         }
 
-        Cards.Add(new DashboardCard(kind, title, total.ToString(), rows));
+        var ruled = rows.Select((row, position) => row with { ShowsSeparator = position > 0 }).ToList();
+        _built.Add(new DashboardCard(kind, title, total.ToString(), ruled, _pins.Read().Contains(kind)));
+    }
+
+    /// <summary>The cards as built, before pinning moves any of them.</summary>
+    private readonly List<DashboardCard> _built = [];
+
+    private void ShowCards()
+    {
+        Cards.Clear();
+        foreach (var card in _built.OrderByDescending(card => card.IsPinned))
+        {
+            Cards.Add(card);
+        }
+
+        HasNothing = Cards.Count == 0;
+    }
+
+    /// <summary>Keeps a card at the top of this page on this device, or lets it back down.</summary>
+    [RelayCommand]
+    private void TogglePin(DashboardCard? card)
+    {
+        if (card is null)
+        {
+            return;
+        }
+
+        var pinned = _pins.Read().ToHashSet();
+        if (!pinned.Add(card.Kind))
+        {
+            pinned.Remove(card.Kind);
+        }
+
+        _pins.Write(pinned);
+
+        for (var index = 0; index < _built.Count; index++)
+        {
+            if (_built[index].Kind == card.Kind)
+            {
+                _built[index] = _built[index] with { IsPinned = pinned.Contains(card.Kind) };
+            }
+        }
+
+        ShowCards();
     }
 
     /// <summary>Whether something private may be named here at all - see PrivateItemGate.</summary>
@@ -209,6 +259,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         var today = _timeProvider.GetUtcNow().Date;
 
         return new TodaySummary(
+            // "Thursday, 27 August", as Orbit.Web's today strip opens - it says what "today" means
+            // before saying what is in it.
+            today.ToString("dddd, d MMMM", _translations.DisplayCulture),
             taskLists
                 .SelectMany(list => list.Items)
                 .Count(item => !item.IsCompleted && item.DueDateUtc?.Date == today),

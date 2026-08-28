@@ -129,6 +129,49 @@ public sealed class ContactsScreenTests
         Assert.False(screen.CannotWrite);
     }
 
+    /// <summary>
+    /// A conversation that is still a request says so at the top, rather than letting somebody write a
+    /// message and find out when the send comes back refused. Orbit.Web puts the same two sentences
+    /// there; the phone reads them off the contact row it already synced instead of asking the server.
+    /// </summary>
+    [Fact]
+    public void A_request_waiting_on_the_reader_offers_the_way_to_allow_it()
+    {
+        using var context = new ContactsContext();
+        var screen = context.Conversation(new LocalContact
+        {
+            UserId = Guid.NewGuid(), DisplayName = "Bob", RequiresApprovalFromCurrentUser = true
+        });
+
+        Assert.True(screen.HasRequestNotice);
+        Assert.Contains("Bob", screen.RequestNotice);
+        Assert.True(screen.CanApproveRequest);
+    }
+
+    /// <summary>The other direction is a notice, not a choice - there is nothing here to approve.</summary>
+    [Fact]
+    public void A_request_waiting_on_the_other_party_says_so_and_offers_nothing()
+    {
+        using var context = new ContactsContext();
+        var screen = context.Conversation(new LocalContact
+        {
+            UserId = Guid.NewGuid(), DisplayName = "Bob", IsPendingApprovalFromOtherParty = true
+        });
+
+        Assert.True(screen.HasRequestNotice);
+        Assert.False(screen.CanApproveRequest);
+    }
+
+    [Fact]
+    public void An_established_conversation_says_nothing_about_requests()
+    {
+        using var context = new ContactsContext();
+        var screen = context.Conversation(new LocalContact { UserId = Guid.NewGuid(), DisplayName = "Bob" });
+
+        Assert.False(screen.HasRequestNotice);
+        Assert.False(screen.CanApproveRequest);
+    }
+
     private sealed class ContactsContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -179,12 +222,20 @@ public sealed class ContactsScreenTests
         public UsersClient UsersClient { get; }
         public ChatRepository Repository { get; }
         public RecordingScreenNavigator Navigator { get; } = new();
+
+        /// <summary>Taking up an offer to share something - see SharedItemAcceptance.</summary>
+        public SharedItemAcceptance Acceptance => new(
+            new NotesClient(_shareServer.ToHttpClient()), new TasksClient(_shareServer.ToHttpClient()),
+            new CalendarClient(_shareServer.ToHttpClient()), new InventoryClient(_shareServer.ToHttpClient()));
+
+        private readonly FakeShareServer _shareServer = new();
         public Guid StrangerUserId { get; }
 
         /// <summary>The conversation screen for one person, which is where the compose box lives.</summary>
         public ConversationViewModel Conversation(LocalContact contact)
         {
-            var reader = new EncryptedChatMessageReader(Repository, _encryptionKeyProvider, _sessionStore);
+            var reader = new EncryptedChatMessageReader(
+                Repository, _encryptionKeyProvider, _sessionStore, new Translations(new InMemoryLanguageStore()));
             var directoryReader = new ChatDirectoryReader(_chatClient, UsersClient, _sessionStore);
             var sender = new EncryptedChatMessageSender(
                 Repository, _chatClient, directoryReader, _encryptionKeyProvider,
@@ -194,7 +245,7 @@ public sealed class ContactsScreenTests
                 new EncryptedChatMessageEditor(
                     Repository, _chatClient, directoryReader, _encryptionKeyProvider,
                     NullLogger<EncryptedChatMessageEditor>.Instance),
-                new MessageForwarder(sender), Repository, _synchronizer,
+                new MessageForwarder(sender), Acceptance, Repository, _synchronizer, _chatClient,
                 new Translations(new InMemoryLanguageStore()), Navigator);
             screen.Open(contact);
             return screen;

@@ -69,12 +69,18 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>(Screen.Notifications);
 
-	public void ShowNotificationSettings() => ShowAsRoot<NotificationSettingsPage>(Screen.NotificationSettings);
-
+	// No ShowNotificationSettings any more: the settings moved onto the account screen - see
+	// AccountPage's notification section - so there is no page of their own left to navigate to.
 	public void ShowDiagnostics() => ShowAsRoot<DiagnosticsPage>(Screen.Diagnostics);
 
 	public void ShowTaskList(Guid localId)
 		=> ShowAsRoot<TaskListDetailPage>(Screen.TaskList, page => page.ViewModel.Open(localId));
+
+	public void ShowNote(Guid localId)
+		=> ShowAsRoot<NoteDetailPage>(Screen.Note, page => page.ViewModel.Open(localId));
+
+	public void ShowCalendarEvent(Guid localId)
+		=> ShowAsRoot<CalendarEventDetailPage>(Screen.CalendarEvent, page => page.ViewModel.Open(localId));
 
 	/// <summary>
 	/// A conversation needs to know whose it is, and these screens are resolved from the container rather

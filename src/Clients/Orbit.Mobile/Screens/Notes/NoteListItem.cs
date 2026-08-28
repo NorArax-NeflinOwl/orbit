@@ -20,7 +20,8 @@ namespace Orbit.Mobile.Screens.Notes;
 /// </param>
 public sealed record NoteListItem(
     Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
-    string Status = "", string Updated = "", bool IsHidden = false, string HiddenTitle = "Private")
+    string Status = "", string Updated = "", bool IsPinned = false, bool IsSharedWithMe = false,
+    bool IsHidden = false, string HiddenTitle = "Private")
 {
     public static NoteListItem From(
         LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked,
@@ -33,6 +34,7 @@ public sealed record NoteListItem(
             OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
             translations.Format(
                 "Updated {0}", note.UpdatedAtUtc.ToLocalTime().ToString("g", translations.DisplayCulture)),
+            note.IsPinned, note.IsShared,
             IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle);
     }
 
@@ -45,6 +47,13 @@ public sealed record NoteListItem(
     public bool IsEditable => Refusal is OfflineEditRefusal.None;
 
     public bool HasStatus => Status.Length > 0;
+
+    /// <summary>
+    /// Whether this row offers a pin at all. Only the owner may pin - pinning moves a card on one
+    /// person's page, so a recipient pinning a note shared with them would be rearranging its owner's
+    /// list - and a hidden row offers nothing until it is unlocked.
+    /// </summary>
+    public bool CanBePinned => !IsHidden && !IsSharedWithMe;
 
     /// <summary>A new note starts with one empty line, which is what the editor and the server expect.</summary>
     public static IReadOnlyList<NoteContentLineDto> EmptyContent => [new NoteContentLineDto(string.Empty, false, false)];

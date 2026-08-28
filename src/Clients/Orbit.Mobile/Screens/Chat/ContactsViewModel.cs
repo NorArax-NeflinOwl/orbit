@@ -59,11 +59,11 @@ public sealed partial class ContactsViewModel : ObservableObject
     /// True while this account cannot hold a one-to-one conversation. The screen shows why instead of
     /// an empty list, which would claim there is nothing to show - see LockedFeatureMessage.
     /// </summary>
-    public bool IsLocked => !_permissions.Has(ApplicationPermission.Chat);
+    public bool IsLocked => !_permissions.Has(ApplicationPermission.Contacts);
 
     public bool IsUnlocked => !IsLocked;
 
-    public string LockedExplanation => LockedFeatureMessage.For(ApplicationPermission.Chat, _translations);
+    public string LockedExplanation => LockedFeatureMessage.For(ApplicationPermission.Contacts, _translations);
 
     public ObservableCollection<LocalContact> Contacts { get; } = [];
 

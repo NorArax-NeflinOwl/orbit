@@ -1,14 +1,50 @@
 using Orbit.Contracts.Tasks;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Tasks;
 
-/// <summary>One item of a task list, as the detail screen shows it.</summary>
-public sealed record TaskItemRow(Guid Id, string Description, bool IsCompleted, DateTimeOffset? DueDateUtc)
+/// <summary>
+/// One item of a task list, as the detail screen shows it. Carries the whole item rather than a few of
+/// its fields, because tapping it now opens the rest - see <see cref="TaskItemEditor"/>.
+/// </summary>
+/// <param name="Detail">
+/// Already in the reader's language: when it is due, and whether it says anything about being late or
+/// repeats daily. Empty when the entry is only a line of text, which most are.
+/// </param>
+public sealed record TaskItemRow(TaskItemDto Item, string Detail, bool IsOverdue)
 {
-    public static TaskItemRow From(TaskItemDto item)
-        => new(item.Id, item.Description, item.IsCompleted, item.DueDateUtc);
+    public static TaskItemRow From(TaskItemDto item, Translations translations, DateTimeOffset nowUtc)
+        => new(
+            item,
+            Describe(item, translations),
+            // Only worth saying about something still to do: a finished entry cannot be late any more.
+            !item.IsCompleted && item.DueDateUtc is { } due && due < nowUtc);
+
+    public Guid Id => Item.Id;
+
+    public string Description => Item.Description;
+
+    public bool IsCompleted => Item.IsCompleted;
 
     public string CompletionMark => IsCompleted ? "✓" : "○";
 
-    public bool HasDueDate => DueDateUtc is not null;
+    public bool HasDetail => Detail.Length > 0;
+
+    private static string Describe(TaskItemDto item, Translations translations)
+    {
+        var parts = new List<string>();
+        if (item.DueDateUtc is { } due)
+        {
+            parts.Add(translations.Format(
+                "Due {0}", due.LocalDateTime.ToString("d", translations.DisplayCulture)));
+        }
+
+        if (item.RemindDaily)
+        {
+            parts.Add(translations.Format(
+                "Daily at {0}", item.DailyReminderTimeOfDay.ToString("t", translations.DisplayCulture)));
+        }
+
+        return string.Join(" · ", parts);
+    }
 }

@@ -228,4 +228,41 @@ public sealed class CalendarTests : OrbitTestContext
 
     private static HttpResponseMessage JsonResponse<TItem>(IReadOnlyList<TItem> items)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(items) };
+    [Fact]
+    public void The_event_list_covers_the_month_on_screen_and_not_the_whole_calendar()
+    {
+        // Listing everything meant scrolling past last spring to find next week.
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([
+            CreateTimedEvent(midMonth, midMonth.AddHours(1), "This month"),
+            CreateTimedEvent(midMonth.AddMonths(2), midMonth.AddMonths(2).AddHours(1), "Two months on")]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        FindButtonByTitle(cut, "Show event list").Click();
+
+        Assert.Contains("This month", cut.Markup);
+        Assert.DoesNotContain("Two months on", cut.Markup);
+    }
+
+    [Fact]
+    public void The_year_view_lists_the_year_rather_than_the_month()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var laterThisYear = new DateTime(DateTime.Today.Year, 12, 20, 10, 0, 0);
+        var nextYear = new DateTime(DateTime.Today.Year + 1, 3, 1, 10, 0, 0);
+        RegisterCalendarApiClient([
+            CreateTimedEvent(midMonth, midMonth.AddHours(1), "This month"),
+            CreateTimedEvent(laterThisYear, laterThisYear.AddHours(1), "December"),
+            CreateTimedEvent(nextYear, nextYear.AddHours(1), "Next year")]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        FindButtonByTitle(cut, "Show event list").Click();
+        FindViewSwitchButton(cut, "Year").Click();
+
+        Assert.Contains("This month", cut.Markup);
+        Assert.Contains("December", cut.Markup);
+        Assert.DoesNotContain("Next year", cut.Markup);
+    }
 }

@@ -12,6 +12,12 @@ public partial class TasksPage : ContentPage
 		BindingContext = _viewModel = viewModel;
 	}
 
+	/// <summary>
+	/// The row template's pin needs a command that lives on the screen rather than on the row, and a
+	/// RelativeSource walks the visual tree - so it names the page and comes through here.
+	/// </summary>
+	public TasksViewModel ViewModel => _viewModel;
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();

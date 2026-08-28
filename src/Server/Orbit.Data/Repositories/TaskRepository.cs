@@ -84,6 +84,7 @@ public sealed class TaskRepository : ITaskRepository
         entity.IsGroup = taskList.IsGroup;
         entity.Priority = taskList.Priority.ToString();
         entity.IsPinned = taskList.IsPinned;
+        entity.LinkedWarehouseId = taskList.LinkedWarehouseId;
         entity.IsPrivate = taskList.IsPrivate;
         entity.EncryptedCiphertext = taskList.EncryptedContent?.Ciphertext;
         entity.EncryptedNonce = taskList.EncryptedContent?.Nonce;
@@ -146,7 +147,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.LockedByUserName,
             entity.LockExpiresAtUtc,
             Enum.TryParse<TaskListPriority>(entity.Priority, out var priority) ? priority : TaskListPriority.Normal,
-            entity.IsPinned);
+            entity.IsPinned, entity.LinkedWarehouseId);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -170,6 +171,7 @@ public sealed class TaskRepository : ITaskRepository
             IsGroup = taskList.IsGroup,
             Priority = taskList.Priority.ToString(),
             IsPinned = taskList.IsPinned,
+            LinkedWarehouseId = taskList.LinkedWarehouseId,
             IsPrivate = taskList.IsPrivate,
             EncryptedCiphertext = taskList.EncryptedContent?.Ciphertext,
             EncryptedNonce = taskList.EncryptedContent?.Nonce,

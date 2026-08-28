@@ -35,11 +35,17 @@ public interface IScreenNavigator
 
     void ShowNotes();
 
+    /// <summary>One note, opened from the list - see NoteDetailViewModel.</summary>
+    void ShowNote(Guid localId);
+
     void ShowTasks();
 
     void ShowTaskList(Guid localId);
 
     void ShowCalendar();
+
+    /// <summary>One event, opened from the calendar - see CalendarEventDetailViewModel.</summary>
+    void ShowCalendarEvent(Guid localId);
 
     void ShowInventory();
 
@@ -51,8 +57,6 @@ public interface IScreenNavigator
     void ShowNotifications();
 
     /// <summary>What Orbit is allowed to interrupt the reader with - see NotificationSettingsViewModel.</summary>
-    void ShowNotificationSettings();
-
     /// <summary>The app's own log, and the one way it leaves the phone - see DiagnosticsViewModel.</summary>
     void ShowDiagnostics();
 }

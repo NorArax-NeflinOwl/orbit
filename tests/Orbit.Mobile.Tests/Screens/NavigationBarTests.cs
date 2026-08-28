@@ -7,6 +7,7 @@ using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -135,6 +136,28 @@ public sealed class NavigationBarTests
         Assert.Equal("ShowDashboard", context.Navigator.LastDestination);
     }
 
+    /// <summary>
+    /// The line moved here from a strip in the bottom-left corner of all twenty screens. It says the
+    /// same things, and still says nothing at all before anything has tried - claiming "synced" then
+    /// would be a claim, and "offline" a slander.
+    /// </summary>
+    [Fact]
+    public void The_bar_says_whether_the_app_is_in_step()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+
+        Assert.Equal(string.Empty, bar.SyncLabel);
+
+        context.SyncState.RecordStarted();
+        Assert.True(bar.IsSyncing);
+        Assert.Equal("Syncing…", bar.SyncLabel);
+
+        context.SyncState.RecordSucceeded();
+        Assert.False(bar.IsSyncing);
+        Assert.Equal("Synced", bar.SyncLabel);
+    }
+
     private sealed class BarContext
     {
         private readonly SessionStore _sessionStore;
@@ -149,12 +172,16 @@ public sealed class NavigationBarTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>Whether the app is in step, which the bar now says beside the name in its menu.</summary>
+        public SyncState SyncState { get; } = new(
+            FixedNetworkStatus.Online, new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T09:00:00Z")));
+
         public NavigationBarViewModel Open()
             => new(
                 _sessionStore, new NotificationsClient(Server.ToHttpClient()),
                 new AuthenticationClient(Server.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
                 Presence, new Translations(new InMemoryLanguageStore()),
-                new LocalStoreReset(LocalStore), UnlockedPermissions.For(LocalStore), Navigator);
+                new LocalStoreReset(LocalStore), UnlockedPermissions.For(LocalStore), SyncState, Navigator);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

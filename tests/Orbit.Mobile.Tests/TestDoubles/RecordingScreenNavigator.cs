@@ -61,7 +61,25 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
         _destinations.Add(nameof(ShowTaskList));
     }
 
+    /// <summary>Which note was opened, so a test can check the list led to the right one.</summary>
+    public Guid? LastNoteId { get; private set; }
+
+    public void ShowNote(Guid localId)
+    {
+        LastNoteId = localId;
+        _destinations.Add(nameof(ShowNote));
+    }
+
     public void ShowCalendar() => _destinations.Add(nameof(ShowCalendar));
+
+    /// <summary>Which event was opened, so a test can check the calendar led to the right one.</summary>
+    public Guid? LastCalendarEventId { get; private set; }
+
+    public void ShowCalendarEvent(Guid localId)
+    {
+        LastCalendarEventId = localId;
+        _destinations.Add(nameof(ShowCalendarEvent));
+    }
 
     public void ShowInventory() => _destinations.Add(nameof(ShowInventory));
 
@@ -70,8 +88,6 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
     public void ShowWarehouse(Guid localId) => _destinations.Add(nameof(ShowWarehouse));
 
     public void ShowNotifications() => _destinations.Add(nameof(ShowNotifications));
-
-    public void ShowNotificationSettings() => _destinations.Add(nameof(ShowNotificationSettings));
 
     public void ShowDiagnostics() => _destinations.Add(nameof(ShowDiagnostics));
 }

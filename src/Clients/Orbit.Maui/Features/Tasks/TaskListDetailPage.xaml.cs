@@ -1,3 +1,5 @@
+using Orbit.Mobile.Localization;
+using System.Windows.Input;
 using Orbit.Mobile.Screens.Tasks;
 
 namespace Orbit.Maui.Features.Tasks;
@@ -11,17 +13,107 @@ public partial class TaskListDetailPage : ContentPage
 	public TaskListDetailViewModel ViewModel => _viewModel;
 
 	private readonly TaskListDetailViewModel _viewModel;
+	private readonly Translations _translations;
 
-	public TaskListDetailPage(TaskListDetailViewModel viewModel)
+	public TaskListDetailPage(TaskListDetailViewModel viewModel, Translations translations)
 	{
-		InitializeComponent();
+		// Before InitializeComponent: the list's own menu is bound from the static part of the tree,
+		// which is built there and reads the property once. A command assigned afterwards is read as
+		// null and never looked at again, and the button then does nothing.
+		_translations = translations;
 		_viewModel = viewModel;
+		ShowItemMenuCommand = new Command<TaskItemRow>(item => _ = ShowItemMenuAsync(item));
+		ShowListMenuCommand = new Command(() => _ = ShowListMenuAsync());
+		ChooseWarehouseCommand = new Command(() => _ = ChooseWarehouseAsync());
+
+		InitializeComponent();
 		BindingContext = viewModel;
+	}
+
+	/// <summary>
+	/// What the list's "⋯" opens: the two things Orbit.Web keeps in its overflow menu, which are about
+	/// the list as a whole rather than about any one entry.
+	/// </summary>
+	public ICommand ShowListMenuCommand { get; }
+
+	/// <summary>Which shelf this list's work is measured against - see StockCheckPanel.</summary>
+	public ICommand ChooseWarehouseCommand { get; }
+
+	private async Task ChooseWarehouseAsync()
+	{
+		var names = _viewModel.StockCheck.Warehouses.Select(warehouse => warehouse.Name).ToArray();
+		var chosen = await DisplayActionSheet(
+			_translations["Can this be done?"], _translations["Cancel"], destruction: null, names);
+
+		if (_viewModel.StockCheck.Warehouses.FirstOrDefault(warehouse => warehouse.Name == chosen) is { } picked)
+		{
+			_viewModel.StockCheck.LinkedWarehouse = picked;
+		}
+	}
+
+	private async Task ShowListMenuAsync()
+	{
+		var generate = _translations["Generate inventory"];
+		var recalculate = _translations["Recalculate against the inventory"];
+		var chosen = await DisplayActionSheet(
+			_translations["List options"], _translations["Cancel"], destruction: null, generate, recalculate);
+
+		if (chosen == generate)
+		{
+			_viewModel.StockCheck.GenerateInventoryCommand.Execute(null);
+		}
+		else if (chosen == recalculate)
+		{
+			_viewModel.StockCheck.RecalculateCommand.Execute(null);
+		}
 	}
 
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+	}
+
+	/// <summary>
+	/// Choosing a list moves the entry, which closes the editor the picker lives in - and iOS leaves its
+	/// wheel on screen when the view under it disappears. Dismissing it first is the view's own business.
+	/// </summary>
+	private void OnMoveTargetChosen(object? sender, EventArgs eventArgs)
+	{
+		(sender as Picker)?.Unfocus();
+	}
+
+	/// <summary>Lets go of the edit lock as the screen leaves - see EditLock.</summary>
+	protected override async void OnDisappearing()
+	{
+		base.OnDisappearing();
+		await _viewModel.CloseAsync();
+	}
+
+	/// <summary>
+	/// What a row's "⋯" opens. On the page rather than the view model because an action sheet is a
+	/// page's own presentation - the same reason ConversationPage keeps its message menu here.
+	/// </summary>
+	public ICommand ShowItemMenuCommand { get; }
+
+	private async Task ShowItemMenuAsync(TaskItemRow? item)
+	{
+		if (item is null)
+		{
+			return;
+		}
+
+		var remove = _translations["Delete item"];
+		var chosen = await DisplayActionSheet(
+			_translations["Item options"], _translations["Cancel"], remove, _translations["Edit"]);
+
+		if (chosen == remove)
+		{
+			_viewModel.RemoveItemCommand.Execute(item);
+		}
+		else if (chosen == _translations["Edit"])
+		{
+			_viewModel.EditItemCommand.Execute(item);
+		}
 	}
 }

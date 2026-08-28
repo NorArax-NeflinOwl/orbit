@@ -49,6 +49,43 @@ public static class PolishTranslations
         ["Group"] = "Grupowa",
         ["Pin"] = "Przypnij",
         ["Pin to top"] = "Przypnij na górę",
+        ["This was shared with you to read, not to change."] = "To zostało Ci udostępnione do czytania, nie do zmieniania.",
+        ["Couldn't delete that note. Try again."] = "Nie udało się usunąć tej notatki. Spróbuj ponownie.",
+        ["That note was already gone. The list has been brought up to date."] = "Tej notatki już nie było. Lista została odświeżona.",
+        ["Orbit refused that change."] = "Orbit odrzucił tę zmianę.",
+        ["Can't move this item right now - {0} is editing one of the lists."] = "Nie można teraz przenieść tej pozycji — {0} edytuje jedną z list.",
+        ["Couldn't recalculate against the inventory."] = "Nie udało się przeliczyć względem inventory.",
+        ["This list isn't measured against an inventory."] = "Ta lista nie jest porównywana z żadnym inventory.",
+        ["Couldn't generate an inventory from this list."] = "Nie udało się wygenerować inventory z tej listy.",
+        ["Inventory generated from this list."] = "Inventory wygenerowane z tej listy.",
+        ["Recalculate against the inventory"] = "Przelicz względem inventory",
+        ["Generate inventory"] = "Generuj inventory",
+        ["More"] = "Więcej",
+        ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
+        ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
+        ["Everything short was already on the restock list."] = "Wszystkie braki już były na liście uzupełnień.",
+        ["Add what is missing to the restock list"] = "Dodaj braki do listy uzupełnień",
+        ["Short"] = "Brakuje",
+        ["On the shelf"] = "Na stanie",
+        ["Needed"] = "Potrzeba",
+        ["What"] = "Co",
+        ["{0} of what this needs is short."] = "Brakuje pozycji: {0}.",
+        ["Everything this list needs is on the shelf."] = "Wszystko, czego ta lista potrzebuje, jest na stanie.",
+        ["Not measured against a warehouse"] = "Bez porównania z magazynem",
+        ["Can this be done?"] = "Czy da się to wykonać?",
+        ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
+        ["Nothing in this period."] = "Nic w tym okresie.",
+        ["View saved"] = "Widok zapisany",
+        ["Save view"] = "Zapisz widok",
+        ["Show the lists"] = "Pokaż listy",
+        ["Show single items"] = "Pokaż pojedyncze elementy",
+        ["Opens Google's own form with this event filled in. Nothing is saved there until you save it."] = "Otwiera formularz Google z wypełnionym wydarzeniem. Nic się tam nie zapisze, dopóki sam nie zapiszesz.",
+        ["Google Calendar"] = "Kalendarz Google",
+        ["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."] = "Zapisywanie swojej pozycji. Udostępnienie jej lub podgląd cudzej wymaga też kontaktów.",
+        ["Conversations, with one person or with several."] = "Rozmowy — z jedną osobą lub z kilkoma.",
+        ["Finding other people, and being found by them. Everything below needs this first."] = "Znajdowanie innych osób i bycie znajdowanym przez nie. Wszystko poniżej tego wymaga.",
+        ["shared a position"] = "udostępnił pozycję",
+        ["You"] = "Ty",
         ["Needs {0}"] = "Wymaga: {0}",
         ["{0} has to be unlocked first."] = "Najpierw trzeba odblokować: {0}.",
         ["Open Options"] = "Otwórz opcje",
@@ -307,6 +344,7 @@ public static class PolishTranslations
         ["Daily reminder time"] = "Godzina codziennego przypomnienia",
         ["Overdue notification"] = "Powiadomienie po terminie",
         ["No items."] = "Brak pozycji.",
+        ["Back to inventory"] = "Wróć do magazynów",
         ["Back to task lists"] = "Wróć do list zadań",
         ["This task list no longer exists."] = "Ta lista zadań już nie istnieje.",
         ["This task list was shared by"] = "Tę listę zadań udostępnił",
@@ -832,6 +870,35 @@ public static class PolishTranslations
         // was refused, and the short lines under a row. Composed in code, so the XAML sweep that
         // came first could not see any of it. ----
         ["Waiting to sync"] = "Czeka na synchronizację",
+        ["{0} is editing this right now - it stays read-only until they finish."]
+            = "{0} właśnie to edytuje - pozostaje tylko do odczytu, dopóki nie skończy.",
+        ["Who you are to Orbit, and what this device is allowed to do."]
+            = "Kim jesteś dla Orbita i co wolno temu urządzeniu.",
+        ["Already accepted"] = "Już przyjęto",
+        ["Item options"] = "Opcje pozycji",
+        ["{0} minutes before"] = "{0} min przed",
+        ["List options"] = "Opcje listy",
+        ["Built a warehouse from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
+        ["There was nothing on this list to build a warehouse from."]
+            = "Na tej liście nie było nic, z czego można zbudować magazyn.",
+        ["Added {0} to the restock list."] = "Dodano {0} do listy uzupełnień.",
+        ["Nothing new to add - what is short is already waiting there."]
+            = "Nie ma nic nowego do dodania - brakujące już tam czekają.",
+        ["Couldn't work out what this needs without a connection."]
+            = "Bez połączenia nie da się ustalić, czego to wymaga.",
+        ["Invite"] = "Zaproś",
+        ["Somebody else"] = "Ktoś inny",
+        ["Name of the place"] = "Nazwa miejsca",
+        ["Couldn't work out where this phone is."] = "Nie udało się ustalić, gdzie jest ten telefon.",
+        ["Delete warehouse"] = "Usuń magazyn",
+        ["Delete item"] = "Usuń pozycję",
+        ["Line options"] = "Opcje wiersza",
+        ["Make it a checklist item"] = "Zmień w pozycję listy",
+        ["Make it an ordinary line"] = "Zmień w zwykły wiersz",
+        ["Delete line"] = "Usuń wiersz",
+        ["Everything Orbit has told you, newest first."] = "Wszystko, co Orbit Ci powiedział, od najnowszych.",
+        ["Moved to {0}."] = "Przeniesiono do: {0}.",
+        ["Couldn't move it. Try again."] = "Nie udało się przenieść. Spróbuj ponownie.",
         ["Shared with you - read-only until you're back online"] =
             "Udostępnione Tobie — tylko do odczytu, dopóki nie wrócisz online",
         ["Shared with others - read-only until you're back online"] =
@@ -946,6 +1013,65 @@ public static class PolishTranslations
         ["This message can't be opened on this device."] = "Tej wiadomości nie da się otworzyć na tym urządzeniu.",
         ["This position can't be opened on this device."] = "Tej lokalizacji nie da się otworzyć na tym urządzeniu.",
         ["Saved."] = "Zapisano.",
+        ["Pinning needs a connection."] = "Przypięcie wymaga połączenia.",
+
+        // The note editor - the screen a note opens into.
+        ["New line"] = "Nowy wiersz",
+        ["Nothing written here yet."] = "Nic tu jeszcze nie napisano.",
+        ["Back to notes"] = "Wróć do notatek",
+        ["Delete note"] = "Usuń notatkę",
+
+        // A warehouse item's own details, which the phone could neither show nor set.
+        ["Quantity"] = "Ilość",
+
+        // Somebody offering to share something, which arrives in a conversation.
+        ["Shared something with you"] = "Udostępnił(a) Ci coś",
+        ["Read only"] = "Tylko do odczytu",
+
+        // A link anyone can read the thing by, with no Orbit account and nothing to accept.
+        ["Share a link"] = "Udostępnij linkiem",
+
+        // Asking whoever owns something to let you change it, and seeing that ask arrive.
+        ["Asked to edit"] = "Prosi o prawo edycji",
+        ["Asked them. They will see it in your conversation."] = "Poproszono. Zobaczy to w Waszej rozmowie.",
+        ["Couldn't send that request."] = "Nie udało się wysłać tej prośby.",
+        ["Stop the link"] = "Wyłącz link",
+        ["That link no longer works."] = "Ten link już nie działa.",
+        ["Couldn't make a link for that."] = "Nie udało się utworzyć linku do tego.",
+        ["This Orbit doesn't have a web address set, so a link can't be built."] =
+            "Ten Orbit nie ma ustawionego adresu wersji webowej, więc nie da się zbudować linku.",
+        ["Sharing needs a connection."] = "Udostępnianie wymaga połączenia.",
+        ["Couldn't share that."] = "Nie udało się tego udostępnić.",
+        ["{0} is yours now."] = "{0} — już Twoje.",
+        ["That offer is no longer available."] = "Ta oferta nie jest już dostępna.",
+        ["Accepting what somebody shared needs a connection."] = "Przyjęcie udostępnionej rzeczy wymaga połączenia.",
+
+        // A task-list entry's own details, and the filters over the lists themselves.
+        ["New"] = "Nowe",
+        ["Pending"] = "W toku",
+        ["Due {0}"] = "Termin: {0}",
+        ["Daily at {0}"] = "Codziennie o {0}",
+        ["When it is overdue"] = "Gdy termin minie",
+        ["Remind me daily"] = "Przypominaj codziennie",
+        ["Minimum"] = "Minimum",
+        ["Minimum: {0}"] = "Minimum: {0}",
+        ["Expires {0}"] = "Termin: {0}",
+
+        // The event editor - the screen a calendar entry opens into.
+        ["When"] = "Kiedy",
+        ["Back to calendar"] = "Wróć do kalendarza",
+        ["Somebody else can change this event, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać to wydarzenie, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["Somebody else can change this note, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["This note is private, and its words are sealed with a key this phone doesn't have."] =
+            "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
+
+        // One group message's own info view: who it reached, and who has opened it.
+        ["{0} - read {1}"] = "{0} — przeczytano {1}",
+        ["{0} - delivered"] = "{0} — dostarczono",
+        ["Nobody else has a copy of this yet."] = "Nikt inny nie ma jeszcze kopii tej wiadomości.",
+        ["Couldn't read who has seen this."] = "Nie udało się odczytać, kto to widział.",
         ["Orbit's own log, on this phone. Nothing leaves it unless you send it."] =
             "Własny dziennik Orbita, na tym telefonie. Nic z niego nie wychodzi, dopóki go nie wyślesz.",
         // The map screen: reading a position, sharing it, and stopping.

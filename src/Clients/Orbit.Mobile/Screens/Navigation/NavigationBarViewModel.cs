@@ -8,6 +8,7 @@ using Orbit.Mobile.Localization;
 using Orbit.Core.Permissions;
 using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Presence;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Navigation;
 
@@ -31,6 +32,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly LocalStoreReset _localStore;
     private readonly UserPermissions _permissions;
+    private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>The signed-in reader's initials, which is what the avatar shows - there are no pictures in Orbit.</summary>
@@ -62,6 +64,19 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [ObservableProperty]
     private bool _isLanguageExpanded;
 
+    /// <summary>
+    /// Whether the app is in step with the server, said beside the name in the avatar's menu.
+    ///
+    /// It used to sit in the bottom-left corner of all twenty screens, which is where the web puts it
+    /// and where a phone has least room. It is a fact about the account rather than about whatever is
+    /// on screen, so it belongs with the account.
+    /// </summary>
+    [ObservableProperty]
+    private string _syncLabel = string.Empty;
+
+    [ObservableProperty]
+    private bool _isSyncing;
+
     /// <summary>Whether the map belongs on the bar at all - see ShowPermissions.</summary>
     [ObservableProperty]
     private bool _canUseLocation = true;
@@ -77,7 +92,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     public NavigationBarViewModel(
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
-        LocalStoreReset localStore, UserPermissions permissions, IScreenNavigator navigator)
+        LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
+        IScreenNavigator navigator)
     {
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
@@ -86,16 +102,37 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         _translations = translations;
         _localStore = localStore;
         _permissions = permissions;
+        _syncState = syncState;
         _navigator = navigator;
         _presence.Changed += OnPresenceChanged;
         _permissions.Changed += OnPermissionsChanged;
+        _syncState.Changed += OnSyncStateChanged;
         ShowPresence();
         ShowPermissions();
+        ShowSyncState();
     }
 
     private void OnPresenceChanged(object? sender, EventArgs e) => ShowPresence();
 
     private void OnPermissionsChanged(object? sender, EventArgs e) => ShowPermissions();
+
+    private void OnSyncStateChanged(object? sender, EventArgs e) => ShowSyncState();
+
+    private void ShowSyncState()
+    {
+        SyncLabel = _syncState.Condition switch
+        {
+            SyncCondition.Syncing => _translations["Syncing…"],
+            SyncCondition.Synced => _translations["Synced"],
+            SyncCondition.Offline => _translations["Offline"],
+            SyncCondition.Failed => _translations["Couldn't sync"],
+            // Before anything has tried, saying "Synced" would be a claim and saying "Offline" a
+            // slander. The row stays quiet instead.
+            _ => string.Empty
+        };
+
+        IsSyncing = _syncState.Condition == SyncCondition.Syncing;
+    }
 
     /// <summary>
     /// Which sections this account can reach at all. Hidden rather than shown-and-refused, as the web's
@@ -105,7 +142,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     {
         CanUseLocation = _permissions.Has(ApplicationPermission.Location);
         CanUseConversations = _permissions.Has(ApplicationPermission.Chat)
-            || _permissions.Has(ApplicationPermission.GroupChat);
+            || _permissions.Has(ApplicationPermission.Contacts);
     }
 
     /// <summary>
@@ -239,6 +276,11 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     [RelayCommand]
     private void GoToNotifications() => LeaveMenuFor(_navigator.ShowNotifications);
+
+    /// <summary>
+    /// Notification settings, reached from here rather than from the notification list. They are the
+    /// account's settings, and the list is a list.
+    /// </summary>
 
     /// <summary>Whether the reader has chosen to be shown as available - see Presence for the other two states.</summary>
     public bool IsAvailable => _presence.Chosen == ChosenAvailability.Available;

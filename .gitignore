@@ -51,3 +51,7 @@ GoogleService-Info.plist
 # The Google Maps key for the Android app, merged into the manifest at build time. Same rule again: a
 # placeholder is tracked (AndroidManifestOverlay.xml.example) and the real file is not.
 AndroidManifestOverlay.xml
+
+# Deployment notes that name real accounts - see notes/permissions.local.md. Kept out of git because
+# which account may do what is a deployment's own business, not the source's.
+*.local.md

@@ -1,6 +1,4 @@
 using Microsoft.Extensions.Time.Testing;
-using Orbit.Mobile.Localization;
-using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -8,9 +6,12 @@ using Xunit;
 namespace Orbit.Mobile.Tests.Sync;
 
 /// <summary>
-/// The line in the corner of every screen. What it has to get right is the difference between the app
-/// working as designed and something being wrong: offline is the former, refused is the latter, and a
-/// reader who cannot tell them apart either ignores real failures or chases imaginary ones.
+/// Whether the app is in step with the server. What this has to get right is the difference between the
+/// app working as designed and something being wrong: offline is the former, refused is the latter, and
+/// a reader who cannot tell them apart either ignores real failures or chases imaginary ones.
+///
+/// The words themselves now live in the avatar's menu rather than in a strip on every screen - see
+/// NavigationBarViewModel and NavigationBarTests.
 /// </summary>
 public sealed class SyncStateTests
 {
@@ -20,7 +21,7 @@ public sealed class SyncStateTests
         var state = Build(isOnline: true);
 
         Assert.Equal(SyncCondition.Unknown, state.Condition);
-        Assert.Equal(string.Empty, new StatusStripViewModel(state, English).Label);
+        Assert.Null(state.LastSyncedAtUtc);
     }
 
     [Fact]
@@ -32,7 +33,6 @@ public sealed class SyncStateTests
 
         Assert.Equal(SyncCondition.Synced, state.Condition);
         Assert.NotNull(state.LastSyncedAtUtc);
-        Assert.Equal("Synced", new StatusStripViewModel(state, English).Label);
     }
 
     [Fact]
@@ -43,7 +43,6 @@ public sealed class SyncStateTests
         state.RecordFailed();
 
         Assert.Equal(SyncCondition.Offline, state.Condition);
-        Assert.False(new StatusStripViewModel(state, English).NeedsAttention);
     }
 
     [Fact]
@@ -54,36 +53,24 @@ public sealed class SyncStateTests
         state.RecordFailed();
 
         Assert.Equal(SyncCondition.Failed, state.Condition);
-        Assert.True(new StatusStripViewModel(state, English).NeedsAttention);
     }
 
+    /// <summary>
+    /// Only when it actually changes. Whoever is watching redraws on every one of these, and a sync
+    /// that reported "synced" twice in a row would redraw for nothing.
+    /// </summary>
     [Fact]
-    public void The_strip_follows_the_state_it_is_already_watching()
+    public void The_same_condition_twice_is_announced_once()
     {
         var state = Build(isOnline: true);
-        var strip = new StatusStripViewModel(state, English);
-
-        state.RecordStarted();
-
-        Assert.True(strip.IsSyncing);
-        Assert.Equal("Syncing…", strip.Label);
-    }
-
-    [Fact]
-    public void A_strip_that_went_away_stops_following()
-    {
-        // Every page builds one, so a strip that kept its subscription would pile up behind the reader.
-        var state = Build(isOnline: true);
-        var strip = new StatusStripViewModel(state, English);
-        strip.Dispose();
+        var announcements = 0;
+        state.Changed += (_, _) => announcements++;
 
         state.RecordSucceeded();
+        state.RecordSucceeded();
 
-        Assert.Equal(string.Empty, strip.Label);
+        Assert.Equal(1, announcements);
     }
-
-    /// <summary>The strip's words come from the dictionary now, so a test has to say which language it is reading.</summary>
-    private static Translations English => new(new InMemoryLanguageStore());
 
     private static SyncState Build(bool isOnline)
         => new(isOnline ? FixedNetworkStatus.Online : FixedNetworkStatus.Offline,

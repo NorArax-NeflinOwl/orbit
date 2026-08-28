@@ -6,7 +6,7 @@ namespace Orbit.Api.Tests.Permissions;
 public sealed class PermissionPrerequisiteTests
 {
     [Theory]
-    [InlineData(ApplicationPermission.GroupChat)]
+    [InlineData(ApplicationPermission.Chat)]
     [InlineData(ApplicationPermission.Sharing)]
     public void What_rests_on_chat_does_nothing_without_it(ApplicationPermission dependent)
     {
@@ -19,18 +19,18 @@ public sealed class PermissionPrerequisiteTests
     }
 
     [Theory]
-    [InlineData(ApplicationPermission.GroupChat)]
+    [InlineData(ApplicationPermission.Chat)]
     [InlineData(ApplicationPermission.Sharing)]
     public void What_rests_on_chat_works_with_it(ApplicationPermission dependent)
     {
-        IReadOnlySet<ApplicationPermission> granted = new HashSet<ApplicationPermission> { ApplicationPermission.Chat, dependent };
+        IReadOnlySet<ApplicationPermission> granted = new HashSet<ApplicationPermission> { ApplicationPermission.Contacts, dependent };
 
         Assert.True(dependent.IsEffective(granted));
-        Assert.Equal([ApplicationPermission.Chat, dependent], PermissionPrerequisites.Effective(granted));
+        Assert.Equal([ApplicationPermission.Contacts, dependent], PermissionPrerequisites.Effective(granted));
     }
 
     [Theory]
-    [InlineData(ApplicationPermission.Chat)]
+    [InlineData(ApplicationPermission.Contacts)]
     [InlineData(ApplicationPermission.Location)]
     public void The_ones_that_stand_alone_need_nothing_first(ApplicationPermission independent)
     {

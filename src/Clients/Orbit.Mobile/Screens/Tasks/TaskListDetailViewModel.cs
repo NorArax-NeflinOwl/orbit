@@ -2,8 +2,12 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Tasks;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Chat;
+using Orbit.Mobile.Screens.Sharing;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -20,7 +24,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly TaskListSynchronizer _synchronizer;
+    private readonly TasksClient _tasksClient;
+    private readonly EditLock _editLock;
     private readonly Translations _translations;
+    private readonly TimeProvider _timeProvider;
+    private readonly INetworkStatus _networkStatus;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -38,17 +46,50 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReadOnly;
 
+    /// <inheritdoc cref="Inventory.WarehouseDetailViewModel.BeingEdited"/>
+    [ObservableProperty]
+    private TaskItemEditor? _beingEdited;
+
+    public bool IsEditingItem => BeingEdited is not null;
+
+    public bool IsShowingList => BeingEdited is null;
+
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
-        IScreenNavigator navigator)
+        TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
+        TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _translations = translations;
+        _timeProvider = timeProvider;
+        Share = share;
         _navigator = navigator;
+        _tasksClient = tasksClient;
+        _editLock = editLock;
+        _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
+        _networkStatus = networkStatus;
+        StockCheck = stockCheck;
+        // Generating a warehouse or pointing at a different one changes the list itself, so the screen
+        // re-reads rather than letting the panel and the list drift apart.
+        StockCheck.Changed += (_, _) => LoadCommand.Execute(null);
     }
 
     public ObservableCollection<TaskItemRow> Items { get; } = [];
+
+    /// <summary>
+    /// Whether this list gathers the lists its items link to rather than holding work of its own -
+    /// Orbit.Web's "Group list". It is also what makes the stock check worth asking, and the phone had
+    /// no way to set it, so a list made here could never be one.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isGroup;
+
+    /// <summary>"Can this be done?" - see StockCheckPanel. Only a group list is asked.</summary>
+    public StockCheckPanel StockCheck { get; }
+
+    /// <summary>Offering this to somebody else - see SharePanel.</summary>
+    public SharePanel Share { get; }
 
     public bool HasStatus => Status.Length > 0;
 
@@ -71,6 +112,93 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     private bool CanAddItem => NewItemDescription.Trim().Length > 0;
+
+    /// <summary>Opens one entry's details - when it is due, and what it says when it is late.</summary>
+    [RelayCommand]
+    private void EditItem(TaskItemRow? row)
+    {
+        if (row is not null && CanEdit)
+        {
+            BeingEdited = TaskItemEditor.For(row.Item, _translations);
+            MoveTarget = null;
+            OnPropertyChanged(nameof(CanMoveItem));
+        }
+    }
+
+    /// <summary>The other lists this entry could go to - see <see cref="TaskListChoice"/>.</summary>
+    public ObservableCollection<TaskListChoice> MoveTargets { get; } = [];
+
+    /// <summary>
+    /// Choosing one moves the entry there and then, rather than waiting for this form's Save. The move
+    /// is not part of the entry - it is a change to two lists - and Orbit.Web's editor does the same.
+    /// </summary>
+    [ObservableProperty]
+    private TaskListChoice? _moveTarget;
+
+    /// <summary>
+    /// An entry added on this phone and not yet synced has no id the server would recognise, so there
+    /// is nothing to move yet. Offline there is nobody to do the moving at all.
+    /// </summary>
+    public bool CanMoveItem
+        => CanEdit
+            && _networkStatus.IsOnline
+            && MoveTargets.Count > 0
+            && BeingEdited?.ToDto().Id is { } itemId && itemId != Guid.Empty;
+
+    [RelayCommand]
+    private async Task MoveItemAsync(TaskListChoice? target, CancellationToken cancellationToken)
+    {
+        if (target is null
+            || BeingEdited?.ToDto().Id is not { } itemId
+            || await _taskLists.FindAsync(_localId, cancellationToken) is not { ServerId: { } sourceServerId })
+        {
+            return;
+        }
+
+        BeingEdited = null;
+
+        // Anything queued goes first: the server is about to be asked to rearrange these two lists, and
+        // it should be rearranging what the phone last said, not a version behind.
+        await SynchroniseAsync(cancellationToken);
+        var outcome = await _tasksClient.MoveItemAsync(sourceServerId, itemId, target.ServerId, cancellationToken);
+
+        // Then again, to bring both lists back as the server now has them - said after the sync, which
+        // clears the status of its own.
+        await SynchroniseAsync(cancellationToken);
+        await ShowStoredListAsync(cancellationToken);
+
+        Status = outcome is WriteOutcome.Applied
+            ? _translations.Format("Moved to {0}.", target.Name)
+            : _translations["Couldn't move it. Try again."];
+    }
+
+    private async Task ShowWhereItCanGoAsync(CancellationToken cancellationToken)
+    {
+        var others = await _taskLists.GetAllAsync(cancellationToken);
+
+        MoveTargets.Clear();
+        foreach (var other in others.Where(list => list.LocalId != _localId && list.ServerId is not null))
+        {
+            MoveTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
+        }
+    }
+
+    [RelayCommand]
+    private void CancelItemEdit() => BeingEdited = null;
+
+    [RelayCommand]
+    private Task SaveItemAsync(CancellationToken cancellationToken)
+    {
+        if (BeingEdited is not { CanSave: true } editor)
+        {
+            return Task.CompletedTask;
+        }
+
+        var edited = editor.ToDto();
+        BeingEdited = null;
+
+        return SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
+    }
 
     [RelayCommand]
     private Task ToggleItemAsync(TaskItemRow? row, CancellationToken cancellationToken)
@@ -100,12 +228,20 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _navigator.ShowTasks();
     }
 
+    /// <summary>
+    /// Writes the list down as it now stands. Named for what it does rather than for one of its
+    /// callers: the store's update takes the whole list, so renaming it and making it a group list are
+    /// the same write. Orbit.Web's task editor saves both the same way for the same reason.
+    /// </summary>
+    [RelayCommand]
+    private Task SaveListAsync(CancellationToken cancellationToken) => SaveAsync(_items, cancellationToken);
+
     [RelayCommand]
     private void GoBack() => _navigator.ShowTasks();
 
     private async Task SaveAsync(IReadOnlyList<TaskItemDto> items, CancellationToken cancellationToken)
     {
-        var outcome = await _taskLists.UpdateAsync(_localId, Title, items, cancellationToken);
+        var outcome = await _taskLists.UpdateAsync(_localId, Title, items, IsGroup, cancellationToken);
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
             Status = _translations[RefusalMessage];
@@ -125,15 +261,37 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         Title = taskList.Title;
+        if (taskList.ServerId is { } serverId)
+        {
+            Share.Describes(
+                SharedItemKind.TaskList, serverId, taskList.Title,
+                taskList.AccessLevel == "CanEdit" ? null : taskList.OwnerUserId);
+        }
+
         _items = taskList.Items;
+        _isShowingWhatIsStored = true;
+        IsGroup = taskList.IsGroup;
+        _isShowingWhatIsStored = false;
+        await ShowWhereItCanGoAsync(cancellationToken);
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
+        ReadOnlyReason = string.Empty;
+
+        if (!IsReadOnly && taskList.ServerId is { } lockedServerId)
+        {
+            // Claimed for as long as this screen is open, so somebody editing the same thing on the web
+            // is told rather than left to have their save refused - see EditLock.
+            await _editLock.HoldAsync(_tasksClient, lockedServerId, cancellationToken);
+            ShowWhoElseIsEditing();
+        }
 
         Items.Clear();
         foreach (var item in taskList.Items)
         {
-            Items.Add(TaskItemRow.From(item));
+            Items.Add(TaskItemRow.From(item, _translations, _timeProvider.GetUtcNow()));
         }
+
+        await StockCheck.ShowAsync(taskList, cancellationToken);
     }
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
@@ -162,9 +320,57 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private const string RefusalMessage =
         "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
 
+    /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
+    private bool _isShowingWhatIsStored;
+
+    partial void OnIsGroupChanged(bool value)
+    {
+        if (!_isShowingWhatIsStored)
+        {
+            SaveListCommand.Execute(null);
+        }
+    }
+
+    partial void OnBeingEditedChanged(TaskItemEditor? value)
+    {
+        OnPropertyChanged(nameof(IsEditingItem));
+        OnPropertyChanged(nameof(IsShowingList));
+        OnPropertyChanged(nameof(CanMoveItem));
+    }
+
+    partial void OnMoveTargetChanged(TaskListChoice? value)
+    {
+        if (value is not null)
+        {
+            MoveItemCommand.Execute(value);
+        }
+    }
+
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
     partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
     partial void OnNewItemDescriptionChanged(string value) => AddItemCommand.NotifyCanExecuteChanged();
+
+    /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
+    [ObservableProperty]
+    private string _readOnlyReason = string.Empty;
+
+    public bool HasReadOnlyReason => ReadOnlyReason.Length > 0;
+
+    private void ShowWhoElseIsEditing()
+    {
+        if (!_editLock.IsHeldByAnother)
+        {
+            return;
+        }
+
+        IsReadOnly = true;
+        ReadOnlyReason = _editLock.RefusalMessage;
+    }
+
+    /// <summary>Lets it go when the screen does, rather than leaving it claimed for a minute.</summary>
+    public Task CloseAsync() => _editLock.ReleaseAsync();
+
+    partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
 }

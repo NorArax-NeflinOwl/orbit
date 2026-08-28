@@ -18,6 +18,10 @@ using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
+using Orbit.Core.Tasks.LinkTaskListToWarehouse;
+using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
+using Orbit.Core.Tasks.GetTaskListStockCheck;
+using Orbit.Core.Tasks.RaiseStockShortfalls;
 using Orbit.Core.Tasks.SetTaskListPinned;
 using Orbit.Core.Tasks.ShareTaskList;
 using Orbit.Core.Tasks.UpdateTaskList;
@@ -93,6 +97,45 @@ public static class TaskEndpoints
         // whole-list PUT above (it touches two different TaskList aggregates at once).
         // Its own endpoint rather than part of the update: pinning is done from the list of lists,
         // where nothing has been loaded to edit - see TaskList.SetPinned.
+        // Which warehouse this list's work is measured against. Its own endpoint for the same reason
+        // pinning has one: it changes what the list is compared with, not what is on it.
+        tasks.MapPut("/{id:guid}/warehouse", async (
+            Guid id, LinkTaskListToWarehouseRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var linked = await dispatcher.SendAsync(
+                new LinkTaskListToWarehouseCommand(GetUserId(user), id, request.WarehouseId), cancellationToken);
+            return linked ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Builds the shelf this list's work needs - one entry per distinct thing it calls for - and
+        // points the list at it, so the check below can be run straight away.
+        tasks.MapPost("/{id:guid}/inventory", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var warehouseId = await dispatcher.SendAsync(
+                new GenerateWarehouseFromTaskListCommand(GetUserId(user), id), cancellationToken);
+            return warehouseId is null ? Results.NotFound() : Results.Ok(warehouseId);
+        });
+
+        // Whether this list's work - and everything linked below it - can be done out of that warehouse.
+        // 404 rather than an empty answer when no warehouse has been chosen: there is no question yet.
+        tasks.MapGet("/{id:guid}/stock-check", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var check = await dispatcher.SendAsync(new GetTaskListStockCheckQuery(GetUserId(user), id), cancellationToken);
+            return check is null ? Results.NotFound() : Results.Ok(ToDto(check));
+        });
+
+        // Puts what is short onto the warehouse's standing restock list, where the daily reminder brings
+        // it up - see InventoryTaskListCoordinator.
+        tasks.MapPost("/{id:guid}/stock-check/shortfalls", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var added = await dispatcher.SendAsync(new RaiseStockShortfallsCommand(GetUserId(user), id), cancellationToken);
+            return Results.Ok(new RaiseStockShortfallsResultDto(added));
+        });
+
         tasks.MapPut("/{id:guid}/pinned", async (
             Guid id, SetTaskListPinnedRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -202,6 +245,11 @@ public static class TaskEndpoints
     private static EncryptedContentDto? ToDto(EncryptedPayload? encryptedContent)
         => encryptedContent is null ? null : new EncryptedContentDto(encryptedContent.Ciphertext, encryptedContent.Nonce);
 
+    private static TaskListStockCheckDto ToDto(Orbit.Core.Tasks.StockCheck.TaskListStockCheck check)
+        => new(check.IsAchievable,
+            [.. check.Requirements.Select(requirement => new StockRequirementDto(
+                requirement.Name, requirement.Required, requirement.Available, requirement.Missing))]);
+
     private static TaskDto ToDto(TaskList taskList)
         => new(
             taskList.Id,
@@ -230,14 +278,16 @@ public static class TaskEndpoints
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
             taskList.Status.ToString(),
-            taskList.IsPinned,
-            taskList.IsSharedWithOthers);
+            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedWarehouseId);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch
     {
         EditOutcomeKind.Success => Results.NoContent(),
         EditOutcomeKind.Locked => Results.Json(new LockConflictDto(outcome.LockedByUserName!), statusCode: StatusCodes.Status409Conflict),
+        // 403 rather than 404: the caller can see this, so hiding it from them now would only confuse.
+        EditOutcomeKind.ReadOnly => Results.Json(
+            new RefusalDto("This was shared with you to read, not to change."), statusCode: StatusCodes.Status403Forbidden),
         _ => Results.NotFound()
     };
 }

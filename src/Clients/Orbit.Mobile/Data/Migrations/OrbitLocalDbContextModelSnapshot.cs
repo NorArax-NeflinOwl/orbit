@@ -43,6 +43,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<long?>("LastSyncedAtUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("ServerId")
                         .HasColumnType("TEXT");
 
@@ -104,6 +107,9 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsEdited")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("IsReadByEveryone")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("NonceBase64")
@@ -189,6 +195,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("INTEGER");
 
@@ -200,6 +209,9 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<long?>("LastSyncedAtUtc")
                         .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ServerId")
                         .HasColumnType("TEXT");
@@ -291,6 +303,12 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<long?>("LastSyncedAtUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("LinkedWarehouseId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -358,6 +376,9 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("OwnerUserId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ServerId")

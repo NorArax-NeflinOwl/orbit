@@ -35,7 +35,8 @@ public sealed class LocalNoteRepository
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await dbContext.Notes
             .AsNoTracking()
-            .OrderByDescending(note => note.UpdatedAtUtc)
+            .OrderByDescending(note => note.IsPinned)
+            .ThenByDescending(note => note.UpdatedAtUtc)
             .ToListAsync(cancellationToken);
     }
 
@@ -82,6 +83,16 @@ public sealed class LocalNoteRepository
         return note;
     }
 
+    /// <inheritdoc cref="LocalTaskListRepository.CanEditAsync"/>
+    public async Task<bool> CanEditAsync(Guid localId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var note = await dbContext.Notes.AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken);
+
+        return note is not null && OfflineEditPolicy.IsAllowed(note, _networkStatus);
+    }
+
     /// <summary>Refuses rather than queues when the offline policy forbids it - see LocalWriteOutcome.</summary>
     public async Task<LocalWriteOutcome> UpdateAsync(
         Guid localId, string title, IReadOnlyList<NoteContentLineDto> content, CancellationToken cancellationToken = default)
@@ -105,6 +116,23 @@ public sealed class LocalNoteRepository
         Enqueue(dbContext, localId, OutboxOperation.Update, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
+    }
+
+    /// <summary>
+    /// Writes down where the server says this note now sits. Deliberately touches nothing else - not
+    /// UpdatedAtUtc, not the outbox: pinning is not a change to the note, and queueing it as one would
+    /// send the whole note back on the next replay.
+    /// </summary>
+    public async Task MarkPinnedAsync(Guid localId, bool isPinned, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.Notes.FirstOrDefaultAsync(note => note.LocalId == localId, cancellationToken) is not { } note)
+        {
+            return;
+        }
+
+        note.IsPinned = isPinned;
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<LocalWriteOutcome> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)

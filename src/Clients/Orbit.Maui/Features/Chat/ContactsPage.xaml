@@ -26,7 +26,11 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
 
-        <Label Grid.Row="0" Text="{controls:Translate 'Chat'}" FontSize="26" FontAttributes="Bold" />
+        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Contacts'}">
+            <controls:PageHeader.Subtitle>
+                <controls:Translate Text="Search for someone and start a conversation." />
+            </controls:PageHeader.Subtitle>
+        </controls:PageHeader>
 
         <!-- The list below only holds people already spoken to, so without this there is no way to
              start a conversation at all from this device. -->
@@ -84,6 +88,8 @@
                                     HorizontalOptions="Start" Padding="16,4" FontSize="13"
                                     Command="{Binding ViewModel.AcceptCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
                                     CommandParameter="{Binding .}" />
+                            <BoxView HeightRequest="1" Margin="0,12,0,0"
+                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -97,7 +103,6 @@
                 Style="{StaticResource LinkButton}" />
 
     </Grid>
-        <controls:StatusStrip Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

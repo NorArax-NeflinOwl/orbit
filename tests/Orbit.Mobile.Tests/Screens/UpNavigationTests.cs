@@ -18,7 +18,8 @@ public sealed class UpNavigationTests
     [InlineData(Screen.GroupDetail, nameof(IScreenNavigator.ShowGroups))]
     [InlineData(Screen.Warehouse, nameof(IScreenNavigator.ShowInventory))]
     [InlineData(Screen.TaskList, nameof(IScreenNavigator.ShowTasks))]
-    [InlineData(Screen.NotificationSettings, nameof(IScreenNavigator.ShowNotifications))]
+    [InlineData(Screen.Note, nameof(IScreenNavigator.ShowNotes))]
+    [InlineData(Screen.CalendarEvent, nameof(IScreenNavigator.ShowCalendar))]
     [InlineData(Screen.Diagnostics, nameof(IScreenNavigator.ShowAccount))]
     public void A_screen_opened_from_a_list_goes_back_to_that_list(Screen from, string expected)
     {

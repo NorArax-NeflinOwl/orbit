@@ -46,6 +46,20 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
     public bool IsSharedWithOthers { get; set; }
 
     public string AccessLevel { get; set; } = "CanEdit";
+    /// <summary>
+    /// Whoever created it, before any sharing - meaningful only when this arrived through a share. Kept
+    /// so somebody holding it read-only can ask them for more: the request is a chat message, and a
+    /// message needs somebody to address it to.
+    /// </summary>
+    public Guid? OwnerUserId { get; set; }
+
+    /// <summary>
+    /// Kept at the top of the list. Only the owner sets it - pinning moves a card on one person's page,
+    /// so a recipient pinning a note shared with them would be rearranging its owner's list - and it
+    /// deliberately does not touch <see cref="UpdatedAtUtc"/>: it changes where a note sits, not what it
+    /// says.
+    /// </summary>
+    public bool IsPinned { get; set; }
 
     /// <summary>
     /// When the server last confirmed this row. Null for a note created offline that has never been

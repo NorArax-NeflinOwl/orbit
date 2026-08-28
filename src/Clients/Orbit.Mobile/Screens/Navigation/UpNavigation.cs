@@ -23,8 +23,10 @@ public sealed class UpNavigation
         [Screen.Register] = Screen.SignIn,
         [Screen.Notes] = Screen.Dashboard,
         [Screen.Tasks] = Screen.Dashboard,
+        [Screen.Note] = Screen.Notes,
         [Screen.TaskList] = Screen.Tasks,
         [Screen.Calendar] = Screen.Dashboard,
+        [Screen.CalendarEvent] = Screen.Calendar,
         [Screen.Inventory] = Screen.Dashboard,
         [Screen.Warehouse] = Screen.Inventory,
         [Screen.Contacts] = Screen.Dashboard,
@@ -35,7 +37,6 @@ public sealed class UpNavigation
         [Screen.ChatKeyGate] = Screen.Dashboard,
         [Screen.Map] = Screen.Dashboard,
         [Screen.Notifications] = Screen.Dashboard,
-        [Screen.NotificationSettings] = Screen.Notifications,
         [Screen.Account] = Screen.Dashboard,
         [Screen.Diagnostics] = Screen.Account
     };
@@ -82,7 +83,9 @@ public sealed class UpNavigation
         {
             case Screen.SignIn: _navigator.ShowSignIn(); return;
             case Screen.Dashboard: _navigator.ShowDashboard(); return;
+            case Screen.Notes: _navigator.ShowNotes(); return;
             case Screen.Tasks: _navigator.ShowTasks(); return;
+            case Screen.Calendar: _navigator.ShowCalendar(); return;
             case Screen.Inventory: _navigator.ShowInventory(); return;
             case Screen.Contacts: _navigator.ShowContacts(); return;
             case Screen.Groups: _navigator.ShowGroups(); return;

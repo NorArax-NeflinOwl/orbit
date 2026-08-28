@@ -12,22 +12,20 @@ using Xunit;
 namespace Orbit.Web.Tests.Pages;
 
 /// <summary>
-/// Which combinations of permissions leave the Contacts page usable. Either kind of conversation is
-/// reached from there, so one of the two is enough - and the condition that says so is easy to write
-/// wrong: without brackets, "not chat or group chat" locks the page for precisely the accounts that
-/// have group chat.
+/// Which combinations of permissions leave the Contacts page usable. The page is about other people
+/// existing, so it needs Contacts and nothing else - conversations are a separate unlock reached from
+/// here, and location has nothing to do with it.
 /// </summary>
 public sealed class ContactsGateTests : OrbitTestContext
 {
     public ContactsGateTests() => Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
 
     [Theory]
-    [InlineData(new[] { nameof(ApplicationPermission.Chat) }, false)]
-    [InlineData(new[] { nameof(ApplicationPermission.GroupChat) }, false)]
-    [InlineData(new[] { nameof(ApplicationPermission.Chat), nameof(ApplicationPermission.GroupChat) }, false)]
+    [InlineData(new[] { nameof(ApplicationPermission.Contacts) }, false)]
+    [InlineData(new[] { nameof(ApplicationPermission.Contacts), nameof(ApplicationPermission.Chat) }, false)]
     [InlineData(new[] { nameof(ApplicationPermission.Location) }, true)]
     [InlineData(new string[0], true)]
-    public void The_page_is_locked_only_when_neither_kind_of_conversation_is_unlocked(string[] granted, bool expectedLocked)
+    public void The_page_is_locked_until_this_account_can_see_other_people(string[] granted, bool expectedLocked)
     {
         RegisterPermissions(granted);
         RegisterContacts();
@@ -60,5 +58,28 @@ public sealed class ContactsGateTests : OrbitTestContext
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new ChatApiClient(httpClient));
         Services.AddSingleton(new UsersApiClient(httpClient));
+    }
+    [Fact]
+    public void A_locked_page_offers_no_search_box()
+    {
+        // A search box that answers every query with a refusal is worse than no search box.
+        RegisterPermissions([]);
+        RegisterContacts();
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.Empty(cut.FindAll("input"));
+        Assert.DoesNotContain("Group chats", cut.Markup);
+    }
+
+    [Fact]
+    public void An_unlocked_page_still_has_one()
+    {
+        RegisterPermissions([nameof(ApplicationPermission.Contacts)]);
+        RegisterContacts();
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.NotEmpty(cut.FindAll("input"));
     }
 }

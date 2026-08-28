@@ -37,9 +37,14 @@ public static class UserEndpoints
         // is asking, so the whole group requires a valid, authenticated caller.
         var users = app.MapGroup("/api/users").RequireAuthorization();
 
-        // Everything about where somebody is - their own position, who they share it with, and whose
-        // positions they can see - is unlocked as one thing, so it is one route group.
+        // Recording where you are needs nothing but the permission for it: a position with nobody to
+        // send it to is still worth having on your own map.
         var location = users.MapGroup("/me/location").RequireAuthorization(PermissionPolicies.Location);
+
+        // Sharing one, and seeing one somebody shared, are about other people - so they need Contacts
+        // as well. Both policies apply, and both have to pass.
+        var locationSharing = users.MapGroup("/me/location")
+            .RequireAuthorization(PermissionPolicies.Location, PermissionPolicies.Contacts);
 
         // The signed-in account itself: everything under /me is scoped to the caller's own token, never
         // to an id in the route, so one account can never read or edit another's profile.
@@ -115,7 +120,7 @@ public static class UserEndpoints
         // Sharing a position with one contact. Everything here is the caller's own doing: they share,
         // they refresh, they stop - and stopping deletes the row rather than flagging it, so a position
         // nobody is sharing any more is a position the database no longer holds.
-        location.MapPut("/shares", async (
+        locationSharing.MapPut("/shares", async (
             ShareLocationRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             await dispatcher.SendAsync(
@@ -125,21 +130,21 @@ public static class UserEndpoints
             return Results.NoContent();
         });
 
-        location.MapDelete("/shares/{recipientUserId:guid}", async (
+        locationSharing.MapDelete("/shares/{recipientUserId:guid}", async (
             Guid recipientUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             await dispatcher.SendAsync(new StopSharingLocationCommand(GetUserId(user), recipientUserId), cancellationToken);
             return Results.NoContent();
         });
 
-        location.MapDelete("/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        locationSharing.MapDelete("/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             await dispatcher.SendAsync(new StopSharingLocationCommand(GetUserId(user), RecipientUserId: null), cancellationToken);
             return Results.NoContent();
         });
 
         // Who the caller is currently sharing with, so they can see it and end any of it.
-        location.MapGet("/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        locationSharing.MapGet("/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var shares = await dispatcher.SendAsync(new GetOwnLocationSharesQuery(GetUserId(user)), cancellationToken);
             return Results.Ok(shares.Select(ToDto));
@@ -147,7 +152,7 @@ public static class UserEndpoints
 
         // What other people are sharing with the caller - the endpoint a recipient polls for the latest
         // point. Returns ciphertext; only the recipient's own browser can open it.
-        location.MapGet("/shared-with-me", async (
+        locationSharing.MapGet("/shared-with-me", async (
             ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var shares = await dispatcher.SendAsync(new GetSharedLocationsQuery(GetUserId(user)), cancellationToken);
@@ -241,7 +246,7 @@ public static class UserEndpoints
         {
             var result = await dispatcher.SendAsync(new SearchUserQuery(GetUserId(user), query), cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(ToDto(result));
-        });
+        }).RequireAuthorization(PermissionPolicies.Contacts);
 
         // Several profiles in one request, for a caller that needs a whole roster - see
         // GetUsersByIdsQueryHandler. Ids repeat rather than being comma-separated
@@ -252,13 +257,13 @@ public static class UserEndpoints
         {
             var results = await dispatcher.SendAsync(new GetUsersByIdsQuery(ids), cancellationToken);
             return Results.Ok(results.Select(ToDto).ToList());
-        });
+        }).RequireAuthorization(PermissionPolicies.Contacts);
 
         users.MapGet("/{id:guid}", async (Guid id, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var result = await dispatcher.SendAsync(new GetUserByIdQuery(id), cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(ToDto(result));
-        });
+        }).RequireAuthorization(PermissionPolicies.Contacts);
 
         users.MapPut("/me/public-key", async (
             SetPublicKeyRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>

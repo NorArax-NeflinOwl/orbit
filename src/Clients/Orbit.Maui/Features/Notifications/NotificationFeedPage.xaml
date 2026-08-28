@@ -15,29 +15,34 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20" RowSpacing="12">
 
         <VerticalStackLayout Grid.Row="0" Spacing="12">
-            <Label Text="{controls:Translate 'Notifications'}" FontSize="26" FontAttributes="Bold" />
+            <controls:PageHeader Title="{controls:Translate 'Notifications'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Everything Orbit has told you, newest first." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
 
-            <!-- Wrapping, not truncating: Polish says "Oznacz wszystkie" where English says "Mark all
-                 read", and a third of the width cuts it off mid-word. -->
+            <!-- Link buttons, not filled ones. These are things done to the list rather than the point
+                 of the screen, and three solid blocks of accent colour above it read as the content.
+                 Wrapping, not truncating: Polish says "Oznacz wszystkie jako przeczytane" where English
+                 says "Mark all read", and a third of the width cuts it off mid-word. -->
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                 <Button Grid.Column="0" Text="{controls:Translate 'Mark all read'}" FontSize="12" Padding="6,4"
-                        LineBreakMode="WordWrap" Command="{Binding MarkEverythingReadCommand}" />
+                        LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        Command="{Binding MarkEverythingReadCommand}" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" FontSize="12" Padding="6,4"
-                        LineBreakMode="WordWrap" Command="{Binding ClearCommand}" />
+                        LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        Command="{Binding ClearCommand}" />
                 <Button Grid.Column="2" Text="{Binding ShowEverythingLabel}" FontSize="12" Padding="6,4"
-                        LineBreakMode="WordWrap" Command="{Binding ShowEverythingCommand}" />
+                        LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        Command="{Binding ShowEverythingCommand}" />
             </Grid>
 
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Grid.Column="0" Text="{controls:Translate 'Settings'}" FontSize="13" Padding="8,4"
-                        Command="{Binding GoToSettingsCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Back'}" FontSize="13" Padding="8,4"
-                        Command="{Binding GoBackCommand}" BackgroundColor="Transparent"
-                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-            </Grid>
+            <!-- Settings moved to the avatar's menu, where the rest of the account's settings are. -->
+            <Button Text="{controls:Translate 'Back'}" FontSize="13" Padding="8,4" HorizontalOptions="Start"
+                    Style="{StaticResource LinkButton}" Command="{Binding GoBackCommand}" />
 
             <Label Text="{controls:Translate 'Nothing here yet.'}" IsVisible="{Binding HasNothing}"
                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" HorizontalOptions="Center" Margin="0,20,0,0" />
@@ -67,7 +72,6 @@
             </CollectionView.ItemTemplate>
         </CollectionView>
     </Grid>
-        <controls:StatusStrip Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

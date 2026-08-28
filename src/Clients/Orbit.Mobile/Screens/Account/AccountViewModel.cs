@@ -27,6 +27,8 @@ public sealed partial class AccountViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly UsersClient _usersClient;
     private readonly UserPermissions _permissions;
+    private readonly IThemeStore _themes;
+    private readonly TransferClient _transfer;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -69,7 +71,8 @@ public sealed partial class AccountViewModel : ObservableObject
     public AccountViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
-        UserPermissions permissions, IScreenNavigator navigator)
+        UserPermissions permissions, IThemeStore themes, TransferClient transfer,
+        Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
@@ -78,7 +81,133 @@ public sealed partial class AccountViewModel : ObservableObject
         _translations = translations;
         _usersClient = usersClient;
         _permissions = permissions;
+        _themes = themes;
+        _transfer = transfer;
+        _theme = themes.Read();
+        Notifications = notifications;
         _navigator = navigator;
+    }
+
+    /// <summary>
+    /// How Orbit is allowed to interrupt, which Orbit.Web keeps in this same Options page under
+    /// Appearance. It had a screen of its own here, reached from a menu entry called "Settings" beside
+    /// one called "Account" - two doors to the same room, and neither name said which.
+    /// </summary>
+    public Notifications.NotificationSettingsViewModel Notifications { get; }
+
+    /// <summary>
+    /// Which section is showing. Tabs rather than one long scroll, as Orbit.Web's Options page has -
+    /// changing a password and unlocking a feature are different errands and were stacked on top of
+    /// each other.
+    /// </summary>
+    [ObservableProperty]
+    private AccountTab _tab = AccountTab.Account;
+
+    public IReadOnlyList<AccountTabRow> Tabs
+        => [.. Enum.GetValues<AccountTab>()
+            .Select(tab => new AccountTabRow(tab, AccountTabRow.Describe(tab, _translations), tab == Tab))];
+
+    public bool IsShowingAccount => Tab is AccountTab.Account;
+
+    public bool IsShowingAppearance => Tab is AccountTab.Appearance;
+
+    public bool IsShowingPermissions => Tab is AccountTab.Permissions;
+
+    public bool IsShowingDebug => Tab is AccountTab.Debug;
+
+    [RelayCommand]
+    private void ChooseTab(AccountTabRow? row)
+    {
+        if (row is not null)
+        {
+            Tab = row.Tab;
+        }
+    }
+
+    /// <summary>What the last export or import did, or why it did not.</summary>
+    [ObservableProperty]
+    private string _transferMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isTransferring;
+
+    public bool HasTransferMessage => TransferMessage.Length > 0;
+
+    /// <summary>What the file picker is titled - the picker is the platform's, the words are the app's.</summary>
+    public string ImportPickerTitle => _translations["Import"];
+
+    /// <summary>
+    /// Raised with the file's name and its contents once an export is built. Writing it and handing it
+    /// somewhere is a platform call - the share sheet - and reaching for one here is what would make
+    /// this screen untestable.
+    /// </summary>
+    public event EventHandler<(string FileName, string Json)>? ExportReady;
+
+    [RelayCommand]
+    private async Task ExportAsync(CancellationToken cancellationToken)
+    {
+        IsTransferring = true;
+        try
+        {
+            var json = await _transfer.ExportAsync(cancellationToken);
+            if (json is null)
+            {
+                TransferMessage = _translations["Couldn't build the export. Try again."];
+                return;
+            }
+
+            TransferMessage = string.Empty;
+            ExportReady?.Invoke(this, ($"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", json));
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            TransferMessage = _translations["Couldn't build the export. Try again."];
+        }
+        finally
+        {
+            IsTransferring = false;
+        }
+    }
+
+    /// <summary>
+    /// Reads a file the reader picked. Importing creates new things rather than restoring old ones, so
+    /// running it into an account that already has things in it puts none of them at risk.
+    /// </summary>
+    public async Task ImportAsync(string json, CancellationToken cancellationToken = default)
+    {
+        IsTransferring = true;
+        try
+        {
+            var result = await _transfer.ImportAsync(json, cancellationToken);
+            TransferMessage = result is null
+                ? _translations["That file didn't contain an Orbit export."]
+                : _translations.Format(
+                    "Imported {0} notes, {1} task lists, {2} events and {3} storages.",
+                    result.Notes, result.TaskLists, result.CalendarEvents, result.Warehouses);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            TransferMessage = _translations["Couldn't import that file. Try again."];
+        }
+        finally
+        {
+            IsTransferring = false;
+        }
+    }
+
+    /// <summary>How Orbit looks on this device - see ChosenTheme.</summary>
+    [ObservableProperty]
+    private ChosenTheme _theme;
+
+    public IReadOnlyList<ThemeChoice> Themes
+        => [.. Enum.GetValues<ChosenTheme>()
+            .Select(theme => new ThemeChoice(theme, ThemeChoice.Describe(theme, _translations)))];
+
+    /// <summary>What the picker has selected. Its own property because a picker names objects, not enums.</summary>
+    public ThemeChoice ChosenThemeOption
+    {
+        get => Themes.Single(choice => choice.Value == Theme);
+        set => Theme = value.Value;
     }
 
     /// <summary>What this account may use, and what it would take to unlock the rest.</summary>
@@ -106,6 +235,7 @@ public sealed partial class AccountViewModel : ObservableObject
 
         await _permissions.EnsureLoadedAsync();
         ShowPermissions();
+        await Notifications.LoadCommand.ExecuteAsync(null);
     }
 
     /// <summary>
@@ -267,6 +397,31 @@ public sealed partial class AccountViewModel : ObservableObject
             // The screen went away mid-request; there is nobody left to tell.
         }
     }
+
+    partial void OnTransferMessageChanged(string value) => OnPropertyChanged(nameof(HasTransferMessage));
+
+    partial void OnTabChanged(AccountTab value)
+    {
+        OnPropertyChanged(nameof(Tabs));
+        OnPropertyChanged(nameof(IsShowingAccount));
+        OnPropertyChanged(nameof(IsShowingAppearance));
+        OnPropertyChanged(nameof(IsShowingPermissions));
+        OnPropertyChanged(nameof(IsShowingDebug));
+    }
+
+    /// <summary>Written down and applied at once - a theme that took a restart would read as broken.</summary>
+    partial void OnThemeChanged(ChosenTheme value)
+    {
+        _themes.Write(value);
+        OnPropertyChanged(nameof(ChosenThemeOption));
+        ThemeChanged?.Invoke(this, value);
+    }
+
+    /// <summary>
+    /// Raised so the platform can apply it. The view model cannot: setting the app's theme is a MAUI
+    /// call, and reaching for one here is what would make this screen untestable.
+    /// </summary>
+    public event EventHandler<ChosenTheme>? ThemeChanged;
 
     partial void OnPermissionCodeChanged(string value) => RedeemCodeCommand.NotifyCanExecuteChanged();
 

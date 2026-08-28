@@ -52,10 +52,10 @@ public sealed class EverythingSynchronizer
         // the chat synchroniser answers false for a refusal exactly as it does for a dropped connection,
         // so asking anyway put "couldn't sync" in the corner of a phone that was perfectly in step with
         // everything it is allowed to have.
-        var contacts = _permissions.Has(ApplicationPermission.Chat)
+        var contacts = _permissions.Has(ApplicationPermission.Contacts)
             ? await TryAsync(() => _chat.SynchroniseContactsAsync(cancellationToken))
             : Refused;
-        var groups = _permissions.Has(ApplicationPermission.GroupChat)
+        var groups = _permissions.Has(ApplicationPermission.Chat)
             ? await TryAsync(() => _chat.SynchroniseGroupsAsync(cancellationToken))
             : Refused;
 

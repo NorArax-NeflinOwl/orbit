@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Contracts.Sync;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
@@ -15,6 +17,7 @@ public sealed partial class TasksViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly TaskListSynchronizer _synchronizer;
+    private readonly TasksClient _tasksClient;
     private readonly INetworkStatus _networkStatus;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
@@ -26,12 +29,25 @@ public sealed partial class TasksViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRefreshing;
 
+    /// <summary>The one thing this screen has to say for itself, which today is only about pinning.</summary>
+    [ObservableProperty]
+    private string _message = string.Empty;
+
+    /// <summary>The status being filtered to, or null for all of them - see TaskListView.</summary>
+    [ObservableProperty]
+    private string? _statusFilter;
+
+    [ObservableProperty]
+    private TaskListSortOrder _sortOrder = TaskListSortOrder.Priority;
+
     public TasksViewModel(
-        LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, INetworkStatus networkStatus,
+        LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
+        INetworkStatus networkStatus,
         SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
+        _tasksClient = tasksClient;
         _networkStatus = networkStatus;
         _syncState = syncState;
         _navigator = navigator;
@@ -72,6 +88,33 @@ public sealed partial class TasksViewModel : ObservableObject
         }
     }
 
+    /// <inheritdoc cref="NotesViewModel.TogglePinAsync"/>
+    [RelayCommand]
+    private async Task TogglePinAsync(TaskListRow? row, CancellationToken cancellationToken)
+    {
+        if (row is null || await _taskLists.FindAsync(row.LocalId, cancellationToken) is not { ServerId: { } serverId })
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _tasksClient.SetPinnedAsync(serverId, !row.IsPinned, cancellationToken) is not WriteOutcome.Applied)
+            {
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Pinning needs a connection."];
+            return;
+        }
+
+        await _taskLists.MarkPinnedAsync(row.LocalId, !row.IsPinned, cancellationToken);
+        Message = string.Empty;
+        await ShowStoredListsAsync(cancellationToken);
+    }
+
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();
 
@@ -80,11 +123,58 @@ public sealed partial class TasksViewModel : ObservableObject
         var stored = await _taskLists.GetAllAsync(cancellationToken);
         var pending = await _taskLists.GetPendingLocalIdsAsync(cancellationToken);
 
+        _stored = stored;
+        _pending = pending;
+        ShowArrangedLists();
+    }
+
+    private IReadOnlyList<LocalTaskList> _stored = [];
+    private IReadOnlySet<Guid> _pending = new HashSet<Guid>();
+
+    /// <summary>
+    /// Re-arranges what is already held rather than re-reading it. Choosing a filter is a question about
+    /// the same lists, so asking the database again would be a round trip to learn nothing.
+    /// </summary>
+    private void ShowArrangedLists()
+    {
         TaskLists.Clear();
-        foreach (var taskList in stored)
+        foreach (var taskList in TaskListView.Arrange(_stored, StatusFilter, SortOrder))
         {
-            TaskLists.Add(TaskListRow.From(taskList, pending.Contains(taskList.LocalId), _networkStatus, _translations));
+            TaskLists.Add(TaskListRow.From(taskList, _pending.Contains(taskList.LocalId), _networkStatus, _translations));
         }
+
+        OnPropertyChanged(nameof(SortDescription));
+    }
+
+    /// <summary>What the sort button says, which is what it is currently sorted by.</summary>
+    public string SortDescription => TaskListView.Describe(SortOrder, _translations);
+
+    /// <summary>The filter chips, each with the count of what it would leave.</summary>
+    public IReadOnlyList<TaskListFilter> Filters
+        => [.. new string?[] { null }.Concat(TaskListView.Statuses)
+            .Select(status => new TaskListFilter(
+                status,
+                status is null ? _translations["All"] : TaskListView.Describe(status, _translations),
+                status is null ? _stored.Count : _stored.Count(taskList => taskList.Status == status),
+                status == StatusFilter))];
+
+    [RelayCommand]
+    private void FilterBy(TaskListFilter? filter)
+    {
+        StatusFilter = filter?.Status;
+        ShowArrangedLists();
+        OnPropertyChanged(nameof(Filters));
+    }
+
+    /// <summary>Steps through the five orders in turn, which is a button rather than a dropdown on a phone.</summary>
+    [RelayCommand]
+    private void NextSortOrder()
+    {
+        SortOrder = SortOrder == TaskListSortOrder.ReverseAlphabetical
+            ? TaskListSortOrder.Priority
+            : SortOrder + 1;
+
+        ShowArrangedLists();
     }
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)

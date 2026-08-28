@@ -15,21 +15,21 @@ public static class LockedFeatureMessage
 {
     public static string For(ApplicationPermission permission, Translations translations) => permission switch
     {
-        ApplicationPermission.Location
-            => translations["Recording where you are, sharing it, and seeing where others are."],
+        ApplicationPermission.Contacts
+            => translations["Finding other people, and being found by them. Everything below needs this first."],
         ApplicationPermission.Chat
-            => translations["Conversations with one other person."],
-        ApplicationPermission.GroupChat
-            => translations["Conversations with more than one other person."],
+            => translations["Conversations, with one person or with several."],
+        ApplicationPermission.Location
+            => translations["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."],
         _ => translations["Handing a note, task list, event or storage to somebody else."]
     };
 
     /// <summary>The permission's own name, for a list that has to distinguish them.</summary>
     public static string Describe(ApplicationPermission permission, Translations translations) => permission switch
     {
-        ApplicationPermission.Location => translations["Location"],
+        ApplicationPermission.Contacts => translations["Contacts"],
         ApplicationPermission.Chat => translations["Chat"],
-        ApplicationPermission.GroupChat => translations["Group chats"],
+        ApplicationPermission.Location => translations["Location"],
         _ => translations["Sharing"]
     };
 }

@@ -1,6 +1,7 @@
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Chat;
 
@@ -16,13 +17,16 @@ public sealed class EncryptedChatMessageReader
     private readonly ChatRepository _chatRepository;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly SessionStore _sessionStore;
+    private readonly Translations _translations;
 
     public EncryptedChatMessageReader(
-        ChatRepository chatRepository, OwnEncryptionKeyProvider encryptionKeyProvider, SessionStore sessionStore)
+        ChatRepository chatRepository, OwnEncryptionKeyProvider encryptionKeyProvider, SessionStore sessionStore,
+        Translations translations)
     {
         _chatRepository = chatRepository;
         _encryptionKeyProvider = encryptionKeyProvider;
         _sessionStore = sessionStore;
+        _translations = translations;
     }
 
     /// <summary>
@@ -63,7 +67,9 @@ public sealed class EncryptedChatMessageReader
                 MessageId: message.Id,
                 // Read up to a point, so everything sent at or before it has been seen.
                 IsReadByThem: isMine && theyReadUpToUtc is { } readUpTo && message.SentAtUtc <= readUpTo,
-                ForwardedFromDisplayName: opened.ForwardedFromDisplayName));
+                ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
+                Invitation: opened.Invitation,
+                EditAccessRequest: opened.EditAccessRequest));
         }
 
         foreach (var message in queued)
@@ -107,16 +113,20 @@ public sealed class EncryptedChatMessageReader
                 message.SentAtUtc,
                 message.IsEdited,
                 IsWaitingToSend: false,
-                SenderName: isMine ? "You" : NameOf(members, message.SenderUserId),
+                SenderName: isMine ? _translations["You"] : NameOf(members, message.SenderUserId),
                 MessageId: message.Id,
                 GroupMessageId: message.GroupMessageId,
-                ForwardedFromDisplayName: opened.ForwardedFromDisplayName));
+                ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
+                IsReadByEveryone: isMine ? message.IsReadByEveryone : null,
+                Invitation: opened.Invitation,
+                EditAccessRequest: opened.EditAccessRequest));
         }
 
         foreach (var message in queued)
         {
             conversation.Add(new ReadableChatMessage(
-                IsMine: true, message.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true, SenderName: "You"));
+                IsMine: true, message.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true,
+                SenderName: _translations["You"]));
         }
 
         return conversation;
@@ -125,7 +135,9 @@ public sealed class EncryptedChatMessageReader
     /// <summary>
     /// One opened message: its words, and who wrote them first if it got here by being passed on.
     /// </summary>
-    private readonly record struct OpenedMessage(string? Text, string? ForwardedFromDisplayName);
+    private readonly record struct OpenedMessage(
+        string? Text, string? ForwardedFromDisplayName, SharedItemInvitation? Invitation = null,
+        EditAccessRequest? EditAccessRequest = null);
 
     /// <summary>
     /// Decrypts, then unwraps a forward if that is what it is. The two belong together: a forward's
@@ -139,8 +151,22 @@ public sealed class EncryptedChatMessageReader
             return new OpenedMessage(null, null);
         }
 
-        return ForwardedMessage.TryUnwrap(plainText) is { } forwarded
-            ? new OpenedMessage(forwarded.Content, forwarded.OriginalAuthorDisplayName)
+        if (ForwardedMessage.TryUnwrap(plainText) is { } forwarded)
+        {
+            return new OpenedMessage(forwarded.Content, forwarded.OriginalAuthorDisplayName);
+        }
+
+        // An offer to share something, which is an ordinary message whose plaintext is structured - see
+        // SharedItemInvitation. Its text is left null so the screen shows the offer rather than the JSON.
+        if (SharedItemInvitation.TryRead(plainText) is { } invitation)
+        {
+            return new OpenedMessage(null, null, invitation);
+        }
+
+        // Somebody asking to be allowed to change something of yours. Nothing to accept in one tap -
+        // widening access means sharing it again - so it is shown as what it is: a sentence.
+        return EditAccessRequest.TryRead(plainText) is { } request
+            ? new OpenedMessage(null, null, null, request)
             : new OpenedMessage(plainText, null);
     }
 

@@ -22,9 +22,15 @@ public sealed class AcquireTaskListLockCommandHandler : IRequestHandler<AcquireT
     public async Task<EditOutcome> HandleAsync(AcquireTaskListLockCommand request, CancellationToken cancellationToken)
     {
         var taskList = await _taskListAccessResolver.ResolveAsync(request.UserId, request.TaskListId, cancellationToken);
-        if (taskList is null || !taskList.AccessLevel.AllowsEditing())
+        if (taskList is null)
         {
             return EditOutcome.NotFound;
+        }
+
+        // Visible but not theirs to change - see EditOutcomeKind.ReadOnly for why that is worth saying.
+        if (!taskList.AccessLevel.AllowsEditing())
+        {
+            return EditOutcome.ReadOnly;
         }
 
         var nowUtc = DateTimeOffset.UtcNow;

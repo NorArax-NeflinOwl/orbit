@@ -77,7 +77,7 @@ public sealed class OfflineEditEnforcementTests
         var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
         var taskList = await SharedListAsync(store);
 
-        var outcome = await repository.UpdateAsync(taskList.LocalId, "Edited anyway", SomeItems);
+        var outcome = await repository.UpdateAsync(taskList.LocalId, "Edited anyway", SomeItems, isGroup: false);
 
         Assert.Equal(LocalWriteOutcome.RefusedWhileOffline, outcome);
     }
@@ -89,7 +89,7 @@ public sealed class OfflineEditEnforcementTests
         var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
         var taskList = await SharedListAsync(store);
 
-        await repository.UpdateAsync(taskList.LocalId, "Edited anyway", SomeItems);
+        await repository.UpdateAsync(taskList.LocalId, "Edited anyway", SomeItems, isGroup: false);
 
         // Nothing queued means nothing will be replayed over somebody else's work later.
         Assert.Empty(await repository.GetPendingLocalIdsAsync());
@@ -112,7 +112,7 @@ public sealed class OfflineEditEnforcementTests
         var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Online);
         var taskList = await SharedListAsync(store);
 
-        Assert.Equal(LocalWriteOutcome.Applied, await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems));
+        Assert.Equal(LocalWriteOutcome.Applied, await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems, isGroup: false));
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class OfflineEditEnforcementTests
         var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
         var taskList = await repository.CreateAsync("Mine alone", SomeItems);
 
-        Assert.Equal(LocalWriteOutcome.Applied, await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems));
+        Assert.Equal(LocalWriteOutcome.Applied, await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems, isGroup: false));
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class OfflineEditEnforcementTests
         Assert.False(await repository.CanEditAsync(taskList.LocalId));
         Assert.Equal(
             LocalWriteOutcome.RefusedWhileOffline,
-            await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems));
+            await repository.UpdateAsync(taskList.LocalId, "Edited", SomeItems, isGroup: false));
     }
 
     /// <summary>A list the owner shared out - somebody else may be editing it right now.</summary>

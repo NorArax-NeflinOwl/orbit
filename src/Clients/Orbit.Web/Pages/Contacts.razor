@@ -21,19 +21,20 @@
     </div>
 </div>
 
-<p><a class="btn-secondary" href="/chat/groups">@T["Group chats"]</a></p>
-
-<div class="field-row" style="margin-bottom:24px;">
-    <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="@(T["Email address or username"])" />
-    <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">@T["Search"]</button>
-</div>
-
-@if (!(Permissions.Has(ApplicationPermission.Chat) || Permissions.Has(ApplicationPermission.GroupChat)))
+@if (!Permissions.Has(ApplicationPermission.Contacts))
 {
-    <FeatureLocked Explanation="@(T["Conversations with one other person."])" />
+    @* Above the search box, not below it: an account that cannot look anybody up should not be handed
+       a search box that answers every query with a refusal. *@
+    <FeatureLocked Explanation="@(T["Finding other people, and being found by them. Everything below needs this first."])" />
 }
 else
 {
+    <p><a class="btn-secondary" href="/chat/groups">@T["Group chats"]</a></p>
+
+    <div class="field-row" style="margin-bottom:24px;">
+        <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="@(T["Email address or username"])" />
+        <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">@T["Search"]</button>
+    </div>
 
     @if (_loadError is not null)
     {
@@ -142,7 +143,7 @@ else
         await Permissions.EnsureLoadedAsync();
         // Nothing below is reachable without this, and the page draws its locked notice instead - so it
         // does not ask and get turned away, which only fills the console with refusals that are not news.
-        if (!(Permissions.Has(ApplicationPermission.Chat) || Permissions.Has(ApplicationPermission.GroupChat)))
+        if (!Permissions.Has(ApplicationPermission.Contacts))
         {
             return;
         }

@@ -23,7 +23,34 @@
    TODO) onto the .task-list-card/.checklist/.check-row pattern from the approved concept mockup - the
    checkbox/priority-dot/due-date row layout there was designed to double as this editor's item list,
    not just the summary view. *@
-<h1>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</h1>
+<div class="page-header">
+    <div>
+        <h1>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</h1>
+    </div>
+    @* Only for a list that exists: nothing here can act on one that has never been saved. *@
+    @if (!IsNewTaskList && Id is { } menuTaskListId)
+    {
+        <div class="page-header-actions">
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
+                        @onclick="() => GenerateInventoryAsync(menuTaskListId)">
+                    @T["Generate inventory"]
+                </button>
+                @* Nothing to recalculate until there is a warehouse to recalculate against. *@
+                <button type="button" class="avatar-dropdown-item"
+                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId is null)"
+                        @onclick="() => RecalculateAsync(menuTaskListId)">
+                    @T["Recalculate against the inventory"]
+                </button>
+            </OverflowMenu>
+        </div>
+    }
+</div>
+
+@if (_inventoryMessage is not null)
+{
+    <p class="info">@_inventoryMessage</p>
+}
 
 @if (_isLoading)
 {
@@ -253,6 +280,67 @@ else
     public Guid? Id { get; set; }
 
     private bool IsNewTaskList => Id is null;
+
+    /// <summary>
+    /// The warehouse this list is measured against, if any, and what the last calculation said. The
+    /// editor shows the answer in a line rather than a table - the checklist screen is where the detail
+    /// belongs, and this is the screen for changing the list itself.
+    /// </summary>
+    private Guid? _linkedWarehouseId;
+    private bool _isWorkingOnInventory;
+    private string? _inventoryMessage;
+
+    private async Task GenerateInventoryAsync(Guid taskListId)
+    {
+        _isWorkingOnInventory = true;
+        _inventoryMessage = null;
+        Logger.LogInformation("User generated an inventory from task list {TaskListId}", taskListId);
+        try
+        {
+            if (await TasksApiClient.GenerateInventoryAsync(taskListId) is not { } warehouseId)
+            {
+                return;
+            }
+
+            _linkedWarehouseId = warehouseId;
+            _inventoryMessage = T["Inventory generated from this list."];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to generate an inventory from task list {TaskListId}", taskListId);
+            _inventoryMessage = T["Couldn't generate an inventory from this list."];
+        }
+        finally
+        {
+            _isWorkingOnInventory = false;
+        }
+    }
+
+    /// <summary>Runs the count again and says how it came out - the detail is on the checklist screen.</summary>
+    private async Task RecalculateAsync(Guid taskListId)
+    {
+        _isWorkingOnInventory = true;
+        _inventoryMessage = null;
+        Logger.LogInformation("User recalculated the stock check for task list {TaskListId}", taskListId);
+        try
+        {
+            var check = await TasksApiClient.GetStockCheckAsync(taskListId);
+            _inventoryMessage = check is null
+                ? T["This list isn't measured against an inventory."]
+                : check.IsAchievable
+                    ? T["Everything this list needs is on the shelf."]
+                    : T.Format("{0} of what this needs is short.", check.Requirements.Count(requirement => requirement.Missing > 0));
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to recalculate the stock check for task list {TaskListId}", taskListId);
+            _inventoryMessage = T["Couldn't recalculate against the inventory."];
+        }
+        finally
+        {
+            _isWorkingOnInventory = false;
+        }
+    }
     private bool _isLoading = true;
     private bool _isSaving;
     private bool _isSharing;
@@ -331,6 +419,7 @@ else
                 var taskList = await TasksApiClient.GetTaskListByIdAsync(taskListId);
                 if (taskList is not null)
                 {
+                    _linkedWarehouseId = taskList.LinkedWarehouseId;
                     _formModel = new TaskListFormModel
                     {
                         Title = taskList.Title,
@@ -433,9 +522,14 @@ else
             var outcome = await TasksApiClient.MoveTaskItemAsync(sourceTaskListId, itemId, targetTaskListId);
             if (outcome.Kind != EditOutcomeKind.Success)
             {
-                _moveErrorMessage = outcome.Kind == EditOutcomeKind.Locked
-                    ? $"Can't move this item right now - {outcome.LockedByUserName} is editing one of the lists."
-                    : "Failed to move this item. Try again.";
+                // A refusal carries its own reason - "items can't be moved into a private task list"
+                // is the answer, and "try again" is not.
+                _moveErrorMessage = outcome.Kind switch
+                {
+                    EditOutcomeKind.Locked => T.Format("Can't move this item right now - {0} is editing one of the lists.", outcome.LockedByUserName),
+                    EditOutcomeKind.Refused => outcome.Reason,
+                    _ => T["Failed to move this item. Try again."]
+                };
                 _moveErrorMessageForItemId = itemId;
                 return;
             }
@@ -496,6 +590,13 @@ else
                     _lockedByUserName = outcome.LockedByUserName;
                     StopLockHeartbeat();
                     _saveErrorMessage = T.Format("{0} is currently editing this task list - try again in a moment.", outcome.LockedByUserName);
+                    return;
+                }
+
+                if (outcome.Kind == EditOutcomeKind.Refused)
+                {
+                    // The server said why; repeating "try again" over the top of it would hide the answer.
+                    _saveErrorMessage = outcome.Reason;
                     return;
                 }
 

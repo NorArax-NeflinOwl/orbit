@@ -46,6 +46,55 @@ public sealed class TasksApiClient
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>
+    /// Builds the shelf this list's work needs - one entry per distinct thing it calls for, each starting
+    /// at nothing - and points the list at it. Returns the new warehouse's id.
+    /// </summary>
+    public async Task<Guid?> GenerateInventoryAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/inventory", content: null, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
+    }
+
+    /// <summary>Points a task list at the warehouse its work is measured against, or at none.</summary>
+    public async Task<bool> LinkWarehouseAsync(Guid taskListId, Guid? warehouseId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/warehouse", new LinkTaskListToWarehouseRequest(warehouseId), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// What this list's work costs against that warehouse, or null when no warehouse has been chosen -
+    /// there is no question to answer then, which is not the same as an answer of "nothing".
+    /// </summary>
+    public async Task<TaskListStockCheckDto?> GetStockCheckAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync($"api/tasks/{taskListId}/stock-check", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TaskListStockCheckDto>(cancellationToken);
+    }
+
+    /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>
+    public async Task<int> RaiseStockShortfallsAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/stock-check/shortfalls", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<RaiseStockShortfallsResultDto>(cancellationToken);
+        return result?.AddedCount ?? 0;
+    }
+
     public async Task<IReadOnlyList<TaskDto>> GetTaskListsAsync(CancellationToken cancellationToken = default)
     {
         var taskLists = await _httpClient.GetFromJsonAsync<List<TaskDto>>("api/tasks", cancellationToken) ?? [];
@@ -221,6 +270,20 @@ public sealed class TasksApiClient
         {
             var conflict = await response.Content.ReadFromJsonAsync<LockConflictDto>(cancellationToken: cancellationToken);
             return EditOutcome.LockedBy(conflict?.LockedByUserName ?? Translated("another user"));
+        }
+
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            var refusal = await response.Content.ReadFromJsonAsync<RefusalDto>(cancellationToken: cancellationToken);
+            return EditOutcome.RefusedBecause(refusal?.Message ?? Translated("This was shared with you to read, not to change."));
+        }
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // The server explains a refusal in the body (see InvalidRequestExceptionHandler); throwing
+            // that away left the reader with "something went wrong" and no way to find out what.
+            var refusal = await response.Content.ReadFromJsonAsync<RefusalDto>(cancellationToken: cancellationToken);
+            return EditOutcome.RefusedBecause(refusal?.Message ?? Translated("Orbit refused that change."));
         }
 
         response.EnsureSuccessStatusCode();

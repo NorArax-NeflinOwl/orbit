@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.SharePanel"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
+    xmlns:sharing="clr-namespace:Orbit.Mobile.Screens.Sharing;assembly=Orbit.Mobile"
+    x:DataType="sharing:SharePanel"
+    IsVisible="{Binding CanShare}">
+
+    <!-- Offering the thing on screen to somebody else. One panel for all four editors: the question is
+         the same on each - who, and how much - and only what is being offered differs. -->
+    <VerticalStackLayout Spacing="8">
+
+        <Button Text="{controls:Translate 'Share'}" HorizontalOptions="Start" FontSize="13" Padding="12,4"
+                Style="{StaticResource LinkButton}" IsVisible="{Binding IsClosed}"
+                Command="{Binding OpenCommand}" />
+
+        <VerticalStackLayout Spacing="8" IsVisible="{Binding IsOpen}">
+            <Label Text="{controls:Translate 'Share with'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+
+            <Picker ItemsSource="{Binding Recipients}" SelectedItem="{Binding Recipient}"
+                    ItemDisplayBinding="{Binding DisplayName, x:DataType=data:LocalContact}" />
+
+            <Picker ItemsSource="{Binding AccessLevels}" SelectedItem="{Binding AccessLevel}"
+                    ItemDisplayBinding="{Binding Name, x:DataType=sharing:AccessLevelChoice}" />
+
+            <HorizontalStackLayout Spacing="12">
+                <Button Text="{controls:Translate 'Share'}" FontSize="13" Padding="12,4"
+                        Command="{Binding SendCommand}" />
+                <Button Text="{controls:Translate 'Cancel'}" FontSize="13" Padding="12,4"
+                        Style="{StaticResource LinkButton}" Command="{Binding CloseCommand}" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+
+        <!-- On something that arrived through somebody else's share and cannot be changed. Asking is
+             all a reader can do: only the owner can widen access. -->
+        <Button Text="{controls:Translate 'Ask to edit this'}" FontSize="13" Padding="12,4"
+                HorizontalOptions="Start" IsVisible="{Binding CanAskToEdit}"
+                Style="{StaticResource LinkButton}" Command="{Binding AskToEditCommand}" />
+
+        <!-- The other kind of sharing: a link anyone can read, with no Orbit account and nothing to
+             accept. Offered beside the first because they answer different questions. -->
+        <HorizontalStackLayout Spacing="12" IsVisible="{Binding IsClosed}">
+            <Button Text="{controls:Translate 'Share a link'}" FontSize="13" Padding="12,4"
+                    Style="{StaticResource LinkButton}" Command="{Binding CreateLinkCommand}" />
+            <Button Text="{controls:Translate 'Stop the link'}" FontSize="13" Padding="12,4"
+                    IsVisible="{Binding HasLink}" Style="{StaticResource LinkButton}"
+                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
+                    Command="{Binding RevokeLinkCommand}" />
+        </HorizontalStackLayout>
+
+        <Label Text="{Binding LinkAddress}" IsVisible="{Binding HasLink}" FontSize="11" LineBreakMode="CharacterWrap"
+               Style="{StaticResource SubtleLabel}" />
+
+        <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12" LineBreakMode="WordWrap"
+               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+    </VerticalStackLayout>
+</ContentView>

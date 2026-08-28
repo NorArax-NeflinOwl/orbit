@@ -61,6 +61,12 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             throw new HttpRequestException("No such host is known.");
         }
 
+        // Nobody else is ever in it here; EditLockTests covers the answer where somebody is.
+        if (path.EndsWith("/lock", StringComparison.Ordinal))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
         if (ForcedFailure is { } failure)
         {
             return new HttpResponseMessage(failure);

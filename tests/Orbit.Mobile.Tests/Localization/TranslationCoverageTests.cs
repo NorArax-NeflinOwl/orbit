@@ -88,13 +88,16 @@ public sealed partial class TranslationCoverageTests
     /// <summary>
     /// What the view models ask the dictionary for. Both forms are matched, and both allow a key split
     /// across concatenated lines, because the longer sentences do not fit on one.
+    ///
+    /// Orbit.Maui's own code is read as well as Orbit.Mobile's. A page's code-behind asks for text too -
+    /// the action sheets behind a "⋯" are written there, because an action sheet is a page's own
+    /// presentation - and until this looked there, every one of those words went unchecked.
     /// </summary>
     private static IReadOnlyCollection<string> StringsUsedInCode()
     {
-        var code = Path.Combine(RepositoryRoot(), "src", "Clients", "Orbit.Mobile");
         var used = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var file in Directory.EnumerateFiles(code, "*.cs", SearchOption.AllDirectories))
+        foreach (var file in CodeFiles())
         {
             var text = File.ReadAllText(file);
             foreach (var match in LookedUp().Matches(text).Concat(Formatted().Matches(text)))
@@ -106,6 +109,14 @@ public sealed partial class TranslationCoverageTests
 
         return used;
     }
+
+    private static IEnumerable<string> CodeFiles()
+        => new[] { "Orbit.Mobile", "Orbit.Maui" }
+            .Select(project => Path.Combine(RepositoryRoot(), "src", "Clients", project))
+            .SelectMany(directory => Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+            // Generated code repeats whatever the source already said, and obj/ carries a copy of it.
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
 
     /// <summary>
     /// Text a page states rather than asks for. A value that is a binding or any other markup extension

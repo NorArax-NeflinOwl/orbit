@@ -15,9 +15,11 @@ public enum Screen
     Register,
     Dashboard,
     Notes,
+    Note,
     Tasks,
     TaskList,
     Calendar,
+    CalendarEvent,
     Inventory,
     Warehouse,
     Contacts,
@@ -28,7 +30,6 @@ public enum Screen
     ChatKeyGate,
     Map,
     Notifications,
-    NotificationSettings,
     Account,
     Diagnostics
 }

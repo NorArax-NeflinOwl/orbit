@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Crypto;
@@ -20,8 +21,10 @@ public sealed partial class ConversationViewModel : ObservableObject
     private readonly EncryptedChatMessageSender _sender;
     private readonly EncryptedChatMessageEditor _editor;
     private readonly MessageForwarder _forwarder;
+    private readonly SharedItemAcceptance _acceptance;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
+    private readonly ChatClient _chatClient;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -80,15 +83,18 @@ public sealed partial class ConversationViewModel : ObservableObject
 
     public ConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
-        MessageForwarder forwarder, ChatRepository chatRepository, ChatSynchronizer synchronizer,
+        MessageForwarder forwarder, SharedItemAcceptance acceptance, ChatRepository chatRepository,
+        ChatSynchronizer synchronizer, ChatClient chatClient,
         Translations translations, IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
         _editor = editor;
         _forwarder = forwarder;
+        _acceptance = acceptance;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
+        _chatClient = chatClient;
         _translations = translations;
         _navigator = navigator;
     }
@@ -132,7 +138,58 @@ public sealed partial class ConversationViewModel : ObservableObject
         OnPropertyChanged(nameof(CanCompose));
         OnPropertyChanged(nameof(CannotWrite));
         OnPropertyChanged(nameof(CannotWriteReason));
+        ShowWhetherItIsStillARequest();
     }
+
+    /// <summary>
+    /// Whether this conversation is still a request, and whose move it is. Orbit.Web asks the server
+    /// for this on opening a chat; the phone already has both answers on the contact row it synced, so
+    /// it reads them there rather than spending a round trip on what it was already told.
+    /// </summary>
+    [ObservableProperty]
+    private string _requestNotice = string.Empty;
+
+    /// <summary>True only when the move is the reader's - the other case is a notice, not a choice.</summary>
+    [ObservableProperty]
+    private bool _canApproveRequest;
+
+    public bool HasRequestNotice => RequestNotice.Length > 0;
+
+    [RelayCommand]
+    private async Task ApproveRequestAsync(CancellationToken cancellationToken)
+    {
+        if (_contact is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _chatClient.ApproveConversationAsync(_contact.UserId, cancellationToken);
+            _contact.RequiresApprovalFromCurrentUser = false;
+            ShowWhetherItIsStillARequest();
+            await _synchronizer.SynchroniseContactsAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            SayWhatHappened(_translations["Couldn't reach Orbit just now."]);
+        }
+    }
+
+    private void ShowWhetherItIsStillARequest()
+    {
+        var name = _contact?.DisplayName ?? string.Empty;
+        CanApproveRequest = _contact?.RequiresApprovalFromCurrentUser == true;
+
+        RequestNotice = _contact switch
+        {
+            { RequiresApprovalFromCurrentUser: true } => _translations.Format("{0} wants to chat with you.", name),
+            { IsPendingApprovalFromOtherParty: true } => _translations.Format("Message is waiting for {0} to approve.", name),
+            _ => string.Empty
+        };
+    }
+
+    partial void OnRequestNoticeChanged(string value) => OnPropertyChanged(nameof(HasRequestNotice));
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
@@ -229,6 +286,76 @@ public sealed partial class ConversationViewModel : ObservableObject
 
         _beingForwarded = message;
         IsForwarding = true;
+    }
+
+    /// <summary>
+    /// An offer already taken up - here, or by this account somewhere else - is shown as a line rather
+    /// than a button that can only disappoint. Asked once per offer, and offers are rare in a
+    /// conversation; the answer is remembered for as long as the screen holds the message.
+    /// </summary>
+    private async Task<ReadableChatMessage> AskWhetherItWasTakenUpAsync(
+        ReadableChatMessage message, CancellationToken cancellationToken)
+    {
+        if (message.Invitation is not { } invitation)
+        {
+            return message;
+        }
+
+        if (_takenUp.Contains(invitation.ShareId))
+        {
+            return message with { WasAccepted = true };
+        }
+
+        if (_withdrawn.Contains(invitation.ShareId))
+        {
+            return message with { IsNoLongerOnOffer = true };
+        }
+
+        if (!await _acceptance.WasAcceptedAsync(invitation, cancellationToken))
+        {
+            return message;
+        }
+
+        _takenUp.Add(invitation.ShareId);
+        return message with { WasAccepted = true };
+    }
+
+    /// <summary>Offers this screen already knows are taken, so a reload does not ask about them again.</summary>
+    private readonly HashSet<Guid> _takenUp = [];
+
+    /// <summary>Offers the server refused to hand over. Not the same thing - see ReadableChatMessage.</summary>
+    private readonly HashSet<Guid> _withdrawn = [];
+
+    /// <summary>
+    /// Takes up an offer to share something. The copy appears once the feature's own synchroniser next
+    /// runs - accepting creates it on the server, and nothing about it belongs in this conversation.
+    /// </summary>
+    [RelayCommand]
+    private async Task AcceptShareAsync(ReadableChatMessage? message, CancellationToken cancellationToken)
+    {
+        if (message?.Invitation is not { } invitation)
+        {
+            return;
+        }
+
+        try
+        {
+            var accepted = await _acceptance.AcceptAsync(invitation, cancellationToken);
+            SayWhatHappened(accepted
+                ? _translations.Format("{0} is yours now.", invitation.Name)
+                : _translations["That offer is no longer available."]);
+
+            // Either way it stops being an offer, but only one of the two is now yours.
+            _ = accepted ? _takenUp.Add(invitation.ShareId) : _withdrawn.Add(invitation.ShareId);
+            await ShowStoredConversationAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            SayWhatHappened(_translations["Accepting what somebody shared needs a connection."]);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     [RelayCommand]
@@ -379,7 +506,7 @@ public sealed partial class ConversationViewModel : ObservableObject
             Messages.Clear();
             foreach (var message in conversation)
             {
-                Messages.Add(message);
+                Messages.Add(message.IsInvitation ? await AskWhetherItWasTakenUpAsync(message, cancellationToken) : message);
             }
         }
         catch (EncryptionKeyLockedException)

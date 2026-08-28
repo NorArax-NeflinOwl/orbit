@@ -13,6 +13,7 @@ using Orbit.Mobile.Screens.Dashboard;
 using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
@@ -56,8 +57,12 @@ public static class MauiProgram
 			.UseMauiMaps()
 			.ConfigureFonts(fonts =>
 			{
-				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+				// The two faces Orbit.Web loads (see its index.html): IBM Plex Sans for anything read as
+				// text, Space Grotesk for headings. Same faces in both clients, which is the difference
+				// between two products that share a palette and one product.
+				fonts.AddFont("IBMPlexSans-Regular.ttf", "OrbitBody");
+				fonts.AddFont("IBMPlexSans-SemiBold.ttf", "OrbitBodySemibold");
+				fonts.AddFont("SpaceGrotesk-SemiBold.ttf", "OrbitDisplay");
 			});
 
 		RegisterPlatformServices(builder.Services);
@@ -118,6 +123,10 @@ public static class MauiProgram
 		services.AddTransient<ChatDirectoryReader>();
 		services.AddTransient<EncryptedChatMessageEditor>();
 		services.AddTransient<MessageForwarder>();
+		services.AddTransient<SharedItemAcceptance>();
+		services.AddTransient<SharedItemSharing>();
+		services.AddTransient<SharePanel>();
+		services.AddTransient<StockCheckPanel>();
 		services.AddTransient<SharedLocations>();
 		services.AddTransient<NotificationOpener>();
 		// One holder for the whole app: the tap is recorded by platform code and taken by whatever
@@ -144,6 +153,8 @@ public static class MauiProgram
 		services.AddSingleton<IDeviceLocation, PhoneLocation>();
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
+		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
+		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
 		services.AddSingleton<IDeviceDescription, PhoneDescription>();
 		services.AddSingleton<IDeviceAuthentication, PhoneAuthentication>();
@@ -203,6 +214,10 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<LocationClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<PublicShareClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<TransferClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<NotificationsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<DiagnosticsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
@@ -222,7 +237,6 @@ public static class MauiProgram
 		services.AddTransient<DashboardViewModel>();
 		// Shared by the bar and the menu it opens, which have to agree about whether that menu is open.
 		services.AddSingleton<NavigationBarViewModel>();
-		services.AddTransient<StatusStripViewModel>();
 		services.AddTransient<StartupPage>();
 		services.AddTransient<StartupViewModel>();
 		services.AddTransient<SignInPage>();
@@ -244,7 +258,13 @@ public static class MauiProgram
 		services.AddTransient<GroupDetailPage>();
 		services.AddTransient<GroupDetailViewModel>();
 		services.AddTransient<NotesPage>();
+		services.AddTransient<NoteDetailPage>();
+		services.AddTransient<CalendarEventDetailPage>();
 		services.AddTransient<NotesViewModel>();
+		// One lock per editor, not one for the app: two editors open at once each hold their own item.
+		services.AddTransient<EditLock>();
+		services.AddTransient<NoteDetailViewModel>();
+		services.AddTransient<CalendarEventDetailViewModel>();
 		services.AddTransient<TasksPage>();
 		services.AddTransient<TasksViewModel>();
 		services.AddTransient<TaskListDetailPage>();
@@ -259,7 +279,6 @@ public static class MauiProgram
 		services.AddTransient<WarehouseDetailViewModel>();
 		services.AddTransient<NotificationFeedPage>();
 		services.AddTransient<NotificationFeedViewModel>();
-		services.AddTransient<NotificationSettingsPage>();
 		services.AddTransient<NotificationSettingsViewModel>();
 		services.AddTransient<DiagnosticsPage>();
 		services.AddTransient<DiagnosticsViewModel>();

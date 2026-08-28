@@ -48,4 +48,11 @@ public sealed class LocalChatMessage
     public DateTimeOffset SentAtUtc { get; set; }
 
     public bool IsEdited { get; set; }
+
+    /// <summary>
+    /// Whether every other member of the group has read this. Null unless the reader sent it, and null
+    /// for a one-to-one message, which reports its read state per conversation instead. One member still
+    /// behind and it is not read yet - see ChatMessageDto.ReadByEveryone.
+    /// </summary>
+    public bool? IsReadByEveryone { get; set; }
 }
