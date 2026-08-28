@@ -29,10 +29,10 @@ public sealed class FinishRestockingCommandHandler : IRequestHandler<FinishResto
 
         var toppedUp = await _restockCompletion.TopUpEverythingAsync(request.TaskListId, cancellationToken);
 
-        // Only the errands. The standing reminder is crossed off by the reader's own tick, and comes
-        // back tomorrow of its own accord - finishing it here would be finishing it twice.
+        // The whole list, the standing reminder included: the question asked was whether to finish the
+        // task, and the reminder is brought back tomorrow by RemindDaily rather than by being left open.
         var crossedOff = false;
-        foreach (var item in taskList.Items.Where(item => !item.IsCompleted && RestockTaskNaming.IsRestockEntry(item.Description)))
+        foreach (var item in taskList.Items.Where(item => !item.IsCompleted))
         {
             item.Complete();
             crossedOff = true;

@@ -124,17 +124,16 @@ public sealed class RestockCompletionTests
     }
 
     [Fact]
-    public async Task Finishing_the_list_leaves_the_standing_reminder_for_the_reader_to_tick()
+    public async Task Finishing_the_list_finishes_the_standing_reminder_too()
     {
-        // It is crossed off by the tick that asked the question, and comes back tomorrow on its own.
+        // The question asked was whether to finish the task; leaving the entry that asked it open would
+        // answer it half way, and RemindDaily brings the reminder back tomorrow regardless.
         var (_, taskListId, _) = await ALowItemWithItsErrandAsync();
 
         await new FinishRestockingCommandHandler(_context.TaskRepository, ACompletion())
             .HandleAsync(new FinishRestockingCommand(_userId, taskListId), CancellationToken.None);
 
         var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
-        var reminder = Assert.Single(
-            taskList!.Items, item => item.Description == RestockTaskNaming.UpdateStockReminderDescription);
-        Assert.False(reminder.IsCompleted);
+        Assert.All(taskList!.Items, item => Assert.True(item.IsCompleted));
     }
 }
