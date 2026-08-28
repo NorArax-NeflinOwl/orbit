@@ -187,6 +187,7 @@ public sealed class TaskListSynchronizer
         taskList.Items = incoming.Items;
         taskList.IsCompleted = incoming.IsCompleted;
         taskList.IsGroup = incoming.IsGroup;
+        taskList.LinkedWarehouseId = incoming.LinkedWarehouseId;
         taskList.IsPrivate = incoming.IsPrivate;
         taskList.EncryptedCiphertext = incoming.EncryptedContent?.Ciphertext;
         taskList.EncryptedNonce = incoming.EncryptedContent?.Nonce;

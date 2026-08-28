@@ -108,6 +108,56 @@ public sealed class TasksClient : ILockableItems
     }
 
     /// <summary>
+    /// Builds the shelf this list's work needs - one entry per distinct thing it calls for, each
+    /// starting at nothing - and points the list at it. Null when there was nothing to build.
+    /// </summary>
+    public async Task<Guid?> GenerateInventoryAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/inventory", content: null, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<Guid>(cancellationToken)
+            : null;
+    }
+
+    /// <summary>Points a task list at the warehouse its work is measured against, or at none.</summary>
+    public async Task<bool> LinkWarehouseAsync(
+        Guid taskListId, Guid? warehouseId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/warehouse", new LinkTaskListToWarehouseRequest(warehouseId), cancellationToken);
+
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// What this list's work costs against that warehouse, or null when no warehouse has been chosen -
+    /// there is no question to answer then, which is not the same as an answer of "nothing".
+    /// </summary>
+    public async Task<TaskListStockCheckDto?> GetStockCheckAsync(
+        Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"api/tasks/{taskListId}/stock-check", cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TaskListStockCheckDto>(cancellationToken)
+            : null;
+    }
+
+    /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>
+    public async Task<int> RaiseStockShortfallsAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/tasks/{taskListId}/stock-check/shortfalls", content: null, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return 0;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<RaiseStockShortfallsResultDto>(cancellationToken);
+        return result?.AddedCount ?? 0;
+    }
+
+    /// <summary>
     /// Moves one entry out of this list and into another. Done against the server rather than queued:
     /// it needs both lists' real ids, and there is no sensible local half of "it is now over there".
     /// </summary>

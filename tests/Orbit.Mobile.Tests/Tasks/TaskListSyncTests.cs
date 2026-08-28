@@ -67,7 +67,7 @@ public sealed class TaskListSyncTests
         Assert.NotEqual(Guid.Empty, entryId);
 
         await context.TaskLists.UpdateAsync(
-            created.LocalId, "Groceries", [afterFirstSync[0] with { IsCompleted = true }]);
+            created.LocalId, "Groceries", [afterFirstSync[0] with { IsCompleted = true }], isGroup: false);
         await context.SynchroniseAsync();
 
         var onTheServer = Assert.Single(context.Server.TaskLists.Single(list => list.Title == "Groceries").Items);
@@ -85,7 +85,7 @@ public sealed class TaskListSyncTests
         using var context = new TaskContext();
         context.GoOffline();
         var taskList = await context.TaskLists.CreateAsync("Draft", SomeItems);
-        await context.TaskLists.UpdateAsync(taskList.LocalId, "Finished", SomeItems);
+        await context.TaskLists.UpdateAsync(taskList.LocalId, "Finished", SomeItems, isGroup: false);
 
         context.ComeBackOnline();
         await context.SynchroniseAsync();
@@ -150,7 +150,7 @@ public sealed class TaskListSyncTests
         await context.SynchroniseAsync();
 
         context.GoOffline();
-        await context.TaskLists.UpdateAsync(taskList.LocalId, "Edited on the phone", SomeItems);
+        await context.TaskLists.UpdateAsync(taskList.LocalId, "Edited on the phone", SomeItems, isGroup: false);
         context.ComeBackOnline();
         context.Server.IsUnreachable = false;
 

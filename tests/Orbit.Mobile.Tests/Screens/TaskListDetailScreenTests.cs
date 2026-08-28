@@ -150,6 +150,26 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// Orbit.Web has a "Group list" checkbox; the phone had no way to set it, so a list made here
+    /// could never be one - and the stock check, which only a group list is asked, was unreachable.
+    /// </summary>
+    [Fact]
+    public async Task A_list_can_be_made_a_group_list()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Trip");
+
+        Assert.False(screen.IsGroup);
+        screen.IsGroup = true;
+        // The switch starts the save rather than awaiting it, so the test waits on what it started -
+        // asserting straight afterwards would be racing the write it is meant to be checking.
+        await screen.SaveListCommand.ExecutionTask!;
+        await context.SynchroniseAsync();
+
+        Assert.Contains(context.Server.TaskLists, list => list.Title == "Trip" && list.IsGroup);
+    }
+
+    /// <summary>
     /// Orbit.Web's task editor has a Title field. This screen showed the title and would not let
     /// anybody change it - so a list named wrongly stayed named wrongly.
     /// </summary>
@@ -160,7 +180,7 @@ public sealed class TaskListDetailScreenTests
         var screen = context.OpenTaskList("Toady");
 
         screen.Title = "Today";
-        await screen.RenameCommand.ExecuteAsync(null);
+        await screen.SaveListCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
 
         Assert.Contains("Today", context.Server.TaskLists.Select(list => list.Title));
@@ -240,12 +260,19 @@ public sealed class TaskListDetailScreenTests
         {
             Server = new FakeTasksServer(_clock);
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            StockCheck = new StockCheckPanel(
+                new TasksClient(Server.ToHttpClient()),
+                new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online),
+                new Translations(new InMemoryLanguageStore()));
             Synchronizer = new TaskListSynchronizer(
                 _localStore, new TasksClient(Server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<TaskListSynchronizer>.Instance);
         }
 
         public FakeTasksServer Server { get; }
+
+        /// <summary>"Can this be done?" - see StockCheckPanel.</summary>
+        public StockCheckPanel StockCheck { get; private set; } = null!;
 
         public TaskListSynchronizer Synchronizer { get; }
 
@@ -257,7 +284,8 @@ public sealed class TaskListDetailScreenTests
             var screen = new TaskListDetailViewModel(
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
-                new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online);
+                new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
+                StockCheck);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;

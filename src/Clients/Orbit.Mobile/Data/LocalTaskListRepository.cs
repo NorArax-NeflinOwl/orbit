@@ -92,8 +92,13 @@ public sealed class LocalTaskListRepository
     }
 
     /// <summary>Refuses rather than queues when the offline policy forbids it - see LocalWriteOutcome.</summary>
+    /// <param name="isGroup">
+    /// Whether it gathers the lists its items link to rather than holding work of its own. Part of the
+    /// update rather than its own call, unlike pinning: this changes what the list <i>is</i>.
+    /// </param>
     public async Task<LocalWriteOutcome> UpdateAsync(
-        Guid localId, string title, IReadOnlyList<TaskItemDto> items, CancellationToken cancellationToken = default)
+        Guid localId, string title, IReadOnlyList<TaskItemDto> items, bool isGroup,
+        CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         if (await dbContext.TaskLists.FirstOrDefaultAsync(list => list.LocalId == localId, cancellationToken) is not { } taskList)
@@ -109,6 +114,7 @@ public sealed class LocalTaskListRepository
         var now = _timeProvider.GetUtcNow();
         taskList.Title = title;
         taskList.Items = items;
+        taskList.IsGroup = isGroup;
         taskList.UpdatedAtUtc = now;
         // A list is done when every item is - the same rule the server applies.
         taskList.IsCompleted = items.Count > 0 && items.All(item => item.IsCompleted);

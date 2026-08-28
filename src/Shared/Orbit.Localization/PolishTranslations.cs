@@ -876,6 +876,15 @@ public static class PolishTranslations
         ["Already accepted"] = "Już przyjęto",
         ["Item options"] = "Opcje pozycji",
         ["{0} minutes before"] = "{0} min przed",
+        ["List options"] = "Opcje listy",
+        ["Built a warehouse from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
+        ["There was nothing on this list to build a warehouse from."]
+            = "Na tej liście nie było nic, z czego można zbudować magazyn.",
+        ["Added {0} to the restock list."] = "Dodano {0} do listy uzupełnień.",
+        ["Nothing new to add - what is short is already waiting there."]
+            = "Nie ma nic nowego do dodania - brakujące już tam czekają.",
+        ["Couldn't work out what this needs without a connection."]
+            = "Bez połączenia nie da się ustalić, czego to wymaga.",
         ["Invite"] = "Zaproś",
         ["Somebody else"] = "Ktoś inny",
         ["Name of the place"] = "Nazwa miejsca",

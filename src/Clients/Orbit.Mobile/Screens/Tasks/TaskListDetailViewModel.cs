@@ -57,7 +57,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
-        TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus)
+        TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck)
     {
         _taskLists = taskLists;
         _synchronizer = synchronizer;
@@ -69,9 +69,24 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _networkStatus = networkStatus;
+        StockCheck = stockCheck;
+        // Generating a warehouse or pointing at a different one changes the list itself, so the screen
+        // re-reads rather than letting the panel and the list drift apart.
+        StockCheck.Changed += (_, _) => LoadCommand.Execute(null);
     }
 
     public ObservableCollection<TaskItemRow> Items { get; } = [];
+
+    /// <summary>
+    /// Whether this list gathers the lists its items link to rather than holding work of its own -
+    /// Orbit.Web's "Group list". It is also what makes the stock check worth asking, and the phone had
+    /// no way to set it, so a list made here could never be one.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isGroup;
+
+    /// <summary>"Can this be done?" - see StockCheckPanel. Only a group list is asked.</summary>
+    public StockCheckPanel StockCheck { get; }
 
     /// <summary>Offering this to somebody else - see SharePanel.</summary>
     public SharePanel Share { get; }
@@ -214,19 +229,19 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Renaming saves the whole list, because the store's update takes the whole list - the same shape
-    /// as renaming a note. Orbit.Web's task editor has a Title field; this screen showed the title and
-    /// would not let anybody change it.
+    /// Writes the list down as it now stands. Named for what it does rather than for one of its
+    /// callers: the store's update takes the whole list, so renaming it and making it a group list are
+    /// the same write. Orbit.Web's task editor saves both the same way for the same reason.
     /// </summary>
     [RelayCommand]
-    private Task RenameAsync(CancellationToken cancellationToken) => SaveAsync(_items, cancellationToken);
+    private Task SaveListAsync(CancellationToken cancellationToken) => SaveAsync(_items, cancellationToken);
 
     [RelayCommand]
     private void GoBack() => _navigator.ShowTasks();
 
     private async Task SaveAsync(IReadOnlyList<TaskItemDto> items, CancellationToken cancellationToken)
     {
-        var outcome = await _taskLists.UpdateAsync(_localId, Title, items, cancellationToken);
+        var outcome = await _taskLists.UpdateAsync(_localId, Title, items, IsGroup, cancellationToken);
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
             Status = _translations[RefusalMessage];
@@ -254,6 +269,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         _items = taskList.Items;
+        _isShowingWhatIsStored = true;
+        IsGroup = taskList.IsGroup;
+        _isShowingWhatIsStored = false;
         await ShowWhereItCanGoAsync(cancellationToken);
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
@@ -272,6 +290,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         {
             Items.Add(TaskItemRow.From(item, _translations, _timeProvider.GetUtcNow()));
         }
+
+        await StockCheck.ShowAsync(taskList, cancellationToken);
     }
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
@@ -299,6 +319,17 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string RefusalMessage =
         "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
+
+    /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
+    private bool _isShowingWhatIsStored;
+
+    partial void OnIsGroupChanged(bool value)
+    {
+        if (!_isShowingWhatIsStored)
+        {
+            SaveListCommand.Execute(null);
+        }
+    }
 
     partial void OnBeingEditedChanged(TaskItemEditor? value)
     {

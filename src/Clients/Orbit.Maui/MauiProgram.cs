@@ -126,6 +126,7 @@ public static class MauiProgram
 		services.AddTransient<SharedItemAcceptance>();
 		services.AddTransient<SharedItemSharing>();
 		services.AddTransient<SharePanel>();
+		services.AddTransient<StockCheckPanel>();
 		services.AddTransient<SharedLocations>();
 		services.AddTransient<NotificationOpener>();
 		// One holder for the whole app: the tap is recorded by platform code and taken by whatever

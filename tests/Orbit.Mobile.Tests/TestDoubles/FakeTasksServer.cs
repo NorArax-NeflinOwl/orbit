@@ -28,6 +28,20 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public IReadOnlyCollection<TaskDto> TaskLists => _taskLists.Values;
 
+    /// <summary>What the stock check answers, or null for "no warehouse chosen".</summary>
+    public TaskListStockCheckDto? StockCheck { get; set; }
+
+    /// <summary>What generating a warehouse hands back, or null when there was nothing to build.</summary>
+    public Guid? GeneratedWarehouseId { get; set; } = Guid.NewGuid();
+
+    public int RaisedShortfallCount { get; set; }
+
+    /// <summary>The warehouse a list was last pointed at.</summary>
+    public Guid? LinkedWarehouseId { get; private set; }
+
+    /// <summary>Named apart from the contract so this fake does not depend on its property name.</summary>
+    private sealed record LinkTaskItemToWarehouseBody(Guid? WarehouseId);
+
     public IReadOnlyList<TaskItemDto> ItemsIn(Guid taskListId)
         => _taskLists.TryGetValue(taskListId, out var taskList) ? taskList.Items : [];
 
@@ -79,6 +93,33 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 _taskLists.Values.Where(list => list.UpdatedAtUtc >= since).ToList(),
                 _tombstones.Where(entry => entry.DeletedAtUtc >= since).Select(entry => entry.Id).ToList(),
                 _timeProvider.GetUtcNow().UtcDateTime.ToString("O")));
+        }
+
+        // api/tasks/{id}/stock-check and its two siblings - see StockCheckPanel.
+        if (path.EndsWith("/stock-check", StringComparison.Ordinal))
+        {
+            return StockCheck is null
+                ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                : Json(StockCheck);
+        }
+
+        if (path.EndsWith("/stock-check/shortfalls", StringComparison.Ordinal))
+        {
+            return Json(new RaiseStockShortfallsResultDto(RaisedShortfallCount));
+        }
+
+        if (path.EndsWith("/inventory", StringComparison.Ordinal))
+        {
+            return GeneratedWarehouseId is { } generated
+                ? Json(generated)
+                : new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        if (path.EndsWith("/warehouse", StringComparison.Ordinal))
+        {
+            var body = await ReadAsync<LinkTaskItemToWarehouseBody>(request, cancellationToken);
+            LinkedWarehouseId = body?.WarehouseId;
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
         // api/tasks/{sourceId}/items/{itemId}/move
@@ -144,6 +185,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         {
             Title = body!.Title,
             Items = ToDtos(body.Items),
+            // Sent on every update and stored by the real endpoint - a fake that dropped it made
+            // "this list is now a group list" look like a client that had not sent it.
+            IsGroup = body.IsGroup,
             IsPrivate = body.IsPrivate,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };

@@ -27,6 +27,12 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState
     /// <summary>A list that gathers the lists its items link to, rather than holding work of its own.</summary>
     public bool IsGroup { get; set; }
 
+    /// <summary>
+    /// The warehouse this list's work is measured against, when one has been chosen. Kept so the stock
+    /// check opens knowing which shelf the question is about, rather than asking the server first.
+    /// </summary>
+    public Guid? LinkedWarehouseId { get; set; }
+
     public bool IsPrivate { get; set; }
 
     /// <summary>The sealed title and items of a private list - carried through untouched.</summary>
