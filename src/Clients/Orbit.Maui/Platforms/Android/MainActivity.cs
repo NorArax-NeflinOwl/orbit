@@ -32,7 +32,29 @@ public class MainActivity : MauiAppCompatActivity
 
 		base.OnCreate(savedInstanceState);
 		OnBackPressedDispatcher.AddCallback(this, new GoUpOnBack(this));
+		KeepContentInsideTheSystemBars();
 		MatchStatusBarIconsToTheme();
+	}
+
+	/// <summary>
+	/// Android only forces an app to draw behind the system bars from API 35 on. MAUI turns the decor
+	/// fitting off on every version regardless, and then applies the insets back only from 35 up - so on
+	/// 29 to 34 the window is edge to edge with nothing accounting for it, and the navigation bar's
+	/// avatar lands under the status bar while the sync strip is squeezed to nothing behind the
+	/// three-button bar.
+	///
+	/// Below 35 Orbit wants the older arrangement anyway: the status bar painted by the system with
+	/// colorPrimaryDark (see Resources/values/colors.xml) rather than by whatever happens to be at the
+	/// top of the page.
+	/// </summary>
+	private void KeepContentInsideTheSystemBars()
+	{
+		if (OperatingSystem.IsAndroidVersionAtLeast(35) || Window is null)
+		{
+			return;
+		}
+
+		WindowCompat.SetDecorFitsSystemWindows(Window, true);
 	}
 
 	/// <summary>
