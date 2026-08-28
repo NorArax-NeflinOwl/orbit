@@ -6,6 +6,7 @@ using Orbit.Core.Sharing.ClaimPublicShareLink;
 using Orbit.Core.Sharing.CreatePublicShareLink;
 using Orbit.Core.Sharing.GetPublicSharedItem;
 using Orbit.Core.Sharing.RevokePublicShareLink;
+using Orbit.Core.Tasks;
 using Orbit.Core.Users;
 using Xunit;
 
@@ -230,6 +231,10 @@ public sealed class PublicShareLinkTests
         private readonly PublicSharedItemReader _reader;
 
         public InMemoryNoteShareRepository NoteShareRepository { get; } = new();
+        public InMemoryTaskRepository TaskRepository { get; } = new();
+        public InMemoryWarehouseRepository WarehouseRepository { get; } = new();
+        public InMemoryTaskListShareRepository TaskListShareRepository { get; } = new();
+        public InMemoryWarehouseShareRepository WarehouseShareRepository { get; } = new();
         public RecordingSharedItemNotifier SharedItemNotifier { get; } = new();
         public Guid OwnerId { get; }
         public Guid ReaderId { get; } = Guid.NewGuid();
@@ -242,8 +247,8 @@ public sealed class PublicShareLinkTests
             userRepository.AddAsync(owner, CancellationToken.None).GetAwaiter().GetResult();
 
             _reader = new PublicSharedItemReader(
-                _noteRepository, new InMemoryTaskRepository(), new InMemoryCalendarEventRepository(),
-                new InMemoryWarehouseRepository(), new InMemoryInventoryRepository(), userRepository);
+                _noteRepository, TaskRepository, new InMemoryCalendarEventRepository(),
+                WarehouseRepository, new InMemoryInventoryRepository(), userRepository);
         }
 
         public async Task<Guid> AddNoteAsync(string title, params string[] lines)
@@ -283,8 +288,11 @@ public sealed class PublicShareLinkTests
 
         public Task<ClaimPublicShareLinkResult> ClaimAsync(string token, Guid claimingUserId)
             => new ClaimPublicShareLinkCommandHandler(
-                    _linkRepository, _reader, NoteShareRepository, new InMemoryTaskListShareRepository(),
-                    new InMemoryCalendarEventShareRepository(), new InMemoryWarehouseShareRepository(), SharedItemNotifier)
+                    _linkRepository, _reader, NoteShareRepository, TaskListShareRepository,
+                    new InMemoryCalendarEventShareRepository(), WarehouseShareRepository,
+                    new TaskListShareCascade(
+                        TaskRepository, WarehouseRepository, TaskListShareRepository, WarehouseShareRepository),
+                    SharedItemNotifier)
                 .HandleAsync(new ClaimPublicShareLinkCommand(token, claimingUserId), CancellationToken.None);
     }
 }

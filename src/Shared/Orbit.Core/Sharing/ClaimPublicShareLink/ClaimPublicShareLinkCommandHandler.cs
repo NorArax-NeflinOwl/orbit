@@ -21,6 +21,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
     private readonly ITaskListShareRepository _taskListShareRepository;
     private readonly ICalendarEventShareRepository _calendarEventShareRepository;
     private readonly IWarehouseShareRepository _warehouseShareRepository;
+    private readonly TaskListShareCascade _taskListShareCascade;
     private readonly ISharedItemNotifier _sharedItemNotifier;
 
     public ClaimPublicShareLinkCommandHandler(
@@ -30,6 +31,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         ITaskListShareRepository taskListShareRepository,
         ICalendarEventShareRepository calendarEventShareRepository,
         IWarehouseShareRepository warehouseShareRepository,
+        TaskListShareCascade taskListShareCascade,
         ISharedItemNotifier sharedItemNotifier)
     {
         _publicShareLinkRepository = publicShareLinkRepository;
@@ -38,6 +40,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         _taskListShareRepository = taskListShareRepository;
         _calendarEventShareRepository = calendarEventShareRepository;
         _warehouseShareRepository = warehouseShareRepository;
+        _taskListShareCascade = taskListShareCascade;
         _sharedItemNotifier = sharedItemNotifier;
     }
 
@@ -94,6 +97,12 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
 
             case SharedItemType.TaskList:
             {
+                // The lists it gathers, and the inventory it is measured against, come with it - a link
+                // to a group list that opened onto rows nobody could follow would not be that list.
+                await _taskListShareCascade.GrantAsync(
+                    link.OwnerUserId, link.ItemId, claimingUserId, ShareAccessLevel.ReadOnly,
+                    acceptImmediately: true, cancellationToken);
+
                 if (await _taskListShareRepository.FindExistingAsync(link.ItemId, claimingUserId, cancellationToken) is not null)
                 {
                     return true;

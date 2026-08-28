@@ -155,6 +155,10 @@ public static class OrbitCoreServiceCollectionExtensions
         // Depends on ITaskRepository/ITaskListShareRepository/IUserRepository (all scoped), so it must
         // be scoped too - mirrors NoteAccessResolver's registration above.
         services.AddScoped<TaskListAccessResolver>();
+        // Depends on the task, warehouse and share repositories (all scoped), so it must be scoped too -
+        // shared by the three paths that hand a task list to somebody: an offer by name, accepting one,
+        // and claiming a public link.
+        services.AddScoped<TaskListShareCascade>();
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
