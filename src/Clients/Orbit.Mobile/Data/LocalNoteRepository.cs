@@ -35,8 +35,7 @@ public sealed class LocalNoteRepository
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await dbContext.Notes
             .AsNoTracking()
-            .OrderByDescending(note => note.IsPinned)
-            .ThenByDescending(note => note.UpdatedAtUtc)
+            .OrderByDescending(note => note.UpdatedAtUtc)
             .ToListAsync(cancellationToken);
     }
 
@@ -104,38 +103,6 @@ public sealed class LocalNoteRepository
         note.UpdatedAtUtc = now;
 
         Enqueue(dbContext, localId, OutboxOperation.Update, now);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return LocalWriteOutcome.Applied;
-    }
-
-    /// <summary>
-    /// Pins or unpins a note the user owns. Unlike an edit this is allowed offline whatever the note is
-    /// shared with, and deliberately: the offline policy exists because two people with CanEdit are
-    /// editing one row, and nobody but the owner can pin - see SetNotePinnedCommandHandler - so there is
-    /// no second writer to conflict with. A note shared *with* the user is refused, because the server
-    /// would refuse it too and finding that out at replay time is worse than saying so now.
-    /// </summary>
-    public async Task<LocalWriteOutcome> SetPinnedAsync(
-        Guid localId, bool isPinned, CancellationToken cancellationToken = default)
-    {
-        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        if (await dbContext.Notes.FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken) is not { } note)
-        {
-            return LocalWriteOutcome.NotFound;
-        }
-
-        if (note.IsShared)
-        {
-            return LocalWriteOutcome.NotYours;
-        }
-
-        if (note.IsPinned == isPinned)
-        {
-            return LocalWriteOutcome.Applied;
-        }
-
-        note.IsPinned = isPinned;
-        Enqueue(dbContext, localId, OutboxOperation.SetPinned, _timeProvider.GetUtcNow());
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }

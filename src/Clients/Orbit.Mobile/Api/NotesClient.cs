@@ -52,18 +52,6 @@ public sealed class NotesClient
     }
 
     /// <summary>
-    /// Unlike a delete, a 404 here is not the outcome the caller wanted: the server answers one for a
-    /// note that does not exist and for one the caller does not own alike, and only its owner may pin a
-    /// note. Either way nothing queued against it can ever succeed, which is what Gone already says.
-    /// </summary>
-    public async Task<WriteOutcome> SetPinnedAsync(Guid noteId, bool isPinned, CancellationToken cancellationToken = default)
-    {
-        var response = await _httpClient.PutAsJsonAsync(
-            $"api/notes/{noteId}/pinned", new SetNotePinnedRequest(isPinned), cancellationToken);
-        return ReadOutcome(response);
-    }
-
-    /// <summary>
     /// Anything not named here - a server error, a gateway timeout - throws, so the queued change stays
     /// queued and is tried again. Only a refusal the server will repeat is worth giving up on.
     /// </summary>

@@ -258,34 +258,6 @@ public sealed class TaskListSyncTests
         Assert.Equal("Pinned", (await context.TaskLists.GetAllAsync())[0].Title);
     }
 
-    [Fact]
-    public async Task Pinning_a_list_here_reaches_the_server()
-    {
-        using var context = new TaskContext();
-        var taskList = await context.TaskLists.CreateAsync("Groceries", SomeItems);
-        await context.SynchroniseAsync();
-
-        await context.TaskLists.SetPinnedAsync(taskList.LocalId, true);
-        await context.SynchroniseAsync();
-
-        Assert.True(context.Server.TaskLists.Single().IsPinned);
-        Assert.Equal(0, await context.CountQueuedAsync(SyncEntityType.TaskList));
-    }
-
-    [Fact]
-    public async Task A_list_somebody_shared_cannot_be_pinned_here()
-    {
-        using var context = new TaskContext();
-        context.Server.AddTaskList("Theirs", isShared: true);
-        await context.SynchroniseAsync();
-        var stored = Assert.Single(await context.TaskLists.GetAllAsync());
-
-        var outcome = await context.TaskLists.SetPinnedAsync(stored.LocalId, true);
-
-        Assert.Equal(LocalWriteOutcome.NotYours, outcome);
-        Assert.False(context.Server.TaskLists.Single().IsPinned);
-    }
-
     private sealed class TaskContext : IDisposable
     {
         private readonly LocalStore _localStore = new();

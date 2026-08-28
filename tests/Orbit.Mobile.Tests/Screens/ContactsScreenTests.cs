@@ -195,7 +195,6 @@ public sealed class ContactsScreenTests
                     Repository, _chatClient, directoryReader, _encryptionKeyProvider,
                     NullLogger<EncryptedChatMessageEditor>.Instance),
                 new MessageForwarder(sender), Repository, _synchronizer,
-                new SharesClient(StubHttpMessageHandler.Unreachable().ToHttpClient()),
                 new Translations(new InMemoryLanguageStore()), Navigator);
             screen.Open(contact);
             return screen;

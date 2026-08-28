@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Orbit.Mobile.Api;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -23,16 +22,8 @@ public sealed partial class ConversationViewModel : ObservableObject
     private readonly MessageForwarder _forwarder;
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
-    private readonly SharesClient _shares;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
-
-    /// <summary>
-    /// Which offers in this conversation have already been taken up, by share id. Asked of the server
-    /// once per offer and then remembered: the screen rebuilds itself every few seconds as it polls, and
-    /// asking again each time would put a request per share on a timer for no new answer.
-    /// </summary>
-    private readonly Dictionary<Guid, bool> _shareAcceptance = [];
 
     /// <summary>
     /// How often an open conversation checks for new messages. Orbit.Web polls chat once a second, which
@@ -90,7 +81,7 @@ public sealed partial class ConversationViewModel : ObservableObject
     public ConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         MessageForwarder forwarder, ChatRepository chatRepository, ChatSynchronizer synchronizer,
-        SharesClient shares, Translations translations, IScreenNavigator navigator)
+        Translations translations, IScreenNavigator navigator)
     {
         _reader = reader;
         _sender = sender;
@@ -98,7 +89,6 @@ public sealed partial class ConversationViewModel : ObservableObject
         _forwarder = forwarder;
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
-        _shares = shares;
         _translations = translations;
         _navigator = navigator;
     }
@@ -375,81 +365,6 @@ public sealed partial class ConversationViewModel : ObservableObject
         _navigator.ShowContacts();
     }
 
-    /// <summary>
-    /// Takes up the share this message offers. What arrives does not appear here: an accepted note, task
-    /// list, event or warehouse lands among the reader's own, and reaches the phone the next time that
-    /// screen synchronises.
-    /// </summary>
-    [RelayCommand]
-    private async Task AcceptShareAsync(ReadableChatMessage? message, CancellationToken cancellationToken)
-    {
-        if (message?.Offer is not { } offer)
-        {
-            return;
-        }
-
-        try
-        {
-            if (!await _shares.AcceptAsync(offer.EntityType, offer.ShareId, cancellationToken))
-            {
-                SayWhatHappened(_translations["That share isn't available any more."]);
-                return;
-            }
-        }
-        catch (HttpRequestException)
-        {
-            SayWhatHappened(_translations["Couldn't reach the server - the share is still waiting."]);
-            return;
-        }
-
-        _shareAcceptance[offer.ShareId] = true;
-        if (Messages.IndexOf(message) is >= 0 and var index)
-        {
-            Messages[index] = message with { IsShareAccepted = true };
-        }
-
-        SayWhatHappened(_translations["Accepted - added to your account."]);
-    }
-
-    /// <summary>
-    /// Asks about every offer the screen has not asked about yet. The answer comes from the server
-    /// rather than from what was tapped here, because an offer can be taken up on another device - but
-    /// only once each, since accepting does not come undone.
-    /// </summary>
-    private async Task LearnWhichSharesAreAcceptedAsync(
-        IEnumerable<ReadableChatMessage> conversation, CancellationToken cancellationToken)
-    {
-        foreach (var offer in conversation.Select(message => message.Offer).OfType<ShareOffer>())
-        {
-            if (_shareAcceptance.ContainsKey(offer.ShareId))
-            {
-                continue;
-            }
-
-            try
-            {
-                _shareAcceptance[offer.ShareId] =
-                    await _shares.IsAcceptedAsync(offer.EntityType, offer.ShareId, cancellationToken) ?? false;
-            }
-            catch (HttpRequestException)
-            {
-                // Nothing recorded, so it is asked again next time. Until then the offer reads as
-                // waiting, which is the safer of the two wrong answers: accepting one twice is harmless,
-                // and hiding one that was never taken up would strand it.
-            }
-        }
-    }
-
-    /// <summary>Adds what only the screen knows: the offer's wording, and whether it has been taken up.</summary>
-    private ReadableChatMessage WithShareState(ReadableChatMessage message)
-        => message.Offer is { } offer
-            ? message with
-            {
-                ShareLabel = offer.Describe(_translations),
-                IsShareAccepted = _shareAcceptance.GetValueOrDefault(offer.ShareId)
-            }
-            : message;
-
     private async Task ShowStoredConversationAsync(CancellationToken cancellationToken)
     {
         if (_contact?.PublicKeyBase64 is not { } otherPublicKey)
@@ -461,12 +376,10 @@ public sealed partial class ConversationViewModel : ObservableObject
         try
         {
             var conversation = await _reader.ReadAsync(_contact.UserId, otherPublicKey, _theyReadUpToUtc, cancellationToken);
-            await LearnWhichSharesAreAcceptedAsync(conversation, cancellationToken);
-
             Messages.Clear();
             foreach (var message in conversation)
             {
-                Messages.Add(WithShareState(message));
+                Messages.Add(message);
             }
         }
         catch (EncryptionKeyLockedException)

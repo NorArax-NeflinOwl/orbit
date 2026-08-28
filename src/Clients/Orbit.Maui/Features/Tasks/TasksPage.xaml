@@ -4,7 +4,6 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
-    xmlns:tasks="clr-namespace:Orbit.Maui.Features.Tasks"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
     x:DataType="screens:TasksViewModel"
     Title="{controls:Translate 'Tasks'}">
@@ -33,23 +32,13 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
-                        <Grid ColumnDefinitions="*,Auto" Padding="0,12" ColumnSpacing="4">
-                            <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
-                                <Label Text="{Binding Progress}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                                <!-- Why a list is waiting, or why it cannot be edited right now. -->
-                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                       FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                            </VerticalStackLayout>
-
-                            <!-- Absent rather than disabled on a list somebody shared with this user:
-                                 only its owner can pin it, so there is nothing to offer. -->
-                            <controls:PinButton Grid.Column="1" VerticalOptions="Center"
-                                                IsVisible="{Binding CanBePinned}"
-                                                IsPinned="{Binding IsPinned}"
-                                                CommandParameter="{Binding .}"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinnedCommand, x:DataType=tasks:TasksPage}" />
-                        </Grid>
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                            <Label Text="{Binding Progress}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <!-- Why a list is waiting, or why it cannot be edited right now. -->
+                            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 

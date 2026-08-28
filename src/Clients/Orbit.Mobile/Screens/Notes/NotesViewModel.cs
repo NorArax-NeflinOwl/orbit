@@ -75,24 +75,6 @@ public sealed partial class NotesViewModel : ObservableObject
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();
 
-    /// <summary>
-    /// Pinning sorts the note to the top, as it does on the web. The rows are rebuilt before the
-    /// synchronise rather than after it so the row moves straight away - see the task lists screen's
-    /// counterpart for why waiting on the network reads as a missed tap.
-    /// </summary>
-    [RelayCommand]
-    private async Task TogglePinnedAsync(NoteListItem? note, CancellationToken cancellationToken)
-    {
-        if (note is null || !note.CanBePinned)
-        {
-            return;
-        }
-
-        await _notes.SetPinnedAsync(note.LocalId, !note.IsPinned, cancellationToken);
-        await ShowLocalNotesAsync(cancellationToken);
-        await SynchroniseAsync(cancellationToken);
-    }
-
     [RelayCommand(CanExecute = nameof(CanAddNote))]
     private async Task AddNoteAsync(CancellationToken cancellationToken)
     {

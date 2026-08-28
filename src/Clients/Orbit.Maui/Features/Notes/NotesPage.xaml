@@ -34,8 +34,7 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:NoteListItem">
-                        <Grid ColumnDefinitions="*,Auto" Padding="0,12" ColumnSpacing="4">
-                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold" />
 
                             <!-- A hidden row keeps its place - a note vanishing from the list would look
@@ -54,15 +53,6 @@
                                    FontSize="12"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                         </VerticalStackLayout>
-
-                            <!-- Absent rather than disabled on a note somebody shared with this user:
-                                 only its owner can pin it, so there is nothing to offer. -->
-                            <controls:PinButton Grid.Column="1" VerticalOptions="Center"
-                                                IsVisible="{Binding CanBePinned}"
-                                                IsPinned="{Binding IsPinned}"
-                                                CommandParameter="{Binding .}"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinnedCommand, x:DataType=notes:NotesPage}" />
-                        </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 

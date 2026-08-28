@@ -5,14 +5,7 @@ public enum OutboxOperation
 {
     Create,
     Update,
-    Delete,
-
-    /// <summary>
-    /// Pinning, which the server takes through an endpoint of its own rather than as part of an update -
-    /// so it cannot ride along on <see cref="Update"/> without sending the whole thing again and losing
-    /// the order the two were done in.
-    /// </summary>
-    SetPinned
+    Delete
 }
 
 /// <summary>
