@@ -14,6 +14,14 @@ namespace Orbit.Maui.Platform;
 /// instead of being shut out. Refusing them would make the feature something people switch off rather
 /// than something that protects them. Nothing here unwraps a key - that is what a strong biometric
 /// would be needed for, and Orbit's chat key is deliberately not held that way (see SecureChatKeyStorage).
+///
+/// <b>This exact pair is also the only one that works at the app's API floor</b>, which is worth knowing
+/// before anyone strengthens it. Asked on Android 10 with a screen lock set and no biometric enrolled,
+/// CanAuthenticate answers: BiometricWeak|DeviceCredential succeeds, DeviceCredential on its own reports
+/// unsupported, and BiometricStrong|DeviceCredential reports unsupported too. Swapping weak for strong
+/// therefore does not make the gate stronger - it makes it permanently unopenable on Android 10 and 11,
+/// and silently, because <see cref="DeviceAuthenticationOutcome.NotAvailableOnThisDevice"/> is
+/// indistinguishable from a phone that genuinely has nothing to ask with.
 /// </summary>
 public sealed class PhoneAuthentication : IDeviceAuthentication
 {
