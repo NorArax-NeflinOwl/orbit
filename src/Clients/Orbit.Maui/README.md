@@ -41,8 +41,10 @@ are platform calls are behind interfaces the head implements: `IScreenNavigator`
 page) and `IUpdateLink` (leaving the app for a store listing).
 
 `Orbit.Maui` stays out of the solution because CI builds `Orbit.sln` on `ubuntu-latest` (see
-`.github/workflows/ci.yml`), which cannot build `net10.0-ios` at all — that needs macOS and Xcode — and
-cannot build `net10.0-android` without the Android SDK. Build the heads explicitly instead:
+`.github/workflows/main_orbit.yml`), which cannot build `net10.0-ios` at all — that needs macOS and
+Xcode — and cannot build `net10.0-android` without the Android SDK and a JDK. **The Android head is
+built anyway**, by a separate job in that same workflow which installs both first; iOS is the head
+nothing checks but a Mac. Build either explicitly:
 
 ```bash
 dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android

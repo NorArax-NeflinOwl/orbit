@@ -56,6 +56,53 @@ jobs:
       - name: Test
         run: dotnet test Orbit.sln --configuration Release --no-build
 
+  android:
+    # The Android app head, which Orbit.sln cannot carry and so the job above never touches. That
+    # exclusion is right for iOS - a Linux runner has no Xcode and cannot build net10.0-ios at all -
+    # but it was never right for Android, which builds here perfectly well. Until this job existed
+    # nothing checked it, so the two heads could drift apart and only a developer building one by hand
+    # would find out.
+    #
+    # In this file rather than a workflow of its own, for the reason at the top: two workflows cannot
+    # gate each other and drift instead. But deliberately *not* in the deploy job's `needs` - what goes
+    # to Azure is the API and the web client, and a broken phone build is no reason to hold those back.
+    # This is a check on the pull request, not a gate on the release.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      # .NET for Android compiles the Java half with a JDK, and the runner ships several. Naming one
+      # keeps the build off whichever happens to be the default that week.
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Two separate things, and neither substitutes for the other: the workload is the .NET side, and
+      # the platform the project compiles against has to exist in the Android SDK. Same list as the
+      # Prerequisites section of src/Clients/Orbit.Maui/README.md.
+      - name: Install the Android workload
+        run: dotnet workload install maui-android
+
+      - name: Install the Android platform the head compiles against
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+
+      # Release rather than Debug on purpose: it is the configuration that runs the linker, which is
+      # where a reflection-driven dependency stops resolving. Neither google-services.json nor
+      # AndroidManifestOverlay.xml exists here - both are gitignored - so this is also the build that
+      # proves the app still compiles and packages without them.
+      - name: Build the Android head
+        run: dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj --framework net10.0-android --configuration Release
+
   deploy:
     # The gate the old arrangement only looked like it had: nothing below runs until the suite is green.
     needs: test
