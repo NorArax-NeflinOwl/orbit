@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
@@ -102,6 +103,25 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// <summary>The frequencies, for the picker - in Orbit.Core's own order.</summary>
     public IReadOnlyList<RecurrenceChoice> Frequencies { get; private set; } = [];
 
+    /// <summary>The reminders set on this event, each as the sentence it will read as.</summary>
+    public ObservableCollection<ReminderRow> Reminders { get; } = [];
+
+    /// <summary>What can be added, which is Orbit.Web's own eleven - see ReminderChoice.</summary>
+    public IReadOnlyList<ReminderChoice> ReminderChoices { get; private set; } = [];
+
+    /// <summary>Picking one adds it; there is no separate "add" to press afterwards.</summary>
+    [ObservableProperty]
+    private ReminderChoice? _reminderToAdd;
+
+    /// <summary>How it is announced - when it is made, and as it approaches. Both are Orbit.Web's.</summary>
+    public IReadOnlyList<NotificationChannelChoice> Channels { get; private set; } = [];
+
+    [ObservableProperty]
+    private NotificationChannelChoice? _creationChannel;
+
+    [ObservableProperty]
+    private NotificationChannelChoice? _reminderChannel;
+
     /// <summary>Bound to the picker, which needs an object out of Frequencies rather than a string.</summary>
     public RecurrenceChoice? ChosenFrequency
     {
@@ -135,6 +155,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _editLock = editLock;
         _deviceLocation = deviceLocation;
         Frequencies = RecurrenceChoice.All(translations);
+        ReminderChoices = ReminderChoice.All(translations);
+        Channels = NotificationChannelChoice.All(translations);
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
     }
 
@@ -195,6 +217,39 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// one and is not sent - the same rule Orbit.Web's editor applies.
     /// </summary>
     /// <summary>
+    /// Adding the same reminder twice would be two of the same sentence at the same moment, so a
+    /// duplicate is dropped rather than refused - the reader asked for it, and it is already there.
+    /// </summary>
+    partial void OnReminderToAddChanged(ReminderChoice? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        if (Reminders.All(reminder => reminder.MinutesBefore != value.MinutesBefore))
+        {
+            var added = new ReminderRow(value.MinutesBefore, value.Name);
+            var position = Reminders.Count(reminder => reminder.MinutesBefore < value.MinutesBefore);
+            Reminders.Insert(position, added);
+            SaveCommand.Execute(null);
+        }
+
+        ReminderToAdd = null;
+    }
+
+    [RelayCommand]
+    private Task RemoveReminderAsync(ReminderRow? reminder, CancellationToken cancellationToken)
+    {
+        if (reminder is null || !Reminders.Remove(reminder))
+        {
+            return Task.CompletedTask;
+        }
+
+        return SaveAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// The rule, or none. "Until" is sent as the end of that day so a rule that repeats until the 20th
     /// includes the 20th, which is what somebody picking that date means.
     /// </summary>
@@ -237,6 +292,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Description = Description.Trim() is { Length: > 0 } description ? description : null,
             Location = LocationOrNothing(),
             Recurrence = RecurrenceOrNothing(),
+            ReminderMinutesBeforeStart = [.. Reminders.Select(reminder => reminder.MinutesBefore)],
+            CreationNotificationChannel = CreationChannel?.Value ?? current.CreationNotificationChannel,
+            ReminderNotificationChannel = ReminderChannel?.Value ?? current.ReminderNotificationChannel,
             StartUtc = new DateTimeOffset(start, TimeZoneInfo.Local.GetUtcOffset(start)).ToUniversalTime(),
             EndUtc = new DateTimeOffset(end, TimeZoneInfo.Local.GetUtcOffset(end)).ToUniversalTime(),
             IsAllDay = IsAllDay
@@ -295,6 +353,15 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         EndDate = calendarEvent.Details.IsAllDay ? end.Date.AddDays(-1) : end.Date;
         EndTime = end.TimeOfDay;
         IsAllDay = calendarEvent.Details.IsAllDay;
+
+        Reminders.Clear();
+        foreach (var minutes in calendarEvent.Details.ReminderMinutesBeforeStart.OrderBy(minutes => minutes))
+        {
+            Reminders.Add(new ReminderRow(minutes, ReminderChoice.Describe(minutes, _translations)));
+        }
+
+        CreationChannel = NotificationChannelChoice.For(Channels, calendarEvent.Details.CreationNotificationChannel);
+        ReminderChannel = NotificationChannelChoice.For(Channels, calendarEvent.Details.ReminderNotificationChannel);
 
         IsRecurring = calendarEvent.Details.Recurrence is not null;
         RecurrenceFrequency = calendarEvent.Details.Recurrence?.Frequency ?? "Weekly";

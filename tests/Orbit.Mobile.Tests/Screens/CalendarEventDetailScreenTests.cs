@@ -176,6 +176,67 @@ public sealed class CalendarEventDetailScreenTests
         Assert.False(screen.RecurrenceEnds);
     }
 
+    [Fact]
+    public async Task Reminders_can_be_added_and_taken_off()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ReminderToAdd = screen.ReminderChoices.Single(choice => choice.MinutesBefore == 60);
+        screen.ReminderToAdd = screen.ReminderChoices.Single(choice => choice.MinutesBefore == 10);
+
+        // Kept in the order they happen, not the order they were picked.
+        Assert.Equal([10, 60], (await context.FindAsync(stored.LocalId)).Details.ReminderMinutesBeforeStart);
+
+        await screen.RemoveReminderCommand.ExecuteAsync(screen.Reminders[0]);
+        Assert.Equal([60], (await context.FindAsync(stored.LocalId)).Details.ReminderMinutesBeforeStart);
+    }
+
+    /// <summary>Two of the same sentence at the same moment is not two reminders.</summary>
+    [Fact]
+    public async Task The_same_reminder_twice_is_still_one_reminder()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ReminderToAdd = screen.ReminderChoices.Single(choice => choice.MinutesBefore == 60);
+        screen.ReminderToAdd = screen.ReminderChoices.Single(choice => choice.MinutesBefore == 60);
+
+        Assert.Single(screen.Reminders);
+    }
+
+    /// <summary>
+    /// Orbit.Web offers a custom number of minutes as well as its presets, so a value from there need
+    /// not be one of ours - and saying "80 min before" beats dropping a reminder somebody set.
+    /// </summary>
+    [Fact]
+    public async Task A_reminder_that_is_not_one_of_the_presets_is_still_shown()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0), reminderMinutes: [80]);
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.Equal(80, screen.Reminders.Single().MinutesBefore);
+        Assert.Contains("80", screen.Reminders.Single().Name);
+    }
+
+    [Fact]
+    public async Task How_it_is_announced_can_be_chosen()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ReminderChannel = screen.Channels.Single(channel => channel.Value == "Both");
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("Both", (await context.FindAsync(stored.LocalId)).Details.ReminderNotificationChannel);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -196,14 +257,16 @@ public sealed class CalendarEventDetailScreenTests
         public FixedDeviceLocation Here { get; } = new();
 
         public Task<LocalCalendarEvent> AddEventAsync(
-            DateTime localStart, DateTime localEnd, bool isAllDay = false, RecurrenceDto? recurrence = null)
+            DateTime localStart, DateTime localEnd, bool isAllDay = false, RecurrenceDto? recurrence = null,
+            IReadOnlyList<int>? reminderMinutes = null)
         {
             var start = new DateTimeOffset(localStart, TimeZoneInfo.Local.GetUtcOffset(localStart)).ToUniversalTime();
             var end = new DateTimeOffset(localEnd, TimeZoneInfo.Local.GetUtcOffset(localEnd)).ToUniversalTime();
 
             return _events.CreateAsync(
                 new CalendarEventDetailsDto(
-                    "Standup", null, null, null, start, end, isAllDay, recurrence, [], [], "None", "None"));
+                    "Standup", null, null, null, start, end, isAllDay, recurrence, [],
+                    reminderMinutes ?? [], "None", "None"));
         }
 
         public async Task<LocalCalendarEvent> FindAsync(Guid localId)

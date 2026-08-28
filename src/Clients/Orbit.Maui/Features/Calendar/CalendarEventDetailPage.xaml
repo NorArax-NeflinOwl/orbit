@@ -4,6 +4,8 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:calendar="clr-namespace:Orbit.Maui.Features.Calendar"
+    xmlns:common="clr-namespace:Orbit.Mobile.Screens;assembly=Orbit.Mobile"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     x:DataType="screens:CalendarEventDetailViewModel"
     Title="{Binding Title}">
@@ -92,6 +94,45 @@
                 <DatePicker Date="{Binding RecurrenceUntil}" IsVisible="{Binding RecurrenceEnds}"
                             IsEnabled="{Binding CanEdit}" />
             </VerticalStackLayout>
+
+            <!-- What is set, then what can be added. Picking from the list adds it: an "add" button
+                 after a picker is a second press for a choice already made. -->
+            <Label Text="{controls:Translate 'Reminders'}" Style="{StaticResource FieldLabel}" />
+            <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Reminders}">
+                <BindableLayout.EmptyView>
+                    <Label Text="{controls:Translate 'No reminders.'}" FontSize="12"
+                           Style="{StaticResource SubtleLabel}" />
+                </BindableLayout.EmptyView>
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:ReminderRow">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="{controls:Translate 'Remove'}" FontSize="12" Padding="10,4"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveReminderCommand, x:DataType=calendar:CalendarEventDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+            <!-- A sheet rather than a picker. iOS docks a picker's wheel at the bottom of the screen,
+                 which on a form this long covers Save - and its "Done" lands on top of that button. -->
+            <Button Text="{controls:Translate 'Add reminder'}" HorizontalOptions="Start"
+                    FontSize="12" Padding="12,6" IsVisible="{Binding CanEdit}"
+                    Style="{StaticResource SecondaryButton}"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseReminderCommand, x:DataType=calendar:CalendarEventDetailPage}" />
+
+            <Label Text="{controls:Translate 'Notification when the event is created'}"
+                   Style="{StaticResource FieldLabel}" />
+            <Button Text="{Binding CreationChannel.Name}" HorizontalOptions="Start" FontSize="13" Padding="12,6"
+                    IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseCreationChannelCommand, x:DataType=calendar:CalendarEventDetailPage}" />
+
+            <Label Text="{controls:Translate 'Notification as the event approaches'}"
+                   Style="{StaticResource FieldLabel}" />
+            <Button Text="{Binding ReminderChannel.Name}" HorizontalOptions="Start" FontSize="13" Padding="12,6"
+                    IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseReminderChannelCommand, x:DataType=calendar:CalendarEventDetailPage}" />
 
             <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveCommand}" />
 
