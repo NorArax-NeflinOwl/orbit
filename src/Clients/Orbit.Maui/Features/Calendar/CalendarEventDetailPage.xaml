@@ -97,6 +97,81 @@
 
             <!-- What is set, then what can be added. Picking from the list adds it: an "add" button
                  after a picker is a second press for a choice already made. -->
+            <!-- Who is coming, and who could be. The same two lists Orbit.Web shows. -->
+            <!-- A palette rather than the browser's colour picker, which a phone has no equivalent of.
+                 The chosen one is ringed; "no colour" is the empty first swatch. -->
+            <Label Text="{controls:Translate 'Color'}" Style="{StaticResource FieldLabel}" />
+            <FlexLayout Wrap="Wrap" Direction="Row" AlignContent="Start"
+                        BindableLayout.ItemsSource="{Binding Colours}" IsVisible="{Binding CanEdit}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:EventColourChoice">
+                        <Border WidthRequest="34" HeightRequest="34" Margin="0,0,8,8" StrokeThickness="2"
+                                Stroke="Transparent" BackgroundColor="{Binding Value}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="17" />
+                            </Border.StrokeShape>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseColourCommand, x:DataType=calendar:CalendarEventDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                            <Border.Triggers>
+                                <!-- No colour is an outline, so the swatch is visible at all. -->
+                                <DataTrigger TargetType="Border" Binding="{Binding HasColour}" Value="False">
+                                    <Setter Property="Stroke"
+                                            Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
+                                    <Setter Property="Stroke"
+                                            Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </FlexLayout>
+
+            <Label Text="{controls:Translate 'Guests'}" Style="{StaticResource FieldLabel}" />
+            <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Guests}">
+                <BindableLayout.EmptyView>
+                    <Label Text="{controls:Translate 'No guests.'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                </BindableLayout.EmptyView>
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:GuestRow">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="{controls:Translate 'Remove'}" FontSize="12" Padding="10,4"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UninviteCommand, x:DataType=calendar:CalendarEventDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <Label Text="{controls:Translate 'Add a guest from contacts'}" Style="{StaticResource FieldLabel}"
+                   IsVisible="{Binding CanEdit}" />
+            <Label IsVisible="{Binding HasNobodyToInvite}" FontSize="12" LineBreakMode="WordWrap"
+                   Style="{StaticResource SubtleLabel}">
+                <Label.Text>
+                    <controls:Translate Text="No contacts. A contact will appear here once you start a chat with someone." />
+                </Label.Text>
+            </Label>
+            <VerticalStackLayout Spacing="6" IsVisible="{Binding CanEdit}"
+                                 BindableLayout.ItemsSource="{Binding ContactsToInvite}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:GuestRow">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="{controls:Translate 'Invite'}" FontSize="12" Padding="10,4"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.InviteCommand, x:DataType=calendar:CalendarEventDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
             <Label Text="{controls:Translate 'Reminders'}" Style="{StaticResource FieldLabel}" />
             <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Reminders}">
                 <BindableLayout.EmptyView>

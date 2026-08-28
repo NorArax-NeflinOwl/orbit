@@ -29,6 +29,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     private readonly CalendarClient _calendarClient;
     private readonly EditLock _editLock;
     private readonly IDeviceLocation _deviceLocation;
+    private readonly ChatRepository _contacts;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -103,6 +104,19 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// <summary>The frequencies, for the picker - in Orbit.Core's own order.</summary>
     public IReadOnlyList<RecurrenceChoice> Frequencies { get; private set; } = [];
 
+    /// <summary>The palette, with the chosen one marked - see EventColourChoice.</summary>
+    public ObservableCollection<EventColourChoice> Colours { get; } = [];
+
+    private string? _colour;
+
+    /// <summary>Who is invited, by name. Orbit.Web offers the same list, from the same contacts.</summary>
+    public ObservableCollection<GuestRow> Guests { get; } = [];
+
+    /// <summary>Everyone who could be invited and is not already - the contacts this phone knows.</summary>
+    public ObservableCollection<GuestRow> ContactsToInvite { get; } = [];
+
+    public bool HasNobodyToInvite => ContactsToInvite.Count == 0;
+
     /// <summary>The reminders set on this event, each as the sentence it will read as.</summary>
     public ObservableCollection<ReminderRow> Reminders { get; } = [];
 
@@ -144,7 +158,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     public CalendarEventDetailViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
-        CalendarClient calendarClient, EditLock editLock, IDeviceLocation deviceLocation)
+        CalendarClient calendarClient, EditLock editLock, IDeviceLocation deviceLocation,
+        ChatRepository contacts)
     {
         _events = events;
         _synchronizer = synchronizer;
@@ -154,6 +169,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _calendarClient = calendarClient;
         _editLock = editLock;
         _deviceLocation = deviceLocation;
+        _contacts = contacts;
         Frequencies = RecurrenceChoice.All(translations);
         ReminderChoices = ReminderChoice.All(translations);
         Channels = NotificationChannelChoice.All(translations);
@@ -239,6 +255,65 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private Task ChooseColourAsync(EventColourChoice? colour, CancellationToken cancellationToken)
+    {
+        if (colour is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _colour = colour.Value;
+        ShowColours();
+        return SaveAsync(cancellationToken);
+    }
+
+    private void ShowColours()
+    {
+        Colours.Clear();
+        foreach (var colour in EventColourChoice.All(_colour))
+        {
+            Colours.Add(colour);
+        }
+    }
+
+    /// <summary>Everyone this phone knows who is not already coming.</summary>
+    private void ShowWhoCouldBeInvited(IReadOnlyList<Data.LocalContact> contacts)
+    {
+        ContactsToInvite.Clear();
+        foreach (var contact in contacts.Where(contact => Guests.All(guest => guest.UserId != contact.UserId)))
+        {
+            ContactsToInvite.Add(new GuestRow(contact.UserId, contact.DisplayName));
+        }
+
+        OnPropertyChanged(nameof(HasNobodyToInvite));
+    }
+
+    [RelayCommand]
+    private async Task InviteAsync(GuestRow? guest, CancellationToken cancellationToken)
+    {
+        if (guest is null || Guests.Any(invited => invited.UserId == guest.UserId))
+        {
+            return;
+        }
+
+        Guests.Add(guest);
+        ShowWhoCouldBeInvited(await _contacts.GetContactsAsync(cancellationToken));
+        await SaveAsync(cancellationToken);
+    }
+
+    [RelayCommand]
+    private async Task UninviteAsync(GuestRow? guest, CancellationToken cancellationToken)
+    {
+        if (guest is null || !Guests.Remove(guest))
+        {
+            return;
+        }
+
+        ShowWhoCouldBeInvited(await _contacts.GetContactsAsync(cancellationToken));
+        await SaveAsync(cancellationToken);
+    }
+
+    [RelayCommand]
     private Task RemoveReminderAsync(ReminderRow? reminder, CancellationToken cancellationToken)
     {
         if (reminder is null || !Reminders.Remove(reminder))
@@ -292,6 +367,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Description = Description.Trim() is { Length: > 0 } description ? description : null,
             Location = LocationOrNothing(),
             Recurrence = RecurrenceOrNothing(),
+            Guests = [.. Guests.Select(guest => guest.UserId)],
+            Color = _colour,
             ReminderMinutesBeforeStart = [.. Reminders.Select(reminder => reminder.MinutesBefore)],
             CreationNotificationChannel = CreationChannel?.Value ?? current.CreationNotificationChannel,
             ReminderNotificationChannel = ReminderChannel?.Value ?? current.ReminderNotificationChannel,
@@ -353,6 +430,23 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         EndDate = calendarEvent.Details.IsAllDay ? end.Date.AddDays(-1) : end.Date;
         EndTime = end.TimeOfDay;
         IsAllDay = calendarEvent.Details.IsAllDay;
+
+        _colour = calendarEvent.Details.Color;
+        ShowColours();
+
+        var contacts = await _contacts.GetContactsAsync(cancellationToken);
+        Guests.Clear();
+        foreach (var guestUserId in calendarEvent.Details.Guests)
+        {
+            // Somebody invited from another device need not be a contact of this phone's; their id is
+            // still the truth about who is coming, so they are listed as the id rather than dropped.
+            Guests.Add(new GuestRow(
+                guestUserId,
+                contacts.FirstOrDefault(contact => contact.UserId == guestUserId)?.DisplayName
+                    ?? _translations["Somebody else"]));
+        }
+
+        ShowWhoCouldBeInvited(contacts);
 
         Reminders.Clear();
         foreach (var minutes in calendarEvent.Details.ReminderMinutesBeforeStart.OrderBy(minutes => minutes))

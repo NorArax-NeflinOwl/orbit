@@ -39,3 +39,10 @@ public sealed record ReminderChoice(int MinutesBefore, string Name)
 
 /// <summary>One reminder already set on an event, as the screen lists it.</summary>
 public sealed record ReminderRow(int MinutesBefore, string Name);
+
+/// <summary>
+/// Somebody invited to an event, or who could be. The id is what travels; the name is what a reader
+/// needs, and it comes from this phone's contacts - which is why an invitation made elsewhere can turn
+/// up with a name this phone does not know.
+/// </summary>
+public sealed record GuestRow(Guid UserId, string Name);

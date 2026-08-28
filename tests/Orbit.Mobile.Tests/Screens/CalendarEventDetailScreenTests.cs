@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Chat;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -237,6 +238,48 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Equal("Both", (await context.FindAsync(stored.LocalId)).Details.ReminderNotificationChannel);
     }
 
+    /// <summary>
+    /// Guests were carried through untouched and could not be changed. They come from this phone's own
+    /// contacts, as Orbit.Web's list does.
+    /// </summary>
+    [Fact]
+    public async Task Somebody_can_be_invited_and_uninvited()
+    {
+        using var context = new ScreenContext();
+        var bob = await context.AddContactAsync("Bob");
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        await screen.InviteCommand.ExecuteAsync(screen.ContactsToInvite.Single(contact => contact.UserId == bob));
+        Assert.Equal([bob], (await context.FindAsync(stored.LocalId)).Details.Guests);
+        // Somebody already coming is not offered again.
+        Assert.Empty(screen.ContactsToInvite);
+
+        await screen.UninviteCommand.ExecuteAsync(screen.Guests.Single());
+        Assert.Empty((await context.FindAsync(stored.LocalId)).Details.Guests);
+        Assert.Single(screen.ContactsToInvite);
+    }
+
+    /// <summary>
+    /// Somebody invited from another device need not be a contact of this phone's. Their id is still
+    /// the truth about who is coming, so they are listed rather than quietly dropped on the next save.
+    /// </summary>
+    [Fact]
+    public async Task A_guest_this_phone_does_not_know_is_still_a_guest()
+    {
+        using var context = new ScreenContext();
+        var stranger = Guid.NewGuid();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0), guests: [stranger]);
+
+        var screen = await context.OpenAsync(stored.LocalId);
+        Assert.Equal(stranger, screen.Guests.Single().UserId);
+
+        screen.Title = "Renamed";
+        await screen.SaveCommand.ExecuteAsync(null);
+        Assert.Equal([stranger], (await context.FindAsync(stored.LocalId)).Details.Guests);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -249,6 +292,7 @@ public sealed class CalendarEventDetailScreenTests
         {
             _server = new FakeCalendarServer(_clock);
             _events = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            Contacts = new ChatRepository(_localStore, _clock);
             _synchronizer = new CalendarEventSynchronizer(
                 _localStore, new CalendarClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<CalendarEventSynchronizer>.Instance);
@@ -256,17 +300,34 @@ public sealed class CalendarEventDetailScreenTests
 
         public FixedDeviceLocation Here { get; } = new();
 
+        /// <summary>Who the phone knows, which is where a guest's name comes from.</summary>
+        public ChatRepository Contacts { get; private set; } = null!;
+
         public Task<LocalCalendarEvent> AddEventAsync(
             DateTime localStart, DateTime localEnd, bool isAllDay = false, RecurrenceDto? recurrence = null,
-            IReadOnlyList<int>? reminderMinutes = null)
+            IReadOnlyList<int>? reminderMinutes = null, IReadOnlyList<Guid>? guests = null)
         {
             var start = new DateTimeOffset(localStart, TimeZoneInfo.Local.GetUtcOffset(localStart)).ToUniversalTime();
             var end = new DateTimeOffset(localEnd, TimeZoneInfo.Local.GetUtcOffset(localEnd)).ToUniversalTime();
 
             return _events.CreateAsync(
                 new CalendarEventDetailsDto(
-                    "Standup", null, null, null, start, end, isAllDay, recurrence, [],
+                    "Standup", null, null, null, start, end, isAllDay, recurrence, guests ?? [],
                     reminderMinutes ?? [], "None", "None"));
+        }
+
+        /// <summary>One contact this phone knows, which is what makes somebody invitable.</summary>
+        public async Task<Guid> AddContactAsync(string displayName)
+        {
+            var userId = Guid.NewGuid();
+            await Contacts.StoreContactsAsync(
+            [
+                new ContactDto(
+                    userId, displayName.ToLowerInvariant(), displayName, $"{displayName}@orbit.example",
+                    "key", _clock.GetUtcNow(), false, false)
+            ]);
+
+            return userId;
         }
 
         public async Task<LocalCalendarEvent> FindAsync(Guid localId)
@@ -280,7 +341,7 @@ public sealed class CalendarEventDetailScreenTests
                 new RecordingScreenNavigator(),
                 new CalendarClient(_server.ToHttpClient()),
                 new EditLock(FixedNetworkStatus.Online, _clock, new Translations(new InMemoryLanguageStore())),
-                Here);
+                Here, Contacts);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);
