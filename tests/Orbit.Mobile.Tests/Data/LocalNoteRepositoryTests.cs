@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Notes;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 
@@ -115,11 +116,82 @@ public sealed class LocalNoteRepositoryTests
         Assert.Equal(["Newer", "Older"], notes.Select(note => note.Title));
     }
 
+    [Fact]
+    public async Task Pinning_a_note_queues_a_pin_rather_than_an_edit()
+    {
+        using var context = new RepositoryContext();
+        var note = await context.Repository.CreateAsync("Groceries", SomeContent);
+
+        await context.Repository.SetPinnedAsync(note.LocalId, true);
+
+        var queued = await context.DbContext.Outbox.OrderBy(entry => entry.Id).ToListAsync();
+        Assert.Equal([OutboxOperation.Create, OutboxOperation.SetPinned], queued.Select(entry => entry.Operation));
+        Assert.True(await context.DbContext.Notes.Select(stored => stored.IsPinned).SingleAsync());
+    }
+
+    [Fact]
+    public async Task Pinning_a_note_that_is_already_pinned_queues_nothing()
+    {
+        using var context = new RepositoryContext();
+        var note = await context.Repository.CreateAsync("Groceries", SomeContent);
+        await context.Repository.SetPinnedAsync(note.LocalId, true);
+
+        await context.Repository.SetPinnedAsync(note.LocalId, true);
+
+        Assert.Equal(2, await context.DbContext.Outbox.CountAsync());
+    }
+
+    [Fact]
+    public async Task A_note_somebody_shared_cannot_be_pinned_here()
+    {
+        using var context = new RepositoryContext();
+        var note = await context.Repository.CreateAsync("Theirs", SomeContent);
+        await context.MarkAsSharedWithThisUserAsync(note.LocalId);
+
+        var outcome = await context.Repository.SetPinnedAsync(note.LocalId, true);
+
+        Assert.Equal(LocalWriteOutcome.NotYours, outcome);
+        Assert.False(await context.DbContext.Notes.Select(stored => stored.IsPinned).SingleAsync());
+    }
+
+    /// <summary>
+    /// The offline policy exists because two people can be editing one row. Nobody but the owner can
+    /// pin, so it has nothing to say here - and a pin refused for being offline would be a restriction
+    /// with no reason behind it.
+    /// </summary>
+    [Fact]
+    public async Task A_note_shared_with_others_can_be_pinned_offline_even_though_it_cannot_be_edited()
+    {
+        using var context = new RepositoryContext(FixedNetworkStatus.Offline);
+        var note = await context.Repository.CreateAsync("Ours", SomeContent);
+        await context.MarkAsSharedWithOthersAsync(note.LocalId);
+
+        Assert.Equal(
+            LocalWriteOutcome.RefusedWhileOffline,
+            await context.Repository.UpdateAsync(note.LocalId, "Renamed", SomeContent));
+        Assert.Equal(LocalWriteOutcome.Applied, await context.Repository.SetPinnedAsync(note.LocalId, true));
+    }
+
+    [Fact]
+    public async Task Pinned_notes_are_listed_before_the_rest()
+    {
+        using var context = new RepositoryContext();
+        var older = await context.Repository.CreateAsync("Older", SomeContent);
+        context.Clock.Advance(TimeSpan.FromMinutes(1));
+        await context.Repository.CreateAsync("Newer", SomeContent);
+
+        await context.Repository.SetPinnedAsync(older.LocalId, true);
+
+        var notes = await context.Repository.GetAllAsync();
+        Assert.Equal(["Older", "Newer"], notes.Select(note => note.Title));
+    }
+
     private sealed class RepositoryContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
 
-        public RepositoryContext() => Repository = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online);
+        public RepositoryContext(INetworkStatus? networkStatus = null)
+            => Repository = new LocalNoteRepository(_localStore, Clock, networkStatus ?? FixedNetworkStatus.Online);
 
         public FakeTimeProvider Clock { get; } = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         public LocalNoteRepository Repository { get; }
@@ -127,6 +199,23 @@ public sealed class LocalNoteRepositoryTests
 
         /// <summary>The same database as a later launch of the app would find it.</summary>
         public OrbitLocalDbContext Reopen() => _localStore.CreateDbContext();
+
+        /// <summary>Leaves the note as a pull would leave one that arrived through somebody's share.</summary>
+        public Task MarkAsSharedWithThisUserAsync(Guid localId)
+            => SetSharingAsync(localId, isShared: true, isSharedWithOthers: false);
+
+        /// <summary>Leaves the note as a pull would leave one this user owns and has shared out.</summary>
+        public Task MarkAsSharedWithOthersAsync(Guid localId)
+            => SetSharingAsync(localId, isShared: false, isSharedWithOthers: true);
+
+        private async Task SetSharingAsync(Guid localId, bool isShared, bool isSharedWithOthers)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            var note = await dbContext.Notes.SingleAsync(candidate => candidate.LocalId == localId);
+            note.IsShared = isShared;
+            note.IsSharedWithOthers = isSharedWithOthers;
+            await dbContext.SaveChangesAsync();
+        }
 
         public void Dispose() => _localStore.Dispose();
     }

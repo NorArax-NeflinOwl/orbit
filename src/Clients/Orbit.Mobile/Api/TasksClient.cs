@@ -49,6 +49,19 @@ public sealed class TasksClient
     }
 
     /// <summary>
+    /// Unlike a delete, a 404 here is not the outcome the caller wanted: the server answers one for a
+    /// list that does not exist and for one the caller does not own alike, and only its owner may pin a
+    /// list. Either way nothing queued against it can ever succeed, which is what Gone already says.
+    /// </summary>
+    public async Task<WriteOutcome> SetPinnedAsync(
+        Guid taskListId, bool isPinned, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/pinned", new SetTaskListPinnedRequest(isPinned), cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <summary>
     /// Anything not named here - a server error, a gateway timeout - throws, so the queued change stays
     /// queued and is tried again. Only a refusal the server will repeat is worth giving up on.
     /// </summary>

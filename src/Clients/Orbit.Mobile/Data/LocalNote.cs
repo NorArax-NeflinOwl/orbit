@@ -45,6 +45,13 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
     /// <summary>True when the owner shared this note out and another person can change it.</summary>
     public bool IsSharedWithOthers { get; set; }
 
+    /// <summary>
+    /// Sorts this note above the others, as it does on the web. Only its owner can set it - see
+    /// SetNotePinnedCommandHandler - so a note that arrived through somebody else's share carries
+    /// whatever they chose and offers no way to change it.
+    /// </summary>
+    public bool IsPinned { get; set; }
+
     public string AccessLevel { get; set; } = "CanEdit";
 
     /// <summary>

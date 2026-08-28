@@ -118,6 +118,37 @@ public sealed class LocalTaskListRepository
         return LocalWriteOutcome.Applied;
     }
 
+    /// <summary>
+    /// Pins or unpins a list the user owns. Allowed offline whatever it is shared with, unlike an edit:
+    /// the offline policy exists because two people with CanEdit are editing one row, and only the owner
+    /// can pin - see SetTaskListPinnedCommandHandler - so there is no second writer. Mirrors
+    /// LocalNoteRepository.SetPinnedAsync.
+    /// </summary>
+    public async Task<LocalWriteOutcome> SetPinnedAsync(
+        Guid localId, bool isPinned, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.TaskLists.FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken) is not { } taskList)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (taskList.IsShared)
+        {
+            return LocalWriteOutcome.NotYours;
+        }
+
+        if (taskList.IsPinned == isPinned)
+        {
+            return LocalWriteOutcome.Applied;
+        }
+
+        taskList.IsPinned = isPinned;
+        Enqueue(dbContext, localId, OutboxOperation.SetPinned, _timeProvider.GetUtcNow());
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
     public async Task<LocalWriteOutcome> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);

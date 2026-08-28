@@ -71,6 +71,12 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             return BuildChangeFeed(request.RequestUri.Query);
         }
 
+        // Before the method switch: pinning is a PUT too, but its id is the second-to-last segment.
+        if (path.EndsWith("/pinned", StringComparison.Ordinal))
+        {
+            return await SetPinnedAsync(request, path, cancellationToken);
+        }
+
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
@@ -115,6 +121,20 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    private async Task<HttpResponseMessage> SetPinnedAsync(
+        HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = Guid.Parse(path.Split('/')[^2]);
+        if (!_notes.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<SetNotePinnedRequest>(request, cancellationToken);
+        _notes[id] = existing with { IsPinned = body!.IsPinned, UpdatedAtUtc = _timeProvider.GetUtcNow() };
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 

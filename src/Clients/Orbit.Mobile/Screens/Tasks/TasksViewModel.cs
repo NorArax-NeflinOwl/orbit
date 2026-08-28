@@ -72,6 +72,25 @@ public sealed partial class TasksViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Pinning sorts the list to the top, as it does on the web. The rows are rebuilt before the
+    /// synchronise rather than after it so the row moves under the reader's finger straight away -
+    /// pinning is about ordering, and an order that only settles once the network answers reads as the
+    /// tap having missed.
+    /// </summary>
+    [RelayCommand]
+    private async Task TogglePinnedAsync(TaskListRow? row, CancellationToken cancellationToken)
+    {
+        if (row is null || !row.CanBePinned)
+        {
+            return;
+        }
+
+        await _taskLists.SetPinnedAsync(row.LocalId, !row.IsPinned, cancellationToken);
+        await ShowStoredListsAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
     [RelayCommand]
     private void GoBack() => _navigator.ShowDashboard();
 

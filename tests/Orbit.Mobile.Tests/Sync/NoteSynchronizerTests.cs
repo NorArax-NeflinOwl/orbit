@@ -280,4 +280,40 @@ public sealed class NoteSynchronizerTests
 
         Assert.Single(await context.DbContext.Notes.ToListAsync());
     }
+
+    [Fact]
+    public async Task A_pin_made_offline_reaches_the_server_when_it_comes_back()
+    {
+        using var context = new SyncContext();
+        var note = await context.Notes.CreateAsync("Groceries", SomeContent);
+        await context.SynchroniseAsync();
+        context.GoOffline();
+        await context.Notes.SetPinnedAsync(note.LocalId, true);
+
+        context.ComeBackOnline();
+        await context.SynchroniseAsync();
+
+        Assert.True(context.Server.Notes.Single().IsPinned);
+        Assert.Empty(await context.DbContext.Outbox.ToListAsync());
+    }
+
+    /// <summary>
+    /// The pin is sent as the row holds it, not as it was when queued - so two taps that cancel out
+    /// leave the server agreeing with the screen rather than one behind it.
+    /// </summary>
+    [Fact]
+    public async Task Pinning_and_unpinning_offline_leaves_the_note_unpinned_on_the_server()
+    {
+        using var context = new SyncContext();
+        var note = await context.Notes.CreateAsync("Groceries", SomeContent);
+        await context.SynchroniseAsync();
+        context.GoOffline();
+        await context.Notes.SetPinnedAsync(note.LocalId, true);
+        await context.Notes.SetPinnedAsync(note.LocalId, false);
+
+        context.ComeBackOnline();
+        await context.SynchroniseAsync();
+
+        Assert.False(context.Server.Notes.Single().IsPinned);
+    }
 }

@@ -109,9 +109,12 @@ public sealed class NoteSynchronizer
             return SendResult.Abandoned;
         }
 
-        return entry.Operation is OutboxOperation.Create
-            ? await SendCreateAsync(note, cancellationToken)
-            : await SendUpdateAsync(note, cancellationToken);
+        return entry.Operation switch
+        {
+            OutboxOperation.Create => await SendCreateAsync(note, cancellationToken),
+            OutboxOperation.SetPinned => await SendPinnedAsync(note, cancellationToken),
+            _ => await SendUpdateAsync(note, cancellationToken)
+        };
     }
 
     private async Task<SendResult> SendCreateAsync(LocalNote note, CancellationToken cancellationToken)
@@ -124,6 +127,31 @@ public sealed class NoteSynchronizer
 
         note.ServerId = await _notesClient.CreateAsync(
             new CreateNoteRequest(note.Title, note.Content, note.IsPrivate), cancellationToken);
+        note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
+        return SendResult.Sent;
+    }
+
+    /// <summary>
+    /// Sends the pin as the row holds it now rather than as it was when queued. Two taps that cancel
+    /// out therefore arrive as whatever the note ended up being, which is what the reader sees on
+    /// screen - and the only thing the server can be told anyway, its endpoint taking a state and not
+    /// a change.
+    /// </summary>
+    private async Task<SendResult> SendPinnedAsync(LocalNote note, CancellationToken cancellationToken)
+    {
+        if (note.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this and has not succeeded yet.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _notesClient.SetPinnedAsync(serverId, note.IsPinned, cancellationToken);
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation("The server refused a pin of note {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Abandoned;
+        }
+
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
     }
@@ -217,6 +245,7 @@ public sealed class NoteSynchronizer
         note.IsShared = incoming.IsShared;
         note.SharedByUserName = incoming.SharedByUserName;
         note.IsSharedWithOthers = incoming.IsSharedWithOthers;
+        note.IsPinned = incoming.IsPinned;
         note.AccessLevel = incoming.AccessLevel;
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
     }

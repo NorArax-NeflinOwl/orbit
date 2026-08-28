@@ -81,9 +81,35 @@ public sealed class TaskListSynchronizer
             return SendResult.Abandoned;
         }
 
-        return entry.Operation is OutboxOperation.Create
-            ? await SendCreateAsync(taskList, cancellationToken)
-            : await SendUpdateAsync(taskList, cancellationToken);
+        return entry.Operation switch
+        {
+            OutboxOperation.Create => await SendCreateAsync(taskList, cancellationToken),
+            OutboxOperation.SetPinned => await SendPinnedAsync(taskList, cancellationToken),
+            _ => await SendUpdateAsync(taskList, cancellationToken)
+        };
+    }
+
+    /// <summary>
+    /// Sends the pin as the row holds it now rather than as it was when queued - see the note
+    /// synchronizer's counterpart for why that is the only thing the endpoint can be told.
+    /// </summary>
+    private async Task<SendResult> SendPinnedAsync(LocalTaskList taskList, CancellationToken cancellationToken)
+    {
+        if (taskList.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this and has not succeeded yet.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _tasksClient.SetPinnedAsync(serverId, taskList.IsPinned, cancellationToken);
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation("The server refused a pin of task list {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Abandoned;
+        }
+
+        taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
+        return SendResult.Sent;
     }
 
     private async Task<SendResult> SendCreateAsync(LocalTaskList taskList, CancellationToken cancellationToken)

@@ -20,7 +20,8 @@ namespace Orbit.Mobile.Screens.Notes;
 /// </param>
 public sealed record NoteListItem(
     Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
-    string Status = "", string Updated = "", bool IsHidden = false, string HiddenTitle = "Private")
+    string Status = "", string Updated = "", bool IsHidden = false, string HiddenTitle = "Private",
+    bool IsPinned = false, bool IsShared = false)
 {
     public static NoteListItem From(
         LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked,
@@ -33,8 +34,16 @@ public sealed record NoteListItem(
             OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
             translations.Format(
                 "Updated {0}", note.UpdatedAtUtc.ToLocalTime().ToString("g", translations.DisplayCulture)),
-            IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle);
+            IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle,
+            IsPinned: note.IsPinned, IsShared: note.IsShared);
     }
+
+    /// <summary>
+    /// Only the owner may pin, so a note that arrived through somebody else's share shows its pin state
+    /// without offering to change it - see SetNotePinnedCommandHandler. Unlike editing, this does not
+    /// depend on being online: nobody else can be pinning the same note.
+    /// </summary>
+    public bool CanBePinned => !IsShared;
 
     /// <summary>What the row shows instead of the title while it is hidden.</summary>
     public string DisplayTitle => IsHidden ? HiddenTitle : Title;
