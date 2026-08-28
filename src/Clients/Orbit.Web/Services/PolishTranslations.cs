@@ -77,6 +77,8 @@ internal static class PolishTranslations
         ["Show single items"] = "Pokaż pojedyncze elementy",
         ["In list order"] = "W kolejności listy",
         ["Left to do first"] = "Najpierw do zrobienia",
+        ["Short first"] = "Najpierw braki",
+        ["This list"] = "Ta lista",
         ["{0} crossed off, because the warehouse covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
         ["{0} added from the warehouse."] = "Dodano z magazynu: {0}.",
         ["{0} crossed off, because the warehouse covers them, and {1} added from the warehouse."] =

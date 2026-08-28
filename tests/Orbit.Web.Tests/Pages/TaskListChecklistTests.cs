@@ -240,17 +240,22 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             NullLogger<GoogleIntegrationAccess>.Instance));
     }
 
-    private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
+    /// <param name="stockCheck">
+    /// What the list costs against its warehouse, for the tests that are about that panel. Null means no
+    /// warehouse is chosen for these fixtures, which is what the stock check answers 404 to - and the
+    /// page reads as "no question to answer" rather than as a failure.
+    /// </param>
+    private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists, TaskListStockCheckDto? stockCheck = null)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
             _requests.Add(request);
             _requestBodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty);
-            // No warehouse is chosen for these fixtures, which is what the stock check answers 404 to -
-            // and the page reads as "no question to answer" rather than as a failure.
             if (request.RequestUri!.AbsolutePath.EndsWith("/stock-check", StringComparison.Ordinal))
             {
-                return new HttpResponseMessage(HttpStatusCode.NotFound);
+                return stockCheck is null
+                    ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                    : new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(stockCheck) };
             }
 
             return request.Method == HttpMethod.Put
@@ -278,7 +283,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
-        cut.Find(".list-sort select").Change(nameof(ChecklistOrder.Alphabetical));
+        ChooseInMenu(cut, "A to Z");
 
         Assert.Equal(["Bułki", "Makaron", "Ser"], ItemTextsIn(cut));
     }
@@ -291,7 +296,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
-        cut.Find(".list-sort select").Change(nameof(ChecklistOrder.UndoneFirst));
+        ChooseInMenu(cut, "Left to do first");
 
         // What is left to do, alphabetically, then what is done, alphabetically.
         Assert.Equal(["Bułki", "Chleb", "Makaron", "Ser"], ItemTextsIn(cut));
@@ -318,7 +323,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
-        cut.Find(".list-sort select").Change(nameof(ChecklistOrder.Alphabetical));
+        ChooseInMenu(cut, "A to Z");
 
         Assert.False(FindSaveViewButton(cut).HasAttribute("disabled"));
     }
@@ -334,8 +339,8 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterTasksApiClient([renovation, kitchen, tiling]);
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, renovation.Id));
 
-        cut.FindAll("button").First(button => button.TextContent.Contains("Show single items")).Click();
-        cut.Find(".list-sort select").Change(nameof(ChecklistOrder.Alphabetical));
+        ChooseInMenu(cut, "Show single items");
+        ChooseInMenu(cut, "A to Z");
 
         Assert.Equal(["Grout", "Hinge", "Screw"], ItemTextsIn(cut));
     }
@@ -345,7 +350,32 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         => [.. cut.FindAll(".check-row .check-row-text").Select(row => row.TextContent.Trim())];
 
     private static AngleSharp.Dom.IElement FindSaveViewButton(IRenderedComponent<TaskListChecklist> cut)
-        => cut.FindAll("button").First(button => button.TextContent.Contains("view", StringComparison.OrdinalIgnoreCase));
+    {
+        OpenMenu(cut);
+        return cut.FindAll(".page-header-actions .overflow-menu-dropdown .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("view", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Opens the header menu everything but ticking now lives behind - the first menu on the page, since
+    /// the stock-check panel below has one of its own.
+    /// </summary>
+    private static void OpenMenu(IRenderedComponent<TaskListChecklist> cut)
+    {
+        if (cut.FindAll(".page-header-actions .overflow-menu-dropdown").Count == 0)
+        {
+            cut.FindAll(".page-header-actions .overflow-menu-trigger").First().Click();
+        }
+    }
+
+    /// <summary>Picks an entry out of the header menu by the words on it.</summary>
+    private static void ChooseInMenu(IRenderedComponent<TaskListChecklist> cut, string label)
+    {
+        OpenMenu(cut);
+        cut.FindAll(".page-header-actions .overflow-menu-dropdown .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains(label))
+            .Click();
+    }
 
     private static TaskDto TaskList(string title, params TaskItemDto[] items)
         => new(
@@ -465,6 +495,8 @@ public sealed class TaskListChecklistTests : OrbitTestContext
 
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
 
+        OpenMenu(cut);
+
         Assert.DoesNotContain("Show single items", cut.Markup);
     }
 
@@ -476,6 +508,8 @@ public sealed class TaskListChecklistTests : OrbitTestContext
 
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, tree[0].Id));
 
+        OpenMenu(cut);
+
         Assert.Contains("Show single items", cut.Markup);
     }
 
@@ -486,7 +520,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterTasksApiClient(tree);
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, tree[0].Id));
 
-        cut.FindAll("button").First(button => button.TextContent.Contains("Show single items")).Click();
+        ChooseInMenu(cut, "Show single items");
 
         var rows = cut.FindAll(".check-row").Select(row => row.TextContent).ToList();
         Assert.Contains(rows, row => row.Contains("Grout"));
@@ -494,6 +528,50 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         // The rows that only point at another list are how the tree is held together, not work to tick.
         Assert.DoesNotContain(rows, row => row.Contains("Kitchen done"));
         Assert.Empty(cut.FindAll(".checklist-card .card-title"));
+    }
+
+    [Fact]
+    public void The_stock_check_can_be_read_shortfalls_first()
+    {
+        var group = TaskList("Renovation", Item("Screw")) with { IsGroup = true };
+        RegisterTasksApiClient([group], new TaskListStockCheckDto(IsAchievable: false, [
+            new StockRequirementDto("Anchor", 1, 1, 0),
+            new StockRequirementDto("Screw", 2, 0, 2),
+            new StockRequirementDto("Bolt", 1, 1, 0)]));
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
+
+        ChooseInStockCheckMenu(cut, "Short first");
+
+        // The only row anybody has to act on, first - the rest are already answered.
+        Assert.Equal(["Screw", "Anchor", "Bolt"], StockCheckNames(cut));
+    }
+
+    [Fact]
+    public void Putting_the_stock_check_away_is_remembered_without_pressing_Save_view()
+    {
+        var group = TaskList("Renovation", Item("Screw")) with { IsGroup = true };
+        RegisterTasksApiClient([group], new TaskListStockCheckDto(IsAchievable: true, [
+            new StockRequirementDto("Screw", 1, 1, 0)]));
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
+
+        ChooseInStockCheckMenu(cut, "Hide");
+
+        Assert.Empty(cut.FindAll(".permissions-table"));
+        // Nothing left over to save: a panel somebody puts away has already been answered about.
+        Assert.True(FindSaveViewButton(cut).HasAttribute("disabled"));
+    }
+
+    /// <summary>The names in the stock-check table, in the order it lists them.</summary>
+    private static IReadOnlyList<string> StockCheckNames(IRenderedComponent<TaskListChecklist> cut)
+        => [.. cut.FindAll(".permissions-table tbody tr td:first-child").Select(cell => cell.TextContent.Trim())];
+
+    /// <summary>Picks an entry out of the stock-check panel's own menu - the second one on the page.</summary>
+    private static void ChooseInStockCheckMenu(IRenderedComponent<TaskListChecklist> cut, string label)
+    {
+        cut.FindAll(".stock-check-card .overflow-menu-trigger").First().Click();
+        cut.FindAll(".stock-check-card .overflow-menu-dropdown .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains(label))
+            .Click();
     }
 
     /// <summary>Renovation -> Kitchen -> Tiling, plus a plain Garden - two levels below the root.</summary>

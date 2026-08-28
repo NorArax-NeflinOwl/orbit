@@ -31,6 +31,21 @@
 
     private bool _isOpen;
 
+    /// <summary>
+    /// Shuts the menu from outside it. For a menu that mostly holds settings - and so stays open - but
+    /// carries an action or two as well: those close it behind them, the settings do not.
+    /// </summary>
+    public void Close()
+    {
+        if (!_isOpen)
+        {
+            return;
+        }
+
+        _isOpen = false;
+        StateHasChanged();
+    }
+
     private void Toggle() => _isOpen = !_isOpen;
 
     private void OnClickInside()

@@ -45,30 +45,36 @@ else
             </p>
         </div>
         <div class="page-header-actions">
-            @* What order to read the items in. Offered whatever the list looks like: a single long
-               list is exactly where reading it off alphabetically helps. *@
-            <label class="list-sort">
-                @T["Sort"]
-                <select value="@_reading.Order" @onchange="OnOrderChanged">
-                    <option value="@nameof(ChecklistOrder.AsArranged)">@T["In list order"]</option>
-                    <option value="@nameof(ChecklistOrder.Alphabetical)">@T["A to Z"]</option>
-                    <option value="@nameof(ChecklistOrder.UndoneFirst)">@T["Left to do first"]</option>
-                </select>
-            </label>
-            @* Only for a tree deep enough to be worth flattening. A group whose members are plain lists
-               already reads as one page with headings; the choice is what a nested one needs. *@
-            @if (HasNestedLists)
-            {
-                <button type="button" class="btn-secondary" @onclick="ToggleView">
-                    @(_reading.View == ChecklistView.Flat ? T["Show the lists"] : T["Show single items"])
+            @* Everything this screen offers that is not "tick something off" - one menu rather than a
+               row of buttons and a dropdown, because none of it is what somebody came here to do. It
+               stays open while they set how the page reads, and the entries that act close it. *@
+            <OverflowMenu @ref="_menu" StaysOpen="true">
+                <span class="overflow-menu-heading">@T["Sort"]</span>
+                @* What order to read the items in. Offered whatever the list looks like: a single long
+                   list is exactly where reading it off alphabetically helps. *@
+                @foreach (var order in Enum.GetValues<ChecklistOrder>())
+                {
+                    <button type="button" class="avatar-dropdown-item @(order == _reading.Order ? "chosen" : "")"
+                            @onclick="() => SetOrder(order)">
+                        <span class="card-filter-mark">@(order == _reading.Order ? "✓" : "")</span>
+                        @DescribeOrder(order)
+                    </button>
+                }
+
+                <span class="overflow-menu-heading">@T["This list"]</span>
+                @* Only for a tree deep enough to be worth flattening. A group whose members are plain
+                   lists already reads as one page with headings; the choice is what a nested one needs. *@
+                @if (HasNestedLists)
+                {
+                    <button type="button" class="avatar-dropdown-item" @onclick="ToggleView">
+                        @(_reading.View == ChecklistView.Flat ? T["Show the lists"] : T["Show single items"])
+                    </button>
+                }
+                <button type="button" class="avatar-dropdown-item" disabled="@(_savedReading == _reading)"
+                        @onclick="SaveViewAsync">
+                    @(_savedReading == _reading ? T["View saved"] : T["Save view"])
                 </button>
-            }
-            <button type="button" class="btn-secondary" disabled="@(_savedReading == _reading)" @onclick="SaveViewAsync">
-                @(_savedReading == _reading ? T["View saved"] : T["Save view"])
-            </button>
-            <button type="button" class="btn-secondary" @onclick="GoToDeepEditor">@T["Edit"]</button>
-            @* The things this list can do that are not "tick something off" - see OverflowMenu. *@
-            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToDeepEditor">@T["Edit"]</button>
                 <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
                         @onclick="GenerateInventoryAsync">
                     @T["Generate inventory"]
@@ -95,11 +101,6 @@ else
         <div class="card stock-check-card">
             <div class="card-header">
                 <span class="card-title">@T["Can this be done?"]</span>
-                @* Kept with the view and the order, so a list that is never priced opens without the
-                   panel rather than with it every time. *@
-                <button type="button" class="btn-secondary" @onclick="ToggleStockCheckHidden">
-                    @(_reading.IsStockCheckHidden ? T["Show"] : T["Hide"])
-                </button>
                 <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync">
                     <option value="">@T["Not measured against a warehouse"]</option>
                     @foreach (var warehouse in _warehouses)
@@ -107,6 +108,23 @@ else
                         <option value="@warehouse.Id">@warehouse.Name</option>
                     }
                 </select>
+                @* Whether this panel is in the way, and what order it lists things in - both settings
+                   rather than actions, so the menu stays open while they are being tried. Both are
+                   remembered as they are set: neither is worth pressing Save view for. *@
+                <OverflowMenu StaysOpen="true">
+                    <button type="button" class="avatar-dropdown-item" @onclick="ToggleStockCheckHiddenAsync">
+                        @(_reading.IsStockCheckHidden ? T["Show"] : T["Hide"])
+                    </button>
+                    <span class="overflow-menu-heading">@T["Sort"]</span>
+                    @foreach (var stockOrder in Enum.GetValues<StockCheckOrder>())
+                    {
+                        <button type="button" class="avatar-dropdown-item @(stockOrder == _reading.StockOrder ? "chosen" : "")"
+                                @onclick="() => SetStockOrderAsync(stockOrder)">
+                            <span class="card-filter-mark">@(stockOrder == _reading.StockOrder ? "✓" : "")</span>
+                            @DescribeStockOrder(stockOrder)
+                        </button>
+                    }
+                </OverflowMenu>
             </div>
 
             @if (_stockCheck is { } stockCheck && !_reading.IsStockCheckHidden)
@@ -131,7 +149,7 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var requirement in stockCheck.Requirements)
+                        @foreach (var requirement in RequirementsToShow(stockCheck))
                         {
                             <tr class="@(requirement.Missing > 0 ? "stock-check-short" : "")">
                                 <td>@requirement.Name</td>
@@ -254,6 +272,12 @@ else
     /// </summary>
     private ChecklistReading _reading = ChecklistReading.Default;
     private ChecklistReading? _savedReading;
+
+    /// <summary>
+    /// The header menu, held so the entries that act - rather than set how the page reads - can shut it
+    /// behind them. See OverflowMenu.Close.
+    /// </summary>
+    private OverflowMenu? _menu;
 
     /// <summary>The warehouses this reader could measure against, and which one is chosen.</summary>
     private IReadOnlyList<WarehouseDto> _warehouses = [];
@@ -440,7 +464,11 @@ else
         await LoadAsync();
     }
 
-    private void GoToDeepEditor() => NavigationManager.NavigateTo($"/tasks/{Id}");
+    private void GoToDeepEditor()
+    {
+        _menu?.Close();
+        NavigationManager.NavigateTo($"/tasks/{Id}");
+    }
 
     private void GoToTaskLists() => NavigationManager.NavigateTo("/tasks");
 
@@ -533,6 +561,7 @@ else
     /// </summary>
     private async Task GenerateInventoryAsync()
     {
+        _menu?.Close();
         _isWorkingOnInventory = true;
         _shortfallMessage = null;
         Logger.LogInformation("User generated an inventory from task list {TaskListId}", Id);
@@ -605,6 +634,7 @@ else
     /// </summary>
     private async Task RecalculateAsync()
     {
+        _menu?.Close();
         _isWorkingOnInventory = true;
         _shortfallMessage = null;
         Logger.LogInformation("User recalculated the stock check for task list {TaskListId}", Id);
@@ -648,23 +678,73 @@ else
     }
 
     /// <summary>
-    /// Puts the panel that prices this list against a warehouse out of the way, or brings it back. Kept
-    /// with the rest of how this list reads, so "Save view" keeps it too.
+    /// Puts the panel that prices this list against a warehouse out of the way, or brings it back -
+    /// remembered as it is set rather than waiting for "Save view", since a panel somebody keeps putting
+    /// away every visit is one they have already answered about.
     /// </summary>
-    private void ToggleStockCheckHidden()
+    private async Task ToggleStockCheckHiddenAsync()
     {
         _reading = _reading with { IsStockCheckHidden = !_reading.IsStockCheckHidden };
         Logger.LogInformation(
             "User {Action} the stock check on task list {TaskListId}", _reading.IsStockCheckHidden ? "hid" : "showed", Id);
+        await RememberAsync(saved => saved with { IsStockCheckHidden = _reading.IsStockCheckHidden });
     }
 
-    private void OnOrderChanged(ChangeEventArgs args)
+    /// <summary>What order the panel lists what the work needs in - remembered the same way, and for the same reason.</summary>
+    private async Task SetStockOrderAsync(StockCheckOrder stockOrder)
     {
-        _reading = _reading with
-        {
-            Order = Enum.TryParse<ChecklistOrder>(args.Value?.ToString(), out var order) ? order : ChecklistOrder.AsArranged
-        };
+        _reading = _reading with { StockOrder = stockOrder };
+        Logger.LogInformation("User ordered the stock check by {StockOrder} on task list {TaskListId}", stockOrder, Id);
+        await RememberAsync(saved => saved with { StockOrder = stockOrder });
     }
+
+    /// <summary>
+    /// Keeps one part of how this list reads without keeping the rest: somebody trying another view or
+    /// order has not said they want it back tomorrow, and "Save view" is how they say that.
+    /// </summary>
+    private async Task RememberAsync(Func<ChecklistReading, ChecklistReading> change)
+    {
+        _savedReading = change(_savedReading ?? ChecklistReading.Default);
+        await ChecklistViewPreference.SaveAsync(Id, _savedReading);
+    }
+
+    private void SetOrder(ChecklistOrder order)
+    {
+        _reading = _reading with { Order = order };
+        Logger.LogInformation("User read task list {TaskListId} in {Order} order", Id, order);
+    }
+
+    private string DescribeOrder(ChecklistOrder order) => order switch
+    {
+        ChecklistOrder.Alphabetical => T["A to Z"],
+        ChecklistOrder.UndoneFirst => T["Left to do first"],
+        _ => T["In list order"]
+    };
+
+    private string DescribeStockOrder(StockCheckOrder stockOrder) => stockOrder switch
+    {
+        StockCheckOrder.Alphabetical => T["A to Z"],
+        StockCheckOrder.ReverseAlphabetical => T["Z to A"],
+        StockCheckOrder.ShortFirst => T["Short first"],
+        _ => T["In list order"]
+    };
+
+    /// <summary>
+    /// What the panel needs, in the order this reader asked for. "Short first" groups by whether the
+    /// shelf covers a line at all, which is the only thing on this table anybody has to act on.
+    /// </summary>
+    private IReadOnlyList<StockRequirementDto> RequirementsToShow(TaskListStockCheckDto stockCheck) => _reading.StockOrder switch
+    {
+        StockCheckOrder.Alphabetical =>
+            [.. stockCheck.Requirements.OrderBy(requirement => requirement.Name, StringComparer.CurrentCultureIgnoreCase)],
+        StockCheckOrder.ReverseAlphabetical =>
+            [.. stockCheck.Requirements.OrderByDescending(requirement => requirement.Name, StringComparer.CurrentCultureIgnoreCase)],
+        StockCheckOrder.ShortFirst =>
+            [.. stockCheck.Requirements
+                .OrderByDescending(requirement => requirement.Missing > 0)
+                .ThenBy(requirement => requirement.Name, StringComparer.CurrentCultureIgnoreCase)],
+        _ => stockCheck.Requirements
+    };
 
     /// <summary>Keeps the way this list is being read now as the way it opens next time - on this device.</summary>
     private async Task SaveViewAsync()
