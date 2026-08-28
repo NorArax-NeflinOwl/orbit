@@ -209,6 +209,14 @@ in the commands above (`system-images;android-29;google_apis;arm64-v8a`) for one
 "$HOME/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager" create avd -n Orbit_Pixel_8_API_29 -k "system-images;android-29;google_apis;arm64-v8a" -d pixel_8
 ```
 
+**Dark mode on that image needs the setting written directly.** `adb shell cmd uimode night yes` is
+refused there — the image reports `mNightModeLocked=true` — which looks like dark mode being
+unavailable rather than one route to it being closed. The setting takes, and survives a restart:
+
+```bash
+adb shell settings put secure ui_night_mode 2 && adb reboot
+```
+
 ## Building for iOS from Windows
 
 Possible, but the Mac is not optional — Apple's toolchain runs only on macOS. Under MAUI it can be a
