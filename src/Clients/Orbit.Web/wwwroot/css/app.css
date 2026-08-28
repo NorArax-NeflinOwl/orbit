@@ -2889,6 +2889,20 @@ input.note-editor-title {
     font-size: 12px;
 }
 
+/* What a row that only points at another list actually stands for. Indented and quieter than the rows
+   of the card's own list, so the card still reads as one list with something folded into it. */
+.task-preview-row-linked {
+    padding-left: 22px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+/* The card being carried somewhere else, kept visible but clearly picked up - mirrors .editor-item.dragging. */
+.task-list-card.dragging {
+    opacity: 0.45;
+    border-style: dashed;
+}
+
 .empty-hint {
     color: var(--text-tertiary);
     font-size: 13px;

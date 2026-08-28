@@ -162,7 +162,7 @@
                                 <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
                                 <span class="row-title">@dueTask.Description</span>
                                 <span class="row-meta">@dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-                                <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(dueTask.TaskListId)">@T["Open"]</button>
+                                <button type="button" class="btn-secondary" @onclick="() => GoToTaskList(dueTask.TaskListId)">@T["Open"]</button>
                             </div>
                         }
                     </div>
@@ -189,13 +189,13 @@
         @switch (_viewState.ViewMode)
         {
             case CalendarViewMode.Day:
-                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToEditTaskList" />
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToTaskList" />
                 break;
             case CalendarViewMode.Year:
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
                 break;
             default:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToEditTaskList" />
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToTaskList" />
                 break;
         }
     </div>
@@ -229,6 +229,12 @@
 
     private IReadOnlyList<CalendarEventDto>? _events;
     private IReadOnlyList<DueTaskDto>? _dueTasks;
+
+    /// <summary>
+    /// Every list the due tasks came from, kept from that same read - it is what says which list a
+    /// clicked deadline belongs to, and which list gathers that one (see GoToTaskList).
+    /// </summary>
+    private IReadOnlyList<TaskDto> _taskLists = [];
     private IReadOnlyList<ContactDto> _contacts = [];
     private readonly CalendarViewState _viewState = new();
 
@@ -302,8 +308,8 @@
     /// </summary>
     private async Task<IReadOnlyList<DueTaskDto>> LoadDueTasksAsync()
     {
-        var taskLists = await TasksApiClient.GetTaskListsAsync();
-        return taskLists
+        _taskLists = await TasksApiClient.GetTaskListsAsync();
+        return _taskLists
             .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
             .Where(pair => pair.item.DueDateUtc is not null)
             .Select(pair => new DueTaskDto(pair.taskList.Id, pair.item.Id, pair.item.Description, pair.item.DueDateUtc!.Value, pair.item.IsCompleted))
@@ -360,11 +366,42 @@
         NavigationManager.NavigateTo($"/calendar/{eventId}");
     }
 
-    private void GoToEditTaskList(Guid taskListId)
+    /// <summary>
+    /// Opens the checklist rather than the deep editor: clicking a deadline on a calendar is a move
+    /// towards ticking it off, not towards rewriting the list it is on.
+    /// </summary>
+    private void GoToTaskList(Guid taskListId)
     {
-        Logger.LogInformation("User clicked a due-task entry on the calendar for task list {TaskListId}", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}");
+        var opened = WhicheverListGathersIt(taskListId);
+        Logger.LogInformation(
+            "User clicked a due-task entry on the calendar for task list {TaskListId}, opening {OpenedTaskListId}",
+            taskListId, opened);
+        NavigationManager.NavigateTo($"/tasks/{opened}/checklist");
     }
+
+    /// <summary>
+    /// The list to actually open: one gathered by a group list is read as part of that group, so the
+    /// group opens instead - and the group's own group above that, up to the top of the tree. A list
+    /// nothing gathers is its own answer.
+    ///
+    /// The already-seen set is what stops a pair of lists that gather each other from looping forever.
+    /// </summary>
+    private Guid WhicheverListGathersIt(Guid taskListId)
+    {
+        var alreadySeen = new HashSet<Guid> { taskListId };
+        while (Gatherer(taskListId) is { } gatherer && alreadySeen.Add(gatherer))
+        {
+            taskListId = gatherer;
+        }
+
+        return taskListId;
+    }
+
+    private Guid? Gatherer(Guid taskListId)
+        => _taskLists
+            .FirstOrDefault(candidate => candidate.IsGroup
+                && candidate.Items.Any(item => item.LinkedTaskListId == taskListId))
+            ?.Id;
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
     {

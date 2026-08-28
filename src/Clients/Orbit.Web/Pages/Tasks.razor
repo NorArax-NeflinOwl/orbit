@@ -5,6 +5,7 @@
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject TaskListArrangement Arrangement
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Tasks> Logger
@@ -19,6 +20,20 @@
     </div>
     <div class="page-header-actions">
         <button type="button" class="btn-primary" @onclick="GoToAddTaskList">@T["Add task list"]</button>
+        @* The order these cards come in is something a reader sets once and then reads by, so it lives
+           behind the menu rather than in a control taking up the top of every visit. Stays open while
+           they try one order and then another - see OverflowMenu.StaysOpen. *@
+        <OverflowMenu StaysOpen="true">
+            <span class="overflow-menu-heading">@T["Sort"]</span>
+            @foreach (var sortOrder in Enum.GetValues<TaskListSortOrder>())
+            {
+                <button type="button" class="avatar-dropdown-item @(sortOrder == Arrangement.SortOrder ? "chosen" : "")"
+                        @onclick="() => SetSortOrderAsync(sortOrder)">
+                    <span class="card-filter-mark">@(sortOrder == Arrangement.SortOrder ? "✓" : "")</span>
+                    @DescribeSortOrder(sortOrder)
+                </button>
+            }
+        </OverflowMenu>
     </div>
 </div>
 
@@ -36,40 +51,45 @@ else
         <div class="list-filters">
             @* "All" is a filter like the rest rather than a way of clearing them, so there is always
                exactly one answer to "what am I looking at". *@
-            <button type="button" class="filter-chip @(_statusFilter is null ? "on" : "")"
-                    @onclick="() => SetStatusFilter(null)">@T["All"]<span class="filter-chip-count">@_taskLists.Count</span>
+            <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
+                    @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@_taskLists.Count</span>
             </button>
-            @foreach (var status in StatusFilters)
+            @foreach (var filter in SelectableFilters)
             {
-                <button type="button" class="filter-chip @(_statusFilter == status ? "on" : "")"
-                        @onclick="() => SetStatusFilter(status)">
-                    @DescribeStatus(status) <span class="filter-chip-count">@CountWithStatus(status)</span>
+                <button type="button" class="filter-chip @(_filter == filter ? "on" : "")"
+                        @onclick="() => SetFilter(filter)">
+                    @DescribeFilter(filter) <span class="filter-chip-count">@CountMatching(filter)</span>
                 </button>
             }
         </div>
-        <label class="list-sort">
-            @T["Sort"]
-            <select @bind="_sortOrder" @bind:after="OnSortChanged">
-                <option value="@TaskListSortOrder.Priority">@T["Priority"]</option>
-                <option value="@TaskListSortOrder.Newest">@T["Newest first"]</option>
-                <option value="@TaskListSortOrder.Oldest">@T["Oldest first"]</option>
-                <option value="@TaskListSortOrder.Alphabetical">@T["A to Z"]</option>
-                <option value="@TaskListSortOrder.ReverseAlphabetical">@T["Z to A"]</option>
-            </select>
-        </label>
     </div>
 
     @if (VisibleTaskLists.Count == 0)
     {
-        <p class="empty-hint">@T.Format("No lists are {0}.", DescribeStatus(_statusFilter!.Value).ToLowerInvariant())</p>
+        <p class="empty-hint">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
     }
 
     <div class="card-grid">
         @foreach (var taskList in VisibleTaskLists)
         {
-            <div class="card task-list-card">
+            <div class="card task-list-card @(_cardOrder.IsDragging(taskList) ? "dragging" : "")" @key="taskList.Id"
+                 @ondragover:preventDefault="true" @ondrop="() => DropCardOnAsync(taskList)">
                 <div class="card-header">
                     <span class="card-title">
+                        @* Only where dragging means something: in every other order the cards are
+                           arranged by an answer, and moving one by hand would not survive a redraw. *@
+                        @if (Arrangement.SortOrder == TaskListSortOrder.Manual)
+                        {
+                            <span class="drag-handle" draggable="true" title="@(T["Drag to reorder"])"
+                                  aria-label="@(T["Drag to reorder"])"
+                                  @ondragstart="() => _cardOrder.Start(taskList)" @ondragend="_cardOrder.Finish">
+                                <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">
+                                    <circle cx="4" cy="4" r="1.3" /><circle cx="8" cy="4" r="1.3" />
+                                    <circle cx="4" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" />
+                                    <circle cx="4" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" />
+                                </svg>
+                            </span>
+                        }
                         @taskList.Title
                         @if (taskList.IsGroup)
                         {
@@ -100,6 +120,13 @@ else
                     </span>
                 </div>
 
+                @* Where a calendar list happens - the one thing that kind of list carries beyond its
+                   entries, and the thing you would want to see without opening it. *@
+                @if (taskList.Location.Length > 0)
+                {
+                    <p class="row-meta">@taskList.Location</p>
+                }
+
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
                    checklist view one click away for working through it. *@
                 @foreach (var item in taskList.Items.Take(PreviewItemCount))
@@ -116,6 +143,25 @@ else
                             <span class="row-meta">@dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
                         }
                     </div>
+
+                    @* What a row that only points at another list actually stands for. Without it a
+                       group list's card is a stack of titles, which says nothing about the work. *@
+                    @if (item.LinkedTaskListId is { } linkedTaskListId)
+                    {
+                        @foreach (var linkedItem in LinkedItems(linkedTaskListId))
+                        {
+                            <div class="list-row task-preview-row task-preview-row-linked @(linkedItem.IsCompleted ? "completed" : "")">
+                                <span class="task-preview-mark">@(linkedItem.IsCompleted ? "✓" : "")</span>
+                                <span class="row-title">@linkedItem.Description</span>
+                            </div>
+                        }
+                        @if (LinkedItemCount(linkedTaskListId) > LinkedPreviewItemCount)
+                        {
+                            <div class="list-row task-preview-row-linked">
+                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - LinkedPreviewItemCount)</span>
+                            </div>
+                        }
+                    }
                 }
                 @if (taskList.Items.Count > PreviewItemCount)
                 {
@@ -141,14 +187,14 @@ else
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;
 
-    /// <summary>Which statuses the filter row offers, in the order a list moves through them.</summary>
-    private static readonly TaskListStatus[] StatusFilters =
-        [TaskListStatus.New, TaskListStatus.Pending, TaskListStatus.Overdue, TaskListStatus.Completed];
+    /// <summary>What the chips offer, in the order a list moves through its statuses - with "shared" after them, since it is about where a list came from rather than how far along it is.</summary>
+    private static readonly TaskListFilter[] SelectableFilters =
+        [TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue, TaskListFilter.Completed, TaskListFilter.Shared];
 
-    /// <summary>Null means every list - see the "All" chip, which is a filter like the others rather than a way of clearing them.</summary>
-    private TaskListStatus? _statusFilter;
+    private TaskListFilter _filter = TaskListFilter.All;
 
-    private TaskListSortOrder _sortOrder = TaskListSortOrder.Priority;
+    /// <summary>The card being dragged to a new place, while one is - see DragReordering.</summary>
+    private readonly DragReordering<TaskDto> _cardOrder = new();
 
     /// <summary>
     /// Filtering and sorting happen here rather than on the server: the page already has every list it
@@ -158,31 +204,53 @@ else
     {
         get
         {
-            var visible = _taskLists ?? [];
-            if (_statusFilter is { } status)
-            {
-                visible = visible.Where(taskList => ParseStatus(taskList) == status).ToList();
-            }
-
-            return Sort(visible, _sortOrder);
+            var visible = (_taskLists ?? []).Where(taskList => Matches(taskList, _filter)).ToList();
+            return Sort(visible, Arrangement);
         }
     }
 
     /// <summary>
-    /// Pinned lists lead whatever the reader is sorting by - that is what pinning is for, and a pin that
-    /// only held under one sort order would not be worth setting.
+    /// A status chip matches the status the list is in; "Shared" matches where it came from instead. The
+    /// two are compared by name because the chips are one list, and the statuses are the other.
     /// </summary>
-    private static IReadOnlyList<TaskDto> Sort(IReadOnlyList<TaskDto> taskLists, TaskListSortOrder sortOrder)
-        => SortWithinPinning(taskLists, sortOrder)
-            .OrderByDescending(taskList => taskList.IsPinned)
-            .ToList();
+    private static bool Matches(TaskDto taskList, TaskListFilter filter) => filter switch
+    {
+        TaskListFilter.All => true,
+        TaskListFilter.Shared => taskList.IsShared,
+        _ => ParseStatus(taskList).ToString() == filter.ToString()
+    };
+
+    /// <summary>
+    /// Pinned lists lead whatever the reader is sorting by - that is what pinning is for, and a pin that
+    /// only held under one sort order would not be worth setting. The order the reader dragged the cards
+    /// into is the exception: it already says where every card goes, and pinning would contradict it.
+    /// </summary>
+    private static IReadOnlyList<TaskDto> Sort(IReadOnlyList<TaskDto> taskLists, TaskListArrangement arrangement)
+        => arrangement.SortOrder == TaskListSortOrder.Manual
+            ? [.. AsArranged(taskLists, arrangement.ManualOrder)]
+            : [.. SortWithinPinning(taskLists, arrangement.SortOrder).OrderByDescending(taskList => taskList.IsPinned)];
+
+    /// <summary>
+    /// The reader's own order, with anything they have not placed yet - a list made or shared since the
+    /// last drag - after it rather than at the front, where it would push their arrangement about.
+    /// </summary>
+    private static IEnumerable<TaskDto> AsArranged(IReadOnlyList<TaskDto> taskLists, IReadOnlyList<Guid> manualOrder)
+    {
+        var placeById = manualOrder
+            .Select((taskListId, place) => (taskListId, place))
+            .ToDictionary(entry => entry.taskListId, entry => entry.place);
+        return taskLists.OrderBy(taskList => placeById.GetValueOrDefault(taskList.Id, int.MaxValue));
+    }
 
     private static IEnumerable<TaskDto> SortWithinPinning(IReadOnlyList<TaskDto> taskLists, TaskListSortOrder sortOrder) => sortOrder switch
     {
         // Within a priority, newest first: two lists that matter equally are most usefully ordered by
         // which was touched last.
         TaskListSortOrder.Priority => taskLists
-            .OrderByDescending(taskList => ParsePriority(taskList))
+            .OrderByDescending(ParsePriority)
+            .ThenByDescending(taskList => taskList.UpdatedAtUtc),
+        TaskListSortOrder.LeastImportantFirst => taskLists
+            .OrderBy(ParsePriority)
             .ThenByDescending(taskList => taskList.UpdatedAtUtc),
         TaskListSortOrder.Newest => taskLists.OrderByDescending(taskList => taskList.CreatedAtUtc),
         TaskListSortOrder.Oldest => taskLists.OrderBy(taskList => taskList.CreatedAtUtc),
@@ -190,8 +258,8 @@ else
         _ => taskLists.OrderByDescending(taskList => taskList.Title, StringComparer.CurrentCultureIgnoreCase)
     };
 
-    private int CountWithStatus(TaskListStatus status)
-        => _taskLists?.Count(taskList => ParseStatus(taskList) == status) ?? 0;
+    private int CountMatching(TaskListFilter filter)
+        => (_taskLists ?? []).Count(taskList => Matches(taskList, filter));
 
     /// <summary>
     /// Re-reads the lists afterwards rather than editing the one in hand: the server decides what a list
@@ -214,13 +282,36 @@ else
         }
     }
 
-    private void SetStatusFilter(TaskListStatus? status)
+    private void SetFilter(TaskListFilter filter)
     {
-        _statusFilter = status;
-        Logger.LogInformation("Task list filter set to {StatusFilter}", status?.ToString() ?? "All");
+        _filter = filter;
+        Logger.LogInformation("Task list filter set to {Filter}", filter);
     }
 
-    private void OnSortChanged() => Logger.LogInformation("Task lists sorted by {SortOrder}", _sortOrder);
+    private async Task SetSortOrderAsync(TaskListSortOrder sortOrder)
+    {
+        await Arrangement.SetSortOrderAsync(sortOrder);
+        Logger.LogInformation("Task lists sorted by {SortOrder}", sortOrder);
+    }
+
+    /// <summary>
+    /// Where a card was dropped is where it belongs. The whole visible order is written back rather than
+    /// the one card that moved: a stored order that named only the cards somebody had touched would put
+    /// the rest wherever they happened to fall.
+    /// </summary>
+    private async Task DropCardOnAsync(TaskDto target)
+    {
+        var arranged = VisibleTaskLists.ToList();
+        if (!_cardOrder.DropOn(arranged, target))
+        {
+            _cardOrder.Finish();
+            return;
+        }
+
+        _cardOrder.Finish();
+        await Arrangement.SetManualOrderAsync([.. arranged.Select(taskList => taskList.Id)]);
+        Logger.LogInformation("User dragged task list {TaskListId} to a new place", target.Id);
+    }
 
     /// <summary>An unrecognised status reads as New - a status this client doesn't know yet is not one it should invent a meaning for.</summary>
     private static TaskListStatus ParseStatus(TaskDto taskList)
@@ -229,12 +320,22 @@ else
     private static ItemPriority ParsePriority(TaskDto taskList)
         => Enum.TryParse<ItemPriority>(taskList.Priority, out var priority) ? priority : ItemPriority.Normal;
 
-    /// <summary>Mirrors the wording of TaskEditor's own priority dropdown, so a list reads the same in both places.</summary>
+    /// <summary>Mirrors TaskEditor's own priority dropdown, so a list reads the same in both places.</summary>
     private string DescribePriority(ItemPriority priority) => priority switch
     {
         ItemPriority.Low => T["Low"],
         ItemPriority.High => T["High"],
         _ => T["Normal"]
+    };
+
+    private string DescribeFilter(TaskListFilter filter) => filter switch
+    {
+        TaskListFilter.Pending => T["In progress"],
+        TaskListFilter.Completed => T["Done"],
+        TaskListFilter.Overdue => T["Overdue"],
+        TaskListFilter.Shared => T["Shared"],
+        TaskListFilter.All => T["All"],
+        _ => T["Not started"]
     };
 
     private string DescribeStatus(TaskListStatus status) => status switch
@@ -245,18 +346,45 @@ else
         _ => T["Not started"]
     };
 
-    /// <summary>The orders the sort dropdown offers - Priority first, since it is the one the reader set themselves.</summary>
-    private enum TaskListSortOrder
+    private string DescribeSortOrder(TaskListSortOrder sortOrder) => sortOrder switch
     {
-        Priority,
-        Newest,
-        Oldest,
-        Alphabetical,
-        ReverseAlphabetical
+        TaskListSortOrder.Priority => T["Most important first"],
+        TaskListSortOrder.LeastImportantFirst => T["Least important first"],
+        TaskListSortOrder.Newest => T["Newest first"],
+        TaskListSortOrder.Oldest => T["Oldest first"],
+        TaskListSortOrder.Alphabetical => T["A to Z"],
+        TaskListSortOrder.ReverseAlphabetical => T["Z to A"],
+        _ => T["The way I arranged them"]
+    };
+
+    /// <summary>
+    /// What a card can be narrowed down to: where a list has got to, or - for Shared - where it came
+    /// from. One list rather than two controls, because a reader is only ever asking one of them.
+    /// </summary>
+    private enum TaskListFilter
+    {
+        All,
+        New,
+        Pending,
+        Overdue,
+        Completed,
+        Shared
     }
 
     /// <summary>How much of a list to show on its card before falling back to "and N more" - a card is for recognising a list, not working through it.</summary>
     private const int PreviewItemCount = 4;
+
+    /// <summary>How much of a linked list to show under the row that points at it - less than the card's own preview, since it is standing in for one line of it.</summary>
+    private const int LinkedPreviewItemCount = 3;
+
+    /// <summary>The work a linked row actually stands for, as far as the card has room for.</summary>
+    private IEnumerable<TaskItemDto> LinkedItems(Guid linkedTaskListId)
+        => LinkedTaskList(linkedTaskListId)?.Items.Take(LinkedPreviewItemCount) ?? [];
+
+    private int LinkedItemCount(Guid linkedTaskListId) => LinkedTaskList(linkedTaskListId)?.Items.Count ?? 0;
+
+    private TaskDto? LinkedTaskList(Guid linkedTaskListId)
+        => (_taskLists ?? []).FirstOrDefault(candidate => candidate.Id == linkedTaskListId);
 
     private static string CompletionSummary(TaskDto taskList)
         => taskList.Items.Count == 0 ? "empty" : $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";
@@ -264,6 +392,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Tasks page opened, loading task lists");
+        await Arrangement.InitializeAsync();
         try
         {
             _taskLists = await TasksApiClient.GetTaskListsAsync();
