@@ -254,6 +254,13 @@ setx ANDROID_HOME "$env:LOCALAPPDATA\Android\Sdk"
 any usable speed, so the image has to match the host — the one place where the two machines' setup
 genuinely differs rather than just being spelled differently.
 
+**Keep reaching for Visual Studio's `sdkmanager` afterwards, not the one that lands in the new SDK.**
+The command-line tools installed above ship version 19, where `sdkmanager` is a shim that hands over
+to the `android` CLI — which does not understand a `package;with;semicolons` argument and answers
+`Package system-images not found` for every part of it separately. That reads as a package that has
+been withdrawn rather than a tool that cannot parse its name. The older one, at the path in the
+command above, installs into any `--sdk_root` you point it at.
+
 Then the same two reference devices as above, for the same reasons — only the tool's path and the image
 architecture change:
 
