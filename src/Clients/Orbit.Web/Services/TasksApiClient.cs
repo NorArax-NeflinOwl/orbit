@@ -95,13 +95,16 @@ public sealed class TasksApiClient
         return result?.AddedCount ?? 0;
     }
 
-    /// <summary>Crosses off what the linked warehouse covers, and answers how many entries that was.</summary>
-    public async Task<int> CompleteWorkCoveredByStockAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Brings this list and the warehouse it is measured against back into step: what the shelf covers
+    /// is crossed off, and what the shelf holds but no list mentions is added. Answers what moved.
+    /// </summary>
+    public async Task<StockReconciliationResultDto> ReconcileWithStockAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/stock-check/completed", content: null, cancellationToken);
+        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/stock-check/reconciliation", content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<CompleteWorkCoveredByStockResultDto>(cancellationToken);
-        return result?.CompletedCount ?? 0;
+        var result = await response.Content.ReadFromJsonAsync<StockReconciliationResultDto>(cancellationToken);
+        return result ?? new StockReconciliationResultDto(0, 0);
     }
 
     /// <summary>

@@ -78,6 +78,9 @@ internal static class PolishTranslations
         ["In list order"] = "W kolejności listy",
         ["Left to do first"] = "Najpierw do zrobienia",
         ["{0} crossed off, because the warehouse covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
+        ["{0} added from the warehouse."] = "Dodano z magazynu: {0}.",
+        ["{0} crossed off, because the warehouse covers them, and {1} added from the warehouse."] =
+            "Odhaczono {0}, bo magazyn je pokrywa, oraz dodano z magazynu: {1}.",
         ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
         ["Finish this list and set every item in the warehouse to its minimum?"] =
             "Czy chcesz zakończyć zadanie i ustawić wszystkim elementom minimalną wartość na magazynie?",

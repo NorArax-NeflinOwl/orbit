@@ -18,7 +18,7 @@ using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
 using Orbit.Core.Inventory.FinishRestocking;
-using Orbit.Core.Tasks.CompleteWorkCoveredByStock;
+using Orbit.Core.Tasks.ReconcileTaskListWithStock;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.RaiseStockShortfalls;
@@ -102,14 +102,15 @@ public static class TaskEndpoints
             return warehouseId is null ? Results.NotFound() : Results.Ok(warehouseId);
         });
 
-        // Crosses off the work the warehouse already covers - the other half of the check below, so
-        // the reader is not left ticking by hand what the panel just told them is on the shelf.
-        tasks.MapPost("/{id:guid}/stock-check/completed", async (
+        // Brings the list and the warehouse back into step both ways - the other half of the check
+        // below, so the reader is neither left ticking by hand what the panel just told them is on the
+        // shelf, nor left with a shelf holding things no list has heard of.
+        tasks.MapPost("/{id:guid}/stock-check/reconciliation", async (
             Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var completed = await dispatcher.SendAsync(
-                new CompleteWorkCoveredByStockCommand(GetUserId(user), id), cancellationToken);
-            return Results.Ok(new CompleteWorkCoveredByStockResultDto(completed));
+            var reconciliation = await dispatcher.SendAsync(
+                new ReconcileTaskListWithStockCommand(GetUserId(user), id), cancellationToken);
+            return Results.Ok(new StockReconciliationResultDto(reconciliation.CrossedOff, reconciliation.Added));
         });
 
         // "Everything on this list is done" - see FinishRestockingCommandHandler. Its own endpoint

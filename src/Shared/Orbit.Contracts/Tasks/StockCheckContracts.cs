@@ -14,8 +14,10 @@ public sealed record TaskListStockCheckDto(bool IsAchievable, IReadOnlyList<Stoc
 /// <param name="AddedCount">How many entries were put on the restock list - zero when nothing was short, or when everything short was already waiting there.</param>
 public sealed record RaiseStockShortfallsResultDto(int AddedCount);
 
-/// <summary>How many entries the warehouse turned out to cover, and so crossed off.</summary>
-public sealed record CompleteWorkCoveredByStockResultDto(int CompletedCount);
+/// <summary>What bringing a list and its warehouse back into step actually moved.</summary>
+/// <param name="CrossedOffCount">Entries the warehouse turned out to cover, and so finished.</param>
+/// <param name="AddedCount">Products the warehouse held that no list mentioned, and so put on one.</param>
+public sealed record StockReconciliationResultDto(int CrossedOffCount, int AddedCount);
 
 /// <summary>How many shelf items were brought up to their minimum by finishing a restock list.</summary>
 public sealed record FinishRestockingResultDto(int ToppedUpCount);
