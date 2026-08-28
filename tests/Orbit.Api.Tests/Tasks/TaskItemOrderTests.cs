@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Tasks;
 using Orbit.Data;
@@ -67,6 +68,11 @@ public sealed class TaskItemOrderTests : IDisposable
     public void Dispose()
     {
         _dbContext.Dispose();
+
+        // Disposing the context hands its connection back to Microsoft.Data.Sqlite's pool rather than
+        // closing it, so the file is still open. Unix lets a test delete it anyway; Windows refuses, and
+        // the test fails on tidying up rather than on anything it set out to check.
+        SqliteConnection.ClearAllPools();
         File.Delete(_databasePath);
     }
 }

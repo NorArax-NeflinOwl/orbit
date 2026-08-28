@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Chat.Groups;
 using Orbit.Core.Permissions;
@@ -34,6 +35,10 @@ public sealed class AccountDeletionSweepTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _dbContext.DisposeAsync();
+
+        // See TaskItemOrderTests for why: the pooled connection keeps the file open, which only Windows
+        // objects to.
+        SqliteConnection.ClearAllPools();
         File.Delete(_databasePath);
     }
 
