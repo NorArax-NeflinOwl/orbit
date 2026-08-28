@@ -160,7 +160,7 @@
                         {
                             <div class="list-row task-preview-row @(dueTask.IsCompleted ? "completed" : "")">
                                 <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
-                                <span class="row-title">@dueTask.Description</span>
+                                <span class="row-title">@Written(dueTask.Description)</span>
                                 <span class="row-meta">@dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
                                 <button type="button" class="btn-secondary" @onclick="() => GoToTaskList(dueTask.TaskListId)">@T["Open"]</button>
                             </div>
@@ -316,6 +316,9 @@
             .OrderBy(dueTask => dueTask.DueDateUtc)
             .ToList();
     }
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
 
     /// <summary>
     /// Looks up guestUserId's login for display, preferring the already-loaded contact list and falling

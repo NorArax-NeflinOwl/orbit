@@ -107,6 +107,46 @@ public sealed class DashboardTests : OrbitTestContext
     }
 
     [Fact]
+    public void Nobody_is_told_about_chat_requests_that_are_not_there()
+    {
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // A standing "0 new chat requests" is not news.
+        Assert.DoesNotContain("new chat requests", cut.Markup);
+    }
+
+    [Fact]
+    public void Somebody_waiting_to_be_answered_is_counted()
+    {
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "bartek", "Bartek Nowak", "bartek@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: true, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("new chat requests", cut.Markup);
+    }
+
+    [Fact]
+    public void An_account_without_chat_is_not_shown_requests_it_could_not_answer()
+    {
+        Services.Remove(Services.Single(service => service.ServiceType == typeof(UserPermissionState)));
+        RegisterPermissions(ApplicationPermission.Contacts);
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "bartek", "Bartek Nowak", "bartek@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: true, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // Approving one is the only thing to do with it, and that is exactly what this account cannot do.
+        Assert.DoesNotContain("new chat requests", cut.Markup);
+    }
+
+    [Fact]
     public void Group_chats_get_their_own_column()
     {
         RegisterChatApiClient([], [Group("Weekend trip", memberCount: 3), Group("Book club", memberCount: 5)]);

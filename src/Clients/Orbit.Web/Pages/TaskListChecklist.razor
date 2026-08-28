@@ -14,7 +14,7 @@
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
 
-<PageTitle>@(_sections.Count > 0 ? _sections[0].TaskList.Title : T["Checklist"])</PageTitle>
+<PageTitle>@(_sections.Count > 0 ? Written(_sections[0].TaskList.Title) : T["Checklist"])</PageTitle>
 
 @* The shallow half of the two editing levels: the deep editor (TaskEditor.razor) can change and remove
    anything, while this view only ticks items off. Everything else about a list is read-only here, which
@@ -32,7 +32,7 @@ else
 {
     <div class="page-header">
         <div>
-            <h1>@_sections[0].TaskList.Title</h1>
+            <h1>@Written(_sections[0].TaskList.Title)</h1>
             <p class="page-subtitle">
                 @if (_sections[0].TaskList.IsGroup)
                 {
@@ -193,9 +193,9 @@ else
                     <input type="checkbox" checked="@entry.Item.IsCompleted"
                            disabled="@IsItemLocked(entry.Section, entry.Item)"
                            @onchange="args => ToggleItemAsync(entry.Section.TaskList, entry.Item, (bool)args.Value!)" />
-                    <span class="check-row-text">@entry.Item.Description</span>
+                    <span class="check-row-text">@Written(entry.Item.Description)</span>
                     @* Which list it came from, since the headings are gone in this view. *@
-                    <span class="row-meta">@entry.Section.TaskList.Title</span>
+                    <span class="row-meta">@Written(entry.Section.TaskList.Title)</span>
                     @if (entry.Item.DueDateUtc is { } flatDueDate)
                     {
                         <span class="row-meta">@T.Format("due {0}", flatDueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
@@ -212,7 +212,7 @@ else
             @if (section.IsMember)
             {
                 <div class="card-header">
-                    <span class="card-title">@section.TaskList.Title</span>
+                    <span class="card-title">@Written(section.TaskList.Title)</span>
                     <span class="card-count">@CompletionSummary(section.TaskList)</span>
                 </div>
             }
@@ -229,7 +229,7 @@ else
                         <input type="checkbox" checked="@item.IsCompleted"
                                disabled="@IsItemLocked(section, item)"
                                @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
-                        <span class="check-row-text">@item.Description</span>
+                        <span class="check-row-text">@Written(item.Description)</span>
                         @if (item.LinkedTaskListId is { } linkedTaskListId)
                         {
                             <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitle(linkedTaskListId))</span>
@@ -403,7 +403,12 @@ else
         => item.LinkedTaskListId is not null || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
 
     private string LinkedTaskListTitle(Guid linkedTaskListId)
-        => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId)?.Title ?? T["another list"];
+        => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId) is { } linked
+            ? Written(linked.Title)
+            : T["another list"];
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
 
     private static string CompletionSummary(TaskDto taskList)
         => $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";

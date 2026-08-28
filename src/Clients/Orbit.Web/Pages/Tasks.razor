@@ -90,7 +90,7 @@ else
                                 </svg>
                             </span>
                         }
-                        @taskList.Title
+                        @Written(taskList.Title)
                         @if (taskList.IsGroup)
                         {
                             <span class="card-badge">@T["Group"]</span>
@@ -133,7 +133,7 @@ else
                 {
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
-                        <span class="row-title">@item.Description</span>
+                        <span class="row-title">@Written(item.Description)</span>
                         @if (item.LinkedTaskListId is not null)
                         {
                             <span class="row-meta">@T["follows another list"]</span>
@@ -152,7 +152,7 @@ else
                         {
                             <div class="list-row task-preview-row task-preview-row-linked @(linkedItem.IsCompleted ? "completed" : "")">
                                 <span class="task-preview-mark">@(linkedItem.IsCompleted ? "✓" : "")</span>
-                                <span class="row-title">@linkedItem.Description</span>
+                                <span class="row-title">@Written(linkedItem.Description)</span>
                             </div>
                         }
                         @if (LinkedItemCount(linkedTaskListId) > LinkedPreviewItemCount)
@@ -385,6 +385,9 @@ else
 
     private TaskDto? LinkedTaskList(Guid linkedTaskListId)
         => (_taskLists ?? []).FirstOrDefault(candidate => candidate.Id == linkedTaskListId);
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
 
     private static string CompletionSummary(TaskDto taskList)
         => taskList.Items.Count == 0 ? "empty" : $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";

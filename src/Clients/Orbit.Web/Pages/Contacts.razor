@@ -120,9 +120,14 @@ else
     /// Chat requests someone else sent that the current user hasn't approved yet - see
     /// ChatConversationAccess. Shown separately from established chats, with a "new request" badge,
     /// instead of mixed into the regular chat list.
+    ///
+    /// None at all for an account without Chat: approving one is the only thing to do with it, and that
+    /// is exactly what such an account cannot do - so being shown them is being shown a dead end.
     /// </summary>
     private IEnumerable<ContactDto> _pendingRequests
-        => (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser);
+        => Permissions.Has(ApplicationPermission.Chat)
+            ? (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser)
+            : [];
 
     private IEnumerable<ContactDto> _establishedChats
         => (_contacts ?? []).Where(contact => !contact.RequiresApprovalFromCurrentUser);

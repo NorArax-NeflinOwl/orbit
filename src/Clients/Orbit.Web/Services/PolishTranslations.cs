@@ -79,6 +79,12 @@ internal static class PolishTranslations
         ["Left to do first"] = "Najpierw do zrobienia",
         ["Short first"] = "Najpierw braki",
         ["This list"] = "Ta lista",
+
+        // ---- The names Orbit writes for itself, which the server stores in English - see OrbitWrittenNames. ----
+        ["Restock supplies"] = "Uzupełnienie zapasów",
+        ["Restock:"] = "Uzupełnij:",
+        ["Update stock levels"] = "Zaktualizuj stany magazynowe",
+
         ["{0} crossed off, because the warehouse covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
         ["{0} added from the warehouse."] = "Dodano z magazynu: {0}.",
         ["{0} crossed off, because the warehouse covers them, and {1} added from the warehouse."] =

@@ -67,7 +67,12 @@ else
             <span class="today-strip-date">@DateTime.Today.ToString("dddd, d MMMM", T.DisplayCulture)</span>
             <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong>@T["tasks due today"]</span>
             <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong>@T["events today"]</span>
-            <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong>@T["new chat requests"]</span>
+            @* Only when somebody is actually waiting to be answered. A standing "0 new chat requests" is
+               not news, and an account that cannot be found by anyone will never have one. *@
+            @if (PendingChatRequestCount > 0)
+            {
+                <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong>@T["new chat requests"]</span>
+            }
         </div>
     }
 
@@ -93,7 +98,7 @@ else
                 @foreach (var taskList in TaskListsToShow)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToTaskList(taskList.Id)">
-                        <span class="row-title">@taskList.Title</span>
+                        <span class="row-title">@Written(taskList.Title)</span>
                         @if (taskList.Items.Count > 0)
                         {
                             <span class="progress-track"><span class="progress-fill" style="width:@(CompletionPercent(taskList))%"></span></span>
@@ -330,7 +335,14 @@ else
     private int EventsTodayCount => (_events ?? [])
         .Count(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date == DateTime.Today);
 
-    private int PendingChatRequestCount => (_contacts ?? []).Count(contact => contact.RequiresApprovalFromCurrentUser);
+    /// <summary>
+    /// How many conversations somebody else has started and this reader has not answered yet. Zero for
+    /// an account without Chat, which cannot answer one and so should not be told about it.
+    /// </summary>
+    private int PendingChatRequestCount
+        => Permissions.Has(ApplicationPermission.Chat)
+            ? (_contacts ?? []).Count(contact => contact.RequiresApprovalFromCurrentUser)
+            : 0;
 
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
@@ -448,6 +460,9 @@ else
         => _sharedLocations = Permissions.Has(ApplicationPermission.Location) && Permissions.Has(ApplicationPermission.Contacts)
             ? await UsersApiClient.GetLocationsSharedWithMeAsync()
             : [];
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
 
     private static int CompletionPercent(TaskDto taskList)
         => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);

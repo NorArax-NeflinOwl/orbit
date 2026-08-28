@@ -199,7 +199,7 @@ else
                                 <option value="">@T["None"]</option>
                                 @foreach (var linkableTaskList in _linkableTaskLists)
                                 {
-                                    <option value="@linkableTaskList.Id">@linkableTaskList.Title</option>
+                                    <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
                                 }
                             </select>
                         </label>
@@ -209,7 +209,7 @@ else
                                     <option value="">@T["Move to…"]</option>
                                     @foreach (var targetTaskList in _linkableTaskLists)
                                     {
-                                        <option value="@targetTaskList.Id">@targetTaskList.Title</option>
+                                        <option value="@targetTaskList.Id">@Written(targetTaskList.Title)</option>
                                     }
                                 </select>
                             </label>
@@ -527,6 +527,12 @@ else
     private bool IsExpanded(TaskItemFormModel item) => ReferenceEquals(_expandedItem, item);
 
     private void ToggleExpanded(TaskItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
+
+    /// <summary>
+    /// A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames. Used where another
+    /// list is named, never on the title box: what is typed there is what gets saved.
+    /// </summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
 
     private void AddItem()
     {
