@@ -10,6 +10,12 @@ internal sealed class InMemoryInventoryManagedTaskListRepository : IInventoryMan
     public Task<Guid?> GetTaskListIdAsync(Guid warehouseId, CancellationToken cancellationToken)
         => Task.FromResult(_taskListIdByWarehouseId.TryGetValue(warehouseId, out var taskListId) ? taskListId : (Guid?)null);
 
+    public Task<Guid?> GetWarehouseIdAsync(Guid taskListId, CancellationToken cancellationToken)
+        => Task.FromResult(_taskListIdByWarehouseId
+            .Where(tracked => tracked.Value == taskListId)
+            .Select(tracked => (Guid?)tracked.Key)
+            .FirstOrDefault());
+
     public Task SetTaskListIdAsync(Guid warehouseId, Guid taskListId, CancellationToken cancellationToken)
     {
         _taskListIdByWarehouseId[warehouseId] = taskListId;

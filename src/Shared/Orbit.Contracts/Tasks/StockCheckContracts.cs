@@ -16,3 +16,6 @@ public sealed record RaiseStockShortfallsResultDto(int AddedCount);
 
 /// <summary>How many entries the warehouse turned out to cover, and so crossed off.</summary>
 public sealed record CompleteWorkCoveredByStockResultDto(int CompletedCount);
+
+/// <summary>How many shelf items were brought up to their minimum by finishing a restock list.</summary>
+public sealed record FinishRestockingResultDto(int ToppedUpCount);

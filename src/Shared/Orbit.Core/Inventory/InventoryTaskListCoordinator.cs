@@ -17,12 +17,13 @@ public sealed class InventoryTaskListCoordinator
 {
 
     /// <summary>
-    /// Description of the standing, never-recreated reminder task. RemindDaily brings it back every day
-    /// at its own time of day, whether or not the reader ticked it off yesterday - which is what makes
-    /// one task enough, instead of a new one appearing each morning. Tasks has no recurrence engine to
-    /// build a self-recreating task on top of, and this covers the same intent without one.
+    /// The standing, never-recreated reminder task - see RestockTaskNaming for its wording. RemindDaily
+    /// brings it back every day at its own time of day, whether or not the reader ticked it off
+    /// yesterday, which is what makes one task enough instead of a new one appearing each morning.
+    /// Tasks has no recurrence engine to build a self-recreating task on top of, and this covers the
+    /// same intent without one.
     /// </summary>
-    public const string UpdateStockReminderDescription = "Update stock levels";
+    public const string UpdateStockReminderDescription = RestockTaskNaming.UpdateStockReminderDescription;
 
     /// <summary>
     /// When the standing reminder comes back and says so. Morning rather than the midnight a bare

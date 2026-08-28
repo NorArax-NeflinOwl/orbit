@@ -88,6 +88,23 @@ public sealed class InventoryItem
             id, warehouseId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
             pendingRestockTaskListId, pendingRestockTaskItemId, position, createdAtUtc, updatedAtUtc);
 
+    /// <summary>
+    /// Brings this item up to the level it is meant to be kept at, which is what finishing its restock
+    /// errand means: somebody went and got it. Answers whether anything changed - an item already at or
+    /// above its minimum, or without one, is left exactly as it is rather than being pushed down to it.
+    /// </summary>
+    public bool TopUpToMinimum()
+    {
+        if (MinimumQuantity is not { } minimum || Quantity >= minimum)
+        {
+            return false;
+        }
+
+        Quantity = minimum;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        return true;
+    }
+
     /// <summary>Puts this item where the person arranging the shelf dropped it.</summary>
     public void MoveTo(int position)
     {

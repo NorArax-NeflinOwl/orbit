@@ -1,6 +1,7 @@
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
 @using Orbit.Contracts.Inventory
+@using Orbit.Core.Inventory
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
@@ -9,6 +10,7 @@
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ChecklistViewPreference ChecklistViewPreference
 @inject InventoryApiClient InventoryApiClient
+@inject IJSRuntime JSRuntime
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
 
@@ -390,6 +392,11 @@ else
     private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, bool isCompleted)
     {
         _errorMessage = null;
+        if (isCompleted && await AskedToFinishTheWholeRestockAsync(taskList, item))
+        {
+            return;
+        }
+
         var toggledIndex = taskList.Items.ToList().IndexOf(item);
         var items = taskList.Items
             .Select((existingItem, index) => new TaskItemRequest(
@@ -553,6 +560,44 @@ else
     }
 
     /// <summary>Asks the question again - the shelf moves without this page hearing about it.</summary>
+    /// <summary>
+    /// Crossing off "Update stock levels" while errands are still open on the same list is either the
+    /// end of a round of restocking or a tick on one reminder. Only the reader knows which, so they are
+    /// asked - and answering yes finishes the rest and brings the shelf up to its minimums in one go.
+    /// Answers whether it handled the tick, so the ordinary save is skipped when it did.
+    /// </summary>
+    private async Task<bool> AskedToFinishTheWholeRestockAsync(TaskDto taskList, TaskItemDto item)
+    {
+        if (item.Description != RestockTaskNaming.UpdateStockReminderDescription
+            || !taskList.Items.Any(other => other.Id != item.Id && !other.IsCompleted))
+        {
+            return false;
+        }
+
+        if (!await JSRuntime.InvokeAsync<bool>(
+                "confirm", T["Finish this list and set every item in the warehouse to its minimum?"]))
+        {
+            return false;
+        }
+
+        try
+        {
+            var toppedUp = await TasksApiClient.FinishRestockingAsync(taskList.Id);
+            Logger.LogInformation(
+                "User finished restocking from task list {TaskListId}, topping up {ToppedUpCount} items", taskList.Id, toppedUp);
+            _shortfallMessage = T.Format("{0} brought up to their minimum.", toppedUp);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to finish restocking from task list {TaskListId}", taskList.Id);
+            _errorMessage = T["Couldn't finish the restocking. Try again."];
+            return true;
+        }
+
+        await LoadAsync();
+        return true;
+    }
+
     /// <summary>
     /// Reads the warehouse again and crosses off the work it turns out to cover, then redraws both the
     /// panel and the lists - the point of asking is to have the answer applied, not just shown.

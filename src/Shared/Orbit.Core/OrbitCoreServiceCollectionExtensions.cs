@@ -33,6 +33,7 @@ using Orbit.Core.Chat.GetReadReceipt;
 using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Inventory;
+using Orbit.Core.Inventory.FinishRestocking;
 using Orbit.Core.Inventory.ExpiryReminders;
 using Orbit.Core.Inventory.GetInventoryItems;
 using Orbit.Core.Inventory.AcceptWarehouseShare;
@@ -295,6 +296,8 @@ public static class OrbitCoreServiceCollectionExtensions
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
         services.AddScoped<PendingRestockTaskResolver>();
         services.AddScoped<InventoryTaskListCoordinator>();
+        services.AddScoped<RestockCompletion>();
+        services.AddScoped<IRequestHandler<FinishRestockingCommand, int>, FinishRestockingCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>?>, GetInventoryItemsQueryHandler>();
 
         // Warehouses - the container inventory items now belong to, with Notes-style sharing on top.

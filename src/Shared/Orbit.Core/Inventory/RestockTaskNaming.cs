@@ -14,6 +14,13 @@ public static class RestockTaskNaming
     private const string EntryPrefix = "Restock: ";
 
     /// <summary>
+    /// The standing, never-recreated reminder on every restock list. Named here rather than only where
+    /// it is created, because the screen showing the list has to know which entry this is: crossing it
+    /// off is a claim about the whole shelf, not about one product.
+    /// </summary>
+    public const string UpdateStockReminderDescription = "Update stock levels";
+
+    /// <summary>
     /// The list's title, which names the warehouse it restocks: an account with three warehouses had
     /// three lists called the same thing, and no way to tell from the tasks page which was which.
     /// </summary>

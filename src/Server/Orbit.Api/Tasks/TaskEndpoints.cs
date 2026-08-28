@@ -17,6 +17,7 @@ using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
+using Orbit.Core.Inventory.FinishRestocking;
 using Orbit.Core.Tasks.CompleteWorkCoveredByStock;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
@@ -109,6 +110,16 @@ public static class TaskEndpoints
             var completed = await dispatcher.SendAsync(
                 new CompleteWorkCoveredByStockCommand(GetUserId(user), id), cancellationToken);
             return Results.Ok(new CompleteWorkCoveredByStockResultDto(completed));
+        });
+
+        // "Everything on this list is done" - see FinishRestockingCommandHandler. Its own endpoint
+        // rather than part of the save above, because it is a claim about the warehouse rather than an
+        // edit to the list.
+        tasks.MapPost("/{id:guid}/restocking/finished", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var toppedUp = await dispatcher.SendAsync(new FinishRestockingCommand(GetUserId(user), id), cancellationToken);
+            return Results.Ok(new FinishRestockingResultDto(toppedUp));
         });
 
         // Whether this list's work - and everything linked below it - can be done out of that warehouse.

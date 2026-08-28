@@ -79,6 +79,10 @@ internal static class PolishTranslations
         ["Left to do first"] = "Najpierw do zrobienia",
         ["{0} crossed off, because the warehouse covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
         ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
+        ["Finish this list and set every item in the warehouse to its minimum?"] =
+            "Czy chcesz zakończyć zadanie i ustawić wszystkim elementom minimalną wartość na magazynie?",
+        ["{0} brought up to their minimum."] = "Uzupełniono do minimum: {0}.",
+        ["Couldn't finish the restocking. Try again."] = "Nie udało się zakończyć uzupełniania. Spróbuj ponownie.",
         ["Couldn't recalculate against the warehouse. Try again."] =
             "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
         ["Hide"] = "Ukryj",
