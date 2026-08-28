@@ -112,6 +112,70 @@ public sealed class CalendarEventDetailScreenTests
         Assert.NotEmpty(screen.Status);
     }
 
+    /// <summary>
+    /// A rule the phone could not set, only carry. "Until" is sent as the end of that day, so a rule
+    /// that repeats until the 20th includes the 20th - which is what picking that date means.
+    /// </summary>
+    [Fact]
+    public async Task A_repeat_can_be_set_and_taken_off_again()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.IsRecurring = true;
+        screen.RecurrenceFrequency = "Monthly";
+        screen.RecurrenceIntervalCount = 2;
+        screen.RecurrenceEnds = true;
+        screen.RecurrenceUntil = new DateTime(2026, 12, 20);
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        var saved = (await context.FindAsync(stored.LocalId)).Details.Recurrence;
+        Assert.Equal("Monthly", saved!.Frequency);
+        Assert.Equal(2, saved.IntervalCount);
+        Assert.Equal(new DateTime(2026, 12, 20), saved.UntilUtc!.Value.ToLocalTime().Date);
+
+        screen.IsRecurring = false;
+        await screen.SaveCommand.ExecuteAsync(null);
+        Assert.Null((await context.FindAsync(stored.LocalId)).Details.Recurrence);
+    }
+
+    /// <summary>A repeat with no end is the web's blank "until", not a missing rule.</summary>
+    [Fact]
+    public async Task A_repeat_without_an_end_repeats_without_one()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.IsRecurring = true;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        var saved = (await context.FindAsync(stored.LocalId)).Details.Recurrence;
+        Assert.NotNull(saved);
+        Assert.Null(saved!.UntilUtc);
+    }
+
+    /// <summary>
+    /// The rule the browser set has to come back the same, because this screen reads it into its own
+    /// fields now rather than carrying the whole thing past untouched.
+    /// </summary>
+    [Fact]
+    public async Task A_rule_set_elsewhere_is_read_back_as_it_was()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0),
+            recurrence: new RecurrenceDto("Daily", 3, null));
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.True(screen.IsRecurring);
+        Assert.Equal("Daily", screen.RecurrenceFrequency);
+        Assert.Equal(3, screen.RecurrenceIntervalCount);
+        Assert.False(screen.RecurrenceEnds);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -131,13 +195,15 @@ public sealed class CalendarEventDetailScreenTests
 
         public FixedDeviceLocation Here { get; } = new();
 
-        public Task<LocalCalendarEvent> AddEventAsync(DateTime localStart, DateTime localEnd, bool isAllDay = false)
+        public Task<LocalCalendarEvent> AddEventAsync(
+            DateTime localStart, DateTime localEnd, bool isAllDay = false, RecurrenceDto? recurrence = null)
         {
             var start = new DateTimeOffset(localStart, TimeZoneInfo.Local.GetUtcOffset(localStart)).ToUniversalTime();
             var end = new DateTimeOffset(localEnd, TimeZoneInfo.Local.GetUtcOffset(localEnd)).ToUniversalTime();
 
             return _events.CreateAsync(
-                new CalendarEventDetailsDto("Standup", null, null, null, start, end, isAllDay, null, [], [], "None", "None"));
+                new CalendarEventDetailsDto(
+                    "Standup", null, null, null, start, end, isAllDay, recurrence, [], [], "None", "None"));
         }
 
         public async Task<LocalCalendarEvent> FindAsync(Guid localId)

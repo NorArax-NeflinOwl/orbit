@@ -66,6 +66,33 @@
                 <TimePicker Grid.Column="1" Time="{Binding EndTime}" IsEnabled="{Binding CanEdit}" />
             </Grid>
 
+            <!-- Whether it repeats, and how. The three frequencies are Orbit.Core's own. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Grid.Column="0" Text="{controls:Translate 'Recurring event'}" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IsRecurring}" IsEnabled="{Binding CanEdit}"
+                        VerticalOptions="Center" />
+            </Grid>
+
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsRecurring}">
+                <Label Text="{controls:Translate 'Frequency'}" Style="{StaticResource FieldLabel}" />
+                <Picker ItemsSource="{Binding Frequencies}" SelectedItem="{Binding ChosenFrequency}"
+                        IsEnabled="{Binding CanEdit}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:RecurrenceChoice}" />
+
+                <Label Text="{controls:Translate 'Every'}" Style="{StaticResource FieldLabel}" />
+                <Entry Text="{Binding RecurrenceIntervalCount}" Keyboard="Numeric"
+                       IsReadOnly="{Binding IsReadOnly}" ReturnType="Done" ReturnCommand="{Binding SaveCommand}" />
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Grid.Column="0" Text="{controls:Translate 'Repeat until (optional)'}"
+                           VerticalOptions="Center" LineBreakMode="WordWrap" />
+                    <Switch Grid.Column="1" IsToggled="{Binding RecurrenceEnds}" IsEnabled="{Binding CanEdit}"
+                            VerticalOptions="Center" />
+                </Grid>
+                <DatePicker Date="{Binding RecurrenceUntil}" IsVisible="{Binding RecurrenceEnds}"
+                            IsEnabled="{Binding CanEdit}" />
+            </VerticalStackLayout>
+
             <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveCommand}" />
 
             <controls:SharePanel BindingContext="{Binding Share}" />

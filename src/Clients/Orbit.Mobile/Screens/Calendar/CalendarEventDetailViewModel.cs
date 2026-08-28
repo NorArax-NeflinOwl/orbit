@@ -78,6 +78,43 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isAllDay;
 
+    /// <summary>
+    /// Whether it repeats, and how. The three frequencies are Orbit.Core's own - see RecurrenceDto -
+    /// and the phone offers exactly them rather than a shorter list of its own.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isRecurring;
+
+    [ObservableProperty]
+    private string _recurrenceFrequency = "Weekly";
+
+    /// <summary>Every how many of that frequency. One is every week; two is every other week.</summary>
+    [ObservableProperty]
+    private int _recurrenceIntervalCount = 1;
+
+    /// <summary>Whether it stops, and when. Off means it repeats without an end, as the web's blank does.</summary>
+    [ObservableProperty]
+    private bool _recurrenceEnds;
+
+    [ObservableProperty]
+    private DateTime _recurrenceUntil = DateTime.Today;
+
+    /// <summary>The frequencies, for the picker - in Orbit.Core's own order.</summary>
+    public IReadOnlyList<RecurrenceChoice> Frequencies { get; private set; } = [];
+
+    /// <summary>Bound to the picker, which needs an object out of Frequencies rather than a string.</summary>
+    public RecurrenceChoice? ChosenFrequency
+    {
+        get => Frequencies.FirstOrDefault(choice => choice.Value == RecurrenceFrequency);
+        set
+        {
+            if (value is not null)
+            {
+                RecurrenceFrequency = value.Value;
+            }
+        }
+    }
+
     [ObservableProperty]
     private string _status = string.Empty;
 
@@ -97,6 +134,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _calendarClient = calendarClient;
         _editLock = editLock;
         _deviceLocation = deviceLocation;
+        Frequencies = RecurrenceChoice.All(translations);
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
     }
 
@@ -156,6 +194,26 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// A location is a point with an optional label, so an address typed with no point behind it is not
     /// one and is not sent - the same rule Orbit.Web's editor applies.
     /// </summary>
+    /// <summary>
+    /// The rule, or none. "Until" is sent as the end of that day so a rule that repeats until the 20th
+    /// includes the 20th, which is what somebody picking that date means.
+    /// </summary>
+    private RecurrenceDto? RecurrenceOrNothing()
+    {
+        if (!IsRecurring)
+        {
+            return null;
+        }
+
+        var until = RecurrenceEnds
+            ? new DateTimeOffset(
+                RecurrenceUntil.Date.AddDays(1).AddTicks(-1),
+                TimeZoneInfo.Local.GetUtcOffset(RecurrenceUntil.Date)).ToUniversalTime()
+            : (DateTimeOffset?)null;
+
+        return new RecurrenceDto(RecurrenceFrequency, Math.Max(1, RecurrenceIntervalCount), until);
+    }
+
     private EventLocationDto? LocationOrNothing()
         => _locationLatitude is { } latitude && _locationLongitude is { } longitude
             ? new EventLocationDto(
@@ -178,6 +236,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Title = Title.Trim(),
             Description = Description.Trim() is { Length: > 0 } description ? description : null,
             Location = LocationOrNothing(),
+            Recurrence = RecurrenceOrNothing(),
             StartUtc = new DateTimeOffset(start, TimeZoneInfo.Local.GetUtcOffset(start)).ToUniversalTime(),
             EndUtc = new DateTimeOffset(end, TimeZoneInfo.Local.GetUtcOffset(end)).ToUniversalTime(),
             IsAllDay = IsAllDay
@@ -237,6 +296,13 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         EndTime = end.TimeOfDay;
         IsAllDay = calendarEvent.Details.IsAllDay;
 
+        IsRecurring = calendarEvent.Details.Recurrence is not null;
+        RecurrenceFrequency = calendarEvent.Details.Recurrence?.Frequency ?? "Weekly";
+        RecurrenceIntervalCount = calendarEvent.Details.Recurrence?.IntervalCount ?? 1;
+        RecurrenceEnds = calendarEvent.Details.Recurrence?.UntilUtc is not null;
+        RecurrenceUntil = calendarEvent.Details.Recurrence?.UntilUtc?.ToLocalTime().Date ?? DateTime.Today;
+        OnPropertyChanged(nameof(ChosenFrequency));
+
         LocationAddress = calendarEvent.Details.Location?.Address ?? string.Empty;
         _locationLatitude = calendarEvent.Details.Location?.Latitude;
         _locationLongitude = calendarEvent.Details.Location?.Longitude;
@@ -279,6 +345,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
     partial void OnTitleChanged(string value) => SaveCommand.NotifyCanExecuteChanged();
+
+    partial void OnRecurrenceFrequencyChanged(string value) => OnPropertyChanged(nameof(ChosenFrequency));
 
     partial void OnIsReadOnlyChanged(bool value)
     {
