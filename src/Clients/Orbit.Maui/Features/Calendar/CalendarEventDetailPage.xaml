@@ -25,8 +25,28 @@
             <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" HeightRequest="110"
                     Placeholder="{controls:Translate 'Description'}" />
 
-            <Label Text="{controls:Translate 'When'}" FontAttributes="Bold" />
-            <DatePicker Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" />
+            <!-- Where it is. Orbit.Web picks the point off a map; a phone already knows where it is,
+                 and a place is a point with an optional label - so the name alone is not a location. -->
+            <Label Text="{controls:Translate 'Location'}" Style="{StaticResource FieldLabel}" />
+            <Entry Text="{Binding LocationAddress}" IsReadOnly="{Binding IsReadOnly}"
+                   Placeholder="{controls:Translate 'Name of the place'}"
+                   ReturnType="Done" ReturnCommand="{Binding SaveCommand}" />
+            <HorizontalStackLayout Spacing="10" IsVisible="{Binding CanEdit}">
+                <Button Text="{controls:Translate 'Use my location'}" FontSize="12" Padding="12,6"
+                        Style="{StaticResource SecondaryButton}" Command="{Binding UseMyLocationCommand}" />
+                <Button Text="{controls:Translate 'Remove location'}" FontSize="12" Padding="12,6"
+                        IsVisible="{Binding HasLocation}" Style="{StaticResource SecondaryButton}"
+                        Command="{Binding RemoveLocationCommand}" />
+            </HorizontalStackLayout>
+
+            <Label Text="{controls:Translate 'When'}" Style="{StaticResource FieldLabel}" />
+
+            <!-- Two dates, not one: the end used to be taken from the start, so an event spanning days
+                 was quietly shortened the first time anybody edited it. -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <DatePicker Grid.Column="0" Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" />
+                <DatePicker Grid.Column="1" Date="{Binding EndDate}" IsEnabled="{Binding CanEdit}" />
+            </Grid>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Label Grid.Column="0" Text="{controls:Translate 'All day'}" VerticalOptions="Center" />

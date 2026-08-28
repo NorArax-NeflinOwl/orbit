@@ -4,6 +4,7 @@ using Orbit.Contracts.Calendar;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Location;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Screens;
@@ -26,6 +27,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     private readonly CalendarEventSynchronizer _synchronizer;
     private readonly CalendarClient _calendarClient;
     private readonly EditLock _editLock;
+    private readonly IDeviceLocation _deviceLocation;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -49,8 +51,29 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [ObservableProperty]
     private TimeSpan _startTime;
 
+    /// <summary>
+    /// The day it ends on, which is not always the day it starts. The end used to be built from
+    /// StartDate, so an event spanning days was quietly shortened to one the first time anybody fixed a
+    /// typo in its title.
+    /// </summary>
+    [ObservableProperty]
+    private DateTime _endDate = DateTime.Today;
+
     [ObservableProperty]
     private TimeSpan _endTime;
+
+    /// <summary>
+    /// What the place is called. A location is a point with an optional label - see EventLocationDto -
+    /// so an address on its own is not one, and the coordinates come from the phone rather than from a
+    /// map the way Orbit.Web picks them.
+    /// </summary>
+    [ObservableProperty]
+    private string _locationAddress = string.Empty;
+
+    private double? _locationLatitude;
+    private double? _locationLongitude;
+
+    public bool HasLocation => _locationLatitude is not null;
 
     [ObservableProperty]
     private bool _isAllDay;
@@ -64,7 +87,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     public CalendarEventDetailViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
-        CalendarClient calendarClient, EditLock editLock)
+        CalendarClient calendarClient, EditLock editLock, IDeviceLocation deviceLocation)
     {
         _events = events;
         _synchronizer = synchronizer;
@@ -73,6 +96,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _navigator = navigator;
         _calendarClient = calendarClient;
         _editLock = editLock;
+        _deviceLocation = deviceLocation;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
     }
 
@@ -91,6 +115,53 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [RelayCommand]
     private Task LoadAsync(CancellationToken cancellationToken) => ShowStoredEventAsync(cancellationToken);
 
+    /// <summary>
+    /// Where the phone is, as the place. Orbit.Web picks a point off a map; a phone knows where it is,
+    /// which is the same answer arrived at more directly.
+    /// </summary>
+    [RelayCommand]
+    private async Task UseMyLocationAsync(CancellationToken cancellationToken)
+    {
+        var here = await _deviceLocation.ReadAsync(cancellationToken);
+        if (here.Outcome is not DeviceLocationOutcome.Found)
+        {
+            // The two refusals read the same to somebody standing here: no place was recorded.
+            Status = _translations["Couldn't work out where this phone is."];
+            return;
+        }
+
+        _locationLatitude = here.Latitude;
+        _locationLongitude = here.Longitude;
+        // Reverse geocoding often comes back empty, and a name already typed is worth more than none.
+        if (LocationAddress.Trim().Length == 0 && here.Address is { Length: > 0 } address)
+        {
+            LocationAddress = address;
+        }
+
+        OnPropertyChanged(nameof(HasLocation));
+        await SaveAsync(cancellationToken);
+    }
+
+    [RelayCommand]
+    private Task RemoveLocationAsync(CancellationToken cancellationToken)
+    {
+        _locationLatitude = null;
+        _locationLongitude = null;
+        LocationAddress = string.Empty;
+        OnPropertyChanged(nameof(HasLocation));
+        return SaveAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// A location is a point with an optional label, so an address typed with no point behind it is not
+    /// one and is not sent - the same rule Orbit.Web's editor applies.
+    /// </summary>
+    private EventLocationDto? LocationOrNothing()
+        => _locationLatitude is { } latitude && _locationLongitude is { } longitude
+            ? new EventLocationDto(
+                LocationAddress.Trim() is { Length: > 0 } address ? address : null, latitude, longitude)
+            : null;
+
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
@@ -100,12 +171,13 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         }
 
         var start = StartDate.Date + (IsAllDay ? TimeSpan.Zero : StartTime);
-        var end = StartDate.Date + (IsAllDay ? TimeSpan.FromDays(1) : EndTime);
+        var end = IsAllDay ? EndDate.Date + TimeSpan.FromDays(1) : EndDate.Date + EndTime;
 
         var details = current with
         {
             Title = Title.Trim(),
             Description = Description.Trim() is { Length: > 0 } description ? description : null,
+            Location = LocationOrNothing(),
             StartUtc = new DateTimeOffset(start, TimeZoneInfo.Local.GetUtcOffset(start)).ToUniversalTime(),
             EndUtc = new DateTimeOffset(end, TimeZoneInfo.Local.GetUtcOffset(end)).ToUniversalTime(),
             IsAllDay = IsAllDay
@@ -160,8 +232,15 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         var end = calendarEvent.Details.EndUtc.ToLocalTime();
         StartDate = start.Date;
         StartTime = start.TimeOfDay;
+        // An all-day event ends at midnight the next day, which reads as one day too many on a picker.
+        EndDate = calendarEvent.Details.IsAllDay ? end.Date.AddDays(-1) : end.Date;
         EndTime = end.TimeOfDay;
         IsAllDay = calendarEvent.Details.IsAllDay;
+
+        LocationAddress = calendarEvent.Details.Location?.Address ?? string.Empty;
+        _locationLatitude = calendarEvent.Details.Location?.Latitude;
+        _locationLongitude = calendarEvent.Details.Location?.Longitude;
+        OnPropertyChanged(nameof(HasLocation));
 
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _events.CanEditAsync(_localId, cancellationToken);

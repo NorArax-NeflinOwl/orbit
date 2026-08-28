@@ -875,6 +875,8 @@ public static class PolishTranslations
             = "Kim jesteś dla Orbita i co wolno temu urządzeniu.",
         ["Already accepted"] = "Już przyjęto",
         ["Item options"] = "Opcje pozycji",
+        ["Name of the place"] = "Nazwa miejsca",
+        ["Couldn't work out where this phone is."] = "Nie udało się ustalić, gdzie jest ten telefon.",
         ["Delete warehouse"] = "Usuń magazyn",
         ["Delete item"] = "Usuń pozycję",
         ["Line options"] = "Opcje wiersza",
