@@ -3,12 +3,14 @@
 @implements IDisposable
 @using Orbit.Contracts.Notifications
 @using Orbit.Contracts.Users
+@using System.Globalization
 @using System.Text.Json
 @using Microsoft.AspNetCore.Components.Forms
 @using Orbit.Core.Permissions
 @using Orbit.Core.Transfer
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
+@inject AccentColorService AccentColorService
 @inject Translations T
 @inject PushNotificationManager PushNotificationManager
 @inject NotificationsApiClient NotificationsApiClient
@@ -59,7 +61,7 @@
                         <input id="displayNameInput" @bind="_profileForm.DisplayName" />
                     </div>
                     <div class="field">
-                        <label for="userNameInput">@T["Username"]</label>
+                        <label for="userNameInput">@T["Login"]</label>
                         <input id="userNameInput" @bind="_profileForm.UserName" />
                     </div>
                     <div class="field">
@@ -283,6 +285,21 @@
                     <span class="theme-preview theme-preview-system"><span class="tp-bar"></span><span class="tp-line"></span><span class="tp-line short"></span></span>
                     <span class="theme-option-label">@T["System"]</span>
                 </button>
+            </div>
+        </div>
+
+        <div class="options-section">
+            <h2 class="options-heading">@T["Accent colour"]</h2>
+            <p class="options-subtext">@T["The colour Orbit highlights things in. Kept on this device, like the theme."]</p>
+            <div class="accent-picker">
+                @foreach (var accentColor in AccentColor.All)
+                {
+                    <button type="button" class="accent-option @(AccentColorService.Current == accentColor ? "active" : "")"
+                            style="@AccentSwatchStyle(accentColor)" title="@T[accentColor.Name]"
+                            aria-label="@T[accentColor.Name]" aria-pressed="@(AccentColorService.Current == accentColor)"
+                            @onclick="() => SetAccentColorAsync(accentColor)">
+                    </button>
+                }
             </div>
         </div>
 
@@ -839,6 +856,7 @@
     {
         await LoadAccountAsync();
         ThemeService.Changed += OnThemeChanged;
+        AccentColorService.Changed += OnThemeChanged;
         await RefreshPushNotificationStateAsync();
         await RefreshNotificationSettingsAsync();
     }
@@ -903,6 +921,20 @@
     }
 
     private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task SetAccentColorAsync(AccentColor accentColor)
+    {
+        Logger.LogInformation("User set the accent colour to {AccentColor}", accentColor.Name);
+        await AccentColorService.SetAsync(accentColor);
+    }
+
+    /// <summary>
+    /// One swatch painted in the colour it stands for. Written against that colour's own hue rather than
+    /// against --accent, which is whichever one is currently chosen - a row of eight identical swatches
+    /// would be no choice at all. Invariant on purpose: this is a CSS value, not text anybody reads.
+    /// </summary>
+    private static string AccentSwatchStyle(AccentColor accentColor)
+        => string.Create(CultureInfo.InvariantCulture, $"--accent-hue:{accentColor.Hue};");
 
     /// <summary>
     /// Determines whether the "push notifications" switch should be enabled at all (the browser must
@@ -976,6 +1008,7 @@
     public void Dispose()
     {
         ThemeService.Changed -= OnThemeChanged;
+        AccentColorService.Changed -= OnThemeChanged;
     }
 
     private async Task LoadAccountAsync()

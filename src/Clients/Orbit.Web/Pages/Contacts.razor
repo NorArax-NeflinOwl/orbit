@@ -31,7 +31,7 @@ else
 {
 
     <div class="field-row" style="margin-bottom:24px;">
-        <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="@(T["Email address or username"])" />
+        <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="@(T["Email address or login"])" />
         <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">@T["Search"]</button>
     </div>
 
@@ -88,7 +88,7 @@ else
     }
     else if (!_establishedChats.Any())
     {
-        <p>@T["No chats. Search for a user by email address or username to start a conversation."]</p>
+        <p>@T["No chats. Search for a user by email address or login to start a conversation."]</p>
     }
     else
     {
@@ -120,9 +120,14 @@ else
     /// Chat requests someone else sent that the current user hasn't approved yet - see
     /// ChatConversationAccess. Shown separately from established chats, with a "new request" badge,
     /// instead of mixed into the regular chat list.
+    ///
+    /// None at all for an account without Chat: approving one is the only thing to do with it, and that
+    /// is exactly what such an account cannot do - so being shown them is being shown a dead end.
     /// </summary>
     private IEnumerable<ContactDto> _pendingRequests
-        => (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser);
+        => Permissions.Has(ApplicationPermission.Chat)
+            ? (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser)
+            : [];
 
     private IEnumerable<ContactDto> _establishedChats
         => (_contacts ?? []).Where(contact => !contact.RequiresApprovalFromCurrentUser);
@@ -187,7 +192,7 @@ else
             _searchResult = await UsersApiClient.SearchUserAsync(identifier);
             if (_searchResult is null)
             {
-                _searchError = T["No user found with that email address or username."];
+                _searchError = T["No user found with that email address or login."];
             }
         }
         finally

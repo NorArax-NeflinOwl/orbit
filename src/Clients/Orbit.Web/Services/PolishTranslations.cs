@@ -77,7 +77,18 @@ internal static class PolishTranslations
         ["Show single items"] = "Pokaż pojedyncze elementy",
         ["In list order"] = "W kolejności listy",
         ["Left to do first"] = "Najpierw do zrobienia",
+        ["Short first"] = "Najpierw braki",
+        ["This list"] = "Ta lista",
+
+        // ---- The names Orbit writes for itself, which the server stores in English - see OrbitWrittenNames. ----
+        ["Restock supplies"] = "Uzupełnienie zapasów",
+        ["Restock:"] = "Uzupełnij:",
+        ["Update stock levels"] = "Zaktualizuj stany magazynowe",
+
         ["{0} crossed off, because the warehouse covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
+        ["{0} added from the warehouse."] = "Dodano z magazynu: {0}.",
+        ["{0} crossed off, because the warehouse covers them, and {1} added from the warehouse."] =
+            "Odhaczono {0}, bo magazyn je pokrywa, oraz dodano z magazynu: {1}.",
         ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
         ["Finish this list and set every item in the warehouse to its minimum?"] =
             "Czy chcesz zakończyć zadanie i ustawić wszystkim elementom minimalną wartość na magazynie?",
@@ -99,6 +110,9 @@ internal static class PolishTranslations
         ["Everything here is hidden. The menu at the top right brings it back."] =
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
+        ["Pick a date"] = "Wybierz datę",
+        ["Previous month"] = "Poprzedni miesiąc",
+        ["Next month"] = "Następny miesiąc",
         ["Opens Google's own form with this event filled in. Nothing is saved there until you save it."] = "Otwiera formularz Google z wypełnionym wydarzeniem. Nic się tam nie zapisze, dopóki sam nie zapiszesz.",
         ["Google Calendar"] = "Kalendarz Google",
         ["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."] = "Zapisywanie swojej pozycji. Udostępnienie jej lub podgląd cudzej wymaga też kontaktów.",
@@ -153,7 +167,7 @@ internal static class PolishTranslations
         // ---- Signing in ----
         ["Log in"] = "Zaloguj się",
         ["Register"] = "Zarejestruj się",
-        ["Email or username"] = "E-mail lub nazwa użytkownika",
+        ["Email or login"] = "E-mail lub login",
         ["Password"] = "Hasło",
         ["Repeat password"] = "Powtórz hasło",
         ["Display name"] = "Nazwa wyświetlana",
@@ -161,10 +175,14 @@ internal static class PolishTranslations
         // Same word in Polish - written down rather than left out, so the coverage test can tell a
         // deliberate match from an entry somebody forgot.
         ["Push"] = "Push",
-        ["Username"] = "Nazwa użytkownika",
+        ["Login"] = "Login",
         ["Don't have an account? "] = "Nie masz konta? ",
         ["Already have an account? "] = "Masz już konto? ",
-        ["Invalid email, username, or password."] = "Nieprawidłowy e-mail, nazwa użytkownika lub hasło.",
+        ["Invalid email, login, or password."] = "Nieprawidłowy e-mail, login lub hasło.",
+        ["No account uses that email address or login."] = "Żadne konto nie ma takiego adresu e-mail ani loginu.",
+        ["That password is wrong."] = "Nieprawidłowe hasło.",
+        ["This account signs in with Google and has no password yet. Use the Google button below."] =
+            "To konto loguje się przez Google i nie ma jeszcze hasła. Skorzystaj z przycisku Google poniżej.",
 
         // ---- Dashboard ----
         ["Everything on your plate, in one place."] = "Wszystko, co masz na głowie, w jednym miejscu.",
@@ -195,12 +213,19 @@ internal static class PolishTranslations
         ["Oldest first"] = "Od najstarszych",
         ["A to Z"] = "Od A do Z",
         ["Z to A"] = "Od Z do A",
+        ["Most important first"] = "Od najważniejszych",
+        ["Least important first"] = "Od najmniej ważnych",
+        ["The way I arranged them"] = "Po mojemu",
         ["All"] = "Wszystkie",
         ["Not started"] = "Nierozpoczęte",
         ["In progress"] = "W trakcie",
         ["Overdue"] = "Po terminie",
         ["Items"] = "Pozycje",
-        ["Group list"] = "Lista grupowa",
+        ["Group View"] = "Widok grupowy",
+        ["Type"] = "Typ",
+        ["A calendar list holds appointments rather than errands, so it also says where they happen."] =
+            "Lista kalendarzowa zawiera spotkania, a nie sprawunki, więc mówi też, gdzie się odbywają.",
+        ["Where this happens"] = "Gdzie się to odbywa",
 
         // ---- Calendar ----
         ["Add event"] = "Dodaj wydarzenie",
@@ -251,10 +276,10 @@ internal static class PolishTranslations
         ["Allow editing"] = "Pozwól edytować",
         ["They can edit it now."] = "Teraz może to edytować.",
         ["Accepted - added to your account."] = "Przyjęte — dodane do Twojego konta.",
-        ["No chats. Search for a user by email address or username to start a conversation."] =
-            "Brak rozmów. Wyszukaj kogoś po adresie e-mail lub nazwie użytkownika, żeby zacząć.",
+        ["No chats. Search for a user by email address or login to start a conversation."] =
+            "Brak rozmów. Wyszukaj kogoś po adresie e-mail lub loginie, żeby zacząć.",
         ["Search for someone and start a conversation."] = "Znajdź kogoś i zacznij rozmowę.",
-        ["Email address or username"] = "Adres e-mail lub nazwa użytkownika",
+        ["Email address or login"] = "Adres e-mail lub login",
 
         // ---- Map ----
         ["Share where you are"] = "Udostępnij swoje położenie",
@@ -267,6 +292,17 @@ internal static class PolishTranslations
 
         // ---- Options ----
         ["Appearance"] = "Wygląd",
+        ["Accent colour"] = "Kolor wiodący",
+        ["The colour Orbit highlights things in. Kept on this device, like the theme."] =
+            "Kolor, którym Orbit wyróżnia elementy. Zapamiętywany na tym urządzeniu, tak jak motyw.",
+        ["Purple"] = "Fioletowy",
+        ["Blue"] = "Niebieski",
+        ["Teal"] = "Turkusowy",
+        ["Green"] = "Zielony",
+        ["Amber"] = "Bursztynowy",
+        ["Orange"] = "Pomarańczowy",
+        ["Red"] = "Czerwony",
+        ["Pink"] = "Różowy",
         ["System"] = "Systemowy",
         ["Light"] = "Jasny",
         ["Dark"] = "Ciemny",
@@ -545,8 +581,8 @@ internal static class PolishTranslations
         ["Couldn't sign in with Google. Try again."] = "Nie udało się zalogować przez Google. Spróbuj ponownie.",
         ["Couldn't connect Google. Try again."] = "Nie udało się połączyć z Google. Spróbuj ponownie.",
         ["Couldn't disconnect Google. Try again."] = "Nie udało się odłączyć Google. Spróbuj ponownie.",
-        ["No user found with that email address or username."] =
-            "Nie znaleziono użytkownika o takim adresie e-mail ani nazwie.",
+        ["No user found with that email address or login."] =
+            "Nie znaleziono użytkownika o takim adresie e-mail ani loginie.",
         ["Failed to update notification settings. Try again."] =
             "Nie udało się zapisać ustawień powiadomień. Spróbuj ponownie.",
         ["Failed to enable push notifications. Check your browser permissions and try again."] =
@@ -686,7 +722,7 @@ internal static class PolishTranslations
         ["Unreadable - encrypted with an older key"] = "Nieczytelne — zaszyfrowane starszym kluczem",
         ["another list"] = "inną listą",
         ["another user"] = "inny użytkownik",
-        ["This username is already taken."] = "Ta nazwa użytkownika jest już zajęta.",
+        ["This login is already taken."] = "Ten login jest już zajęty.",
         ["An account with this email address already exists."] = "Konto z tym adresem e-mail już istnieje.",
         ["Couldn't verify that Google account."] = "Nie udało się zweryfikować tego konta Google.",
         ["That didn't work."] = "Nie udało się.",

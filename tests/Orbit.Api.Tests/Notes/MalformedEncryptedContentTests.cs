@@ -53,7 +53,7 @@ public sealed class MalformedEncryptedContentTests
     {
         var note = Note.Create(Guid.NewGuid(), "Shopping list", [NoteContentLine.PlainText("Milk")]);
 
-        Assert.Throws<InvalidRequestException>(() => note.Update(string.Empty, [], isPrivate: true, encryptedContent: null));
+        Assert.Throws<InvalidRequestException>(() => note.Update(string.Empty, [], isPrivate: true, encryptedContent: null, note.Priority));
     }
 
     [Fact]

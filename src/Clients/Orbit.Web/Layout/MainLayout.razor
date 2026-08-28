@@ -16,6 +16,7 @@
 @inject NotificationFeedState NotificationFeedState
 @inject ClientExceptionLog ClientExceptionLog
 @inject ThemeService ThemeService
+@inject AccentColorService AccentColorService
 @inject DevicePreferences DevicePreferences
 @inject PresenceService Presence
 @inject UserPermissionState Permissions
@@ -91,15 +92,7 @@
                     <div class="nav-divider"></div>
 
                     <NavLink class="nav-item options-nav-item" href="/options" title="@(T["Options"])">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="10" cy="10" r="3.4" />
-                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" />
-                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(60 10 10)" />
-                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(120 10 10)" />
-                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(180 10 10)" />
-                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(240 10 10)" />
-                            <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(300 10 10)" />
-                        </svg>
+                        <GearIcon />
                         <span class="label">@T["Options"]</span>
                     </NavLink>
                 </nav>
@@ -147,15 +140,7 @@
                             </div>
                             <div class="avatar-dropdown-divider"></div>
                             <a class="avatar-dropdown-item options-only" href="/options">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="10" cy="10" r="3.4" />
-                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" />
-                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(60 10 10)" />
-                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(120 10 10)" />
-                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(180 10 10)" />
-                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(240 10 10)" />
-                                    <rect x="9.15" y="3.9" width="1.7" height="3" rx="0.5" fill="currentColor" stroke="none" transform="rotate(300 10 10)" />
-                                </svg>
+                                <GearIcon Size="16" />
                                 @T["Options"]
                             </a>
                             <button type="button" class="avatar-dropdown-item" @onclick="ToggleNotificationsMenuAsync">
@@ -269,6 +254,7 @@
         // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
         // theme applies to the login/register pages too.
         await ThemeService.InitializeAsync();
+        await AccentColorService.InitializeAsync();
         await DevicePreferences.InitializeAsync();
         // Translations is already loaded - Program.cs reads it before the first render, so the very
         // first paint is in the right language. This only subscribes, so that changing it in Options

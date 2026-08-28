@@ -12,4 +12,8 @@ public sealed record TaskDto(
     bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId,
     string Priority = "Normal", string Status = "New", bool IsPinned = false,
     /// <summary>The warehouse this list's work is measured against, when one has been chosen - see the stock check.</summary>
-    Guid? LinkedWarehouseId = null);
+    Guid? LinkedWarehouseId = null,
+    /// <summary>What the list is for - "Checklist" or "Calendar", see Orbit.Core.Tasks.TaskListKind.</summary>
+    string Kind = "Checklist",
+    /// <summary>Where a calendar list happens; empty for every other kind.</summary>
+    string Location = "");

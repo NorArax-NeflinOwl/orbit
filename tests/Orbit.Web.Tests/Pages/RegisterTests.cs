@@ -91,7 +91,7 @@ public sealed class RegisterTests : OrbitTestContext
 
     [Theory]
     [InlineData("EmailTaken", "An account with this email address already exists.")]
-    [InlineData("UserNameTaken", "This username is already taken.")]
+    [InlineData("UserNameTaken", "This login is already taken.")]
     public void Submitting_a_taken_email_or_username_says_which_one_was_taken(string reason, string expectedMessage)
     {
         RegisterAuthApiClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict)

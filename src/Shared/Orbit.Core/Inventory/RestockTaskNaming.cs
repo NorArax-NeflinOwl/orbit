@@ -10,8 +10,15 @@ namespace Orbit.Core.Inventory;
 /// </summary>
 public static class RestockTaskNaming
 {
-    private const string ListTitlePrefix = "Restock supplies";
-    private const string EntryPrefix = "Restock: ";
+    /// <summary>
+    /// Public because a client showing one of these names has to recognise it to say it in the reader's
+    /// language - see Orbit.Web's OrbitWrittenNames. What is stored stays this English either way: it is
+    /// also how <see cref="IsManagedTitle"/> knows its own list again.
+    /// </summary>
+    public const string ListTitlePrefix = "Restock supplies";
+
+    /// <summary>Public for the same reason as <see cref="ListTitlePrefix"/>.</summary>
+    public const string EntryPrefix = "Restock: ";
 
     /// <summary>
     /// The standing, never-recreated reminder on every restock list. Named here rather than only where

@@ -1,5 +1,7 @@
 @page "/tasks/new"
-@page "/tasks/{Id:guid}"
+@* The deep level has to be asked for by name. "/tasks/{id}" is the checklist - see TaskListChecklist,
+   and see Tasks.razor's card for the two ways in. *@
+@page "/tasks/{Id:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Text.Json
@@ -7,6 +9,7 @@
 @using Orbit.Contracts.Notifications
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
@@ -77,7 +80,10 @@ else
         </p>
     }
 
-    <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
+    @* Submitting this form adds a row rather than saving it. Enter is what somebody writing a list
+       presses between items, and it used to save the list and leave the page instead - so the form's
+       default button is "Add item", and Save is a click of its own. *@
+    <EditForm Model="_formModel" OnValidSubmit="AddItem" class="editor-form">
     <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
         <div class="field">
             <label>@T["Title"]</label>
@@ -99,11 +105,30 @@ else
 
         <div class="field">
             <label>
-                <InputCheckbox @bind-Value="_formModel.IsGroup" />@T["Group list"]</label>
+                <InputCheckbox @bind-Value="_formModel.IsGroup" />@T["Group View"]</label>
             <small>
                 @T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]
             </small>
         </div>
+
+        <div class="field">
+            <label for="taskListKindSelect">@T["Type"]</label>
+            <InputSelect id="taskListKindSelect" @bind-Value="_formModel.Kind">
+                <option value="@nameof(TaskListKind.Checklist)">@T["Checklist"]</option>
+                <option value="@nameof(TaskListKind.Calendar)">@T["Calendar"]</option>
+            </InputSelect>
+            <small>@T["A calendar list holds appointments rather than errands, so it also says where they happen."]</small>
+        </div>
+
+        @* Only for the kind that has anywhere to be - the server drops a location on any other kind. *@
+        @if (_formModel.Kind == nameof(TaskListKind.Calendar))
+        {
+            <div class="field">
+                <label for="taskListLocationInput">@T["Location"]</label>
+                <InputText id="taskListLocationInput" @bind-Value="_formModel.Location"
+                           placeholder="@(T["Where this happens"])" />
+            </div>
+        }
 
         <div class="field">
             <label for="taskListPrioritySelect">@T["Priority"]</label>
@@ -143,18 +168,21 @@ else
                         <input type="checkbox" checked="@item.IsCompleted" disabled
                                title="@(T["Completed - follows the linked list, can't be set by hand"])" />
                     }
-                    <InputText class="editor-item-main" @bind-Value="item.Description" placeholder="@(T["Item description"])" />
+                    @* Reassigned on every row, so it holds the last one by the time the loop ends - which
+                       is the row Add item just appended, and the one the cursor belongs in. *@
+                    <InputText class="editor-item-main" @ref="_lastItemDescription" @bind-Value="item.Description"
+                               placeholder="@(T["Item description"])" />
                     <span class="editor-item-aside">
                         @* Labelled rather than left to be guessed from their shape: side by side on a
                            wide screen the pair reads as a due date, but stacked on a narrow one they
                            are two bare boxes with nothing saying what either is for. *@
                         <span class="editor-item-field">
                             <span class="editor-item-field-label">@T["Due date"]</span>
-                            <InputDate @bind-Value="item.DueDate" aria-label="@(T["Due date"])" />
+                            <DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
                         </span>
                         <span class="editor-item-field">
                             <span class="editor-item-field-label">@T["Due time"]</span>
-                            <input type="time" @bind="item.DueTime" aria-label="@(T["Due time"])" />
+                            <TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
                         </span>
                         <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
                                 title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
@@ -173,7 +201,7 @@ else
                                 <option value="">@T["None"]</option>
                                 @foreach (var linkableTaskList in _linkableTaskLists)
                                 {
-                                    <option value="@linkableTaskList.Id">@linkableTaskList.Title</option>
+                                    <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
                                 }
                             </select>
                         </label>
@@ -183,7 +211,7 @@ else
                                     <option value="">@T["Move to…"]</option>
                                     @foreach (var targetTaskList in _linkableTaskLists)
                                     {
-                                        <option value="@targetTaskList.Id">@targetTaskList.Title</option>
+                                        <option value="@targetTaskList.Id">@Written(targetTaskList.Title)</option>
                                     }
                                 </select>
                             </label>
@@ -206,7 +234,7 @@ else
                                     }
                                 </select>
                             </label>
-                            <label>@T["Daily reminder time"]<input type="time" @bind="item.DailyReminderTimeOfDay" />
+                            <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
                             </label>
                         }
                         @if (!string.IsNullOrEmpty(item.LinkedTaskListId))
@@ -224,7 +252,8 @@ else
             </div>
         }
         <div>
-            <button type="button" class="btn-secondary" @onclick="AddItem">@T["Add item"]</button>
+            @* The form's only submit button, and so the one Enter presses - see the EditForm above. *@
+            <button type="submit" class="btn-secondary">@T["Add item"]</button>
         </div>
 
         @if (_saveErrorMessage is not null)
@@ -232,7 +261,7 @@ else
             <p class="error">@_saveErrorMessage</p>
         }
         <div class="form-actions">
-            <button type="submit" class="btn-primary">@T["Save"]</button>
+            <button type="button" class="btn-primary" @onclick="SaveAsync">@T["Save"]</button>
             <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
         </div>
     </fieldset>
@@ -441,6 +470,8 @@ else
                         IsGroup = taskList.IsGroup,
                         IsPrivate = taskList.IsPrivate,
                         Priority = taskList.Priority,
+                        Kind = taskList.Kind,
+                        Location = taskList.Location,
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
@@ -499,11 +530,47 @@ else
 
     private void ToggleExpanded(TaskItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
 
+    /// <summary>
+    /// A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames. Used where another
+    /// list is named, never on the title box: what is typed there is what gets saved.
+    /// </summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+
     private void AddItem()
     {
         var item = new TaskItemFormModel();
         _formModel.Items.Add(item);
         _expandedItem = item;
+        _isWaitingToFocusTheNewItem = true;
+    }
+
+    /// <summary>
+    /// The description box of the last row on the form - see where it is assigned. Held so a row added
+    /// with Enter can be typed into straight away, which is the whole point of adding it that way.
+    /// </summary>
+    private InputText? _lastItemDescription;
+    private bool _isWaitingToFocusTheNewItem;
+
+    /// <summary>
+    /// Focuses the row Add item just appended, once it has actually been rendered - there is nothing to
+    /// focus until then.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_isWaitingToFocusTheNewItem || _lastItemDescription?.Element is not { } element)
+        {
+            return;
+        }
+
+        _isWaitingToFocusTheNewItem = false;
+        try
+        {
+            await element.FocusAsync();
+        }
+        catch (JSException)
+        {
+            // The row is there either way; the cursor just stays where it was.
+        }
     }
 
     /// <summary>
@@ -594,7 +661,7 @@ else
                 item.OverdueNotificationChannel,
                 item.RemindDaily,
                 item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.DailyReminderTimeOfDay ?? default))
             .ToList();
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
@@ -605,12 +672,16 @@ else
         {
             if (IsNewTaskList)
             {
-                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(_formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate, Priority: _formModel.Priority));
+                var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
+                    _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
+                    Priority: _formModel.Priority, Kind: _formModel.Kind, Location: _formModel.Location));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
             {
-                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(_formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate, Priority: _formModel.Priority));
+                var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
+                    _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
+                    Priority: _formModel.Priority, Kind: _formModel.Kind, Location: _formModel.Location));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -812,6 +883,12 @@ else
         /// <summary>One of "Low", "Normal", "High" - kept as the wire's own string so the form binds straight to it.</summary>
         public string Priority { get; set; } = "Normal";
 
+        /// <summary>"Checklist" or "Calendar", kept as the wire's own string for the same reason Priority is.</summary>
+        public string Kind { get; set; } = nameof(TaskListKind.Checklist);
+
+        /// <summary>Where a calendar list happens. Held even while the kind is something else, so switching back and forth in one sitting doesn't lose what was typed - the server drops it on save.</summary>
+        public string Location { get; set; } = string.Empty;
+
         /// <summary>Encrypt this list so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }
         public List<TaskItemFormModel> Items { get; set; } = [];
@@ -829,6 +906,7 @@ else
         public string OverdueNotificationChannel { get; set; } = "Push";
         public bool RemindDaily { get; set; }
         public string DailyReminderNotificationChannel { get; set; } = "Push";
-        public TimeOnly DailyReminderTimeOfDay { get; set; }
+        /// <summary>Optional here, though the request is not: an empty box is midnight, which is what an unanswered "what time?" has always meant on this form.</summary>
+        public TimeOnly? DailyReminderTimeOfDay { get; set; }
     }
 }

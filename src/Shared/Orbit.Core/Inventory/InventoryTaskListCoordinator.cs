@@ -140,7 +140,9 @@ public sealed class InventoryTaskListCoordinator
 
         var restockItem = TaskItem.Create(
             RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity), dueDateUtc: null, isCompleted: false);
-        taskList.Update(taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
+        taskList.Update(
+            taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate,
+            taskList.EncryptedContent, taskList.Priority);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 
         item.SetPendingRestockTask(taskListId, restockItem.Id);
@@ -193,7 +195,9 @@ public sealed class InventoryTaskListCoordinator
             return 0;
         }
 
-        taskList.Update(taskList.Title, [.. taskList.Items, .. added], taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
+        taskList.Update(
+            taskList.Title, [.. taskList.Items, .. added], taskList.IsGroup, taskList.IsPrivate,
+            taskList.EncryptedContent, taskList.Priority);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
         return added.Count;
     }
@@ -210,7 +214,8 @@ public sealed class InventoryTaskListCoordinator
             return;
         }
 
-        taskList.Update(title, taskList.Items, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
+        taskList.Update(
+            title, taskList.Items, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
     }
 }

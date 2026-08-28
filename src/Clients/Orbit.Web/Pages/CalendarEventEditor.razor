@@ -96,20 +96,20 @@ else
         <div class="field">
             <label>@T["Start"]</label>
             <div class="field-row">
-                <InputDate @bind-Value="_formModel.StartDate" @bind-Value:after="OnStartChanged" />
+                <DateField @bind-Value="_formModel.StartDate" @bind-Value:after="OnStartChanged" AriaLabel="@(T["Start"])" />
                 @if (!_formModel.IsAllDay)
                 {
-                    <input type="time" @bind="_formModel.StartTime" @bind:after="OnStartChanged" />
+                    <TimeField @bind-Value="_formModel.StartTime" @bind-Value:after="OnStartChanged" AriaLabel="@(T["Start"])" />
                 }
             </div>
         </div>
         <div class="field">
             <label>@T["End"]</label>
             <div class="field-row">
-                <InputDate @bind-Value="_formModel.EndDate" @bind-Value:after="OnEndChanged" />
+                <DateField @bind-Value="_formModel.EndDate" @bind-Value:after="OnEndChanged" AriaLabel="@(T["End"])" />
                 @if (!_formModel.IsAllDay)
                 {
-                    <input type="time" @bind="_formModel.EndTime" @bind:after="OnEndChanged" />
+                    <TimeField @bind-Value="_formModel.EndTime" @bind-Value:after="OnEndChanged" AriaLabel="@(T["End"])" />
                 }
             </div>
         </div>
@@ -133,7 +133,7 @@ else
             </div>
             <div class="field">
                 <label>@T["Repeat until (optional)"]</label>
-                <InputDate @bind-Value="_formModel.RecurrenceUntil" />
+                <DateField @bind-Value="_formModel.RecurrenceUntil" AriaLabel="@(T["Repeat until (optional)"])" />
             </div>
         }
         <div class="field">

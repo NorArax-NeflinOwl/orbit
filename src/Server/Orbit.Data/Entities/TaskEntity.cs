@@ -27,6 +27,12 @@ public sealed class TaskEntity
     /// <summary>The warehouse this list's work is measured against, if any - see Orbit.Core.Tasks.TaskList.LinkedWarehouseId.</summary>
     public Guid? LinkedWarehouseId { get; set; }
 
+    /// <summary>What this list is for, stored by name like every other enum here - see Orbit.Core.Tasks.TaskListKind.</summary>
+    public string Kind { get; set; } = nameof(Orbit.Core.Tasks.TaskListKind.Checklist);
+
+    /// <summary>Where a calendar list happens; empty for every other kind - see Orbit.Core.Tasks.TaskList.Location.</summary>
+    public string Location { get; set; } = string.Empty;
+
     /// <summary>Stored by name, like every other enum here - see Orbit.Core.Abstractions.ItemPriority.</summary>
     public string Priority { get; set; } = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
     public bool IsPinned { get; set; }

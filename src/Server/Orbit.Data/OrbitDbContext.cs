@@ -380,6 +380,12 @@ public sealed class OrbitDbContext : DbContext
             // the default a new list gets rather than as an unparseable empty string.
             entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
                 .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+            // Same reason, for the same kind of column: every list written before kinds existed is the
+            // ordinary sort.
+            entity.Property(row => row.Kind).IsRequired().HasMaxLength(20)
+                .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskListKind.Checklist));
+            // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
+            entity.Property(row => row.Location).IsRequired().HasMaxLength(300).HasDefaultValue(string.Empty);
         });
 
         modelBuilder.Entity<PublicShareLinkEntity>(entity =>

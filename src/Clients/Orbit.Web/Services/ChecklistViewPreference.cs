@@ -23,10 +23,28 @@ public enum ChecklistOrder
 }
 
 /// <summary>
-/// How one person reads one checklist: which shape, in what order, and whether the panel that prices it
-/// against a warehouse is in the way. They travel together because one button saves all of them.
+/// What order the panel pricing a list against a warehouse lists what it needs in. Its own set rather
+/// than <see cref="ChecklistOrder"/>: the rows there are products and shortfalls, not things to tick.
 /// </summary>
-public sealed record ChecklistReading(ChecklistView View, ChecklistOrder Order, bool IsStockCheckHidden = false)
+public enum StockCheckOrder
+{
+    /// <summary>The order the work asks for them, which is the order the lists are written in.</summary>
+    AsCounted,
+    Alphabetical,
+    ReverseAlphabetical,
+
+    /// <summary>What the shelf does not cover first - the only rows anybody has to do anything about.</summary>
+    ShortFirst
+}
+
+/// <summary>
+/// How one person reads one checklist: which shape, in what order, whether the panel that prices it
+/// against a warehouse is in the way, and what order that panel lists things in. They travel together
+/// because one button saves all of them.
+/// </summary>
+public sealed record ChecklistReading(
+    ChecklistView View, ChecklistOrder Order, bool IsStockCheckHidden = false,
+    StockCheckOrder StockOrder = StockCheckOrder.AsCounted)
 {
     public static readonly ChecklistReading Default = new(ChecklistView.Tree, ChecklistOrder.AsArranged);
 }
@@ -56,7 +74,14 @@ public sealed class ChecklistViewPreference(IJSRuntime jsRuntime)
                 "undone-first" => ChecklistOrder.UndoneFirst,
                 _ => ChecklistOrder.AsArranged
             },
-            saved.IsStockCheckHidden);
+            saved.IsStockCheckHidden,
+            saved.StockOrder switch
+            {
+                "alphabetical" => StockCheckOrder.Alphabetical,
+                "reverse-alphabetical" => StockCheckOrder.ReverseAlphabetical,
+                "short-first" => StockCheckOrder.ShortFirst,
+                _ => StockCheckOrder.AsCounted
+            });
     }
 
     public async Task SaveAsync(Guid taskListId, ChecklistReading reading)
@@ -71,12 +96,20 @@ public sealed class ChecklistViewPreference(IJSRuntime jsRuntime)
                 ChecklistOrder.UndoneFirst => "undone-first",
                 _ => "as-arranged"
             },
-            reading.IsStockCheckHidden);
+            reading.IsStockCheckHidden,
+            reading.StockOrder switch
+            {
+                StockCheckOrder.Alphabetical => "alphabetical",
+                StockCheckOrder.ReverseAlphabetical => "reverse-alphabetical",
+                StockCheckOrder.ShortFirst => "short-first",
+                _ => "as-counted"
+            });
     }
 
     private async Task<IJSObjectReference> ImportModuleAsync()
         => await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/checklistView.js");
 
     /// <summary>The stored shape, which is strings rather than enums - see checklistView.js.</summary>
-    public sealed record SavedReading(string View, string Order, bool IsStockCheckHidden = false);
+    public sealed record SavedReading(
+        string View, string Order, bool IsStockCheckHidden = false, string StockOrder = "as-counted");
 }

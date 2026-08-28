@@ -832,8 +832,22 @@ namespace Orbit.Data.Migrations
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Checklist");
+
                     b.Property<Guid?>("LinkedWarehouseId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasDefaultValue("");
 
                     b.Property<DateTimeOffset?>("LockExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");

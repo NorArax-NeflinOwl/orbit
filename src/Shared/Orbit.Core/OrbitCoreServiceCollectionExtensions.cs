@@ -93,7 +93,7 @@ using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
-using Orbit.Core.Tasks.CompleteWorkCoveredByStock;
+using Orbit.Core.Tasks.ReconcileTaskListWithStock;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.StockCheck;
@@ -155,6 +155,10 @@ public static class OrbitCoreServiceCollectionExtensions
         // Depends on ITaskRepository/ITaskListShareRepository/IUserRepository (all scoped), so it must
         // be scoped too - mirrors NoteAccessResolver's registration above.
         services.AddScoped<TaskListAccessResolver>();
+        // Depends on the task, warehouse and share repositories (all scoped), so it must be scoped too -
+        // shared by the three paths that hand a task list to somebody: an offer by name, accepting one,
+        // and claiming a public link.
+        services.AddScoped<TaskListShareCascade>();
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
@@ -167,7 +171,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetTaskListStockCheckQuery, TaskListStockCheck?>, GetTaskListStockCheckQueryHandler>();
         services.AddScoped<IRequestHandler<RaiseStockShortfallsCommand, int>, RaiseStockShortfallsCommandHandler>();
         services.AddScoped<IRequestHandler<GenerateWarehouseFromTaskListCommand, Guid?>, GenerateWarehouseFromTaskListCommandHandler>();
-        services.AddScoped<IRequestHandler<CompleteWorkCoveredByStockCommand, int>, CompleteWorkCoveredByStockCommandHandler>();
+        services.AddScoped<IRequestHandler<ReconcileTaskListWithStockCommand, StockReconciliation>, ReconcileTaskListWithStockCommandHandler>();
         services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();
@@ -224,7 +228,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<ConfirmEmailVerificationCommand, EmailVerificationConfirmResult>, ConfirmEmailVerificationCommandHandler>();
         services.AddScoped<IRequestHandler<RequestPasswordResetCommand, bool>, RequestPasswordResetCommandHandler>();
         services.AddScoped<IRequestHandler<ResetPasswordCommand, bool>, ResetPasswordCommandHandler>();
-        services.AddScoped<IRequestHandler<LoginQuery, User?>, LoginQueryHandler>();
+        services.AddScoped<IRequestHandler<LoginQuery, LoginResult>, LoginQueryHandler>();
         services.AddScoped<IRequestHandler<SearchUserQuery, User?>, SearchUserQueryHandler>();
         services.AddScoped<IRequestHandler<GetUserByIdQuery, User?>, GetUserByIdQueryHandler>();
         services.AddScoped<IRequestHandler<GetUsersByIdsQuery, IReadOnlyList<User>>, GetUsersByIdsQueryHandler>();

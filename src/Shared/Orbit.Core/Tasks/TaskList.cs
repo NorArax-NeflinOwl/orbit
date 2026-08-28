@@ -53,6 +53,16 @@ public sealed class TaskList
     /// </summary>
     public bool IsGroup { get; private set; }
 
+    /// <summary>What this list is for, and so what else it carries - see <see cref="TaskListKind"/>.</summary>
+    public TaskListKind Kind { get; private set; }
+
+    /// <summary>
+    /// Where the entries on a calendar list happen, as the reader wrote it. Empty for every other kind:
+    /// only a calendar list has anywhere to be, and a location left behind by a list that used to be one
+    /// would keep showing up on a checklist that no longer means it - see <see cref="SetKind"/>.
+    /// </summary>
+    public string Location { get; private set; } = string.Empty;
+
     /// <summary>
     /// The warehouse this list's work is measured against, when one has been chosen - see
     /// StockRequirementCounter. Null for a list nobody has asked that question of.
@@ -102,13 +112,15 @@ public sealed class TaskList
     public static TaskList Create(
         Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
         bool isPrivate = false, EncryptedPayload? encryptedContent = null, ItemPriority priority = ItemPriority.Normal,
-        bool isPinned = false)
+        bool isPinned = false, TaskListKind kind = TaskListKind.Checklist, string location = "")
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         var now = DateTimeOffset.UtcNow;
-        return new TaskList(
+        var taskList = new TaskList(
             Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, now, now,
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
+        taskList.SetKind(kind, location);
+        return taskList;
     }
 
     /// <summary>
@@ -121,12 +133,25 @@ public sealed class TaskList
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        ItemPriority priority, bool isPinned, Guid? linkedWarehouseId = null)
+        ItemPriority priority, bool isPinned, Guid? linkedWarehouseId = null,
+        TaskListKind kind = TaskListKind.Checklist, string location = "")
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
         taskList.LinkedWarehouseId = linkedWarehouseId;
+        taskList.SetKind(kind, location);
         return taskList;
+    }
+
+    /// <summary>
+    /// Says what this list is for. The location goes with the kind rather than being set on its own:
+    /// only a calendar list has one, so changing a list back to a checklist drops where it used to be
+    /// instead of leaving it to resurface if the reader ever changes their mind again.
+    /// </summary>
+    public void SetKind(TaskListKind kind, string location)
+    {
+        Kind = kind;
+        Location = kind == TaskListKind.Calendar ? location.Trim() : string.Empty;
     }
 
     /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
@@ -138,15 +163,19 @@ public sealed class TaskList
     }
 
     /// <summary>
-    /// Replaces the title, the whole checklist and the grouping flag, then recomputes
+    /// Replaces the title, the whole checklist, the grouping flag and the priority, then recomputes
     /// <see cref="IsCompleted"/> from the new items. Callers are expected to have already checked
     /// AccessLevel is CanEdit and the list isn't locked by someone else - see
-    /// UpdateTaskListCommandHandler. <paramref name="isGroup"/> has no default on purpose: this
-    /// replaces the whole list, so a caller that forgot it would silently un-group the list.
+    /// UpdateTaskListCommandHandler.
+    ///
+    /// No parameter here has a default, on purpose: this replaces the whole list, so a caller that
+    /// forgot one would silently reset it. <paramref name="priority"/> used to default to Normal, and
+    /// every caller that appends a single item - a restock errand, a moved entry - forgot it, so a list
+    /// somebody had marked High quietly dropped back the next time the warehouse touched it.
     /// </summary>
     public void Update(
         string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
-        ItemPriority priority = ItemPriority.Normal)
+        ItemPriority priority)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
