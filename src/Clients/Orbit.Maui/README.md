@@ -112,6 +112,13 @@ and iOS answers a permission request with an instant refusal when the string is 
 and nothing in the log, which looks exactly like the reader saying no. Delete the iOS output after
 editing that file.
 
+**Android has the same trap, and the Google Maps key walks straight into it.** Creating
+`Platforms/Android/AndroidManifestOverlay.xml` does not make the build regenerate the manifest, so the
+key is simply absent from the APK and the map screen goes on saying it has no map — which reads as a
+key that was rejected rather than one that never arrived. Delete
+`obj/Debug/net10.0-android/android/AndroidManifest.xml` after adding or changing the overlay. With that
+done the merge works: the key reaches the packaged manifest and `MapAvailability` finds it.
+
 iOS blocks cleartext HTTP by default. `Platforms/iOS/Info.plist` carries `NSAllowsLocalNetworking`,
 which permits it for local and loopback hosts only — a LAN address needs HTTPS or its own exception.
 
