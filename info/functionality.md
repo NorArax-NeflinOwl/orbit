@@ -197,6 +197,17 @@ pointing at the original offer instead of a confusing duplicate invite — the n
 show "Already shared with that contact - sent a reminder" in that case instead of implying a fresh share
 was created.
 
+**What a shared task list drags along with it.** A group list is a set of headings pointing at other
+lists, so handing one over on its own handed the recipient a page on which nothing opened — and the same
+was true of the inventory its stock check is read against. `TaskListShareCascade` follows the links all
+the way down: every list in the tree, and every warehouse any of them is measured against, is granted
+alongside the offer at the same access level, accepted when the offer is accepted, and claimed when a
+public link to the list is claimed. Private lists and private warehouses are left out, for the same
+reason they cannot be shared directly — their contents are sealed in their owner's browser, so a grant
+would only ever hand over ciphertext. Only one grant is offered by name, so there is still one chat
+message and one thing to accept; the rest follow it. Re-sharing an already-accepted list re-runs the
+cascade, so a list added to the group afterwards is not left as a second thing to agree to.
+
 ### Edit locking
 
 Because a shared note, task list, or calendar event is a single live row rather than a per-user copy, two
@@ -479,9 +490,19 @@ linkable lists; it does not check for longer cycles client-side, so building one
 API's validation and surfaces as a failed save rather than a client-side error message — a known rough
 edge, not a silent gap (see [Future Plan](future-plan.md#known-scope-cuts-and-rough-edges)).
 
-In the Blazor client, each item's due date and time are edited separately (`InputDate` plus a native
-`<input type="time">`) and combined into one timestamp on save; a date picked without a time is stored
-as midnight.
+A task list also says what it is for: `kind` is `Checklist` (the default) or `Calendar`, and a calendar
+list — one whose entries are appointments rather than errands — also carries a `location`. Every other
+kind has nowhere to be and stores nothing for it, including a list changed back from one: the location
+travels with the kind and is dropped when it stops applying (`TaskList.SetKind`).
+
+In the Blazor client, each item's due date and time are edited separately (`DateField` plus `TimeField`)
+and combined into one timestamp on save; a date picked without a time is stored as midnight. Both are
+Orbit's own boxes rather than the browser's `<input type="date">`/`<input type="time">`, which draw
+themselves in the *browser's* locale — so Orbit read in Polish on an English-language browser asked for
+times in AM/PM and opened a Sunday-first month, unlike every other calendar in the app. A time is
+entered and shown as `HH:mm`, a date as `dd.MM.yyyy`, and the date box opens a Monday-first month of its
+own. Neither guesses at what it cannot read: an unparseable entry snaps the box back to what it held
+rather than turning half a deadline into some other one.
 
 `DELETE /api/tasks/{id}` deletes a task list (and its items, via the `ON DELETE CASCADE` foreign key
 from `TaskItemEntity` to its owning list — see `OrbitDbContext`); like the other endpoints, it 404s if
@@ -490,6 +511,25 @@ the id doesn't exist or isn't owned by the caller. Deleting a list that another 
 `LinkedTaskCompletionResolver` already treats a link to a missing list as "not completed" instead of
 failing, so this is safe, just something to be aware of if a list you expect to still be linkable is
 gone. The Blazor client's task list page asks for confirmation before calling this endpoint.
+
+### The page of lists
+
+`/tasks` is one card per list, showing enough to recognise it: its badges, how far through it is, and a
+few of its rows. A row that only points at another list is followed — the first few items of the list it
+points at are drawn under it — so a group list's card says something about the work rather than being a
+stack of titles.
+
+Chips narrow the page to a status, or to **Shared**, which is about where a list came from rather than
+how far along it is; "All" is a chip like the rest, so there is always exactly one answer to what is on
+screen. The orders live behind the page's menu rather than in a control taking up the top of every
+visit: most and least important first, newest and oldest, A to Z and Z to A, and **the way I arranged
+them** — the one order the reader sets by hand. Only under that one do the cards carry a drag handle;
+under any other, moving a card by hand would not survive the next redraw. Both the chosen order and the
+dragged arrangement are kept on the device (`TaskListArrangement`, localStorage, the same category as the
+dashboard's own layout). A list made or shared since the last drag sits after the ones that have been
+placed, rather than pushing the arrangement about.
+
+Pinned lists lead every order except that one, which already says where every card goes.
 
 ### Two editing levels
 
@@ -537,6 +577,10 @@ sorting list by list would look random once the headings are gone. **Save view**
 the order as the way that list opens next time, on that device (`ChecklistViewPreference`, localStorage,
 the same category as the dashboard's own layout).
 
+All of it lives behind the screen's three-dot menu, along with Edit and the two inventory actions:
+none of it is what somebody came to this screen to do. The menu stays open while the settings are being
+tried and closes behind the entries that act.
+
 ### Arranging a list by hand
 
 In the deep editor each item carries a drag handle, and dropping one where another sits puts it there.
@@ -554,14 +598,19 @@ A group list can be pointed at a warehouse (`PUT /api/tasks/{id}/warehouse`), an
 to type a number beside every line. A line with a due date in the future is not counted - that work has
 not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
 puts what is short onto the warehouse's standing restock list, where the daily reminder brings it up;
-names already waiting are left alone. The panel can be put away with its own Hide button, kept by the
-same "Save view" as the view and the order - a list nobody prices should not open with it every time.
+names already waiting are left alone. The panel carries a menu of its own: whether it is in the way at
+all, and what order it lists things in - its own order, A to Z, Z to A, or shortfalls first, which is
+the only part of the table anybody has to act on. Both are remembered as they are set rather than
+waiting for "Save view", since a panel somebody puts away every visit has already been answered about.
 
-`POST /api/tasks/{id}/stock-check/completed` is the other half, and what "recalculate against the
-inventory" does: it crosses off the work the warehouse already covers. Counted per product rather than
-per line, so three jars on the shelf finish three of the five lines asking for one, oldest first; stock
-spent on a line already crossed off is not spent again, and work dated in the future is left alone
-because the check does not count it either.
+`POST /api/tasks/{id}/stock-check/reconciliation` is the other half, and what "recalculate against the
+inventory" does. It runs in both directions. What the warehouse already covers is crossed off - counted
+per product rather than per line, so three jars on the shelf finish three of the five lines asking for
+one, oldest first; stock spent on a line already crossed off is not spent again, and work dated in the
+future is left alone because the check does not count it either. And a product the shelf holds that no
+list in the tree mentions is written onto the list being reconciled, since that is the same disagreement
+seen from the other side. One line per product rather than one per unit: the counting rule reads
+repetition as quantity, but a shelf holding fifty screws is not fifty errands.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
