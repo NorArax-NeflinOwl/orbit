@@ -203,7 +203,11 @@ internal static class PolishTranslations
         ["In progress"] = "W trakcie",
         ["Overdue"] = "Po terminie",
         ["Items"] = "Pozycje",
-        ["Group list"] = "Lista grupowa",
+        ["Group View"] = "Widok grupowy",
+        ["Type"] = "Typ",
+        ["A calendar list holds appointments rather than errands, so it also says where they happen."] =
+            "Lista kalendarzowa zawiera spotkania, a nie sprawunki, więc mówi też, gdzie się odbywają.",
+        ["Where this happens"] = "Gdzie się to odbywa",
 
         // ---- Calendar ----
         ["Add event"] = "Dodaj wydarzenie",
