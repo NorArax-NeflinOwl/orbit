@@ -156,6 +156,30 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             ? Task.CompletedTask
             : SaveAsync([.. _items.Where(candidate => !Matches(candidate, row.Item))], cancellationToken);
 
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel.RenameAsync"/>
+    [RelayCommand]
+    private Task RenameAsync(CancellationToken cancellationToken) => SaveAsync(_items, cancellationToken);
+
+    /// <summary>
+    /// Gets rid of the whole warehouse, which the phone could not do from anywhere - Orbit.Web has had
+    /// it all along, and the local store and the client both already knew how.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteAsync(CancellationToken cancellationToken)
+    {
+        var outcome = await _warehouses.DeleteAsync(_localId, cancellationToken);
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations[
+                "Somebody else can change this warehouse, and Orbit can't be reached to check. "
+                + "It stays read-only until you're back online."];
+            return;
+        }
+
+        await SynchroniseAsync(cancellationToken);
+        _navigator.ShowInventory();
+    }
+
     [RelayCommand]
     private void GoBack() => _navigator.ShowInventory();
 

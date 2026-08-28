@@ -139,6 +139,37 @@ public sealed class WarehouseDetailScreenTests
         Assert.Equal("Piece", Assert.Single(screen.Items).Item.ProductType);
     }
 
+    /// <summary>
+    /// Orbit.Web has had both since the beginning; the phone showed a warehouse's name without letting
+    /// anybody change it, and offered no way to get rid of the warehouse from anywhere at all.
+    /// </summary>
+    [Fact]
+    public async Task A_warehouse_can_be_renamed()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync("Kitchn");
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.Name = "Kitchen";
+        await screen.RenameCommand.ExecuteAsync(null);
+
+        var reopened = await context.OpenAsync(warehouse.LocalId);
+        Assert.Equal("Kitchen", reopened.Name);
+    }
+
+    [Fact]
+    public async Task A_warehouse_can_be_deleted_and_the_screen_leaves()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        await screen.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Empty(await context.StoredWarehousesAsync());
+        Assert.Contains(nameof(IScreenNavigator.ShowInventory), context.Navigator.Destinations);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -157,7 +188,16 @@ public sealed class WarehouseDetailScreenTests
 
         public FakeInventoryServer Server { get; }
 
+        public RecordingScreenNavigator Navigator { get; } = new();
+
         /// <summary>A warehouse is created empty, so its items are put in by the same update a screen makes.</summary>
+        public Task<LocalWarehouse> AddWarehouseAsync(string name)
+            => _warehouses.CreateAsync(name);
+
+        /// <summary>What the local store holds now - for the one test that expects it to hold nothing.</summary>
+        public async Task<IReadOnlyList<LocalWarehouse>> StoredWarehousesAsync()
+            => await _warehouses.GetAllAsync();
+
         public async Task<LocalWarehouse> AddWarehouseAsync(params WarehouseItemDto[] items)
         {
             var warehouse = await _warehouses.CreateAsync("Kitchen");
@@ -170,7 +210,7 @@ public sealed class WarehouseDetailScreenTests
             var screen = new WarehouseDetailViewModel(
                 _warehouses, _synchronizer, new Translations(new InMemoryLanguageStore()),
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
-                new RecordingScreenNavigator(),
+                Navigator,
                 new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock));
 
             screen.Open(localId);

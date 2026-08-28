@@ -150,6 +150,23 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// Orbit.Web's task editor has a Title field. This screen showed the title and would not let
+    /// anybody change it - so a list named wrongly stayed named wrongly.
+    /// </summary>
+    [Fact]
+    public async Task A_list_can_be_renamed()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Toady");
+
+        screen.Title = "Today";
+        await screen.RenameCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        Assert.Contains("Today", context.Server.TaskLists.Select(list => list.Title));
+    }
+
+    /// <summary>
     /// Moving an entry to another list, which the phone could not do at all. It is a change to two
     /// lists rather than to the entry, so it happens on choosing rather than on the form's Save - the
     /// same as Orbit.Web's editor.

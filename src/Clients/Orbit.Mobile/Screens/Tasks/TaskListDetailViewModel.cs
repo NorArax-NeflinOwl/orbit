@@ -213,6 +213,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _navigator.ShowTasks();
     }
 
+    /// <summary>
+    /// Renaming saves the whole list, because the store's update takes the whole list - the same shape
+    /// as renaming a note. Orbit.Web's task editor has a Title field; this screen showed the title and
+    /// would not let anybody change it.
+    /// </summary>
+    [RelayCommand]
+    private Task RenameAsync(CancellationToken cancellationToken) => SaveAsync(_items, cancellationToken);
+
     [RelayCommand]
     private void GoBack() => _navigator.ShowTasks();
 

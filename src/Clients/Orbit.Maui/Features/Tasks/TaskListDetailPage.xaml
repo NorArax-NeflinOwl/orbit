@@ -14,7 +14,9 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
-        <Label Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold" />
+        <Entry Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold"
+               IsReadOnly="{Binding IsReadOnly}" Placeholder="{controls:Translate 'Untitled'}"
+               ReturnType="Done" ReturnCommand="{Binding RenameCommand}" />
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"

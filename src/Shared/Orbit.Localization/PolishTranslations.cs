@@ -875,6 +875,7 @@ public static class PolishTranslations
             = "Kim jesteś dla Orbita i co wolno temu urządzeniu.",
         ["Already accepted"] = "Już przyjęto",
         ["Item options"] = "Opcje pozycji",
+        ["Delete warehouse"] = "Usuń magazyn",
         ["Delete item"] = "Usuń pozycję",
         ["Line options"] = "Opcje wiersza",
         ["Make it a checklist item"] = "Zmień w pozycję listy",
