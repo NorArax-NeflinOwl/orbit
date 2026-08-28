@@ -158,7 +158,7 @@ internal static class PolishTranslations
         // ---- Signing in ----
         ["Log in"] = "Zaloguj się",
         ["Register"] = "Zarejestruj się",
-        ["Email or username"] = "E-mail lub nazwa użytkownika",
+        ["Email or login"] = "E-mail lub login",
         ["Password"] = "Hasło",
         ["Repeat password"] = "Powtórz hasło",
         ["Display name"] = "Nazwa wyświetlana",
@@ -166,10 +166,10 @@ internal static class PolishTranslations
         // Same word in Polish - written down rather than left out, so the coverage test can tell a
         // deliberate match from an entry somebody forgot.
         ["Push"] = "Push",
-        ["Username"] = "Nazwa użytkownika",
+        ["Login"] = "Login",
         ["Don't have an account? "] = "Nie masz konta? ",
         ["Already have an account? "] = "Masz już konto? ",
-        ["Invalid email, username, or password."] = "Nieprawidłowy e-mail, nazwa użytkownika lub hasło.",
+        ["Invalid email, login, or password."] = "Nieprawidłowy e-mail, login lub hasło.",
 
         // ---- Dashboard ----
         ["Everything on your plate, in one place."] = "Wszystko, co masz na głowie, w jednym miejscu.",
@@ -263,10 +263,10 @@ internal static class PolishTranslations
         ["Allow editing"] = "Pozwól edytować",
         ["They can edit it now."] = "Teraz może to edytować.",
         ["Accepted - added to your account."] = "Przyjęte — dodane do Twojego konta.",
-        ["No chats. Search for a user by email address or username to start a conversation."] =
-            "Brak rozmów. Wyszukaj kogoś po adresie e-mail lub nazwie użytkownika, żeby zacząć.",
+        ["No chats. Search for a user by email address or login to start a conversation."] =
+            "Brak rozmów. Wyszukaj kogoś po adresie e-mail lub loginie, żeby zacząć.",
         ["Search for someone and start a conversation."] = "Znajdź kogoś i zacznij rozmowę.",
-        ["Email address or username"] = "Adres e-mail lub nazwa użytkownika",
+        ["Email address or login"] = "Adres e-mail lub login",
 
         // ---- Map ----
         ["Share where you are"] = "Udostępnij swoje położenie",
@@ -279,6 +279,17 @@ internal static class PolishTranslations
 
         // ---- Options ----
         ["Appearance"] = "Wygląd",
+        ["Accent colour"] = "Kolor wiodący",
+        ["The colour Orbit highlights things in. Kept on this device, like the theme."] =
+            "Kolor, którym Orbit wyróżnia elementy. Zapamiętywany na tym urządzeniu, tak jak motyw.",
+        ["Purple"] = "Fioletowy",
+        ["Blue"] = "Niebieski",
+        ["Teal"] = "Turkusowy",
+        ["Green"] = "Zielony",
+        ["Amber"] = "Bursztynowy",
+        ["Orange"] = "Pomarańczowy",
+        ["Red"] = "Czerwony",
+        ["Pink"] = "Różowy",
         ["System"] = "Systemowy",
         ["Light"] = "Jasny",
         ["Dark"] = "Ciemny",
@@ -557,8 +568,8 @@ internal static class PolishTranslations
         ["Couldn't sign in with Google. Try again."] = "Nie udało się zalogować przez Google. Spróbuj ponownie.",
         ["Couldn't connect Google. Try again."] = "Nie udało się połączyć z Google. Spróbuj ponownie.",
         ["Couldn't disconnect Google. Try again."] = "Nie udało się odłączyć Google. Spróbuj ponownie.",
-        ["No user found with that email address or username."] =
-            "Nie znaleziono użytkownika o takim adresie e-mail ani nazwie.",
+        ["No user found with that email address or login."] =
+            "Nie znaleziono użytkownika o takim adresie e-mail ani loginie.",
         ["Failed to update notification settings. Try again."] =
             "Nie udało się zapisać ustawień powiadomień. Spróbuj ponownie.",
         ["Failed to enable push notifications. Check your browser permissions and try again."] =
@@ -698,7 +709,7 @@ internal static class PolishTranslations
         ["Unreadable - encrypted with an older key"] = "Nieczytelne — zaszyfrowane starszym kluczem",
         ["another list"] = "inną listą",
         ["another user"] = "inny użytkownik",
-        ["This username is already taken."] = "Ta nazwa użytkownika jest już zajęta.",
+        ["This login is already taken."] = "Ten login jest już zajęty.",
         ["An account with this email address already exists."] = "Konto z tym adresem e-mail już istnieje.",
         ["Couldn't verify that Google account."] = "Nie udało się zweryfikować tego konta Google.",
         ["That didn't work."] = "Nie udało się.",

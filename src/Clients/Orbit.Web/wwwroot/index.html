@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Orbit</title>
     <base href="/" />
-    <!-- Resolves and applies the light/dark theme before any CSS paints, so the page never flashes the
-         wrong theme on load. Mirrors theme.js's own logic (kept in sync manually - this one must run as a
-         plain classic script, before app.css, since ES module imports and Blazor itself aren't available
-         yet this early). See ThemeService for the interactive (post-load) equivalent. -->
+    <!-- Resolves and applies the light/dark theme and the chosen accent colour before any CSS paints, so
+         the page never flashes the wrong one on load. Mirrors theme.js and accentColor.js (kept in sync
+         manually - this one must run as a plain classic script, before app.css, since ES module imports
+         and Blazor itself aren't available yet this early). See ThemeService and AccentColorService for
+         the interactive (post-load) equivalents. -->
     <script>
         (function () {
             try {
@@ -17,6 +18,14 @@
                 document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
             } catch (e) {
                 document.documentElement.setAttribute('data-theme', 'light');
+            }
+            try {
+                var hue = localStorage.getItem('orbit-accent-hue');
+                if (hue !== null) {
+                    document.documentElement.style.setProperty('--accent-hue', hue);
+                }
+            } catch (e) {
+                // No stored choice, or no storage at all - app.css's own --accent-hue stands.
             }
         })();
     </script>

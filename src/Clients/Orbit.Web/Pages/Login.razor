@@ -21,7 +21,7 @@
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync" class="editor-form">
     <div class="field">
-        <label>@T["Email or username"]</label>
+        <label>@T["Email or login"]</label>
         <InputText id="emailOrUserName" @bind-Value="_formModel.EmailOrUserName" />
     </div>
     <div class="field">
@@ -91,7 +91,7 @@
 
         _errorMessage = result.Outcome switch
         {
-            AuthOutcome.InvalidCredentials => T["Invalid email, username, or password."],
+            AuthOutcome.InvalidCredentials => T["Invalid email, login, or password."],
             _ => T["An error occurred while logging in. Try again."]
         };
         _isSubmitting = false;

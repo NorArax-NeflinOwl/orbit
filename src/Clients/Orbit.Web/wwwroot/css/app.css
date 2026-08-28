@@ -5,6 +5,10 @@
    resolution already happened by the time either script ran; every element in the app should read
    colors from these variables, never a literal hex/oklch value, so both themes stay consistent. */
 :root {
+    /* The one colour the reader picks (see AccentColorService). Every accent token below is written
+       against it rather than against a literal hue, so setting this single value repaints the app in
+       both themes at once. */
+    --accent-hue: 288;
     --bg: oklch(97.5% 0.007 75);
     --bg-elevated: oklch(99.5% 0.003 75);
     --bg-subtle: oklch(95% 0.01 75);
@@ -12,10 +16,10 @@
     --text-primary: oklch(24% 0.014 55);
     --text-secondary: oklch(46% 0.018 55);
     --text-tertiary: oklch(62% 0.014 55);
-    --accent: oklch(56% 0.16 288);
-    --accent-hover: oklch(50% 0.17 288);
-    --accent-subtle: oklch(93% 0.035 288);
-    --accent-on: oklch(99% 0.005 288);
+    --accent: oklch(56% 0.16 var(--accent-hue));
+    --accent-hover: oklch(50% 0.17 var(--accent-hue));
+    --accent-subtle: oklch(93% 0.035 var(--accent-hue));
+    --accent-on: oklch(99% 0.005 var(--accent-hue));
     --task: oklch(52% 0.14 55);
     --success: oklch(58% 0.13 150);
     --danger: oklch(58% 0.16 25);
@@ -32,10 +36,10 @@
     --text-primary: oklch(95% 0.006 75);
     --text-secondary: oklch(78% 0.012 70);
     --text-tertiary: oklch(58% 0.012 70);
-    --accent: oklch(74% 0.13 288);
-    --accent-hover: oklch(80% 0.11 288);
-    --accent-subtle: oklch(32% 0.06 288);
-    --accent-on: oklch(14% 0.02 288);
+    --accent: oklch(74% 0.13 var(--accent-hue));
+    --accent-hover: oklch(80% 0.11 var(--accent-hue));
+    --accent-subtle: oklch(32% 0.06 var(--accent-hue));
+    --accent-on: oklch(14% 0.02 var(--accent-hue));
     --task: oklch(72% 0.13 55);
     --success: oklch(72% 0.12 150);
     --danger: oklch(70% 0.15 25);
@@ -1958,6 +1962,35 @@ input.note-editor-title {
     flex-wrap: wrap;
 }
 
+/* One swatch per accent colour. Each button carries its own --accent-hue inline (see Options.razor), so
+   the tokens below resolve to the colour that button stands for rather than to the chosen one. */
+.accent-picker {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.accent-option {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+.accent-option:hover {
+    background: var(--accent-hover);
+}
+
+/* An outline rather than a heavier border, so the chosen swatch does not change size when it is picked. */
+.accent-option.active {
+    border-color: var(--bg);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .theme-option {
     display: flex;
     flex-direction: column;
@@ -2001,7 +2034,7 @@ input.note-editor-title {
     width: 36%;
     height: 8px;
     border-radius: 3px;
-    background: oklch(56% 0.16 288);
+    background: var(--accent);
 }
 
 .tp-line {

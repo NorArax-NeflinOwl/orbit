@@ -107,7 +107,7 @@ public sealed class LoginTests : OrbitTestContext
         cut.Find("#password").Change("wrong-password");
         cut.Find("form").Submit();
 
-        Assert.Contains("Invalid email, username, or password.", cut.Markup);
+        Assert.Contains("Invalid email, login, or password.", cut.Markup);
     }
 
     private void RegisterAuthApiClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

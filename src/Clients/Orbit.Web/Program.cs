@@ -105,6 +105,7 @@ builder.Services.AddScoped<GoogleIntegrationAccess>();
 builder.Services.AddScoped<PrivateContentSealer>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
+builder.Services.AddScoped<AccentColorService>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<DashboardCardPreferences>();
 builder.Services.AddScoped<PresenceService>();
