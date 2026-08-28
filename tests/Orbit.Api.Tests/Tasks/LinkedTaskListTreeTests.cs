@@ -47,7 +47,7 @@ public sealed class LinkedTaskListTreeTests
         var second = List("Second", isGroup: true, Work("Bolt"));
         var first = List("First", isGroup: true, LinkTo(second), Work("Nut"));
         second.Update(second.Title, [.. second.Items, TaskItem.Create("Back", null, false, first.Id)],
-            second.IsGroup, second.IsPrivate, second.EncryptedContent);
+            second.IsGroup, second.IsPrivate, second.EncryptedContent, second.Priority);
 
         var gathered = LinkedTaskListTree.Flatten(first, [first, second]);
 

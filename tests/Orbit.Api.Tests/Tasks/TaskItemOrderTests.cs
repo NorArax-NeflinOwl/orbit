@@ -52,7 +52,8 @@ public sealed class TaskItemOrderTests : IDisposable
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
                 item.DailyReminderTimeOfDay))
             .ToList();
-        reread.Update(reread.Title, withOneTicked, reread.IsGroup, reread.IsPrivate, reread.EncryptedContent);
+        reread.Update(
+            reread.Title, withOneTicked, reread.IsGroup, reread.IsPrivate, reread.EncryptedContent, reread.Priority);
         await repository.UpdateAsync(reread, CancellationToken.None);
 
         var afterwards = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);

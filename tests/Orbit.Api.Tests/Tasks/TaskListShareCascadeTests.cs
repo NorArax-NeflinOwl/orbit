@@ -197,7 +197,7 @@ public sealed class TaskListShareCascadeTests
         {
             group.Update(
                 group.Title, [.. group.Items, TaskItem.Create("Also", null, false, memberId)],
-                group.IsGroup, group.IsPrivate, group.EncryptedContent);
+                group.IsGroup, group.IsPrivate, group.EncryptedContent, group.Priority);
             await _taskRepository.UpdateAsync(group, CancellationToken.None);
         }
 

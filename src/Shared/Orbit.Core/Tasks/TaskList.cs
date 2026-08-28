@@ -163,15 +163,19 @@ public sealed class TaskList
     }
 
     /// <summary>
-    /// Replaces the title, the whole checklist and the grouping flag, then recomputes
+    /// Replaces the title, the whole checklist, the grouping flag and the priority, then recomputes
     /// <see cref="IsCompleted"/> from the new items. Callers are expected to have already checked
     /// AccessLevel is CanEdit and the list isn't locked by someone else - see
-    /// UpdateTaskListCommandHandler. <paramref name="isGroup"/> has no default on purpose: this
-    /// replaces the whole list, so a caller that forgot it would silently un-group the list.
+    /// UpdateTaskListCommandHandler.
+    ///
+    /// No parameter here has a default, on purpose: this replaces the whole list, so a caller that
+    /// forgot one would silently reset it. <paramref name="priority"/> used to default to Normal, and
+    /// every caller that appends a single item - a restock errand, a moved entry - forgot it, so a list
+    /// somebody had marked High quietly dropped back the next time the warehouse touched it.
     /// </summary>
     public void Update(
         string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
-        ItemPriority priority = ItemPriority.Normal)
+        ItemPriority priority)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);

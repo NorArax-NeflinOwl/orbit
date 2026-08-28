@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Inventory;
 using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
@@ -124,7 +125,8 @@ public sealed class InventoryTaskListCoordinatorTests
                 existing.LinkedTaskListId, existing.OverdueNotificationChannel, existing.RemindDaily,
                 existing.DailyReminderNotificationChannel, existing.DailyReminderTimeOfDay)
             : existing).ToList();
-        taskList.Update(taskList.Title, completed, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
+        taskList.Update(
+            taskList.Title, completed, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
         await context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
 
         var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
@@ -153,6 +155,73 @@ public sealed class InventoryTaskListCoordinatorTests
 
         var taskList = await context.TaskRepository.GetByIdAsync(userId, result.PendingRestockTaskListId!.Value, CancellationToken.None);
         Assert.Single(taskList!.Items, taskItem => RestockTaskNaming.ProductIn(taskItem.Description) == "Milk");
+    }
+
+    /// <summary>
+    /// A restock list is an ordinary task list once it exists: its owner can mark it High, pin it, and
+    /// otherwise treat it as theirs. Everything this coordinator does to one is an append or a rename,
+    /// so nothing here may quietly reset the rest of it - which is exactly what happened while
+    /// TaskList.Update took the priority as an optional parameter and these three call sites left it
+    /// out. Marking the list High and letting the warehouse touch it dropped it back to Normal.
+    /// </summary>
+    private static async Task<TaskList> MarkHighPriorityAsync(InventoryTestContext context, Guid userId, Guid taskListId)
+    {
+        var taskList = await context.TaskRepository.GetByIdAsync(userId, taskListId, CancellationToken.None);
+        taskList!.Update(
+            taskList.Title, taskList.Items, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent,
+            ItemPriority.High);
+        await context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
+        return taskList;
+    }
+
+    [Fact]
+    public async Task Raising_a_restock_errand_leaves_the_list_as_important_as_it_was()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(warehouseId, CancellationToken.None);
+        await MarkHighPriorityAsync(context, userId, taskListId!.Value);
+
+        var item = InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 0m, 1m, null, NotificationChannel.Push);
+        await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
+
+        var afterwards = await context.TaskRepository.GetByIdAsync(userId, taskListId.Value, CancellationToken.None);
+        Assert.Equal(ItemPriority.High, afterwards!.Priority);
+    }
+
+    [Fact]
+    public async Task Raising_a_shortfall_leaves_the_list_as_important_as_it_was()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(warehouseId, CancellationToken.None);
+        await MarkHighPriorityAsync(context, userId, taskListId!.Value);
+
+        await context.TaskListCoordinator.EnsureShortfallTasksAsync(
+            warehouseId, [new RestockNeed("Flour", 5m)], CancellationToken.None);
+
+        var afterwards = await context.TaskRepository.GetByIdAsync(userId, taskListId.Value, CancellationToken.None);
+        Assert.Equal(ItemPriority.High, afterwards!.Priority);
+    }
+
+    [Fact]
+    public async Task Renaming_the_warehouse_leaves_its_list_as_important_as_it_was()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(warehouseId, CancellationToken.None);
+        await MarkHighPriorityAsync(context, userId, taskListId!.Value);
+
+        var warehouse = await context.WarehouseRepository.GetByIdAsync(userId, warehouseId, CancellationToken.None);
+        warehouse!.Update("Pantry", isPrivate: false, encryptedContent: null);
+        await context.TaskListCoordinator.EnsureManagedTaskListAsync(warehouseId, CancellationToken.None);
+
+        var afterwards = await context.TaskRepository.GetByIdAsync(userId, taskListId.Value, CancellationToken.None);
+        Assert.Equal(RestockTaskNaming.TitleFor("Pantry"), afterwards!.Title);
+        Assert.Equal(ItemPriority.High, afterwards.Priority);
     }
 
     [Fact]

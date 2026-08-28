@@ -74,8 +74,14 @@ public sealed class MoveTaskItemCommandHandler : IRequestHandler<MoveTaskItemCom
         // moving into, which TaskListLinkValidator would reject as a self-link.
         await _taskListLinkValidator.ValidateAsync(targetList.UserId, targetList.Id, updatedTargetItems, cancellationToken);
 
-        sourceList.Update(sourceList.Title, updatedSourceItems, sourceList.IsGroup, sourceList.IsPrivate, sourceList.EncryptedContent);
-        targetList.Update(targetList.Title, updatedTargetItems, targetList.IsGroup, targetList.IsPrivate, targetList.EncryptedContent);
+        // Both lists keep everything about themselves but their items: moving one entry says nothing
+        // about how much either list matters.
+        sourceList.Update(
+            sourceList.Title, updatedSourceItems, sourceList.IsGroup, sourceList.IsPrivate,
+            sourceList.EncryptedContent, sourceList.Priority);
+        targetList.Update(
+            targetList.Title, updatedTargetItems, targetList.IsGroup, targetList.IsPrivate,
+            targetList.EncryptedContent, targetList.Priority);
         await _taskRepository.UpdateManyAsync([sourceList, targetList], cancellationToken);
         return EditOutcome.Success;
     }
