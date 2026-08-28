@@ -85,7 +85,10 @@ Without that extension the app can still be built and run, just with no debugger
 
 The iOS tasks all target `booted`, which is the only handle `simctl` offers once a device is running — so
 choosing the model is a step of its own, and only one may be booted at a time or `booted` is ambiguous.
-The Android tasks reach the SDK through `ANDROID_HOME`, falling back to `~/Library/Android/sdk`.
+The Android tasks reach the SDK through `ANDROID_HOME`, falling back to wherever that platform's
+command-line tools install one by default: `~/Library/Android/sdk` on macOS,
+`%LOCALAPPDATA%\Android\Sdk` on Windows. Each of them carries a `windows` override spelling the same
+thing in PowerShell, because the shell VS Code runs a task in is the machine's own.
 
 **Wait for the emulator, not just for `adb`.** `adb wait-for-device` returns as soon as the device is
 listed, which is well before Android has finished booting; an install into that window fails. The boot
@@ -179,6 +182,8 @@ Xcode app bundle".
 
 If the Android SDK lives somewhere non-standard, point the build at it with `AndroidSdkDirectory`.
 
+### The Android SDK on macOS
+
 The Android SDK is not one download but a set of packages, and the workload installs none of them. With
 the command-line tools on `PATH` (`brew install --cask android-commandlinetools`), this is the set the
 app needs, installed where the build looks for it without being told:
@@ -215,6 +220,53 @@ unavailable rather than one route to it being closed. The setting takes, and sur
 
 ```bash
 adb shell settings put secure ui_night_mode 2 && adb reboot
+```
+
+### The Android SDK on Windows
+
+**Visual Studio's .NET MAUI workload brings both halves, and the build finds them unaided.** With
+`ANDROID_HOME` and `JAVA_HOME` unset it still resolves `C:\Program Files (x86)\Android\android-sdk` and
+`C:\Program Files\Android\openjdk\jdk-21.0.8` — so a newer JDK on `PATH` is not the one the build uses,
+and does not have to be removed to keep the Android SDK happy.
+
+That SDK builds the app but cannot run it: it ships no `emulator` package and no system image, and it
+lives under Program Files, where `sdkmanager` cannot add them without elevation. Install a second SDK
+where the command-line tools look by default, and point `ANDROID_HOME` at it so the tasks and the build
+agree on one.
+
+The licence prompt in front of that can be answered once, or skipped: the Visual Studio SDK's licences
+are already accepted, and copying its `licenses` folder into the new SDK root carries that acceptance
+across — which is what lets the install below run unattended.
+
+```powershell
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Android\Sdk" | Out-Null; Copy-Item -Recurse "${env:ProgramFiles(x86)}\Android\android-sdk\licenses" "$env:LOCALAPPDATA\Android\Sdk\"
+```
+
+```powershell
+& "${env:ProgramFiles(x86)}\Android\android-sdk\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:LOCALAPPDATA\Android\Sdk" "platform-tools" "build-tools;36.0.0" "platforms;android-36" "emulator" "system-images;android-36;google_apis;x86_64" "cmdline-tools;latest"
+```
+
+```powershell
+setx ANDROID_HOME "$env:LOCALAPPDATA\Android\Sdk"
+```
+
+**`x86_64`, where the Mac takes `arm64-v8a`.** The emulator does not emulate a foreign architecture at
+any usable speed, so the image has to match the host — the one place where the two machines' setup
+genuinely differs rather than just being spelled differently.
+
+Then the same two reference devices as above, for the same reasons — only the tool's path and the image
+architecture change:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\avdmanager.bat" create avd -n Orbit_Pixel_8_API_36 -k "system-images;android-36;google_apis;x86_64" -d pixel_8
+```
+
+**The emulator needs a hypervisor, and says so late.** Without Windows Hypervisor Platform it starts and
+then crawls, which reads as a slow machine rather than a missing feature. Check before blaming the
+build:
+
+```powershell
+(Get-CimInstance Win32_ComputerSystem).HypervisorPresent
 ```
 
 ## Building for iOS from Windows

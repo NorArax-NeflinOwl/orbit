@@ -115,6 +115,12 @@
             // the task would then look for the emulator at the filesystem root.
             "type": "shell",
             "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; \"$SDK/emulator/emulator\" -list-avds",
+            "windows": {
+                // The same two candidates on Windows, where the default the command-line tools and
+                // Android Studio share is %LOCALAPPDATA%\Android\Sdk. Visual Studio's own SDK is not
+                // one of them: it carries no emulator package at all.
+                "command": "$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { \"$env:LOCALAPPDATA\\Android\\Sdk\" }; & \"$sdk\\emulator\\emulator.exe\" -list-avds"
+            },
             "problemMatcher": []
         },
         {
@@ -125,6 +131,12 @@
             // has finished booting, and an install into that window fails.
             "type": "shell",
             "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; nohup \"$SDK/emulator/emulator\" -avd '${input:androidAvdName}' -no-boot-anim >/dev/null 2>&1 & \"$SDK/platform-tools/adb\" wait-for-device; until [ \"$(\"$SDK/platform-tools/adb\" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done; echo booted",
+            "windows": {
+                // Start-Process is what detaches here, nohup having no Windows counterpart. getprop is
+                // read through "$(...)" rather than called directly because it answers with nothing at
+                // all until the device is up, and .Trim() on that would throw instead of waiting.
+                "command": "$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { \"$env:LOCALAPPDATA\\Android\\Sdk\" }; Start-Process -FilePath \"$sdk\\emulator\\emulator.exe\" -ArgumentList '-avd','${input:androidAvdName}','-no-boot-anim'; & \"$sdk\\platform-tools\\adb.exe\" wait-for-device; while (\"$(& \"$sdk\\platform-tools\\adb.exe\" shell getprop sys.boot_completed)\".Trim() -ne '1') { Start-Sleep -Seconds 2 }; 'booted'"
+            },
             "problemMatcher": []
         },
         {
@@ -166,6 +178,9 @@
             // secure storage is app data, so an uninstall clears it where the Keychain survives one.
             "type": "shell",
             "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; \"$SDK/platform-tools/adb\" uninstall com.orbitmaui.android; dotnet build \"${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj\" -f net10.0-android -t:Run",
+            "windows": {
+                "command": "$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { \"$env:LOCALAPPDATA\\Android\\Sdk\" }; & \"$sdk\\platform-tools\\adb.exe\" uninstall com.orbitmaui.android; dotnet build \"${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj\" -f net10.0-android -t:Run"
+            },
             "options": {
                 "cwd": "${workspaceFolder}"
             },
