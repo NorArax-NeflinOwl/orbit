@@ -128,7 +128,7 @@ else
                                 </label>
                                 <label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="item.Category" />
                                 </label>
-                                <label>@T["Expires"]<InputDate @bind-Value="item.ExpiryDate" />
+                                <label>@T["Expires"]<DateField @bind-Value="item.ExpiryDate" AriaLabel="@(T["Expires"])" />
                                 </label>
                                 <label>@T["Expiry notification"]<select @bind="item.ExpiryNotificationChannel">
                                         @foreach (var option in NotificationChannelOption.All)
@@ -449,7 +449,7 @@ else
                         Category = item.Category,
                         Quantity = item.Quantity,
                         MinimumQuantity = item.MinimumQuantity,
-                        ExpiryDate = item.ExpiryDate?.LocalDateTime,
+                        ExpiryDate = item.ExpiryDate is { } expiryDate ? DateOnly.FromDateTime(expiryDate.LocalDateTime) : null,
                         ExpiryNotificationChannel = item.ExpiryNotificationChannel
                     })
                     .ToList()
@@ -470,9 +470,15 @@ else
         /// the picked local date is converted to its equivalent UTC instant rather than just re-labeled.
         /// </summary>
         private static DateTimeOffset? ToExpiryDateUtc(WarehouseItemFormModel item)
-            => item.ExpiryDate is { } expiryDate
-                ? new DateTimeOffset(expiryDate, TimeZoneInfo.Local.GetUtcOffset(expiryDate)).ToUniversalTime()
-                : null;
+        {
+            if (item.ExpiryDate is not { } expiryDate)
+            {
+                return null;
+            }
+
+            var localMidnight = expiryDate.ToDateTime(TimeOnly.MinValue);
+            return new DateTimeOffset(localMidnight, TimeZoneInfo.Local.GetUtcOffset(localMidnight)).ToUniversalTime();
+        }
     }
 
     /// <summary>One editable row. Id is null for a row the user just added - see WarehouseItemDto.</summary>
@@ -484,7 +490,7 @@ else
         public string Category { get; set; } = string.Empty;
         public decimal Quantity { get; set; }
         public decimal? MinimumQuantity { get; set; }
-        public DateTime? ExpiryDate { get; set; }
+        public DateOnly? ExpiryDate { get; set; }
         public string ExpiryNotificationChannel { get; set; } = "Push";
     }
 }

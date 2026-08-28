@@ -110,6 +110,9 @@ internal static class PolishTranslations
         ["Everything here is hidden. The menu at the top right brings it back."] =
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
+        ["Pick a date"] = "Wybierz datę",
+        ["Previous month"] = "Poprzedni miesiąc",
+        ["Next month"] = "Następny miesiąc",
         ["Opens Google's own form with this event filled in. Nothing is saved there until you save it."] = "Otwiera formularz Google z wypełnionym wydarzeniem. Nic się tam nie zapisze, dopóki sam nie zapiszesz.",
         ["Google Calendar"] = "Kalendarz Google",
         ["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."] = "Zapisywanie swojej pozycji. Udostępnienie jej lub podgląd cudzej wymaga też kontaktów.",

@@ -1,0 +1,87 @@
+@using System.Globalization
+@using Orbit.Web.Services
+@inject Translations T
+
+@* A time box that is always 24-hour.
+
+   <input type="time"> is drawn by the browser in the browser's own locale, so Orbit read in Polish on
+   an English-language browser asked for times in AM/PM - a clock nobody here uses, and one the rest of
+   the app never prints. This is a plain text box parsed as HH:mm, which makes the format Orbit's
+   decision rather than the browser's.
+
+   The key is what pushes a rejected entry back out of the DOM: re-rendering the same value attribute
+   would leave whatever was typed sitting there, since nothing changed as far as the diff is concerned. *@
+<input @key="_revision" type="text" class="time-field" inputmode="numeric" maxlength="5"
+       placeholder="@Placeholder" aria-label="@AriaLabel" title="@AriaLabel"
+       value="@_text" @onchange="OnChangedAsync" />
+
+@code {
+    [Parameter] public TimeOnly? Value { get; set; }
+
+    [Parameter] public EventCallback<TimeOnly?> ValueChanged { get; set; }
+
+    /// <summary>What the box is for, for a screen reader and for a tooltip - these sit in unlabelled rows.</summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>The shape of an entry, said in the box rather than only in a hint beside it.</summary>
+    private const string Placeholder = "--:--";
+
+    /// <summary>How a time is written and read back - the same 24-hour clock the rest of the app prints.</summary>
+    private const string Format = "HH:mm";
+
+    /// <summary>
+    /// What somebody may type and have understood. Anything else is refused rather than guessed at: a
+    /// half-typed time turned into some other time is worse than a box that snaps back.
+    /// </summary>
+    private static readonly string[] AcceptedFormats = ["HH:mm", "H:mm", "HHmm", "HH.mm", "H.mm"];
+
+    private string _text = string.Empty;
+
+    /// <summary>Bumped whenever the box has to be redrawn from <see cref="Value"/> - see the key above.</summary>
+    private int _revision;
+
+    protected override void OnParametersSet()
+    {
+        var incoming = Format24Hour(Value);
+        if (incoming != _text)
+        {
+            _text = incoming;
+            _revision++;
+        }
+    }
+
+    private async Task OnChangedAsync(ChangeEventArgs args)
+    {
+        var typed = args.Value?.ToString()?.Trim() ?? string.Empty;
+        if (typed.Length == 0)
+        {
+            await SetAsync(null);
+            return;
+        }
+
+        if (TimeOnly.TryParseExact(typed, AcceptedFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+        {
+            await SetAsync(time);
+            return;
+        }
+
+        // Not a time. The box goes back to what it held, rather than silently keeping something the
+        // rest of the form would not be able to read.
+        _revision++;
+    }
+
+    private async Task SetAsync(TimeOnly? time)
+    {
+        _text = Format24Hour(time);
+        _revision++;
+        Value = time;
+        await ValueChanged.InvokeAsync(time);
+    }
+
+    /// <summary>
+    /// Invariant on purpose: this is Orbit's own clock format, not the reader's culture's - the point of
+    /// this component is that it reads the same everywhere.
+    /// </summary>
+    private static string Format24Hour(TimeOnly? time)
+        => time?.ToString(Format, CultureInfo.InvariantCulture) ?? string.Empty;
+}

@@ -1956,6 +1956,105 @@ input.note-editor-title {
     margin: 0 0 16px 0;
 }
 
+/* Orbit's own date and time boxes - see DateField/TimeField for why the browser's are not used. Both
+   are plain text inputs, so they inherit the ordinary input look above; only the widths, the calendar
+   button and the popup are new. */
+.time-field {
+    width: 6.5em;
+    text-align: center;
+}
+
+.date-field {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.date-field-input {
+    width: 9em;
+    text-align: center;
+}
+
+/* Anchored to the box rather than flowing after it, so opening a month does not push the form about. */
+.date-field-popup {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 30;
+    width: max-content;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-elevated);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+}
+
+.date-field-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.date-field-popup-month {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.date-field-weekdays,
+.date-field-days {
+    display: grid;
+    grid-template-columns: repeat(7, 32px);
+    gap: 2px;
+}
+
+.date-field-weekdays span {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.date-field-day {
+    padding: 0;
+    height: 30px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.date-field-day:hover {
+    background: var(--bg-subtle);
+}
+
+/* A day borrowed from the neighbouring month to fill out the row - dimmed rather than left blank, so
+   the grid stays a grid. Mirrors .calendar-month-grid-day-outside. */
+.date-field-day-outside {
+    color: var(--text-tertiary);
+}
+
+.date-field-day-today {
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+}
+
+.date-field-day-chosen,
+.date-field-day-chosen:hover {
+    background: var(--accent);
+    color: var(--accent-on);
+}
+
+.date-field-popup-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
 .theme-picker {
     display: flex;
     gap: 14px;

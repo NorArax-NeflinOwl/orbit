@@ -176,11 +176,11 @@ else
                            are two bare boxes with nothing saying what either is for. *@
                         <span class="editor-item-field">
                             <span class="editor-item-field-label">@T["Due date"]</span>
-                            <InputDate @bind-Value="item.DueDate" aria-label="@(T["Due date"])" />
+                            <DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
                         </span>
                         <span class="editor-item-field">
                             <span class="editor-item-field-label">@T["Due time"]</span>
-                            <input type="time" @bind="item.DueTime" aria-label="@(T["Due time"])" />
+                            <TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
                         </span>
                         <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
                                 title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
@@ -232,7 +232,7 @@ else
                                     }
                                 </select>
                             </label>
-                            <label>@T["Daily reminder time"]<input type="time" @bind="item.DailyReminderTimeOfDay" />
+                            <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
                             </label>
                         }
                         @if (!string.IsNullOrEmpty(item.LinkedTaskListId))
@@ -659,7 +659,7 @@ else
                 item.OverdueNotificationChannel,
                 item.RemindDaily,
                 item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.DailyReminderTimeOfDay ?? default))
             .ToList();
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
@@ -904,6 +904,7 @@ else
         public string OverdueNotificationChannel { get; set; } = "Push";
         public bool RemindDaily { get; set; }
         public string DailyReminderNotificationChannel { get; set; } = "Push";
-        public TimeOnly DailyReminderTimeOfDay { get; set; }
+        /// <summary>Optional here, though the request is not: an empty box is midnight, which is what an unanswered "what time?" has always meant on this form.</summary>
+        public TimeOnly? DailyReminderTimeOfDay { get; set; }
     }
 }

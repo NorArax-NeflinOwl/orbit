@@ -1,0 +1,222 @@
+@using System.Globalization
+@using Orbit.Web.Services
+@inject Translations T
+
+@* A date box whose calendar starts on Monday.
+
+   <input type="date"> hands its popup to the browser, which lays the week out in the browser's own
+   locale - so Orbit read in Polish on an English-language browser opened a Sunday-first month, unlike
+   every other calendar in the app (see CalendarGridBuilder, which has always built Monday-to-Sunday
+   weeks). This draws its own, and types dates in the same dd.MM.yyyy the rest of the app prints.
+
+   The key on the box is what pushes a rejected entry back out of the DOM - see TimeField, which does
+   the same thing for the same reason. *@
+<span class="date-field">
+    <input @key="_revision" type="text" class="date-field-input" inputmode="numeric" maxlength="10"
+           placeholder="@Placeholder" aria-label="@AriaLabel" title="@AriaLabel"
+           value="@_text" @onchange="OnChangedAsync" />
+    <button type="button" class="icon-btn date-field-toggle" title="@(T["Pick a date"])"
+            aria-haspopup="true" aria-expanded="@(_isOpen ? "true" : "false")" @onclick="ToggleOpen">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2.5" y="4" width="15" height="13.5" rx="2.5" /><path d="M2.5 8h15M6.5 2v3.5M13.5 2v3.5" />
+        </svg>
+    </button>
+
+    @if (_isOpen)
+    {
+        <div class="date-field-popup">
+            <div class="date-field-popup-header">
+                <button type="button" class="icon-btn" title="@(T["Previous month"])" @onclick="ShowPreviousMonth">‹</button>
+                <span class="date-field-popup-month">@MonthLabel</span>
+                <button type="button" class="icon-btn" title="@(T["Next month"])" @onclick="ShowNextMonth">›</button>
+            </div>
+            <div class="date-field-weekdays">
+                @foreach (var weekdayName in WeekdayNames)
+                {
+                    <span>@weekdayName</span>
+                }
+            </div>
+            <div class="date-field-days">
+                @foreach (var day in DaysOnShow)
+                {
+                    <button type="button" class="date-field-day @DayCssClass(day)" @onclick="() => ChooseAsync(day)">
+                        @day.Day
+                    </button>
+                }
+            </div>
+            <div class="date-field-popup-actions">
+                <button type="button" class="btn-secondary" @onclick="() => ChooseAsync(Today)">@T["Today"]</button>
+                <button type="button" class="btn-secondary" @onclick="ClearAsync">@T["Clear"]</button>
+            </div>
+        </div>
+    }
+</span>
+
+@code {
+    [Parameter] public DateOnly? Value { get; set; }
+
+    [Parameter] public EventCallback<DateOnly?> ValueChanged { get; set; }
+
+    /// <summary>What the box is for, for a screen reader and for a tooltip - these sit in unlabelled rows.</summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>How a date is written and read back - the same order the rest of the app prints.</summary>
+    private const string Format = "dd.MM.yyyy";
+
+    private const string Placeholder = "dd.mm.rrrr";
+
+    /// <summary>
+    /// What somebody may type and have understood. Two-digit years are deliberately absent: "1.2.30"
+    /// is a date somebody would have to check, and a guess here is a guess about a deadline.
+    /// </summary>
+    private static readonly string[] AcceptedFormats = ["dd.MM.yyyy", "d.M.yyyy", "dd-MM-yyyy", "d-M-yyyy", "yyyy-MM-dd"];
+
+    private string _text = string.Empty;
+
+    /// <summary>Bumped whenever the box has to be redrawn from <see cref="Value"/> - see the key above.</summary>
+    private int _revision;
+
+    private bool _isOpen;
+
+    /// <summary>Which month the popup is showing. Follows the chosen date when there is one, and today otherwise.</summary>
+    private DateOnly _shownMonth = FirstOf(Today);
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+
+    protected override void OnParametersSet()
+    {
+        var incoming = FormatDate(Value);
+        if (incoming != _text)
+        {
+            _text = incoming;
+            _revision++;
+        }
+    }
+
+    private void ToggleOpen()
+    {
+        _isOpen = !_isOpen;
+        if (_isOpen)
+        {
+            _shownMonth = FirstOf(Value ?? Today);
+        }
+    }
+
+    private void ShowPreviousMonth() => _shownMonth = _shownMonth.AddMonths(-1);
+
+    private void ShowNextMonth() => _shownMonth = _shownMonth.AddMonths(1);
+
+    private string MonthLabel
+        => $"{Capitalize(T.DisplayCulture.DateTimeFormat.GetMonthName(_shownMonth.Month))} {_shownMonth.Year}";
+
+    /// <summary>
+    /// Day names in the reader's language, starting at Monday because the grid does. ShortestDayNames is
+    /// indexed by DayOfWeek, which starts at Sunday - the same shift CalendarMonthGrid applies.
+    /// </summary>
+    private IEnumerable<string> WeekdayNames
+    {
+        get
+        {
+            var shortestDayNames = T.DisplayCulture.DateTimeFormat.ShortestDayNames;
+            for (var day = 0; day < 7; day++)
+            {
+                yield return shortestDayNames[(day + (int)DayOfWeek.Monday) % 7];
+            }
+        }
+    }
+
+    /// <summary>
+    /// A whole number of Monday-to-Sunday weeks covering the shown month, so the neighbouring months'
+    /// days fill out the first and last rows rather than leaving holes.
+    /// </summary>
+    private IEnumerable<DateOnly> DaysOnShow
+    {
+        get
+        {
+            var lastOfMonth = _shownMonth.AddMonths(1).AddDays(-1);
+            var gridStart = _shownMonth.AddDays(-DaysSinceMonday(_shownMonth.DayOfWeek));
+            var gridEnd = lastOfMonth.AddDays(6 - DaysSinceMonday(lastOfMonth.DayOfWeek));
+            for (var day = gridStart; day <= gridEnd; day = day.AddDays(1))
+            {
+                yield return day;
+            }
+        }
+    }
+
+    private string DayCssClass(DateOnly day)
+    {
+        var classes = new List<string>();
+        if (day.Month != _shownMonth.Month)
+        {
+            classes.Add("date-field-day-outside");
+        }
+
+        if (day == Today)
+        {
+            classes.Add("date-field-day-today");
+        }
+
+        if (day == Value)
+        {
+            classes.Add("date-field-day-chosen");
+        }
+
+        return string.Join(' ', classes);
+    }
+
+    private async Task OnChangedAsync(ChangeEventArgs args)
+    {
+        var typed = args.Value?.ToString()?.Trim() ?? string.Empty;
+        if (typed.Length == 0)
+        {
+            await SetAsync(null);
+            return;
+        }
+
+        if (DateOnly.TryParseExact(typed, AcceptedFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        {
+            await SetAsync(date);
+            return;
+        }
+
+        // Not a date. The box goes back to what it held, rather than keeping something the rest of the
+        // form would not be able to read.
+        _revision++;
+    }
+
+    private async Task ChooseAsync(DateOnly date)
+    {
+        _isOpen = false;
+        await SetAsync(date);
+    }
+
+    private async Task ClearAsync()
+    {
+        _isOpen = false;
+        await SetAsync(null);
+    }
+
+    private async Task SetAsync(DateOnly? date)
+    {
+        _text = FormatDate(date);
+        _revision++;
+        Value = date;
+        await ValueChanged.InvokeAsync(date);
+    }
+
+    private static DateOnly FirstOf(DateOnly date) => new(date.Year, date.Month, 1);
+
+    private static int DaysSinceMonday(DayOfWeek dayOfWeek) => ((int)dayOfWeek + 6) % 7;
+
+    /// <summary>
+    /// Invariant on purpose: this is Orbit's own date format, not the reader's culture's - the point of
+    /// this component is that it reads the same everywhere.
+    /// </summary>
+    private static string FormatDate(DateOnly? date)
+        => date?.ToString(Format, CultureInfo.InvariantCulture) ?? string.Empty;
+
+    /// <summary>Polish month names come back lower-case, and this one heads a panel.</summary>
+    private static string Capitalize(string text)
+        => text.Length == 0 ? text : char.ToUpper(text[0], CultureInfo.CurrentCulture) + text[1..];
+}
