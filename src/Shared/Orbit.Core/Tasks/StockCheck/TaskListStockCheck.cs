@@ -5,7 +5,12 @@ namespace Orbit.Core.Tasks.StockCheck;
 /// many are on the shelf, and the difference when the shelf falls short.
 /// </summary>
 /// <param name="Name">The entry's description, which is what is matched against a warehouse item's name.</param>
-public sealed record StockRequirement(string Name, decimal Required, decimal Available)
+/// <param name="Done">
+/// How many of these the work has already ticked off. Not part of whether the job can be started - that
+/// is Required against Available - but it is what a shelf built from this list starts with, since a
+/// ticked line is something somebody has already fetched.
+/// </param>
+public sealed record StockRequirement(string Name, decimal Required, decimal Available, decimal Done = 0)
 {
     /// <summary>How many more are needed. Zero when the shelf covers the work.</summary>
     public decimal Missing => Required > Available ? Required - Available : 0;

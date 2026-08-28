@@ -50,6 +50,7 @@ else
                 <select value="@_reading.Order" @onchange="OnOrderChanged">
                     <option value="@nameof(ChecklistOrder.AsArranged)">@T["In list order"]</option>
                     <option value="@nameof(ChecklistOrder.Alphabetical)">@T["A to Z"]</option>
+                    <option value="@nameof(ChecklistOrder.UndoneFirst)">@T["Left to do first"]</option>
                 </select>
             </label>
             @* Only for a tree deep enough to be worth flattening. A group whose members are plain lists
@@ -92,6 +93,11 @@ else
         <div class="card stock-check-card">
             <div class="card-header">
                 <span class="card-title">@T["Can this be done?"]</span>
+                @* Kept with the view and the order, so a list that is never priced opens without the
+                   panel rather than with it every time. *@
+                <button type="button" class="btn-secondary" @onclick="ToggleStockCheckHidden">
+                    @(_reading.IsStockCheckHidden ? T["Show"] : T["Hide"])
+                </button>
                 <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync">
                     <option value="">@T["Not measured against a warehouse"]</option>
                     @foreach (var warehouse in _warehouses)
@@ -101,7 +107,7 @@ else
                 </select>
             </div>
 
-            @if (_stockCheck is { } stockCheck)
+            @if (_stockCheck is { } stockCheck && !_reading.IsStockCheckHidden)
             {
                 <p class="options-subtext">
                     @if (stockCheck.IsAchievable)
@@ -572,6 +578,17 @@ else
         Logger.LogInformation("User switched the checklist to the {View} view", _reading.View);
     }
 
+    /// <summary>
+    /// Puts the panel that prices this list against a warehouse out of the way, or brings it back. Kept
+    /// with the rest of how this list reads, so "Save view" keeps it too.
+    /// </summary>
+    private void ToggleStockCheckHidden()
+    {
+        _reading = _reading with { IsStockCheckHidden = !_reading.IsStockCheckHidden };
+        Logger.LogInformation(
+            "User {Action} the stock check on task list {TaskListId}", _reading.IsStockCheckHidden ? "hid" : "showed", Id);
+    }
+
     private void OnOrderChanged(ChangeEventArgs args)
     {
         _reading = _reading with
@@ -602,17 +619,25 @@ else
     /// which is how a shopping list gets read off in a shop; as arranged is the order the list was
     /// written in, which is what dragging items about in the editor sets.
     /// </summary>
-    private IReadOnlyList<TaskItemDto> ItemsToShow(TaskDto taskList)
-        => _reading.Order == ChecklistOrder.Alphabetical
-            ? [.. taskList.Items.OrderBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase)]
-            : taskList.Items;
+    private IReadOnlyList<TaskItemDto> ItemsToShow(TaskDto taskList) => _reading.Order switch
+    {
+        ChecklistOrder.Alphabetical => [.. taskList.Items.OrderBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        ChecklistOrder.UndoneFirst => [.. taskList.Items
+            .OrderBy(item => item.IsCompleted)
+            .ThenBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        _ => taskList.Items
+    };
 
     /// <summary>
     /// The flat view's items in the chosen order. Alphabetical runs across the whole tree here rather
     /// than list by list: the headings are gone in this view, so a list-by-list sort would look random.
     /// </summary>
-    private IReadOnlyList<FlatChecklistEntry> FlatItemsToShow
-        => _reading.Order == ChecklistOrder.Alphabetical
-            ? [.. _flatItems.OrderBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)]
-            : _flatItems;
+    private IReadOnlyList<FlatChecklistEntry> FlatItemsToShow => _reading.Order switch
+    {
+        ChecklistOrder.Alphabetical => [.. _flatItems.OrderBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        ChecklistOrder.UndoneFirst => [.. _flatItems
+            .OrderBy(entry => entry.Item.IsCompleted)
+            .ThenBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        _ => _flatItems
+    };
 }

@@ -76,6 +76,8 @@ internal static class PolishTranslations
         ["Show the lists"] = "Pokaż listy",
         ["Show single items"] = "Pokaż pojedyncze elementy",
         ["In list order"] = "W kolejności listy",
+        ["Left to do first"] = "Najpierw do zrobienia",
+        ["Hide"] = "Ukryj",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
         ["Show"] = "Pokaż",
         ["Search conversations"] = "Szukaj rozmów",

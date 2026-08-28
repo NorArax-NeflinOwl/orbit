@@ -284,6 +284,20 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
     [Fact]
+    public void Left_to_do_first_puts_what_is_done_at_the_bottom()
+    {
+        var taskList = TaskList(
+            "Zakupy", Item("Ser", isCompleted: true), Item("Bułki"), Item("Makaron", isCompleted: true), Item("Chleb"));
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".list-sort select").Change(nameof(ChecklistOrder.UndoneFirst));
+
+        // What is left to do, alphabetically, then what is done, alphabetically.
+        Assert.Equal(["Bułki", "Chleb", "Makaron", "Ser"], ItemTextsIn(cut));
+    }
+
+    [Fact]
     public void A_saved_order_is_what_the_list_opens_in()
     {
         var taskList = TaskList("Zakupy", Item("Ser"), Item("Bułki"));

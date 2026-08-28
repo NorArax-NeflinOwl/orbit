@@ -16,11 +16,17 @@ public enum ChecklistOrder
     AsArranged,
 
     /// <summary>By what each item says, for reading a long list off in one pass.</summary>
-    Alphabetical
+    Alphabetical,
+
+    /// <summary>What is left to do first, then what is done, each alphabetically - the working order.</summary>
+    UndoneFirst
 }
 
-/// <summary>How one person reads one checklist. The two travel together: both are saved by one button.</summary>
-public sealed record ChecklistReading(ChecklistView View, ChecklistOrder Order)
+/// <summary>
+/// How one person reads one checklist: which shape, in what order, and whether the panel that prices it
+/// against a warehouse is in the way. They travel together because one button saves all of them.
+/// </summary>
+public sealed record ChecklistReading(ChecklistView View, ChecklistOrder Order, bool IsStockCheckHidden = false)
 {
     public static readonly ChecklistReading Default = new(ChecklistView.Tree, ChecklistOrder.AsArranged);
 }
@@ -44,7 +50,13 @@ public sealed class ChecklistViewPreference(IJSRuntime jsRuntime)
 
         return new ChecklistReading(
             saved.View == "flat" ? ChecklistView.Flat : ChecklistView.Tree,
-            saved.Order == "alphabetical" ? ChecklistOrder.Alphabetical : ChecklistOrder.AsArranged);
+            saved.Order switch
+            {
+                "alphabetical" => ChecklistOrder.Alphabetical,
+                "undone-first" => ChecklistOrder.UndoneFirst,
+                _ => ChecklistOrder.AsArranged
+            },
+            saved.IsStockCheckHidden);
     }
 
     public async Task SaveAsync(Guid taskListId, ChecklistReading reading)
@@ -53,12 +65,18 @@ public sealed class ChecklistViewPreference(IJSRuntime jsRuntime)
         await module.InvokeVoidAsync(
             "saveReading", taskListId,
             reading.View == ChecklistView.Flat ? "flat" : "tree",
-            reading.Order == ChecklistOrder.Alphabetical ? "alphabetical" : "as-arranged");
+            reading.Order switch
+            {
+                ChecklistOrder.Alphabetical => "alphabetical",
+                ChecklistOrder.UndoneFirst => "undone-first",
+                _ => "as-arranged"
+            },
+            reading.IsStockCheckHidden);
     }
 
     private async Task<IJSObjectReference> ImportModuleAsync()
         => await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/checklistView.js");
 
     /// <summary>The stored shape, which is strings rather than enums - see checklistView.js.</summary>
-    public sealed record SavedReading(string View, string Order);
+    public sealed record SavedReading(string View, string Order, bool IsStockCheckHidden = false);
 }

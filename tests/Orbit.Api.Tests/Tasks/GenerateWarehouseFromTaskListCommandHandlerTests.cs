@@ -16,8 +16,8 @@ public sealed class GenerateWarehouseFromTaskListCommandHandlerTests
     private readonly Guid _userId = Guid.NewGuid();
     private readonly InventoryTestContext _context = new();
 
-    private static TaskItem Work(string description, DateTimeOffset? dueDateUtc = null)
-        => TaskItem.Create(description, dueDateUtc, isCompleted: false);
+    private static TaskItem Work(string description, DateTimeOffset? dueDateUtc = null, bool isCompleted = false)
+        => TaskItem.Create(description, dueDateUtc, isCompleted);
 
     private static TaskItem LinkTo(TaskList target)
         => TaskItem.Create(target.Title, dueDateUtc: null, isCompleted: false, linkedTaskListId: target.Id);
@@ -78,7 +78,7 @@ public sealed class GenerateWarehouseFromTaskListCommandHandlerTests
     }
 
     [Fact]
-    public async Task Nothing_is_on_the_shelf_to_start_with()
+    public async Task Nothing_is_on_the_shelf_until_something_has_been_done()
     {
         var shopping = AShoppingTree();
 
@@ -87,6 +87,23 @@ public sealed class GenerateWarehouseFromTaskListCommandHandlerTests
 
         // A shelf that began full would report the job as doable before anybody had fetched anything.
         Assert.All(ShelfIn(warehouseId!.Value), entry => Assert.Equal(0, entry.Quantity));
+    }
+
+    [Fact]
+    public async Task What_the_work_has_already_ticked_off_is_on_the_shelf()
+    {
+        // A crossed-out line is something somebody has, so the shelf starts with it rather than at zero.
+        var oneBought = Store("Kolacja", isGroup: false, Work("Makaron świderki", isCompleted: true), Work("Ser"));
+        var alsoNeeded = Store("Obiad", isGroup: false, Work("Makaron świderki"), Work("Makaron świderki"));
+        var shopping = Store("Zakupy", isGroup: true, LinkTo(oneBought), LinkTo(alsoNeeded));
+
+        var warehouseId = await AHandler().HandleAsync(
+            new GenerateWarehouseFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        var pasta = Assert.Single(ShelfIn(warehouseId!.Value), entry => entry.Name == "Makaron świderki");
+        Assert.Equal(3, pasta.Minimum);
+        Assert.Equal(1, pasta.Quantity);
+        Assert.Equal(0, Assert.Single(ShelfIn(warehouseId.Value), entry => entry.Name == "Ser").Quantity);
     }
 
     [Fact]
