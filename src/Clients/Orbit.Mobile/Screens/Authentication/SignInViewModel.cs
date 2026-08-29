@@ -12,10 +12,7 @@ public sealed partial class SignInViewModel : ObservableObject
 {
     private readonly AuthenticationClient _authenticationClient;
     private readonly GoogleSignIn _googleSignIn;
-    private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
-    private readonly PushRegistration _pushRegistration;
-    private readonly SessionStore _sessionStore;
-    private readonly LocalStoreReset _localStore;
+    private readonly SignInCompletion _completion;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -39,16 +36,12 @@ public sealed partial class SignInViewModel : ObservableObject
     private bool _isGoogleOffered;
 
     public SignInViewModel(
-        AuthenticationClient authenticationClient, GoogleSignIn googleSignIn, OwnEncryptionKeyProvider encryptionKeyProvider,
-        PushRegistration pushRegistration, SessionStore sessionStore, LocalStoreReset localStore,
+        AuthenticationClient authenticationClient, GoogleSignIn googleSignIn, SignInCompletion completion,
         Translations translations, IScreenNavigator navigator)
     {
         _authenticationClient = authenticationClient;
         _googleSignIn = googleSignIn;
-        _encryptionKeyProvider = encryptionKeyProvider;
-        _pushRegistration = pushRegistration;
-        _sessionStore = sessionStore;
-        _localStore = localStore;
+        _completion = completion;
         _translations = translations;
         _navigator = navigator;
     }
@@ -130,50 +123,15 @@ public sealed partial class SignInViewModel : ObservableObject
             (await _authenticationClient.GoogleClientIdAsync(_googleSignIn.Platform, cancellationToken)).Length > 0;
 
     /// <summary>
-    /// Everything the two ways in share, in the order that matters. The store is cleared before anything
-    /// reads it, and the two best-effort steps come after: neither is a reason to fail a sign-in that
-    /// the server has already accepted.
+    /// Null for a Google sign-in, which has no password - see <see cref="SignInCompletion"/> for what
+    /// that costs and why it is not a failure.
     /// </summary>
-    /// <param name="password">
-    /// Null for a Google sign-in, which has none. Only a plaintext password can open the chat key - see
-    /// OwnEncryptionKeyProvider - so without one the key stays locked.
-    /// </param>
     private async Task FinishSignInAsync(string? password, CancellationToken cancellationToken)
     {
-        // Before anything is read from the local store: on a phone that somebody else was signed
-        // into, everything cached - notes, the calendar, decrypted messages - is still there, and the
-        // sign-in screen is reached without a sign-out whenever a session simply expires.
-        if (await _sessionStore.GetAsync() is { } session)
-        {
-            await _localStore.ClearIfSomebodyElsesAsync(session.UserId, cancellationToken);
-        }
-
-        // The one moment the plaintext password exists - see OwnEncryptionKeyProvider. Best-effort:
-        // failing here leaves chat locked, which the user can recover from, and must not block sign-in.
-        if (password is { Length: > 0 })
-        {
-            await TryUnlockChatKeyAsync(password, cancellationToken);
-        }
-
-        // Every sign-in, not just the first: a push token changes when the app is reinstalled or its
-        // data cleared, and the old one stops working without saying so. Best-effort like the key
-        // unlock above - push is an addition to the in-app feed, never a reason to fail a sign-in.
-        await _pushRegistration.RegisterThisDeviceAsync(cancellationToken);
+        await _completion.CompleteAsync(password, cancellationToken);
 
         Password = string.Empty;
         _navigator.ShowDashboard();
-    }
-
-    private async Task TryUnlockChatKeyAsync(string password, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _encryptionKeyProvider.UnlockOrCreateAsync(password, cancellationToken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            System.Diagnostics.Debug.WriteLine($"Could not unlock the chat key after signing in: {exception}");
-        }
     }
 
     [RelayCommand]

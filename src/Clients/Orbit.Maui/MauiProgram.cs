@@ -116,6 +116,8 @@ public static class MauiProgram
 		services.AddTransient<WarehouseSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<LocalStoreReset>();
+		// The steps every way in shares once the server has accepted somebody - see SignInCompletion.
+		services.AddTransient<SignInCompletion>();
 		services.AddTransient<EncryptedChatMessageReader>();
 		services.AddTransient<EncryptedChatMessageSender>();
 		services.AddTransient<ChatSynchronizer>();

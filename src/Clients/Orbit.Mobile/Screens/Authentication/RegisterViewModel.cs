@@ -16,9 +16,8 @@ namespace Orbit.Mobile.Screens.Authentication;
 public sealed partial class RegisterViewModel : ObservableObject
 {
     private readonly AccountClient _accountClient;
-    private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
+    private readonly SignInCompletion _completion;
     private readonly INetworkStatus _networkStatus;
-    private readonly LocalStoreReset _localStore;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -38,14 +37,12 @@ public sealed partial class RegisterViewModel : ObservableObject
     private string _errorMessage = string.Empty;
 
     public RegisterViewModel(
-        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider,
-        INetworkStatus networkStatus, LocalStoreReset localStore, Translations translations,
-        IScreenNavigator navigator)
+        AccountClient accountClient, SignInCompletion completion, INetworkStatus networkStatus,
+        Translations translations, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
-        _encryptionKeyProvider = encryptionKeyProvider;
+        _completion = completion;
         _networkStatus = networkStatus;
-        _localStore = localStore;
         _translations = translations;
         _navigator = navigator;
     }
@@ -85,16 +82,10 @@ public sealed partial class RegisterViewModel : ObservableObject
             return;
         }
 
-        // A brand-new account has no backup to restore, so this generates the key and publishes it while
-        // the password is still on hand - the only time it can be wrapped at all.
-        try
-        {
-            await _encryptionKeyProvider.UnlockOrCreateAsync(Password, cancellationToken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            System.Diagnostics.Debug.WriteLine($"Could not create the chat key after registering: {exception}");
-        }
+        // The same steps a sign-in takes, and for the same reasons - see SignInCompletion. A brand-new
+        // account has no key backup to restore, so the unlock in there generates one and publishes it
+        // while the password is still on hand, which is the only moment it can be wrapped at all.
+        await _completion.CompleteAsync(Password, cancellationToken);
 
         Password = string.Empty;
         _navigator.ShowDashboard();
