@@ -58,6 +58,41 @@ public sealed class AuthenticationClient
     }
 
     /// <summary>
+    /// Trades an identity token Google issued for an Orbit session. The server verifies it against the
+    /// audiences it accepts (see GoogleAuthSettings), so a token minted for a different app is refused
+    /// there rather than trusted here.
+    ///
+    /// No chat key is unlocked by this, unlike the password sign-in above: there is no password to
+    /// unwrap the backup with. ChatKeyGate picks that up and asks for one - see ChatKeyGateSituation.
+    /// </summary>
+    public async Task<AccountOperationResult> SignInWithGoogleAsync(
+        string idToken, CancellationToken cancellationToken = default)
+    {
+        if (!_networkStatus.IsOnline)
+        {
+            return AccountOperationResult.RequiresConnection;
+        }
+
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/auth/google", new GoogleSignInRequest(idToken), cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+        {
+            return AccountOperationResult.Refused("Google couldn't be used to sign in to Orbit.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        if (await response.Content.ReadFromJsonAsync<AuthResponse>(cancellationToken) is not { } authResponse)
+        {
+            return AccountOperationResult.Refused("Orbit signed you in but sent nothing back.");
+        }
+
+        await _sessionStore.SetAsync(UserSession.FromAuthResponse(authResponse));
+        return AccountOperationResult.Applied;
+    }
+
+    /// <summary>
     /// Revokes the refresh token server-side, then clears the session locally. The local half happens
     /// even when the call fails: a user who taps sign out on a phone with no signal must still end up
     /// signed out on that phone.

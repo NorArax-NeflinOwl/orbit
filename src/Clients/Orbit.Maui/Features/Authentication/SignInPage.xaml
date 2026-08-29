@@ -34,6 +34,17 @@
 
             <Button Text="{controls:Translate 'Sign in'}" Command="{Binding SignInCommand}" />
 
+            <!-- The other way in, under an "or" the way Orbit.Web separates it. Hidden when this build
+                 has no Google client id - see GoogleSignIn.IsConfigured - so the button is never
+                 offered where it could only fail. -->
+            <Label Text="{controls:Translate 'or'}" IsVisible="{Binding CanUseGoogle}"
+                   HorizontalOptions="Center" FontSize="12" Style="{StaticResource SubtleLabel}" />
+
+            <Button Text="{controls:Translate 'Sign in with Google'}"
+                    IsVisible="{Binding CanUseGoogle}"
+                    Command="{Binding SignInWithGoogleCommand}"
+                    Style="{StaticResource SecondaryButton}" />
+
             <Button Text="{controls:Translate 'Create an account'}"
                     Command="{Binding GoToRegisterCommand}"
                     Style="{StaticResource LinkButton}" />

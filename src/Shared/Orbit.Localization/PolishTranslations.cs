@@ -855,6 +855,8 @@ public static class PolishTranslations
         ["Share it"] = "Udostępnij",
         ["Share with"] = "Udostępnij osobie",
         ["Sign in"] = "Zaloguj się",
+        ["Sign in with Google"] = "Zaloguj się przez Google",
+        ["Google couldn't be used to sign in to Orbit."] = "Nie udało się zalogować do Orbita przez Google.",
         ["Sign out"] = "Wyloguj się",
         ["Status"] = "Status",
         ["This device now holds your encryption key."] = "To urządzenie ma teraz Twój klucz szyfrujący.",
