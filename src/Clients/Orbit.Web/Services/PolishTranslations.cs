@@ -112,6 +112,7 @@ internal static class PolishTranslations
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Minimise"] = "Zminimalizuj",
         ["Open the calendar"] = "Otwórz kalendarz",
+        ["{0} in it"] = "osób: {0}",
         ["Expand"] = "Rozwiń",
         ["Nothing left to do."] = "Nic nie zostało do zrobienia.",
         ["Pick a date"] = "Wybierz datę",

@@ -80,6 +80,23 @@ else
         </div>
     }
 
+    @if (_groups.Count > 0)
+    {
+        <h2>@T["Groups"]</h2>
+        <div class="card" style="margin-bottom:24px;">
+            @foreach (var group in _groups)
+            {
+                <button type="button" class="chat-list-item" @onclick="() => OpenGroup(group.Id)">
+                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
+                    <span class="chat-list-meta">
+                        <span class="chat-list-name">@group.Name</span>
+                        <span class="chat-list-preview">@T.Format("{0} in it", group.Members.Count)</span>
+                    </span>
+                </button>
+            }
+        </div>
+    }
+
     <h2>@T["Chats"]</h2>
 
     @if (_contacts is null)
@@ -132,6 +149,9 @@ else
     private IEnumerable<ContactDto> _establishedChats
         => (_contacts ?? []).Where(contact => !contact.RequiresApprovalFromCurrentUser);
 
+    /// <summary>The groups this account is in - conversations too, and listed here for that reason.</summary>
+    private IReadOnlyList<ChatGroupDto> _groups = [];
+
     protected override async Task OnInitializedAsync()
     {
         // Waits for the first permission read, so this page never decides it is locked before it
@@ -160,6 +180,10 @@ else
         try
         {
             _contacts = await ChatApiClient.GetContactsAsync();
+            // A group is a conversation like any other on this page - leaving them off meant the one
+            // page headed "Contacts" was the only place in the app that pretended they did not exist.
+            // Not asked for without Chat, which is what a group is: the API would refuse it anyway.
+            _groups = Permissions.Has(ApplicationPermission.Chat) ? await ChatApiClient.GetGroupsAsync() : [];
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -205,5 +229,11 @@ else
     {
         Logger.LogInformation("User opening chat with {ContactUserId}", userId);
         NavigationManager.NavigateTo($"/chat/{userId}");
+    }
+
+    private void OpenGroup(Guid groupId)
+    {
+        Logger.LogInformation("User opening group chat {GroupId}", groupId);
+        NavigationManager.NavigateTo($"/chat/groups/{groupId}");
     }
 }

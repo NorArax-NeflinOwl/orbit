@@ -30,7 +30,7 @@ public sealed class CalendarTests : OrbitTestContext
         RegisterGoogleIntegrationAccess();
         // Nothing stored, so both side panels start closed - which is what these tests assume, and what
         // a browser that has never had them opened gets.
-        Services.AddSingleton(new CalendarPanelPreference(new StubJSRuntime()));
+        Services.AddSingleton(new PanelPreferences(new StubJSRuntime()));
     }
 
     [Fact]

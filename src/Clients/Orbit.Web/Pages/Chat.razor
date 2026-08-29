@@ -14,6 +14,7 @@
 @inject TasksApiClient TasksApiClient
 @inject InventoryApiClient InventoryApiClient
 @inject NotificationFeedState NotificationFeedState
+@inject PanelPreferences Panels
 @inject NotificationsApiClient NotificationsApiClient
 @inject UsersApiClient UsersApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
@@ -68,7 +69,7 @@ else
         <div class="chat-layout">
             <div class="chat-list-backdrop @(_isDrawerOpen ? "open" : "")" @onclick="CloseDrawer"></div>
             <ConversationList Conversations="Conversations" ActiveId="UserId" IsOpen="_isDrawerOpen"
-                              IsCollapsed="_isContactListCollapsed" OnToggleCollapsed="ToggleContactListCollapsed"
+                              IsCollapsed="_isContactListCollapsed" OnToggleCollapsed="ToggleContactListCollapsedAsync"
                               Search="@_chatSearch" SearchChanged="value => _chatSearch = value"
                               OnSelected="OpenConversation" OnNewGroup="GoToNewGroup" />
 
@@ -296,6 +297,11 @@ else
     /// collapsed so the message thread gets the extra width by default on a typical visit; the toggle
     /// button in .chat-list-header lets the user expand it back to full names.
     /// </summary>
+    /// <summary>
+    /// Whether the conversation list is folded to initials. Starts folded, and is remembered on the
+    /// device once somebody says otherwise - see PanelPreferences: unfolding it on every visit to a
+    /// page somebody lives in is a chore, not a default.
+    /// </summary>
     private bool _isContactListCollapsed = true;
 
     /// <summary>
@@ -427,6 +433,8 @@ else
         // Waits for the first permission read, so this page never decides it is locked before it
         // has been told - see UserPermissionState.EnsureLoadedAsync.
         await Permissions.EnsureLoadedAsync();
+        await Panels.InitializeAsync();
+        _isContactListCollapsed = !Panels.IsOpen(PanelPreferences.Panel.ChatConversationList);
         // Nothing below is reachable without this, and the page draws its locked notice instead - so it
         // does not ask and get turned away, which only fills the console with refusals that are not news.
         if (!Permissions.Has(ApplicationPermission.Chat))
@@ -689,7 +697,11 @@ else
 
     private void ToggleDrawer() => _isDrawerOpen = !_isDrawerOpen;
 
-    private void ToggleContactListCollapsed() => _isContactListCollapsed = !_isContactListCollapsed;
+    private async Task ToggleContactListCollapsedAsync()
+    {
+        _isContactListCollapsed = !_isContactListCollapsed;
+        await Panels.SetOpenAsync(PanelPreferences.Panel.ChatConversationList, !_isContactListCollapsed);
+    }
 
     private void ToggleMessageMenu(Guid messageId) => _openMessageMenuId = _openMessageMenuId == messageId ? null : messageId;
 

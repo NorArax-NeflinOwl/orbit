@@ -9,7 +9,7 @@
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
 @inject TasksApiClient TasksApiClient
-@inject CalendarPanelPreference PanelPreference
+@inject PanelPreferences Panels
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
@@ -281,9 +281,9 @@
     {
         Logger.LogInformation("Calendar page opened, loading events");
         // Before the first render, so the panels come back open rather than opening a moment later.
-        await PanelPreference.InitializeAsync();
-        _viewState.IsEventListVisible = PanelPreference.IsEventListVisible;
-        _viewState.IsTaskListVisible = PanelPreference.IsTaskListVisible;
+        await Panels.InitializeAsync();
+        _viewState.IsEventListVisible = Panels.IsOpen(PanelPreferences.Panel.CalendarEventList);
+        _viewState.IsTaskListVisible = Panels.IsOpen(PanelPreferences.Panel.CalendarTaskList);
         try
         {
             _events = await CalendarApiClient.GetCalendarEventsAsync();
@@ -444,13 +444,13 @@
     private async Task ToggleEventListVisibilityAsync()
     {
         _viewState.IsEventListVisible = !_viewState.IsEventListVisible;
-        await PanelPreference.SetEventListVisibleAsync(_viewState.IsEventListVisible);
+        await Panels.SetOpenAsync(PanelPreferences.Panel.CalendarEventList, _viewState.IsEventListVisible);
     }
 
     private async Task ToggleTaskListVisibilityAsync()
     {
         _viewState.IsTaskListVisible = !_viewState.IsTaskListVisible;
-        await PanelPreference.SetTaskListVisibleAsync(_viewState.IsTaskListVisible);
+        await Panels.SetOpenAsync(PanelPreferences.Panel.CalendarTaskList, _viewState.IsTaskListVisible);
     }
 
     private void ToggleShowDueTasksInYearView()
