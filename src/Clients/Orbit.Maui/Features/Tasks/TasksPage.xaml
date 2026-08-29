@@ -87,15 +87,21 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                                 <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
                                        VerticalOptions="Center" />
-                                <!-- Where the list stands, in the same words as the chips above it. -->
+                                <!-- Only where it says something: a badge on every list, most of them
+                                     Normal, would mark nothing out - see PriorityChoice.IsWorthSaying. -->
                                 <Border Grid.Column="1" Style="{StaticResource FilterChip}" Padding="8,3"
+                                        IsVisible="{Binding HasPriority}" VerticalOptions="Center">
+                                    <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
+                                </Border>
+                                <!-- Where the list stands, in the same words as the chips above it. -->
+                                <Border Grid.Column="2" Style="{StaticResource FilterChip}" Padding="8,3"
                                         VerticalOptions="Center">
                                     <Label Text="{Binding State}" Style="{StaticResource FilterChipLabel}" />
                                 </Border>
-                                <controls:PinButton Grid.Column="2" IsPinned="{Binding IsPinned}"
+                                <controls:PinButton Grid.Column="3" IsPinned="{Binding IsPinned}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=tasks:TasksPage}"
                                                     CommandParameter="{Binding .}" />
                             </Grid>

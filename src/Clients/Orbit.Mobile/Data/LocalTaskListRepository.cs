@@ -6,6 +6,19 @@ using Orbit.Mobile.Sync;
 namespace Orbit.Mobile.Data;
 
 /// <summary>
+/// A task list as the reader has just left it - everything a save writes down, and nothing that
+/// identifies which list it is. Grouped rather than passed as four arguments beside the id, which is
+/// what adding the priority would have made it.
+/// </summary>
+/// <param name="Priority">
+/// How much the list matters, by name - "Low", "Normal" or "High", as ItemPriority spells them. Carried
+/// because a save writes the whole list: left out, it would go back to Normal every time somebody
+/// renamed the list from a phone.
+/// </param>
+public sealed record TaskListContent(
+    string Title, IReadOnlyList<TaskItemDto> Items, bool IsGroup, string Priority);
+
+/// <summary>
 /// Every read and write a screen performs on task lists. The same shape as
 /// <see cref="LocalNoteRepository"/>, deliberately: each write records its own outbox entry in the same
 /// transaction as the change, because a local edit that was applied but not queued is silently lost at
@@ -97,8 +110,7 @@ public sealed class LocalTaskListRepository
     /// update rather than its own call, unlike pinning: this changes what the list <i>is</i>.
     /// </param>
     public async Task<LocalWriteOutcome> UpdateAsync(
-        Guid localId, string title, IReadOnlyList<TaskItemDto> items, bool isGroup,
-        CancellationToken cancellationToken = default)
+        Guid localId, TaskListContent content, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         if (await dbContext.TaskLists.FirstOrDefaultAsync(list => list.LocalId == localId, cancellationToken) is not { } taskList)
@@ -112,12 +124,13 @@ public sealed class LocalTaskListRepository
         }
 
         var now = _timeProvider.GetUtcNow();
-        taskList.Title = title;
-        taskList.Items = items;
-        taskList.IsGroup = isGroup;
+        taskList.Title = content.Title;
+        taskList.Items = content.Items;
+        taskList.IsGroup = content.IsGroup;
+        taskList.Priority = content.Priority;
         taskList.UpdatedAtUtc = now;
         // A list is done when every item is - the same rule the server applies.
-        taskList.IsCompleted = items.Count > 0 && items.All(item => item.IsCompleted);
+        taskList.IsCompleted = content.Items.Count > 0 && content.Items.All(item => item.IsCompleted);
 
         Enqueue(dbContext, localId, OutboxOperation.Update, now);
         await dbContext.SaveChangesAsync(cancellationToken);

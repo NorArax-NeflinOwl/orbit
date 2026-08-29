@@ -462,7 +462,10 @@ public sealed partial class DashboardViewModel : ObservableObject
                 DescribeProgress(list))
             {
                 HasProgress = list.Items.Count > 0,
-                Progress = MeasureProgress(list)
+                Progress = MeasureProgress(list),
+                Priority = Tasks.PriorityChoice.For(list.Priority, _translations) is { IsWorthSaying: true } priority
+                    ? priority.Name
+                    : string.Empty
             })
             .ToList();
 
