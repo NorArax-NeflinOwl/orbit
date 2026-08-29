@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Orbit.Core.Mobile;
 using Orbit.Maui.Configuration;
+using Orbit.Maui.Diagnostics;
 using Orbit.Maui.Features.Account;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Screens.Authentication;
@@ -84,6 +85,9 @@ public static class MauiProgram
 		builder.Services.AddSingleton(diagnosticVerbosity);
 		builder.Logging.AddProvider(new DiagnosticLogProvider(diagnosticLog, diagnosticVerbosity));
 
+		// And the failures nothing handles, which the provider above never sees: the process ends
+		// before anything writes them - see CrashLogging.
+		CrashLogging.Watch(new CrashLog(diagnosticLog));
 
 		var app = builder.Build();
 		LocalDatabase.Migrate(app.Services);
