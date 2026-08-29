@@ -48,7 +48,12 @@
                 <!-- Monospaced and horizontally scrollable: a log line is a fixed shape, and wrapping one
                      makes the timestamps stop lining up, which is most of how a log is read. -->
                 <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Default">
-                    <Label Text="{Binding Preview}" FontFamily="Menlo" FontSize="10" LineBreakMode="NoWrap" />
+                    <!-- Whatever monospace the platform has, which is what Orbit.Web asks for too - its
+                         stack ends in the generic `monospace` rather than naming one face. "Menlo" is
+                         a real font on an iPhone and nothing at all on Android, where asking for it by
+                         name threw from inside the font manager every time a log line was drawn. -->
+                    <Label Text="{Binding Preview}" FontSize="10" LineBreakMode="NoWrap"
+                           FontFamily="{OnPlatform Android=monospace, iOS=Menlo, Default=monospace}" />
                 </ScrollView>
 
                 <Button Text="{controls:Translate 'Back to account'}" Command="{Binding GoBackCommand}"

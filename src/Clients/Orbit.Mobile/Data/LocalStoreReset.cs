@@ -55,7 +55,10 @@ public sealed class LocalStoreReset
     public async Task ClearIfSomebodyElsesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var owner = await dbContext.StoreOwners.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+        // Single rather than First, because there is exactly one row or none - see LocalStoreOwner.Id,
+        // which is always 1 and is the key. First reads as "any of them", which had EF warning on every
+        // sign-in that the query could return whichever row it liked, on a table that has only one.
+        var owner = await dbContext.StoreOwners.AsNoTracking().SingleOrDefaultAsync(cancellationToken);
         if (owner?.UserId == userId)
         {
             return;
