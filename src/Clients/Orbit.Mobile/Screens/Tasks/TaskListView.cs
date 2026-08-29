@@ -14,7 +14,24 @@ public enum TaskListSortOrder
     Newest,
     Oldest,
     Alphabetical,
-    ReverseAlphabetical
+    ReverseAlphabetical,
+
+    /// <summary>Wherever the reader moved each card - see TaskListArrangement.ManualOrder.</summary>
+    Manual
+}
+
+/// <summary>
+/// How this reader has arranged the task lists: what to sort the cards by, and - when that answer is
+/// "the way I put them" - the order they moved them into.
+///
+/// The two travel together because one is meaningless without the other: an order nobody is sorting by
+/// is invisible, and choosing to sort by one with nothing stored is choosing nothing. Orbit.Web keeps
+/// the same pair together for the same reason.
+/// </summary>
+public sealed record TaskListArrangement(TaskListSortOrder SortOrder, IReadOnlyList<Guid> ManualOrder)
+{
+    /// <summary>An order with nothing moved yet, which is every order but Manual.</summary>
+    public static TaskListArrangement By(TaskListSortOrder sortOrder) => new(sortOrder, []);
 }
 
 /// <summary>
@@ -22,15 +39,20 @@ public enum TaskListSortOrder
 /// shape, and Orbit.Web's TaskListArrangement, which keeps the same choice on the device for the same
 /// reason: it describes one page for one reader and says nothing about the lists themselves.
 ///
-/// Only the order. What is filtered to is a narrowing somebody does for a moment - "show me the overdue
-/// ones" - and bringing it back a week later would answer a question nobody asked twice. The web draws
-/// the line in the same place.
+/// Only the arrangement. What is filtered to is a narrowing somebody does for a moment - "show me the
+/// overdue ones" - and bringing it back a week later would answer a question nobody asked twice. The web
+/// draws the line in the same place.
 /// </summary>
-public interface ITaskListSortOrderStore
+public interface ITaskListArrangementStore
 {
-    TaskListSortOrder Read();
+    TaskListSortOrder ReadSortOrder();
 
-    void Write(TaskListSortOrder sortOrder);
+    void WriteSortOrder(TaskListSortOrder sortOrder);
+
+    /// <summary>The lists the reader has put in place, first to last - empty until they move one.</summary>
+    IReadOnlyList<Guid> ReadManualOrder();
+
+    void WriteManualOrder(IReadOnlyList<Guid> orderedLocalIds);
 }
 
 /// <summary>
@@ -46,15 +68,32 @@ public static class TaskListView
     public static IReadOnlyList<string> Statuses { get; } = ["New", "Pending", "Overdue", "Completed"];
 
     public static IReadOnlyList<LocalTaskList> Arrange(
-        IReadOnlyList<LocalTaskList> taskLists, string? status, TaskListSortOrder order)
+        IReadOnlyList<LocalTaskList> taskLists, string? status, TaskListArrangement arrangement)
     {
         var visible = status is null
             ? taskLists
             : [.. taskLists.Where(taskList => taskList.Status == status)];
 
         // Pinned first whatever the order, because pinning is the reader saying "this one, above the
-        // rule" - and a sort that ignored it would take the pin away in all but name.
-        return [.. Sort(visible, order).OrderByDescending(taskList => taskList.IsPinned)];
+        // rule" - and a sort that ignored it would take the pin away in all but name. The order the
+        // reader put the cards in is the exception: it already says where every card goes, so a pin
+        // would contradict it. Orbit.Web draws the line in the same place.
+        return arrangement.SortOrder == TaskListSortOrder.Manual
+            ? [.. AsArranged(visible, arrangement.ManualOrder)]
+            : [.. Sort(visible, arrangement.SortOrder).OrderByDescending(taskList => taskList.IsPinned)];
+    }
+
+    /// <summary>
+    /// The reader's own order, with anything they have not placed yet - a list made or shared since they
+    /// last moved one - after it rather than at the front, where it would push their arrangement about.
+    /// </summary>
+    private static IEnumerable<LocalTaskList> AsArranged(
+        IReadOnlyList<LocalTaskList> taskLists, IReadOnlyList<Guid> manualOrder)
+    {
+        var placeByLocalId = manualOrder
+            .Select((localId, place) => (localId, place))
+            .ToDictionary(entry => entry.localId, entry => entry.place);
+        return taskLists.OrderBy(taskList => placeByLocalId.GetValueOrDefault(taskList.LocalId, int.MaxValue));
     }
 
     public static string Describe(string status, Translations translations) => status switch
@@ -72,6 +111,7 @@ public static class TaskListView
         TaskListSortOrder.Newest => translations["Newest first"],
         TaskListSortOrder.Oldest => translations["Oldest first"],
         TaskListSortOrder.Alphabetical => translations["A to Z"],
+        TaskListSortOrder.Manual => translations["The way I arranged them"],
         _ => translations["Z to A"]
     };
 

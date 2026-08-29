@@ -61,6 +61,12 @@ public sealed record TaskListRow(
     /// </summary>
     public bool HasPriority { get; init; }
 
+    /// <summary>
+    /// Whether this card can be moved up or down, which it can only be when the reader is sorting by
+    /// the order they put the cards in - moving one under any other order would be undone by the sort.
+    /// </summary>
+    public bool CanBeMoved { get; init; }
+
     public bool HasStatus => Status.Length > 0;
 
     public bool HasNextThing => NextThing.Length > 0;

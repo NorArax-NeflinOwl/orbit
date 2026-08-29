@@ -87,7 +87,7 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                                 <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
                                        VerticalOptions="Center" />
                                 <!-- Only where it says something: a badge on every list, most of them
@@ -104,6 +104,20 @@
                                 <controls:PinButton Grid.Column="3" IsPinned="{Binding IsPinned}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=tasks:TasksPage}"
                                                     CommandParameter="{Binding .}" />
+                                <!-- Only where the reader is sorting by the order they put the cards in:
+                                     moving one under any other order would be undone by the sort. The web
+                                     drags them, which is not a gesture a thumb can aim in a scrolling list. -->
+                                <HorizontalStackLayout Grid.Column="4" Spacing="0" VerticalOptions="Center"
+                                                       IsVisible="{Binding CanBeMoved}">
+                                    <Button Text="↑" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                                            Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListUpCommand, x:DataType=tasks:TasksPage}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Text="↓" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                                            Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListDownCommand, x:DataType=tasks:TasksPage}"
+                                            CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout>
                             </Grid>
                             <Label Text="{Binding Progress}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
 

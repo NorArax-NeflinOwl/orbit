@@ -16,7 +16,7 @@ public sealed class TaskListViewTests
     {
         var lists = new[] { List("A", status: "New"), List("B", status: "Completed") };
 
-        var shown = TaskListView.Arrange(lists, status: null, TaskListSortOrder.Alphabetical);
+        var shown = TaskListView.Arrange(lists, status: null, TaskListArrangement.By(TaskListSortOrder.Alphabetical));
 
         Assert.Equal(["A", "B"], shown.Select(list => list.Title));
     }
@@ -26,7 +26,7 @@ public sealed class TaskListViewTests
     {
         var lists = new[] { List("A", status: "New"), List("B", status: "Completed") };
 
-        var shown = TaskListView.Arrange(lists, "Completed", TaskListSortOrder.Alphabetical);
+        var shown = TaskListView.Arrange(lists, "Completed", TaskListArrangement.By(TaskListSortOrder.Alphabetical));
 
         Assert.Equal(["B"], shown.Select(list => list.Title));
     }
@@ -38,10 +38,12 @@ public sealed class TaskListViewTests
 
         Assert.Equal(
             ["alpha", "Beta"],
-            TaskListView.Arrange(lists, null, TaskListSortOrder.Alphabetical).Select(list => list.Title));
+            TaskListView.Arrange(lists, null, TaskListArrangement.By(TaskListSortOrder.Alphabetical))
+                .Select(list => list.Title));
         Assert.Equal(
             ["Beta", "alpha"],
-            TaskListView.Arrange(lists, null, TaskListSortOrder.ReverseAlphabetical).Select(list => list.Title));
+            TaskListView.Arrange(lists, null, TaskListArrangement.By(TaskListSortOrder.ReverseAlphabetical))
+                .Select(list => list.Title));
     }
 
     [Fact]
@@ -49,7 +51,7 @@ public sealed class TaskListViewTests
     {
         var lists = new[] { List("Low", priority: "Low"), List("Highest", priority: "Highest"), List("Normal") };
 
-        var shown = TaskListView.Arrange(lists, null, TaskListSortOrder.Priority);
+        var shown = TaskListView.Arrange(lists, null, TaskListArrangement.By(TaskListSortOrder.Priority));
 
         Assert.Equal(["Highest", "Normal", "Low"], shown.Select(list => list.Title));
     }
@@ -63,7 +65,7 @@ public sealed class TaskListViewTests
     {
         var lists = new[] { List("Low", priority: "Low"), List("Highest", priority: "Highest"), List("Normal") };
 
-        var shown = TaskListView.Arrange(lists, null, TaskListSortOrder.LeastImportantFirst);
+        var shown = TaskListView.Arrange(lists, null, TaskListArrangement.By(TaskListSortOrder.LeastImportantFirst));
 
         Assert.Equal(["Low", "Normal", "Highest"], shown.Select(list => list.Title));
     }
@@ -74,7 +76,7 @@ public sealed class TaskListViewTests
     {
         var lists = new[] { List("Odd", priority: "Whatever"), List("High", priority: "High") };
 
-        var shown = TaskListView.Arrange(lists, null, TaskListSortOrder.Priority);
+        var shown = TaskListView.Arrange(lists, null, TaskListArrangement.By(TaskListSortOrder.Priority));
 
         Assert.Equal(["High", "Odd"], shown.Select(list => list.Title));
     }
@@ -90,7 +92,8 @@ public sealed class TaskListViewTests
 
         Assert.Equal(
             ["zeta", "alpha"],
-            TaskListView.Arrange(lists, null, TaskListSortOrder.Alphabetical).Select(list => list.Title));
+            TaskListView.Arrange(lists, null, TaskListArrangement.By(TaskListSortOrder.Alphabetical))
+                .Select(list => list.Title));
     }
 
     [Fact]
@@ -102,10 +105,44 @@ public sealed class TaskListViewTests
 
         Assert.Equal(
             ["newer", "older"],
-            TaskListView.Arrange(lists, null, TaskListSortOrder.Newest).Select(list => list.Title));
+            TaskListView.Arrange(lists, null, TaskListArrangement.By(TaskListSortOrder.Newest))
+                .Select(list => list.Title));
         Assert.Equal(
             ["older", "newer"],
-            TaskListView.Arrange(lists, null, TaskListSortOrder.Oldest).Select(list => list.Title));
+            TaskListView.Arrange(lists, null, TaskListArrangement.By(TaskListSortOrder.Oldest))
+                .Select(list => list.Title));
+    }
+
+    /// <summary>
+    /// The order the reader put the cards in is the one exception to pinning: it already says where
+    /// every card goes, so a pin would contradict it. Orbit.Web draws the line in the same place.
+    /// </summary>
+    [Fact]
+    public void The_readers_own_order_is_not_overruled_by_a_pin()
+    {
+        var alpha = List("alpha");
+        var zeta = List("zeta", isPinned: true);
+
+        var shown = TaskListView.Arrange(
+            [alpha, zeta], null, new TaskListArrangement(TaskListSortOrder.Manual, [alpha.LocalId, zeta.LocalId]));
+
+        Assert.Equal(["alpha", "zeta"], shown.Select(list => list.Title));
+    }
+
+    /// <summary>
+    /// A list made or shared since the reader last moved one is not in the wrong place - it is simply
+    /// not placed yet, and it goes after the ones that are rather than pushing their order about.
+    /// </summary>
+    [Fact]
+    public void A_list_nobody_has_placed_comes_after_the_ones_they_have()
+    {
+        var placed = List("placed");
+        var brandNew = List("brand new");
+
+        var shown = TaskListView.Arrange(
+            [brandNew, placed], null, new TaskListArrangement(TaskListSortOrder.Manual, [placed.LocalId]));
+
+        Assert.Equal(["placed", "brand new"], shown.Select(list => list.Title));
     }
 
     private static LocalTaskList List(
