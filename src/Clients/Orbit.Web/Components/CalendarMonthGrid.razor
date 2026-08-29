@@ -64,7 +64,7 @@
                                 <button type="button" class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-task-chip-completed" : "")"
                                         @onclick="() => TaskSelectedAsync(dueTask.TaskListId)" @onclick:stopPropagation="true">
                                     <span class="calendar-event-chip-time">@dueTask.DueDateUtc.LocalDateTime.ToString("HH:mm")</span>
-                                    <span class="calendar-event-chip-title">@dueTask.Description</span>
+                                    <span class="calendar-event-chip-title">@dueTask.Label</span>
                                 </button>
                             }
                             @if (day.DueTasks.Count > MaxVisibleDueTasks)

@@ -310,7 +310,17 @@ public sealed record DayGrid(
 /// MonthGridDay.DueTasks / DayGrid.DueTasks - so tasks with a deadline show up on the calendar the same
 /// way events do, without being calendar events themselves.
 /// </summary>
-public sealed record DueTaskDto(Guid TaskListId, Guid TaskItemId, string Description, DateTimeOffset DueDateUtc, bool IsCompleted);
+/// <param name="TaskListTitle">
+/// The list the item is on. Carried because a calendar shows a day's worth of things from everywhere at
+/// once: "Milk" says nothing on its own, while "Shopping: Milk" says where it came from - see
+/// <see cref="Label"/>.
+/// </param>
+public sealed record DueTaskDto(
+    Guid TaskListId, Guid TaskItemId, string TaskListTitle, string Description, DateTimeOffset DueDateUtc, bool IsCompleted)
+{
+    /// <summary>How the entry reads on the calendar: the list it is on, then what it says.</summary>
+    public string Label => TaskListTitle.Length == 0 ? Description : $"{TaskListTitle}: {Description}";
+}
 
 /// <summary>
 /// One timed event's slice of a day's timeline: StartMinute/EndMinute are minutes since local midnight

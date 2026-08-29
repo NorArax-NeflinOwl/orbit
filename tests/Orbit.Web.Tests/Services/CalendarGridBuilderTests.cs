@@ -234,8 +234,8 @@ public sealed class CalendarGridBuilderTests
                 IsAllDay: true, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
 
-    private static DueTaskDto CreateDueTask(DateTime localDueDate, string description = "Task")
-        => new(Guid.NewGuid(), Guid.NewGuid(), description, ToLocalOffset(localDueDate), IsCompleted: false);
+    private static DueTaskDto CreateDueTask(DateTime localDueDate, string description = "Task", string taskListTitle = "Errands")
+        => new(Guid.NewGuid(), Guid.NewGuid(), taskListTitle, description, ToLocalOffset(localDueDate), IsCompleted: false);
 
     /// <summary>
     /// Attaches the test machine's own local UTC offset to localDateTime, mirroring how

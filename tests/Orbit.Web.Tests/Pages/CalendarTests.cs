@@ -28,6 +28,9 @@ public sealed class CalendarTests : OrbitTestContext
         // of these tests add guests, so this just needs to satisfy Calendar.razor's @inject.
         Services.AddSingleton(new UsersApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
         RegisterGoogleIntegrationAccess();
+        // Nothing stored, so both side panels start closed - which is what these tests assume, and what
+        // a browser that has never had them opened gets.
+        Services.AddSingleton(new CalendarPanelPreference(new StubJSRuntime()));
     }
 
     [Fact]

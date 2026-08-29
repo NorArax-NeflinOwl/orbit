@@ -33,7 +33,7 @@ public sealed class AuthorizationMessageHandler(
     {
         await AttachAccessTokenAsync(request);
         var response = await base.SendAsync(request, cancellationToken);
-        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        if (response.StatusCode != HttpStatusCode.Unauthorized || IsSigningIn(request))
         {
             return response;
         }
@@ -59,6 +59,23 @@ public sealed class AuthorizationMessageHandler(
         retryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshedAccessToken);
         return await base.SendAsync(retryRequest, cancellationToken);
     }
+
+    /// <summary>
+    /// The endpoints where a 401 is an answer about the credentials just submitted, not a sign that this
+    /// session's access token expired. Everything below this line is about the latter, and doing it to a
+    /// sign-in was wrong three times over: it spent the leftover refresh token on a *second* sign-in
+    /// attempt nobody made, so the page reported that attempt's refusal instead of the one the reader
+    /// made and burned one of the five tries a minute the rate limit allows; and when the leftover token
+    /// turned out to be dead too, it cleared the stored tokens and announced the session had ended -
+    /// signing out whoever was still signed in in another tab because somebody mistyped a password here.
+    ///
+    /// The visible symptom was that mistyping a password showed no message at all.
+    /// </summary>
+    private static readonly string[] SignInPaths = ["/api/auth/login", "/api/auth/register", "/api/auth/google"];
+
+    private static bool IsSigningIn(HttpRequestMessage request)
+        => request.RequestUri is { } uri
+            && SignInPaths.Contains(uri.AbsolutePath, StringComparer.OrdinalIgnoreCase);
 
     private async Task AttachAccessTokenAsync(HttpRequestMessage request)
     {
