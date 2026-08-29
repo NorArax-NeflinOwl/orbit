@@ -49,6 +49,23 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">29.0</SupportedOSPlatformVersion>
 	</PropertyGroup>
 
+	<PropertyGroup>
+		<!-- The port the development build looks for Orbit.Api on - see OrbitApiSettings, which reads it
+		back out of the assembly. Overridable so that two app heads being worked on at once can each have
+		their own server: the address is baked into the app rather than configured on it, so without this
+		they share one, and the second server started is running for nobody.
+
+		  dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -p:OrbitDevelopmentApiPort=5099 -->
+		<OrbitDevelopmentApiPort Condition="'$(OrbitDevelopmentApiPort)' == ''">5080</OrbitDevelopmentApiPort>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+			<_Parameter1>OrbitDevelopmentApiPort</_Parameter1>
+			<_Parameter2>$(OrbitDevelopmentApiPort)</_Parameter2>
+		</AssemblyAttribute>
+	</ItemGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />

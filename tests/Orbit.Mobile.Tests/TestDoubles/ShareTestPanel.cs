@@ -3,6 +3,7 @@ using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
 
@@ -17,12 +18,19 @@ internal static class ShareTestPanel
         FakeChatServer? chatServer = null, FakePublicShareServer? linkServer = null)
     {
         var shares = (shareServer ?? new FakeShareServer()).ToHttpClient();
+        var chat = (chatServer ?? new FakeChatServer(TimeProvider.System)).ToHttpClient();
+        var sender = Sender(chatRepository, chatServer);
 
         return new SharePanel(
             chatRepository,
+            // The panel refreshes the contact list as it opens, so even an editor test that never looks
+            // at sharing needs one that answers rather than throwing.
+            new ChatSynchronizer(
+                chatRepository, new ChatClient(chat), new UsersClient(new FakeUsersServer().ToHttpClient()),
+                sender, Microsoft.Extensions.Logging.Abstractions.NullLogger<ChatSynchronizer>.Instance),
             new SharedItemSharing(
                 new NotesClient(shares), new TasksClient(shares), new CalendarClient(shares),
-                new InventoryClient(shares), Sender(chatRepository, chatServer)),
+                new InventoryClient(shares), sender),
             new PublicShareClient((linkServer ?? new FakePublicShareServer()).ToHttpClient()),
             UnlockedPermissions.For(localStore),
             new Translations(new InMemoryLanguageStore()));
