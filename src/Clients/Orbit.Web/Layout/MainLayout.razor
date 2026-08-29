@@ -138,6 +138,13 @@
                                     @T["Do not disturb"]
                                 </button>
                             </div>
+                            @* Said out loud. The picker keeps showing the choice that is actually in
+                               force, so without this a refused change looked like a click that never
+                               registered - and left somebody believing they were on do-not-disturb. *@
+                            @if (_availabilityErrorMessage is not null)
+                            {
+                                <p class="availability-error">@_availabilityErrorMessage</p>
+                            }
                             <div class="avatar-dropdown-divider"></div>
                             <a class="avatar-dropdown-item options-only" href="/options">
                                 <GearIcon Size="16" />
@@ -285,10 +292,15 @@
         ? PresenceStatus.DoNotDisturb
         : PresenceStatus.Available;
 
+    /// <summary>What went wrong with the last availability change, while it is still worth saying.</summary>
+    private string? _availabilityErrorMessage;
+
     private async Task SetAvailabilityAsync(PresenceAvailability availability)
     {
         Logger.LogInformation("User set their availability to {Availability}", availability);
-        await Presence.SetAvailabilityAsync(availability);
+        _availabilityErrorMessage = await Presence.SetAvailabilityAsync(availability)
+            ? null
+            : T["Couldn't change your availability. Check your connection and try again."];
     }
 
     private void OnPresenceChanged() => InvokeAsync(StateHasChanged);

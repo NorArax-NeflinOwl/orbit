@@ -4018,3 +4018,12 @@ input.note-editor-title {
     color: var(--text-secondary);
     font-size: 13px;
 }
+
+/* When a change of availability did not take - see MainLayout. Inside the dropdown, so it is read where
+   the click happened rather than somewhere else on the page. */
+.availability-error {
+    margin: 0;
+    padding: 0 12px 8px;
+    color: var(--danger);
+    font-size: 12px;
+}

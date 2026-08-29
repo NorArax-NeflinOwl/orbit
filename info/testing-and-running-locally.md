@@ -46,8 +46,19 @@ class rather than opening its own connection.
 Covers the Blazor client's auth wiring: the token store; the handler that attaches the access token to
 outgoing requests and transparently refreshes it after a 401; `AuthApiClient`;
 `OrbitAuthenticationStateProvider`; `PushNotificationApiClient`; and the `Login`, `Register`, `Calendar`
-(including `CalendarEventEditor`), `Dashboard`, `Tasks`, and `TaskListChecklist` pages themselves,
-rendered with [bUnit](https://bunit.dev).
+(including `CalendarEventEditor`), `Dashboard`, `Tasks`, `TaskListChecklist`, `TaskItemSummary`,
+`Warehouses`, `WarehouseEditor`, `ContactInfo`, and the group-conversation pages themselves, rendered
+with [bUnit](https://bunit.dev). Also the shared controls several screens reuse (`PinButton`,
+`OverflowMenu`, `FeatureLocked`, `PresenceDot`, `LocationPickerOverlay`) and the device-local services
+behind them (`PresenceService`, `AccentColorService`, `InventoryUnitOption`).
+
+**The Polish dictionary is checked as a whole**, which is the only way two of its failure modes can be
+found at all: a duplicate key throws from the dictionary initializer — at type-init, so the app dies the
+moment somebody switches to Polish, on a page that has nothing to do with the duplicate — and a value
+referring to a placeholder its English does not supply throws when that line is written. Neither is
+reachable through the public indexer, which can only be asked about keys a test already knows, so
+`Orbit.Web` makes its internals visible to this project for that one purpose. Fewer placeholders than
+the English is allowed and deliberate: Polish plurals do not map onto an English "list"/"lists".
 
 ### What the deploy pipeline checks
 
