@@ -16,4 +16,14 @@ namespace Orbit.Contracts.Config;
 /// Empty when the deployment has not said, in which case a client that needs it should not offer links
 /// it cannot build.
 /// </param>
-public sealed record ClientFlagsDto(bool ExceptionDetailsAllowed, string GoogleClientId, string WebAddress = "");
+/// <param name="GoogleAndroidClientId">
+/// The Android app's own Google client id, empty when this deployment has not set one. Google issues a
+/// separate OAuth client per platform and a token carries the id of whichever client obtained it, so the
+/// phone cannot use the browser's - see GoogleAuthSettings. Served rather than built into the app for
+/// the same reason <see cref="WebAddress"/> is: it belongs to the deployment, and an app binary that
+/// carried it could only ever talk to the one deployment it was built for.
+/// </param>
+/// <param name="GoogleIosClientId">The same, for the iOS app.</param>
+public sealed record ClientFlagsDto(
+    bool ExceptionDetailsAllowed, string GoogleClientId, string WebAddress = "",
+    string GoogleAndroidClientId = "", string GoogleIosClientId = "");

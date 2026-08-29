@@ -11,6 +11,7 @@ namespace Orbit.Mobile.Screens.Authentication;
 public sealed partial class SignInViewModel : ObservableObject
 {
     private readonly AuthenticationClient _authenticationClient;
+    private readonly GoogleSignIn _googleSignIn;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly PushRegistration _pushRegistration;
     private readonly SessionStore _sessionStore;
@@ -29,12 +30,21 @@ public sealed partial class SignInViewModel : ObservableObject
     [ObservableProperty]
     private string _errorMessage = string.Empty;
 
+    /// <summary>
+    /// Whether to show the Google button at all. False until the server has been asked, so a deployment
+    /// without Google configured - and a phone that could not reach one - shows no button rather than
+    /// one that leads nowhere.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isGoogleOffered;
+
     public SignInViewModel(
-        AuthenticationClient authenticationClient, OwnEncryptionKeyProvider encryptionKeyProvider,
+        AuthenticationClient authenticationClient, GoogleSignIn googleSignIn, OwnEncryptionKeyProvider encryptionKeyProvider,
         PushRegistration pushRegistration, SessionStore sessionStore, LocalStoreReset localStore,
         Translations translations, IScreenNavigator navigator)
     {
         _authenticationClient = authenticationClient;
+        _googleSignIn = googleSignIn;
         _encryptionKeyProvider = encryptionKeyProvider;
         _pushRegistration = pushRegistration;
         _sessionStore = sessionStore;
@@ -71,6 +81,65 @@ public sealed partial class SignInViewModel : ObservableObject
             return;
         }
 
+        await FinishSignInAsync(Password, cancellationToken);
+    }
+
+    /// <summary>
+    /// Signing in with Google, which is also registering: whether the identity is new to Orbit is the
+    /// server's business - see AuthEndpoints. Offered only where the deployment has a client id for this
+    /// app, so <see cref="IsGoogleOffered"/> decides whether there is a button at all.
+    /// </summary>
+    [RelayCommand(AllowConcurrentExecutions = false)]
+    private async Task SignInWithGoogleAsync(CancellationToken cancellationToken)
+    {
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            var clientId = await _authenticationClient.GoogleClientIdAsync(_googleSignIn.Platform, cancellationToken);
+            if (await _googleSignIn.GetIdTokenAsync(clientId, cancellationToken) is not { } idToken)
+            {
+                // Backing out of Google's screen is a choice, and saying something about it would be
+                // reporting the reader's own decision back at them as a problem.
+                return;
+            }
+
+            var result = await _authenticationClient.SignInWithGoogleAsync(idToken, cancellationToken);
+            if (!result.Succeeded)
+            {
+                ErrorMessage = result.Message ?? _translations["Google couldn't sign you in to Orbit."];
+                return;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = _translations["Couldn't reach Orbit. Check your connection and try again."];
+            return;
+        }
+
+        // No password to unlock the chat key with, deliberately: there is none to have. Chat stays
+        // locked until the reader opens it and the key gate asks - see ChatKeyGateViewModel, which is
+        // the same path a password sign-in takes when its unlock does not work.
+        await FinishSignInAsync(password: null, cancellationToken);
+    }
+
+    /// <summary>Whether this deployment has a Google client id for this app, learned on first showing.</summary>
+    [RelayCommand]
+    private async Task LoadAsync(CancellationToken cancellationToken)
+        => IsGoogleOffered =
+            (await _authenticationClient.GoogleClientIdAsync(_googleSignIn.Platform, cancellationToken)).Length > 0;
+
+    /// <summary>
+    /// Everything the two ways in share, in the order that matters. The store is cleared before anything
+    /// reads it, and the two best-effort steps come after: neither is a reason to fail a sign-in that
+    /// the server has already accepted.
+    /// </summary>
+    /// <param name="password">
+    /// Null for a Google sign-in, which has none. Only a plaintext password can open the chat key - see
+    /// OwnEncryptionKeyProvider - so without one the key stays locked.
+    /// </param>
+    private async Task FinishSignInAsync(string? password, CancellationToken cancellationToken)
+    {
         // Before anything is read from the local store: on a phone that somebody else was signed
         // into, everything cached - notes, the calendar, decrypted messages - is still there, and the
         // sign-in screen is reached without a sign-out whenever a session simply expires.
@@ -81,7 +150,10 @@ public sealed partial class SignInViewModel : ObservableObject
 
         // The one moment the plaintext password exists - see OwnEncryptionKeyProvider. Best-effort:
         // failing here leaves chat locked, which the user can recover from, and must not block sign-in.
-        await TryUnlockChatKeyAsync(Password, cancellationToken);
+        if (password is { Length: > 0 })
+        {
+            await TryUnlockChatKeyAsync(password, cancellationToken);
+        }
 
         // Every sign-in, not just the first: a push token changes when the app is reinstalled or its
         // data cleared, and the old one stops working without saying so. Best-effort like the key

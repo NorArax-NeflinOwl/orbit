@@ -157,6 +157,8 @@ public static class MauiProgram
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
 		services.AddSingleton<IDeviceDescription, PhoneDescription>();
+		// The browser half of signing in with Google - see IWebSignInBrowser for why it lives in the head.
+		services.AddSingleton<IWebSignInBrowser, WebSignInBrowser>();
 		services.AddSingleton<IDeviceAuthentication, PhoneAuthentication>();
 	}
 
@@ -199,6 +201,10 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<InventoryClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+
+		// Talks to Google rather than to Orbit, so it gets no base address and no authorization handler -
+		// both endpoints it uses are absolute, and Orbit's token means nothing to Google.
+		services.AddHttpClient<GoogleSignIn>();
 
 		services.AddHttpClient<TokenRefreshService>(client => client.BaseAddress = apiSettings.BaseAddress);
 		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress);

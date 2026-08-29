@@ -24,7 +24,9 @@ public static class ConfigEndpoints
                 // that lets the browser client talk to this server has already said where it lives.
                 (configuration["WebClientOrigins"] ?? string.Empty)
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .FirstOrDefault() ?? string.Empty)));
+                    .FirstOrDefault() ?? string.Empty,
+                googleAuthSettings.CurrentValue.AndroidClientId,
+                googleAuthSettings.CurrentValue.IosClientId)));
 
         // Deliberately unauthenticated, like the endpoint above: a build too old to sign in still has to
         // be able to find out that it must update. The app caches the answer so it can decide offline -

@@ -41,6 +41,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Lets the tests check how the Google authorization request is built without making that part of
+         GoogleSignIn's public surface - the same treatment Orbit.Api gives its endpoint handlers. -->
+    <InternalsVisibleTo Include="Orbit.Mobile.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Shared\Orbit.Contracts\Orbit.Contracts.csproj" />
     <!-- For the vocabulary the server and the app have to agree on - MobilePlatform and the version
     verdicts. Orbit.Web references Orbit.Core for the same reason. -->

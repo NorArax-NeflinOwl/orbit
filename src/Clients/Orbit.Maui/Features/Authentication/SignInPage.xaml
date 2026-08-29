@@ -34,6 +34,17 @@
 
             <Button Text="{controls:Translate 'Sign in'}" Command="{Binding SignInCommand}" />
 
+            <!-- Absent rather than disabled where the deployment has no Google client id for this app:
+                 there is nothing behind the button then, and offering one would only ever waste a tap.
+                 Below the password sign-in and not above it, as on the web's login page. -->
+            <Label Text="{controls:Translate 'or'}" IsVisible="{Binding IsGoogleOffered}"
+                   HorizontalOptions="Center" FontSize="12"
+                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+
+            <Button Text="{controls:Translate 'Continue with Google'}"
+                    IsVisible="{Binding IsGoogleOffered}"
+                    Command="{Binding SignInWithGoogleCommand}" />
+
             <Button Text="{controls:Translate 'Create an account'}"
                     Command="{Binding GoToRegisterCommand}"
                     Style="{StaticResource LinkButton}" />

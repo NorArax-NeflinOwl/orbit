@@ -232,6 +232,9 @@ public static class PolishTranslations
         ["Allow editing"] = "Pozwól edytować",
         ["They can edit it now."] = "Teraz może to edytować.",
         ["Accepted - added to your account."] = "Przyjęte — dodane do Twojego konta.",
+        ["Continue with Google"] = "Kontynuuj z Google",
+        ["Google couldn't sign you in to Orbit."] = "Google nie zalogowało Cię do Orbita.",
+        ["or"] = "lub",
         ["No chats. Search for a user by email address or username to start a conversation."] =
             "Brak rozmów. Wyszukaj kogoś po adresie e-mail lub nazwie użytkownika, żeby zacząć.",
         ["Search for someone and start a conversation."] = "Znajdź kogoś i zacznij rozmowę.",
