@@ -97,6 +97,80 @@ public sealed class CalendarScreenTests
     }
 
     /// <summary>
+    /// A repeat is a rule, not rows: the API returns one record and the phone drew it once, at its
+    /// start. A weekly standup appeared in the week it began and never again, which reads exactly like
+    /// an event that had stopped. Orbit.Web's grid has expanded repeats all along.
+    /// </summary>
+    [Fact]
+    public async Task A_repeating_event_is_on_every_day_it_falls_on()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync(
+            "Standup", new DateTime(2026, 8, 3, 9, 0, 0), Weekly());
+        var screen = await context.OpenAsync();
+
+        // Five Mondays in August 2026, counting the one it starts on.
+        Assert.Equal(5, screen.Events.Count(row => row.Title == "Standup"));
+        foreach (var monday in new[] { 3, 10, 17, 24, 31 })
+        {
+            Assert.True(screen.Days.Single(day => day.Date == new DateTime(2026, 8, monday)).HasEvents);
+        }
+    }
+
+    /// <summary>
+    /// A repeat that has stopped stops being drawn. Reading it as running forever is the mistake worth
+    /// guarding against here: the rule carries the date it was told to end on.
+    /// </summary>
+    [Fact]
+    public async Task A_repeat_that_has_ended_stops_being_drawn()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync(
+            "Standup", new DateTime(2026, 8, 3, 9, 0, 0),
+            Weekly(until: new DateTime(2026, 8, 17)));
+        var screen = await context.OpenAsync();
+
+        Assert.Equal(3, screen.Events.Count(row => row.Title == "Standup"));
+        Assert.False(screen.Days.Single(day => day.Date == new DateTime(2026, 8, 24)).HasEvents);
+    }
+
+    /// <summary>
+    /// A month the repeat started long before still shows it. The rule is walked from where the event
+    /// began, and stepping there one week at a time from an old start was the other way this could
+    /// quietly go wrong.
+    /// </summary>
+    [Fact]
+    public async Task A_repeat_that_started_long_ago_still_shows_this_month()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Standup", new DateTime(2024, 1, 1, 9, 0, 0), Weekly());
+
+        var screen = await context.OpenAsync();
+
+        Assert.NotEmpty(screen.Events.Where(row => row.Title == "Standup"));
+    }
+
+    /// <summary>
+    /// Every occurrence is the same event: there is one to open, and editing it changes them all, which
+    /// is what a rule means.
+    /// </summary>
+    [Fact]
+    public async Task Opening_any_occurrence_opens_the_event_it_repeats()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Standup", new DateTime(2026, 8, 3, 9, 0, 0), Weekly());
+        var screen = await context.OpenAsync();
+
+        var occurrences = screen.Events.Where(row => row.Title == "Standup").ToList();
+        Assert.All(occurrences, row => Assert.Equal(occurrences[0].LocalId, row.LocalId));
+    }
+
+    private static RecurrenceDto Weekly(DateTime? until = null)
+        => new("Weekly", 1, until is { } last
+            ? new DateTimeOffset(last, TimeZoneInfo.Local.GetUtcOffset(last))
+            : null);
+
+    /// <summary>
     /// Choosing a day is what the phone has instead of the web's day view, so it has to be a way out of
     /// the year as well - otherwise a tap would narrow the list under a grid still showing twelve months.
     /// </summary>
@@ -288,11 +362,14 @@ public sealed class CalendarScreenTests
         /// event is stamped as already synced: one that has never left the phone is not something
         /// anything else can point at yet.
         /// </summary>
-        public async Task<Guid> AddEventAsync(string title, DateTime localStart)
+        /// <param name="repeating">The rule this event repeats by, when it repeats - see CalendarOccurrences.</param>
+        public async Task<Guid> AddEventAsync(
+            string title, DateTime localStart, RecurrenceDto? repeating = null)
         {
             var start = new DateTimeOffset(localStart, TimeZoneInfo.Local.GetUtcOffset(localStart)).ToUniversalTime();
             var created = await _events.CreateAsync(
-                new CalendarEventDetailsDto(title, null, null, null, start, start.AddHours(1), false, null, [], [], "None", "None"));
+                new CalendarEventDetailsDto(
+                    title, null, null, null, start, start.AddHours(1), false, repeating, [], [], "None", "None"));
 
             await using var dbContext = _localStore.CreateDbContext();
             var stored = dbContext.CalendarEvents.Single(candidate => candidate.LocalId == created.LocalId);

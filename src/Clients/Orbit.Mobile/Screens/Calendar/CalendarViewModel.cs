@@ -229,9 +229,9 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     private async Task ShowStoredEventsAsync(CancellationToken cancellationToken)
     {
-        var stored = await _events.GetAllAsync(cancellationToken);
         var pending = await _events.GetPendingLocalIdsAsync(cancellationToken);
         var today = _timeProvider.GetUtcNow().LocalDateTime;
+        var stored = OnTheDaysTheyFallOn(await _events.GetAllAsync(cancellationToken));
         var deadlines = CalendarDeadline.From(
             await _taskLists.GetAllAsync(cancellationToken), stored, _translations);
 
@@ -265,6 +265,19 @@ public sealed partial class CalendarViewModel : ObservableObject
         OnPropertyChanged(nameof(PeriodLabel));
         OnPropertyChanged(nameof(IsShowingOneDay));
         OnPropertyChanged(nameof(HasDeadlines));
+    }
+
+    /// <summary>
+    /// A repeating event as every day it lands on - see <see cref="CalendarOccurrences"/>.
+    ///
+    /// Expanded over the whole displayed year, because the year grid is drawn from the same list as the
+    /// month one, and a week either side of it: a month grid always shows six full weeks, so January's
+    /// spills back into the December before and December's forward into the January after.
+    /// </summary>
+    private IReadOnlyList<LocalCalendarEvent> OnTheDaysTheyFallOn(IReadOnlyList<LocalCalendarEvent> stored)
+    {
+        var yearStart = new DateTimeOffset(new DateTime(Month.Year, 1, 1), TimeSpan.Zero);
+        return CalendarOccurrences.Between(stored, yearStart.AddDays(-7), yearStart.AddYears(1).AddDays(7));
     }
 
     private bool Covers(DateTime date)

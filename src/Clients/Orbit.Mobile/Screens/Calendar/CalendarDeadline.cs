@@ -38,9 +38,9 @@ public sealed record CalendarDeadline(
         IReadOnlyList<LocalTaskList> taskLists, IReadOnlyList<LocalCalendarEvent> events,
         Translations translations)
     {
-        // Asked of the day the event is stored under, which on the phone is every day it is drawn on:
-        // the calendar here shows an event once, at its own start, rather than on each day a repeat
-        // lands on. Orbit.Web asks the occurrence, because its grid expands repeats.
+        // Asked of every day the event is drawn on, a repeat's included: the caller hands over the
+        // occurrences rather than the stored events - see CalendarOccurrences - which is what Orbit.Web's
+        // grid does too.
         var daysTheirEventIsOn = events
             .Where(calendarEvent => calendarEvent.ServerId is not null)
             .GroupBy(calendarEvent => calendarEvent.ServerId!.Value)
