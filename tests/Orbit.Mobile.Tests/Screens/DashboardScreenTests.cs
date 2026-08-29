@@ -7,8 +7,10 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Tests.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Location;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Screens.Dashboard;
 using System.Net;
@@ -546,6 +548,67 @@ public sealed class DashboardScreenTests
         Assert.Empty(screen.FilterChoicesFor(DashboardCardKind.RecentChats));
     }
 
+    /// <summary>
+    /// Somebody sharing where they are, which Orbit.Web puts on its dashboard and the phone did not -
+    /// and which is worth more here, where the reader is the one out and about.
+    /// </summary>
+    [Fact]
+    public async Task Somebody_sharing_their_position_is_on_the_dashboard()
+    {
+        using var context = new DashboardContext();
+        context.SomebodySharesTheirPosition("Bob", isContinuous: true);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var card = screen.Cards.Single(candidate => candidate.Kind == DashboardCardKind.SharedLocations);
+        var row = Assert.Single(card.Rows);
+        Assert.Equal("Bob", row.Title);
+        // Whether it keeps coming or was sent once, in the same two words the web uses.
+        Assert.Equal("live", row.Detail);
+    }
+
+    [Fact]
+    public async Task A_position_sent_once_says_so()
+    {
+        using var context = new DashboardContext();
+        context.SomebodySharesTheirPosition("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            "sent once",
+            Assert.Single(screen.Cards.Single(card => card.Kind == DashboardCardKind.SharedLocations).Rows).Detail);
+    }
+
+    /// <summary>A position is a pin, and the map is the only place one can be looked at.</summary>
+    [Fact]
+    public async Task Opening_one_goes_to_the_map()
+    {
+        using var context = new DashboardContext();
+        context.SomebodySharesTheirPosition("Bob");
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.OpenCommand.ExecuteAsync(
+            screen.Cards.Single(card => card.Kind == DashboardCardKind.SharedLocations).Rows[0]);
+
+        Assert.Equal("ShowMap", context.Navigator.LastDestination);
+    }
+
+    /// <summary>Nobody sharing is no card, as every other card on this screen behaves.</summary>
+    [Fact]
+    public async Task Nobody_sharing_means_no_card_at_all()
+    {
+        using var context = new DashboardContext();
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.SharedLocations);
+    }
+
     private sealed class DashboardContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -573,6 +636,7 @@ public sealed class DashboardScreenTests
             _permissionServer.Granted.AddRange(
                 Enum.GetValues<ApplicationPermission>().Select(permission => permission.ToString()));
             _permissions = UnlockedPermissions.For(_localStore, _permissionServer);
+            LocationServer = new FakeLocationServer(_clock) { CallerUserId = _ownUserId };
             _synchronizer = AssembleSynchronizer();
         }
 
@@ -645,10 +709,53 @@ public sealed class DashboardScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>Where somebody sharing a position comes from - see the "Shared with you" card.</summary>
+        private readonly Guid _ownUserId = Guid.NewGuid();
+
+        public FakeLocationServer LocationServer { get; }
+
+        private readonly FakeUsersServer _users = new();
+
+        /// <summary>
+        /// Somebody sharing where they are. The position itself is unreadable here, which is enough:
+        /// the card says who is sharing and whether it keeps coming, not where they are.
+        /// </summary>
+        public void SomebodySharesTheirPosition(string displayName, bool isContinuous = false)
+        {
+            var sharerUserId = Guid.NewGuid();
+            _users.Add(sharerUserId, displayName, publicKeyBase64: null);
+            LocationServer.AddIncomingShare(
+                sharerUserId, "AAAAAAAAAAAAAAAAAAAAAA==", "AAAAAAAAAAAAAAAA", isContinuous);
+        }
+
+        /// <summary>
+        /// With the chat key unlocked, since a shared position is sealed with the same key - locked, there
+        /// is nothing to read and the card stays away, which is its own test.
+        /// </summary>
+        private SharedLocations SharedPositions()
+        {
+            var keyStorage = new InMemoryChatKeyStorage();
+            var vectors = BrowserVectorsFile.Read();
+            using (var own = ChatIdentity.FromBackup(vectors.Alice.Backup, vectors.BackupPassword)!)
+            {
+                keyStorage.WritePrivateKeyJwkAsync(_ownUserId, own.ExportPrivateKeyJwk()).GetAwaiter().GetResult();
+            }
+
+            var sessionStore = new SessionStore(new InMemorySessionStorage(
+                new UserSession("access", "refresh", _ownUserId, "me@orbit.example", "Me")));
+            return new SharedLocations(
+                new LocationClient(LocationServer.ToHttpClient()),
+                new UsersClient(_users.ToHttpClient()),
+                new OwnEncryptionKeyProvider(
+                    keyStorage, new EncryptionKeyClient(new FakeEncryptionKeyServer().ToHttpClient()),
+                    sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance),
+                NullLogger<SharedLocations>.Instance);
+        }
+
         public DashboardViewModel Open()
             => new(_notes, _taskLists, _calendarEvents, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 new PrivateItemGate(new FixedDeviceAuthentication()), _synchronizer, _syncState, _permissions,
-                Pins, Visibility, Navigator);
+                Pins, Visibility, SharedPositions(), Navigator);
 
         public async Task<Guid> AddNoteAsync(string title)
             => (await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)])).LocalId;

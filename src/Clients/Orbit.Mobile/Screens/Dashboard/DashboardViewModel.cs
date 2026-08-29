@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Core.Permissions;
+using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Location;
 using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
@@ -39,6 +41,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly UserPermissions _permissions;
     private readonly IDashboardPinStore _pins;
     private readonly IDashboardCardPreferenceStore _visibility;
+    private readonly SharedLocations _sharedLocations;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -52,7 +55,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         LocalCalendarEventRepository calendarEvents, ChatRepository chat, TimeProvider timeProvider,
         Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
         SyncState syncState, UserPermissions permissions, IDashboardPinStore pins,
-        IDashboardCardPreferenceStore visibility,
+        IDashboardCardPreferenceStore visibility, SharedLocations sharedLocations,
         IScreenNavigator navigator)
     {
         _notes = notes;
@@ -69,6 +72,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         _visibility = visibility;
         _hidden = [.. visibility.ReadHidden()];
         _filters = visibility.ReadFilters().ToDictionary(filter => filter.Key, filter => filter.Value);
+        _sharedLocations = sharedLocations;
+
         _navigator = navigator;
     }
 
@@ -125,6 +130,13 @@ public sealed partial class DashboardViewModel : ObservableObject
             ? await _chat.GetGroupsAsync(cancellationToken)
             : [];
 
+        // Who is sharing where they are, which Orbit.Web puts on the dashboard too - and which is worth
+        // more on a phone, where the reader is the one out and about. Asked only where the feature is
+        // unlocked, like the cards above, and never worth a message when it cannot be reached.
+        var sharedPositions = _permissions.Has(ApplicationPermission.Location)
+            ? await ReadSharedPositionsAsync(cancellationToken)
+            : [];
+
         Today = SummariseToday(taskLists, events, contacts);
 
         _built.Clear();
@@ -142,10 +154,34 @@ public sealed partial class DashboardViewModel : ObservableObject
             DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(shownTaskLists), shownTaskLists.Count(CanBeShown));
         AddCardIfAnything(DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(shownEvents), shownEvents.Count);
         AddCardIfAnything(DashboardCardKind.Groups, _translations["Groups"], DescribeGroups(groups), groups.Count);
+        AddCardIfAnything(
+            DashboardCardKind.SharedLocations, _translations["Shared with you"],
+            DescribeSharedPositions(sharedPositions), sharedPositions.Count);
         AddCardIfAnything(DashboardCardKind.RecentChats, _translations["Recent chats"], DescribeRecentChats(contacts), contacts.Count);
         AddCardIfAnything(DashboardCardKind.Contacts, _translations["Contacts"], DescribeDirectory(contacts), DirectoryOf(contacts).Count);
 
         ShowCards();
+    }
+
+    /// <summary>
+    /// Best-effort: the dashboard is a way in, and a card missing because the server could not be
+    /// reached is better than a dashboard that refuses to draw.
+    /// </summary>
+    private async Task<IReadOnlyList<ReceivedPosition>> ReadSharedPositionsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _sharedLocations.ReadSharedWithMeAsync(cancellationToken);
+        }
+        catch (Exception exception)
+            when (exception is HttpRequestException or OperationCanceledException or EncryptionKeyLockedException)
+        {
+            // A locked chat key is an ordinary state, not a failure: a position is sealed with the same
+            // key chat uses, and until the reader unlocks it there is nothing here to read. The map
+            // sends them to the gate when they go looking; the dashboard just leaves the card out
+            // rather than taking the whole screen down for it.
+            return [];
+        }
     }
 
     /// <summary>Opens whatever a row stands for, which depends on the card it came from.</summary>
@@ -169,6 +205,11 @@ public sealed partial class DashboardViewModel : ObservableObject
 
             case DashboardCardKind.Upcoming:
                 _navigator.ShowCalendar();
+                break;
+
+            // A position is a pin, and the map is the only place one can be looked at.
+            case DashboardCardKind.SharedLocations:
+                _navigator.ShowMap();
                 break;
 
             case DashboardCardKind.RecentChats:
@@ -366,6 +407,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         DashboardCardKind.Upcoming => _translations["Upcoming"],
         DashboardCardKind.Groups => _translations["Groups"],
         DashboardCardKind.RecentChats => _translations["Recent chats"],
+        DashboardCardKind.SharedLocations => _translations["Shared with you"],
+        // Named one by one rather than behind a fallback: the fallback quietly called the next card
+        // added "Contacts" in the menu that turns cards on and off.
         _ => _translations["Contacts"]
     };
 
@@ -490,6 +534,18 @@ public sealed partial class DashboardViewModel : ObservableObject
             .ToList();
 
     /// <summary>Who was last talking, most recent first, with anybody waiting on an answer at the top.</summary>
+    /// <summary>
+    /// Who is sharing where they are, and whether it keeps coming or was sent once - the same two words
+    /// Orbit.Web uses. Tapping one opens the map, which is where a position can actually be looked at.
+    /// </summary>
+    private IReadOnlyList<DashboardRow> DescribeSharedPositions(IReadOnlyList<ReceivedPosition> shared)
+        => [.. shared
+            .Take(RowsPerCard)
+            .Select(position => new DashboardRow(
+                position.SharerUserId,
+                position.SharerDisplayName,
+                _translations[position.IsContinuous ? "live" : "sent once"]))];
+
     private IReadOnlyList<DashboardRow> DescribeRecentChats(IReadOnlyList<LocalContact> contacts)
         => contacts
             .OrderByDescending(contact => contact.RequiresApprovalFromCurrentUser)
