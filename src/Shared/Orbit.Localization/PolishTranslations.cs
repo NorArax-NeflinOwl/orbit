@@ -96,6 +96,10 @@ public static class PolishTranslations
         ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
         ["Finish this list and set every item in the warehouse to its minimum?"] =
             "Czy chcesz zakończyć zadanie i ustawić wszystkim elementom minimalną wartość na magazynie?",
+        // The two answers to the question above. The web has the browser's own OK and Cancel; a phone
+        // alert names its buttons, and "OK" would not say which of the two things it does.
+        ["Finish the whole list"] = "Zakończ całą listę",
+        ["Just this one"] = "Tylko to",
         ["{0} brought up to their minimum."] = "Uzupełniono do minimum: {0}.",
         ["Couldn't finish the restocking. Try again."] = "Nie udało się zakończyć uzupełniania. Spróbuj ponownie.",
         ["Couldn't recalculate against the warehouse. Try again."] =

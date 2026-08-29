@@ -164,6 +164,25 @@ public sealed class TasksClient : ILockableItems
             ?? new StockReconciliationResultDto(0, 0);
     }
 
+    /// <summary>
+    /// "Everything on this list is done": brings every product in the warehouse up to its minimum, and
+    /// answers with how many that moved. A claim about the shelf rather than an edit to the list, which
+    /// is why it is its own call and not part of saving the entries.
+    /// </summary>
+    public async Task<int> FinishRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/tasks/{taskListId}/restocking/finished", content: null, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return 0;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<FinishRestockingResultDto>(cancellationToken);
+        return result?.ToppedUpCount ?? 0;
+    }
+
     /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>
     public async Task<int> RaiseStockShortfallsAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
+using Orbit.Core.Inventory;
 using Orbit.Core.Tasks;
 using Orbit.Mobile.Location;
 using Orbit.Contracts.Tasks;
@@ -385,6 +386,79 @@ public sealed class TaskListDetailScreenTests
         Assert.False(screen.CanMoveItem);
     }
 
+
+    /// <summary>
+    /// Crossing off "Update stock levels" while errands are still open is either the end of a round of
+    /// restocking or a tick on the standing reminder, and only the reader knows which. Orbit.Web asks in
+    /// the browser's confirm box; the phone asks in place, having nowhere to put a dialog.
+    /// </summary>
+    [Fact]
+    public async Task Ticking_the_stock_reminder_with_errands_still_open_asks_first()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenRestockRoundAsync();
+
+        await screen.ToggleItemCommand.ExecuteAsync(context.StockReminderIn(screen));
+
+        Assert.True(screen.IsAskingToFinishRestocking);
+        Assert.Equal(0, context.Server.RestockingsFinished);
+        // Nothing is crossed off until the question has an answer.
+        Assert.All(context.Server.TaskLists.Single().Items, item => Assert.False(item.IsCompleted));
+    }
+
+    [Fact]
+    public async Task Answering_yes_brings_the_whole_warehouse_up_to_its_minimum()
+    {
+        using var context = new ScreenContext();
+        context.Server.ToppedUpCount = 4;
+        var screen = await context.OpenRestockRoundAsync();
+        await screen.ToggleItemCommand.ExecuteAsync(context.StockReminderIn(screen));
+
+        await screen.FinishRestockingCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, context.Server.RestockingsFinished);
+        Assert.False(screen.IsAskingToFinishRestocking);
+        Assert.Contains("4", screen.Status);
+    }
+
+    /// <summary>
+    /// "No" is not a cancel: the reader did ask for that tick, and only the claim about the whole
+    /// warehouse was declined.
+    /// </summary>
+    [Fact]
+    public async Task Answering_no_crosses_off_that_entry_and_leaves_the_shelf_alone()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenRestockRoundAsync();
+        await screen.ToggleItemCommand.ExecuteAsync(context.StockReminderIn(screen));
+
+        await screen.TickOnlyThisCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.Server.RestockingsFinished);
+        Assert.False(screen.IsAskingToFinishRestocking);
+        var items = context.Server.TaskLists.Single().Items;
+        Assert.True(items.Single(item => item.Description == RestockTaskNaming.UpdateStockReminderDescription).IsCompleted);
+        Assert.False(items.Single(item => item.Description == "Buy flour").IsCompleted);
+    }
+
+    /// <summary>
+    /// With nothing else outstanding there is no round to close early - the reminder is just an entry,
+    /// and is ticked like one. Orbit.Web draws the line in the same place.
+    /// </summary>
+    [Fact]
+    public async Task Ticking_the_stock_reminder_on_its_own_does_not_ask()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenRestockRoundAsync();
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Buy flour"));
+
+        await screen.ToggleItemCommand.ExecuteAsync(context.StockReminderIn(screen));
+
+        Assert.False(screen.IsAskingToFinishRestocking);
+        Assert.Equal(0, context.Server.RestockingsFinished);
+        Assert.All(context.Server.TaskLists.Single().Items, item => Assert.True(item.IsCompleted));
+    }
+
     /// <summary>A phone with a local store and a server it can sometimes reach, and no MAUI in sight.</summary>
     private sealed class ScreenContext : IDisposable
     {
@@ -452,6 +526,25 @@ public sealed class TaskListDetailScreenTests
         }
 
         public Task<SyncResult> SynchroniseAsync() => Synchronizer.SynchroniseAsync(CancellationToken.None);
+
+        /// <summary>
+        /// A round of restocking as the warehouse's daily reminder leaves it: one errand, and the
+        /// standing "Update stock levels" entry that closes the round - see RestockTaskNaming.
+        /// </summary>
+        public async Task<TaskListDetailViewModel> OpenRestockRoundAsync()
+        {
+            var screen = OpenTaskList("Restock");
+            foreach (var description in new[] { "Buy flour", RestockTaskNaming.UpdateStockReminderDescription })
+            {
+                screen.NewItemDescription = description;
+                await screen.AddItemCommand.ExecuteAsync(null);
+            }
+
+            return screen;
+        }
+
+        public TaskItemRow StockReminderIn(TaskListDetailViewModel screen)
+            => screen.Items.Single(row => row.Description == RestockTaskNaming.UpdateStockReminderDescription);
 
         /// <summary>
         /// A lock over a fake server that answers every claim with "yours" - these tests are about the
