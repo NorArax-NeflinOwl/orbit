@@ -556,7 +556,10 @@ else
                         Category = item.Category,
                         Quantity = item.Quantity,
                         MinimumQuantity = item.MinimumQuantity,
-                        Unit = item.Unit,
+                        // Read through the option list rather than taken as it comes: a private warehouse
+                        // sealed before units existed has none, and the picker would then show pieces
+                        // while the row held nothing - see InventoryUnitOption.For.
+                        Unit = InventoryUnitOption.For(item.Unit).Value,
                         ExpiryDate = item.ExpiryDate is { } expiryDate ? DateOnly.FromDateTime(expiryDate.LocalDateTime) : null,
                         ExpiryNotificationChannel = item.ExpiryNotificationChannel
                     })
