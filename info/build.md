@@ -146,6 +146,13 @@ starting the executable:
 ASPNETCORE_URLS=http://localhost:5080
 ```
 
+**A request the server cannot even read answers 500 here and 400 in production, and that is ASP.NET
+rather than Orbit.** Minimal APIs rethrow a body they could not bind when the environment is Development
+- deliberately, so a developer sees the exception rather than a bare status - and return 400 for the
+same body anywhere else. So a JSON object missing a required property looks like a server fault locally
+and like the caller's mistake once deployed. Worth knowing before going looking for the fault: check the
+same request against a Production-configured run before believing a 500.
+
 ## 7. Troubleshooting
 
 - `docker compose logs orbit-api` / `docker compose logs orbit-web` - see what a container actually

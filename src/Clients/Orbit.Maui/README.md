@@ -103,11 +103,17 @@ else, so a clean reinstall there means restoring the key backup on the next sign
 The API address is `OrbitApiSettings.Development`, and it differs per platform because "the machine
 running the server" is not the same address from each:
 
-| Running on | Reaches the Mac's `localhost:5080` as |
+| Running on | Reaches the development machine's `localhost:5080` as |
 | --- | --- |
 | iOS simulator | `http://localhost:5080` — it shares the Mac's loopback |
 | Android emulator | `http://10.0.2.2:5080` — the emulator's fixed alias for its host |
-| A physical device | Neither. Use the Mac's LAN address, and note iOS refuses plaintext HTTP to it |
+| A physical device | Neither. Use the machine's LAN address, and note iOS refuses plaintext HTTP to it |
+
+**The port is fixed, which two people cannot share.** `OrbitApiSettings.Development` writes 5080 into
+the app, so anyone running a second Orbit.Api on the same machine - an Android session and an iOS one
+side by side, say - is running it for nobody: whichever server took 5080 first is the one both phones
+reach. Nothing here reads it from configuration yet, so the two either take turns or one of them edits
+that constant.
 
 **A change to `Platforms/iOS/Info.plist` does not always survive an incremental build.** A permission
 string added there was missing from the built `.app` until `bin`/`obj` for `net10.0-ios` were deleted -
