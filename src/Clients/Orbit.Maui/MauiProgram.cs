@@ -154,10 +154,14 @@ public static class MauiProgram
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
 		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
+		services.AddSingleton<IDashboardCardPreferenceStore, PreferencesDashboardCardPreferenceStore>();
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
 		services.AddSingleton<IDeviceDescription, PhoneDescription>();
 		services.AddSingleton<IDeviceAuthentication, PhoneAuthentication>();
+		// Its own client, deliberately outside the three below: it talks to Google rather than to Orbit,
+		// and must never carry an Orbit access token.
+		services.AddHttpClient<IGoogleSignIn, GoogleSignIn>();
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)

@@ -38,6 +38,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly SyncState _syncState;
     private readonly UserPermissions _permissions;
     private readonly IDashboardPinStore _pins;
+    private readonly IDashboardCardPreferenceStore _visibility;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -51,6 +52,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         LocalCalendarEventRepository calendarEvents, ChatRepository chat, TimeProvider timeProvider,
         Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
         SyncState syncState, UserPermissions permissions, IDashboardPinStore pins,
+        IDashboardCardPreferenceStore visibility,
         IScreenNavigator navigator)
     {
         _notes = notes;
@@ -64,6 +66,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         _syncState = syncState;
         _permissions = permissions;
         _pins = pins;
+        _visibility = visibility;
+        _hidden = [.. visibility.ReadHidden()];
+        _filters = visibility.ReadFilters().ToDictionary(filter => filter.Key, filter => filter.Value);
         _navigator = navigator;
     }
 
@@ -125,11 +130,17 @@ public sealed partial class DashboardViewModel : ObservableObject
         _built.Clear();
         // An empty card is worse than no card: it takes up a phone's screen to say nothing. Each is
         // added only when it has something in it, which is also how the web's dashboard behaves.
+        // Filtered before both the rows and the count, so a card that says "3" is showing three - the
+        // same as Orbit.Web, whose count is of what it is about to draw rather than of everything.
+        var shownNotes = notes.Where(note => Passes(DashboardCardKind.Notes, note.IsPinned)).ToList();
+        var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
+        var shownEvents = events.Where(PassesPriority).ToList();
+
         AddCardIfAnything(
-            DashboardCardKind.Notes, _translations["Notes"], DescribeNotes(notes), notes.Count(CanBeShown));
+            DashboardCardKind.Notes, _translations["Notes"], DescribeNotes(shownNotes), shownNotes.Count(CanBeShown));
         AddCardIfAnything(
-            DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(taskLists), taskLists.Count(CanBeShown));
-        AddCardIfAnything(DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(events), events.Count);
+            DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(shownTaskLists), shownTaskLists.Count(CanBeShown));
+        AddCardIfAnything(DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(shownEvents), shownEvents.Count);
         AddCardIfAnything(DashboardCardKind.Groups, _translations["Groups"], DescribeGroups(groups), groups.Count);
         AddCardIfAnything(DashboardCardKind.RecentChats, _translations["Recent chats"], DescribeRecentChats(contacts), contacts.Count);
         AddCardIfAnything(DashboardCardKind.Contacts, _translations["Contacts"], DescribeDirectory(contacts), DirectoryOf(contacts).Count);
@@ -202,8 +213,161 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
 
         var ruled = rows.Select((row, position) => row with { ShowsSeparator = position > 0 }).ToList();
-        _built.Add(new DashboardCard(kind, title, total.ToString(), ruled, _pins.Read().Contains(kind)));
+        _built.Add(new DashboardCard(kind, title, total.ToString(), ruled, _pins.Read().Contains(kind))
+        {
+            CanBeFiltered = OptionsFor(kind).Count > 0
+        });
     }
+
+    /// <summary>
+    /// Whether a pinnable thing survives its card's filter. "Pinned" is the only filter these cards
+    /// offer, so anything else lets everything through.
+    /// </summary>
+    private bool Passes(DashboardCardKind kind, bool isPinned)
+        => FilterFor(kind) is not DashboardCardFilter.Pinned || isPinned;
+
+    /// <summary>
+    /// Whether an event survives the Upcoming card's filter. Priority travels as a name - see
+    /// CalendarEventDetailsDto.Priority - and one this build does not know lets the event through
+    /// rather than hiding it, because a hidden event is worse than an unfiltered one.
+    /// </summary>
+    private bool PassesPriority(LocalCalendarEvent calendarEvent)
+        => FilterFor(DashboardCardKind.Upcoming) switch
+        {
+            DashboardCardFilter.HighPriority => calendarEvent.Details.Priority == "High",
+            DashboardCardFilter.NormalPriority => calendarEvent.Details.Priority == "Normal",
+            DashboardCardFilter.LowPriority => calendarEvent.Details.Priority == "Low",
+            _ => true
+        };
+
+    private DashboardCardFilter FilterFor(DashboardCardKind kind)
+        => _filters.TryGetValue(kind, out var filter) ? filter : DashboardCardFilter.All;
+
+    /// <summary>
+    /// What a card's filter menu offers. Notes and lists can be narrowed to what is pinned; events to
+    /// one priority. The other cards hold things with neither, so they get no menu at all - the same
+    /// three that go without one on Orbit.Web.
+    /// </summary>
+    public IReadOnlyList<DashboardFilterChoice> FilterChoicesFor(DashboardCardKind kind)
+        => OptionsFor(kind)
+            .Select(option => new DashboardFilterChoice(
+                kind, option, NameOfFilter(option), option == FilterFor(kind)))
+            .ToList();
+
+    private static IReadOnlyList<DashboardCardFilter> OptionsFor(DashboardCardKind kind) => kind switch
+    {
+        DashboardCardKind.Notes or DashboardCardKind.Tasks =>
+            [DashboardCardFilter.All, DashboardCardFilter.Pinned],
+        DashboardCardKind.Upcoming =>
+            [DashboardCardFilter.All, DashboardCardFilter.HighPriority,
+             DashboardCardFilter.NormalPriority, DashboardCardFilter.LowPriority],
+        _ => []
+    };
+
+    private string NameOfFilter(DashboardCardFilter filter) => filter switch
+    {
+        DashboardCardFilter.Pinned => _translations["Pinned"],
+        DashboardCardFilter.HighPriority => _translations["High"],
+        DashboardCardFilter.NormalPriority => _translations["Normal"],
+        DashboardCardFilter.LowPriority => _translations["Low"],
+        _ => _translations["All"]
+    };
+
+    /// <summary>
+    /// Narrows a card, or widens it again. Written through at once, like the parts put away above -
+    /// and the whole dashboard is rebuilt, because the count on the card has to agree with the rows.
+    /// </summary>
+    [RelayCommand]
+    private async Task ChooseFilterAsync(DashboardFilterChoice? choice, CancellationToken cancellationToken)
+    {
+        if (choice is null)
+        {
+            return;
+        }
+
+        if (choice.Filter is DashboardCardFilter.All)
+        {
+            _filters.Remove(choice.Kind);
+        }
+        else
+        {
+            _filters[choice.Kind] = choice.Filter;
+        }
+
+        _visibility.WriteFilters(_filters);
+        // Rebuilt from the store rather than reloaded: narrowing a card is a preference on this device
+        // and has no business asking the server anything. It does have to rebuild rather than just
+        // refilter, because the count on the card has to agree with the rows under it.
+        await ShowStoredSummaryAsync(cancellationToken);
+    }
+
+    /// <summary>Which parts this reader has put away - see IDashboardCardPreferenceStore.</summary>
+    private readonly HashSet<DashboardCardKind> _hidden;
+
+    /// <summary>What each card is filtered down to. A card missing from here shows everything.</summary>
+    private readonly Dictionary<DashboardCardKind, DashboardCardFilter> _filters;
+
+    /// <summary>
+    /// The "Show on the dashboard" menu Orbit.Web puts under the page's own overflow. Every kind is
+    /// listed, not only the ones with something in them: a card that is both empty and put away would
+    /// otherwise have no way back.
+    /// </summary>
+    public ObservableCollection<DashboardCardChoice> CardChoices { get; } = [];
+
+    [ObservableProperty]
+    private bool _isChoosingCards;
+
+    /// <summary>Opens and closes the menu. It stays open while several are changed, as the web's does.</summary>
+    [RelayCommand]
+    private void ToggleCardChoices()
+    {
+        IsChoosingCards = !IsChoosingCards;
+        if (IsChoosingCards)
+        {
+            ShowCardChoices();
+        }
+    }
+
+    /// <summary>
+    /// Puts a part of the dashboard away, or brings it back. Written through at once rather than on
+    /// closing the menu: a preference that survives only a tidy exit is one that gets lost.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleCardShown(DashboardCardChoice? choice)
+    {
+        if (choice is null)
+        {
+            return;
+        }
+
+        if (!_hidden.Remove(choice.Kind))
+        {
+            _hidden.Add(choice.Kind);
+        }
+
+        _visibility.WriteHidden(_hidden);
+        ShowCardChoices();
+        ShowCards();
+    }
+
+    private void ShowCardChoices()
+    {
+        CardChoices.Clear();
+        foreach (var kind in Enum.GetValues<DashboardCardKind>())
+        {
+            CardChoices.Add(new DashboardCardChoice(kind, NameOf(kind), !_hidden.Contains(kind)));
+        }
+    }
+
+    private string NameOf(DashboardCardKind kind) => kind switch
+    {
+        DashboardCardKind.Notes => _translations["Notes"],
+        DashboardCardKind.Tasks => _translations["Tasks"],
+        DashboardCardKind.Upcoming => _translations["Upcoming"],
+        DashboardCardKind.Groups => _translations["Groups"],
+        DashboardCardKind.RecentChats => _translations["Recent chats"],
+        _ => _translations["Contacts"]
+    };
 
     /// <summary>The cards as built, before pinning moves any of them.</summary>
     private readonly List<DashboardCard> _built = [];
@@ -211,7 +375,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     private void ShowCards()
     {
         Cards.Clear();
-        foreach (var card in _built.OrderByDescending(card => card.IsPinned))
+        // Put-away parts are dropped here rather than never built: the menu has to be able to bring one
+        // back without reloading everything from the store.
+        foreach (var card in _built.Where(card => !_hidden.Contains(card.Kind)).OrderByDescending(card => card.IsPinned))
         {
             Cards.Add(card);
         }
@@ -290,7 +456,14 @@ public sealed partial class DashboardViewModel : ObservableObject
             .OrderByDescending(list => list.IsPinned)
             .ThenByDescending(list => list.UpdatedAtUtc)
             .Take(RowsPerCard)
-            .Select(list => new DashboardRow(list.LocalId, TitleOrPlaceholder(list.Title, _translations["Untitled list"]), DescribeProgress(list)))
+            .Select(list => new DashboardRow(
+                list.LocalId,
+                TitleOrPlaceholder(list.Title, _translations["Untitled list"]),
+                DescribeProgress(list))
+            {
+                HasProgress = list.Items.Count > 0,
+                Progress = MeasureProgress(list)
+            })
             .ToList();
 
     /// <summary>
@@ -305,7 +478,12 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Select(calendarEvent => new DashboardRow(
                 calendarEvent.LocalId,
                 TitleOrPlaceholder(calendarEvent.Details.Title, _translations["Untitled event"]),
-                DescribeWhen(calendarEvent.Details.StartUtc, calendarEvent.Details.IsAllDay)))
+                DescribeWhen(calendarEvent.Details.StartUtc, calendarEvent.Details.IsAllDay))
+            {
+                // The dot Orbit.Web draws here too, in the event's own colour.
+                HasColourDot = true,
+                Colour = calendarEvent.Details.Color
+            })
             .ToList();
 
     /// <summary>Who was last talking, most recent first, with anybody waiting on an answer at the top.</summary>
@@ -342,6 +520,16 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Take(RowsPerCard)
             .Select(group => new DashboardRow(group.Id, group.Name, string.Empty))
             .ToList();
+
+    /// <summary>
+    /// The same fraction Orbit.Web fills its bar to. Zero for a list with no entries, where the bar is
+    /// not drawn at all - see DashboardRow.HasProgress for why an empty list gets no bar rather than an
+    /// empty one.
+    /// </summary>
+    private static double MeasureProgress(LocalTaskList list)
+        => list.Items.Count == 0
+            ? 0
+            : (double)list.Items.Count(item => item.IsCompleted) / list.Items.Count;
 
     private string DescribeProgress(LocalTaskList list)
     {
