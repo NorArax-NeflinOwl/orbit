@@ -24,6 +24,7 @@ public static class PolishTranslations
         ["Contacts"] = "Kontakty",
         ["Map"] = "Mapa",
         ["Options"] = "Opcje",
+        ["Download"] = "Pobierz",
         ["Notifications"] = "Powiadomienia",
         ["Log out"] = "Wyloguj się",
         ["Clear"] = "Wyczyść",

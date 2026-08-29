@@ -1287,3 +1287,31 @@ environment-driven flag, the same shape as the existing VAPID public-key endpoin
 never be talked out of via a stored per-account preference. Options.razor's own "Diagnostics" section
 (the "Show exceptions" switch) is likewise only rendered at all when the server reports it's not running
 in Production.
+
+## Getting the phone app
+
+`/download` (`Download.razor`) is where somebody installs Orbit on a phone. It carries **no
+`[Authorize]`**: this is the page you reach before you have signed in anywhere, and a download page that
+first demands a sign-in is a door locked from the outside.
+
+Where the builds live is configuration, not a constant in the page — `MobileAppDownloads`, read from
+`wwwroot/appsettings.json` the way `ApiBaseAddress` is, so a deployment sets it without rebuilding the
+client. Empty is the honest state before anything has been published, and each card says so rather than
+offering a link that leads nowhere: "no Android build yet" and "this page is broken" look identical to a
+reader when a section simply is not there. The Android release workflow
+(`.github/workflows/android-release.yml`) overwrites one blob at one address, so the page never needs
+changing — what it points at is always the newest build.
+
+**The way in sits beside Options** in the sidebar, under the same divider: installing the app is the
+same kind of errand as changing a setting — something you do to Orbit rather than in it. Both rows move
+into the avatar menu on a narrow screen, where the icon bar has no room for them
+(`.nav-item-overflows` in the rail, `.overflowed-nav-item` in the menu; each is hidden where the other
+shows).
+
+The Download row is shown **only while this browser is in Debug mode** (Options → Debug → Mode, see
+`DevicePreferences.DiagnosticsMode`) — the phone builds are not for everybody yet, and the same switch
+already decides what else Orbit will say about itself. It gates only the way in, never the page: `/download`
+answers whoever opens it, signed in or not, so anybody who is sent the address still gets there. Because
+the mode is changed on another page, `MainLayout` subscribes to `DevicePreferences.Changed` — without
+that the row would only follow on the next navigation, and switching to Debug would look like a setting
+that did nothing.

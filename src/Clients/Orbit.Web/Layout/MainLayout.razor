@@ -91,10 +91,22 @@
 
                     <div class="nav-divider"></div>
 
-                    <NavLink class="nav-item options-nav-item" href="/options" title="@(T["Options"])">
+                    <NavLink class="nav-item nav-item-overflows" href="/options" title="@(T["Options"])">
                         <GearIcon />
                         <span class="label">@T["Options"]</span>
                     </NavLink>
+                    @* Beside Options because it is the same kind of errand: something you do to Orbit
+                       itself rather than something you do in it. The page it leads to needs no sign-in
+                       - see Download.razor - but this way in is only for somebody already here, and
+                       only while this browser is in Debug mode: the phone builds are not for everybody
+                       yet, and the address still works for anybody who is sent it. *@
+                    @if (IsInDebugMode)
+                    {
+                        <NavLink class="nav-item nav-item-overflows" href="/download" title="@(T["Download"])">
+                            <DownloadIcon />
+                            <span class="label">@T["Download"]</span>
+                        </NavLink>
+                    }
                 </nav>
 
                 <div class="sidebar-footer">
@@ -146,10 +158,19 @@
                                 <p class="availability-error">@_availabilityErrorMessage</p>
                             }
                             <div class="avatar-dropdown-divider"></div>
-                            <a class="avatar-dropdown-item options-only" href="/options">
+                            @* Both of these have a row of their own in the sidebar, which the narrow
+                               icon bar has no room for - so on a phone they appear here instead. *@
+                            <a class="avatar-dropdown-item overflowed-nav-item" href="/options">
                                 <GearIcon Size="16" />
                                 @T["Options"]
                             </a>
+                            @if (IsInDebugMode)
+                            {
+                                <a class="avatar-dropdown-item overflowed-nav-item" href="/download">
+                                    <DownloadIcon Size="16" />
+                                    @T["Download"]
+                                </a>
+                            }
                             <button type="button" class="avatar-dropdown-item" @onclick="ToggleNotificationsMenuAsync">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" /><path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" /></svg>
                                 @T["Notifications"]
@@ -271,6 +292,10 @@
         StartSessionHeartbeat();
         Presence.Changed += OnPresenceChanged;
         Permissions.Changed += OnPermissionsChanged;
+        // The Download row appears and disappears with the diagnostics mode, which is changed on
+        // another page - without this it would only follow on the next navigation, and switching to
+        // Debug would look like a setting that did nothing.
+        DevicePreferences.Changed += OnDevicePreferencesChanged;
         await StartPresenceAndPermissionsIfAuthenticatedAsync();
         await RefreshNotificationStateIfAuthenticatedAsync();
         StartNotificationPoll();
@@ -306,6 +331,14 @@
     private void OnPresenceChanged() => InvokeAsync(StateHasChanged);
 
     private void OnPermissionsChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnDevicePreferencesChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// Whether this browser is set to show what Orbit can tell you about itself - see
+    /// DevicePreferences.DiagnosticsMode, set under Options, Debug. What the Download row hangs on.
+    /// </summary>
+    private bool IsInDebugMode => DevicePreferences.DiagnosticsMode == DiagnosticsMode.Debug;
 
     private async Task RefreshNotificationStateIfAuthenticatedAsync()
     {
@@ -896,6 +929,7 @@
         T.Changed -= OnLanguageChanged;
         Presence.Changed -= OnPresenceChanged;
         Permissions.Changed -= OnPermissionsChanged;
+        DevicePreferences.Changed -= OnDevicePreferencesChanged;
         StopSessionHeartbeat();
         StopNotificationPoll();
     }

@@ -1,0 +1,17 @@
+@* The "get the app" icon, in one place because it is drawn in two (the navigation rail and the avatar
+   menu) - the same reason GearIcon exists beside it.
+
+   An arrow coming down into a tray rather than a bare arrow: on its own, a downward arrow beside a cog
+   reads as "collapse" or "go down", which is not where this leads. *@
+<svg xmlns="http://www.w3.org/2000/svg" width="@Size" height="@Size" viewBox="0 0 20 20"
+     fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true">
+    <path d="M10 2.8v8.4" />
+    <path d="M6.3 7.6 10 11.3l3.7-3.7" />
+    <path d="M3.6 13.4v2a1.8 1.8 0 0 0 1.8 1.8h9.2a1.8 1.8 0 0 0 1.8-1.8v-2" />
+</svg>
+
+@code {
+    /// <summary>Width and height in pixels - the icon is square, and every caller wants both the same.</summary>
+    [Parameter] public int Size { get; set; } = 18;
+}
