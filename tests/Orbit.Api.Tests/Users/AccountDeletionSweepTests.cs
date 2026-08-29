@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Chat.Groups;
 using Orbit.Core.Permissions;
@@ -34,6 +35,10 @@ public sealed class AccountDeletionSweepTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _dbContext.DisposeAsync();
+        // Disposing the DbContext returns its connection to Microsoft.Data.Sqlite's pool instead of
+        // releasing the file handle, which makes File.Delete fail on Windows with a sharing violation
+        // unless the pool is cleared first - the same reason DatabaseHealthCheckTests clears it.
+        SqliteConnection.ClearAllPools();
         File.Delete(_databasePath);
     }
 
