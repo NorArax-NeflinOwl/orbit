@@ -65,6 +65,10 @@ jobs:
       # registration token needs the Firebase SDK referenced in the project and nothing references it.
       # A release built with this file is no more reachable by push than one built without it - see
       # info/orbit-maui-plan.md §4.2 for what is still missing.
+      #
+      # Which is why nothing about this file may fail the release, a secret holding something that is
+      # not base64 included. It did once: the whole run stopped on "base64: invalid input", holding back
+      # an APK that would have been identical either way.
       - name: Restore the Firebase configuration
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
@@ -73,8 +77,17 @@ jobs:
             echo "::notice::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not set. Nothing is lost while the app obtains no FCM token anyway - set it once push is wired up."
             exit 0
           fi
-          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d \
-            > src/Clients/Orbit.Maui/Platforms/Android/google-services.json
+
+          # Decoded beside the checkout rather than into it, and only copied in once it worked. A failed
+          # decode still writes what it managed first, so decoding straight to the destination would
+          # leave a truncated google-services.json in the project - which fails the build later, far
+          # from the secret that caused it.
+          if ! echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > "$RUNNER_TEMP/google-services.json" 2>/dev/null; then
+            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not base64 - the file's own text pasted in, most likely. Ignored, because the app obtains no FCM token either way. Encode it with 'base64 -w0 google-services.json', or on Windows [Convert]::ToBase64String([IO.File]::ReadAllBytes('google-services.json'))."
+            exit 0
+          fi
+
+          cp "$RUNNER_TEMP/google-services.json" src/Clients/Orbit.Maui/Platforms/Android/google-services.json
 
       - name: Restore the Google Maps key
         env:
