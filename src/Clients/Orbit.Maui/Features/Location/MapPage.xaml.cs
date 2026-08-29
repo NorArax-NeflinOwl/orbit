@@ -63,6 +63,9 @@ public partial class MapPage : ContentPage
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+
+		// A live share keeps going only while somebody is looking at this screen - see StartRefreshing.
+		_viewModel.StartRefreshing();
 	}
 
 	/// <summary>
@@ -72,6 +75,7 @@ public partial class MapPage : ContentPage
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+		_viewModel.StopRefreshing();
 		_viewModel.Points.CollectionChanged -= OnPointsChanged;
 	}
 

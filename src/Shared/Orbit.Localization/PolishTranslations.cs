@@ -1223,6 +1223,9 @@ public static class PolishTranslations
         ["Nobody to share with yet - start a conversation first."] =
             "Nie masz jeszcze komu udostępnić — zacznij najpierw rozmowę.",
         ["Shared with {0}."] = "Udostępniono: {0}.",
+        ["Sharing with {0}. Your position goes out again every minute while this screen is open."] = "Udostępniasz: {0}. Twoje położenie wysyłane jest co minutę, dopóki ten ekran jest otwarty.",
+        ["{0} hasn't set up Orbit's encryption yet, so there is nothing to share to."] = "{0} nie ma jeszcze skonfigurowanego szyfrowania Orbita, więc nie ma dokąd tego udostępnić.",
+        ["{0} can no longer see where you are."] = "{0} nie widzi już, gdzie jesteś.",
         ["Sharing a position needs a connection."] = "Udostępnienie położenia wymaga połączenia.",
         ["Orbit wouldn't accept that share. Try signing in again."] =
             "Orbit nie przyjął tego udostępnienia. Spróbuj zalogować się ponownie.",
