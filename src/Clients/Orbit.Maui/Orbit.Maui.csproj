@@ -6,6 +6,14 @@
 		keep building, test, and answer platform questions for. Add one back when there is a reason to. -->
 		<TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
 
+		<!-- Except on Linux, which cannot build net10.0-ios at all: Apple's toolchain is macOS-only, and
+		there is no iOS workload to install on a Linux runner. Listing it there is not a build that fails
+		late, it is a *restore* that fails immediately - restore evaluates every framework named here
+		even when the build asks for one - so the Android head could not be built in CI at all while it
+		was. Windows keeps both: an iOS build there goes through a paired Mac, which needs the framework
+		listed. -->
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('linux'))">net10.0-android</TargetFrameworks>
+
 		<OutputType>Exe</OutputType>
 		<RootNamespace>Orbit.Maui</RootNamespace>
 		<UseMaui>true</UseMaui>
