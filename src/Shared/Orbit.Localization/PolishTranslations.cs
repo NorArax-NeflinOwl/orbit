@@ -710,7 +710,6 @@ public static class PolishTranslations
         // ---- Fragments that begin lower-case, dropdown placeholders, and the longer
         // explanations under a setting. The first sweep matched only capitalised text, which is
         // how a whole class of these survived it. ----
-        ["or"] = "lub",
         ["On"] = "Wł.",
         ["before"] = "przed",
         ["minutes"] = "minut",
@@ -914,13 +913,11 @@ public static class PolishTranslations
         // a product's name and a + are the same in both languages. ----
         ["Add someone"] = "Dodaj osobę",
         ["Back to account"] = "Wróć do konta",
-        ["Back to chat"] = "Wróć do rozmów",
         ["Back to dashboard"] = "Wróć do pulpitu",
         ["Back to groups"] = "Wróć do grup",
         ["Change username"] = "Zmień nazwę użytkownika",
         ["Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later."] =
             "Zmiana nazwy użytkownika, adresu e-mail lub hasła wymaga połączenia z Orbitem. Nic z tego nie zostanie zapisane na później.",
-        ["Chat"] = "Rozmowy",
         ["Chat is unlocked"] = "Rozmowy są odblokowane",
         ["Chat key"] = "Klucz rozmów",
         ["Confirm new address"] = "Potwierdź nowy adres",
@@ -934,7 +931,6 @@ public static class PolishTranslations
         ["I already have an account"] = "Mam już konto",
         ["It always appears in your notifications. This also pushes or emails."] =
             "Zawsze pojawi się w powiadomieniach. To dodatkowo wyśle powiadomienie push lub e-mail.",
-        ["Language"] = "Język",
         ["Mark all read"] = "Oznacz wszystkie jako przeczytane",
         ["Message"] = "Wiadomość",
         ["New email address"] = "Nowy adres e-mail",
@@ -973,7 +969,6 @@ public static class PolishTranslations
         ["Sign in with Google"] = "Zaloguj się przez Google",
         ["Google couldn't be used to sign in to Orbit."] = "Nie udało się zalogować do Orbita przez Google.",
         ["Sign out"] = "Wyloguj się",
-        ["Status"] = "Status",
         ["This device now holds your encryption key."] = "To urządzenie ma teraz Twój klucz szyfrujący.",
         ["Update Orbit"] = "Zaktualizuj Orbita",
         ["Waiting for them to accept your request"] = "Czeka na akceptację zaproszenia",
@@ -985,10 +980,9 @@ public static class PolishTranslations
         ["Where you are"] = "Gdzie jesteś",
         ["Who can see you"] = "Kto Cię widzi",
         ["Who is in it"] = "Kto należy do grupy",
-        ["Available"] = "Dostępny",
         ["Couldn't sync"] = "Nie udało się zsynchronizować",
         ["Just now"] = "Przed chwilą",
-        ["Offline"] = "Bez połączenia",
+        ["No connection"] = "Bez połączenia",
         ["Synced"] = "Zsynchronizowano",
         ["Syncing…"] = "Synchronizowanie…",
         ["Unavailable"] = "Niedostępny",
@@ -1051,7 +1045,7 @@ public static class PolishTranslations
         ["Items: {0}"] = "Pozycji: {0}",
         ["Done: {0} of {1}"] = "Ukończone: {0} z {1}",
         ["No items yet"] = "Nie ma jeszcze pozycji",
-        ["Members"] = "Osób",
+        ["People"] = "Osób",
         ["Tasks due today"] = "Zadania na dziś",
         ["Events today"] = "Wydarzenia dziś",
         ["New chat requests"] = "Nowe zaproszenia do rozmowy",
@@ -1196,7 +1190,6 @@ public static class PolishTranslations
         ["Expires {0}"] = "Termin: {0}",
 
         // The event editor - the screen a calendar entry opens into.
-        ["When"] = "Kiedy",
         ["Back to calendar"] = "Wróć do kalendarza",
         ["Somebody else can change this event, and Orbit can't be reached to check. It stays read-only until you're back online."] =
             "Ktoś inny może zmieniać to wydarzenie, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
@@ -1213,7 +1206,6 @@ public static class PolishTranslations
         ["Orbit's own log, on this phone. Nothing leaves it unless you send it."] =
             "Własny dziennik Orbita, na tym telefonie. Nic z niego nie wychodzi, dopóki go nie wyślesz.",
         // The map screen: reading a position, sharing it, and stopping.
-        ["You"] = "Ty",
         ["Couldn't reach Orbit just now."] = "Nie udało się teraz połączyć z Orbitem.",
         ["Orbit needs permission to use your location. Turn it on in Settings."] =
             "Orbit potrzebuje zgody na dostęp do Twojej lokalizacji. Włącz ją w Ustawieniach.",
