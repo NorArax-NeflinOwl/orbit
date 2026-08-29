@@ -142,6 +142,28 @@ public sealed class TasksClient : ILockableItems
             : null;
     }
 
+    /// <summary>
+    /// Reads the warehouse again and brings the list back into step with it both ways: crossing off what
+    /// the shelf turns out to cover, and writing on what the shelf holds that nothing here asked for.
+    ///
+    /// Nothing moved when the server refuses, which is what the zeroes say - the caller reports what the
+    /// reconciliation did, and "it did nothing" is a true answer to give for a call that did not land.
+    /// </summary>
+    public async Task<StockReconciliationResultDto> ReconcileWithStockAsync(
+        Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/tasks/{taskListId}/stock-check/reconciliation", content: null, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new StockReconciliationResultDto(0, 0);
+        }
+
+        return await response.Content.ReadFromJsonAsync<StockReconciliationResultDto>(cancellationToken)
+            ?? new StockReconciliationResultDto(0, 0);
+    }
+
     /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>
     public async Task<int> RaiseStockShortfallsAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {

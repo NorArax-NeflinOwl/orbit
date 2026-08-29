@@ -36,6 +36,12 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public int RaisedShortfallCount { get; set; }
 
+    /// <summary>What bringing the list and the warehouse back into step reports having moved.</summary>
+    public StockReconciliationResultDto Reconciliation { get; set; } = new(0, 0);
+
+    /// <summary>How many times it was actually asked for - the panel used to only re-read instead.</summary>
+    public int ReconciliationsAsked { get; private set; }
+
     /// <summary>The warehouse a list was last pointed at.</summary>
     public Guid? LinkedWarehouseId { get; private set; }
 
@@ -106,6 +112,12 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         if (path.EndsWith("/stock-check/shortfalls", StringComparison.Ordinal))
         {
             return Json(new RaiseStockShortfallsResultDto(RaisedShortfallCount));
+        }
+
+        if (path.EndsWith("/stock-check/reconciliation", StringComparison.Ordinal))
+        {
+            ReconciliationsAsked++;
+            return Json(Reconciliation);
         }
 
         if (path.EndsWith("/inventory", StringComparison.Ordinal))
