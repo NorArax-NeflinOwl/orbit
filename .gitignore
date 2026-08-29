@@ -1,4 +1,6 @@
-/.vs
+/.vs/
+**/.vs/
+/data/
 
 # Ignore everything under .vscode except the files worth sharing across the team.
 .vscode/*
