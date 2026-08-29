@@ -148,9 +148,14 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
         // No id: this one has never been saved, and claiming an id nothing has would be a lie the server
         // would have to sort out. See WarehouseItemDto.Id.
+        //
+        // No type and no category either, as Orbit.Web adds one: those are the reader's words for what
+        // the thing is, and a phone has no business inventing them. It used to write "Piece" and
+        // "General" - English on a Polish shelf, a unit's name in the field for a kind of thing, and two
+        // made-up values in the filters above.
         return SaveAsync(
             [.. _items, new WarehouseItemDto(
-                null, name, "Piece", "General", 1, null, nameof(InventoryUnit.Piece), null, "None")],
+                null, name, string.Empty, string.Empty, 1, null, nameof(InventoryUnit.Piece), null, "None")],
             cancellationToken);
     }
 

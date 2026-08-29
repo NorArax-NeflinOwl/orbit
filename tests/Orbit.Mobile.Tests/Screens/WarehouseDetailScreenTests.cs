@@ -170,6 +170,47 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
+    /// An item added on the phone arrives with no kind and no category, exactly as one added in a
+    /// browser does. The phone used to write "Piece" and "General" instead - a unit's name in the field
+    /// for a kind of thing, English on a shelf kept in any other language, and two words nobody typed
+    /// showing up in the filters above and on the row itself. Found on a device.
+    /// </summary>
+    [Fact]
+    public async Task An_item_added_here_is_filed_under_nothing_until_somebody_files_it()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync();
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.NewItemName = "Flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        var added = Assert.Single(screen.Items);
+        Assert.Equal(string.Empty, added.Item.ProductType);
+        Assert.Equal(string.Empty, added.Item.Category);
+
+        // And nothing on the row about a kind it does not have.
+        Assert.Equal(string.Empty, added.Detail);
+    }
+
+    /// <summary>
+    /// One item with nothing filled in is nothing to narrow by, so the shelf does not offer to. The
+    /// invented defaults made every warehouse look like it had a type and a category worth filtering on.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_of_unfiled_items_does_not_offer_to_narrow_itself()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync();
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.NewItemName = "Flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.CanNarrow);
+    }
+
+    /// <summary>
     /// What a MAUI Picker does that no test did: emptying its ItemsSource clears its selection, and the
     /// binding writes that null back here. Every reload empties both pickers before refilling them, so
     /// the null arrived on the way to redrawing the shelf - and the filter, holding it, dereferenced it.
