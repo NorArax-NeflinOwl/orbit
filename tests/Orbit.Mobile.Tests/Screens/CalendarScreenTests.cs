@@ -116,21 +116,97 @@ public sealed class CalendarScreenTests
         Assert.True(screen.IsShowingOneDay);
     }
 
+    /// <summary>
+    /// A deadline is as much a thing happening on a day as an appointment is. The phone's calendar
+    /// showed only the appointments, so a week with three things due looked empty.
+    /// </summary>
+    [Fact]
+    public async Task What_falls_due_is_shown_beside_the_events()
+    {
+        using var context = new ScreenContext();
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+
+        var screen = await context.OpenAsync();
+
+        var deadline = Assert.Single(screen.Deadlines);
+        Assert.Equal("Groceries: Buy milk", deadline.Label);
+        Assert.True(screen.HasDeadlines);
+    }
+
+    /// <summary>The list beneath the grid follows the grid, deadlines as much as events.</summary>
+    [Fact]
+    public async Task Choosing_a_day_narrows_the_deadlines_to_it()
+    {
+        using var context = new ScreenContext();
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+        await context.AddDeadlineAsync("Trip", "Pack", new DateTime(2026, 8, 21, 17, 0, 0));
+        var screen = await context.OpenAsync();
+
+        await screen.ChooseDayCommand.ExecuteAsync(
+            screen.Days.Single(day => day.Date == new DateTime(2026, 8, 20)));
+
+        Assert.Equal("Groceries: Buy milk", Assert.Single(screen.Deadlines).Label);
+    }
+
+    /// <summary>A day with something due on it is not an empty day, so the grid marks it.</summary>
+    [Fact]
+    public async Task A_day_with_something_due_is_marked_on_the_grid()
+    {
+        using var context = new ScreenContext();
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+
+        var screen = await context.OpenAsync();
+
+        Assert.True(screen.Days.Single(day => day.Date == new DateTime(2026, 8, 20)).HasEvents);
+    }
+
+    /// <summary>
+    /// A deadline opens the list it sits on, which is where it can be ticked - the phone has no page
+    /// for one entry on its own.
+    /// </summary>
+    [Fact]
+    public async Task Opening_a_deadline_opens_the_list_it_sits_on()
+    {
+        using var context = new ScreenContext();
+        var listId = await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+        var screen = await context.OpenAsync();
+
+        screen.OpenDeadlineCommand.Execute(Assert.Single(screen.Deadlines));
+
+        Assert.Equal(listId, context.Navigator.LastTaskListId);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-15T10:00:00Z"));
         private readonly FakeCalendarServer _server;
         private readonly LocalCalendarEventRepository _events;
+        private readonly LocalTaskListRepository _taskLists;
         private readonly CalendarEventSynchronizer _synchronizer;
 
         public ScreenContext()
         {
             _server = new FakeCalendarServer(_clock);
             _events = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online);
             _synchronizer = new CalendarEventSynchronizer(
                 _localStore, new CalendarClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<CalendarEventSynchronizer>.Instance);
+        }
+
+        public RecordingScreenNavigator Navigator { get; } = new();
+
+        /// <summary>A task entry falling due, which the calendar shows beside the events.</summary>
+        public async Task<Guid> AddDeadlineAsync(string listTitle, string description, DateTime localDue)
+        {
+            var due = new DateTimeOffset(localDue, TimeZoneInfo.Local.GetUtcOffset(localDue)).ToUniversalTime();
+            var created = await _taskLists.CreateAsync(listTitle,
+            [
+                new(Guid.NewGuid(), description, due, false, null, "None", false, "None", new TimeOnly(9, 0))
+            ]);
+
+            return created.LocalId;
         }
 
         public Task AddEventAsync(string title, DateTime localStart)
@@ -145,7 +221,7 @@ public sealed class CalendarScreenTests
         {
             var screen = new CalendarViewModel(
                 _events, _synchronizer, FixedNetworkStatus.Online, _clock, new SyncState(FixedNetworkStatus.Online, _clock),
-                new RecordingScreenNavigator(), new Translations(new InMemoryLanguageStore()));
+                Navigator, new Translations(new InMemoryLanguageStore()), _taskLists);
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

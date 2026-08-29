@@ -23,11 +23,14 @@ public static class CalendarYear
 {
     private const int MonthsInYear = 12;
 
+    /// <inheritdoc cref="CalendarMonth.Build" path="/param[@name='deadlines']"/>
     public static IReadOnlyList<CalendarYearMonth> Build(
-        int year, DateTime today, IReadOnlyList<LocalCalendarEvent> events, Translations translations)
+        int year, DateTime today, IReadOnlyList<LocalCalendarEvent> events,
+        IReadOnlyList<CalendarDeadline> deadlines, Translations translations)
     {
         var counts = events
-            .Select(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime())
+            .Select(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date)
+            .Concat(deadlines.Select(deadline => deadline.DueLocalDate))
             .Where(start => start.Year == year)
             .GroupBy(start => start.Month)
             .ToDictionary(month => month.Key, month => month.Count());

@@ -20,14 +20,14 @@ public sealed class CalendarMonthTests
         // February 2026 starts on a Sunday and has 28 days - the month most likely to come out short.
         foreach (var month in new[] { August, new DateTime(2026, 2, 10), new DateTime(2027, 1, 20) })
         {
-            Assert.Equal(42, CalendarMonth.Build(month, null, August, []).Count);
+            Assert.Equal(42, CalendarMonth.Build(month, null, August, [], []).Count);
         }
     }
 
     [Fact]
     public void It_starts_on_a_Monday()
     {
-        var days = CalendarMonth.Build(August, null, August, []);
+        var days = CalendarMonth.Build(August, null, August, [], []);
 
         Assert.Equal(DayOfWeek.Monday, days[0].Date.DayOfWeek);
         Assert.True(days[0].Date <= new DateTime(2026, 8, 1));
@@ -40,7 +40,7 @@ public sealed class CalendarMonthTests
     [Fact]
     public void The_days_either_side_are_present_and_marked_as_outside()
     {
-        var days = CalendarMonth.Build(August, null, August, []);
+        var days = CalendarMonth.Build(August, null, August, [], []);
 
         Assert.Contains(days, day => !day.IsInMonth);
         Assert.All(days.Where(day => day.IsInMonth), day => Assert.Equal(8, day.Date.Month));
@@ -49,7 +49,7 @@ public sealed class CalendarMonthTests
     [Fact]
     public void A_day_with_something_on_it_says_so()
     {
-        var days = CalendarMonth.Build(August, null, August, [EventOn(new DateTime(2026, 8, 20, 9, 0, 0))]);
+        var days = CalendarMonth.Build(August, null, August, [EventOn(new DateTime(2026, 8, 20, 9, 0, 0))], []);
 
         var twentieth = days.Single(day => day.Date == new DateTime(2026, 8, 20));
         Assert.True(twentieth.HasEvents);
@@ -62,7 +62,7 @@ public sealed class CalendarMonthTests
     {
         var days = CalendarMonth.Build(
             August, null, August,
-            [EventOn(new DateTime(2026, 8, 20, 9, 0, 0)), EventOn(new DateTime(2026, 8, 20, 17, 0, 0))]);
+            [EventOn(new DateTime(2026, 8, 20, 9, 0, 0)), EventOn(new DateTime(2026, 8, 20, 17, 0, 0))], []);
 
         Assert.Equal(2, days.Single(day => day.Date == new DateTime(2026, 8, 20)).EventCount);
     }
@@ -70,7 +70,7 @@ public sealed class CalendarMonthTests
     [Fact]
     public void Today_and_the_chosen_day_are_each_marked()
     {
-        var days = CalendarMonth.Build(August, new DateTime(2026, 8, 20), August, []);
+        var days = CalendarMonth.Build(August, new DateTime(2026, 8, 20), August, [], []);
 
         Assert.True(days.Single(day => day.Date == August.Date).IsToday);
         Assert.True(days.Single(day => day.Date == new DateTime(2026, 8, 20)).IsSelected);

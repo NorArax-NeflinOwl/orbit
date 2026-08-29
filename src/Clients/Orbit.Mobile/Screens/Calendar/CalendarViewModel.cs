@@ -16,6 +16,7 @@ namespace Orbit.Mobile.Screens.Calendar;
 public sealed partial class CalendarViewModel : ObservableObject
 {
     private readonly LocalCalendarEventRepository _events;
+    private readonly LocalTaskListRepository _taskLists;
     private readonly CalendarEventSynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
     private readonly TimeProvider _timeProvider;
@@ -37,9 +38,11 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     public CalendarViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, INetworkStatus networkStatus,
-        TimeProvider timeProvider, SyncState syncState, IScreenNavigator navigator, Translations translations)
+        TimeProvider timeProvider, SyncState syncState, IScreenNavigator navigator, Translations translations,
+        LocalTaskListRepository taskLists)
     {
         _events = events;
+        _taskLists = taskLists;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
         _timeProvider = timeProvider;
@@ -49,6 +52,14 @@ public sealed partial class CalendarViewModel : ObservableObject
     }
 
     public ObservableCollection<CalendarEventRow> Events { get; } = [];
+
+    /// <summary>
+    /// What falls due over the same stretch of days, beneath the events. Read-only here: a deadline
+    /// belongs to the list it sits on, and tapping it opens that list, which is where it can be ticked.
+    /// </summary>
+    public ObservableCollection<CalendarDeadline> Deadlines { get; } = [];
+
+    public bool HasDeadlines => Deadlines.Count > 0;
 
     /// <summary>The month grid - six weeks of seven days, whatever month it is. See CalendarMonth.</summary>
     public ObservableCollection<CalendarDay> Days { get; } = [];
@@ -194,20 +205,35 @@ public sealed partial class CalendarViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// A deadline opens the list it sits on. Orbit.Web opens an appointment with a place on a page of
+    /// its own instead; the phone has no such page yet, and the list is where the entry can be ticked
+    /// either way.
+    /// </summary>
+    [RelayCommand]
+    private void OpenDeadline(CalendarDeadline? deadline)
+    {
+        if (deadline is not null)
+        {
+            _navigator.ShowTaskList(deadline.TaskListLocalId);
+        }
+    }
+
     private async Task ShowStoredEventsAsync(CancellationToken cancellationToken)
     {
         var stored = await _events.GetAllAsync(cancellationToken);
         var pending = await _events.GetPendingLocalIdsAsync(cancellationToken);
         var today = _timeProvider.GetUtcNow().LocalDateTime;
+        var deadlines = CalendarDeadline.From(await _taskLists.GetAllAsync(cancellationToken), _translations);
 
         Days.Clear();
-        foreach (var day in CalendarMonth.Build(Month, SelectedDay, today, stored))
+        foreach (var day in CalendarMonth.Build(Month, SelectedDay, today, stored, deadlines))
         {
             Days.Add(day);
         }
 
         Months.Clear();
-        foreach (var month in CalendarYear.Build(Month.Year, today, stored, _translations))
+        foreach (var month in CalendarYear.Build(Month.Year, today, stored, deadlines, _translations))
         {
             Months.Add(month);
         }
@@ -221,8 +247,15 @@ public sealed partial class CalendarViewModel : ObservableObject
             Events.Add(CalendarEventRow.From(calendarEvent, pending.Contains(calendarEvent.LocalId), _networkStatus, _translations));
         }
 
+        Deadlines.Clear();
+        foreach (var deadline in deadlines.Where(deadline => Covers(deadline.DueLocalDate)))
+        {
+            Deadlines.Add(deadline);
+        }
+
         OnPropertyChanged(nameof(PeriodLabel));
         OnPropertyChanged(nameof(IsShowingOneDay));
+        OnPropertyChanged(nameof(HasDeadlines));
     }
 
     private bool Covers(DateTime date)

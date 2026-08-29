@@ -31,11 +31,18 @@ public static class CalendarMonth
 {
     private const int WeeksShown = 6;
 
+    /// <param name="deadlines">
+    /// Counted with the events, because a day with something due on it is not an empty day - see
+    /// <see cref="CalendarDeadline"/>.
+    /// </param>
     public static IReadOnlyList<CalendarDay> Build(
-        DateTime month, DateTime? selected, DateTime today, IReadOnlyList<LocalCalendarEvent> events)
+        DateTime month, DateTime? selected, DateTime today, IReadOnlyList<LocalCalendarEvent> events,
+        IReadOnlyList<CalendarDeadline> deadlines)
     {
         var counts = events
-            .GroupBy(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date)
+            .Select(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date)
+            .Concat(deadlines.Select(deadline => deadline.DueLocalDate))
+            .GroupBy(date => date)
             .ToDictionary(day => day.Key, day => day.Count());
 
         var firstOfMonth = new DateTime(month.Year, month.Month, 1);

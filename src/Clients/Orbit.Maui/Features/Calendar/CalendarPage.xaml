@@ -174,6 +174,39 @@
             </CollectionView>
         </RefreshView>
 
+        <!-- What falls due over the same days, beneath the events. A deadline is as much a thing
+             happening on a day as an appointment is, and Orbit.Web's calendar has shown both all
+             along - see CalendarDeadline. -->
+        <VerticalStackLayout Grid.Row="5" Spacing="4" IsVisible="{Binding HasDeadlines}" Margin="0,8,0,0">
+            <Label Text="{controls:Translate 'Tasks with a due date'}" Style="{StaticResource FieldLabel}" />
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Deadlines}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:CalendarDeadline">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,6">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenDeadlineCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+                            <Label Grid.Column="0" Text="{Binding Label}" FontSize="13" LineBreakMode="TailTruncation"
+                                   VerticalOptions="Center">
+                                <Label.Triggers>
+                                    <!-- Struck through rather than hidden: a day whose errands are all
+                                         ticked reads differently from an empty one. -->
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
+                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                            <Label Grid.Column="1" Text="{Binding When}" FontSize="11" VerticalOptions="Center"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
