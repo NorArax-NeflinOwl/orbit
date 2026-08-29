@@ -609,6 +609,31 @@ public sealed class DashboardScreenTests
         Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.SharedLocations);
     }
 
+    /// <summary>
+    /// How much something matters is badged on the row, as Orbit.Web badges the same rows - and only
+    /// where it says something: Normal is what everything is unless somebody said otherwise, so marking
+    /// every row would mark none of them out.
+    /// </summary>
+    [Fact]
+    public async Task What_matters_more_is_marked_on_the_dashboard()
+    {
+        using var context = new DashboardContext();
+        await context.MarkAsync(await context.AddNoteAsync("Passport"), "High");
+        await context.AddNoteAsync("Shopping");
+        await context.MarkAsync(await context.AddTaskListAsync("Move house"), "Low");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var notes = screen.Cards.Single(card => card.Kind == DashboardCardKind.Notes);
+        Assert.Equal("High", notes.Rows.Single(row => row.Title == "Passport").Priority);
+        Assert.True(notes.Rows.Single(row => row.Title == "Passport").HasPriority);
+        Assert.False(notes.Rows.Single(row => row.Title == "Shopping").HasPriority);
+
+        var tasks = screen.Cards.Single(card => card.Kind == DashboardCardKind.Tasks);
+        Assert.Equal("Low", Assert.Single(tasks.Rows).Priority);
+    }
+
     private sealed class DashboardContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -759,6 +784,23 @@ public sealed class DashboardScreenTests
 
         public async Task<Guid> AddNoteAsync(string title)
             => (await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)])).LocalId;
+
+        /// <summary>Marks something as mattering more, the way the picker on its own screen does.</summary>
+        public async Task MarkAsync(Guid localId, string priority)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            if (dbContext.Notes.FirstOrDefault(note => note.LocalId == localId) is { } note)
+            {
+                note.Priority = priority;
+            }
+
+            if (dbContext.TaskLists.FirstOrDefault(list => list.LocalId == localId) is { } taskList)
+            {
+                taskList.Priority = priority;
+            }
+
+            await dbContext.SaveChangesAsync();
+        }
 
         /// <summary>Keeps a note at the top, which is what the "Pinned" card filter narrows to.</summary>
         public Task PinNoteAsync(Guid localId) => _notes.MarkPinnedAsync(localId, isPinned: true);

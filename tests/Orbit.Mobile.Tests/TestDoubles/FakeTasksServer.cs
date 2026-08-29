@@ -192,7 +192,11 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     {
         var body = await ReadAsync<CreateTaskRequest>(request, cancellationToken);
         var created = AddTaskList(body!.Title);
-        _taskLists[created.Id] = created with { Items = ToDtos(body.Items), IsPrivate = body.IsPrivate };
+        _taskLists[created.Id] = created with
+        {
+            Items = ToDtos(body.Items), IsGroup = body.IsGroup, IsPrivate = body.IsPrivate,
+            Priority = body.Priority
+        };
         return Json(created.Id, HttpStatusCode.Created);
     }
 

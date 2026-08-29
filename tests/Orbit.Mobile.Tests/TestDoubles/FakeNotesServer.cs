@@ -103,7 +103,10 @@ internal sealed class FakeNotesServer : HttpMessageHandler
     {
         var body = await ReadAsync<CreateNoteRequest>(request, cancellationToken);
         var created = AddNote(body!.Title);
-        _notes[created.Id] = created with { Content = body.Content, IsPrivate = body.IsPrivate };
+        _notes[created.Id] = created with
+        {
+            Content = body.Content, IsPrivate = body.IsPrivate, Priority = body.Priority
+        };
         return Json(created.Id, HttpStatusCode.Created);
     }
 

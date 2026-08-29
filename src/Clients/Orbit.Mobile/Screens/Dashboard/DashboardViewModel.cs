@@ -491,7 +491,15 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Where(CanBeShown)
             .OrderByDescending(note => note.UpdatedAtUtc)
             .Take(RowsPerCard)
-            .Select(note => new DashboardRow(note.LocalId, TitleOrPlaceholder(note.Title, _translations["Untitled"]), Ago(note.UpdatedAtUtc)))
+            .Select(note => new DashboardRow(
+                note.LocalId, TitleOrPlaceholder(note.Title, _translations["Untitled"]), Ago(note.UpdatedAtUtc))
+            {
+                // Badged like a task list, and like the same row on Orbit.Web - only where it says
+                // something, which is never for the Normal most notes are.
+                Priority = Tasks.PriorityChoice.For(note.Priority, _translations) is { IsWorthSaying: true } priority
+                    ? priority.Name
+                    : string.Empty
+            })
             .ToList();
 
     private IReadOnlyList<DashboardRow> DescribeTaskLists(IReadOnlyList<LocalTaskList> taskLists)
