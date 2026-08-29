@@ -1,6 +1,7 @@
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Presence;
+using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Security;
 
 namespace Orbit.Maui;
@@ -20,6 +21,30 @@ public partial class App : Application
 		// delivers the tap, so Resumed fires while there is still nothing to follow.
 		_services.GetRequiredService<PendingNotificationTap>().RecordedWhileRunning +=
 			(_, url) => _ = FollowAsync(url);
+
+		// The theme the reader chose, put back the moment the app starts. Only the account screen used to
+		// apply it, so the choice lasted until the app was closed and then came back as the phone's - a
+		// setting that forgets itself is worse than none at all.
+		ApplyTheme(_services.GetRequiredService<IThemeStore>().Read());
+	}
+
+	/// <summary>
+	/// Turns the reader's choice into the app's theme. Unspecified means "follow the phone", which is
+	/// what Orbit did before there was a choice at all.
+	///
+	/// Static and here rather than on the account screen, because it is needed before any screen exists.
+	/// </summary>
+	public static void ApplyTheme(ChosenTheme theme)
+	{
+		if (Current is { } application)
+		{
+			application.UserAppTheme = theme switch
+			{
+				ChosenTheme.Light => AppTheme.Light,
+				ChosenTheme.Dark => AppTheme.Dark,
+				_ => AppTheme.Unspecified
+			};
+		}
 	}
 
 	/// <summary>

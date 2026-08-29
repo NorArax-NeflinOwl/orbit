@@ -33,7 +33,14 @@ public class MainActivity : MauiAppCompatActivity
 		base.OnCreate(savedInstanceState);
 		OnBackPressedDispatcher.AddCallback(this, new GoUpOnBack(this));
 		KeepContentInsideTheSystemBars();
-		MatchStatusBarIconsToTheme();
+		MatchStatusBarToTheme();
+
+		// Choosing Orbit's own theme changes no configuration, so OnConfigurationChanged never runs for
+		// it and the bar would keep the theme the app started in.
+		if (Microsoft.Maui.Controls.Application.Current is { } application)
+		{
+			application.RequestedThemeChanged += (_, _) => MatchStatusBarToTheme();
+		}
 	}
 
 	/// <summary>
@@ -61,29 +68,47 @@ public class MainActivity : MauiAppCompatActivity
 	/// UiMode is in this activity's ConfigurationChanges, so switching the system between light and dark
 	/// does not recreate it - which means nothing would revisit the status bar and its icons would stay
 	/// the previous mode's colour.
+	///
+	/// This is only half of it: the reader can also change Orbit's theme without the system's changing at
+	/// all, which reaches no configuration change - see the subscription in OnCreate.
 	/// </summary>
 	public override void OnConfigurationChanged(Android.Content.Res.Configuration newConfig)
 	{
 		base.OnConfigurationChanged(newConfig);
-		MatchStatusBarIconsToTheme();
+		MatchStatusBarToTheme();
 	}
 
 	/// <summary>
-	/// Dark icons over the light status bar and light ones over the dark.
+	/// Dark icons over the light status bar and light ones over the dark, and below API 35 the bar's
+	/// colour as well.
 	///
-	/// The bar's colour comes from the theme - colorPrimaryDark, and its values-night counterpart - but
-	/// Android does not work out the contrast from it. Left alone, the white icons it defaults to sit on
-	/// Orbit's white bar and simply are not there: no clock, no battery, no signal.
+	/// Android does not work out the icon contrast from the bar's colour. Left alone, the white icons it
+	/// defaults to sit on Orbit's white bar and simply are not there: no clock, no battery, no signal.
+	///
+	/// The colour is set here rather than left to colorPrimaryDark and its values-night counterpart,
+	/// which was enough only while the app followed the system. Orbit now has a theme of its own - see
+	/// AccountPage's appearance section - and Android resolves that resource by the *system's* night
+	/// mode, so a phone in dark mode showing a reader who chose Light kept a black bar above a white
+	/// app, with the clock unreadable on it. Read from the app's own theme, the two cannot disagree.
+	/// From API 35 the app draws behind the bar and nothing paints it at all, which is why that half is
+	/// skipped there.
 	/// </summary>
-	private void MatchStatusBarIconsToTheme()
+	private void MatchStatusBarToTheme()
 	{
 		if (Window is not { DecorView: { } decorView } window)
 		{
 			return;
 		}
 
-		var isDark = (Resources?.Configuration?.UiMode & UiMode.NightMask) == UiMode.NightYes;
+		var isDark = Microsoft.Maui.Controls.Application.Current?.RequestedTheme == AppTheme.Dark;
 		WindowCompat.GetInsetsController(window, decorView).AppearanceLightStatusBars = !isDark;
+
+		if (!OperatingSystem.IsAndroidVersionAtLeast(35))
+		{
+			// The two surface colours from Resources/Styles/Colors.xaml, which the values/colors.xml pair
+			// mirrors - see the comments there.
+			window.SetStatusBarColor(isDark ? Android.Graphics.Color.ParseColor("#1C1C1E") : Android.Graphics.Color.White);
+		}
 	}
 
 	/// <summary>
