@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The dark half of the status bar colour. MAUI's theme descends from
+     Theme.MaterialComponents.DayNight, so Android picks this file up on its own when the system is in
+     dark mode - the same switch AppThemeBinding follows inside the app. Matches SurfaceDark. -->
+<resources>
+    <color name="colorPrimaryDark">#1C1C1E</color>
+</resources>

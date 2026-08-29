@@ -29,6 +29,11 @@ public sealed class NavigationBarTests
         Assert.Equal("AK", bar.Initials);
     }
 
+    /// <summary>
+    /// Two letters, as Orbit.Web's AvatarHelper does it - the same person must not read differently in
+    /// the browser and on the phone, and single-word display names are common enough that a rule of our
+    /// own here was visible on every screen.
+    /// </summary>
     [Fact]
     public async Task A_one_word_name_still_gets_an_avatar()
     {
@@ -37,7 +42,30 @@ public sealed class NavigationBarTests
         var bar = context.Open();
         await bar.LoadCommand.ExecuteAsync(null);
 
+        Assert.Equal("AL", bar.Initials);
+    }
+
+    [Fact]
+    public async Task A_single_letter_name_gets_the_one_letter_there_is()
+    {
+        var context = new BarContext("A");
+
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+
         Assert.Equal("A", bar.Initials);
+    }
+
+    /// <summary>The web takes the first two words rather than the first and the last; this follows it.</summary>
+    [Fact]
+    public async Task A_name_of_three_words_takes_the_first_two()
+    {
+        var context = new BarContext("Ala Maria Kowalska");
+
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("AM", bar.Initials);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Chat.Groups;
 using Orbit.Core.Sync;

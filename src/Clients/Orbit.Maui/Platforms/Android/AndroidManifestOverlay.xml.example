@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Google Maps key, which is deployment-specific and must not be committed - the same rule as
+     google-services.json beside this. Copy to AndroidManifestOverlay.xml (gitignored) and fill in the
+     value from Google Cloud console > APIs & Services > Credentials, with "Maps SDK for Android"
+     enabled for it. The build merges this into the manifest when the file exists; without it the app
+     still runs and the map screen says it has no map, rather than the whole app dying the first time
+     somebody opens it. iOS needs none of this: MapKit has no key. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+	<application>
+		<meta-data android:name="com.google.android.geo.API_KEY" android:value="" />
+	</application>
+</manifest>

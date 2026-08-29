@@ -232,11 +232,37 @@ public sealed class SharePanelTests
         Assert.False(panel.CanAskToEdit);
     }
 
+    /// <summary>
+    /// Found by doing it on a phone: message somebody for the first time, open a note, and sharing said
+    /// there was nobody to share with - having just been told to start a conversation, which is what had
+    /// been done. The cached list is only filled by the contacts screen, so anyone met since was invisible
+    /// here until that screen happened to be visited.
+    /// </summary>
+    [Fact]
+    public async Task Somebody_met_since_the_cache_was_last_filled_can_still_be_shared_with()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        // On the server only. Nothing is stored locally, which is the state after a first message.
+        context.GiveTheOtherPartyAPublishedKey();
+        var panel = Build(context, shares);
+
+        await panel.OpenCommand.ExecuteAsync(null);
+
+        Assert.True(panel.IsOpen);
+        Assert.NotEmpty(panel.Recipients);
+    }
+
     private static async Task GiveAContactAsync(ChatContext context, string displayName)
     {
         context.GiveTheOtherPartyAPublishedKey();
-        var contact = context.Server.Contacts.Single(candidate => candidate.UserId == context.OtherUserId);
-        await context.Repository.StoreContactsAsync([contact with { DisplayName = displayName }]);
+
+        // Renamed on the server as well as in the cache. Opening the panel refreshes the contact list
+        // from the server now, and a name that existed only locally would be replaced on the way in -
+        // which is the point of the refresh, the server's list being the complete answer.
+        var index = context.Server.Contacts.FindIndex(candidate => candidate.UserId == context.OtherUserId);
+        context.Server.Contacts[index] = context.Server.Contacts[index] with { DisplayName = displayName };
+        await context.Repository.StoreContactsAsync([context.Server.Contacts[index]]);
     }
 
     private static SharePanel Build(
@@ -247,6 +273,7 @@ public sealed class SharePanelTests
 
         return new SharePanel(
             context.Repository,
+            context.Synchronizer,
             new SharedItemSharing(
                 new NotesClient(http), new TasksClient(http), new CalendarClient(http), new InventoryClient(http),
                 context.Sender),

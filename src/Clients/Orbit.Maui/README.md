@@ -41,8 +41,10 @@ are platform calls are behind interfaces the head implements: `IScreenNavigator`
 page) and `IUpdateLink` (leaving the app for a store listing).
 
 `Orbit.Maui` stays out of the solution because CI builds `Orbit.sln` on `ubuntu-latest` (see
-`.github/workflows/ci.yml`), which cannot build `net10.0-ios` at all — that needs macOS and Xcode — and
-cannot build `net10.0-android` without the Android SDK. Build the heads explicitly instead:
+`.github/workflows/main_orbit.yml`), which cannot build `net10.0-ios` at all — that needs macOS and
+Xcode — and cannot build `net10.0-android` without the Android SDK and a JDK. **The Android head is
+built anyway**, by a separate job in that same workflow which installs both first; iOS is the head
+nothing checks but a Mac. Build either explicitly:
 
 ```bash
 dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android
@@ -58,11 +60,12 @@ fails on this one every time. Keep it switched off.
 
 ## Debugging from VS Code
 
-`.vscode/launch.json` carries **Orbit.Maui (iOS simulator)**, and a compound that starts `Orbit.Api`
-alongside it — the app talks to `http://localhost:5080` on a simulator, so without the server it gets no
-further than the sign-in screen. Breakpoints need the **.NET MAUI extension**
-(`ms-dotnettools.dotnet-maui`, recommended in `.vscode/extensions.json`); it owns the `maui` debug type
-and the device picker in the status bar. Pick a simulator there before pressing F5.
+`.vscode/launch.json` carries **Orbit.Maui (iOS simulator)** and **Orbit.Maui (Android emulator)**, and a
+compound for each that starts `Orbit.Api` alongside it — without the server the app gets no further than
+the sign-in screen. Breakpoints need the **.NET MAUI extension** (`ms-dotnettools.dotnet-maui`,
+recommended in `.vscode/extensions.json`); it owns the `maui` debug type and the device picker in the
+status bar. Pick a device there before pressing F5 — the picker lists what is *running*, so an emulator
+has to be booted first.
 
 Without that extension the app can still be built and run, just with no debugger attached — the tasks in
 `.vscode/tasks.json` do it:
@@ -74,23 +77,50 @@ Without that extension the app can still be built and run, just with no debugger
 | `maui-ios: reinstall clean` | The same but wipes the app's container first, for testing a fresh install |
 | `ios-simulator: list iPhones` | What the installed Xcode actually ships, which is what the next task accepts |
 | `ios-simulator: boot a chosen iPhone` | Switches which model everything targets, shutting the current one down first |
+| `maui-android: build` | The Android build. No runtime identifier: one build carries every architecture |
+| `maui-android: run on emulator` | Builds, installs **over the top**, launches — keeps the local database |
+| `maui-android: reinstall clean` | Uninstalls first, for testing a fresh install |
+| `android-emulator: list AVDs` | The virtual devices this machine has |
+| `android-emulator: boot a chosen AVD` | Starts one detached and waits for Android to finish booting |
 
-Everything targets `booted`, which is the only handle `simctl` offers once a device is running — so
+The iOS tasks all target `booted`, which is the only handle `simctl` offers once a device is running — so
 choosing the model is a step of its own, and only one may be booted at a time or `booted` is ambiguous.
+The Android tasks reach the SDK through `ANDROID_HOME`, falling back to wherever that platform's
+command-line tools install one by default: `~/Library/Android/sdk` on macOS,
+`%LOCALAPPDATA%\Android\Sdk` on Windows. Each of them carries a `windows` override spelling the same
+thing in PowerShell, because the shell VS Code runs a task in is the machine's own.
 
-An uninstall clears the local SQLite database but **not** the chat key: that lives in the Keychain, which
-survives it.
+**Wait for the emulator, not just for `adb`.** `adb wait-for-device` returns as soon as the device is
+listed, which is well before Android has finished booting; an install into that window fails. The boot
+task polls `sys.boot_completed` afterwards for that reason.
+
+**Clear the app's data and a debug build stops starting.** `adb shell pm clear` looks like the quick way
+to get a fresh install, and it leaves the app unable to run at all: a debug build keeps its assemblies in
+`files/.__override__` rather than in the APK, and clearing the data deletes them. It comes up as
+*Orbit keeps stopping*, with `No assemblies found ... Assuming this is part of Fast Deployment` in
+logcat, and it does not fix itself on the next deploy - the install has to go and come back, which is
+what `maui-android: reinstall clean` does anyway.
+
+An uninstall clears the local SQLite database on both platforms. On iOS it leaves the **chat key**,
+which lives in the Keychain and survives one; on Android the key is app data and goes with everything
+else, so a clean reinstall there means restoring the key backup on the next sign-in.
 
 ## Running it against a local server
 
 The API address is `OrbitApiSettings.Development`, and it differs per platform because "the machine
 running the server" is not the same address from each:
 
-| Running on | Reaches the Mac's `localhost:5080` as |
+| Running on | Reaches the development machine's `localhost:5080` as |
 | --- | --- |
 | iOS simulator | `http://localhost:5080` — it shares the Mac's loopback |
 | Android emulator | `http://10.0.2.2:5080` — the emulator's fixed alias for its host |
-| A physical device | Neither. Use the Mac's LAN address, and note iOS refuses plaintext HTTP to it |
+| A physical device | Neither. Use the machine's LAN address, and note iOS refuses plaintext HTTP to it |
+
+**The port is fixed, which two people cannot share.** `OrbitApiSettings.Development` writes 5080 into
+the app, so anyone running a second Orbit.Api on the same machine - an Android session and an iOS one
+side by side, say - is running it for nobody: whichever server took 5080 first is the one both phones
+reach. Nothing here reads it from configuration yet, so the two either take turns or one of them edits
+that constant.
 
 **Working from Windows, that first row stops being true.** The simulator is on the paired Mac, so its
 `localhost` is the Mac's — and the API is running on the Windows machine. Forward the port back over SSH
@@ -110,6 +140,13 @@ and iOS answers a permission request with an instant refusal when the string is 
 and nothing in the log, which looks exactly like the reader saying no. Delete the iOS output after
 editing that file.
 
+**Android has the same trap, and the Google Maps key walks straight into it.** Creating
+`Platforms/Android/AndroidManifestOverlay.xml` does not make the build regenerate the manifest, so the
+key is simply absent from the APK and the map screen goes on saying it has no map — which reads as a
+key that was rejected rather than one that never arrived. Delete
+`obj/Debug/net10.0-android/android/AndroidManifest.xml` after adding or changing the overlay. With that
+done the merge works: the key reaches the packaged manifest and `MapAvailability` finds it.
+
 iOS blocks cleartext HTTP by default. `Platforms/iOS/Info.plist` carries `NSAllowsLocalNetworking`,
 which permits it for local and loopback hosts only — a LAN address needs HTTPS or its own exception.
 
@@ -117,6 +154,42 @@ which permits it for local and loopback hosts only — a LAN address needs HTTPS
 dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64
 xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app
 ```
+
+Android has one command for the lot — `-t:Run` is the Android SDK's own build, install and launch target,
+so nothing has to name the activity, whose class name carries a generated hash:
+
+```bash
+dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -t:Run
+```
+
+Android refuses cleartext HTTP the way iOS does, and the exception is
+`Platforms/Android/Resources/xml/network_security_config.xml`: `10.0.2.2` and loopback only. A LAN
+address needs HTTPS or its own entry there.
+
+## Testing a tapped notification without sending one
+
+Push is not wired up on either head yet (`PhonePushNotifications` under each platform folder says why), but the
+tap handling behind it is, and it can be exercised without Firebase. The destination arrives as an
+ordinary intent extra on Android: the Firebase SDK turns each entry of the message's `data` block into
+one, and `Orbit.Api`'s `FirebasePushNotificationSender` puts the tap target there under `url`. So an
+`am start` carrying that extra is indistinguishable from a real tap as far as the app is concerned.
+
+The activity's class name carries a generated hash, so ask the device for it rather than writing it
+down anywhere:
+
+```bash
+adb shell am start -n "$(adb shell cmd package resolve-activity --brief com.orbitmaui.android | tail -1 | tr -d '\r')" -e url /calendar
+```
+
+Run it against a stopped app for the cold-start path and against a running one for the warm path — they
+are handled in different places (`OnCreate` and `OnNewIntent`) and only the second needs the activity to
+be `SingleTop`. The paths the app understands are the ones `NotificationDestination.Parse` lists:
+`/calendar`, `/inventory`, `/map`, `/tasks/{id}`, `/chat/{userId}`, `/chat/groups/{groupId}`.
+
+**A tap is only followed once the reader is signed in.** `StartupViewModel.ContinueToAppAsync` checks
+for a session first and sends them to sign-in otherwise, deliberately - following it would put a
+conversation behind the sign-in screen. On a freshly installed app the destination is recorded and then
+dropped, which looks like nothing happening.
 
 ## Prerequisites
 
@@ -133,6 +206,100 @@ the Command Line Tools, which are **not** enough — the iOS build fails with "C
 Xcode app bundle".
 
 If the Android SDK lives somewhere non-standard, point the build at it with `AndroidSdkDirectory`.
+
+### The Android SDK on macOS
+
+The Android SDK is not one download but a set of packages, and the workload installs none of them. With
+the command-line tools on `PATH` (`brew install --cask android-commandlinetools`), this is the set the
+app needs, installed where the build looks for it without being told:
+
+```bash
+sdkmanager --sdk_root="$HOME/Library/Android/sdk" --licenses
+```
+
+```bash
+sdkmanager --sdk_root="$HOME/Library/Android/sdk" "platform-tools" "build-tools;36.0.0" "platforms;android-36" "emulator" "system-images;android-36;google_apis;arm64-v8a" "cmdline-tools;latest"
+```
+
+Then a device to run it on. **Pixel 8 is the reference**, the Android counterpart of the plan's iPhone 15
+Pro. Use the `avdmanager` inside the SDK rather than one from elsewhere: it finds system images relative
+to its own location, and one installed alongside a different SDK reports that there are none.
+
+```bash
+"$HOME/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager" create avd -n Orbit_Pixel_8_API_36 -k "system-images;android-36;google_apis;arm64-v8a" -d pixel_8
+```
+
+**Worth a second device at the floor.** `SupportedOSPlatformVersion` is 29, and the newest emulator
+cannot show what happens there: API 29 still has the three-button navigation bar and no predictive back
+gesture, its status bar is painted with `colorPrimaryDark` where API 35 and up are edge-to-edge, and
+`BiometricPrompt` only accepts a biometric and the screen lock together from 29 on. Swap the two numbers
+in the commands above (`system-images;android-29;google_apis;arm64-v8a`) for one to check against.
+
+```bash
+"$HOME/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager" create avd -n Orbit_Pixel_8_API_29 -k "system-images;android-29;google_apis;arm64-v8a" -d pixel_8
+```
+
+**Dark mode on that image needs the setting written directly.** `adb shell cmd uimode night yes` is
+refused there — the image reports `mNightModeLocked=true` — which looks like dark mode being
+unavailable rather than one route to it being closed. The setting takes, and survives a restart:
+
+```bash
+adb shell settings put secure ui_night_mode 2 && adb reboot
+```
+
+### The Android SDK on Windows
+
+**Visual Studio's .NET MAUI workload brings both halves, and the build finds them unaided.** With
+`ANDROID_HOME` and `JAVA_HOME` unset it still resolves `C:\Program Files (x86)\Android\android-sdk` and
+`C:\Program Files\Android\openjdk\jdk-21.0.8` — so a newer JDK on `PATH` is not the one the build uses,
+and does not have to be removed to keep the Android SDK happy.
+
+That SDK builds the app but cannot run it: it ships no `emulator` package and no system image, and it
+lives under Program Files, where `sdkmanager` cannot add them without elevation. Install a second SDK
+where the command-line tools look by default, and point `ANDROID_HOME` at it so the tasks and the build
+agree on one.
+
+The licence prompt in front of that can be answered once, or skipped: the Visual Studio SDK's licences
+are already accepted, and copying its `licenses` folder into the new SDK root carries that acceptance
+across — which is what lets the install below run unattended.
+
+```powershell
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Android\Sdk" | Out-Null; Copy-Item -Recurse "${env:ProgramFiles(x86)}\Android\android-sdk\licenses" "$env:LOCALAPPDATA\Android\Sdk\"
+```
+
+```powershell
+& "${env:ProgramFiles(x86)}\Android\android-sdk\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:LOCALAPPDATA\Android\Sdk" "platform-tools" "build-tools;36.0.0" "platforms;android-36" "emulator" "system-images;android-36;google_apis;x86_64" "cmdline-tools;latest"
+```
+
+```powershell
+setx ANDROID_HOME "$env:LOCALAPPDATA\Android\Sdk"
+```
+
+**`x86_64`, where the Mac takes `arm64-v8a`.** The emulator does not emulate a foreign architecture at
+any usable speed, so the image has to match the host — the one place where the two machines' setup
+genuinely differs rather than just being spelled differently.
+
+**Keep reaching for Visual Studio's `sdkmanager` afterwards, not the one that lands in the new SDK.**
+The command-line tools installed above ship version 19, where `sdkmanager` is a shim that hands over
+to the `android` CLI — which does not understand a `package;with;semicolons` argument and answers
+`Package system-images not found` for every part of it separately. That reads as a package that has
+been withdrawn rather than a tool that cannot parse its name. The older one, at the path in the
+command above, installs into any `--sdk_root` you point it at.
+
+Then the same two reference devices as above, for the same reasons — only the tool's path and the image
+architecture change:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\avdmanager.bat" create avd -n Orbit_Pixel_8_API_36 -k "system-images;android-36;google_apis;x86_64" -d pixel_8
+```
+
+**The emulator needs a hypervisor, and says so late.** Without Windows Hypervisor Platform it starts and
+then crawls, which reads as a slow machine rather than a missing feature. Check before blaming the
+build:
+
+```powershell
+(Get-CimInstance Win32_ComputerSystem).HypervisorPresent
+```
 
 ## Building for iOS from Windows
 

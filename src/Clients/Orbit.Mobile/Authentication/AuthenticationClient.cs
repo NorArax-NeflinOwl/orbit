@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using Orbit.Contracts.Config;
 using Orbit.Contracts.Users;
+using Orbit.Core.Mobile;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Authentication;
@@ -58,12 +60,40 @@ public sealed class AuthenticationClient
     }
 
     /// <summary>
-    /// Trades an identity token Google issued for an Orbit session. The server verifies it against the
-    /// audiences it accepts (see GoogleAuthSettings), so a token minted for a different app is refused
-    /// there rather than trusted here.
+    /// This app's own Google client id, as the deployment has it - empty when it has none, in which case
+    /// the sign-in screen offers no Google button rather than one that could only ever fail.
     ///
-    /// No chat key is unlocked by this, unlike the password sign-in above: there is no password to
-    /// unwrap the backup with. ChatKeyGate picks that up and asks for one - see ChatKeyGateSituation.
+    /// Asked of the server rather than built into the app: the id belongs to a deployment, and a binary
+    /// carrying it could only talk to the one it was built for. Unauthenticated, like everything else
+    /// this endpoint serves - it has to answer before anybody is signed in.
+    /// </summary>
+    public async Task<string> GoogleClientIdAsync(string platform, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var flags = await _httpClient.GetFromJsonAsync<ClientFlagsDto>(
+                "api/config/client-flags", cancellationToken);
+
+            if (flags is null)
+            {
+                return string.Empty;
+            }
+
+            return platform == nameof(MobilePlatform.Android) ? flags.GoogleAndroidClientId : flags.GoogleIosClientId;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or NotSupportedException)
+        {
+            // No connection, or a server too old to carry the field. Either way there is no button to
+            // show, which is the same answer as a deployment that has not configured one.
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Signing in with the Google ID token the reader has already obtained - see <see cref="GoogleSignIn"/>.
+    ///
+    /// Registration and signing in are the same gesture here, exactly as on the web: whether Google's
+    /// account is new to Orbit is the server's business, and nothing on this screen asks.
     /// </summary>
     public async Task<AccountOperationResult> SignInWithGoogleAsync(
         string idToken, CancellationToken cancellationToken = default)
@@ -78,7 +108,9 @@ public sealed class AuthenticationClient
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
         {
-            return AccountOperationResult.Refused("Google couldn't be used to sign in to Orbit.");
+            // The token was refused rather than the password: a deployment that has not registered this
+            // app's client id answers exactly this, and so does one whose Google address is unverified.
+            return AccountOperationResult.Refused("Google couldn't sign you in to Orbit.");
         }
 
         response.EnsureSuccessStatusCode();

@@ -1,5 +1,7 @@
+using System.Net;
+using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
-using Orbit.Contracts.Users;
+using Orbit.Contracts.Config;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
@@ -19,42 +21,47 @@ namespace Orbit.Mobile.Tests.Screens;
 public sealed class SignInScreenTests
 {
     /// <summary>
-    /// A build with no client id cannot ask Google anything, so it must not offer to - a button that
-    /// opens a sheet ending in an error is worse than no button. The same rule Orbit.Web applies when
-    /// the server sends no client id.
+    /// A deployment with no client id for this app cannot ask Google anything, so the screen must not
+    /// offer to - a button that opens a sheet ending in an error is worse than no button. The same rule
+    /// Orbit.Web applies when the server sends none.
     /// </summary>
     [Fact]
-    public void Google_is_not_offered_when_this_build_has_no_client_id()
+    public async Task Google_is_not_offered_where_the_deployment_has_no_client_id_for_this_app()
     {
-        using var context = new ScreenContext();
-        context.Google.IsConfigured = false;
+        using var context = new ScreenContext { AndroidClientId = string.Empty };
+        var screen = context.Open();
 
-        Assert.False(context.Open().CanUseGoogle);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsGoogleOffered);
     }
 
     [Fact]
-    public void Google_is_offered_when_the_build_has_one()
+    public async Task Google_is_offered_where_the_deployment_has_one()
     {
         using var context = new ScreenContext();
+        var screen = context.Open();
 
-        Assert.True(context.Open().CanUseGoogle);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.IsGoogleOffered);
     }
 
     /// <summary>
     /// Closing the sheet is an answer, not a fault. An error message there would tell somebody who
-    /// changed their mind that something had gone wrong.
+    /// changed their mind that something had gone wrong - and nothing may be sent to Orbit either,
+    /// since there is no token to send.
     /// </summary>
     [Fact]
     public async Task Closing_the_Google_sheet_says_nothing()
     {
-        using var context = new ScreenContext();
-        context.Google.Result = GoogleSignInResult.Cancelled;
+        using var context = new ScreenContext { Callback = null };
         var screen = context.Open();
 
         await screen.SignInWithGoogleCommand.ExecuteAsync(null);
 
         Assert.False(screen.HasError);
-        Assert.Equal(1, context.Google.RequestCount);
+        Assert.DoesNotContain(context.OrbitRequests, request => request.Uri!.AbsolutePath.EndsWith("/auth/google"));
     }
 
     /// <summary>
@@ -62,10 +69,9 @@ public sealed class SignInScreenTests
     /// cannot get in - silence would look like a button that does nothing.
     /// </summary>
     [Fact]
-    public async Task A_refused_Google_sign_in_says_so()
+    public async Task A_Google_sign_in_Orbit_refuses_says_so()
     {
-        using var context = new ScreenContext();
-        context.Google.Result = GoogleSignInResult.Failed;
+        using var context = new ScreenContext { OrbitAcceptsTheToken = false };
         var screen = context.Open();
 
         await screen.SignInWithGoogleCommand.ExecuteAsync(null);
@@ -75,42 +81,76 @@ public sealed class SignInScreenTests
 
     private sealed class ScreenContext : IDisposable
     {
+        private const string AndroidClientIdInUse = "181624005200-example.apps.googleusercontent.com";
+
         private readonly LocalStore _localStore = new();
         private readonly FakeNotificationServer _notifications = new();
         private readonly FakeEncryptionKeyServer _keys = new();
-
         private readonly SessionStore _sessionStore = new(new InMemorySessionStorage());
 
-        public FixedGoogleSignIn Google { get; } = new();
+        /// <summary>What the deployment says it has for the Android app, which is what decides the button.</summary>
+        public string AndroidClientId { get; init; } = AndroidClientIdInUse;
+
+        /// <summary>What the browser comes back with. Null is a reader who closed the sheet.</summary>
+        public IReadOnlyDictionary<string, string>? Callback { get; init; } =
+            new Dictionary<string, string> { ["code"] = "the-code" };
+
+        /// <summary>Whether Orbit accepts the identity token Google issued.</summary>
+        public bool OrbitAcceptsTheToken { get; init; } = true;
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
-        /// <summary>
-        /// Unreachable on purpose: every test here stops before the API is called, and a stub that
-        /// answered would hide a call that should not have happened.
-        /// </summary>
-        private readonly StubHttpMessageHandler _server = StubHttpMessageHandler.Unreachable();
+        public IReadOnlyList<RecordedRequest> OrbitRequests => _orbit.ReceivedRequests;
+
+        private StubHttpMessageHandler _orbit = null!;
+        private StubHttpMessageHandler _google = null!;
 
         public SignInViewModel Open()
-            => new(
-                new AuthenticationClient(_server.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
-                new OwnEncryptionKeyProvider(
-                    new InMemoryChatKeyStorage(), new EncryptionKeyClient(_keys.ToHttpClient()),
-                    _sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance),
-                new PushRegistration(
-                    new FixedDevicePushNotifications(), new NotificationsClient(_notifications.ToHttpClient()),
-                    NullLogger<PushRegistration>.Instance),
-                _sessionStore,
-                new LocalStoreReset(_localStore),
+        {
+            _orbit = StubHttpMessageHandler.Custom((request, _) => Task.FromResult(AnswerAsOrbit(request)));
+            _google = StubHttpMessageHandler.RespondingWith(new { id_token = "the-id-token" });
+
+            var authenticationClient = new AuthenticationClient(
+                _orbit.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore);
+
+            return new SignInViewModel(
+                authenticationClient,
+                new GoogleSignIn(new FakeSignInBrowser { Result = Callback }, _google.ToHttpClient()),
+                new SignInCompletion(
+                    _sessionStore,
+                    new LocalStoreReset(_localStore),
+                    new OwnEncryptionKeyProvider(
+                        new InMemoryChatKeyStorage(), new EncryptionKeyClient(_keys.ToHttpClient()),
+                        _sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance),
+                    new PushRegistration(
+                        new FixedDevicePushNotifications(), new NotificationsClient(_notifications.ToHttpClient()),
+                        NullLogger<PushRegistration>.Instance)),
                 new Translations(new InMemoryLanguageStore()),
-                Google,
                 Navigator);
+        }
+
+        private HttpResponseMessage AnswerAsOrbit(HttpRequestMessage request)
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/config/client-flags"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ClientFlagsDto(
+                        ExceptionDetailsAllowed: false, GoogleClientId: string.Empty, WebAddress: string.Empty,
+                        GoogleAndroidClientId: AndroidClientId, GoogleIosClientId: string.Empty))
+                };
+            }
+
+            return new HttpResponseMessage(
+                OrbitAcceptsTheToken ? HttpStatusCode.OK : HttpStatusCode.Unauthorized);
+        }
 
         public void Dispose()
         {
             _notifications.Dispose();
             _keys.Dispose();
-            _server.Dispose();
+            _orbit?.Dispose();
+            _google?.Dispose();
             _localStore.Dispose();
         }
     }

@@ -116,6 +116,8 @@ public static class MauiProgram
 		services.AddTransient<WarehouseSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<LocalStoreReset>();
+		// The steps every way in shares once the server has accepted somebody - see SignInCompletion.
+		services.AddTransient<SignInCompletion>();
 		services.AddTransient<EncryptedChatMessageReader>();
 		services.AddTransient<EncryptedChatMessageSender>();
 		services.AddTransient<ChatSynchronizer>();
@@ -132,6 +134,9 @@ public static class MauiProgram
 		// One holder for the whole app: the tap is recorded by platform code and taken by whatever
 		// screen is ready to follow it, which only works if both see the same instance.
 		services.AddSingleton<PendingNotificationTap>();
+		// One instance, because it is where the app is rather than what a screen knows: the navigator
+		// writes to it on every move and the phone's back gesture reads it - see UpNavigation.
+		services.AddSingleton<UpNavigation>();
 		// Both are singletons because they describe the app rather than a screen: every navigation
 		// bar reads the same presence, and every section reports into the same sync state.
 		services.AddSingleton<Orbit.Mobile.Presence.Presence>();
@@ -159,10 +164,9 @@ public static class MauiProgram
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
 		services.AddSingleton<IDeviceDescription, PhoneDescription>();
+		// The browser half of signing in with Google - see IWebSignInBrowser for why it lives in the head.
+		services.AddSingleton<IWebSignInBrowser, WebSignInBrowser>();
 		services.AddSingleton<IDeviceAuthentication, PhoneAuthentication>();
-		// Its own client, deliberately outside the three below: it talks to Google rather than to Orbit,
-		// and must never carry an Orbit access token.
-		services.AddHttpClient<IGoogleSignIn, GoogleSignIn>();
 		// The same rule for OpenStreetMap's Nominatim - a third-party host, so no Orbit token goes near
 		// it. Orbit.Web registers its own copy the same way. Nominatim asks callers to identify
 		// themselves, and refuses ones that do not.
@@ -212,6 +216,10 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<InventoryClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+
+		// Talks to Google rather than to Orbit, so it gets no base address and no authorization handler -
+		// both endpoints it uses are absolute, and Orbit's token means nothing to Google.
+		services.AddHttpClient<GoogleSignIn>();
 
 		services.AddHttpClient<TokenRefreshService>(client => client.BaseAddress = apiSettings.BaseAddress);
 		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress);

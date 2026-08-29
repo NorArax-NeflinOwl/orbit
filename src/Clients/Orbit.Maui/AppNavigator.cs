@@ -12,6 +12,7 @@ using Orbit.Maui.Features.Tasks;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Screens;
+using Orbit.Mobile.Screens.Navigation;
 
 namespace Orbit.Maui;
 
@@ -45,62 +46,64 @@ public sealed class AppNavigator : IScreenNavigator
 		};
 	}
 
-	public void ShowSignIn() => ShowAsRoot<SignInPage>();
+	public void ShowSignIn() => ShowAsRoot<SignInPage>(Screen.SignIn);
 
-	public void ShowRegister() => ShowAsRoot<RegisterPage>();
+	public void ShowRegister() => ShowAsRoot<RegisterPage>(Screen.Register);
 
-	public void ShowAccount() => ShowAsRoot<AccountPage>();
+	public void ShowAccount() => ShowAsRoot<AccountPage>(Screen.Account);
 
-	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>();
+	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>(Screen.ChatKeyGate);
 
-	public void ShowContacts() => ShowAsRoot<ContactsPage>();
+	public void ShowContacts() => ShowAsRoot<ContactsPage>(Screen.Contacts);
 
-	public void ShowTasks() => ShowAsRoot<TasksPage>();
+	public void ShowTasks() => ShowAsRoot<TasksPage>(Screen.Tasks);
 
-	public void ShowCalendar() => ShowAsRoot<CalendarPage>();
+	public void ShowCalendar() => ShowAsRoot<CalendarPage>(Screen.Calendar);
 
-	public void ShowInventory() => ShowAsRoot<InventoryPage>();
+	public void ShowInventory() => ShowAsRoot<InventoryPage>(Screen.Inventory);
 
-	public void ShowMap() => ShowAsRoot<MapPage>();
+	public void ShowMap() => ShowAsRoot<MapPage>(Screen.Map);
 
 	public void ShowWarehouse(Guid localId)
-		=> ShowAsRoot<WarehouseDetailPage>(page => page.ViewModel.Open(localId));
+		=> ShowAsRoot<WarehouseDetailPage>(Screen.Warehouse, page => page.ViewModel.Open(localId));
 
-	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>();
+	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>(Screen.Notifications);
 
-	public void ShowDiagnostics() => ShowAsRoot<DiagnosticsPage>();
+	// No ShowNotificationSettings any more: the settings moved onto the account screen - see
+	// AccountPage's notification section - so there is no page of their own left to navigate to.
+	public void ShowDiagnostics() => ShowAsRoot<DiagnosticsPage>(Screen.Diagnostics);
 
 	public void ShowTaskList(Guid localId)
-		=> ShowAsRoot<TaskListDetailPage>(page => page.ViewModel.Open(localId));
+		=> ShowAsRoot<TaskListDetailPage>(Screen.TaskList, page => page.ViewModel.Open(localId));
 
 	public void ShowNote(Guid localId)
-		=> ShowAsRoot<NoteDetailPage>(page => page.ViewModel.Open(localId));
+		=> ShowAsRoot<NoteDetailPage>(Screen.Note, page => page.ViewModel.Open(localId));
 
 	public void ShowCalendarEvent(Guid localId)
-		=> ShowAsRoot<CalendarEventDetailPage>(page => page.ViewModel.Open(localId));
+		=> ShowAsRoot<CalendarEventDetailPage>(Screen.CalendarEvent, page => page.ViewModel.Open(localId));
 
 	/// <summary>
 	/// A conversation needs to know whose it is, and these screens are resolved from the container rather
 	/// than constructed - so the page is told after it exists, before it is shown.
 	/// </summary>
 	public void ShowConversation(LocalContact contact)
-		=> ShowAsRoot<ConversationPage>(page => page.ViewModel.Open(contact));
+		=> ShowAsRoot<ConversationPage>(Screen.Conversation, page => page.ViewModel.Open(contact));
 
-	public void ShowGroups() => ShowAsRoot<GroupsPage>();
+	public void ShowGroups() => ShowAsRoot<GroupsPage>(Screen.Groups);
 
 	/// <inheritdoc cref="ShowConversation"/>
 	public void ShowGroupConversation(LocalChatGroup group)
-		=> ShowAsRoot<GroupConversationPage>(page => page.ViewModel.Open(group));
+		=> ShowAsRoot<GroupConversationPage>(Screen.GroupConversation, page => page.ViewModel.Open(group));
 
 	/// <inheritdoc cref="ShowConversation"/>
 	public void ShowGroupDetail(LocalChatGroup group)
-		=> ShowAsRoot<GroupDetailPage>(page => page.ViewModel.Open(group));
+		=> ShowAsRoot<GroupDetailPage>(Screen.GroupDetail, page => page.ViewModel.Open(group));
 
-	public void ShowDashboard() => ShowAsRoot<DashboardPage>();
+	public void ShowDashboard() => ShowAsRoot<DashboardPage>(Screen.Dashboard);
 
-	public void ShowNotes() => ShowAsRoot<NotesPage>();
+	public void ShowNotes() => ShowAsRoot<NotesPage>(Screen.Notes);
 
-	private void ShowAsRoot<TPage>(Action<TPage>? prepare = null) where TPage : Page
+	private void ShowAsRoot<TPage>(Screen screen, Action<TPage>? prepare = null) where TPage : Page
 		=> MainThread.BeginInvokeOnMainThread(() =>
 		{
 			if (Application.Current?.Windows.FirstOrDefault() is not { } window)
@@ -111,5 +114,16 @@ public sealed class AppNavigator : IScreenNavigator
 			var page = _services.GetRequiredService<TPage>();
 			prepare?.Invoke(page);
 			window.Page = page;
+
+			// Resolved here rather than taken in the constructor because UpNavigation needs this class:
+			// asking for it up front is a cycle the container cannot build. Everything else this method
+			// uses is resolved the same way, so it is the shape this class already has.
+			_services.GetRequiredService<UpNavigation>().Showing(screen);
+
+			// The navigation bar is one instance shared by every page, so a menu opened over the screen
+			// being left would still be open over the one arriving. Orbit.Web closes it on every route
+			// change rather than in each thing that navigates - see MainLayout's LocationChanged - and
+			// this is the one place mobile changes screens.
+			_services.GetRequiredService<NavigationBarViewModel>().CloseMenu();
 		});
 }

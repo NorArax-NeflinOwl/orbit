@@ -349,6 +349,9 @@ public static class PolishTranslations
         ["Accepted - added to your account."] = "Przyjęte — dodane do Twojego konta.",
         ["No chats. Search for a user by email address or login to start a conversation."] =
             "Brak rozmów. Wyszukaj kogoś po adresie e-mail lub loginie, żeby zacząć.",
+        ["Continue with Google"] = "Kontynuuj z Google",
+        ["Google couldn't sign you in to Orbit."] = "Google nie zalogowało Cię do Orbita.",
+        ["or"] = "lub",
         ["Search for someone and start a conversation."] = "Znajdź kogoś i zacznij rozmowę.",
         ["Email address or login"] = "Adres e-mail lub login",
 
@@ -793,6 +796,7 @@ public static class PolishTranslations
         ["Saved. It's in your account now."] = "Zapisano. Jest teraz na Twoim koncie.",
         ["\"{0}\" is no longer available to you."] = "„{0}” nie jest już dla Ciebie dostępne.",
         ["(can't be opened on this device)"] = "(nie da się otworzyć na tym urządzeniu)",
+        ["The map can't be shown in this build."] = "Ta wersja aplikacji nie potrafi pokazać mapy.",
         ["Unreadable - encrypted with an older key"] = "Nieczytelne — zaszyfrowane starszym kluczem",
         ["another list"] = "inną listą",
         ["another user"] = "inny użytkownik",

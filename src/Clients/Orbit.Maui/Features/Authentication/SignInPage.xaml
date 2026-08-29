@@ -34,14 +34,14 @@
 
             <Button Text="{controls:Translate 'Sign in'}" Command="{Binding SignInCommand}" />
 
-            <!-- The other way in, under an "or" the way Orbit.Web separates it. Hidden when this build
-                 has no Google client id - see GoogleSignIn.IsConfigured - so the button is never
-                 offered where it could only fail. -->
-            <Label Text="{controls:Translate 'or'}" IsVisible="{Binding CanUseGoogle}"
+            <!-- Absent rather than disabled where the deployment has no Google client id for this app:
+                 there is nothing behind the button then, and offering one would only ever waste a tap.
+                 Below the password sign-in and not above it, as on the web's login page. -->
+            <Label Text="{controls:Translate 'or'}" IsVisible="{Binding IsGoogleOffered}"
                    HorizontalOptions="Center" FontSize="12" Style="{StaticResource SubtleLabel}" />
 
-            <Button Text="{controls:Translate 'Sign in with Google'}"
-                    IsVisible="{Binding CanUseGoogle}"
+            <Button Text="{controls:Translate 'Continue with Google'}"
+                    IsVisible="{Binding IsGoogleOffered}"
                     Command="{Binding SignInWithGoogleCommand}"
                     Style="{StaticResource SecondaryButton}" />
 

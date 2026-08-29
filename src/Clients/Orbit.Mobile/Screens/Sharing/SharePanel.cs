@@ -8,6 +8,7 @@ using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Permissions;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Sharing;
 
@@ -25,6 +26,7 @@ public sealed record AccessLevelChoice(ShareAccessLevel Value, string Name);
 public sealed partial class SharePanel : ObservableObject
 {
     private readonly ChatRepository _chatRepository;
+    private readonly ChatSynchronizer _synchronizer;
     private readonly SharedItemSharing _sharing;
     private readonly PublicShareClient _links;
     private readonly UserPermissions _permissions;
@@ -50,10 +52,11 @@ public sealed partial class SharePanel : ObservableObject
     private bool _isSharing;
 
     public SharePanel(
-        ChatRepository chatRepository, SharedItemSharing sharing, PublicShareClient links,
-        UserPermissions permissions, Translations translations)
+        ChatRepository chatRepository, ChatSynchronizer synchronizer, SharedItemSharing sharing,
+        PublicShareClient links, UserPermissions permissions, Translations translations)
     {
         _chatRepository = chatRepository;
+        _synchronizer = synchronizer;
         _sharing = sharing;
         _links = links;
         _permissions = permissions;
@@ -197,6 +200,12 @@ public sealed partial class SharePanel : ObservableObject
     private async Task OpenAsync(CancellationToken cancellationToken)
     {
         Message = string.Empty;
+
+        // Asked for afresh rather than taken from the cache alone, because the cache is only filled by
+        // the contacts screen: somebody who has just started a conversation and come straight here would
+        // otherwise be told there is nobody to share with, having done the very thing that message asks
+        // for. Best-effort - offline it answers false and the cached list below is still the right one.
+        await _synchronizer.SynchroniseContactsAsync(cancellationToken);
 
         Recipients.Clear();
         foreach (var contact in await _chatRepository.GetContactsAsync(cancellationToken))
