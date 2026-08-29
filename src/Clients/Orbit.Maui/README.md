@@ -92,6 +92,18 @@ running the server" is not the same address from each:
 | Android emulator | `http://10.0.2.2:5080` — the emulator's fixed alias for its host |
 | A physical device | Neither. Use the Mac's LAN address, and note iOS refuses plaintext HTTP to it |
 
+**Working from Windows, that first row stops being true.** The simulator is on the paired Mac, so its
+`localhost` is the Mac's — and the API is running on the Windows machine. Forward the port back over SSH
+rather than changing the address, because the address is the part that has to stay: iOS permits
+plaintext HTTP to loopback and refuses it to a LAN address.
+
+```bash
+ssh -N -R 5080:localhost:5080 <the account on the Mac>@<the Mac on the LAN>
+```
+
+Leave that running while you work and start the API on Windows as usual. The simulator then reaches it
+at `http://localhost:5080` with nothing in the app to change.
+
 **A change to `Platforms/iOS/Info.plist` does not always survive an incremental build.** A permission
 string added there was missing from the built `.app` until `bin`/`obj` for `net10.0-ios` were deleted -
 and iOS answers a permission request with an instant refusal when the string is absent, with no prompt
@@ -124,9 +136,31 @@ If the Android SDK lives somewhere non-standard, point the build at it with `And
 
 ## Building for iOS from Windows
 
-Possible, but the Mac is not optional — Apple's toolchain runs only on macOS. Under MAUI it can be a
-*remote* machine (a Mac on the LAN via Pair to Mac, a cloud Mac, or a macOS runner in GitHub Actions)
-rather than the machine you work on, which is not true of a native Swift app. See §1.1 of the plan.
+The Mac is not optional — Apple's toolchain runs only on macOS — but it does not have to be the machine
+you work on. Under MAUI it can be a *remote* one (a Mac on the LAN via Pair to Mac, a cloud Mac, or a
+macOS runner in GitHub Actions), which is not true of a native Swift app. See §1.1 of the plan.
+
+Pair the two machines once from **Visual Studio** (Tools ▸ iOS ▸ Pair to Mac): it installs its own SSH
+key on the Mac, deploys the build agents, and installs the matching `ios` workload there. Afterwards the
+same pairing serves the command line, with no password — the build authenticates with that key:
+
+```bash
+dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -p:ServerAddress=<the Mac on the LAN> -p:ServerUser=<the account on it> -p:_DotNetRootRemoteDirectory=/Users/<that account>/Library/Caches/maui/PairToMac/SDKs/dotnet/
+```
+
+**`_DotNetRootRemoteDirectory` is the part that is easy to miss.** It defaults to
+`/usr/local/share/dotnet/` — the Mac's *own* .NET — and Pair to Mac does not install the workload there:
+it keeps a private copy under `~/Library/Caches/maui/PairToMac/SDKs/dotnet`. Left on the default, the
+build fails with `Could not find Microsoft.iOS in /usr/local/share/dotnet/packs/Microsoft.iOS.Sdk…`,
+which reads like a missing workload rather than a path pointing at the wrong .NET. The alternative, for
+anyone who would rather not depend on a cache directory, is to install the same workload version into
+the Mac's own .NET with `dotnet workload install ios` and drop the property.
+
+Both machines must be on the same workload version. The pack version named in that error is the one the
+Mac needs.
+
+Running it on a simulator is Visual Studio's job rather than this command's: the simulator is on the
+Mac, and VS is what projects it back to the Windows machine and attaches the debugger.
 
 ## Versioning
 
