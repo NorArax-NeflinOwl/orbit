@@ -202,16 +202,30 @@ public sealed class TaskList
     }
 
     /// <summary>
+    /// Points this list at a warehouse, or at none. Its own command rather than part of an update, for
+    /// the same reason pinning is: it changes what the list is measured against, not what is on it.
+    ///
+    /// Says the list changed, as pinning does. It did not, so choosing a warehouse - or having one
+    /// built from the list - reached nobody else's copy, and on a phone it did not even reach the one
+    /// making the choice: the screen re-reads what it has stored, and the change feed had never
+    /// mentioned it.
+    /// </summary>
+    public void LinkToWarehouse(Guid? warehouseId)
+    {
+        if (LinkedWarehouseId == warehouseId)
+        {
+            return;
+        }
+
+        LinkedWarehouseId = warehouseId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
     /// Pinning is its own action rather than part of Update, so it can be done from the list of lists
     /// without loading, editing and saving the whole thing - and so it never collides with someone
     /// else's edit lock, which is about the content rather than where the card sits.
     /// </summary>
-    /// <summary>
-    /// Points this list at a warehouse, or at none. Its own command rather than part of an update, for
-    /// the same reason pinning is: it changes what the list is measured against, not what is on it.
-    /// </summary>
-    public void LinkToWarehouse(Guid? warehouseId) => LinkedWarehouseId = warehouseId;
-
     public void SetPinned(bool isPinned)
     {
         if (IsPinned == isPinned)
