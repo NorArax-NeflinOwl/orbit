@@ -4,31 +4,28 @@
 
 @* Every conversation this reader has, people and groups in one list. Groups used to have a page of
    their own, which meant looking in two places for "who have I been talking to" - and switching pages
-   to answer it. The panel is the same one on both chat screens, so the list does not move about. *@
+   to answer it. The panel is the same one on both chat screens, so the list does not move about.
+
+   Folding it to initials is done by the stylesheet alone, never by leaving anything out here. On a
+   narrow screen this list is a slide-out drawer, where folding has no meaning - and markup that had
+   already dropped the names could not be talked back into showing them, however much CSS asked. The
+   drawer opened as a wide panel of bare initials, with no search and no way to read who anybody was. *@
 <div class="chat-list @(IsOpen ? "open" : "") @(IsCollapsed ? "collapsed" : "")">
     <div class="chat-list-header">
-        <button type="button" class="icon-btn" title="@(IsCollapsed ? T["Show names"] : T["Hide names"])"
+        <button type="button" class="icon-btn chat-list-collapse-toggle" title="@(IsCollapsed ? T["Show names"] : T["Hide names"])"
                 @onclick="OnToggleCollapsed">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="@(IsCollapsed ? "M7.5 4.5L13 10l-5.5 5.5" : "M12.5 4.5L7 10l5.5 5.5")" />
             </svg>
         </button>
-        @* Hidden when the list is collapsed to initials: there is no room for it, and nothing to read in
-           the results either. *@
-        @if (!IsCollapsed)
-        {
-            <input class="chat-list-search" type="search" value="@Search" @oninput="OnSearchInput"
-                   placeholder="@(T["Search conversations"])" aria-label="@(T["Search conversations"])" />
-        }
+        <input class="chat-list-search" type="search" value="@Search" @oninput="OnSearchInput"
+               placeholder="@(T["Search conversations"])" aria-label="@(T["Search conversations"])" />
     </div>
 
     @if (Conversations.Count == 0)
     {
-        @if (!IsCollapsed)
-        {
-            <p class="empty-hint chat-list-empty">@T["Nothing matches that."]</p>
-        }
+        <p class="empty-hint chat-list-empty">@T["Nothing matches that."]</p>
     }
     else
     {
@@ -49,34 +46,31 @@
                         <PresenceDot Status="presence" />
                     }
                 </span>
-                @if (!IsCollapsed)
-                {
-                    <span class="chat-list-meta">
-                        <span class="chat-list-name">
-                            @conversation.Name
-                            @if (conversation.IsGroup)
-                            {
-                                @* Says which kind of conversation a row is, now that both are in one list. *@
-                                <span class="conversation-kind" title="@(T["Group chat"])" aria-label="@(T["Group chat"])">
-                                    <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <circle cx="7" cy="7" r="3" /><path d="M2 16c0-2.8 2.2-5 5-5s5 2.2 5 5" />
-                                        <path d="M13 4.3a3 3 0 0 1 0 5.4" /><path d="M14.5 11.4c2 .7 3.5 2.4 3.5 4.6" />
-                                    </svg>
-                                </span>
-                            }
-                        </span>
-                        @if (conversation.Note is { Length: > 0 } note)
+                <span class="chat-list-meta">
+                    <span class="chat-list-name">
+                        @conversation.Name
+                        @if (conversation.IsGroup)
                         {
-                            <span class="chat-list-preview">@note</span>
+                            @* Says which kind of conversation a row is, now that both are in one list. *@
+                            <span class="conversation-kind" title="@(T["Group chat"])" aria-label="@(T["Group chat"])">
+                                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="7" cy="7" r="3" /><path d="M2 16c0-2.8 2.2-5 5-5s5 2.2 5 5" />
+                                    <path d="M13 4.3a3 3 0 0 1 0 5.4" /><path d="M14.5 11.4c2 .7 3.5 2.4 3.5 4.6" />
+                                </svg>
+                            </span>
                         }
                     </span>
-                }
+                    @if (conversation.Note is { Length: > 0 } note)
+                    {
+                        <span class="chat-list-preview">@note</span>
+                    }
+                </span>
             </button>
         }
     }
 
-    @if (!IsCollapsed && OnNewGroup.HasDelegate)
+    @if (OnNewGroup.HasDelegate)
     {
         <button type="button" class="btn-secondary chat-list-new-group" @onclick="OnNewGroup">@T["New group"]</button>
     }

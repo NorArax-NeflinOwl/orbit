@@ -78,12 +78,58 @@ public sealed class ConversationListTests : OrbitTestContext
     }
 
     [Fact]
-    public void Collapsed_to_initials_there_are_no_names_to_read()
+    public void Folding_says_so_and_leaves_the_stylesheet_to_do_it()
     {
+        // The names, the search and "New group" all stay in the markup: on a narrow screen this list is
+        // a slide-out drawer, where folding has no meaning and the stylesheet hands them back. It used
+        // to leave them out, and then no amount of CSS could bring them back - the drawer opened as a
+        // wide panel of bare initials with no search and nobody's name on it.
         var cut = Render([Person("Anna"), Group("Weekend trip")], isCollapsed: true);
 
-        Assert.Empty(NamesIn(cut));
+        Assert.Contains("collapsed", cut.Find(".chat-list").ClassName);
+        Assert.Equal(["Anna", "Weekend trip"], NamesIn(cut));
+        Assert.Single(cut.FindAll(".chat-list-search"));
         Assert.Equal(2, cut.FindAll(".chat-list-item").Count);
+    }
+
+    [Fact]
+    public void Unfolded_it_says_that_too()
+    {
+        // The class is the whole difference, so it has to be absent as reliably as it is present.
+        var cut = Render([Person("Anna")]);
+
+        Assert.DoesNotContain("collapsed", cut.Find(".chat-list").ClassName);
+    }
+
+    [Fact]
+    public void An_empty_list_says_so_whether_it_is_folded_or_not()
+    {
+        // Folded, the stylesheet hides this; in the drawer it is the only thing that explains the
+        // emptiness. Left out of the markup, the drawer had nothing to say at all.
+        var cut = Render([], isCollapsed: true);
+
+        Assert.Contains("Nothing matches that.", cut.Find(".chat-list-empty").TextContent);
+    }
+
+    [Fact]
+    public void Starting_a_group_is_offered_whether_it_is_folded_or_not()
+    {
+        var cut = RenderComponent<ConversationList>(parameters => parameters
+            .Add(list => list.Conversations, [Person("Anna")])
+            .Add(list => list.IsCollapsed, true)
+            .Add(list => list.OnSelected, _ => { })
+            .Add(list => list.OnNewGroup, () => { }));
+
+        Assert.Single(cut.FindAll(".chat-list-new-group"));
+    }
+
+    [Fact]
+    public void A_screen_that_cannot_start_a_group_is_not_offered_it()
+    {
+        // Unlike folding, this one really is absent: there is nothing behind the button to invoke.
+        var cut = Render([Person("Anna")]);
+
+        Assert.Empty(cut.FindAll(".chat-list-new-group"));
     }
 
     [Fact]
