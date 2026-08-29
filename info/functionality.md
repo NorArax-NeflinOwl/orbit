@@ -1116,9 +1116,17 @@ The left navigation sidebar (`MainLayout.razor`) auto-collapses to its icon rail
 without needing a click: a pure CSS media query (`@media (max-width: 1024px) and (min-width: 681px)`)
 applies the icon-rail rules directly, independent of the manual toggle's own state. Below 681px it
 instead switches to the fully different mobile layout described above (a horizontal icon bar across the
-top, sidebar labels and the nav divider/Options row hidden) rather than staying a narrow vertical rail —
-680px is also the calendar's page (`app.css`) and chat's own drawer breakpoint, kept consistent across
-the app rather than each surface picking its own.
+top, sidebar labels and the rows below the nav divider hidden) rather than staying a narrow vertical
+rail — 680px is also the calendar's page (`app.css`) and chat's own drawer breakpoint, kept consistent
+across the app rather than each surface picking its own.
+
+**The rows below the divider move into the avatar menu rather than disappearing.** "Get the app"
+(`/download`) and "Options" are not sections to work in — they are somewhere to go once — so they sit
+under the divider on a wide screen, and on a narrow one the icon bar has no room for them. Each carries
+`.nav-item-overflows` in the rail and appears again as `.overflowed-nav-item` in the avatar menu, and
+each class hides where the other shows: exactly one copy is ever on screen. The menu reads **Status,
+Notifications, Get the app, Options, Log out** — what somebody uses most, first — which on a wide screen
+is the three that are always there, with the two rail rows folded out of it.
 
 Collapsing the sidebar hides `.user-meta` on the avatar trigger itself (name/initials button in the
 rail), but the popup menu opened by clicking that avatar (`.avatar-dropdown`) always shows the full

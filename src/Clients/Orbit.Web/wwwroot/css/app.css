@@ -497,10 +497,10 @@ input.note-editor-title {
     margin: 8px 4px;
 }
 
-/* Desktop only (see the mobile media query below): Options already has its own row in the sidebar
-   nav, so the same entry inside the avatar dropdown is redundant there and only needed on mobile,
-   where the icon bar has no room for it. */
-.avatar-dropdown-item.options-only {
+/* Desktop only (see the mobile media query below): "Get the app" and Options each already have a row
+   of their own in the sidebar nav, so the same entries inside the avatar dropdown are redundant there
+   and only needed on mobile, where the icon bar has no room for them. */
+.avatar-dropdown-item.overflowed-nav-item {
     display: none;
 }
 
@@ -1227,7 +1227,8 @@ input.note-editor-title {
         overflow-x: auto;
     }
 
-    .nav-divider, .options-nav-item {
+    /* The rows that move into the avatar menu on a narrow screen - see .overflowed-nav-item. */
+    .nav-divider, .nav-item-overflows {
         display: none;
     }
 
@@ -1263,7 +1264,7 @@ input.note-editor-title {
         right: 0;
     }
 
-    .avatar-dropdown-item.options-only {
+    .avatar-dropdown-item.overflowed-nav-item {
         display: flex;
     }
 
