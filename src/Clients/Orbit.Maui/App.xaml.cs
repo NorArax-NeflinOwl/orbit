@@ -26,7 +26,39 @@ public partial class App : Application
 		// apply it, so the choice lasted until the app was closed and then came back as the phone's - a
 		// setting that forgets itself is worse than none at all.
 		ApplyTheme(_services.GetRequiredService<IThemeStore>().Read());
+
+		// The accent depends on the theme as well as on the hue, so it is re-applied whenever the theme
+		// changes - including when the phone itself switches at dusk, which the app is only told about.
+		RequestedThemeChanged += (_, _) => ApplyStoredAccent();
+		ApplyStoredAccent();
 	}
+
+	/// <summary>
+	/// Paints the four accent colours from the hue the reader picked. Everything that draws with them
+	/// asks by DynamicResource, so this reaches a screen already on display rather than the next one.
+	///
+	/// Static like <see cref="ApplyTheme"/>, and for the same reason: it is needed before any screen
+	/// exists. <see cref="AccentPalette"/> works the colours out; this only says where they go.
+	/// </summary>
+	public static void ApplyAccent(AccentColor accentColor)
+	{
+		if (Current is not { } application)
+		{
+			return;
+		}
+
+		var palette = AccentPalette.For(accentColor.Hue, application.RequestedTheme == AppTheme.Dark);
+		application.Resources["Accent"] = Color.FromArgb(palette.Accent);
+		application.Resources["AccentHover"] = Color.FromArgb(palette.AccentHover);
+		application.Resources["AccentSubtle"] = Color.FromArgb(palette.AccentSubtle);
+		application.Resources["AccentOn"] = Color.FromArgb(palette.AccentOn);
+
+		// MAUI's own control styles reach for Primary by name, so it follows the accent rather than
+		// staying the purple this app started life as.
+		application.Resources["Primary"] = Color.FromArgb(palette.Accent);
+	}
+
+	private void ApplyStoredAccent() => ApplyAccent(_services.GetRequiredService<IAccentColorStore>().Read());
 
 	/// <summary>
 	/// Turns the reader's choice into the app's theme. Unspecified means "follow the phone", which is

@@ -19,7 +19,7 @@
                    Placeholder="{controls:Translate 'Untitled event'}" />
 
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12" LineBreakMode="WordWrap"
-                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                   TextColor="{DynamicResource Accent}" />
 
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />

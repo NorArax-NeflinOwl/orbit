@@ -57,7 +57,7 @@
                              thing marked. A read one carries no dot rather than a greyed-out one. -->
                         <BoxView Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4"
                                  VerticalOptions="Start" Margin="0,6,0,0"
-                                 Color="{StaticResource Primary}" IsVisible="{Binding IsUnread}" />
+                                 Color="{DynamicResource Accent}" IsVisible="{Binding IsUnread}" />
 
                         <VerticalStackLayout Grid.Column="1" Spacing="2">
                             <Label Text="{Binding Title}" FontAttributes="Bold" />

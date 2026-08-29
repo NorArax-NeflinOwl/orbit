@@ -59,7 +59,7 @@
                                  edited or deleted - see ReplyMessagePayload. -->
                             <Border IsVisible="{Binding IsReply}" Padding="8,4" Margin="0,0,0,2"
                                     StrokeThickness="0"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource AccentSubtleLight}, Dark={StaticResource AccentSubtleDark}}">
+                                    BackgroundColor="{DynamicResource AccentSubtle}">
                                 <Label Text="{Binding QuotedPreview}" FontSize="12" LineBreakMode="TailTruncation"
                                        MaxLines="2" Style="{StaticResource SubtleLabel}" />
                             </Border>
@@ -97,10 +97,10 @@
                             <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
-                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                   FontSize="11" TextColor="{DynamicResource Accent}" />
                             <!-- Only ever on the reader's own messages - see ReadableChatMessage. -->
                             <Label Text="{controls:Translate 'Read'}" IsVisible="{Binding IsReadByThem}"
-                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                   FontSize="11" TextColor="{DynamicResource Accent}" />
                             <!-- One trigger rather than three buttons, as Orbit.Web's bubbles have. The
                                  menu itself is an action sheet rather than a hovering dropdown: on a
                                  phone that is the same affordance in the shape the platform uses, and

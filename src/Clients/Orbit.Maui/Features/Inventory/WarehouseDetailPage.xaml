@@ -22,7 +22,7 @@
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" LineBreakMode="WordWrap" />
+                   FontSize="12" TextColor="{DynamicResource Accent}" LineBreakMode="WordWrap" />
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
         </VerticalStackLayout>
@@ -92,11 +92,11 @@
                             </Label.Triggers>
                         </Label>
                         <Button Grid.Column="2" Text="{controls:Translate '−'}" WidthRequest="44" BackgroundColor="Transparent"
-                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                TextColor="{DynamicResource Accent}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveOneCommand, x:DataType=inventory:WarehouseDetailPage}"
                                 CommandParameter="{Binding .}" />
                         <Button Grid.Column="3" Text="{controls:Translate '+'}" WidthRequest="44" BackgroundColor="Transparent"
-                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                TextColor="{DynamicResource Accent}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AddOneCommand, x:DataType=inventory:WarehouseDetailPage}"
                                 CommandParameter="{Binding .}" />
                         <Button Grid.Column="4" Text="⋯" FontSize="18" WidthRequest="44" Padding="0"

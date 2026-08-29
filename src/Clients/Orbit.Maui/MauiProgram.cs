@@ -168,6 +168,7 @@ public static class MauiProgram
 		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
 		services.AddSingleton<IDashboardCardPreferenceStore, PreferencesDashboardCardPreferenceStore>();
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
+		services.AddSingleton<IAccentColorStore, PreferencesAccentColorStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
 		services.AddSingleton<IDeviceDescription, PhoneDescription>();
 		// The browser half of signing in with Google - see IWebSignInBrowser for why it lives in the head.

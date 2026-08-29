@@ -29,7 +29,7 @@
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" LineBreakMode="WordWrap" />
+                   FontSize="12" TextColor="{DynamicResource Accent}" LineBreakMode="WordWrap" />
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
         </VerticalStackLayout>
@@ -229,7 +229,7 @@
 
                     <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
                            LineBreakMode="WordWrap"
-                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                           TextColor="{DynamicResource Accent}" />
                 </VerticalStackLayout>
             </Border>
 
