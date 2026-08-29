@@ -159,6 +159,11 @@ public sealed partial class TasksViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(SortDescription));
+
+        // The chips carry the count of what each would leave, and that count changes with what is held -
+        // not only with which chip is chosen. Raised only when one was tapped, every chip read "0" from
+        // the first paint until the reader tapped one, on a screen that was already showing six lists.
+        OnPropertyChanged(nameof(Filters));
     }
 
     /// <summary>What the sort button says, which is what it is currently sorted by.</summary>
@@ -178,7 +183,6 @@ public sealed partial class TasksViewModel : ObservableObject
     {
         StatusFilter = filter?.Status;
         ShowArrangedLists();
-        OnPropertyChanged(nameof(Filters));
     }
 
     /// <summary>Every order, the one in force marked - what the sort button opens.</summary>

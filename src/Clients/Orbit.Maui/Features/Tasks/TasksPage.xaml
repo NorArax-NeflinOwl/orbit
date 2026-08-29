@@ -87,17 +87,20 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                            <!-- Tight column spacing, and each of the small buttons only as wide as its glyph: six things
+                                 beside a title is what a phone has room for only if none of them takes more
+                                 than it needs. -->
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4">
                                 <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
                                        VerticalOptions="Center" />
                                 <!-- Only where it says something: a badge on every list, most of them
                                      Normal, would mark nothing out - see PriorityChoice.IsWorthSaying. -->
-                                <Border Grid.Column="1" Style="{StaticResource FilterChip}" Padding="8,3"
+                                <Border Grid.Column="1" Style="{StaticResource FilterChip}" Padding="6,3"
                                         IsVisible="{Binding HasPriority}" VerticalOptions="Center">
                                     <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
                                 </Border>
                                 <!-- Where the list stands, in the same words as the chips above it. -->
-                                <Border Grid.Column="2" Style="{StaticResource FilterChip}" Padding="8,3"
+                                <Border Grid.Column="2" Style="{StaticResource FilterChip}" Padding="6,3"
                                         VerticalOptions="Center">
                                     <Label Text="{Binding State}" Style="{StaticResource FilterChipLabel}" />
                                 </Border>
@@ -109,11 +112,11 @@
                                      drags them, which is not a gesture a thumb can aim in a scrolling list. -->
                                 <HorizontalStackLayout Grid.Column="4" Spacing="0" VerticalOptions="Center"
                                                        IsVisible="{Binding CanBeMoved}">
-                                    <Button Text="↑" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                                    <Button Text="↑" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListUpCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
-                                    <Button Text="↓" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                                    <Button Text="↓" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListDownCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
@@ -121,8 +124,8 @@
                                 <!-- Folded down to its heading, not filtered away: a list nobody is working
                                      on this week is still one they want to see is there. Orbit.Web folds
                                      the same card with the same chevron. -->
-                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" FontSize="12" Padding="6,0"
-                                        MinimumWidthRequest="0" VerticalOptions="Center"
+                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" FontSize="12" Padding="2,0"
+                                        MinimumWidthRequest="0" WidthRequest="26" VerticalOptions="Center"
                                         Style="{StaticResource LinkButton}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCollapsedCommand, x:DataType=tasks:TasksPage}"
                                         CommandParameter="{Binding .}" />

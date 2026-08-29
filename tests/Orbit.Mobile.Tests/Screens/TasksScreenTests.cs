@@ -254,6 +254,30 @@ public sealed class TasksScreenTests : IDisposable
         Assert.False(screen.TaskLists.Single().IsCollapsed);
         Assert.Empty(Arrangement.RememberedCollapsed);
     }
+
+
+    /// <summary>
+    /// Each chip carries the count of what it would leave, and that is what makes it worth tapping.
+    /// The count was recomputed only when a chip was tapped, so every chip read "0" from the first
+    /// paint - on a screen already showing the lists they were counting. Found on a device.
+    ///
+    /// The count itself was always right when asked for; what was missing was anything telling the
+    /// screen to ask again. So this watches the notification rather than reading the property, which
+    /// a binding cannot do and a test that only read it would pass either way.
+    /// </summary>
+    [Fact]
+    public async Task Loading_tells_the_chips_to_count_again()
+    {
+        await AddAsync("Move house", "Shopping");
+        var screen = await OpenAsync();
+
+        var recounted = false;
+        screen.PropertyChanged += (_, changed) => recounted |= changed.PropertyName == nameof(screen.Filters);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(recounted);
+        Assert.Equal(2, screen.Filters.Single(filter => filter.Status is null).Count);
+    }
     private static IReadOnlyList<string> Titles(TasksViewModel screen)
         => [.. screen.TaskLists.Select(row => row.Title)];
 
