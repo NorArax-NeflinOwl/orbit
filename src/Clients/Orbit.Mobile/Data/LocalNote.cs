@@ -62,6 +62,13 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
     public bool IsPinned { get; set; }
 
     /// <summary>
+    /// How much this note matters, by name - "Low", "Normal" or "High", as ItemPriority spells them.
+    /// Held because a save sends the whole note: without it every edit made here answered "Normal", and
+    /// a note somebody had marked High quietly dropped back the next time it was touched from a phone.
+    /// </summary>
+    public string Priority { get; set; } = "Normal";
+
+    /// <summary>
     /// When the server last confirmed this row. Null for a note created offline that has never been
     /// accepted - which is also what <see cref="ServerId"/> being null means, kept separately because a
     /// synced note that is later edited offline has one and not the other.

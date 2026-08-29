@@ -22,7 +22,7 @@ public sealed partial class TasksViewModel : ObservableObject
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
     private readonly Translations _translations;
-    private readonly ITaskListSortOrderStore _sortOrders;
+    private readonly ITaskListArrangementStore _arrangements;
 
     [ObservableProperty]
     private string _newListTitle = string.Empty;
@@ -38,13 +38,15 @@ public sealed partial class TasksViewModel : ObservableObject
     [ObservableProperty]
     private string? _statusFilter;
 
-    /// <summary>Read back from where the reader left it - see ITaskListSortOrderStore.</summary>
-    [ObservableProperty]
-    private TaskListSortOrder _sortOrder;
+    /// <summary>Read back from where the reader left it - see ITaskListArrangementStore.</summary>
+    private TaskListArrangement _arrangement;
+
+    /// <summary>The cards folded down to their heading - see ToggleCollapsed.</summary>
+    private readonly HashSet<Guid> _collapsed;
 
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
-        INetworkStatus networkStatus, ITaskListSortOrderStore sortOrders,
+        INetworkStatus networkStatus, ITaskListArrangementStore arrangements,
         SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _taskLists = taskLists;
@@ -54,11 +56,15 @@ public sealed partial class TasksViewModel : ObservableObject
         _syncState = syncState;
         _navigator = navigator;
         _translations = translations;
-        _sortOrders = sortOrders;
-        _sortOrder = sortOrders.Read();
+        _arrangements = arrangements;
+        _arrangement = new TaskListArrangement(arrangements.ReadSortOrder(), arrangements.ReadManualOrder());
+        _collapsed = [.. arrangements.ReadCollapsed()];
     }
 
     public ObservableCollection<TaskListRow> TaskLists { get; } = [];
+
+    /// <summary>What the cards are sorted by - the half of the arrangement a reader chooses directly.</summary>
+    public TaskListSortOrder SortOrder => _arrangement.SortOrder;
 
     /// <summary>
     /// Shows what is already on the phone first, then synchronises - the other order leaves the screen
@@ -139,12 +145,17 @@ public sealed partial class TasksViewModel : ObservableObject
     private void ShowArrangedLists()
     {
         TaskLists.Clear();
-        foreach (var taskList in TaskListView.Arrange(_stored, StatusFilter, SortOrder))
+        foreach (var taskList in TaskListView.Arrange(_stored, StatusFilter, _arrangement))
         {
             // Every list, not just the visible ones: a group's row looks up what its links stand for,
             // and a member filtered off the screen is still where that work sits.
             TaskLists.Add(TaskListRow.From(
-                taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations));
+                taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations)
+                with
+                {
+                    CanBeMoved = SortOrder == TaskListSortOrder.Manual,
+                    IsCollapsed = _collapsed.Contains(taskList.LocalId)
+                });
         }
 
         OnPropertyChanged(nameof(SortDescription));
@@ -170,20 +181,112 @@ public sealed partial class TasksViewModel : ObservableObject
         OnPropertyChanged(nameof(Filters));
     }
 
-    /// <summary>Steps through the five orders in turn, which is a button rather than a dropdown on a phone.</summary>
+    /// <summary>Every order, the one in force marked - what the sort button opens.</summary>
+    public IReadOnlyList<TaskListSortChoice> SortChoices
+        => [.. Enum.GetValues<TaskListSortOrder>()
+            .Select(order => new TaskListSortChoice(
+                order, TaskListView.Describe(order, _translations), order == SortOrder))];
+
+    /// <summary>
+    /// A menu rather than a button stepping through them, as it was when there were fewer: six orders
+    /// is five taps to undo a mistaken one, and the reader cannot see what they are stepping towards.
+    /// </summary>
     [RelayCommand]
-    private void NextSortOrder()
+    private void ChooseSortOrder(TaskListSortChoice? choice)
     {
-        SortOrder = SortOrder == TaskListSortOrder.ReverseAlphabetical
-            ? TaskListSortOrder.Priority
-            : SortOrder + 1;
+        if (choice is null)
+        {
+            return;
+        }
+
+        _arrangement = _arrangement with { SortOrder = choice.Order };
 
         // Written at once rather than on the way out: there is no moment a screen is told it is leaving
         // for good, and an order that took a restart to stick would read as one that had not.
-        _sortOrders.Write(SortOrder);
+        _arrangements.WriteSortOrder(SortOrder);
         ShowArrangedLists();
     }
 
+    /// <summary>
+    /// Moves a card one place in the reader's own order. Orbit.Web drags them; a phone offers up and
+    /// down, which is a target a thumb can hit in a scrolling list - the same answer the checklist
+    /// screen gives for the entries on it.
+    /// </summary>
+    [RelayCommand]
+    private void MoveListUp(TaskListRow? row) => MoveList(row, by: -1);
+
+    [RelayCommand]
+    private void MoveListDown(TaskListRow? row) => MoveList(row, by: 1);
+
+    private void MoveList(TaskListRow? row, int by)
+    {
+        var from = row is null ? -1 : IndexOfVisible(row.LocalId);
+        var to = from + by;
+
+        // The ends are where the screen stops, not a failure: the first card has nowhere above it.
+        if (from < 0 || to < 0 || to >= TaskLists.Count)
+        {
+            return;
+        }
+
+        PutBeside(row!.LocalId, TaskLists[to].LocalId, by);
+    }
+
+    private int IndexOfVisible(Guid localId)
+    {
+        for (var index = 0; index < TaskLists.Count; index++)
+        {
+            if (TaskLists[index].LocalId == localId)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Puts one card where its neighbour on screen is, in an order naming every list rather than only
+    /// the ones on screen. A filter is on more often than not here - the chips are the first thing under
+    /// the heading - and writing back only what is visible would drop everything filtered away to the
+    /// end of the reader's arrangement, which is not what moving one card asked for. Orbit.Web writes
+    /// back what it can see and loses the rest that way.
+    /// </summary>
+    private void PutBeside(Guid moving, Guid neighbour, int by)
+    {
+        var order = TaskListView.Arrange(_stored, status: null, _arrangement)
+            .Select(taskList => taskList.LocalId)
+            .ToList();
+
+        order.Remove(moving);
+        order.Insert(by < 0 ? order.IndexOf(neighbour) : order.IndexOf(neighbour) + 1, moving);
+
+        _arrangement = _arrangement with { ManualOrder = order };
+        _arrangements.WriteManualOrder(order);
+        ShowArrangedLists();
+    }
+
+    /// <summary>
+    /// Folds a card down to its heading, or opens it again. Folded rather than filtered away, which is
+    /// the distinction Orbit.Web draws too: a list somebody is not working on this week is still one
+    /// they want to see is there, and a filter would take it off the screen altogether.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleCollapsed(TaskListRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        if (!_collapsed.Remove(row.LocalId))
+        {
+            _collapsed.Add(row.LocalId);
+        }
+
+        _arrangements.WriteCollapsed([.. _collapsed]);
+        ShowArrangedLists();
+    }
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {
         IsRefreshing = true;

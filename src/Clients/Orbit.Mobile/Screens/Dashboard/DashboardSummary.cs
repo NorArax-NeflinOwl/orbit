@@ -72,7 +72,10 @@ public enum DashboardCardKind
     Upcoming,
     Groups,
     RecentChats,
-    Contacts
+    Contacts,
+
+    /// <summary>Who is sharing where they are - see SharedLocations, and Orbit.Web's card of the same name.</summary>
+    SharedLocations
 }
 
 /// <summary>

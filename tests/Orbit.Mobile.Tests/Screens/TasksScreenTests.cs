@@ -35,12 +35,12 @@ public sealed class TasksScreenTests : IDisposable
     }
 
     /// <summary>Whatever was chosen last time, which on a phone opened afresh is the whole memory of it.</summary>
-    private InMemoryTaskListSortOrderStore SortOrders { get; } = new();
+    private InMemoryTaskListArrangementStore Arrangement { get; } = new();
 
     [Fact]
     public async Task The_order_opens_on_what_was_chosen_last_time()
     {
-        SortOrders.Write(TaskListSortOrder.Alphabetical);
+        Arrangement.WriteSortOrder(TaskListSortOrder.Alphabetical);
 
         var screen = await OpenAsync();
 
@@ -52,9 +52,10 @@ public sealed class TasksScreenTests : IDisposable
     {
         var screen = await OpenAsync();
 
-        screen.NextSortOrderCommand.Execute(null);
+        screen.ChooseSortOrderCommand.Execute(Choice(screen, TaskListSortOrder.Oldest));
 
-        Assert.Equal(screen.SortOrder, SortOrders.Remembered);
+        Assert.Equal(TaskListSortOrder.Oldest, screen.SortOrder);
+        Assert.Equal(screen.SortOrder, Arrangement.RememberedSortOrder);
     }
 
     /// <summary>
@@ -65,13 +66,44 @@ public sealed class TasksScreenTests : IDisposable
     public async Task The_order_survives_the_screen_being_opened_again()
     {
         var first = await OpenAsync();
-        first.NextSortOrderCommand.Execute(null);
+        first.ChooseSortOrderCommand.Execute(Choice(first, TaskListSortOrder.LeastImportantFirst));
         var chosen = first.SortOrder;
 
         var second = await OpenAsync();
 
         Assert.Equal(chosen, second.SortOrder);
     }
+
+    /// <summary>
+    /// The menu marks what is in force, because the button that says so is behind the menu once it is
+    /// open - a list of six with no answer among them leaves the reader guessing.
+    /// </summary>
+    [Fact]
+    public async Task The_menu_says_which_order_is_in_force()
+    {
+        Arrangement.WriteSortOrder(TaskListSortOrder.Oldest);
+
+        var screen = await OpenAsync();
+
+        Assert.Equal(TaskListSortOrder.Oldest, screen.SortChoices.Single(choice => choice.IsChosen).Order);
+        Assert.Equal(Enum.GetValues<TaskListSortOrder>().Length, screen.SortChoices.Count);
+    }
+
+    /// <summary>
+    /// Each under its own name. Describe ends in a catch-all, so an order added without a case of its
+    /// own would quietly come out as "Z to A" - two entries reading alike is what that looks like.
+    /// </summary>
+    [Fact]
+    public async Task No_two_orders_are_offered_under_the_same_name()
+    {
+        var screen = await OpenAsync();
+
+        Assert.Equal(
+            screen.SortChoices.Count, screen.SortChoices.Select(choice => choice.Name).Distinct().Count());
+    }
+
+    private static TaskListSortChoice Choice(TasksViewModel screen, TaskListSortOrder order)
+        => screen.SortChoices.Single(choice => choice.Order == order);
 
     /// <summary>
     /// Nothing remembered is the order Orbit has always opened on, not a blank one - a first launch must
@@ -101,6 +133,148 @@ public sealed class TasksScreenTests : IDisposable
         Assert.Null(second.StatusFilter);
     }
 
+
+    /// <summary>
+    /// The order the reader puts the cards in is theirs, and it outlives the screen. Orbit.Web drags
+    /// them into place; a phone moves them one at a time, which is a target a thumb can hit.
+    /// </summary>
+    [Fact]
+    public async Task The_order_the_reader_moves_the_cards_into_is_kept()
+    {
+        await AddAsync("Move house", "Shopping", "Taxes");
+        var screen = await OpenAsync();
+        screen.ChooseSortOrderCommand.Execute(Choice(screen, TaskListSortOrder.Manual));
+
+        screen.MoveListUpCommand.Execute(screen.TaskLists.Last());
+
+        Assert.Equal(["Move house", "Taxes", "Shopping"], Titles(screen));
+        Assert.Equal(Titles(screen), Titles(await OpenAsync()));
+    }
+
+    /// <summary>The ends are where the screen stops, not a failure - the first card has nowhere above it.</summary>
+    [Fact]
+    public async Task Moving_the_first_card_up_leaves_it_where_it_is()
+    {
+        await AddAsync("Move house", "Shopping");
+        var screen = await OpenAsync();
+        screen.ChooseSortOrderCommand.Execute(Choice(screen, TaskListSortOrder.Manual));
+
+        screen.MoveListUpCommand.Execute(screen.TaskLists.First());
+
+        Assert.Equal(["Move house", "Shopping"], Titles(screen));
+    }
+
+    /// <summary>
+    /// A list made or shared since the reader last moved one is not in the wrong place - it is simply
+    /// not placed yet, and it goes after the ones that are rather than pushing their order about.
+    /// </summary>
+    [Fact]
+    public async Task A_card_nobody_has_placed_comes_after_the_ones_they_have()
+    {
+        await AddAsync("Move house", "Shopping");
+        var screen = await OpenAsync();
+        screen.ChooseSortOrderCommand.Execute(Choice(screen, TaskListSortOrder.Manual));
+        screen.MoveListUpCommand.Execute(screen.TaskLists.Last());
+
+        await AddAsync("Taxes");
+        var reopened = await OpenAsync();
+
+        Assert.Equal(["Shopping", "Move house", "Taxes"], Titles(reopened));
+    }
+
+    /// <summary>
+    /// Moving one card while a filter is on must not disturb the cards the filter is hiding. They are
+    /// still arranged - they are just not on screen - and writing back only what can be seen would drop
+    /// every one of them to the end. Orbit.Web writes back what it can see, and loses them that way.
+    /// </summary>
+    [Fact]
+    public async Task Moving_a_card_under_a_filter_leaves_the_hidden_ones_where_they_were()
+    {
+        await AddAsync("Move house", "Shopping", "Taxes");
+        var screen = await OpenAsync();
+
+        // Completed on the server and pulled down, not written straight into the local store: what the
+        // phone holds for a status is whatever the last pull said, so a local one would not survive.
+        CompleteOnTheServer("Shopping");
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.ChooseSortOrderCommand.Execute(Choice(screen, TaskListSortOrder.Manual));
+        Assert.Equal(["Shopping", "Move house", "Taxes"], Titles(screen));
+
+        screen.FilterByCommand.Execute(screen.Filters.Single(filter => filter.Status == "New"));
+        screen.MoveListUpCommand.Execute(screen.TaskLists.Last());
+        screen.FilterByCommand.Execute(screen.Filters.Single(filter => filter.Status is null));
+
+        // Shopping is still first, where it was. Written back visible-only it would be last, unplaced.
+        Assert.Equal(["Shopping", "Taxes", "Move house"], Titles(screen));
+    }
+
+
+    /// <summary>
+    /// Folded down to its heading, and still there - the distinction Orbit.Web draws between folding a
+    /// card and filtering it away. A list nobody is working on this week is still one they want to see.
+    /// </summary>
+    [Fact]
+    public async Task A_folded_card_keeps_its_place_on_the_screen()
+    {
+        await AddAsync("Move house", "Shopping");
+        var screen = await OpenAsync();
+
+        screen.ToggleCollapsedCommand.Execute(screen.TaskLists.Single(row => row.Title == "Shopping"));
+
+        Assert.Equal(2, screen.TaskLists.Count);
+        Assert.True(screen.TaskLists.Single(row => row.Title == "Shopping").IsCollapsed);
+        Assert.False(screen.TaskLists.Single(row => row.Title == "Move house").IsCollapsed);
+    }
+
+    /// <summary>
+    /// Folding is a standing answer about a card, not a narrowing somebody does for a moment, so unlike
+    /// the filter chips it comes back with the screen - which is the line Orbit.Web draws as well.
+    /// </summary>
+    [Fact]
+    public async Task Folding_survives_the_screen_being_opened_again()
+    {
+        await AddAsync("Move house");
+        var first = await OpenAsync();
+        first.ToggleCollapsedCommand.Execute(first.TaskLists.Single());
+
+        var second = await OpenAsync();
+
+        Assert.True(second.TaskLists.Single().IsCollapsed);
+    }
+
+    [Fact]
+    public async Task Folding_a_card_twice_opens_it_again()
+    {
+        await AddAsync("Move house");
+        var screen = await OpenAsync();
+
+        screen.ToggleCollapsedCommand.Execute(screen.TaskLists.Single());
+        screen.ToggleCollapsedCommand.Execute(screen.TaskLists.Single());
+
+        Assert.False(screen.TaskLists.Single().IsCollapsed);
+        Assert.Empty(Arrangement.RememberedCollapsed);
+    }
+    private static IReadOnlyList<string> Titles(TasksViewModel screen)
+        => [.. screen.TaskLists.Select(row => row.Title)];
+
+    private async Task AddAsync(params string[] titles)
+    {
+        foreach (var title in titles)
+        {
+            await _taskLists.CreateAsync(title, TaskListRow.NoItems);
+
+            // Apart in time, so "most recently changed" - what the repository reads them back in - is
+            // the order they were made in, and a test about arranging them is not a test about a tie.
+            _clock.Advance(TimeSpan.FromMinutes(1));
+        }
+    }
+
+    private void CompleteOnTheServer(string title)
+    {
+        var taskList = _server.TaskLists.Single(list => list.Title == title);
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        _server.ReplaceForTest(taskList with { Status = "Completed", UpdatedAtUtc = _clock.GetUtcNow() });
+    }
     private async Task<TasksViewModel> OpenAsync()
     {
         var screen = new TasksViewModel(
@@ -108,7 +282,7 @@ public sealed class TasksScreenTests : IDisposable
             new TaskListSynchronizer(
                 _localStore, new TasksClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<TaskListSynchronizer>.Instance),
-            new TasksClient(_server.ToHttpClient()), FixedNetworkStatus.Online, SortOrders,
+            new TasksClient(_server.ToHttpClient()), FixedNetworkStatus.Online, Arrangement,
             new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(),
             new Translations(new InMemoryLanguageStore()));
 

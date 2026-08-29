@@ -45,6 +45,9 @@ internal sealed class FakeNotesServer : HttpMessageHandler
         return note;
     }
 
+    /// <summary>Swaps a note for an edited copy, so a test can set fields the API has no endpoint for.</summary>
+    public void ReplaceForTest(NoteDto note) => _notes[note.Id] = note;
+
     public void DeleteNote(Guid id)
     {
         _notes.Remove(id);
@@ -100,7 +103,10 @@ internal sealed class FakeNotesServer : HttpMessageHandler
     {
         var body = await ReadAsync<CreateNoteRequest>(request, cancellationToken);
         var created = AddNote(body!.Title);
-        _notes[created.Id] = created with { Content = body.Content, IsPrivate = body.IsPrivate };
+        _notes[created.Id] = created with
+        {
+            Content = body.Content, IsPrivate = body.IsPrivate, Priority = body.Priority
+        };
         return Json(created.Id, HttpStatusCode.Created);
     }
 
@@ -118,6 +124,9 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             Title = body!.Title,
             Content = body.Content,
             IsPrivate = body.IsPrivate,
+            // Stored by the real endpoint, and a fake that dropped it would hide the very thing this
+            // was written for: an update that carried no priority looked exactly like one that did.
+            Priority = body.Priority,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 

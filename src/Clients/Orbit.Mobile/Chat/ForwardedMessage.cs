@@ -10,6 +10,7 @@ namespace Orbit.Mobile.Chat;
 /// need - the same reason the local store has one of these.
 /// </summary>
 [JsonSerializable(typeof(ForwardedMessagePayload))]
+[JsonSerializable(typeof(ReplyMessagePayload))]
 [JsonSerializable(typeof(NoteShareMessagePayload))]
 [JsonSerializable(typeof(TaskListShareMessagePayload))]
 [JsonSerializable(typeof(EventShareMessagePayload))]

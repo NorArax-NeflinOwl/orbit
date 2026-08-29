@@ -1,3 +1,4 @@
+using Orbit.Contracts.Chat;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -44,6 +45,9 @@ public sealed partial class ConversationViewModel : ObservableObject
     /// <summary>The message the compose box is currently rewriting, if it is rewriting one.</summary>
     private ReadableChatMessage? _beingEdited;
 
+    /// <summary>The message the draft is answering, if it is answering one - see ReplyMessage.</summary>
+    private ReadableChatMessage? _beingAnswered;
+
     /// <summary>
     /// How far the other party has read, as of the last sync that reached the server. Kept rather than
     /// cleared when a later sync cannot ask: "not known any more" would show as "not read", which is a
@@ -80,6 +84,13 @@ public sealed partial class ConversationViewModel : ObservableObject
     /// <summary>While picking somewhere to forward to, the list of conversations replaces the messages.</summary>
     [ObservableProperty]
     private bool _isForwarding;
+
+    /// <summary>
+    /// What the compose box is answering, shown above it as a strip - empty when the draft is addressed
+    /// to the conversation in general. See ReplyMessage.
+    /// </summary>
+    [ObservableProperty]
+    private string _replyingToPreview = string.Empty;
 
     public ConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
@@ -155,6 +166,11 @@ public sealed partial class ConversationViewModel : ObservableObject
 
     public bool HasRequestNotice => RequestNotice.Length > 0;
 
+    /// <summary>Whether the compose box is answering something, which is what puts the strip above it.</summary>
+    public bool HasReplyingTo => ReplyingToPreview.Length > 0;
+
+    partial void OnReplyingToPreviewChanged(string value) => OnPropertyChanged(nameof(HasReplyingTo));
+
     [RelayCommand]
     private async Task ApproveRequestAsync(CancellationToken cancellationToken)
     {
@@ -222,7 +238,8 @@ public sealed partial class ConversationViewModel : ObservableObject
 
         try
         {
-            var result = await _sender.SendAsync(_contact.UserId, text, cancellationToken);
+            var result = await _sender.SendAsync(_contact.UserId, Compose(text), cancellationToken);
+            StopAnswering();
             SayWhatHappened(Describe(result));
         }
         catch (EncryptionKeyLockedException)
@@ -252,10 +269,56 @@ public sealed partial class ConversationViewModel : ObservableObject
             return;
         }
 
+        // Rewriting a message and answering one are two things to do with the same box, so starting
+        // either one puts down the other rather than leaving a strip that no longer applies.
+        StopAnswering();
         _beingEdited = message;
         Draft = message.Text ?? string.Empty;
         IsEditing = true;
     }
+
+    /// <summary>
+    /// Answers one particular message rather than the conversation in general. The compose box grows a
+    /// strip naming what is being answered, and sending carries the reference along - see ReplyMessage.
+    /// A long conversation otherwise leaves the reader guessing which message an answer belongs to.
+    /// </summary>
+    [RelayCommand]
+    private void StartReplying(ReadableChatMessage? message)
+    {
+        if (message is not { CanBeRepliedTo: true })
+        {
+            return;
+        }
+
+        // Only when it is actually rewriting one: clearing the box would take away a draft the reader
+        // had already typed before deciding what it was an answer to.
+        if (IsEditing)
+        {
+            CancelEditing();
+        }
+
+        _beingAnswered = message;
+        ReplyingToPreview = ReplyMessagePayload.Preview(message.Text ?? string.Empty);
+    }
+
+    [RelayCommand]
+    private void CancelReplying() => StopAnswering();
+
+    private void StopAnswering()
+    {
+        _beingAnswered = null;
+        ReplyingToPreview = string.Empty;
+    }
+
+    /// <summary>
+    /// What actually goes out: the words themselves, or the words with what they answer wrapped around
+    /// them. A reply to a message the reader cannot open would quote nothing, so it goes as ordinary
+    /// text rather than as a reply to a blank.
+    /// </summary>
+    private string Compose(string text)
+        => _beingAnswered is { MessageId: { } answeredId, Text: { Length: > 0 } answered }
+            ? ReplyMessage.Wrap(answeredId, answered, text)
+            : text;
 
     /// <summary>
     /// Offers somewhere to pass this message on to. Only other conversations - forwarding a message back

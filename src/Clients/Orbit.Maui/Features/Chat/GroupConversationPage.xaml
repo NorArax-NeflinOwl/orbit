@@ -40,6 +40,13 @@
                             <!-- Who wrote it, which a one-to-one conversation gets from the title. -->
                             <Label Text="{Binding SenderName}" IsVisible="{Binding HasSenderName}"
                                    FontSize="12" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <!-- What this message is answering - see ConversationPage's own quote. -->
+                            <Border IsVisible="{Binding IsReply}" Padding="8,4" Margin="0,0,0,2"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource AccentSubtleLight}, Dark={StaticResource AccentSubtleDark}}">
+                                <Label Text="{Binding QuotedPreview}" FontSize="12" LineBreakMode="TailTruncation"
+                                       MaxLines="2" Style="{StaticResource SubtleLabel}" />
+                            </Border>
                             <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
                             <Label IsVisible="{Binding CannotBeOpened}"
                                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
@@ -74,14 +81,26 @@
             </CollectionView>
         </RefreshView>
 
-        <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanWrite}">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
-                   ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Command="{Binding SendCommand}" />
-            <Button Grid.Column="2" Text="{controls:Translate 'Cancel'}" IsVisible="{Binding IsEditing}"
-                    Command="{Binding CancelEditingCommand}"
-                    Style="{StaticResource LinkButton}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="4" Spacing="4" IsVisible="{Binding CanWrite}">
+            <!-- What the box is answering - see ConversationPage, which says the same above its own. -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" IsVisible="{Binding HasReplyingTo}">
+                <Label Grid.Column="0" Text="{controls:Translate 'Replying to'}" FontSize="12"
+                       VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                <Label Grid.Column="1" Text="{Binding ReplyingToPreview}" FontSize="12"
+                       LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                <Button Grid.Column="2" Text="✕" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                        Command="{Binding CancelReplyingCommand}" Style="{StaticResource LinkButton}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
+                       ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Command="{Binding SendCommand}" />
+                <Button Grid.Column="2" Text="{controls:Translate 'Cancel'}" IsVisible="{Binding IsEditing}"
+                        Command="{Binding CancelEditingCommand}"
+                        Style="{StaticResource LinkButton}" />
+            </Grid>
+        </VerticalStackLayout>
 
         <Button Grid.Row="5" Text="{controls:Translate 'Back to groups'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />

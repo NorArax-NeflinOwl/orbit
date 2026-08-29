@@ -82,9 +82,29 @@ public sealed record ReadableChatMessage(
     /// has no text to re-encrypt for somebody else, and one still queued has not been sent even once.
     /// </summary>
     /// <summary>Whether the message has any action at all - what decides if it gets a menu trigger.</summary>
-    public bool HasActions => CanBeChanged || CanBeForwarded;
+    public bool HasActions => CanBeChanged || CanBeForwarded || CanBeRepliedTo;
 
     public bool CanBeForwarded => Text is { Length: > 0 } && !IsWaitingToSend;
+
+    /// <summary>
+    /// What this message is answering, when it is a reply - see ReplyMessagePayload. Null for anything
+    /// written to the conversation in general.
+    /// </summary>
+    public Guid? QuotedMessageId { get; init; }
+
+    /// <summary>
+    /// A short copy of what the answered message said, carried by the reply rather than looked up: the
+    /// original may have been edited or deleted since, and the quote is still what was answered.
+    /// </summary>
+    public string? QuotedPreview { get; init; }
+
+    public bool IsReply => QuotedPreview is not null;
+
+    /// <summary>
+    /// Whether this can be answered. Needs the same two things forwarding does, plus an id: the reply
+    /// names what it answers, and a message the server has not seen has no name to give.
+    /// </summary>
+    public bool CanBeRepliedTo => CanBeForwarded && MessageId is not null;
 
     /// <summary>
     /// Whether to offer editing and deleting. Only the reader's own messages, and only once the server

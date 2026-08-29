@@ -191,7 +191,7 @@ public static class MauiProgram
 		services.AddSingleton<ISessionStorage, SecureSessionStorage>();
 		services.AddSingleton<IChatKeyStorage, SecureChatKeyStorage>();
 		services.AddSingleton<IVersionVerdictCache, PreferencesVersionVerdictCache>();
-		services.AddSingleton<ITaskListSortOrderStore, PreferencesTaskListSortOrderStore>();
+		services.AddSingleton<ITaskListArrangementStore, PreferencesTaskListArrangementStore>();
 		services.AddSingleton<SessionStore>();
 
 		// What the app reports about itself to the version gate. Read from the build rather than

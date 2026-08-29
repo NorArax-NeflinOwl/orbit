@@ -6,6 +6,18 @@ using Orbit.Mobile.Sync;
 namespace Orbit.Mobile.Data;
 
 /// <summary>
+/// A note as the reader has just left it - everything a save writes down, and nothing that identifies
+/// which note it is. The same shape as <see cref="TaskListContent"/>, deliberately: the two
+/// repositories are written alike so a change made to one is obvious in the other.
+/// </summary>
+/// <param name="Priority">
+/// How much it matters, by name. Carried because a save writes the whole note: left out, it answered
+/// "Normal" and took the reader's own answer with it - see LocalNote.Priority.
+/// </param>
+public sealed record NoteContent(
+    string Title, IReadOnlyList<NoteContentLineDto> Content, string Priority);
+
+/// <summary>
 /// Every read and write a screen performs on notes. Reads come from SQLite and never from the API, and
 /// each write records its own outbox entry in the same transaction as the change itself - a local edit
 /// that was applied but not queued would be silently lost at the next pull, which is the worst failure
@@ -95,7 +107,7 @@ public sealed class LocalNoteRepository
 
     /// <summary>Refuses rather than queues when the offline policy forbids it - see LocalWriteOutcome.</summary>
     public async Task<LocalWriteOutcome> UpdateAsync(
-        Guid localId, string title, IReadOnlyList<NoteContentLineDto> content, CancellationToken cancellationToken = default)
+        Guid localId, NoteContent content, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         if (await dbContext.Notes.FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken) is not { } note)
@@ -109,8 +121,9 @@ public sealed class LocalNoteRepository
         }
 
         var now = _timeProvider.GetUtcNow();
-        note.Title = title;
-        note.Content = content;
+        note.Title = content.Title;
+        note.Content = content.Content;
+        note.Priority = content.Priority;
         note.UpdatedAtUtc = now;
 
         Enqueue(dbContext, localId, OutboxOperation.Update, now);

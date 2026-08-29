@@ -46,7 +46,7 @@ public sealed class LocalNoteRepositoryTests
         var note = await context.Repository.CreateAsync("Groceries", SomeContent);
         context.Clock.Advance(TimeSpan.FromMinutes(5));
 
-        await context.Repository.UpdateAsync(note.LocalId, "Groceries and bread", SomeContent);
+        await context.Repository.UpdateAsync(note.LocalId, new NoteContent("Groceries and bread", SomeContent, "Normal"));
 
         var stored = await context.DbContext.Notes.SingleAsync();
         Assert.Equal("Groceries and bread", stored.Title);
@@ -61,7 +61,7 @@ public sealed class LocalNoteRepositoryTests
 
         Assert.Equal(
             LocalWriteOutcome.NotFound,
-            await context.Repository.UpdateAsync(Guid.NewGuid(), "Ghost", SomeContent));
+            await context.Repository.UpdateAsync(Guid.NewGuid(), new NoteContent("Ghost", SomeContent, "Normal")));
     }
 
     [Fact]
@@ -84,7 +84,8 @@ public sealed class LocalNoteRepositoryTests
         using var context = new RepositoryContext();
         var note = await context.Repository.CreateAsync("Groceries", SomeContent);
 
-        await context.Repository.UpdateAsync(note.LocalId, "Groceries", [new NoteContentLineDto("Bread", false, false)]);
+        await context.Repository.UpdateAsync(
+            note.LocalId, new NoteContent("Groceries", [new NoteContentLineDto("Bread", false, false)], "Normal"));
 
         // Without a value comparer EF compares the converted JSON by reference and saves nothing.
         var reopened = await context.Reopen().Notes.SingleAsync(stored => stored.LocalId == note.LocalId);

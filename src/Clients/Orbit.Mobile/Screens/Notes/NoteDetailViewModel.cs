@@ -60,7 +60,22 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         Share = share;
         _navigator = navigator;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
+
+        Priorities = Tasks.PriorityChoice.All(translations);
+        _chosenPriority = Tasks.PriorityChoice.For(nameof(Orbit.Core.Abstractions.ItemPriority.Normal), translations);
     }
+
+    /// <summary>
+    /// How much this note matters - Orbit.Web's note editor has had the same three choices all along,
+    /// and the phone's own dashboard filters by them without ever being able to set one.
+    /// </summary>
+    public IReadOnlyList<Tasks.PriorityChoice> Priorities { get; }
+
+    [ObservableProperty]
+    private Tasks.PriorityChoice _chosenPriority;
+
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel"/>
+    private string _priority = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
 
     public ObservableCollection<NoteLineRow> Lines { get; } = [];
 
@@ -158,7 +173,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     private async Task SaveAsync(IReadOnlyList<NoteContentLineDto> lines, CancellationToken cancellationToken)
     {
-        if (await _notes.UpdateAsync(_localId, Title.Trim(), lines, cancellationToken)
+        if (await _notes.UpdateAsync(_localId, new NoteContent(Title.Trim(), lines, _priority), cancellationToken)
             is LocalWriteOutcome.RefusedWhileOffline)
         {
             Status = _translations[RefusalMessage];
@@ -178,6 +193,9 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         }
 
         Title = note.Title;
+        _isShowingWhatIsStored = true;
+        ChosenPriority = Tasks.PriorityChoice.For(note.Priority, _translations);
+        _isShowingWhatIsStored = false;
 
         // Only a note the server knows about can be offered: a share names it by its server id, and one
         // still waiting in the outbox has none.
@@ -269,6 +287,23 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string RefusalMessage =
         "Somebody else can change this note, and Orbit can't be reached to check. It stays read-only until you're back online.";
+
+    /// <summary>
+    /// Saved as soon as it is chosen, the way ticking a line is. The value comes from here rather than
+    /// off the property: a save started from this hook must not have to guess whether the property has
+    /// caught up - see TaskListDetailViewModel, where it had not.
+    /// </summary>
+    partial void OnChosenPriorityChanged(Tasks.PriorityChoice value)
+    {
+        _priority = value.Value;
+        if (!_isShowingWhatIsStored && CanEdit)
+        {
+            SaveLinesCommand.Execute(null);
+        }
+    }
+
+    /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
+    private bool _isShowingWhatIsStored;
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 

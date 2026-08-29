@@ -328,8 +328,20 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
 
         _items = warehouse.Items;
-        IsReadOnly = !await _warehouses.CanEditAsync(_localId, cancellationToken);
-        ReadOnlyReason = string.Empty;
+
+        // Sealed with a key this phone has not got - see TaskListDetailViewModel for the same guard and
+        // why saving one anyway is worse than not offering to.
+        if (warehouse.IsPrivate)
+        {
+            IsReadOnly = true;
+            ReadOnlyReason = _translations[
+                "This warehouse is private, and its contents are sealed with a key this phone doesn't have."];
+        }
+        else
+        {
+            IsReadOnly = !await _warehouses.CanEditAsync(_localId, cancellationToken);
+            ReadOnlyReason = string.Empty;
+        }
 
         if (!IsReadOnly && warehouse.ServerId is { } lockedServerId)
         {
