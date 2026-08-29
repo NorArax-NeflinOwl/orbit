@@ -54,8 +54,7 @@ public static class TaskEndpoints
             var id = await dispatcher.SendAsync(
                 new CreateTaskListCommand(
                     GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
-                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    RequestEnum.Parse<TaskListKind>(request.Kind, "kind"), request.Location),
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
                 cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
@@ -66,8 +65,7 @@ public static class TaskEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateTaskListCommand(
                     GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
-                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    RequestEnum.Parse<TaskListKind>(request.Kind, "kind"), request.Location),
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -228,12 +226,14 @@ public static class TaskEndpoints
     {
         var overdueChannel = RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel");
         var dailyChannel = RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel");
+        var kind = RequestEnum.Parse<TaskItemKind>(item.Kind, "kind");
 
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
-                overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay);
+                overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
+                kind, item.Location, item.LinkedCalendarEventId);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -241,7 +241,8 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.LinkedTaskListId is null && item.IsCompleted, item.LinkedTaskListId,
-            overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay);
+            overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
+            kind, item.Location, item.LinkedCalendarEventId);
     }
 
 
@@ -271,7 +272,10 @@ public static class TaskEndpoints
                     item.OverdueNotificationChannel.ToString(),
                     item.RemindDaily,
                     item.DailyReminderNotificationChannel.ToString(),
-                    item.DailyReminderTimeOfDay))
+                    item.DailyReminderTimeOfDay,
+                    item.Kind.ToString(),
+                    item.Location,
+                    item.LinkedCalendarEventId))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,
@@ -285,7 +289,7 @@ public static class TaskEndpoints
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
             taskList.Status.ToString(),
-            taskList.IsPinned, taskList.LinkedWarehouseId, taskList.Kind.ToString(), taskList.Location);
+            taskList.IsPinned, taskList.LinkedWarehouseId);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

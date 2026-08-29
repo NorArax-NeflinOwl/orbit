@@ -79,8 +79,6 @@ public sealed class TaskRepository : ITaskRepository
         entity.Priority = taskList.Priority.ToString();
         entity.IsPinned = taskList.IsPinned;
         entity.LinkedWarehouseId = taskList.LinkedWarehouseId;
-        entity.Kind = taskList.Kind.ToString();
-        entity.Location = taskList.Location;
         entity.IsPrivate = taskList.IsPrivate;
         entity.EncryptedCiphertext = taskList.EncryptedContent?.Ciphertext;
         entity.EncryptedNonce = taskList.EncryptedContent?.Nonce;
@@ -143,8 +141,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.LockedByUserName,
             entity.LockExpiresAtUtc,
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
-            entity.IsPinned, entity.LinkedWarehouseId,
-            Enum.TryParse<TaskListKind>(entity.Kind, out var kind) ? kind : TaskListKind.Checklist, entity.Location);
+            entity.IsPinned, entity.LinkedWarehouseId);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -156,7 +153,9 @@ public sealed class TaskRepository : ITaskRepository
             Enum.Parse<NotificationChannel>(entity.OverdueNotificationChannel, ignoreCase: true),
             entity.RemindDaily,
             Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
-            TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes)));
+            TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes)),
+            Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
+            entity.Location, entity.LinkedCalendarEventId);
 
     private static TaskEntity ToEntity(TaskList taskList)
         => new()
@@ -169,8 +168,6 @@ public sealed class TaskRepository : ITaskRepository
             Priority = taskList.Priority.ToString(),
             IsPinned = taskList.IsPinned,
             LinkedWarehouseId = taskList.LinkedWarehouseId,
-            Kind = taskList.Kind.ToString(),
-            Location = taskList.Location,
             IsPrivate = taskList.IsPrivate,
             EncryptedCiphertext = taskList.EncryptedContent?.Ciphertext,
             EncryptedNonce = taskList.EncryptedContent?.Nonce,
@@ -195,6 +192,9 @@ public sealed class TaskRepository : ITaskRepository
             OverdueNotificationChannel = item.OverdueNotificationChannel.ToString(),
             RemindDaily = item.RemindDaily,
             DailyReminderNotificationChannel = item.DailyReminderNotificationChannel.ToString(),
-            DailyReminderTimeOfDayMinutes = item.DailyReminderTimeOfDay.Hour * 60 + item.DailyReminderTimeOfDay.Minute
+            DailyReminderTimeOfDayMinutes = item.DailyReminderTimeOfDay.Hour * 60 + item.DailyReminderTimeOfDay.Minute,
+            Kind = item.Kind.ToString(),
+            Location = item.Location,
+            LinkedCalendarEventId = item.LinkedCalendarEventId
         };
 }

@@ -505,10 +505,18 @@ linkable lists; it does not check for longer cycles client-side, so building one
 API's validation and surfaces as a failed save rather than a client-side error message — a known rough
 edge, not a silent gap (see [Future Plan](future-plan.md#known-scope-cuts-and-rough-edges)).
 
-A task list also says what it is for: `kind` is `Checklist` (the default) or `Calendar`, and a calendar
-list — one whose entries are appointments rather than errands — also carries a `location`. Every other
-kind has nowhere to be and stores nothing for it, including a list changed back from one: the location
-travels with the kind and is dropped when it stops applying (`TaskList.SetKind`).
+Each **item** also says what it is: `kind` is `Checklist` (the default) or `Calendar`. A calendar entry
+is somewhere to be rather than something to fetch, so it also carries a `location`, and can name the
+`linkedCalendarEventId` of the calendar event it is the same appointment as. The kind sits on the item
+rather than on the list because a list is rarely all one or all the other — a day's plan holds two
+errands and an appointment, and asking somebody to keep those on separate lists is asking them to keep
+the list that matches their day in two places.
+
+**The place is stored once.** An entry tied to an event keeps no location of its own: the event already
+holds one, and a second copy is how the two come to disagree. Every other kind of entry has nowhere to
+be and stores nothing for it, including one changed back from a calendar entry. The link itself is not
+validated — an event deleted afterwards leaves it pointing at nothing, which reads as "no event", the
+same way a link to a deleted task list reads as "not completed".
 
 In the Blazor client, each item's due date and time are edited separately (`DateField` plus `TimeField`)
 and combined into one timestamp on save; a date picked without a time is stored as midnight. Both are
@@ -556,7 +564,7 @@ A task list can be opened at either of two depths, both reachable from the task 
   two people doing it at the same time is normal rather than a conflict. It still goes through the same
   `PUT /api/tasks/{id}`, so it does respect someone else's lock — a save during another user's deep edit
   comes back 409 and the checkbox snaps back to what the server holds.
-- **Deep** (`/tasks/{id}/edit`, `TaskEditor.razor`) — the full editor: title, kind, grouping, every
+- **Deep** (`/tasks/{id}/edit`, `TaskEditor.razor`) — the full editor: title, grouping, every
   item's text, due date, link, notification settings, adding and removing items. This is the level that
   takes the edit lock described under [Edit locking](#edit-locking).
 

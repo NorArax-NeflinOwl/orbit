@@ -228,8 +228,9 @@ internal static class PolishTranslations
         ["Items"] = "Pozycje",
         ["Group View"] = "Widok grupowy",
         ["Type"] = "Typ",
-        ["A calendar list holds appointments rather than errands, so it also says where they happen."] =
-            "Lista kalendarzowa zawiera spotkania, a nie sprawunki, więc mówi też, gdzie się odbywają.",
+        ["Calendar event"] = "Wydarzenie w kalendarzu",
+        ["Happens at {0}, which the event decides."] = "Odbywa się: {0} — decyduje o tym wydarzenie.",
+        ["somewhere the event does not say"] = "w miejscu, którego wydarzenie nie podaje",
         ["Where this happens"] = "Gdzie się to odbywa",
 
         // ---- Calendar ----

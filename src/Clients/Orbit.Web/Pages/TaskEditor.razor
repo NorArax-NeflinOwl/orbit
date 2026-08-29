@@ -5,6 +5,7 @@
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Text.Json
+@using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notifications
 @using Orbit.Contracts.Tasks
@@ -13,6 +14,7 @@
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
+@inject CalendarApiClient CalendarApiClient
 @inject NotificationsApiClient NotificationsApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
@@ -112,25 +114,6 @@ else
         </div>
 
         <div class="field">
-            <label for="taskListKindSelect">@T["Type"]</label>
-            <InputSelect id="taskListKindSelect" @bind-Value="_formModel.Kind">
-                <option value="@nameof(TaskListKind.Checklist)">@T["Checklist"]</option>
-                <option value="@nameof(TaskListKind.Calendar)">@T["Calendar"]</option>
-            </InputSelect>
-            <small>@T["A calendar list holds appointments rather than errands, so it also says where they happen."]</small>
-        </div>
-
-        @* Only for the kind that has anywhere to be - the server drops a location on any other kind. *@
-        @if (_formModel.Kind == nameof(TaskListKind.Calendar))
-        {
-            <div class="field">
-                <label for="taskListLocationInput">@T["Location"]</label>
-                <InputText id="taskListLocationInput" @bind-Value="_formModel.Location"
-                           placeholder="@(T["Where this happens"])" />
-            </div>
-        }
-
-        <div class="field">
             <label for="taskListPrioritySelect">@T["Priority"]</label>
             <InputSelect id="taskListPrioritySelect" @bind-Value="_formModel.Priority">
                 <option value="Low">@T["Low"]</option>
@@ -197,6 +180,38 @@ else
                 @if (IsExpanded(item))
                 {
                     <div class="editor-item-details">
+                        @* What this entry is. On the entry rather than on the list, because a day's plan
+                           holds two errands and an appointment - see TaskItemKind. *@
+                        <label>@T["Type"]<select @bind="item.Kind">
+                                <option value="@nameof(TaskItemKind.Checklist)">@T["Checklist"]</option>
+                                <option value="@nameof(TaskItemKind.Calendar)">@T["Calendar"]</option>
+                            </select>
+                        </label>
+                        @if (item.Kind == nameof(TaskItemKind.Calendar))
+                        {
+                            <label>@T["Calendar event"]<select @bind="item.LinkedCalendarEventId">
+                                    <option value="">@T["None"]</option>
+                                    @foreach (var linkableEvent in _linkableEvents)
+                                    {
+                                        <option value="@linkableEvent.Id">@linkableEvent.Details.Title</option>
+                                    }
+                                </select>
+                            </label>
+                            @* One place, not two. Tied to an event, the event holds it - so the box is
+                               replaced by what the event says rather than offering a second answer that
+                               could drift from the first. *@
+                            @if (string.IsNullOrEmpty(item.LinkedCalendarEventId))
+                            {
+                                <label>@T["Location"]<InputText @bind-Value="item.Location"
+                                                                placeholder="@(T["Where this happens"])" />
+                                </label>
+                            }
+                            else
+                            {
+                                <span class="field-break"></span>
+                                <small>@T.Format("Happens at {0}, which the event decides.", LinkedEventLocation(item))</small>
+                            }
+                        }
                         <label>@T["Link to list"]<select @bind="item.LinkedTaskListId">
                                 <option value="">@T["None"]</option>
                                 @foreach (var linkableTaskList in _linkableTaskLists)
@@ -453,6 +468,16 @@ else
             // Populates the "link to another list" dropdown - excludes the list being edited itself, since
             // an item can't link to the list it belongs to (see TaskListLinkValidator on the API side).
             var allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            // Best-effort: an entry can be tied to an event, but a calendar that will not load is no
+            // reason for the task editor not to.
+            try
+            {
+                _linkableEvents = await CalendarApiClient.GetCalendarEventsAsync();
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogWarning(exception, "Failed to load the events a task entry could be tied to");
+            }
             _linkableTaskLists = Id is { } currentTaskListId
                 ? allTaskLists.Where(taskList => taskList.Id != currentTaskListId).ToList()
                 : allTaskLists;
@@ -470,8 +495,6 @@ else
                         IsGroup = taskList.IsGroup,
                         IsPrivate = taskList.IsPrivate,
                         Priority = taskList.Priority,
-                        Kind = taskList.Kind,
-                        Location = taskList.Location,
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
@@ -480,6 +503,9 @@ else
                                 DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
                                 IsCompleted = item.IsCompleted,
+                                Kind = item.Kind,
+                                Location = item.Location,
+                                LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
                                 LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty,
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
                                 RemindDaily = item.RemindDaily,
@@ -535,6 +561,29 @@ else
     /// list is named, never on the title box: what is typed there is what gets saved.
     /// </summary>
     private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+
+    /// <summary>
+    /// The events an entry can be tied to. Read once with the lists, since the dropdown offering them
+    /// has to be filled before anybody opens an entry rather than after.
+    /// </summary>
+    private IReadOnlyList<CalendarEventDto> _linkableEvents = [];
+
+    /// <summary>
+    /// Where the event an entry is tied to happens, for the line that stands in for the location box.
+    /// An event that has since been deleted, or has no location of its own, reads as unsaid rather than
+    /// as an error - the link is not validated, by the same rule a link to a deleted list follows.
+    /// </summary>
+    private string LinkedEventLocation(TaskItemFormModel item)
+    {
+        var linked = _linkableEvents.FirstOrDefault(candidate => candidate.Id.ToString() == item.LinkedCalendarEventId);
+        return linked?.Details.Location?.Address is { Length: > 0 } address ? address : T["somewhere the event does not say"];
+    }
+
+    /// <summary>Only a calendar entry can be tied to an event; anything else sends none, whatever the box last held.</summary>
+    private static Guid? ToLinkedCalendarEventId(TaskItemFormModel item)
+        => item.Kind == nameof(TaskItemKind.Calendar) && Guid.TryParse(item.LinkedCalendarEventId, out var eventId)
+            ? eventId
+            : null;
 
     private void AddItem()
     {
@@ -661,7 +710,10 @@ else
                 item.OverdueNotificationChannel,
                 item.RemindDaily,
                 item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay ?? default))
+                item.DailyReminderTimeOfDay ?? default,
+                item.Kind,
+                item.Location,
+                ToLinkedCalendarEventId(item)))
             .ToList();
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
@@ -674,14 +726,14 @@ else
             {
                 var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority, Kind: _formModel.Kind, Location: _formModel.Location));
+                    Priority: _formModel.Priority));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
             {
                 var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority, Kind: _formModel.Kind, Location: _formModel.Location));
+                    Priority: _formModel.Priority));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -883,12 +935,6 @@ else
         /// <summary>One of "Low", "Normal", "High" - kept as the wire's own string so the form binds straight to it.</summary>
         public string Priority { get; set; } = "Normal";
 
-        /// <summary>"Checklist" or "Calendar", kept as the wire's own string for the same reason Priority is.</summary>
-        public string Kind { get; set; } = nameof(TaskListKind.Checklist);
-
-        /// <summary>Where a calendar list happens. Held even while the kind is something else, so switching back and forth in one sitting doesn't lose what was typed - the server drops it on save.</summary>
-        public string Location { get; set; } = string.Empty;
-
         /// <summary>Encrypt this list so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }
         public List<TaskItemFormModel> Items { get; set; } = [];
@@ -902,6 +948,16 @@ else
         public DateOnly? DueDate { get; set; }
         public TimeOnly? DueTime { get; set; }
         public bool IsCompleted { get; set; }
+
+        /// <summary>"Checklist" or "Calendar", kept as the wire's own string so the form binds straight to it.</summary>
+        public string Kind { get; set; } = nameof(TaskItemKind.Checklist);
+
+        /// <summary>Where a calendar entry happens. Held even while the kind or the event link say otherwise, so switching back and forth in one sitting doesn't lose what was typed - the server drops it on save.</summary>
+        public string Location { get; set; } = string.Empty;
+
+        /// <summary>The calendar event this entry is the same appointment as. Empty for none.</summary>
+        public string LinkedCalendarEventId { get; set; } = string.Empty;
+
         public string LinkedTaskListId { get; set; } = string.Empty;
         public string OverdueNotificationChannel { get; set; } = "Push";
         public bool RemindDaily { get; set; }

@@ -25,6 +25,15 @@ public sealed class TaskItemEntity
     /// </summary>
     public Guid? LinkedTaskListId { get; set; }
 
+    /// <summary>What this entry is, stored by name like every other enum here - see Orbit.Core.Tasks.TaskItemKind.</summary>
+    public string Kind { get; set; } = nameof(Orbit.Core.Tasks.TaskItemKind.Checklist);
+
+    /// <summary>Where a calendar entry happens; empty for every other kind, and empty for one tied to an event - see Orbit.Core.Tasks.TaskItem.Location.</summary>
+    public string Location { get; set; } = string.Empty;
+
+    /// <summary>The calendar event this entry is the same appointment as, if any - see Orbit.Core.Tasks.TaskItem.LinkedCalendarEventId.</summary>
+    public Guid? LinkedCalendarEventId { get; set; }
+
     /// <summary>Serialized <see cref="Orbit.Core.Notifications.NotificationChannel"/> - "None"/"Email"/"Push"/"Both".</summary>
     public string OverdueNotificationChannel { get; set; } = "Push";
 

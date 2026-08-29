@@ -51,9 +51,6 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
 
         taskList.Update(
             request.Title, request.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority);
-        // Its own step rather than another Update parameter: the kind decides whether the location means
-        // anything at all, so the two are set together and only together - see TaskList.SetKind.
-        taskList.SetKind(request.Kind, request.Location);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 
         // Crossing off a restock errand says the shelf was filled - see RestockCompletion, which does

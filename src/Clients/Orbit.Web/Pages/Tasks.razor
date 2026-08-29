@@ -169,13 +169,6 @@ else
                 }
                 else
                 {
-                @* Where a calendar list happens - the one thing that kind of list carries beyond its
-                   entries, and the thing you would want to see without opening it. *@
-                @if (taskList.Location.Length > 0)
-                {
-                    <p class="row-meta">@taskList.Location</p>
-                }
-
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
                    checklist view one click away for working through it. *@
                 @foreach (var item in taskList.Items.Take(PreviewItemCount))
