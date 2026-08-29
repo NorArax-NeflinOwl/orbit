@@ -1364,6 +1364,20 @@ input.note-editor-title {
     flex-wrap: wrap;
 }
 
+/* The strip is a button now (it opens the calendar), so it has to shed what a <button> brings with it
+   and keep looking like the panel it is. */
+.today-strip-button {
+    width: 100%;
+    text-align: left;
+    font-size: inherit;
+    font-weight: inherit;
+    cursor: pointer;
+}
+
+.today-strip-button:hover {
+    background: var(--bg-subtle);
+}
+
 .today-strip-date {
     font-family: var(--font-display);
     font-weight: 600;

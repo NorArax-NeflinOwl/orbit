@@ -111,6 +111,7 @@ internal static class PolishTranslations
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Minimise"] = "Zminimalizuj",
+        ["Open the calendar"] = "Otwórz kalendarz",
         ["Expand"] = "Rozwiń",
         ["Nothing left to do."] = "Nic nie zostało do zrobienia.",
         ["Pick a date"] = "Wybierz datę",
