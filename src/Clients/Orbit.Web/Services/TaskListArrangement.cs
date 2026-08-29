@@ -35,6 +35,7 @@ public sealed class TaskListArrangement
 {
     private const string SortOrderKey = "orbit-task-list-sort-order";
     private const string ManualOrderKey = "orbit-task-list-manual-order";
+    private const string CollapsedKey = "orbit-task-list-collapsed";
 
     private readonly IJSRuntime _jsRuntime;
 
@@ -52,12 +53,36 @@ public sealed class TaskListArrangement
     /// </summary>
     public IReadOnlyList<Guid> ManualOrder { get; private set; } = [];
 
+    /// <summary>
+    /// The cards folded down to a heading, a line of what is on them and their buttons. Collapsed rather
+    /// than hidden: a list somebody is not working on this week is still a list they want to see is
+    /// there, which is why this is not the same as filtering it away.
+    /// </summary>
+    private HashSet<Guid> _collapsed = [];
+
+    public bool IsCollapsed(Guid taskListId) => _collapsed.Contains(taskListId);
+
     public async Task InitializeAsync()
     {
         SortOrder = Enum.TryParse<TaskListSortOrder>(await ReadAsync(SortOrderKey), out var sortOrder)
             ? sortOrder
             : TaskListSortOrder.Priority;
         ManualOrder = Read(await ReadAsync(ManualOrderKey));
+        _collapsed = [.. Read(await ReadAsync(CollapsedKey))];
+    }
+
+    public Task SetCollapsedAsync(Guid taskListId, bool isCollapsed)
+    {
+        if (isCollapsed)
+        {
+            _collapsed.Add(taskListId);
+        }
+        else
+        {
+            _collapsed.Remove(taskListId);
+        }
+
+        return WriteAsync(CollapsedKey, JsonSerializer.Serialize(_collapsed));
     }
 
     public Task SetSortOrderAsync(TaskListSortOrder sortOrder)

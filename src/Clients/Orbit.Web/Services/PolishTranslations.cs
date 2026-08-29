@@ -110,6 +110,9 @@ internal static class PolishTranslations
         ["Everything here is hidden. The menu at the top right brings it back."] =
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
+        ["Minimise"] = "Zminimalizuj",
+        ["Expand"] = "Rozwiń",
+        ["Nothing left to do."] = "Nic nie zostało do zrobienia.",
         ["Pick a date"] = "Wybierz datę",
         ["Previous month"] = "Poprzedni miesiąc",
         ["Next month"] = "Następny miesiąc",

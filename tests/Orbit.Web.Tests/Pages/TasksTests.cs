@@ -162,9 +162,9 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         Assert.Contains("Overdue", cut.Markup);
-        // All, the four statuses, and "Shared" - which is about where a list came from rather than
-        // how far along it is, but is asked in the same breath.
-        Assert.Equal(6, cut.FindAll(".filter-chip").Count);
+        // All, the four statuses, and the two chips that are about what a list is rather than how far
+        // along it is: where it came from, and whether it gathers other lists.
+        Assert.Equal(7, cut.FindAll(".filter-chip").Count);
     }
 
     [Fact]
@@ -182,6 +182,50 @@ public sealed class TasksTests : OrbitTestContext
 
         Assert.Contains("From Bob", cut.Find(".card-grid").InnerHtml);
         Assert.DoesNotContain("Kitchen", cut.Find(".card-grid").InnerHtml);
+    }
+
+    [Fact]
+    public void The_group_filter_shows_only_the_lists_that_gather_others()
+    {
+        var member = TaskList("Shopping", Item("Milk"));
+        var group = TaskList("Saturday", LinkTo(member)) with { IsGroup = true };
+        RegisterTasksApiClient([group, member]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Group")).Click();
+
+        // One card, and it is the group. Asserted by counting rather than by looking for the member's
+        // title, which legitimately appears inside the group's card as the row that points at it.
+        var card = Assert.Single(cut.FindAll(".task-list-card"));
+        Assert.Contains("Saturday", card.QuerySelector(".card-title")!.TextContent);
+    }
+
+    [Fact]
+    public void A_minimised_card_keeps_its_heading_one_row_and_its_buttons()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls", isCompleted: true), Item("Fit worktop"), Item("Tile"))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Minimise").Click();
+
+        // One row, and the one worth having: what is still to be done. The heading and the buttons stay.
+        var row = Assert.Single(cut.FindAll(".task-preview-row"));
+        Assert.Contains("Fit worktop", row.TextContent);
+        Assert.DoesNotContain("Tile", cut.Find(".card-grid").InnerHtml);
+        Assert.Contains("Kitchen", cut.Find(".card-title").TextContent);
+        Assert.Contains("Open checklist", cut.Find(".card-actions").TextContent);
+    }
+
+    [Fact]
+    public void A_minimised_card_can_be_brought_back()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls"), Item("Fit worktop"))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Minimise").Click();
+
+        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Expand").Click();
+
+        Assert.Equal(2, cut.FindAll(".task-preview-row").Count);
     }
 
     [Fact]
