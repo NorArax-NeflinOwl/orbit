@@ -633,6 +633,15 @@ the shallow level of the list. A deadline with no place still opens the checklis
 nothing on such a page the list does not already show. `Calendar.razor`'s `GoToDueTask` makes that
 choice, from the `HasPlace` flag `DueTaskDto` carries.
 
+**An entry tied to an event is not drawn twice on the day that event is on.** It *is* that event, so a
+deadline row beside it is the same appointment written out a second time, one line under the other. The
+grid leaves it off whenever the event it names is on the same day — asked of the occurrence rather than
+of the date the event is stored under, so a repeat takes its entry off every day it lands on
+(`CalendarGridBuilder.DueTasksOnDate`). It stays on any other day, and it stays when the event is one
+this reader cannot see (deleted, or somebody else's), where nothing on the day stands for it. The side
+panels are left alone: "Events" and "Tasks" are two lists by design, and something that is both belongs
+in each.
+
 The pin comes from whichever source holds the address. An entry tied to a calendar event takes the
 event's stored coordinates directly — the link exists so the address lives in one place. An entry with
 only its own typed address has no coordinates, so it is looked up once through

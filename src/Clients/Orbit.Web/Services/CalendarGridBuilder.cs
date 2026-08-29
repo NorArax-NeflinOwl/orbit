@@ -63,7 +63,9 @@ public static class CalendarGridBuilder
             .ThenBy(slot => slot.EndMinute)
             .ToList();
 
-        return new DayGrid(day, allDayEvents, AssignColumns(timedSlots), PlaceDueTasksOnTimeline(DueTasksOnDate(dueTasks, day)));
+        return new DayGrid(
+            day, allDayEvents, AssignColumns(timedSlots),
+            PlaceDueTasksOnTimeline(DueTasksOnDate(dueTasks, day, eventsOnDay)));
     }
 
     /// <summary>
@@ -92,7 +94,8 @@ public static class CalendarGridBuilder
             .OrderBy(calendarEvent => calendarEvent.Details.IsAllDay)
             .ThenBy(calendarEvent => calendarEvent.Details.StartUtc.LocalDateTime.TimeOfDay)
             .ToList();
-        return new MonthGridDay(date, date.Month == displayedMonth, eventsOnDay, DueTasksOnDate(dueTasks, date));
+        return new MonthGridDay(
+            date, date.Month == displayedMonth, eventsOnDay, DueTasksOnDate(dueTasks, date, eventsOnDay));
     }
 
     /// <summary>Whether details' [StartUtc, EndUtc] range - compared by local calendar date - covers date.</summary>
@@ -103,12 +106,23 @@ public static class CalendarGridBuilder
         return date >= startDate && date <= endDate;
     }
 
-    /// <summary>Every dueTasks entry whose local due date falls on date, ordered by time of day like OccursOnDate does for events.</summary>
-    private static IReadOnlyList<DueTaskDto> DueTasksOnDate(IReadOnlyList<DueTaskDto> dueTasks, DateOnly date)
+    /// <summary>
+    /// Every dueTasks entry whose local due date falls on date, ordered by time of day like OccursOnDate
+    /// does for events - except one that would say the same thing twice. An entry tied to an event is
+    /// that event: drawn on a day the event is already on, it is the same appointment written out a
+    /// second time, one line under the other. It stays on any other day, where nothing stands for it.
+    /// </summary>
+    private static IReadOnlyList<DueTaskDto> DueTasksOnDate(
+        IReadOnlyList<DueTaskDto> dueTasks, DateOnly date, IReadOnlyList<CalendarEventDto> eventsOnDate)
         => dueTasks
             .Where(dueTask => DateOnly.FromDateTime(dueTask.DueDateUtc.LocalDateTime) == date)
+            .Where(dueTask => !IsAlreadyDrawnAsItsEvent(dueTask, eventsOnDate))
             .OrderBy(dueTask => dueTask.DueDateUtc.LocalDateTime.TimeOfDay)
             .ToList();
+
+    private static bool IsAlreadyDrawnAsItsEvent(DueTaskDto dueTask, IReadOnlyList<CalendarEventDto> eventsOnDate)
+        => dueTask.LinkedCalendarEventId is { } eventId
+            && eventsOnDate.Any(calendarEvent => calendarEvent.Id == eventId);
 
     /// <summary>
     /// Places dueTasksSortedByTime onto the day's minute-precision timeline, the same one timed events are
@@ -320,9 +334,13 @@ public sealed record DayGrid(
 /// once: "Milk" says nothing on its own, while "Shopping: Milk" says where it came from - see
 /// <see cref="Label"/>.
 /// </param>
+/// <param name="LinkedCalendarEventId">
+/// The event this entry is the same appointment as, when it is tied to one. Carried so the day it falls
+/// on can leave it out when that event is already drawn there - see <see cref="CalendarGridBuilder"/>.
+/// </param>
 public sealed record DueTaskDto(
     Guid TaskListId, Guid TaskItemId, string TaskListTitle, string Description, DateTimeOffset DueDateUtc,
-    bool IsCompleted, bool HasPlace = false)
+    bool IsCompleted, bool HasPlace = false, Guid? LinkedCalendarEventId = null)
 {
     /// <summary>How the entry reads on the calendar: the list it is on, then what it says.</summary>
     public string Label => TaskListTitle.Length == 0 ? Description : $"{TaskListTitle}: {Description}";
