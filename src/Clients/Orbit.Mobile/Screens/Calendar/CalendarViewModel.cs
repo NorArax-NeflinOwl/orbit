@@ -206,17 +206,25 @@ public sealed partial class CalendarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// A deadline opens the list it sits on. Orbit.Web opens an appointment with a place on a page of
-    /// its own instead; the phone has no such page yet, and the list is where the entry can be ticked
-    /// either way.
+    /// Somewhere to get to opens on its own, with what it is, when it is and where; everything else
+    /// opens the list it sits on, which is where it gets ticked off. Orbit.Web's calendar splits them
+    /// the same way and for the same reason - see CalendarDeadline.IsSomewhere.
     /// </summary>
     [RelayCommand]
     private void OpenDeadline(CalendarDeadline? deadline)
     {
-        if (deadline is not null)
+        if (deadline is null)
         {
-            _navigator.ShowTaskList(deadline.TaskListLocalId);
+            return;
         }
+
+        if (deadline.IsSomewhere)
+        {
+            _navigator.ShowTaskItem(deadline.TaskListLocalId, deadline.ItemId);
+            return;
+        }
+
+        _navigator.ShowTaskList(deadline.TaskListLocalId);
     }
 
     private async Task ShowStoredEventsAsync(CancellationToken cancellationToken)

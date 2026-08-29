@@ -18,6 +18,7 @@ public enum Screen
     Note,
     Tasks,
     TaskList,
+    TaskItem,
     Calendar,
     CalendarEvent,
     Inventory,

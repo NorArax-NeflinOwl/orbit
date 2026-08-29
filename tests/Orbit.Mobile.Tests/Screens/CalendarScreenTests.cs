@@ -196,8 +196,8 @@ public sealed class CalendarScreenTests
     }
 
     /// <summary>
-    /// A deadline opens the list it sits on, which is where it can be ticked - the phone has no page
-    /// for one entry on its own.
+    /// Something to tick off opens the list it sits on, which is where it gets ticked. A checklist is
+    /// the wrong landing for somewhere to get to, which is the other case below.
     /// </summary>
     [Fact]
     public async Task Opening_a_deadline_opens_the_list_it_sits_on()
@@ -209,6 +209,41 @@ public sealed class CalendarScreenTests
         screen.OpenDeadlineCommand.Execute(Assert.Single(screen.Deadlines));
 
         Assert.Equal(listId, context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>
+    /// Somewhere to get to opens on its own, with what it is, when it is and where - the split
+    /// Orbit.Web's calendar makes. The phone sent both to the checklist, which answers "where is it?"
+    /// with a row of text and a tick box.
+    /// </summary>
+    [Fact]
+    public async Task A_deadline_that_is_somewhere_opens_on_its_own()
+    {
+        using var context = new ScreenContext();
+        var listId = await context.AddDeadlineAsync(
+            "Errands", "Collect the parcel", new DateTime(2026, 8, 20, 17, 0, 0), at: "Długa 4, Gdańsk");
+        var screen = await context.OpenAsync();
+
+        screen.OpenDeadlineCommand.Execute(Assert.Single(screen.Deadlines));
+
+        var opened = Assert.NotNull(context.Navigator.LastTaskItem);
+        Assert.Equal(listId, opened.TaskListLocalId);
+    }
+
+    /// <summary>Tied to an event is somewhere too - the event is where the address is kept.</summary>
+    [Fact]
+    public async Task A_deadline_tied_to_an_event_opens_on_its_own_as_well()
+    {
+        using var context = new ScreenContext();
+        var eventId = await context.AddEventAsync("Dentist", new DateTime(2026, 8, 22, 9, 0, 0));
+        // A day apart on purpose: on the event's own day the entry is left off, being the same
+        // appointment already drawn there - see CalendarDeadline.From.
+        await context.AddDeadlineAsync("Errands", "Dentist", new DateTime(2026, 8, 20, 17, 0, 0), tiedTo: eventId);
+        var screen = await context.OpenAsync();
+
+        screen.OpenDeadlineCommand.Execute(Assert.Single(screen.Deadlines));
+
+        Assert.NotNull(context.Navigator.LastTaskItem);
     }
 
     private sealed class ScreenContext : IDisposable
@@ -234,14 +269,15 @@ public sealed class CalendarScreenTests
 
         /// <summary>A task entry falling due, which the calendar shows beside the events.</summary>
         /// <param name="tiedTo">The event this entry is the same appointment as, when it is one.</param>
+        /// <param name="at">Where it happens, for an entry carrying an address of its own.</param>
         public async Task<Guid> AddDeadlineAsync(
-            string listTitle, string description, DateTime localDue, Guid? tiedTo = null)
+            string listTitle, string description, DateTime localDue, Guid? tiedTo = null, string at = "")
         {
             var due = new DateTimeOffset(localDue, TimeZoneInfo.Local.GetUtcOffset(localDue)).ToUniversalTime();
             var created = await _taskLists.CreateAsync(listTitle,
             [
                 new(Guid.NewGuid(), description, due, false, null, "None", false, "None", new TimeOnly(9, 0),
-                    "Checklist", "", tiedTo)
+                    "Checklist", at, tiedTo)
             ]);
 
             return created.LocalId;

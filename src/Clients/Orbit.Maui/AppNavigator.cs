@@ -76,6 +76,9 @@ public sealed class AppNavigator : IScreenNavigator
 	public void ShowTaskList(Guid localId)
 		=> ShowAsRoot<TaskListDetailPage>(Screen.TaskList, page => page.ViewModel.Open(localId));
 
+	public void ShowTaskItem(Guid taskListLocalId, Guid itemId)
+		=> ShowAsRoot<TaskItemSummaryPage>(Screen.TaskItem, page => page.ViewModel.Open(taskListLocalId, itemId));
+
 	public void ShowNote(Guid localId)
 		=> ShowAsRoot<NoteDetailPage>(Screen.Note, page => page.ViewModel.Open(localId));
 

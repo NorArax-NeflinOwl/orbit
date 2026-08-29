@@ -42,6 +42,13 @@ public interface IScreenNavigator
 
     void ShowTaskList(Guid localId);
 
+    /// <summary>
+    /// One entry on its own, opened from the calendar when it is somewhere as well as at some time -
+    /// see TaskItemSummaryViewModel. Carries the list too, because that is what the phone stores an
+    /// entry inside.
+    /// </summary>
+    void ShowTaskItem(Guid taskListLocalId, Guid itemId);
+
     void ShowCalendar();
 
     /// <summary>One event, opened from the calendar - see CalendarEventDetailViewModel.</summary>

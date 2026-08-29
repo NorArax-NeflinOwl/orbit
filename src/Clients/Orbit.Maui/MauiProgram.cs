@@ -84,6 +84,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton(diagnosticVerbosity);
 		builder.Logging.AddProvider(new DiagnosticLogProvider(diagnosticLog, diagnosticVerbosity));
 
+
 		var app = builder.Build();
 		LocalDatabase.Migrate(app.Services);
 		return app;
@@ -291,6 +292,8 @@ public static class MauiProgram
 		services.AddTransient<TasksViewModel>();
 		services.AddTransient<TaskListDetailPage>();
 		services.AddTransient<TaskListDetailViewModel>();
+		services.AddTransient<TaskItemSummaryPage>();
+		services.AddTransient<TaskItemSummaryViewModel>();
 		services.AddTransient<CalendarPage>();
 		services.AddTransient<CalendarViewModel>();
 		services.AddTransient<MapPage>();
