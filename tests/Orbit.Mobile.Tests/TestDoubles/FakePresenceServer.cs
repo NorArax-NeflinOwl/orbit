@@ -9,6 +9,12 @@ internal sealed class FakePresenceServer : HttpMessageHandler
 {
     public bool IsUnreachable { get; set; }
 
+    /// <summary>
+    /// Refuses to record an availability while leaving the heartbeats alone - a request that arrived
+    /// and was turned down, as opposed to one that never got there.
+    /// </summary>
+    public bool RefusesAvailability { get; set; }
+
     /// <summary>What this account last said it wanted to be, or null if it never said.</summary>
     public string? Availability { get; private set; }
 
@@ -31,6 +37,11 @@ internal sealed class FakePresenceServer : HttpMessageHandler
         {
             HeartbeatCount++;
             return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        if (RefusesAvailability)
+        {
+            return new HttpResponseMessage(HttpStatusCode.InternalServerError);
         }
 
         Availability = (await request.Content!.ReadFromJsonAsync<SetAvailabilityRequest>(cancellationToken))!.Availability;

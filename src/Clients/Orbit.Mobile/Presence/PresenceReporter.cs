@@ -29,15 +29,28 @@ public sealed class PresenceReporter : IDisposable
     private readonly SessionStore _sessionStore;
     private readonly ILogger<PresenceReporter> _logger;
 
+    /// <summary>Drives the heartbeat, so a test can let twenty seconds pass without waiting for them.</summary>
+    private readonly TimeProvider _timeProvider;
+
     private CancellationTokenSource? _beating;
 
+    /// <summary>
+    /// Set when a choice could not be got through, and cleared once one is. Without it a "do not
+    /// disturb" refused by a moment's bad signal was lost for good: the phone kept showing it, the
+    /// server never heard of it, and everybody else went on seeing this account as available. The
+    /// heartbeat is already a tick, so it carries the retry rather than a timer of its own.
+    /// </summary>
+    private bool _serverHasNotBeenTold;
+
     public PresenceReporter(
-        Presence presence, UsersClient usersClient, SessionStore sessionStore, ILogger<PresenceReporter> logger)
+        Presence presence, UsersClient usersClient, SessionStore sessionStore, ILogger<PresenceReporter> logger,
+        TimeProvider timeProvider)
     {
         _presence = presence;
         _usersClient = usersClient;
         _sessionStore = sessionStore;
         _logger = logger;
+        _timeProvider = timeProvider;
         _presence.ChosenChanged += OnChosenChanged;
     }
 
@@ -86,25 +99,34 @@ public sealed class PresenceReporter : IDisposable
 
         try
         {
-            await _usersClient.SetAvailabilityAsync(availability.ToString());
+            // A refusal counts as not told, the same as no connection at all: what matters here is
+            // whether the server now knows, not why it does not.
+            _serverHasNotBeenTold = !await _usersClient.SetAvailabilityAsync(availability.ToString());
         }
         catch (HttpRequestException exception)
         {
-            // Not worth telling anybody: the choice is already kept on the phone, and the next
-            // heartbeat carries no availability anyway - the reader can set it again if it mattered.
+            _serverHasNotBeenTold = true;
             _logger.LogInformation("Could not report the chosen availability ({Reason})", exception.Message);
         }
     }
 
     private async Task BeatAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(HeartbeatInterval);
+        using var timer = new PeriodicTimer(HeartbeatInterval, _timeProvider);
         try
         {
             do
             {
                 if (await _sessionStore.GetAsync() is not null)
                 {
+                    // The choice first, when one is still owed: a heartbeat says this account is here,
+                    // and saying so while the server still believes it is available is the state this
+                    // is meant to get out of.
+                    if (_serverHasNotBeenTold)
+                    {
+                        await ReportChoiceAsync();
+                    }
+
                     await _usersClient.SendPresenceHeartbeatAsync(cancellationToken);
                 }
             }

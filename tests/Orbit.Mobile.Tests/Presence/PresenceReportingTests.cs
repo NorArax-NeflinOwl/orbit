@@ -75,9 +75,80 @@ public sealed class PresenceReportingTests
         Assert.Null(context.Server.Availability);
     }
 
+    /// <summary>
+    /// A refused choice used to be lost for good: the phone kept showing "do not disturb", the server
+    /// never heard of it, and everybody else went on seeing this account as available. The heartbeat is
+    /// already a tick, so it carries the retry.
+    /// </summary>
+    [Fact]
+    public async Task A_choice_the_server_turned_down_goes_out_with_the_next_heartbeat()
+    {
+        using var context = new ReportingContext();
+        context.Server.RefusesAvailability = true;
+        using var reporter = context.Reporter();
+        reporter.Start();
+
+        context.Presence.Choose(ChosenAvailability.Unavailable);
+        await context.SettleAsync();
+        Assert.Null(context.Server.Availability);
+
+        context.Server.RefusesAvailability = false;
+        await context.BeatAsync();
+
+        Assert.Equal(nameof(PresenceAvailability.DoNotDisturb), context.Server.Availability);
+    }
+
+    /// <summary>
+    /// With no connection at all the heartbeat stops rather than asking every twenty seconds (see
+    /// PresenceReporter.BeatAsync), so the retry waits for whatever starts it again - a resume, a
+    /// sign-in - instead of being dropped there.
+    /// </summary>
+    [Fact]
+    public async Task A_choice_lost_to_no_connection_goes_out_when_reporting_starts_again()
+    {
+        using var context = new ReportingContext();
+        context.Server.IsUnreachable = true;
+        using var reporter = context.Reporter();
+        reporter.Start();
+
+        context.Presence.Choose(ChosenAvailability.Unavailable);
+        await context.SettleAsync();
+        Assert.Null(context.Server.Availability);
+
+        context.Server.IsUnreachable = false;
+        reporter.Stop();
+        reporter.Start();
+        await context.SettleAsync();
+
+        Assert.Equal(nameof(PresenceAvailability.DoNotDisturb), context.Server.Availability);
+    }
+
+    /// <summary>
+    /// A choice the server took needs no second telling - a heartbeat that re-sent it every twenty
+    /// seconds would be saying something nobody asked for.
+    /// </summary>
+    [Fact]
+    public async Task A_choice_the_server_took_is_not_sent_again()
+    {
+        using var context = new ReportingContext();
+        using var reporter = context.Reporter();
+        reporter.Start();
+
+        context.Presence.Choose(ChosenAvailability.Unavailable);
+        await context.SettleAsync();
+        var afterTheChoice = context.Server.RequestCount;
+
+        await context.BeatAsync();
+
+        // The heartbeat itself, and nothing else.
+        Assert.Equal(afterTheChoice + 1, context.Server.RequestCount);
+    }
+
     private sealed class ReportingContext : IDisposable
     {
         private readonly SessionStore _sessionStore;
+
+        private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-27T10:00:00Z"));
 
         public ReportingContext(bool signedIn = true)
         {
@@ -86,8 +157,7 @@ public sealed class PresenceReportingTests
                 : null));
 
             Presence = new Orbit.Mobile.Presence.Presence(
-                FixedNetworkStatus.Online, new InMemoryPresenceStore(),
-                new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T10:00:00Z")));
+                FixedNetworkStatus.Online, new InMemoryPresenceStore(), _clock);
         }
 
         public FakePresenceServer Server { get; } = new();
@@ -96,7 +166,26 @@ public sealed class PresenceReportingTests
 
         public PresenceReporter Reporter()
             => new(Presence, new UsersClient(Server.ToHttpClient()), _sessionStore,
-                NullLogger<PresenceReporter>.Instance);
+                NullLogger<PresenceReporter>.Instance, _clock);
+
+        /// <summary>
+        /// Lets one heartbeat fall due and waits for what it sends. The timer runs on this clock, so
+        /// the twenty seconds cost nothing.
+        /// </summary>
+        public async Task BeatAsync()
+        {
+            var alreadySeen = Server.RequestCount;
+            _clock.Advance(TimeSpan.FromSeconds(21));
+
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            while (Server.RequestCount == alreadySeen && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(10);
+            }
+
+            // The heartbeat may follow the re-sent choice a moment later; both belong to this beat.
+            await Task.Delay(50);
+        }
 
         /// <summary>
         /// Reporting a choice is started without being awaited - the reader's tap must not wait on a
