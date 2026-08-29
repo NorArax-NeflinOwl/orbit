@@ -43,11 +43,15 @@
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
                             <!-- Label first, count second: Polish declines the noun after a number, so
-                                 "{0} members" cannot be translated into one correct form. -->
+                                 "{0} members" cannot be translated into one correct form.
+
+                                 "People" rather than "Members": that word is the heading of the roster
+                                 on the web, where it is "Członkowie" - which is the wrong form to put a
+                                 number after. One English string cannot be both. -->
                             <Label FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
                                 <Label.FormattedText>
                                     <FormattedString>
-                                        <Span Text="{controls:Translate 'Members'}" />
+                                        <Span Text="{controls:Translate 'People'}" />
                                         <Span Text=": " />
                                         <Span Text="{Binding Members.Count}" />
                                     </FormattedString>

@@ -52,13 +52,29 @@ with [bUnit](https://bunit.dev). Also the shared controls several screens reuse 
 `OverflowMenu`, `FeatureLocked`, `PresenceDot`, `LocationPickerOverlay`) and the device-local services
 behind them (`PresenceService`, `AccentColorService`, `InventoryUnitOption`).
 
-**The Polish dictionary is checked as a whole**, which is the only way two of its failure modes can be
-found at all: a duplicate key throws from the dictionary initializer — at type-init, so the app dies the
-moment somebody switches to Polish, on a page that has nothing to do with the duplicate — and a value
-referring to a placeholder its English does not supply throws when that line is written. Neither is
-reachable through the public indexer, which can only be asked about keys a test already knows, so
-`Orbit.Web` makes its internals visible to this project for that one purpose. Fewer placeholders than
-the English is allowed and deliberate: Polish plurals do not map onto an English "list"/"lists".
+**The Polish dictionary is checked as a whole**, which is the only way some of its failure modes can be
+found at all.
+
+A key written twice is the quiet one, and the check for it **reads the source file** rather than the
+built dictionary. The dictionary is written with indexer initialisers, which *overwrite* rather than
+throw, so the second entry simply wins and the first leaves no trace anywhere in memory — nothing an
+assertion about `ByEnglish` could ever see. Ten pairs had accumulated before anybody looked, four with
+different Polish on each side; a group's roster was headed with the word meant for counting people.
+Reading source off disk follows what `Orbit.Mobile.Tests`' own translation sweep already does, and like
+that sweep it is guarded by a test that the file was found at all — otherwise a moved file would let the
+check pass by finding nothing. (`Orbit.Web` no longer grants this project access to its internals: that
+grant existed only for this dictionary, which is public since it moved to `Orbit.Localization` for the
+phone clients to share.)
+
+**One English string means one thing.** Where two screens genuinely need different Polish for the same
+English word, the answer is a second English key, not a second entry: the phone's sync row says
+`No connection` ("Bez połączenia") rather than `Offline` ("Niedostępny", which is about a person), and
+its group count says `People` ("Osób") rather than `Members` ("Członkowie", which is the roster heading
+and the wrong form to put a number after).
+
+Separately, a value referring to a placeholder its English does not supply throws when that line is
+written, and every entry is formatted once to prove it cannot. Fewer placeholders than the English is
+allowed and deliberate: Polish plurals do not map onto an English "list"/"lists".
 
 ### What the deploy pipeline checks
 
