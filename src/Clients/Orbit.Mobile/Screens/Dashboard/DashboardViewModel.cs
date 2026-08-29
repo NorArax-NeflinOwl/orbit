@@ -290,7 +290,11 @@ public sealed partial class DashboardViewModel : ObservableObject
             .OrderByDescending(list => list.IsPinned)
             .ThenByDescending(list => list.UpdatedAtUtc)
             .Take(RowsPerCard)
-            .Select(list => new DashboardRow(list.LocalId, TitleOrPlaceholder(list.Title, _translations["Untitled list"]), DescribeProgress(list)))
+            .Select(list => new DashboardRow(
+                list.LocalId, TitleOrPlaceholder(list.Title, _translations["Untitled list"]), DescribeProgress(list))
+            {
+                Progress = ProgressOf(list)
+            })
             .ToList();
 
     /// <summary>
@@ -342,6 +346,15 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Take(RowsPerCard)
             .Select(group => new DashboardRow(group.Id, group.Name, string.Empty))
             .ToList();
+
+    /// <summary>
+    /// Null for a list with no entries, which is what keeps the bar off a row that could never fill it -
+    /// the same condition Orbit.Web draws its own on.
+    /// </summary>
+    private static double? ProgressOf(LocalTaskList list)
+        => list.Items.Count == 0
+            ? null
+            : (double)list.Items.Count(item => item.IsCompleted) / list.Items.Count;
 
     private string DescribeProgress(LocalTaskList list)
     {

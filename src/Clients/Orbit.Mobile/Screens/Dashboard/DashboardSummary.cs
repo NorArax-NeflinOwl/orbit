@@ -27,6 +27,16 @@ public sealed record DashboardRow(Guid LocalId, string Title, string Detail)
     /// true for all but the first, which is how Orbit.Web's .list-row rules its own list.
     /// </summary>
     public bool ShowsSeparator { get; init; }
+
+    /// <summary>
+    /// How far through a task list is, from none to all of it, or null for a row that is not one - a
+    /// note has nothing to be part-way through. Orbit.Web draws the same bar on the same rows, beside
+    /// the same "done of total" (see its .progress-track), and only where the list has entries: an empty
+    /// one would show a bar that could never move.
+    /// </summary>
+    public double? Progress { get; init; }
+
+    public bool HasProgress => Progress is not null;
 }
 
 /// <summary>

@@ -331,9 +331,13 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Two initials at most, from the first and last word of the display name. Falls back to the first
-    /// letter for a one-word name, and to nothing at all rather than a placeholder glyph for an empty
-    /// one - an avatar reading "?" looks like a fault rather than an unnamed account.
+    /// Two initials at most, worked out the way Orbit.Web works them out - see its AvatarHelper. The same
+    /// person has to read the same on both, and the avatar is on every screen, so a rule of its own here
+    /// showed up everywhere: a one-word name came out a single letter on the phone and two letters in the
+    /// browser, and a three-word name took a different second letter.
+    ///
+    /// The one deliberate difference is an empty name, which the web renders as "?" and this leaves
+    /// blank: an avatar reading "?" looks like a fault rather than an unnamed account.
     /// </summary>
     private static string InitialsOf(string? displayName)
     {
@@ -343,8 +347,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         return words switch
         {
             [] => string.Empty,
-            [var only] => only[..1].ToUpperInvariant(),
-            [var first, .., var last] => $"{first[..1]}{last[..1]}".ToUpperInvariant()
+            [var only] => (only.Length >= 2 ? only[..2] : only[..1]).ToUpperInvariant(),
+            [var first, var second, ..] => $"{first[..1]}{second[..1]}".ToUpperInvariant()
         };
     }
 

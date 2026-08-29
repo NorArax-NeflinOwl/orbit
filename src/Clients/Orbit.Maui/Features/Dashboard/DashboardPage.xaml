@@ -85,9 +85,9 @@
                                     <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Rows}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="screens:DashboardRow">
-                                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto"
+                                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto"
                                                       Padding="0,8" ColumnSpacing="8">
-                                                    <BoxView Grid.Row="0" Grid.ColumnSpan="2" HeightRequest="1"
+                                                    <BoxView Grid.Row="0" Grid.ColumnSpan="3" HeightRequest="1"
                                                              Margin="0,-8,0,8" IsVisible="{Binding ShowsSeparator}"
                                                              Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
                                                     <Grid.GestureRecognizers>
@@ -97,7 +97,17 @@
                                                     </Grid.GestureRecognizers>
                                                     <Label Grid.Row="1" Grid.Column="0" Text="{Binding Title}" FontSize="15"
                                                            LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                                                    <Label Grid.Row="1" Grid.Column="1" Text="{Binding Detail}" FontSize="12"
+                                                    <!-- How far through a task list is, beside the "done
+                                                         of total" it belongs to - the same pairing
+                                                         Orbit.Web puts on the same rows. Only a list
+                                                         with entries has one; everything else leaves
+                                                         the space to the title. -->
+                                                    <ProgressBar Grid.Row="1" Grid.Column="1"
+                                                                 IsVisible="{Binding HasProgress}"
+                                                                 Progress="{Binding Progress}"
+                                                                 WidthRequest="64" VerticalOptions="Center"
+                                                                 ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                                    <Label Grid.Row="1" Grid.Column="2" Text="{Binding Detail}" FontSize="12"
                                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" VerticalOptions="Center" />
                                                 </Grid>
                                             </DataTemplate>
