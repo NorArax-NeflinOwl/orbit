@@ -123,7 +123,8 @@ public sealed class NoteSynchronizer
         }
 
         note.ServerId = await _notesClient.CreateAsync(
-            new CreateNoteRequest(note.Title, note.Content, note.IsPrivate), cancellationToken);
+            new CreateNoteRequest(note.Title, note.Content, note.IsPrivate, Priority: note.Priority),
+            cancellationToken);
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
     }
@@ -137,7 +138,11 @@ public sealed class NoteSynchronizer
         }
 
         var outcome = await _notesClient.UpdateAsync(
-            serverId, new UpdateNoteRequest(note.Title, note.Content, note.IsPrivate), cancellationToken);
+            serverId,
+            // The priority travels with every save, because a save writes the whole note: left out, it
+            // answered "Normal" and took the reader's own answer with it - see LocalNote.Priority.
+            new UpdateNoteRequest(note.Title, note.Content, note.IsPrivate, Priority: note.Priority),
+            cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
         {
@@ -220,6 +225,7 @@ public sealed class NoteSynchronizer
         note.AccessLevel = incoming.AccessLevel;
         note.OwnerUserId = incoming.OriginalOwnerUserId;
         note.IsPinned = incoming.IsPinned;
+        note.Priority = incoming.Priority;
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
     }
 }

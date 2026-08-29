@@ -32,6 +32,47 @@ public sealed class NoteSynchronizerTests
         Assert.Contains(context.Server.Notes, note => note.Title == "Groceries");
     }
 
+    /// <summary>
+    /// A save writes the whole note, so anything the phone does not send is answered for it. The
+    /// priority was not sent and not even held: every edit made here told the server "Normal", so a
+    /// note somebody had marked High quietly dropped back the next time it was touched from a phone -
+    /// the mistake TaskList.Update's own comment records, done to notes on every single edit.
+    /// </summary>
+    [Fact]
+    public async Task Editing_a_note_here_leaves_how_much_it_matters_alone()
+    {
+        using var context = new SyncContext();
+        var note = await context.Notes.CreateAsync("Groceries", SomeContent);
+        await context.SynchroniseAsync();
+        await MarkAsync(context, note.LocalId, "High");
+
+        await context.Notes.UpdateAsync(note.LocalId, new NoteContent("Groceries and bread", SomeContent, "High"));
+        await context.SynchroniseAsync();
+
+        Assert.Equal("High", context.Server.Notes.Single().Priority);
+    }
+
+    /// <summary>What the server says it is, is what the phone holds - or the picker opens on the wrong one.</summary>
+    [Fact]
+    public async Task How_much_a_note_matters_comes_back_down_with_it()
+    {
+        using var context = new SyncContext();
+        var onTheServer = context.Server.AddNote("Shared with me");
+        context.Server.ReplaceForTest(onTheServer with { Priority = "Low" });
+
+        await context.SynchroniseAsync();
+
+        Assert.Equal("Low", (await context.DbContext.Notes.SingleAsync()).Priority);
+    }
+
+    /// <summary>Writes a priority straight into the phone's own row, as choosing one on the screen does.</summary>
+    private static async Task MarkAsync(SyncContext context, Guid localId, string priority)
+    {
+        var note = await context.DbContext.Notes.SingleAsync(candidate => candidate.LocalId == localId);
+        note.Priority = priority;
+        await context.DbContext.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task The_note_keeps_one_identity_across_the_boundary()
     {
@@ -54,7 +95,7 @@ public sealed class NoteSynchronizerTests
         await context.SynchroniseAsync();
 
         context.GoOffline();
-        await context.Notes.UpdateAsync(note.LocalId, "Groceries and bread", SomeContent);
+        await context.Notes.UpdateAsync(note.LocalId, new NoteContent("Groceries and bread", SomeContent, "Normal"));
         context.ComeBackOnline();
         await context.SynchroniseAsync();
 
@@ -68,7 +109,7 @@ public sealed class NoteSynchronizerTests
         using var context = new SyncContext();
         context.GoOffline();
         var note = await context.Notes.CreateAsync("Draft", SomeContent);
-        await context.Notes.UpdateAsync(note.LocalId, "Finished", SomeContent);
+        await context.Notes.UpdateAsync(note.LocalId, new NoteContent("Finished", SomeContent, "Normal"));
 
         context.ComeBackOnline();
         await context.SynchroniseAsync();
@@ -180,7 +221,7 @@ public sealed class NoteSynchronizerTests
         await context.SynchroniseAsync();
 
         context.GoOffline();
-        await context.Notes.UpdateAsync(note.LocalId, "Edited on the phone", SomeContent);
+        await context.Notes.UpdateAsync(note.LocalId, new NoteContent("Edited on the phone", SomeContent, "Normal"));
 
         // The network comes back only for the pull - the send still fails.
         context.Server.ForcedFailure = System.Net.HttpStatusCode.InternalServerError;
