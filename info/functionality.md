@@ -264,6 +264,15 @@ it is with a small mark, one search box filters both, and "New group" sits under
 a page header. Looking for "who have I been talking to" is one place, and moving between a group and a
 person does not change screens.
 
+The list folds to a strip of initials, and **the folding is done by the stylesheet alone** — the names,
+the search box and "New group" always reach the page. That matters because on a narrow screen the list
+is not an inline panel at all but a slide-out drawer, where folding means nothing: the drawer is either
+open or off-canvas. Markup that dropped the names when folded could not be talked back into showing
+them however much CSS asked, so the drawer opened as a wide panel of bare initials with no search and
+nobody's name on it. The rules that fold it now sit behind a `min-width` query, so the drawer needs
+nothing to undo them, and the fold button is hidden there — the drawer is opened and closed from the
+thread header instead.
+
 Groups are not a screen of their own either. `Chat.razor` answers `/chat/groups` and
 `/chat/groups/{id}` alongside `/chat/{userId}`, so a group opens in the same shell a person does — same
 list down the side, same header, same thread — and `GroupConversation` (a component, not a page) draws
