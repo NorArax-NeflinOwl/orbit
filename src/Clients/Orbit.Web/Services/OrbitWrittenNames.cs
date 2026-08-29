@@ -28,7 +28,7 @@ public static class OrbitWrittenNames
 
         if (name.StartsWith(RestockTaskNaming.EntryPrefix, StringComparison.Ordinal))
         {
-            return translations["Restock:"] + " " + name[RestockTaskNaming.EntryPrefix.Length..];
+            return translations["Restock:"] + " " + TranslateUnit(translations, name[RestockTaskNaming.EntryPrefix.Length..]);
         }
 
         if (name.StartsWith(RestockTaskNaming.ListTitlePrefix, StringComparison.Ordinal))
@@ -37,5 +37,31 @@ public static class OrbitWrittenNames
         }
 
         return name;
+    }
+
+    /// <summary>
+    /// The unit at the end of an errand Orbit wrote - "Flour (5 kg)" - said in the reader's language.
+    /// Only a trailing "(number unit)" whose unit is one Orbit itself writes is touched, so a product
+    /// somebody named "Flour (organic)" comes back exactly as they typed it.
+    /// </summary>
+    private static string TranslateUnit(Translations translations, string entry)
+    {
+        var openingBracket = entry.LastIndexOf(" (", StringComparison.Ordinal);
+        if (!entry.EndsWith(')') || openingBracket < 0)
+        {
+            return entry;
+        }
+
+        var inBrackets = entry[(openingBracket + 2)..^1];
+        var lastSpace = inBrackets.LastIndexOf(' ');
+        if (lastSpace < 0)
+        {
+            return entry;
+        }
+
+        var shortForm = inBrackets[(lastSpace + 1)..];
+        return InventoryUnitShortForm.Read(shortForm) is null
+            ? entry
+            : $"{entry[..(openingBracket + 2)]}{inBrackets[..lastSpace]} {translations[shortForm]})";
     }
 }

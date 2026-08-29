@@ -31,6 +31,27 @@ public sealed class OrbitWrittenNamesTests
         Assert.Equal("Uzupełnij: Mąka (5)", OrbitWrittenNames.Translate(InPolish(), "Restock: Mąka (5)"));
     }
 
+
+    [Fact]
+    public void The_unit_an_errand_carries_is_said_in_Polish_too()
+    {
+        Assert.Equal("Uzupełnij: Mleko (2 opak.)", OrbitWrittenNames.Translate(InPolish(), "Restock: Mleko (2 pack)"));
+    }
+
+    [Fact]
+    public void A_unit_that_reads_the_same_in_both_is_left_as_it_is()
+    {
+        Assert.Equal("Uzupełnij: Mąka (5 kg)", OrbitWrittenNames.Translate(InPolish(), "Restock: Mąka (5 kg)"));
+    }
+
+    [Fact]
+    public void A_product_whose_own_name_ends_in_brackets_is_not_mistaken_for_a_unit()
+    {
+        // Nothing here is a unit Orbit writes, so the whole tail is somebody's own words.
+        Assert.Equal(
+            "Uzupełnij: Mąka (typ 500)",
+            OrbitWrittenNames.Translate(InPolish(), "Restock: Mąka (typ 500)"));
+    }
     [Fact]
     public void The_standing_reminder_is_translated_too()
     {

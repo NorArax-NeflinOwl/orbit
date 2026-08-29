@@ -714,8 +714,14 @@ list (`InventoryUnit`): `Piece`, `Kilogram`, `Milligram`, `Litre`, `Millilitre`,
 "szt." typed three ways would leave a shelf that looks stocked and a restock task nobody understands.
 An item that says nothing is counted in pieces, which is also what every item stocked before units
 existed became. The editor writes the short form beside the amount (`kg`, `ml`, `pcs`) and keeps the
-full name in each option's tooltip — see `InventoryUnitOption` for both, and the restock errand's own
-text still carries only the number (`RestockTaskNaming`).
+full name in each option's tooltip, and a restock errand carries it too - "Restock: Flour (5 kg)"
+(`RestockTaskNaming.EntryFor`). Pieces are left off there, since "(5)" of a thing already means five of
+them, and an errand raised from a checklist carries no unit at all: repetition is the quantity on a
+checklist (`StockRequirementCounter`), so its number counts lines rather than an amount of anything.
+The short forms live in Core (`InventoryUnitShortForm`) because both sides need the same list - the
+server writes them into an errand, and the client reads them back to say them in the reader's language
+(`OrbitWrittenNames`), which only touches a trailing "(number unit)" whose unit is one Orbit itself
+wrote.
 
 **A full shelf can be narrowed down.** The warehouse editor offers a product-type and a category filter,
 each listing only values something is actually filed under, so neither can be set to a dead end. This is

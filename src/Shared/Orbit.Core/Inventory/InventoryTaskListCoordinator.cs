@@ -139,7 +139,7 @@ public sealed class InventoryTaskListCoordinator
         }
 
         var restockItem = TaskItem.Create(
-            RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity), dueDateUtc: null, isCompleted: false);
+            RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity, item.Unit), dueDateUtc: null, isCompleted: false);
         taskList.Update(
             taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate,
             taskList.EncryptedContent, taskList.Priority);
@@ -188,7 +188,7 @@ public sealed class InventoryTaskListCoordinator
         var added = needs
             .Where(need => alreadyWaiting.Add(need.ProductName.Trim()))
             .Select(need => TaskItem.Create(
-                RestockTaskNaming.EntryFor(need.ProductName, need.Quantity), dueDateUtc: null, isCompleted: false))
+                RestockTaskNaming.EntryFor(need.ProductName, need.Quantity, unit: null), dueDateUtc: null, isCompleted: false))
             .ToList();
         if (added.Count == 0)
         {
@@ -220,5 +220,9 @@ public sealed class InventoryTaskListCoordinator
     }
 }
 
-/// <summary>One thing to bring back, and how many of it - see RestockTaskNaming.EntryFor.</summary>
+/// <summary>
+/// One thing to bring back, and how many of it - see RestockTaskNaming.EntryFor. No unit, deliberately:
+/// this is counted off a checklist, where repetition is the quantity (see StockRequirementCounter), so
+/// the number is a count of lines rather than an amount of anything measurable.
+/// </summary>
 public sealed record RestockNeed(string ProductName, decimal? Quantity);
