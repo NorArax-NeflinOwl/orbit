@@ -544,6 +544,16 @@ rewrite an address somebody typed. The map opens where the box already points, w
 found (`GeocodingApiClient.FindPlaceAsync`). Only the address is stored; the item keeps no coordinates,
 which is why the pin has to become words before it is worth anything.
 
+**A place can be named as well as pointed at.** The overlay carries an address search
+(`GeocodingApiClient.SearchPlacesAsync`), which is the way that works when somebody knows the address
+but not where it is on a map. It offers every match rather than the best one — street names repeat, and
+"Długa 4" is a real address in a dozen towns, so quietly taking the first would drop a pin in whichever
+of them Nominatim happened to rank first. Picking one moves the pin there (`mapPicker.js`'s
+`moveMarker`) and asks the same "Use this place?" question a clicked pin asks, so there is one way to
+save and not two. A single match is taken straight away: confirming the only answer twice — once as a
+row, once as the question — is asking the same thing twice. The address saved is the one that was
+picked, not a second lookup of it, which could answer differently.
+
 In the Blazor client, each item's due date and time are edited separately (`DateField` plus `TimeField`)
 and combined into one timestamp on save; a date picked without a time is stored as midnight. Both are
 Orbit's own boxes rather than the browser's `<input type="date">`/`<input type="time">`, which draw

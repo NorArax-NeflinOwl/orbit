@@ -4018,3 +4018,32 @@ input.note-editor-title {
     color: var(--text-secondary);
     font-size: 13px;
 }
+
+/* Naming a place instead of pointing at it - see LocationPickerOverlay. */
+.map-overlay-search {
+    display: flex;
+    gap: 8px;
+}
+
+.map-overlay-search-box {
+    flex: 1;
+    min-width: 0;
+}
+
+/* The matches an address search came back with. Scrolls rather than growing: five full addresses would
+   otherwise push the map itself off the bottom of the panel. */
+.map-overlay-matches {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 132px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+}
+
+.map-overlay-match {
+    text-align: left;
+    white-space: normal;
+}
