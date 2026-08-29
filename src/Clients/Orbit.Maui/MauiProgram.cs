@@ -141,6 +141,9 @@ public static class MauiProgram
 		// One instance: the navigation bar, the screens it leads to and the account screen all have to
 		// agree about what this account may use, and only one page is ever on screen.
 		services.AddSingleton<UserPermissions>();
+		// One answer for the app, like the permissions above: the map and the calendar both ask whether
+		// this account may hand something off to Google, and neither should cost its own round trip.
+		services.AddSingleton<Orbit.Mobile.Google.GoogleIntegrationAccess>();
 		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
 		services.AddSingleton<PresenceReporter>();
 		// One gate for the whole app: unlocking private things on one screen unlocks them everywhere,

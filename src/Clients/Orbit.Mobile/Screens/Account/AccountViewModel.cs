@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Data;
 using System.Collections.ObjectModel;
 using Orbit.Core.Permissions;
 using Orbit.Mobile.Localization;
@@ -29,6 +30,7 @@ public sealed partial class AccountViewModel : ObservableObject
     private readonly UserPermissions _permissions;
     private readonly IThemeStore _themes;
     private readonly TransferClient _transfer;
+    private readonly LocalStoreReset _localStore;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -48,6 +50,37 @@ public sealed partial class AccountViewModel : ObservableObject
 
     [ObservableProperty]
     private string _newPassword = string.Empty;
+
+    /// <summary>
+    /// Confirms the deletion below. Kept apart from <see cref="CurrentPassword"/> deliberately: typing a
+    /// password into the change-password box and then pressing a delete button that silently reused it
+    /// is the one mistake this screen must not make possible.
+    /// </summary>
+    [ObservableProperty]
+    private string _deleteAccountPassword = string.Empty;
+
+    /// <summary>The address the account signs in with today, which the form below changes.</summary>
+    [ObservableProperty]
+    private string _emailAddress = string.Empty;
+
+    [ObservableProperty]
+    private bool _isEmailVerified;
+
+    /// <summary>
+    /// Whether deleting needs the password. False for a Google account that never set one - being signed
+    /// in is the proof there, and DeleteAccountCommandHandler says so on the server. True until the
+    /// account has actually been read: asking for a password that turns out not to be needed is a
+    /// nuisance, while not asking when it is needed looks like the deletion silently failed.
+    /// </summary>
+    [ObservableProperty]
+    private bool _requiresPasswordToDelete = true;
+
+    /// <summary>
+    /// "Verified" or "Not verified" - the same pair Orbit.Web shows beside the address. One label whose
+    /// text changes rather than two that take turns being hidden.
+    /// </summary>
+    public string EmailVerificationLabel
+        => _translations[IsEmailVerified ? "Verified" : "Not verified"];
 
     [ObservableProperty]
     private string _message = string.Empty;
@@ -71,7 +104,7 @@ public sealed partial class AccountViewModel : ObservableObject
     public AccountViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
-        UserPermissions permissions, IThemeStore themes, TransferClient transfer,
+        UserPermissions permissions, IThemeStore themes, TransferClient transfer, LocalStoreReset localStore,
         Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator)
     {
         _accountClient = accountClient;
@@ -83,6 +116,7 @@ public sealed partial class AccountViewModel : ObservableObject
         _permissions = permissions;
         _themes = themes;
         _transfer = transfer;
+        _localStore = localStore;
         _theme = themes.Read();
         Notifications = notifications;
         _navigator = navigator;
@@ -230,12 +264,44 @@ public sealed partial class AccountViewModel : ObservableObject
             DisplayName = session.DisplayName;
         }
 
+        await ShowAccountAsync();
+
         OnPropertyChanged(nameof(IsOnline));
         OnPropertyChanged(nameof(IsOffline));
 
         await _permissions.EnsureLoadedAsync();
         ShowPermissions();
         await Notifications.LoadCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>
+    /// Who this account actually is, as the server holds it: the username and address the forms below
+    /// change, whether the address has been confirmed, and whether there is a password to prove before
+    /// deleting. Read rather than taken from the session, which carries only what signing in needed and
+    /// goes stale the moment any of it is changed on another device.
+    ///
+    /// Best-effort on purpose. Offline the screen still opens, showing what the session knows - the
+    /// alternative is a settings screen that refuses to appear because a request failed.
+    /// </summary>
+    private async Task ShowAccountAsync()
+    {
+        try
+        {
+            if (await _accountClient.GetAccountAsync() is not { } account)
+            {
+                return;
+            }
+
+            UserName = account.UserName;
+            DisplayName = account.DisplayName;
+            EmailAddress = account.Email;
+            IsEmailVerified = account.IsEmailVerified;
+            RequiresPasswordToDelete = account.HasPassword;
+        }
+        catch (HttpRequestException)
+        {
+            // Offline, or the request failed. What the session knows is still on screen.
+        }
     }
 
     /// <summary>
@@ -369,6 +435,47 @@ public sealed partial class AccountViewModel : ObservableObject
     [RelayCommand]
     private void GoToChatKey() => _navigator.ShowChatKeyGate();
 
+    /// <summary>
+    /// Deletes the account, then leaves this device holding nothing of it.
+    ///
+    /// The order is the point: the local database is emptied only once the server has agreed. A wrong
+    /// password or a lost connection has to leave the phone exactly as it was, because the account it
+    /// still belongs to is still there.
+    ///
+    /// Whether the server agreed is tracked here rather than read back from <see cref="MessageIsFailure"/>,
+    /// which a cancelled request leaves untouched - and "the screen went away mid-request" must never be
+    /// mistaken for "the account is gone".
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteAccountAsync(CancellationToken cancellationToken)
+    {
+        var deleted = false;
+
+        await RunAsync(
+            async () =>
+            {
+                var result = await _accountClient.DeleteAccountAsync(DeleteAccountPassword, cancellationToken);
+                deleted = result.Succeeded;
+                return result;
+            },
+            "Your account has been deleted.");
+
+        if (!deleted)
+        {
+            return;
+        }
+
+        DeleteAccountPassword = string.Empty;
+
+        // No sign-out call: it would revoke a refresh token belonging to an account that no longer
+        // exists. What is left is all local - the session, the cached database, and what this account
+        // was allowed to see. Guid.Empty marks the database as nobody's, as signing out does.
+        await _sessionStore.ClearAsync();
+        await _localStore.ClearForAsync(Guid.Empty, cancellationToken);
+        _permissions.Forget();
+        _navigator.ShowSignIn();
+    }
+
     [RelayCommand]
     private void GoToDiagnostics() => _navigator.ShowDiagnostics();
 
@@ -399,6 +506,8 @@ public sealed partial class AccountViewModel : ObservableObject
     }
 
     partial void OnTransferMessageChanged(string value) => OnPropertyChanged(nameof(HasTransferMessage));
+
+    partial void OnIsEmailVerifiedChanged(bool value) => OnPropertyChanged(nameof(EmailVerificationLabel));
 
     partial void OnTabChanged(AccountTab value)
     {

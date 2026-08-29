@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Google;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Chat;
@@ -28,6 +29,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     private readonly CalendarEventSynchronizer _synchronizer;
     private readonly CalendarClient _calendarClient;
     private readonly EditLock _editLock;
+    private readonly GoogleIntegrationAccess _google;
     private readonly IDeviceLocation _deviceLocation;
     private readonly ChatRepository _contacts;
     private readonly Translations _translations;
@@ -76,6 +78,24 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     private double? _locationLongitude;
 
     public bool HasLocation => _locationLatitude is not null;
+
+    /// <summary>
+    /// The event's place in Google Maps, and the way there. The directions link deliberately carries no
+    /// origin: Google routes from wherever the reader is when they open it, which on a phone standing
+    /// somewhere is the whole point - see GoogleMapsLink.
+    /// </summary>
+    public string? LocationInGoogleMapsUrl
+        => _locationLatitude is { } latitude && _locationLongitude is { } longitude
+            ? GoogleMapsLink.ToPlace(latitude, longitude)
+            : null;
+
+    public string? LocationDirectionsUrl
+        => _locationLatitude is { } latitude && _locationLongitude is { } longitude
+            ? GoogleMapsLink.ToDirections(latitude, longitude)
+            : null;
+
+    /// <summary>A place to point at, and an account allowed to point at it - see GoogleIntegrationAccess.</summary>
+    public bool CanOpenLocationInGoogleMaps => HasGoogleExtras && HasLocation;
 
     [ObservableProperty]
     private bool _isAllDay;
@@ -155,11 +175,18 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReadOnly;
 
+    /// <summary>
+    /// Whether this account may hand the event to Google - see GoogleIntegrationAccess for who
+    /// qualifies. Read when the screen loads, so the offer does not flicker in after the form.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasGoogleExtras;
+
     public CalendarEventDetailViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
         CalendarClient calendarClient, EditLock editLock, IDeviceLocation deviceLocation,
-        ChatRepository contacts)
+        ChatRepository contacts, GoogleIntegrationAccess google)
     {
         _events = events;
         _synchronizer = synchronizer;
@@ -168,6 +195,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _navigator = navigator;
         _calendarClient = calendarClient;
         _editLock = editLock;
+        _google = google;
         _deviceLocation = deviceLocation;
         _contacts = contacts;
         Frequencies = RecurrenceChoice.All(translations);
@@ -186,10 +214,42 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// <summary>False until a load has succeeded: saving what was never read would write guesses.</summary>
     public bool CanSave => _loaded is not null && CanEdit && Title.Trim().Length > 0;
 
+    /// <summary>
+    /// What the pickers add up to. The screen edits local dates and times, and two things need the same
+    /// two instants - the event that gets saved and the Google link below - so they are worked out here
+    /// rather than twice.
+    /// </summary>
+    private DateTimeOffset ChosenStartUtc => ToUtc(StartDate.Date + (IsAllDay ? TimeSpan.Zero : StartTime));
+
+    private DateTimeOffset ChosenEndUtc
+        => ToUtc(IsAllDay ? EndDate.Date + TimeSpan.FromDays(1) : EndDate.Date + EndTime);
+
+    private static DateTimeOffset ToUtc(DateTime local)
+        => new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local)).ToUniversalTime();
+
+    /// <summary>
+    /// The event as a Google Calendar "add this" link, built from what is on screen rather than from
+    /// what was last saved - so a change made and not yet saved is what gets handed over, which is what
+    /// somebody tapping it while editing means.
+    /// </summary>
+    public string AddToGoogleCalendarUrl
+        => GoogleCalendarEventLink.ForEvent(
+            Title.Trim(), ChosenStartUtc, ChosenEndUtc, IsAllDay,
+            Description.Trim() is { Length: > 0 } description ? description : null,
+            LocationAddress.Trim() is { Length: > 0 } address ? address : null,
+            RecurrenceOrNothing());
+
+    /// <summary>An event with no title is not worth handing over, and an account that does not qualify may not.</summary>
+    public bool CanAddToGoogleCalendar => HasGoogleExtras && Title.Trim().Length > 0;
+
     public void Open(Guid localId) => _localId = localId;
 
     [RelayCommand]
-    private Task LoadAsync(CancellationToken cancellationToken) => ShowStoredEventAsync(cancellationToken);
+    private async Task LoadAsync(CancellationToken cancellationToken)
+    {
+        HasGoogleExtras = await _google.IsAvailableAsync(cancellationToken);
+        await ShowStoredEventAsync(cancellationToken);
+    }
 
     /// <summary>
     /// Where the phone is, as the place. Orbit.Web picks a point off a map; a phone knows where it is,
@@ -215,6 +275,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(HasLocation));
+        OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
+        OnPropertyChanged(nameof(LocationDirectionsUrl));
+        OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
         await SaveAsync(cancellationToken);
     }
 
@@ -225,6 +288,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _locationLongitude = null;
         LocationAddress = string.Empty;
         OnPropertyChanged(nameof(HasLocation));
+        OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
+        OnPropertyChanged(nameof(LocationDirectionsUrl));
+        OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
         return SaveAsync(cancellationToken);
     }
 
@@ -358,9 +424,6 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             return;
         }
 
-        var start = StartDate.Date + (IsAllDay ? TimeSpan.Zero : StartTime);
-        var end = IsAllDay ? EndDate.Date + TimeSpan.FromDays(1) : EndDate.Date + EndTime;
-
         var details = current with
         {
             Title = Title.Trim(),
@@ -372,8 +435,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             ReminderMinutesBeforeStart = [.. Reminders.Select(reminder => reminder.MinutesBefore)],
             CreationNotificationChannel = CreationChannel?.Value ?? current.CreationNotificationChannel,
             ReminderNotificationChannel = ReminderChannel?.Value ?? current.ReminderNotificationChannel,
-            StartUtc = new DateTimeOffset(start, TimeZoneInfo.Local.GetUtcOffset(start)).ToUniversalTime(),
-            EndUtc = new DateTimeOffset(end, TimeZoneInfo.Local.GetUtcOffset(end)).ToUniversalTime(),
+            StartUtc = ChosenStartUtc,
+            EndUtc = ChosenEndUtc,
             IsAllDay = IsAllDay
         };
 
@@ -468,6 +531,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _locationLatitude = calendarEvent.Details.Location?.Latitude;
         _locationLongitude = calendarEvent.Details.Location?.Longitude;
         OnPropertyChanged(nameof(HasLocation));
+        OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
+        OnPropertyChanged(nameof(LocationDirectionsUrl));
+        OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
 
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _events.CanEditAsync(_localId, cancellationToken);
@@ -505,7 +571,18 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
-    partial void OnTitleChanged(string value) => SaveCommand.NotifyCanExecuteChanged();
+    partial void OnTitleChanged(string value)
+    {
+        SaveCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanAddToGoogleCalendar));
+    }
+
+    /// <summary>The offer appears the moment the answer arrives, not on the next keystroke.</summary>
+    partial void OnHasGoogleExtrasChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanAddToGoogleCalendar));
+        OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
+    }
 
     partial void OnRecurrenceFrequencyChanged(string value) => OnPropertyChanged(nameof(ChosenFrequency));
 

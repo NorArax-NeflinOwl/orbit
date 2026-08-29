@@ -46,6 +46,18 @@ public partial class MapPage : ContentPage
 		_viewModel.Points.CollectionChanged -= OnPointsChanged;
 	}
 
+	/// <summary>
+	/// Leaving the app is a platform call, so the page makes it. The view model built the URL, which is
+	/// the half worth testing - the same split as the action sheets on the detail screens.
+	/// </summary>
+	private async void OnOpenInGoogleMapsClicked(object? sender, EventArgs e)
+	{
+		if (_viewModel.OwnPositionInGoogleMapsUrl is { } url)
+		{
+			await Launcher.Default.OpenAsync(url);
+		}
+	}
+
 	private void OnPointsChanged(object? sender, NotifyCollectionChangedEventArgs e) => ShowPins();
 
 	private void ShowPins()

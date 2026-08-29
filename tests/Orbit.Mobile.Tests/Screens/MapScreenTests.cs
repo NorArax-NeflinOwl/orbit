@@ -5,6 +5,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Google;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Location;
@@ -153,6 +154,43 @@ public sealed class MapScreenTests
         Assert.Empty(context.LocationServer.Shares);
     }
 
+    /// <summary>
+    /// Handing a position to Google is offered on the same terms Orbit.Web offers it on - a confirmed
+    /// email address or a connected Google account - so a reader meets the same rule on both clients.
+    /// </summary>
+    [Fact]
+    public async Task A_recorded_position_can_be_opened_in_Google_Maps()
+    {
+        using var context = new MapContext();
+        context.Users.Account = context.Users.Account with { IsEmailVerified = true };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        Assert.True(screen.CanOpenOwnPositionInGoogleMaps);
+        Assert.Equal(
+            "https://www.google.com/maps/search/?api=1&query=52.2297,21.0122",
+            screen.OwnPositionInGoogleMapsUrl);
+    }
+
+    /// <summary>
+    /// An account nobody has stood behind is not offered the hand-off, even with a position to point
+    /// at. What is withheld is the offer, not the position - so this pins the offer rather than the URL.
+    /// </summary>
+    [Fact]
+    public async Task An_unverified_account_is_not_offered_Google_Maps()
+    {
+        using var context = new MapContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        Assert.False(screen.CanOpenOwnPositionInGoogleMaps);
+        Assert.NotNull(screen.OwnPositionInGoogleMapsUrl);
+    }
+
     private sealed class MapContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -163,6 +201,7 @@ public sealed class MapScreenTests
         private readonly ChatSynchronizer _synchronizer;
         private readonly SharedLocations _sharedLocations;
         private readonly UsersClient _usersClient;
+        private readonly GoogleIntegrationAccess _google;
         private readonly Guid _ownUserId = Guid.NewGuid();
 
         public MapContext()
@@ -192,9 +231,14 @@ public sealed class MapScreenTests
             _synchronizer = new ChatSynchronizer(
                 _repository, chatClient, _usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
             LocationClient = new LocationClient(LocationServer.ToHttpClient());
+            _google = new GoogleIntegrationAccess(
+                new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, sessionStore));
             _sharedLocations = new SharedLocations(
                 LocationClient, _usersClient, encryptionKeyProvider, NullLogger<SharedLocations>.Instance);
         }
+
+        /// <summary>Held so a test can say whether this account qualifies for the Google extras.</summary>
+        public FakeUsersServer Users => _users;
 
         public FakeLocationServer LocationServer { get; }
         public LocationClient LocationClient { get; }
@@ -235,7 +279,8 @@ public sealed class MapScreenTests
 
         public MapViewModel Open()
             => new(Device, LocationClient, _sharedLocations, _usersClient, _repository, _synchronizer,
-                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator);
+                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), _google,
+                Navigator);
 
         public void Dispose()
         {

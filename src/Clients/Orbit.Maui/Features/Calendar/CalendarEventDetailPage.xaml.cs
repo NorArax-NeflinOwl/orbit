@@ -81,4 +81,27 @@ public partial class CalendarEventDetailPage : ContentPage
 			_viewModel.SaveCommand.Execute(null);
 		}
 	}
+
+	/// <summary>
+	/// Leaving the app is a platform call, so the page makes it. The view model built the URL, which is
+	/// the half worth testing - the same split as the action sheets above.
+	/// </summary>
+	private async void OnAddToGoogleCalendarClicked(object? sender, EventArgs e)
+		=> await Launcher.Default.OpenAsync(_viewModel.AddToGoogleCalendarUrl);
+
+	private async void OnOpenLocationInGoogleMapsClicked(object? sender, EventArgs e)
+	{
+		if (_viewModel.LocationInGoogleMapsUrl is { } url)
+		{
+			await Launcher.Default.OpenAsync(url);
+		}
+	}
+
+	private async void OnOpenDirectionsClicked(object? sender, EventArgs e)
+	{
+		if (_viewModel.LocationDirectionsUrl is { } url)
+		{
+			await Launcher.Default.OpenAsync(url);
+		}
+	}
 }

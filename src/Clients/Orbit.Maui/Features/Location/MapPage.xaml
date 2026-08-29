@@ -38,6 +38,13 @@
 
             <Label Text="{controls:Translate 'Where you are'}" FontAttributes="Bold" />
             <Label Text="{Binding OwnPositionDescription}" LineBreakMode="WordWrap" />
+            <!-- Orbit.Web turns the address itself into this link. A phone gets a button instead: a
+                 tappable line of text is not a target anyone aims at. Hidden unless the account
+                 qualifies - see GoogleIntegrationAccess. -->
+            <Button Text="{controls:Translate 'Open in Google Maps'}" HorizontalOptions="Start" FontSize="14"
+                    Style="{StaticResource LinkButton}"
+                    IsVisible="{Binding CanOpenOwnPositionInGoogleMaps}"
+                    Clicked="OnOpenInGoogleMapsClicked" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
 
             <!-- Wrapping rather than truncating: a translated label is routinely longer than the

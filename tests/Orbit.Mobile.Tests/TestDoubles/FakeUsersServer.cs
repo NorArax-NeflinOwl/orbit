@@ -24,6 +24,23 @@ internal sealed class FakeUsersServer : HttpMessageHandler
     /// <summary>What a redeemed code answers with. Null means the code matched nothing.</summary>
     public RedeemPermissionCodeResultDto? RedeemResult { get; set; }
 
+    /// <summary>
+    /// The password the deletion endpoint accepts. Null stands for an account with none - a Google-only
+    /// one - which the server lets through unchecked, so a test can cover that path too.
+    /// </summary>
+    public string? DeletionPassword { get; set; }
+
+    /// <summary>Whether the account was actually deleted, so a refusal can be told from a deletion.</summary>
+    public bool AccountDeleted { get; private set; }
+
+    /// <summary>
+    /// What GET /users/me answers with. An unverified account with no Google behind it by default, which
+    /// is the state that hides the Google extras - see GoogleIntegrationAccess.
+    /// </summary>
+    public AccountDto Account { get; set; } = new(
+        Guid.NewGuid(), "me@orbit.example", "me", "Me",
+        IsEmailVerified: false, HasPassword: true, IsGoogleLinked: false);
+
     public void Add(Guid userId, string displayName, string? publicKeyBase64)
         => _users[userId] = new UserSearchResultDto(userId, displayName.ToLowerInvariant(), displayName, publicKeyBase64);
 
@@ -32,6 +49,21 @@ internal sealed class FakeUsersServer : HttpMessageHandler
         if (IsUnreachable)
         {
             throw new HttpRequestException("No such host is known.");
+        }
+
+        if (request.Method == HttpMethod.Get
+            && request.RequestUri!.AbsolutePath.EndsWith("/users/me", StringComparison.Ordinal))
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(Account)
+            });
+        }
+
+        if (request.Method == HttpMethod.Delete
+            && request.RequestUri!.AbsolutePath.EndsWith("/users/me", StringComparison.Ordinal))
+        {
+            return DeleteAccountAsync(request, cancellationToken);
         }
 
         if (request.RequestUri!.AbsolutePath.EndsWith("/search", StringComparison.Ordinal))
@@ -60,6 +92,23 @@ internal sealed class FakeUsersServer : HttpMessageHandler
         return Task.FromResult(_users.TryGetValue(userId, out var user)
             ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(user) }
             : new HttpResponseMessage(HttpStatusCode.NotFound));
+    }
+
+    /// <summary>
+    /// Mirrors DeleteAccountCommandHandler: an account with a password has to prove it, one without -
+    /// signed in with Google and never given one - does not.
+    /// </summary>
+    private async Task<HttpResponseMessage> DeleteAccountAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var body = await request.Content!.ReadFromJsonAsync<DeleteAccountRequest>(cancellationToken);
+        if (DeletionPassword is { } expected && body?.Password != expected)
+        {
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        }
+
+        AccountDeleted = true;
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
     /// <summary>

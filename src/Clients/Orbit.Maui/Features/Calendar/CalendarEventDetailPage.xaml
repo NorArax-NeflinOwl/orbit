@@ -41,6 +41,15 @@
                         Command="{Binding RemoveLocationCommand}" />
             </HorizontalStackLayout>
 
+            <!-- The same two hand-offs Orbit.Web puts beside the address in its list: the place, and the
+                 way there. Hidden unless the account qualifies - see GoogleIntegrationAccess. -->
+            <HorizontalStackLayout Spacing="10" IsVisible="{Binding CanOpenLocationInGoogleMaps}">
+                <Button Text="{controls:Translate 'Open in Google Maps'}" FontSize="14"
+                        Style="{StaticResource LinkButton}" Clicked="OnOpenLocationInGoogleMapsClicked" />
+                <Button Text="{controls:Translate 'Directions'}" FontSize="14"
+                        Style="{StaticResource LinkButton}" Clicked="OnOpenDirectionsClicked" />
+            </HorizontalStackLayout>
+
             <Label Text="{controls:Translate 'When'}" Style="{StaticResource FieldLabel}" />
 
             <!-- Two dates, not one: the end used to be taken from the start, so an event spanning days
@@ -212,6 +221,14 @@
             <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveCommand}" />
 
             <controls:SharePanel BindingContext="{Binding Share}" />
+
+            <!-- Hands the event to Google Calendar as a filled-in form, which is what Orbit.Web offers
+                 here too - a link rather than an API call, see GoogleCalendarEventLink. Hidden unless
+                 the account qualifies; see GoogleIntegrationAccess. -->
+            <Button Text="{controls:Translate 'Add to Google Calendar'}" HorizontalOptions="Start" FontSize="14"
+                    Style="{StaticResource LinkButton}"
+                    IsVisible="{Binding CanAddToGoogleCalendar}"
+                    Clicked="OnAddToGoogleCalendarClicked" />
 
             <HorizontalStackLayout Spacing="16">
                 <Button Text="{controls:Translate 'Back to calendar'}" Command="{Binding GoBackCommand}"

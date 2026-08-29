@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
+using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Google;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -280,9 +282,84 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Equal([stranger], (await context.FindAsync(stored.LocalId)).Details.Guests);
     }
 
+    /// <summary>
+    /// The hand-off to Google is built from what is on screen, not from what was last saved - somebody
+    /// who retitles an event and then taps it means the new title. Same rule as Orbit.Web on who is
+    /// offered it at all: an account somebody stood behind.
+    /// </summary>
+    [Fact]
+    public async Task An_event_can_be_handed_to_Google_Calendar_as_it_currently_reads()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { IsEmailVerified = true };
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.Title = "Standup";
+
+        Assert.True(screen.CanAddToGoogleCalendar);
+        Assert.Contains("text=Standup", screen.AddToGoogleCalendarUrl);
+        Assert.Contains("calendar.google.com", screen.AddToGoogleCalendarUrl);
+    }
+
+    /// <summary>An account nobody has stood behind is not offered the hand-off - see GoogleIntegrationAccess.</summary>
+    [Fact]
+    public async Task An_unverified_account_is_not_offered_Google_Calendar()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(screen.CanAddToGoogleCalendar);
+    }
+
+    /// <summary>
+    /// The place and the way to it, which is what Orbit.Web offers beside an event's address. The
+    /// directions link carries no origin on purpose - see GoogleMapsLink.
+    /// </summary>
+    [Fact]
+    public async Task An_events_place_can_be_opened_in_Google_Maps_and_routed_to()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { IsEmailVerified = true };
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        await screen.UseMyLocationCommand.ExecuteAsync(null);
+
+        Assert.True(screen.CanOpenLocationInGoogleMaps);
+        Assert.Equal(
+            "https://www.google.com/maps/search/?api=1&query=52.2297,21.0122",
+            screen.LocationInGoogleMapsUrl);
+        Assert.Equal(
+            "https://www.google.com/maps/dir/?api=1&destination=52.2297,21.0122",
+            screen.LocationDirectionsUrl);
+    }
+
+    /// <summary>An event with nowhere recorded has nothing to hand over, however verified the account.</summary>
+    [Fact]
+    public async Task An_event_with_no_place_is_not_offered_the_maps_links()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { IsEmailVerified = true };
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(screen.CanOpenLocationInGoogleMaps);
+        Assert.Null(screen.LocationInGoogleMapsUrl);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
+        private readonly FakeUsersServer _users = new();
+
+        /// <summary>Held so a test can say whether this account qualifies for the Google extras.</summary>
+        public FakeUsersServer Users => _users;
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-15T10:00:00Z"));
         private readonly FakeCalendarServer _server;
         private readonly LocalCalendarEventRepository _events;
@@ -333,6 +410,11 @@ public sealed class CalendarEventDetailScreenTests
         public async Task<LocalCalendarEvent> FindAsync(Guid localId)
             => (await _events.FindAsync(localId))!;
 
+        /// <summary>A signed-in session, which AccountClient needs and nothing in these tests inspects.</summary>
+        private static SessionStore SessionForTests()
+            => new(new InMemorySessionStorage(
+                new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Me")));
+
         public async Task<CalendarEventDetailViewModel> OpenAsync(Guid localId)
         {
             var screen = new CalendarEventDetailViewModel(
@@ -341,7 +423,9 @@ public sealed class CalendarEventDetailScreenTests
                 new RecordingScreenNavigator(),
                 new CalendarClient(_server.ToHttpClient()),
                 new EditLock(FixedNetworkStatus.Online, _clock, new Translations(new InMemoryLanguageStore())),
-                Here, Contacts);
+                Here, Contacts,
+                new GoogleIntegrationAccess(new AccountClient(
+                    _users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests())));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);
@@ -351,6 +435,7 @@ public sealed class CalendarEventDetailScreenTests
         public void Dispose()
         {
             _server.Dispose();
+            _users.Dispose();
             _localStore.Dispose();
         }
     }

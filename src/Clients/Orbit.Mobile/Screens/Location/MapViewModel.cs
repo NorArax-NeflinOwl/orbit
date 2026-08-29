@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Google;
 using Orbit.Core.Permissions;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Permissions;
@@ -30,6 +31,7 @@ public sealed partial class MapViewModel : ObservableObject
     private readonly ChatSynchronizer _synchronizer;
     private readonly Translations _translations;
     private readonly UserPermissions _permissions;
+    private readonly GoogleIntegrationAccess _google;
     private readonly IScreenNavigator _navigator;
 
     private SharedPosition? _ownPosition;
@@ -46,10 +48,18 @@ public sealed partial class MapViewModel : ObservableObject
     [ObservableProperty]
     private bool _isChoosingWhoToShareWith;
 
+    /// <summary>
+    /// Whether this account may hand a position off to Google - see GoogleIntegrationAccess for who
+    /// qualifies. Read once the screen loads, so a "no" is not a flicker before the answer arrives.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasGoogleExtras;
+
     public MapViewModel(
         IDeviceLocation deviceLocation, LocationClient locationClient, SharedLocations sharedLocations,
         UsersClient usersClient, ChatRepository chatRepository, ChatSynchronizer synchronizer,
-        Translations translations, UserPermissions permissions, IScreenNavigator navigator)
+        Translations translations, UserPermissions permissions, GoogleIntegrationAccess google,
+        IScreenNavigator navigator)
     {
         _deviceLocation = deviceLocation;
         _locationClient = locationClient;
@@ -59,6 +69,7 @@ public sealed partial class MapViewModel : ObservableObject
         _synchronizer = synchronizer;
         _translations = translations;
         _permissions = permissions;
+        _google = google;
         _navigator = navigator;
         OwnPositionDescription = _translations["Not read yet."];
     }
@@ -93,6 +104,16 @@ public sealed partial class MapViewModel : ObservableObject
 
     public bool HasOwnPosition => _ownPosition is not null;
 
+    /// <summary>
+    /// The recorded position, opened in Google Maps. Null when there is nothing to point at - the URL is
+    /// built here rather than in the page so it can be tested; opening it is the page's platform call.
+    /// </summary>
+    public string? OwnPositionInGoogleMapsUrl
+        => _ownPosition is { } own ? GoogleMapsLink.ToPlace(own.Latitude, own.Longitude) : null;
+
+    /// <summary>Both halves have to hold: something to point at, and an account allowed to point at it.</summary>
+    public bool CanOpenOwnPositionInGoogleMaps => HasGoogleExtras && _ownPosition is not null;
+
     public bool IsNotChoosing => !IsChoosingWhoToShareWith;
 
     [RelayCommand]
@@ -107,6 +128,7 @@ public sealed partial class MapViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            HasGoogleExtras = await _google.IsAvailableAsync(cancellationToken);
             await ShowWhoIsSharingAsync(cancellationToken);
             await ShowWhoCanSeeMeAsync(cancellationToken);
         }
@@ -155,6 +177,8 @@ public sealed partial class MapViewModel : ObservableObject
                 reading.Latitude, reading.Longitude, reading.Address, DateTimeOffset.UtcNow);
             OwnPositionDescription = Describe(_ownPosition);
             OnPropertyChanged(nameof(HasOwnPosition));
+            OnPropertyChanged(nameof(OwnPositionInGoogleMapsUrl));
+            OnPropertyChanged(nameof(CanOpenOwnPositionInGoogleMaps));
             ShowPointsOnMap();
 
             await _locationClient.SaveOwnAsync(
@@ -346,4 +370,8 @@ public sealed partial class MapViewModel : ObservableObject
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
     partial void OnIsChoosingWhoToShareWithChanged(bool value) => OnPropertyChanged(nameof(IsNotChoosing));
+
+    /// <summary>The button appears the moment the answer arrives, not on the next reading.</summary>
+    partial void OnHasGoogleExtrasChanged(bool value)
+        => OnPropertyChanged(nameof(CanOpenOwnPositionInGoogleMaps));
 }

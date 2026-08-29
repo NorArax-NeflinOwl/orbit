@@ -138,6 +138,17 @@ public sealed class AccountClient
             HttpMethod.Put, "api/users/me/password", new ChangePasswordRequest(currentPassword, newPassword),
             "That current password isn't right.", cancellationToken);
 
+    /// <summary>
+    /// Deletes the account and everything the server holds for it. Irreversible, and the password is
+    /// the only thing between a phone somebody else is holding and that - which is why it is asked for
+    /// even though the caller is already signed in, exactly as Orbit.Web asks.
+    /// </summary>
+    public Task<AccountOperationResult> DeleteAccountAsync(
+        string password, CancellationToken cancellationToken = default)
+        => SendAsync(
+            HttpMethod.Delete, "api/users/me", new DeleteAccountRequest(password),
+            "That password isn't right.", cancellationToken);
+
     private async Task<AccountOperationResult> SendAsync<TRequest>(
         HttpMethod method, string path, TRequest body, string refusalMessage, CancellationToken cancellationToken)
     {

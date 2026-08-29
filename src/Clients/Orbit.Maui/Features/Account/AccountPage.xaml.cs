@@ -1,3 +1,4 @@
+using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Account;
 
 namespace Orbit.Maui.Features.Account;
@@ -5,11 +6,13 @@ namespace Orbit.Maui.Features.Account;
 public partial class AccountPage : ContentPage
 {
 	private readonly AccountViewModel _viewModel;
+	private readonly Translations _translations;
 
-	public AccountPage(AccountViewModel viewModel)
+	public AccountPage(AccountViewModel viewModel, Translations translations)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_translations = translations;
 		_viewModel.ThemeChanged += (_, theme) => Apply(theme);
 		_viewModel.ExportReady += (_, export) => _ = OfferAsync(export.FileName, export.Json);
 		Apply(_viewModel.Theme);
@@ -55,6 +58,27 @@ public partial class AccountPage : ContentPage
 
 	/// <summary>The tab strip's buttons need the screen's command, and RelativeSource walks the visual tree.</summary>
 	public AccountViewModel ViewModel => _viewModel;
+
+	/// <summary>
+	/// The last thing between a tap and an account that cannot be brought back. It sits on the page
+	/// rather than in the view model because a confirmation prompt is the platform's, the same split as
+	/// the action sheets on the detail screens.
+	/// </summary>
+	private async void OnDeleteAccountClicked(object? sender, EventArgs e)
+	{
+		var confirmed = await DisplayAlertAsync(
+			_translations["Delete account"],
+			_translations["Delete your account? This permanently deletes everything - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."],
+			_translations["Delete account"],
+			_translations["Cancel"]);
+
+		if (!confirmed)
+		{
+			return;
+		}
+
+		await _viewModel.DeleteAccountCommand.ExecuteAsync(null);
+	}
 
 	/// <summary>
 	/// Turns the reader's choice into the app's theme. Unspecified means "follow the phone", which is

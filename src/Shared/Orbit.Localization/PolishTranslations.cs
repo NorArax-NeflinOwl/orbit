@@ -196,6 +196,7 @@ public static class PolishTranslations
         ["Delete event"] = "Usuń wydarzenie",
         ["Guests"] = "Goście",
         ["Directions"] = "Wyznacz trasę",
+        ["Open in Google Maps"] = "Otwórz w Mapach Google",
         ["Add to Google Calendar"] = "Dodaj do Kalendarza Google",
         ["The event's end can't be before its start."] = "Koniec wydarzenia nie może być przed jego początkiem.",
 
@@ -410,6 +411,7 @@ public static class PolishTranslations
         ["Change password"] = "Zmień hasło",
         ["Email verification"] = "Potwierdzenie adresu e-mail",
         ["Delete account"] = "Usuń konto",
+        ["Your account has been deleted."] = "Twoje konto zostało usunięte.",
         ["Disconnect"] = "Odłącz",
         ["Push notifications"] = "Powiadomienia push",
         ["Allow mobile notification"] = "Zezwalaj na dymek powiadomienia",

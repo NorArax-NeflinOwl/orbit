@@ -1,6 +1,7 @@
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
+using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Screens.Notifications;
@@ -132,10 +133,105 @@ public sealed class AccountScreenTests
         Assert.True(screen.HasTransferMessage);
     }
 
+    /// <summary>
+    /// Deleting the account has to leave nothing of it behind on the phone. The session is the obvious
+    /// half; the cached database is the one that would otherwise sit there afterwards, readable, holding
+    /// notes belonging to an account that no longer exists.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_the_account_empties_this_device_and_returns_to_sign_in()
+    {
+        using var context = new ScreenContext();
+        context.Users.DeletionPassword = "the real one";
+        context.Keep(new LocalNote { Title = "Bank details" });
+        var screen = context.Open();
+        screen.DeleteAccountPassword = "the real one";
+
+        await screen.DeleteAccountCommand.ExecuteAsync(null);
+
+        Assert.True(context.Users.AccountDeleted);
+        Assert.Null(await context.Session.GetAsync());
+        using var store = context.Store.CreateDbContext();
+        Assert.Empty(store.Notes);
+        Assert.Equal("ShowSignIn", context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// The refused path matters more than the happy one. A wrong password leaves an account that still
+    /// exists, so wiping the phone for it would destroy the only local copy of work that was never in
+    /// danger - and the reader would be signed out of an account they still have.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_deletion_leaves_the_account_and_the_device_untouched()
+    {
+        using var context = new ScreenContext();
+        context.Users.DeletionPassword = "the real one";
+        context.Keep(new LocalNote { Title = "Bank details" });
+        var screen = context.Open();
+        screen.DeleteAccountPassword = "a guess";
+
+        await screen.DeleteAccountCommand.ExecuteAsync(null);
+
+        Assert.False(context.Users.AccountDeleted);
+        Assert.True(screen.MessageIsFailure);
+        Assert.NotNull(await context.Session.GetAsync());
+        using var store = context.Store.CreateDbContext();
+        Assert.NotEmpty(store.Notes);
+        Assert.Null(context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// The screen reads the account rather than trusting the session, which carries only what signing in
+    /// needed. A username or address changed on another device would otherwise show the old one here,
+    /// and the form below would change the wrong thing back.
+    /// </summary>
+    [Fact]
+    public async Task It_shows_the_account_the_server_holds_rather_than_what_signing_in_carried()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with
+        {
+            UserName = "patryk",
+            Email = "patryk@orbit.example",
+            IsEmailVerified = true
+        };
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("patryk", screen.UserName);
+        Assert.Equal("patryk@orbit.example", screen.EmailAddress);
+        Assert.Equal("Verified", screen.EmailVerificationLabel);
+    }
+
+    /// <summary>
+    /// A Google account that never set a password has none to prove, and the server agrees - see
+    /// DeleteAccountCommandHandler. Asking for one would be asking for something that does not exist,
+    /// and there would be no way past it.
+    /// </summary>
+    [Fact]
+    public async Task An_account_with_no_password_is_not_asked_for_one_before_deleting()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { HasPassword = false };
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(screen.RequiresPasswordToDelete);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
+
+        /// <summary>Held so a test can ask what the phone kept after the account went away.</summary>
+        public LocalStore Store => _localStore;
         private readonly FakeUsersServer _users = new();
+
+        public FakeUsersServer Users => _users;
+
+        public RecordingScreenNavigator Navigator { get; } = new();
 
         public InMemoryThemeStore Themes { get; } = new();
 
@@ -150,6 +246,16 @@ public sealed class AccountScreenTests
 
         private readonly SessionStore _sessionStore = new(new InMemorySessionStorage(
             new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Me")));
+
+        public SessionStore Session => _sessionStore;
+
+        /// <summary>Puts something in the phone's own database, so a test can watch what becomes of it.</summary>
+        public void Keep(LocalNote note)
+        {
+            using var dbContext = _localStore.CreateDbContext();
+            dbContext.Notes.Add(note);
+            dbContext.SaveChanges();
+        }
 
         public AccountViewModel Open()
             => new(
@@ -166,10 +272,11 @@ public sealed class AccountScreenTests
                 UnlockedPermissions.For(_localStore),
                 Themes,
                 new TransferClient(Transfer.ToHttpClient()),
+                new LocalStoreReset(_localStore),
                 new NotificationSettingsViewModel(
                     new NotificationsClient(Notifications.ToHttpClient()),
                     new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator()),
-                new RecordingScreenNavigator());
+                Navigator);
 
         public void Dispose()
         {
