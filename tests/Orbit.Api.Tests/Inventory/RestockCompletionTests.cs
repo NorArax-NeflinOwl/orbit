@@ -136,4 +136,42 @@ public sealed class RestockCompletionTests
         var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
         Assert.All(taskList!.Items, item => Assert.True(item.IsCompleted));
     }
+
+    /// <summary>
+    /// A change nothing else can hear about might as well not have happened. Crossing the entries off
+    /// left the list's own timestamp where it was, so the change feed never mentioned it again: the
+    /// browser that finished the round re-read the list itself and looked right, while a phone showed
+    /// the round still outstanding for good - see TaskList.CompleteEverything.
+    /// </summary>
+    [Fact]
+    public async Task Finishing_the_list_says_the_list_changed()
+    {
+        var (_, taskListId, _) = await ALowItemWithItsErrandAsync();
+        var before = (await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None))!
+            .UpdatedAtUtc;
+
+        await new FinishRestockingCommandHandler(_context.TaskRepository, ACompletion())
+            .HandleAsync(new FinishRestockingCommand(_userId, taskListId), CancellationToken.None);
+
+        var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
+        Assert.True(taskList!.UpdatedAtUtc > before);
+        // And the list itself now reads as done, which is what the tasks page sorts and counts by.
+        Assert.True(taskList.IsCompleted);
+    }
+
+    /// <summary>Nothing to cross off is not a change, and should not look like one to anybody syncing.</summary>
+    [Fact]
+    public async Task Finishing_a_list_already_done_leaves_its_timestamp_alone()
+    {
+        var (_, taskListId, _) = await ALowItemWithItsErrandAsync();
+        var handler = new FinishRestockingCommandHandler(_context.TaskRepository, ACompletion());
+        await handler.HandleAsync(new FinishRestockingCommand(_userId, taskListId), CancellationToken.None);
+        var afterFirst = (await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None))!
+            .UpdatedAtUtc;
+
+        await handler.HandleAsync(new FinishRestockingCommand(_userId, taskListId), CancellationToken.None);
+
+        var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
+        Assert.Equal(afterFirst, taskList!.UpdatedAtUtc);
+    }
 }
