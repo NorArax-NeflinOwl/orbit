@@ -161,6 +161,41 @@ public sealed class CalendarScreenTests
     }
 
     /// <summary>
+    /// An entry tied to an event is that event. Drawn on a day the event is already on, it is the same
+    /// appointment written out twice, one line under the other.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_tied_to_an_event_is_not_drawn_again_under_it()
+    {
+        using var context = new ScreenContext();
+        var eventId = await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0));
+        await context.AddDeadlineAsync(
+            "Saturday", "Dentist", new DateTime(2026, 8, 20, 9, 0, 0), tiedTo: eventId);
+
+        var screen = await context.OpenAsync();
+
+        Assert.Equal(["Dentist"], screen.Events.Select(row => row.Title));
+        Assert.Empty(screen.Deadlines);
+    }
+
+    /// <summary>
+    /// On any other day nothing stands for it, so it stays - hiding it there would lose the appointment
+    /// rather than tidy it.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_due_on_a_day_its_event_is_not_on_still_shows()
+    {
+        using var context = new ScreenContext();
+        var eventId = await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0));
+        await context.AddDeadlineAsync(
+            "Saturday", "Bring the forms", new DateTime(2026, 8, 19, 9, 0, 0), tiedTo: eventId);
+
+        var screen = await context.OpenAsync();
+
+        Assert.Equal("Saturday: Bring the forms", Assert.Single(screen.Deadlines).Label);
+    }
+
+    /// <summary>
     /// A deadline opens the list it sits on, which is where it can be ticked - the phone has no page
     /// for one entry on its own.
     /// </summary>
@@ -198,23 +233,36 @@ public sealed class CalendarScreenTests
         public RecordingScreenNavigator Navigator { get; } = new();
 
         /// <summary>A task entry falling due, which the calendar shows beside the events.</summary>
-        public async Task<Guid> AddDeadlineAsync(string listTitle, string description, DateTime localDue)
+        /// <param name="tiedTo">The event this entry is the same appointment as, when it is one.</param>
+        public async Task<Guid> AddDeadlineAsync(
+            string listTitle, string description, DateTime localDue, Guid? tiedTo = null)
         {
             var due = new DateTimeOffset(localDue, TimeZoneInfo.Local.GetUtcOffset(localDue)).ToUniversalTime();
             var created = await _taskLists.CreateAsync(listTitle,
             [
-                new(Guid.NewGuid(), description, due, false, null, "None", false, "None", new TimeOnly(9, 0))
+                new(Guid.NewGuid(), description, due, false, null, "None", false, "None", new TimeOnly(9, 0),
+                    "Checklist", "", tiedTo)
             ]);
 
             return created.LocalId;
         }
 
-        public Task AddEventAsync(string title, DateTime localStart)
+        /// <summary>
+        /// Returns the id the server would know it by, which is what an entry tied to it points at. The
+        /// event is stamped as already synced: one that has never left the phone is not something
+        /// anything else can point at yet.
+        /// </summary>
+        public async Task<Guid> AddEventAsync(string title, DateTime localStart)
         {
             var start = new DateTimeOffset(localStart, TimeZoneInfo.Local.GetUtcOffset(localStart)).ToUniversalTime();
-
-            return _events.CreateAsync(
+            var created = await _events.CreateAsync(
                 new CalendarEventDetailsDto(title, null, null, null, start, start.AddHours(1), false, null, [], [], "None", "None"));
+
+            await using var dbContext = _localStore.CreateDbContext();
+            var stored = dbContext.CalendarEvents.Single(candidate => candidate.LocalId == created.LocalId);
+            stored.ServerId = Guid.NewGuid();
+            await dbContext.SaveChangesAsync();
+            return stored.ServerId.Value;
         }
 
         public async Task<CalendarViewModel> OpenAsync()

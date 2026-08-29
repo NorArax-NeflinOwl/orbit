@@ -224,7 +224,8 @@ public sealed partial class CalendarViewModel : ObservableObject
         var stored = await _events.GetAllAsync(cancellationToken);
         var pending = await _events.GetPendingLocalIdsAsync(cancellationToken);
         var today = _timeProvider.GetUtcNow().LocalDateTime;
-        var deadlines = CalendarDeadline.From(await _taskLists.GetAllAsync(cancellationToken), _translations);
+        var deadlines = CalendarDeadline.From(
+            await _taskLists.GetAllAsync(cancellationToken), stored, _translations);
 
         Days.Clear();
         foreach (var day in CalendarMonth.Build(Month, SelectedDay, today, stored, deadlines))
