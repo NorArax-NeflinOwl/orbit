@@ -153,11 +153,17 @@ else
                     @* One line, and the one worth having: what is still to be done on this list. A folded
                        card is somebody saying "not this week" - the row is there to remind them what the
                        list is about, not to be worked from. *@
-                    @if (NextUnfinishedItem(taskList) is { } nextItem)
+                    @if (NextThingLeftToDo(taskList) is { } next)
                     {
                         <div class="list-row task-preview-row">
                             <span class="task-preview-mark"></span>
-                            <span class="row-title">@Written(nextItem.Description)</span>
+                            <span class="row-title">@Written(next.Description)</span>
+                            @if (next.OnList is { } onList)
+                            {
+                                @* Which member list it is on. Without it, a group's folded card names
+                                   an errand with no hint of where it came from. *@
+                                <span class="row-meta">@Written(onList)</span>
+                            }
                         </div>
                     }
                     else
@@ -171,7 +177,7 @@ else
                 {
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
                    checklist view one click away for working through it. *@
-                @foreach (var item in taskList.Items.Take(PreviewItemCount))
+                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, PreviewItemCount)))
                 {
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
@@ -197,7 +203,7 @@ else
                                 <span class="row-title">@Written(linkedItem.Description)</span>
                             </div>
                         }
-                        @if (LinkedItemCount(linkedTaskListId) > LinkedPreviewItemCount)
+                        @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))
                         {
                             <div class="list-row task-preview-row-linked">
                                 <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - LinkedPreviewItemCount)</span>
@@ -205,7 +211,7 @@ else
                         }
                     }
                 }
-                @if (taskList.Items.Count > PreviewItemCount)
+                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, PreviewItemCount))
                 {
                     <div class="list-row">
                         <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - PreviewItemCount)</span>
@@ -351,12 +357,39 @@ else
         await Arrangement.SetCollapsedAsync(taskList.Id, isCollapsed);
     }
 
+    /// <summary>What a folded card says is still to be done.</summary>
+    /// <param name="OnList">The member list it sits on, when it was found through a link - null when it is the card's own.</param>
+    private sealed record ThingLeftToDo(string Description, string? OnList);
+
     /// <summary>
     /// The one row a folded card shows: what is still to be done. A row that only points at another list
-    /// is skipped - it is how the tree is held together, not something to be reminded of.
+    /// is not work itself, so what it stands for is looked up on the list it points at. A group's card is
+    /// nothing but such rows, and used to fold down to "Nothing left to do." with six errands still open.
     /// </summary>
-    private static TaskItemDto? NextUnfinishedItem(TaskDto taskList)
-        => taskList.Items.FirstOrDefault(item => !item.IsCompleted && item.LinkedTaskListId is null);
+    private ThingLeftToDo? NextThingLeftToDo(TaskDto taskList)
+    {
+        foreach (var item in taskList.Items.Where(item => !item.IsCompleted))
+        {
+            if (item.LinkedTaskListId is not { } linkedTaskListId)
+            {
+                return new ThingLeftToDo(item.Description, OnList: null);
+            }
+
+            // A member list this reader cannot see, or one not loaded: the row's own name is that list's
+            // title, which still says more than nothing.
+            if (LinkedTaskList(linkedTaskListId) is not { } linkedTaskList)
+            {
+                return new ThingLeftToDo(item.Description, OnList: null);
+            }
+
+            if (linkedTaskList.Items.FirstOrDefault(linked => !linked.IsCompleted) is { } linkedItem)
+            {
+                return new ThingLeftToDo(linkedItem.Description, linkedTaskList.Title);
+            }
+        }
+
+        return null;
+    }
 
     private async Task SetSortOrderAsync(TaskListSortOrder sortOrder)
     {
@@ -451,9 +484,16 @@ else
     /// <summary>How much of a linked list to show under the row that points at it - less than the card's own preview, since it is standing in for one line of it.</summary>
     private const int LinkedPreviewItemCount = 3;
 
+    /// <summary>
+    /// How many rows to actually draw. One over the limit is drawn in full: the line saying "and 1 more…"
+    /// takes exactly the room the row it stands for would have taken, so hiding that row saves nothing
+    /// and costs the reader the one thing it was hiding.
+    /// </summary>
+    private static int RowsToShow(int itemCount, int limit) => itemCount <= limit + 1 ? itemCount : limit;
+
     /// <summary>The work a linked row actually stands for, as far as the card has room for.</summary>
     private IEnumerable<TaskItemDto> LinkedItems(Guid linkedTaskListId)
-        => LinkedTaskList(linkedTaskListId)?.Items.Take(LinkedPreviewItemCount) ?? [];
+        => LinkedTaskList(linkedTaskListId)?.Items.Take(RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount)) ?? [];
 
     private int LinkedItemCount(Guid linkedTaskListId) => LinkedTaskList(linkedTaskListId)?.Items.Count ?? 0;
 

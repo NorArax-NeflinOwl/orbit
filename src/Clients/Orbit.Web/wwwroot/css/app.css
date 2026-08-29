@@ -3945,3 +3945,76 @@ input.note-editor-title {
 .editor-item-unit {
     width: 74px;
 }
+
+/* The map over the page, for saying where something happens by pointing at it - see
+   LocationPickerOverlay. Over the page because a map needs room and an editor row has none. */
+.map-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: oklch(20% 0.02 60 / 0.55);
+}
+
+.map-overlay-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(760px, 100%);
+    max-height: 100%;
+    padding: 20px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px oklch(20% 0.02 60 / 0.35);
+}
+
+.map-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.map-overlay-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.map-overlay-hint {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* Given a height rather than left to the flex row: Leaflet measures its container once at creation and
+   lays the tile grid out from whatever it finds there. */
+.map-overlay-map {
+    flex: 1 1 auto;
+    min-height: 320px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.map-overlay-confirm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.map-overlay-address {
+    flex: 1 1 260px;
+    min-width: 0;
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.map-overlay-question {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
