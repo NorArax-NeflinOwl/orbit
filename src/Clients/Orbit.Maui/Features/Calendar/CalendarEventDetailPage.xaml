@@ -66,15 +66,6 @@
                         VerticalOptions="Center" />
             </Grid>
 
-            <!-- What sorts this event against the others, and what the dashboard's filter reads. The
-                 same three choices Orbit.Web's editor has always had - see PriorityChoice. -->
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Label Grid.Column="0" Text="{controls:Translate 'Priority'}" VerticalOptions="Center" />
-                <Picker Grid.Column="1" WidthRequest="160" ItemsSource="{Binding Priorities}"
-                        SelectedItem="{Binding ChosenPriority}" IsEnabled="{Binding CanEdit}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=tasks:PriorityChoice}" />
-            </Grid>
-
             <!-- Hidden rather than disabled for an all-day event: there is no time to show, and a greyed
                  pair of times reads as something that could be set and simply is not. -->
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
@@ -119,6 +110,16 @@
             <!-- Who is coming, and who could be. The same two lists Orbit.Web shows. -->
             <!-- A palette rather than the browser's colour picker, which a phone has no equivalent of.
                  The chosen one is ringed; "no colour" is the empty first swatch. -->
+            <!-- What sorts this event against the others, and what the dashboard's filter reads. The
+                 same three choices Orbit.Web's editor has always had - see PriorityChoice. Below the
+                 times rather than among them: it is a fact about the event, not about when it is. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Grid.Column="0" Text="{controls:Translate 'Priority'}" VerticalOptions="Center" />
+                <Picker Grid.Column="1" WidthRequest="160" ItemsSource="{Binding Priorities}"
+                        SelectedItem="{Binding ChosenPriority}" IsEnabled="{Binding CanEdit}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=tasks:PriorityChoice}" />
+            </Grid>
+
             <Label Text="{controls:Translate 'Color'}" Style="{StaticResource FieldLabel}" />
             <FlexLayout Wrap="Wrap" Direction="Row" AlignContent="Start"
                         BindableLayout.ItemsSource="{Binding Colours}" IsVisible="{Binding CanEdit}">
