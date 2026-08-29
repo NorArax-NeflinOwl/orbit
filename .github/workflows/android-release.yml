@@ -1,11 +1,19 @@
 # Builds an Android APK somebody can install on a phone, and puts it where the download page
 # (src/Clients/Orbit.Web/Pages/Download.razor) can point at it.
 #
+# Runs on its own whenever the phone app changes on main, so what /download offers is the current
+# Orbit rather than whatever was last released by hand. Still startable by hand as well, which is how
+# a version is chosen deliberately - a release that renames the series (0.1 to 0.2, say) is a decision
+# somebody makes, not something a push should infer.
+#
 # A workflow of its own rather than another job in main_orbit.yml, and for a different reason than the
-# one at the top of that file: this is not a check that could drift from a gate, it is an act somebody
-# performs. Releasing a build is a decision - it needs a version, a signing key, and somebody to say
-# now - so it is started by hand. main_orbit.yml still builds the Android head on every pull request;
-# that job answers "does it compile", this one answers "here is the thing to install".
+# one at the top of that file: what goes to Azure as a container and what somebody installs on a phone
+# are released on different occasions. main_orbit.yml still builds the Android head on every pull
+# request; that job answers "does it compile", this one answers "here is the thing to install".
+#
+# But it does not skip the gate that file argues for. The suite runs here too, in a job this one needs,
+# because a green pull request says nothing about the commit that actually landed - and an APK on the
+# download page is the one artifact nobody re-checks before installing.
 #
 # Nothing here fails silently: a missing signing key stops the build rather than producing an unsigned
 # APK no phone will install.
@@ -18,6 +26,27 @@ on:
         description: 'Release version, e.g. 0.1.0 - what the app shows and what the version gate compares'
         required: true
         default: '0.1.0'
+  push:
+    branches:
+      - main
+    # Everything the APK is built out of, which is more than the two client projects: the app compiles
+    # against the same contracts the server serves, and reads its own text out of the shared dictionary,
+    # so a change to either produces a different app. Not the web client, not the API's own code - a
+    # release for those is a container, and this one would be byte-identical.
+    paths:
+      - 'src/Clients/Orbit.Maui/**'
+      - 'src/Clients/Orbit.Mobile/**'
+      - 'src/Shared/Orbit.Contracts/**'
+      - 'src/Shared/Orbit.Core/**'
+      - 'src/Shared/Orbit.Localization/**'
+      - '.github/workflows/android-release.yml'
+
+# Two pushes in quick succession would otherwise race for the one blob the download page points at, and
+# whichever finished last would win regardless of which commit it came from. The newer build is always
+# the one wanted, so the older run is cancelled rather than queued.
+concurrency:
+  group: android-release
+  cancel-in-progress: true
 
 permissions:
   id-token: write   # required for OIDC login to Azure, for the upload step
@@ -31,11 +60,65 @@ env:
   APK_NAME: orbit-android.apk
 
 jobs:
-  build:
+  # The same suite main_orbit.yml runs, and deliberately run again rather than assumed: this workflow
+  # can fire on a commit that reached main without ever being a pull request, and the APK it produces
+  # is installed by a person rather than checked by anybody.
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Restore
+        run: dotnet restore Orbit.sln
+
+      - name: Build
+        run: dotnet build Orbit.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Orbit.sln --configuration Release --no-build
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # A hand-started release is told its version. A push cannot be, so it keeps the series the csproj
+      # names - the 0.1 of 0.1.0 - and takes this workflow's own run number as the release within it.
+      # That number only moves when this workflow runs, so the versions read as releases (0.1.2, 0.1.3)
+      # rather than as build numbers, and it never repeats or goes backwards, which is what Android
+      # requires of the version code below and what the update gate compares on the display version.
+      #
+      # Raising the series is an edit to the csproj, which is a decision somebody makes on purpose - it
+      # is the number that says a release is a different thing rather than the next of the same.
+      - name: Decide the version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          SERIES=$(grep -o '<ApplicationDisplayVersion>[^<]*' src/Clients/Orbit.Maui/Orbit.Maui.csproj \
+            | head -1 | cut -d'>' -f2 | cut -d. -f1,2)
+          if [ -z "$SERIES" ]; then
+            echo "::error::Could not read ApplicationDisplayVersion out of Orbit.Maui.csproj - a release cannot be numbered."
+            exit 1
+          fi
+
+          echo "value=$SERIES.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Say what is being released
+        run: echo "Releasing ${{ steps.version.outputs.value }} from ${{ github.sha }}"
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
@@ -126,7 +209,7 @@ jobs:
             --framework net10.0-android \
             --configuration Release \
             -p:OrbitApiBaseAddress="$ORBIT_API_BASE_ADDRESS" \
-            -p:ApplicationDisplayVersion="${{ inputs.version }}" \
+            -p:ApplicationDisplayVersion="${{ steps.version.outputs.value }}" \
             -p:ApplicationVersion="${{ github.run_number }}" \
             -p:AndroidPackageFormat=apk \
             -p:AndroidKeyStore=true \
@@ -150,7 +233,7 @@ jobs:
       - name: Keep the APK with this run
         uses: actions/upload-artifact@v4
         with:
-          name: orbit-android-${{ inputs.version }}
+          name: orbit-android-${{ steps.version.outputs.value }}
           path: ${{ runner.temp }}/orbit-android.apk
           if-no-files-found: error
 
