@@ -307,7 +307,32 @@ jobs:
           docker run -d --name orbit-web-boot-test -p 18081:80 \
             ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }}
 
-          if ! node ci/verify-app-boots.mjs http://localhost:18081/ 60000; then
+          # Wait for nginx before pointing a browser at it. This used to happen by accident: installing
+          # Playwright sat between the container starting and the browser opening, and moving that
+          # install into a step of its own took the delay away with it. A browser that arrives while
+          # Docker is still bringing the container's network up has its downloads aborted mid-flight -
+          # net::ERR_NETWORK_CHANGED - which from here reads exactly like an app that failed to start.
+          echo "Waiting for the boot-test container to serve..."
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:18081/ > /dev/null && break
+            sleep 2
+          done
+
+          # Retried, like the check against the deployed app below, and for the same kind of reason: the
+          # client is thirty-odd .wasm files, any one of which failing to download fails the whole boot.
+          # One aborted request is a hiccup on the runner, not a verdict on the image - three attempts
+          # that all end the same way is a verdict.
+          booted=false
+          for i in $(seq 1 3); do
+            echo "Boot attempt $i/3..."
+            if node ci/verify-app-boots.mjs http://localhost:18081/ 60000; then
+              booted=true
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$booted" != "true" ]; then
             echo "--- orbit-web boot test container logs ---"
             docker logs orbit-web-boot-test
             docker rm -f orbit-web-boot-test > /dev/null
