@@ -157,6 +157,12 @@ else
                     {
                         <GroupConversation Group="selectedGroup" OwnUserId="_ownUserId" Contacts="_contacts" />
                     }
+                    else if (GroupId is not null && !_areConversationsLoaded)
+                    {
+                        @* Opening a group's own address directly: the list it is looked up in is still
+                           on its way, and "pick one" would be answering a question nobody asked. *@
+                        <p>@T["Loading…"]</p>
+                    }
                     else
                     {
                         <p class="empty-hint">@T["Pick a conversation from the list, or start a new group."]</p>
@@ -390,6 +396,9 @@ else
     /// <summary>Whether the conversation's own menu (Info, and a group's Members) is showing.</summary>
     private bool _isConversationMenuOpen;
 
+    /// <summary>Whether the people and groups have arrived - what tells "no such group" apart from "not yet".</summary>
+    private bool _areConversationsLoaded;
+
     private bool _isCreatingGroup;
     private bool _isCreatingGroupBusy;
     private string _newGroupName = string.Empty;
@@ -571,6 +580,7 @@ else
             _cryptoModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
             _contacts = await ChatApiClient.GetContactsAsync();
             _groups = await ChatApiClient.GetGroupsAsync();
+            _areConversationsLoaded = true;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
