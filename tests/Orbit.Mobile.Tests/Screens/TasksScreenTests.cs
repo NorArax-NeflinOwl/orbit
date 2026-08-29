@@ -208,6 +208,52 @@ public sealed class TasksScreenTests : IDisposable
         Assert.Equal(["Shopping", "Taxes", "Move house"], Titles(screen));
     }
 
+
+    /// <summary>
+    /// Folded down to its heading, and still there - the distinction Orbit.Web draws between folding a
+    /// card and filtering it away. A list nobody is working on this week is still one they want to see.
+    /// </summary>
+    [Fact]
+    public async Task A_folded_card_keeps_its_place_on_the_screen()
+    {
+        await AddAsync("Move house", "Shopping");
+        var screen = await OpenAsync();
+
+        screen.ToggleCollapsedCommand.Execute(screen.TaskLists.Single(row => row.Title == "Shopping"));
+
+        Assert.Equal(2, screen.TaskLists.Count);
+        Assert.True(screen.TaskLists.Single(row => row.Title == "Shopping").IsCollapsed);
+        Assert.False(screen.TaskLists.Single(row => row.Title == "Move house").IsCollapsed);
+    }
+
+    /// <summary>
+    /// Folding is a standing answer about a card, not a narrowing somebody does for a moment, so unlike
+    /// the filter chips it comes back with the screen - which is the line Orbit.Web draws as well.
+    /// </summary>
+    [Fact]
+    public async Task Folding_survives_the_screen_being_opened_again()
+    {
+        await AddAsync("Move house");
+        var first = await OpenAsync();
+        first.ToggleCollapsedCommand.Execute(first.TaskLists.Single());
+
+        var second = await OpenAsync();
+
+        Assert.True(second.TaskLists.Single().IsCollapsed);
+    }
+
+    [Fact]
+    public async Task Folding_a_card_twice_opens_it_again()
+    {
+        await AddAsync("Move house");
+        var screen = await OpenAsync();
+
+        screen.ToggleCollapsedCommand.Execute(screen.TaskLists.Single());
+        screen.ToggleCollapsedCommand.Execute(screen.TaskLists.Single());
+
+        Assert.False(screen.TaskLists.Single().IsCollapsed);
+        Assert.Empty(Arrangement.RememberedCollapsed);
+    }
     private static IReadOnlyList<string> Titles(TasksViewModel screen)
         => [.. screen.TaskLists.Select(row => row.Title)];
 

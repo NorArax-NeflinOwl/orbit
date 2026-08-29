@@ -11,6 +11,7 @@ public sealed class PreferencesTaskListArrangementStore : ITaskListArrangementSt
 {
 	private const string SortOrderKey = "orbit.tasks.sort-order";
 	private const string ManualOrderKey = "orbit.tasks.manual-order";
+	private const string CollapsedKey = "orbit.tasks.collapsed";
 
 	private readonly IPreferences _preferences;
 
@@ -27,11 +28,19 @@ public sealed class PreferencesTaskListArrangementStore : ITaskListArrangementSt
 
 	/// <summary>
 	/// Nothing written, or something written by a build that stored it differently, means nothing has
-	/// been moved yet - which is a fine answer and the one every phone starts on.
+	/// been moved or folded yet - which is a fine answer and the one every phone starts on.
 	/// </summary>
-	public IReadOnlyList<Guid> ReadManualOrder()
+	public IReadOnlyList<Guid> ReadManualOrder() => ReadIds(ManualOrderKey);
+
+	public void WriteManualOrder(IReadOnlyList<Guid> orderedLocalIds) => WriteIds(ManualOrderKey, orderedLocalIds);
+
+	public IReadOnlyList<Guid> ReadCollapsed() => ReadIds(CollapsedKey);
+
+	public void WriteCollapsed(IReadOnlyList<Guid> collapsedLocalIds) => WriteIds(CollapsedKey, collapsedLocalIds);
+
+	private IReadOnlyList<Guid> ReadIds(string key)
 	{
-		if (_preferences.Get<string?>(ManualOrderKey, null) is not { Length: > 0 } stored)
+		if (_preferences.Get<string?>(key, null) is not { Length: > 0 } stored)
 		{
 			return [];
 		}
@@ -46,6 +55,5 @@ public sealed class PreferencesTaskListArrangementStore : ITaskListArrangementSt
 		}
 	}
 
-	public void WriteManualOrder(IReadOnlyList<Guid> orderedLocalIds)
-		=> _preferences.Set(ManualOrderKey, JsonSerializer.Serialize(orderedLocalIds));
+	private void WriteIds(string key, IReadOnlyList<Guid> ids) => _preferences.Set(key, JsonSerializer.Serialize(ids));
 }

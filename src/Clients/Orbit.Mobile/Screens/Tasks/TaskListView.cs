@@ -53,6 +53,11 @@ public interface ITaskListArrangementStore
     IReadOnlyList<Guid> ReadManualOrder();
 
     void WriteManualOrder(IReadOnlyList<Guid> orderedLocalIds);
+
+    /// <summary>The lists folded down to their heading - empty until the reader folds one.</summary>
+    IReadOnlyList<Guid> ReadCollapsed();
+
+    void WriteCollapsed(IReadOnlyList<Guid> collapsedLocalIds);
 }
 
 /// <summary>

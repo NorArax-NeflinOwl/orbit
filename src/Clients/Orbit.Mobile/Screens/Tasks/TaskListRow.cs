@@ -67,6 +67,17 @@ public sealed record TaskListRow(
     /// </summary>
     public bool CanBeMoved { get; init; }
 
+    /// <summary>
+    /// Whether this card is folded down to its heading. Folded rather than filtered away: a list
+    /// somebody is not working on this week is still one they want to see is there.
+    /// </summary>
+    public bool IsCollapsed { get; init; }
+
+    public bool IsExpanded => !IsCollapsed;
+
+    /// <summary>What the fold button says - pointing down at what it would show, up at what it would hide.</summary>
+    public string FoldGlyph => IsCollapsed ? "▾" : "▴";
+
     public bool HasStatus => Status.Length > 0;
 
     public bool HasNextThing => NextThing.Length > 0;

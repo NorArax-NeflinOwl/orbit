@@ -41,6 +41,9 @@ public sealed partial class TasksViewModel : ObservableObject
     /// <summary>Read back from where the reader left it - see ITaskListArrangementStore.</summary>
     private TaskListArrangement _arrangement;
 
+    /// <summary>The cards folded down to their heading - see ToggleCollapsed.</summary>
+    private readonly HashSet<Guid> _collapsed;
+
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
         INetworkStatus networkStatus, ITaskListArrangementStore arrangements,
@@ -55,6 +58,7 @@ public sealed partial class TasksViewModel : ObservableObject
         _translations = translations;
         _arrangements = arrangements;
         _arrangement = new TaskListArrangement(arrangements.ReadSortOrder(), arrangements.ReadManualOrder());
+        _collapsed = [.. arrangements.ReadCollapsed()];
     }
 
     public ObservableCollection<TaskListRow> TaskLists { get; } = [];
@@ -147,7 +151,11 @@ public sealed partial class TasksViewModel : ObservableObject
             // and a member filtered off the screen is still where that work sits.
             TaskLists.Add(TaskListRow.From(
                 taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations)
-                with { CanBeMoved = SortOrder == TaskListSortOrder.Manual });
+                with
+                {
+                    CanBeMoved = SortOrder == TaskListSortOrder.Manual,
+                    IsCollapsed = _collapsed.Contains(taskList.LocalId)
+                });
         }
 
         OnPropertyChanged(nameof(SortDescription));
@@ -255,6 +263,28 @@ public sealed partial class TasksViewModel : ObservableObject
 
         _arrangement = _arrangement with { ManualOrder = order };
         _arrangements.WriteManualOrder(order);
+        ShowArrangedLists();
+    }
+
+    /// <summary>
+    /// Folds a card down to its heading, or opens it again. Folded rather than filtered away, which is
+    /// the distinction Orbit.Web draws too: a list somebody is not working on this week is still one
+    /// they want to see is there, and a filter would take it off the screen altogether.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleCollapsed(TaskListRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        if (!_collapsed.Remove(row.LocalId))
+        {
+            _collapsed.Add(row.LocalId);
+        }
+
+        _arrangements.WriteCollapsed([.. _collapsed]);
         ShowArrangedLists();
     }
     private async Task SynchroniseAsync(CancellationToken cancellationToken)

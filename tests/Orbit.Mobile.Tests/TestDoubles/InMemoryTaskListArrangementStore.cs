@@ -12,6 +12,8 @@ internal sealed class InMemoryTaskListArrangementStore : ITaskListArrangementSto
 
     public IReadOnlyList<Guid> RememberedManualOrder { get; private set; } = [];
 
+    public IReadOnlyList<Guid> RememberedCollapsed { get; private set; } = [];
+
     public TaskListSortOrder ReadSortOrder() => RememberedSortOrder;
 
     public void WriteSortOrder(TaskListSortOrder sortOrder) => RememberedSortOrder = sortOrder;
@@ -19,4 +21,8 @@ internal sealed class InMemoryTaskListArrangementStore : ITaskListArrangementSto
     public IReadOnlyList<Guid> ReadManualOrder() => RememberedManualOrder;
 
     public void WriteManualOrder(IReadOnlyList<Guid> orderedLocalIds) => RememberedManualOrder = orderedLocalIds;
+
+    public IReadOnlyList<Guid> ReadCollapsed() => RememberedCollapsed;
+
+    public void WriteCollapsed(IReadOnlyList<Guid> collapsedLocalIds) => RememberedCollapsed = collapsedLocalIds;
 }
