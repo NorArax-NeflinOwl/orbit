@@ -1251,5 +1251,29 @@ public static class PolishTranslations
         ["Delivered"] = "Dostarczone",
         ["Read by everyone"] = "Przeczytane przez wszystkich",
         ["Read {0}"] = "Przeczytane {0}",
+
+        // The page the phone apps are downloaded from.
+        ["Orbit — Get the app"] = "Orbit — Pobierz aplikację",
+        ["Get the app"] = "Pobierz aplikację",
+        ["The phone apps sign in to this same Orbit, with the same account and the same data."] =
+            "Aplikacje na telefon logują się do tego samego Orbita, tym samym kontem i z tymi samymi danymi.",
+        ["Android"] = "Android",
+        ["iPhone"] = "iPhone",
+        ["Download for Android"] = "Pobierz na Androida",
+        ["Open the downloaded file. Android will ask whether this browser may install apps - allow it."] =
+            "Otwórz pobrany plik. Android zapyta, czy ta przeglądarka może instalować aplikacje — zezwól.",
+        ["Install, then open Orbit and sign in with your usual account."] =
+            "Zainstaluj, otwórz Orbita i zaloguj się swoim zwykłym kontem.",
+        ["This build is not from Google Play, so Android checks with you before installing it. That is the prompt about unknown sources, and it is expected here."] =
+            "Ta wersja nie pochodzi z Google Play, więc Android pyta o zgodę przed instalacją. To właśnie pytanie o nieznane źródła — tak ma być.",
+        ["No Android build has been published yet."] = "Nie opublikowano jeszcze wersji na Androida.",
+        ["Open the TestFlight invitation"] = "Otwórz zaproszenie w TestFlight",
+        ["Install Apple's TestFlight app, then open the invitation on the iPhone itself."] =
+            "Zainstaluj aplikację TestFlight od Apple, a potem otwórz zaproszenie na samym iPhonie.",
+        ["Install Orbit from TestFlight and sign in with your usual account."] =
+            "Zainstaluj Orbita z TestFlight i zaloguj się swoim zwykłym kontem.",
+        ["No iPhone build has been published yet. iOS installs nothing a browser downloaded, so this will be a TestFlight invitation rather than a file."] =
+            "Nie opublikowano jeszcze wersji na iPhone'a. iOS nie zainstaluje niczego, co pobrała przeglądarka, więc będzie to zaproszenie w TestFlight, a nie plik.",
+        ["Orbit on your phone"] = "Orbit na telefonie",
     };
 }
