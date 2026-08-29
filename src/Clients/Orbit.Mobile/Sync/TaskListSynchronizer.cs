@@ -212,10 +212,15 @@ public sealed class TaskListSynchronizer
     ///
     /// Null for an entry added on this phone, which has no server id yet: <see cref="Guid.Empty"/> is
     /// what the local store writes for one, and sending it would be claiming an id nothing has.
+    ///
+    /// The kind, the place and the event it belongs to travel with it for the same reason: left off,
+    /// every push from the phone turned an appointment set on the web back into a plain errand with
+    /// nowhere to be.
     /// </summary>
     private static IReadOnlyList<TaskItemRequest> ToRequests(IReadOnlyList<TaskItemDto> items)
         => items.Select(item => new TaskItemRequest(
             item.Description, item.Id == Guid.Empty ? null : item.Id, item.DueDateUtc, item.IsCompleted,
             item.LinkedTaskListId, item.OverdueNotificationChannel, item.RemindDaily,
-            item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay)).ToList();
+            item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
+            item.Kind, item.Location, item.LinkedCalendarEventId)).ToList();
 }

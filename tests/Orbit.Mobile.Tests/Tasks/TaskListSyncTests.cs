@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Core.Sync;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
@@ -37,6 +38,31 @@ public sealed class TaskListSyncTests
 
         Assert.Equal(1, result.Sent);
         Assert.Contains(context.Server.TaskLists, list => list.Title == "Groceries");
+    }
+
+    /// <summary>
+    /// The bug this stands for: the push described each entry to the server without its kind, its place
+    /// or the event it belongs to, so every sync from the phone turned an appointment set on the web
+    /// back into a plain errand with nowhere to be - and did it silently, since the phone showed none of
+    /// the three either.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_is_still_an_appointment_after_the_phone_pushes_it()
+    {
+        using var context = new TaskContext();
+        var eventId = Guid.NewGuid();
+        await context.TaskLists.CreateAsync("Saturday",
+        [
+            new(Guid.NewGuid(), "dentist", null, false, null, "None", false, "None", new TimeOnly(9, 0),
+                nameof(TaskItemKind.Calendar), "12 Mill Lane", eventId)
+        ]);
+
+        await context.SynchroniseAsync();
+
+        var onServer = Assert.Single(Assert.Single(context.Server.TaskLists).Items);
+        Assert.Equal(nameof(TaskItemKind.Calendar), onServer.Kind);
+        Assert.Equal("12 Mill Lane", onServer.Location);
+        Assert.Equal(eventId, onServer.LinkedCalendarEventId);
     }
 
     [Fact]

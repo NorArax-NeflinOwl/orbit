@@ -23,6 +23,7 @@ namespace Orbit.Mobile.Screens.Tasks;
 public sealed partial class TaskListDetailViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
+    private readonly LocalCalendarEventRepository _calendarEvents;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly TasksClient _tasksClient;
     private readonly EditLock _editLock;
@@ -33,6 +34,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     private Guid _localId;
     private IReadOnlyList<TaskItemDto> _items = [];
+
+    /// <summary>The events an entry could be tied to - see <see cref="CalendarEventChoice"/>.</summary>
+    private IReadOnlyList<CalendarEventChoice> _linkableEvents = [];
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -57,9 +61,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
-        TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck)
+        TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck,
+        LocalCalendarEventRepository calendarEvents)
     {
         _taskLists = taskLists;
+        _calendarEvents = calendarEvents;
         _synchronizer = synchronizer;
         _translations = translations;
         _timeProvider = timeProvider;
@@ -119,7 +125,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = TaskItemEditor.For(row.Item, _translations);
+            BeingEdited = TaskItemEditor.For(row.Item, _translations, _linkableEvents);
             MoveTarget = null;
             OnPropertyChanged(nameof(CanMoveItem));
         }
@@ -181,6 +187,21 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         {
             MoveTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
         }
+    }
+
+    /// <summary>
+    /// Read with the list rather than when an entry is opened, for the reason Orbit.Web's editor gives:
+    /// the picker offering them has to be filled before anybody opens an entry, not after. The local
+    /// store rather than the API, so it is there with no connection like everything else on this screen.
+    /// </summary>
+    private async Task ShowWhatItCanBeTiedToAsync(CancellationToken cancellationToken)
+    {
+        var events = await _calendarEvents.GetAllAsync(cancellationToken);
+
+        _linkableEvents = [.. events
+            .Where(candidate => candidate.ServerId is not null)
+            .Select(candidate => new CalendarEventChoice(
+                candidate.ServerId, candidate.Details.Title, candidate.Details.Location?.Address ?? string.Empty))];
     }
 
     [RelayCommand]
@@ -273,6 +294,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         IsGroup = taskList.IsGroup;
         _isShowingWhatIsStored = false;
         await ShowWhereItCanGoAsync(cancellationToken);
+        await ShowWhatItCanBeTiedToAsync(cancellationToken);
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
         ReadOnlyReason = string.Empty;

@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using Orbit.Contracts.Calendar;
+using Orbit.Core.Tasks;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
@@ -105,6 +107,78 @@ public sealed class TaskListDetailScreenTests
         Assert.Equal(new DateTime(2027, 3, 1), item.DueDateUtc!.Value.LocalDateTime.Date);
         Assert.Equal("Push", item.OverdueNotificationChannel);
         Assert.True(item.RemindDaily);
+    }
+
+    /// <summary>
+    /// An entry can be somewhere to be rather than something to fetch - see TaskItemKind. The phone
+    /// carried the kind and the place through every save but could set neither, so a day's plan made
+    /// here was all errands.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_made_an_appointment_with_a_place()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Location = "12 Mill Lane";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var item = Assert.Single(screen.Items).Item;
+        Assert.Equal(nameof(TaskItemKind.Calendar), item.Kind);
+        Assert.Equal("12 Mill Lane", item.Location);
+    }
+
+    /// <summary>
+    /// One place, not two: tied to an event, the event holds it, so the box gives way to what the event
+    /// says rather than offering a second answer that could drift from the first.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_tied_to_an_event_says_where_the_event_happens()
+    {
+        using var context = new ScreenContext();
+        var eventId = await context.AddCalendarEventAsync("Checkup", "12 Mill Lane");
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.ChosenCalendarEvent =
+            screen.BeingEdited.CalendarEvents.Single(choice => choice.ServerId == eventId);
+
+        Assert.False(screen.BeingEdited.CanSayWhereItHappens);
+        Assert.True(screen.BeingEdited.IsTiedToAnEvent);
+        Assert.Contains("12 Mill Lane", screen.BeingEdited.WhereTheEventHappens);
+
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        Assert.Equal(eventId, Assert.Single(screen.Items).Item.LinkedCalendarEventId);
+    }
+
+    /// <summary>
+    /// Only a calendar entry can be tied to an event, so one turned back into an errand sends none -
+    /// whatever the picker last held. The same rule Orbit.Web's editor applies.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_turned_back_into_an_errand_is_tied_to_nothing()
+    {
+        using var context = new ScreenContext();
+        var eventId = await context.AddCalendarEventAsync("Checkup", "12 Mill Lane");
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.ChosenCalendarEvent =
+            screen.BeingEdited.CalendarEvents.Single(choice => choice.ServerId == eventId);
+        screen.BeingEdited.Kind = nameof(TaskItemKind.Checklist);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Null(Assert.Single(screen.Items).Item.LinkedCalendarEventId);
     }
 
     /// <summary>
@@ -264,12 +338,16 @@ public sealed class TaskListDetailScreenTests
                 new TasksClient(Server.ToHttpClient()),
                 new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online),
                 new Translations(new InMemoryLanguageStore()));
+            CalendarEvents = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
             Synchronizer = new TaskListSynchronizer(
                 _localStore, new TasksClient(Server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<TaskListSynchronizer>.Instance);
         }
 
         public FakeTasksServer Server { get; }
+
+        /// <summary>What an entry can be tied to - see CalendarEventChoice. Empty unless a test adds one.</summary>
+        public LocalCalendarEventRepository CalendarEvents { get; private set; } = null!;
 
         /// <summary>"Can this be done?" - see StockCheckPanel.</summary>
         public StockCheckPanel StockCheck { get; private set; } = null!;
@@ -285,10 +363,27 @@ public sealed class TaskListDetailScreenTests
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
                 new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
-                StockCheck);
+                StockCheck, CalendarEvents);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
+        }
+
+        /// <summary>
+        /// An event the server knows about, which is what makes it something an entry can be tied to -
+        /// the tie is stored as the event's own id.
+        /// </summary>
+        public async Task<Guid> AddCalendarEventAsync(string title, string? address)
+        {
+            var created = await CalendarEvents.CreateAsync(new CalendarEventDetailsDto(
+                title, null, address is null ? null : new EventLocationDto(address, 0, 0), null,
+                _clock.GetUtcNow(), _clock.GetUtcNow().AddHours(1), false, null, [], [], "None", "None"));
+
+            await using var dbContext = _localStore.CreateDbContext();
+            var stored = dbContext.CalendarEvents.Single(candidate => candidate.LocalId == created.LocalId);
+            stored.ServerId = Guid.NewGuid();
+            await dbContext.SaveChangesAsync();
+            return stored.ServerId.Value;
         }
 
         public Task<SyncResult> SynchroniseAsync() => Synchronizer.SynchroniseAsync(CancellationToken.None);

@@ -216,7 +216,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         => items.Select(item => new TaskItemDto(
             item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
             item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-            item.DailyReminderTimeOfDay)).ToList();
+            item.DailyReminderTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId)).ToList();
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 
