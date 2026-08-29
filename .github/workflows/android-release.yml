@@ -57,16 +57,20 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
 
       # Both files are gitignored because they are a deployment's own business, and both change what the
-      # built app can do rather than whether it builds: without google-services.json there is no push,
-      # without the manifest overlay there is no map. Restored from secrets so a release has them, and
-      # warned about loudly where a secret has not been set - a release without push is a decision
-      # somebody may take, but not one they should take by accident.
+      # built app can do rather than whether it builds. Restored from secrets so a release has them, and
+      # skipped with a line saying so where a secret has not been set.
+      #
+      # Firebase does nothing for the app yet, and the step is here ahead of the work rather than after
+      # it: PhonePushNotifications answers NotAvailableHere on both heads, because obtaining an FCM
+      # registration token needs the Firebase SDK referenced in the project and nothing references it.
+      # A release built with this file is no more reachable by push than one built without it - see
+      # info/orbit-maui-plan.md §4.2 for what is still missing.
       - name: Restore the Firebase configuration
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not set - this build will have no push notifications."
+            echo "::notice::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not set. Nothing is lost while the app obtains no FCM token anyway - set it once push is wired up."
             exit 0
           fi
           echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d \
