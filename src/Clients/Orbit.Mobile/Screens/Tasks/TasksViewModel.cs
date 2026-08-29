@@ -170,13 +170,25 @@ public sealed partial class TasksViewModel : ObservableObject
         OnPropertyChanged(nameof(Filters));
     }
 
-    /// <summary>Steps through the five orders in turn, which is a button rather than a dropdown on a phone.</summary>
+    /// <summary>Every order, the one in force marked - what the sort button opens.</summary>
+    public IReadOnlyList<TaskListSortChoice> SortChoices
+        => [.. Enum.GetValues<TaskListSortOrder>()
+            .Select(order => new TaskListSortChoice(
+                order, TaskListView.Describe(order, _translations), order == SortOrder))];
+
+    /// <summary>
+    /// A menu rather than a button stepping through them, as it was when there were fewer: six orders
+    /// is five taps to undo a mistaken one, and the reader cannot see what they are stepping towards.
+    /// </summary>
     [RelayCommand]
-    private void NextSortOrder()
+    private void ChooseSortOrder(TaskListSortChoice? choice)
     {
-        SortOrder = SortOrder == TaskListSortOrder.ReverseAlphabetical
-            ? TaskListSortOrder.Priority
-            : SortOrder + 1;
+        if (choice is null)
+        {
+            return;
+        }
+
+        SortOrder = choice.Order;
 
         // Written at once rather than on the way out: there is no moment a screen is told it is leaving
         // for good, and an order that took a restart to stick would read as one that had not.

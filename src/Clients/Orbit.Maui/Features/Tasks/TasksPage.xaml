@@ -65,7 +65,7 @@
 
             <Button Grid.Column="1" Text="{Binding SortDescription}" FontSize="12" Padding="8,4"
                     VerticalOptions="Start" Style="{StaticResource LinkButton}"
-                    Command="{Binding NextSortOrderCommand}" />
+                    Clicked="OnSortClicked" />
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">

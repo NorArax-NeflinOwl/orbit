@@ -52,8 +52,9 @@ public sealed class TasksScreenTests : IDisposable
     {
         var screen = await OpenAsync();
 
-        screen.NextSortOrderCommand.Execute(null);
+        screen.ChooseSortOrderCommand.Execute(Choice(screen, TaskListSortOrder.Oldest));
 
+        Assert.Equal(TaskListSortOrder.Oldest, screen.SortOrder);
         Assert.Equal(screen.SortOrder, SortOrders.Remembered);
     }
 
@@ -65,13 +66,44 @@ public sealed class TasksScreenTests : IDisposable
     public async Task The_order_survives_the_screen_being_opened_again()
     {
         var first = await OpenAsync();
-        first.NextSortOrderCommand.Execute(null);
+        first.ChooseSortOrderCommand.Execute(Choice(first, TaskListSortOrder.LeastImportantFirst));
         var chosen = first.SortOrder;
 
         var second = await OpenAsync();
 
         Assert.Equal(chosen, second.SortOrder);
     }
+
+    /// <summary>
+    /// The menu marks what is in force, because the button that says so is behind the menu once it is
+    /// open - a list of six with no answer among them leaves the reader guessing.
+    /// </summary>
+    [Fact]
+    public async Task The_menu_says_which_order_is_in_force()
+    {
+        SortOrders.Write(TaskListSortOrder.Oldest);
+
+        var screen = await OpenAsync();
+
+        Assert.Equal(TaskListSortOrder.Oldest, screen.SortChoices.Single(choice => choice.IsChosen).Order);
+        Assert.Equal(Enum.GetValues<TaskListSortOrder>().Length, screen.SortChoices.Count);
+    }
+
+    /// <summary>
+    /// Each under its own name. Describe ends in a catch-all, so an order added without a case of its
+    /// own would quietly come out as "Z to A" - two entries reading alike is what that looks like.
+    /// </summary>
+    [Fact]
+    public async Task No_two_orders_are_offered_under_the_same_name()
+    {
+        var screen = await OpenAsync();
+
+        Assert.Equal(
+            screen.SortChoices.Count, screen.SortChoices.Select(choice => choice.Name).Distinct().Count());
+    }
+
+    private static TaskListSortChoice Choice(TasksViewModel screen, TaskListSortOrder order)
+        => screen.SortChoices.Single(choice => choice.Order == order);
 
     /// <summary>
     /// Nothing remembered is the order Orbit has always opened on, not a blank one - a first launch must

@@ -3,10 +3,14 @@ using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Tasks;
 
-/// <summary>How the task lists are ordered, in the same five ways Orbit.Web offers.</summary>
+/// <summary>How the task lists are ordered, in the same ways Orbit.Web offers.</summary>
 public enum TaskListSortOrder
 {
+    /// <summary>How much each list matters, most first.</summary>
     Priority,
+
+    /// <summary>The same, upside down: the small things, for a reader clearing them out of the way.</summary>
+    LeastImportantFirst,
     Newest,
     Oldest,
     Alphabetical,
@@ -63,7 +67,8 @@ public static class TaskListView
 
     public static string Describe(TaskListSortOrder order, Translations translations) => order switch
     {
-        TaskListSortOrder.Priority => translations["Priority"],
+        TaskListSortOrder.Priority => translations["Most important first"],
+        TaskListSortOrder.LeastImportantFirst => translations["Least important first"],
         TaskListSortOrder.Newest => translations["Newest first"],
         TaskListSortOrder.Oldest => translations["Oldest first"],
         TaskListSortOrder.Alphabetical => translations["A to Z"],
@@ -74,6 +79,7 @@ public static class TaskListView
         => order switch
         {
             TaskListSortOrder.Priority => taskLists.OrderByDescending(Rank),
+            TaskListSortOrder.LeastImportantFirst => taskLists.OrderBy(Rank),
             TaskListSortOrder.Newest => taskLists.OrderByDescending(taskList => taskList.CreatedAtUtc),
             TaskListSortOrder.Oldest => taskLists.OrderBy(taskList => taskList.CreatedAtUtc),
             TaskListSortOrder.Alphabetical
@@ -101,3 +107,9 @@ public sealed record TaskListFilter(string? Status, string Name, int Count, bool
     /// <summary>What the chip says. The count is what makes it worth tapping - or worth not tapping.</summary>
     public string Label => $"{Name} {Count}";
 }
+
+/// <summary>
+/// One order the lists can be put in, as the menu offers it: what it is, what it is called, and whether
+/// it is the one in force - a menu of six with no answer marked leaves the reader guessing.
+/// </summary>
+public sealed record TaskListSortChoice(TaskListSortOrder Order, string Name, bool IsChosen);

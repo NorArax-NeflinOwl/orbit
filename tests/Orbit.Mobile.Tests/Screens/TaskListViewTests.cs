@@ -54,6 +54,20 @@ public sealed class TaskListViewTests
         Assert.Equal(["Highest", "Normal", "Low"], shown.Select(list => list.Title));
     }
 
+    /// <summary>
+    /// The same list, upside down - for a reader clearing the small things out of the way rather than
+    /// starting on the big one. Orbit.Web offers both halves and the phone offered only the one.
+    /// </summary>
+    [Fact]
+    public void The_least_important_can_be_put_first_instead()
+    {
+        var lists = new[] { List("Low", priority: "Low"), List("Highest", priority: "Highest"), List("Normal") };
+
+        var shown = TaskListView.Arrange(lists, null, TaskListSortOrder.LeastImportantFirst);
+
+        Assert.Equal(["Low", "Normal", "Highest"], shown.Select(list => list.Title));
+    }
+
     /// <summary>An unknown priority sorts as Normal - one added in a later build must not be a crash.</summary>
     [Fact]
     public void An_unknown_priority_sorts_as_normal()
