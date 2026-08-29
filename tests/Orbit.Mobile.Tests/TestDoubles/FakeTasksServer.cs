@@ -36,6 +36,18 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public int RaisedShortfallCount { get; set; }
 
+    /// <summary>What bringing the list and the warehouse back into step reports having moved.</summary>
+    public StockReconciliationResultDto Reconciliation { get; set; } = new(0, 0);
+
+    /// <summary>How many times it was actually asked for - the panel used to only re-read instead.</summary>
+    public int ReconciliationsAsked { get; private set; }
+
+    /// <summary>How many products bringing the whole warehouse up to its minimum moved.</summary>
+    public int ToppedUpCount { get; set; }
+
+    /// <summary>How many times the shelf was asked to be topped up in one go.</summary>
+    public int RestockingsFinished { get; private set; }
+
     /// <summary>The warehouse a list was last pointed at.</summary>
     public Guid? LinkedWarehouseId { get; private set; }
 
@@ -106,6 +118,18 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         if (path.EndsWith("/stock-check/shortfalls", StringComparison.Ordinal))
         {
             return Json(new RaiseStockShortfallsResultDto(RaisedShortfallCount));
+        }
+
+        if (path.EndsWith("/stock-check/reconciliation", StringComparison.Ordinal))
+        {
+            ReconciliationsAsked++;
+            return Json(Reconciliation);
+        }
+
+        if (path.EndsWith("/restocking/finished", StringComparison.Ordinal))
+        {
+            RestockingsFinished++;
+            return Json(new FinishRestockingResultDto(ToppedUpCount));
         }
 
         if (path.EndsWith("/inventory", StringComparison.Ordinal))

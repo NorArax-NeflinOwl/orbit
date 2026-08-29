@@ -11,12 +11,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- So the translation dictionary can be checked as a whole rather than one string at a time: a
-         duplicate key throws at type-init and takes the app down the moment somebody switches to
-         Polish, and a placeholder that does not match its English throws when the line is formatted.
-         Neither is reachable through the public indexer, which can only be asked about keys a test
-         already knows. See PolishTranslationsTests. -->
-    <InternalsVisibleTo Include="Orbit.Web.Tests" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.10" PrivateAssets="all" />

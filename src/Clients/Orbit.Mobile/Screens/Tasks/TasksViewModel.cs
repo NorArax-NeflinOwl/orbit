@@ -22,6 +22,7 @@ public sealed partial class TasksViewModel : ObservableObject
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
     private readonly Translations _translations;
+    private readonly ITaskListSortOrderStore _sortOrders;
 
     [ObservableProperty]
     private string _newListTitle = string.Empty;
@@ -37,12 +38,13 @@ public sealed partial class TasksViewModel : ObservableObject
     [ObservableProperty]
     private string? _statusFilter;
 
+    /// <summary>Read back from where the reader left it - see ITaskListSortOrderStore.</summary>
     [ObservableProperty]
-    private TaskListSortOrder _sortOrder = TaskListSortOrder.Priority;
+    private TaskListSortOrder _sortOrder;
 
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
-        INetworkStatus networkStatus,
+        INetworkStatus networkStatus, ITaskListSortOrderStore sortOrders,
         SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _taskLists = taskLists;
@@ -52,6 +54,8 @@ public sealed partial class TasksViewModel : ObservableObject
         _syncState = syncState;
         _navigator = navigator;
         _translations = translations;
+        _sortOrders = sortOrders;
+        _sortOrder = sortOrders.Read();
     }
 
     public ObservableCollection<TaskListRow> TaskLists { get; } = [];
@@ -174,6 +178,9 @@ public sealed partial class TasksViewModel : ObservableObject
             ? TaskListSortOrder.Priority
             : SortOrder + 1;
 
+        // Written at once rather than on the way out: there is no moment a screen is told it is leaving
+        // for good, and an order that took a restart to stick would read as one that had not.
+        _sortOrders.Write(SortOrder);
         ShowArrangedLists();
     }
 

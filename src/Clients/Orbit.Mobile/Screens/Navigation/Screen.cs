@@ -18,6 +18,7 @@ public enum Screen
     Note,
     Tasks,
     TaskList,
+    TaskItem,
     Calendar,
     CalendarEvent,
     Inventory,
@@ -31,5 +32,6 @@ public enum Screen
     Map,
     Notifications,
     Account,
+    Update,
     Diagnostics
 }

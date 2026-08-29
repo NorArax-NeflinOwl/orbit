@@ -149,15 +149,47 @@ public sealed class AccountClient
             HttpMethod.Delete, "api/users/me", new DeleteAccountRequest(password),
             "That password isn't right.", cancellationToken);
 
-    private async Task<AccountOperationResult> SendAsync<TRequest>(
+
+    /// <summary>
+    /// Connects a Google account, so it becomes a second way into this one. The token is obtained on
+    /// the device and verified by the server, which is why it is all this sends - see GoogleSignIn.
+    /// </summary>
+    public Task<AccountOperationResult> LinkGoogleAsync(
+        string idToken, CancellationToken cancellationToken = default)
+        => SendAsync(
+            HttpMethod.Post, "api/users/me/google", new GoogleSignInRequest(idToken),
+            "Couldn't verify that Google account.", cancellationToken);
+
+    /// <summary>
+    /// Disconnects it. Refused by the server while Google is the only way in, and the refusal says so -
+    /// a password has to be set first.
+    /// </summary>
+    public Task<AccountOperationResult> UnlinkGoogleAsync(CancellationToken cancellationToken = default)
+        => SendAsync(
+            HttpMethod.Delete, "api/users/me/google",
+            "Couldn't disconnect Google.", cancellationToken);
+
+    private Task<AccountOperationResult> SendAsync<TRequest>(
         HttpMethod method, string path, TRequest body, string refusalMessage, CancellationToken cancellationToken)
+        => SendContentAsync(method, path, JsonContent.Create(body), refusalMessage, cancellationToken);
+
+    /// <summary>
+    /// Nothing to send is its own case rather than a JSON null: an endpoint that takes no body should
+    /// not be handed one - see <see cref="UnlinkGoogleAsync"/>.
+    /// </summary>
+    private Task<AccountOperationResult> SendAsync(
+        HttpMethod method, string path, string refusalMessage, CancellationToken cancellationToken)
+        => SendContentAsync(method, path, content: null, refusalMessage, cancellationToken);
+
+    private async Task<AccountOperationResult> SendContentAsync(
+        HttpMethod method, string path, HttpContent? content, string refusalMessage, CancellationToken cancellationToken)
     {
         if (!_networkStatus.IsOnline)
         {
             return AccountOperationResult.RequiresConnection;
         }
 
-        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+        using var request = new HttpRequestMessage(method, path) { Content = content };
         using var response = await _httpClient.SendAsync(request, cancellationToken);
 
         if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest)

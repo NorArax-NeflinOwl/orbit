@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Inventory;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -35,6 +36,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
+    private Guid? _serverId;
     private IReadOnlyList<TaskItemDto> _items = [];
 
     /// <summary>The events an entry could be tied to - see <see cref="CalendarEventChoice"/>.</summary>
@@ -59,6 +61,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public bool IsEditingItem => BeingEdited is not null;
 
     public bool IsShowingList => BeingEdited is null;
+
+    /// <summary>
+    /// The entry whose tick raised the restock question, or null when nothing is being asked. Shaped
+    /// like <see cref="BeingEdited"/> for the same reason: the row is what answering needs, so holding
+    /// it is what "being asked" means.
+    /// </summary>
+    [ObservableProperty]
+    private TaskItemRow? _restockTickBeingAsked;
+
+    public bool IsAskingToFinishRestocking => RestockTickBeingAsked is not null;
 
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
@@ -244,19 +256,118 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         return SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
     }
 
+    /// <summary>
+    /// Ticking off "Update stock levels" while errands are still open on the same list is either the end
+    /// of a round of restocking or a tick on the standing reminder. Only the reader knows which, so they
+    /// are asked - Orbit.Web asks the same question in the browser's confirm box.
+    /// </summary>
     [RelayCommand]
     private Task ToggleItemAsync(TaskItemRow? row, CancellationToken cancellationToken)
-        => row is null
-            ? Task.CompletedTask
-            : SaveAsync(
-                _items.Select(item => item.Id == row.Id ? item with { IsCompleted = !item.IsCompleted } : item).ToList(),
-                cancellationToken);
+    {
+        if (row is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (!row.IsCompleted && ClosesARestockRound(row))
+        {
+            RestockTickBeingAsked = row;
+            return Task.CompletedTask;
+        }
+
+        return TickAsync(row, cancellationToken);
+    }
+
+    private bool ClosesARestockRound(TaskItemRow row)
+        => row.Description == RestockTaskNaming.UpdateStockReminderDescription
+            && _items.Any(other => other.Id != row.Id && !other.IsCompleted);
+
+    private Task TickAsync(TaskItemRow row, CancellationToken cancellationToken)
+        => SaveAsync(
+            _items.Select(item => item.Id == row.Id ? item with { IsCompleted = !item.IsCompleted } : item).ToList(),
+            cancellationToken);
+
+    /// <summary>"No" - the one tick the reader asked for, and the rest of the list left alone.</summary>
+    [RelayCommand]
+    private Task TickOnlyThisAsync(CancellationToken cancellationToken)
+    {
+        if (RestockTickBeingAsked is not { } row)
+        {
+            return Task.CompletedTask;
+        }
+
+        RestockTickBeingAsked = null;
+        return TickAsync(row, cancellationToken);
+    }
+
+    /// <summary>
+    /// "Yes, everything is done": every product in the warehouse goes up to its minimum and the whole
+    /// list is crossed off, the standing reminder included. Both are the server's doing, so the list is
+    /// pulled back rather than written from here - see FinishRestockingCommandHandler.
+    /// </summary>
+    [RelayCommand]
+    private async Task FinishRestockingAsync(CancellationToken cancellationToken)
+    {
+        RestockTickBeingAsked = null;
+        if (_serverId is not { } serverId)
+        {
+            return;
+        }
+
+        int toppedUp;
+        try
+        {
+            toppedUp = await _tasksClient.FinishRestockingAsync(serverId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Status = _translations["Couldn't finish the restocking. Try again."];
+            return;
+        }
+
+        // Said after the sync, which clears the status line on its way past.
+        await SynchroniseAsync(cancellationToken);
+        Status = _translations.Format("{0} brought up to their minimum.", toppedUp);
+    }
 
     [RelayCommand]
     private Task RemoveItemAsync(TaskItemRow? row, CancellationToken cancellationToken)
         => row is null
             ? Task.CompletedTask
             : SaveAsync(_items.Where(item => item.Id != row.Id).ToList(), cancellationToken);
+
+    /// <summary>
+    /// Moves an entry one place. A checklist is read in order - first this, then that - and the phone
+    /// could only add to the end of one, so an entry put down out of turn stayed out of turn. Orbit.Web
+    /// drags them; a phone offers up and down, which is a target a thumb can hit in a scrolling list.
+    ///
+    /// Nothing is sent that is not sent anyway: the order a list is saved in is the order it is stored
+    /// in, entry by entry - see TaskRepository.ToItemEntity - so arranging them here is arranging them
+    /// everywhere.
+    /// </summary>
+    [RelayCommand]
+    private Task MoveItemUpAsync(TaskItemRow? row, CancellationToken cancellationToken)
+        => MoveItemAsync(row, by: -1, cancellationToken);
+
+    [RelayCommand]
+    private Task MoveItemDownAsync(TaskItemRow? row, CancellationToken cancellationToken)
+        => MoveItemAsync(row, by: 1, cancellationToken);
+
+    private Task MoveItemAsync(TaskItemRow? row, int by, CancellationToken cancellationToken)
+    {
+        var reordered = _items.ToList();
+        var from = row is null ? -1 : reordered.FindIndex(item => item.Id == row.Id);
+        var to = from + by;
+
+        // The ends are where a list stops, not a failure: the first entry has nowhere above it.
+        if (from < 0 || to < 0 || to >= reordered.Count)
+        {
+            return Task.CompletedTask;
+        }
+
+        (reordered[from], reordered[to]) = (reordered[to], reordered[from]);
+        return SaveAsync(reordered, cancellationToken);
+    }
 
     [RelayCommand]
     private async Task DeleteListAsync(CancellationToken cancellationToken)
@@ -305,6 +416,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         Title = taskList.Title;
+        _serverId = taskList.ServerId;
         if (taskList.ServerId is { } serverId)
         {
             Share.Describes(
@@ -390,6 +502,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             MoveItemCommand.Execute(value);
         }
     }
+
+    partial void OnRestockTickBeingAskedChanged(TaskItemRow? value)
+        => OnPropertyChanged(nameof(IsAskingToFinishRestocking));
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 

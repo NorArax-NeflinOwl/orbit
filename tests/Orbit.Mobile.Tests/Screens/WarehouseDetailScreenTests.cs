@@ -170,6 +170,103 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
+    /// What a MAUI Picker does that no test did: emptying its ItemsSource clears its selection, and the
+    /// binding writes that null back here. Every reload empties both pickers before refilling them, so
+    /// the null arrived on the way to redrawing the shelf - and the filter, holding it, dereferenced it.
+    /// Adding one item to a warehouse was enough to kill the app.
+    /// </summary>
+    [Fact]
+    public async Task A_picker_that_clears_its_own_selection_does_not_take_the_screen_down()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.ChosenCategory = null;
+        screen.NewItemName = "Tea";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        // Nothing narrowed by a selection nobody made: the whole shelf, the new row included.
+        Assert.False(screen.IsNarrowed);
+        Assert.Equal(2, screen.Items.Count);
+    }
+
+    /// <summary>
+    /// A shelf is arranged, and the phone could only add to the end of one. Orbit.Web drags rows into
+    /// place; the order a warehouse is saved in is the order it is stored in, so the two arrive at the
+    /// same shelf.
+    /// </summary>
+    [Fact]
+    public async Task A_product_can_be_moved_up_the_shelf()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            Product("Coffee"), Product("Soap"), Product("Rice"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        await screen.MoveItemUpCommand.ExecuteAsync(screen.Items.Single(row => row.Name == "Rice"));
+
+        Assert.Equal(["Coffee", "Rice", "Soap"], screen.Items.Select(row => row.Name));
+    }
+
+    [Fact]
+    public async Task A_product_can_be_moved_down_the_shelf()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            Product("Coffee"), Product("Soap"), Product("Rice"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        await screen.MoveItemDownCommand.ExecuteAsync(screen.Items.Single(row => row.Name == "Coffee"));
+
+        Assert.Equal(["Soap", "Coffee", "Rice"], screen.Items.Select(row => row.Name));
+    }
+
+    /// <summary>
+    /// One place among what is shown, not among what is stored. A narrowed shelf hides rows, and
+    /// swapping with a hidden neighbour would move the product without anything on screen changing -
+    /// which reads as a button that does nothing.
+    /// </summary>
+    [Fact]
+    public async Task Moving_a_product_on_a_narrowed_shelf_moves_it_past_what_is_shown()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            Product("Coffee", category: "Kitchen"),
+            Product("Soap", category: "Bathroom"),
+            Product("Rice", category: "Kitchen"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+        screen.ChosenCategory = "Kitchen";
+
+        await screen.MoveItemUpCommand.ExecuteAsync(screen.Items.Single(row => row.Name == "Rice"));
+
+        // Visibly one place up among the kitchen rows...
+        Assert.Equal(["Rice", "Coffee"], screen.Items.Select(row => row.Name));
+
+        // ...and the hidden row stayed where it was rather than being carried along.
+        screen.ShowEverythingCommand.Execute(null);
+        Assert.Equal(["Rice", "Coffee", "Soap"], screen.Items.Select(row => row.Name));
+    }
+
+    /// <summary>The ends are where a shelf stops, not a failure - the top row has nowhere above it.</summary>
+    [Fact]
+    public async Task The_ends_of_the_shelf_hold()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(Product("Coffee"), Product("Soap"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        await screen.MoveItemUpCommand.ExecuteAsync(screen.Items[0]);
+        await screen.MoveItemDownCommand.ExecuteAsync(screen.Items[1]);
+
+        Assert.Equal(["Coffee", "Soap"], screen.Items.Select(row => row.Name));
+    }
+
+    private static WarehouseItemDto Product(string name, string category = "General")
+        => new(Guid.NewGuid(), name, "Bag", category, 1, null, nameof(InventoryUnit.Piece), null, "None");
+
+    /// <summary>
     /// The unit is the phone's to set, not just to pass along - a shelf counted in kilograms is stocked
     /// from the phone as often as from the browser.
     /// </summary>

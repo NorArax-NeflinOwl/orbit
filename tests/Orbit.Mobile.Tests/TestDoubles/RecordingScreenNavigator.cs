@@ -61,6 +61,15 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
         _destinations.Add(nameof(ShowTaskList));
     }
 
+    /// <summary>Which entry was opened on its own, and off which list - see TaskItemSummaryViewModel.</summary>
+    public (Guid TaskListLocalId, Guid ItemId)? LastTaskItem { get; private set; }
+
+    public void ShowTaskItem(Guid taskListLocalId, Guid itemId)
+    {
+        LastTaskItem = (taskListLocalId, itemId);
+        _destinations.Add(nameof(ShowTaskItem));
+    }
+
     /// <summary>Which note was opened, so a test can check the list led to the right one.</summary>
     public Guid? LastNoteId { get; private set; }
 
@@ -82,6 +91,8 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
     }
 
     public void ShowInventory() => _destinations.Add(nameof(ShowInventory));
+
+    public void ShowUpdate() => _destinations.Add(nameof(ShowUpdate));
 
     public void ShowMap() => _destinations.Add(nameof(ShowMap));
 

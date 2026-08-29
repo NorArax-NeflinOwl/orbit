@@ -1,0 +1,16 @@
+@* The "get the app" icon, in one place because it is drawn in two - the navigation rail and the avatar
+   menu, which is where the rail's own row goes on a narrow screen. The same reason GearIcon exists.
+
+   A phone rather than a download arrow: what this leads to is not one file but a page about installing
+   Orbit somewhere else, and on iPhone there is no file to download at all. *@
+<svg xmlns="http://www.w3.org/2000/svg" width="@Size" height="@Size" viewBox="0 0 20 20"
+     fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true">
+    <rect x="5.5" y="1.5" width="9" height="17" rx="2.5" />
+    <path d="M8.5 15.5h3" />
+</svg>
+
+@code {
+    /// <summary>Width and height in pixels - the icon is square, and every caller wants both the same.</summary>
+    [Parameter] public int Size { get; set; } = 18;
+}

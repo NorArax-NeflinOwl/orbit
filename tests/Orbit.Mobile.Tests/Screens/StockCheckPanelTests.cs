@@ -73,6 +73,41 @@ public sealed class StockCheckPanelTests
     }
 
     /// <summary>
+    /// Recalculating used to only ask again. The web's has always applied the answer - crossing off what
+    /// the shelf covers and writing on what it holds that nothing asked for - which left the phone's
+    /// reader ticking off by hand what the panel had just told them was already there.
+    /// </summary>
+    [Fact]
+    public async Task Recalculating_brings_the_list_and_the_shelf_back_into_step()
+    {
+        using var context = new PanelContext();
+        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        context.Server.StockCheck = new TaskListStockCheckDto(true, []);
+        context.Server.Reconciliation = new StockReconciliationResultDto(CrossedOffCount: 3, AddedCount: 2);
+        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+
+        await panel.RecalculateCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, context.Server.ReconciliationsAsked);
+        Assert.Contains("3", panel.Message);
+        Assert.Contains("2", panel.Message);
+    }
+
+    [Fact]
+    public async Task Recalculating_when_nothing_moved_says_so()
+    {
+        using var context = new PanelContext();
+        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        context.Server.StockCheck = new TaskListStockCheckDto(true, []);
+        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+
+        await panel.RecalculateCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, context.Server.ReconciliationsAsked);
+        Assert.NotEmpty(panel.Message);
+    }
+
+    /// <summary>
     /// The arithmetic is the server's and the shelf is not on this phone, so a stale answer about it
     /// would be worse than none - the panel says it could not ask rather than guessing.
     /// </summary>

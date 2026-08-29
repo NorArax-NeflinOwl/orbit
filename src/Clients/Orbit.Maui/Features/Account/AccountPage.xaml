@@ -127,6 +127,29 @@
                 <Button Text="{controls:Translate 'Confirm new address'}" Command="{Binding ConfirmEmailChangeCommand}" />
             </VerticalStackLayout>
 
+            <!-- Directly above the password form, as Orbit.Web has it: the warning below says "set one
+                 below before disconnecting", and that has to be true of this screen too. Absent where
+                 the deployment has no Google client id for this app - see GoogleAccountLink. -->
+            <VerticalStackLayout IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
+                <VerticalStackLayout Spacing="8"
+                                     BindingContext="{Binding GoogleLink}" x:DataType="screens:GoogleAccountLink"
+                                     IsVisible="{Binding IsOffered}">
+                    <Label Text="Google" Style="{StaticResource FieldLabel}" />
+                    <Label Text="{controls:Translate 'Connecting Google lets you sign in with it as well as with your password.'}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                    <Label Text="{controls:Translate 'Your account has no password yet, so Google is currently the only way in - set one below before disconnecting.'}"
+                           IsVisible="{Binding IsOnlyWayIn}" FontSize="12" LineBreakMode="WordWrap"
+                           TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+                    <Button Text="{controls:Translate 'Continue with Google'}" HorizontalOptions="Start"
+                            IsVisible="{Binding CanConnect}" Command="{Binding ConnectCommand}" />
+                    <Button Text="{controls:Translate 'Disconnect'}" HorizontalOptions="Start"
+                            IsVisible="{Binding IsLinked}" Command="{Binding DisconnectCommand}" />
+                    <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                           FontSize="12" LineBreakMode="WordWrap"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Password'}" Style="{StaticResource FieldLabel}" />
                 <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />

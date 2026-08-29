@@ -174,8 +174,12 @@ public sealed partial class TaskItemEditor : ObservableObject
         => _item with
         {
             Description = Description.Trim(),
+            // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
+            // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,
+            // so a due date set here answered 500 and the queued save was given up on after five
+            // tries - see CalendarViewModel, which has always converted for the same reason.
             DueDateUtc = HasDueDate
-                ? new DateTimeOffset(DueDate.Date, TimeZoneInfo.Local.GetUtcOffset(DueDate.Date))
+                ? new DateTimeOffset(DueDate.Date, TimeZoneInfo.Local.GetUtcOffset(DueDate.Date)).ToUniversalTime()
                 : null,
             OverdueNotificationChannel = OverdueNotificationChannel,
             RemindDaily = RemindDaily,

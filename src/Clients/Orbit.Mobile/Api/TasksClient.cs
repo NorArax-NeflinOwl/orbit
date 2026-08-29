@@ -142,6 +142,47 @@ public sealed class TasksClient : ILockableItems
             : null;
     }
 
+    /// <summary>
+    /// Reads the warehouse again and brings the list back into step with it both ways: crossing off what
+    /// the shelf turns out to cover, and writing on what the shelf holds that nothing here asked for.
+    ///
+    /// Nothing moved when the server refuses, which is what the zeroes say - the caller reports what the
+    /// reconciliation did, and "it did nothing" is a true answer to give for a call that did not land.
+    /// </summary>
+    public async Task<StockReconciliationResultDto> ReconcileWithStockAsync(
+        Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/tasks/{taskListId}/stock-check/reconciliation", content: null, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new StockReconciliationResultDto(0, 0);
+        }
+
+        return await response.Content.ReadFromJsonAsync<StockReconciliationResultDto>(cancellationToken)
+            ?? new StockReconciliationResultDto(0, 0);
+    }
+
+    /// <summary>
+    /// "Everything on this list is done": brings every product in the warehouse up to its minimum, and
+    /// answers with how many that moved. A claim about the shelf rather than an edit to the list, which
+    /// is why it is its own call and not part of saving the entries.
+    /// </summary>
+    public async Task<int> FinishRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/tasks/{taskListId}/restocking/finished", content: null, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return 0;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<FinishRestockingResultDto>(cancellationToken);
+        return result?.ToppedUpCount ?? 0;
+    }
+
     /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>
     public async Task<int> RaiseStockShortfallsAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {

@@ -122,8 +122,49 @@ public sealed partial class StockCheckPanel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Brings the list and the warehouse back into step, then reads the check again - the same thing
+    /// Orbit.Web's "Recalculate" does. Asking again on its own was all this did before, which left the
+    /// reader ticking off by hand what the panel had just told them was on the shelf; the point of
+    /// asking is to have the answer applied, not only shown.
+    /// </summary>
     [RelayCommand]
-    private Task RecalculateAsync(CancellationToken cancellationToken) => AskAsync(cancellationToken);
+    private async Task RecalculateAsync(CancellationToken cancellationToken)
+    {
+        if (_taskListServerId is not { } serverId)
+        {
+            return;
+        }
+
+        try
+        {
+            Message = Describe(await _tasks.ReconcileWithStockAsync(serverId, cancellationToken));
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Couldn't reach Orbit just now."];
+            return;
+        }
+
+        await AskAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// What the reconciliation moved, in one sentence and in Orbit.Web's own words. Both halves are said
+    /// when both happened: "12 crossed off" alone would leave the reader wondering where the new rows
+    /// came from.
+    /// </summary>
+    private string Describe(StockReconciliationResultDto reconciliation) => reconciliation switch
+    {
+        { CrossedOffCount: 0, AddedCount: 0 } => _translations["Nothing new is covered by the warehouse."],
+        { AddedCount: 0 } => _translations.Format(
+            "{0} crossed off, because the warehouse covers them.", reconciliation.CrossedOffCount),
+        { CrossedOffCount: 0 } => _translations.Format(
+            "{0} added from the warehouse.", reconciliation.AddedCount),
+        _ => _translations.Format(
+            "{0} crossed off, because the warehouse covers them, and {1} added from the warehouse.",
+            reconciliation.CrossedOffCount, reconciliation.AddedCount)
+    };
 
     [RelayCommand]
     private async Task RaiseShortfallsAsync(CancellationToken cancellationToken)

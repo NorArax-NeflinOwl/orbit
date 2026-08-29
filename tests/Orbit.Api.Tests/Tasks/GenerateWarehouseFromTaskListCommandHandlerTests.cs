@@ -123,12 +123,17 @@ public sealed class GenerateWarehouseFromTaskListCommandHandlerTests
     public async Task The_list_is_pointed_at_what_was_generated()
     {
         var shopping = AShoppingTree();
+        // Copied out rather than read again afterwards: the store hands back the list itself.
+        var before = shopping.UpdatedAtUtc;
 
         var warehouseId = await AHandler().HandleAsync(
             new GenerateWarehouseFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
 
         var stored = await _context.TaskRepository.GetByIdAsync(_userId, shopping.Id, CancellationToken.None);
         Assert.Equal(warehouseId, stored!.LinkedWarehouseId);
+        // And says so, or the change reaches nobody: the list now points somewhere it did not, and a
+        // client reading the change feed would go on showing it measured against nothing at all.
+        Assert.True(stored.UpdatedAtUtc > before);
     }
 
     [Fact]

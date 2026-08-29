@@ -96,6 +96,10 @@ public static class PolishTranslations
         ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
         ["Finish this list and set every item in the warehouse to its minimum?"] =
             "Czy chcesz zakończyć zadanie i ustawić wszystkim elementom minimalną wartość na magazynie?",
+        // The two answers to the question above. The web has the browser's own OK and Cancel; a phone
+        // alert names its buttons, and "OK" would not say which of the two things it does.
+        ["Finish the whole list"] = "Zakończ całą listę",
+        ["Just this one"] = "Tylko to",
         ["{0} brought up to their minimum."] = "Uzupełniono do minimum: {0}.",
         ["Couldn't finish the restocking. Try again."] = "Nie udało się zakończyć uzupełniania. Spróbuj ponownie.",
         ["Couldn't recalculate against the warehouse. Try again."] =
@@ -251,6 +255,8 @@ public static class PolishTranslations
         ["What this is counted in"] = "W czym to jest liczone",
         ["Any type"] = "Dowolny typ",
         ["Any category"] = "Dowolna kategoria",
+        ["Move up"] = "Przenieś w górę",
+        ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",
         ["Nothing here matches that. The rest of the warehouse is still there - clear the filter to see it."] = "Nic tu nie pasuje. Reszta magazynu nadal tam jest - wyczyść filtr, żeby ją zobaczyć.",
         ["Showing {0} of {1} items. Saving keeps all of them."] = "Widocznych {0} z {1} pozycji. Zapis zachowuje wszystkie.",
@@ -704,7 +710,6 @@ public static class PolishTranslations
         // ---- Fragments that begin lower-case, dropdown placeholders, and the longer
         // explanations under a setting. The first sweep matched only capitalised text, which is
         // how a whole class of these survived it. ----
-        ["or"] = "lub",
         ["On"] = "Wł.",
         ["before"] = "przed",
         ["minutes"] = "minut",
@@ -908,13 +913,11 @@ public static class PolishTranslations
         // a product's name and a + are the same in both languages. ----
         ["Add someone"] = "Dodaj osobę",
         ["Back to account"] = "Wróć do konta",
-        ["Back to chat"] = "Wróć do rozmów",
         ["Back to dashboard"] = "Wróć do pulpitu",
         ["Back to groups"] = "Wróć do grup",
         ["Change username"] = "Zmień nazwę użytkownika",
         ["Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later."] =
             "Zmiana nazwy użytkownika, adresu e-mail lub hasła wymaga połączenia z Orbitem. Nic z tego nie zostanie zapisane na później.",
-        ["Chat"] = "Rozmowy",
         ["Chat is unlocked"] = "Rozmowy są odblokowane",
         ["Chat key"] = "Klucz rozmów",
         ["Confirm new address"] = "Potwierdź nowy adres",
@@ -928,7 +931,6 @@ public static class PolishTranslations
         ["I already have an account"] = "Mam już konto",
         ["It always appears in your notifications. This also pushes or emails."] =
             "Zawsze pojawi się w powiadomieniach. To dodatkowo wyśle powiadomienie push lub e-mail.",
-        ["Language"] = "Język",
         ["Mark all read"] = "Oznacz wszystkie jako przeczytane",
         ["Message"] = "Wiadomość",
         ["New email address"] = "Nowy adres e-mail",
@@ -967,7 +969,6 @@ public static class PolishTranslations
         ["Sign in with Google"] = "Zaloguj się przez Google",
         ["Google couldn't be used to sign in to Orbit."] = "Nie udało się zalogować do Orbita przez Google.",
         ["Sign out"] = "Wyloguj się",
-        ["Status"] = "Status",
         ["This device now holds your encryption key."] = "To urządzenie ma teraz Twój klucz szyfrujący.",
         ["Update Orbit"] = "Zaktualizuj Orbita",
         ["Waiting for them to accept your request"] = "Czeka na akceptację zaproszenia",
@@ -979,10 +980,9 @@ public static class PolishTranslations
         ["Where you are"] = "Gdzie jesteś",
         ["Who can see you"] = "Kto Cię widzi",
         ["Who is in it"] = "Kto należy do grupy",
-        ["Available"] = "Dostępny",
         ["Couldn't sync"] = "Nie udało się zsynchronizować",
         ["Just now"] = "Przed chwilą",
-        ["Offline"] = "Bez połączenia",
+        ["No connection"] = "Bez połączenia",
         ["Synced"] = "Zsynchronizowano",
         ["Syncing…"] = "Synchronizowanie…",
         ["Unavailable"] = "Niedostępny",
@@ -1045,7 +1045,7 @@ public static class PolishTranslations
         ["Items: {0}"] = "Pozycji: {0}",
         ["Done: {0} of {1}"] = "Ukończone: {0} z {1}",
         ["No items yet"] = "Nie ma jeszcze pozycji",
-        ["Members"] = "Osób",
+        ["People"] = "Osób",
         ["Tasks due today"] = "Zadania na dziś",
         ["Events today"] = "Wydarzenia dziś",
         ["New chat requests"] = "Nowe zaproszenia do rozmowy",
@@ -1190,7 +1190,6 @@ public static class PolishTranslations
         ["Expires {0}"] = "Termin: {0}",
 
         // The event editor - the screen a calendar entry opens into.
-        ["When"] = "Kiedy",
         ["Back to calendar"] = "Wróć do kalendarza",
         ["Somebody else can change this event, and Orbit can't be reached to check. It stays read-only until you're back online."] =
             "Ktoś inny może zmieniać to wydarzenie, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
@@ -1207,7 +1206,6 @@ public static class PolishTranslations
         ["Orbit's own log, on this phone. Nothing leaves it unless you send it."] =
             "Własny dziennik Orbita, na tym telefonie. Nic z niego nie wychodzi, dopóki go nie wyślesz.",
         // The map screen: reading a position, sharing it, and stopping.
-        ["You"] = "Ty",
         ["Couldn't reach Orbit just now."] = "Nie udało się teraz połączyć z Orbitem.",
         ["Orbit needs permission to use your location. Turn it on in Settings."] =
             "Orbit potrzebuje zgody na dostęp do Twojej lokalizacji. Włącz ją w Ustawieniach.",
@@ -1251,6 +1249,18 @@ public static class PolishTranslations
         ["Delivered"] = "Dostarczone",
         ["Read by everyone"] = "Przeczytane przez wszystkich",
         ["Read {0}"] = "Przeczytane {0}",
+
+        // The same page on a phone, where the reader already has the app and the word for it is
+        // "update" - see UpdateViewModel. Only the platform being read on is drawn there, so the
+        // strings below are shared with the web's page rather than doubled.
+        ["Update"] = "Aktualizacja",
+        ["Where a newer Orbit comes from, and how to install it."] =
+            "Skąd wziąć nowszego Orbita i jak go zainstalować.",
+        ["Orbit {0} is out. You have {1}."] = "Jest Orbit {0}. Masz {1}.",
+        ["A newer Orbit is out."] = "Jest nowszy Orbit.",
+        ["You have Orbit {0}, which is the newest there is."] = "Masz Orbita {0} — nowszego nie ma.",
+        ["Orbit hasn't been able to check for a newer version yet."] =
+            "Orbit nie zdążył jeszcze sprawdzić, czy jest nowsza wersja.",
 
         // The page the phone apps are downloaded from.
         ["Orbit — Get the app"] = "Orbit — Pobierz aplikację",

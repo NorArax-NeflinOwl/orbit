@@ -85,16 +85,25 @@ public sealed class MobileVersionGate
         }
     }
 
-    private async Task<VersionGateDecision> ReadRememberedDecisionAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// What is already known about this build, without asking anybody, or null when nothing is - either
+    /// the app has never reached the server, or the only verdict held is about a version that has since
+    /// been replaced.
+    ///
+    /// Read by the screens that mention an update after startup has been and gone (see UpdateViewModel),
+    /// so the rule about which build a verdict applies to is stated once, here, rather than by every
+    /// caller that reads the cache. They are told "nothing known" apart from "nothing to do", which the
+    /// gate itself does not need to distinguish and a screen saying so out loud does.
+    /// </summary>
+    public async Task<VersionGateDecision?> RememberedDecisionAsync(CancellationToken cancellationToken = default)
     {
         var remembered = await _cache.ReadAsync(cancellationToken);
-        if (remembered is null || remembered.DisplayVersion != _appVersion.DisplayVersion)
-        {
-            // Nothing is known about *this* build - either the app has never reached the server, or the
-            // only verdict held is about a version that has since been replaced. Let it through.
-            return VersionGateDecision.Supported;
-        }
-
-        return new VersionGateDecision(remembered.Verdict, remembered.LatestVersion, remembered.UpdateUrl);
+        return remembered is null || remembered.DisplayVersion != _appVersion.DisplayVersion
+            ? null
+            : new VersionGateDecision(remembered.Verdict, remembered.LatestVersion, remembered.UpdateUrl);
     }
+
+    /// <summary>Nothing known lets the app through - see the rule in this class's own summary.</summary>
+    private async Task<VersionGateDecision> ReadRememberedDecisionAsync(CancellationToken cancellationToken)
+        => await RememberedDecisionAsync(cancellationToken) ?? VersionGateDecision.Supported;
 }
