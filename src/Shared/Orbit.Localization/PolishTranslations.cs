@@ -237,6 +237,8 @@ public static class PolishTranslations
         ["Show map"] = "Pokaż mapę",
         ["Pick a place"] = "Wskaż miejsce",
         ["Click the map to drop a pin."] = "Kliknij mapę, aby postawić pinezkę.",
+        // The phone's own wording for the same map: nobody clicks a phone.
+        ["Tap the map to drop a pin."] = "Dotknij mapy, aby postawić pinezkę.",
         ["Use this place?"] = "Użyć tego miejsca?",
         ["Yes, use it"] = "Tak, użyj",
         ["Looking that place up…"] = "Szukam tego miejsca…",

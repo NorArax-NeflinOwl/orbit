@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
 using Orbit.Core.Tasks;
+using Orbit.Mobile.Location;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
@@ -156,6 +157,67 @@ public sealed class TaskListDetailScreenTests
 
         await screen.SaveItemCommand.ExecuteAsync(null);
         Assert.Equal(eventId, Assert.Single(screen.Items).Item.LinkedCalendarEventId);
+    }
+
+    /// <summary>
+    /// Pointing at a place is the other way to say where something happens - the one that works when
+    /// nobody knows what the street is called. The map opens where the box already pointed.
+    /// </summary>
+    [Fact]
+    public async Task A_place_can_be_pointed_at_on_the_map()
+    {
+        using var context = new ScreenContext();
+        context.PlacePicker.Result = PickedPlace.Chosen("12 Mill Lane");
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Location = "Mill Lane";
+        await screen.ShowMapCommand.ExecuteAsync(null);
+
+        Assert.Equal("Mill Lane", context.PlacePicker.StartedAt);
+        Assert.Equal("12 Mill Lane", screen.BeingEdited.Location);
+    }
+
+    /// <summary>
+    /// Backing out of the map writes nothing back: a stray tap must not rewrite an address somebody
+    /// typed, which is the whole reason the map asks before answering.
+    /// </summary>
+    [Fact]
+    public async Task Backing_out_of_the_map_keeps_what_was_typed()
+    {
+        using var context = new ScreenContext();
+        context.PlacePicker.Result = PickedPlace.Cancelled;
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Location = "Mill Lane";
+        await screen.ShowMapCommand.ExecuteAsync(null);
+
+        Assert.Equal("Mill Lane", screen.BeingEdited.Location);
+    }
+
+    /// <summary>
+    /// An errand is not somewhere to be, and an entry tied to an event has its place decided for it -
+    /// so neither has a map to open. Offering one would be offering to overwrite nothing.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_has_no_map_to_open()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "buy milk";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        await screen.ShowMapCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.PlacePicker.PickCount);
     }
 
     /// <summary>
@@ -346,6 +408,9 @@ public sealed class TaskListDetailScreenTests
 
         public FakeTasksServer Server { get; }
 
+        /// <summary>The map an entry's place can be pointed at on - see IPlacePicker.</summary>
+        public FixedPlacePicker PlacePicker { get; } = new();
+
         /// <summary>What an entry can be tied to - see CalendarEventChoice. Empty unless a test adds one.</summary>
         public LocalCalendarEventRepository CalendarEvents { get; private set; } = null!;
 
@@ -363,7 +428,7 @@ public sealed class TaskListDetailScreenTests
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
                 new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
-                StockCheck, CalendarEvents);
+                StockCheck, CalendarEvents, PlacePicker);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;

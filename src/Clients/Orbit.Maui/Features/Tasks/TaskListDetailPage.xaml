@@ -109,6 +109,12 @@
 
                     <Entry Placeholder="{controls:Translate 'Where this happens'}" Text="{Binding Location}"
                            IsVisible="{Binding CanSayWhereItHappens}" />
+                    <!-- Typing an address is one way; pointing at it is the other, and the one that
+                         works when nobody knows what the street is called. -->
+                    <Button Text="{controls:Translate 'Show map'}" FontSize="13" HorizontalOptions="Start"
+                            Style="{StaticResource LinkButton}"
+                            IsVisible="{Binding CanSayWhereItHappens}"
+                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ShowMapCommand, x:DataType=tasks:TaskListDetailPage}" />
                     <!-- One place, not two: tied to an event, the event holds it. -->
                     <Label Text="{Binding WhereTheEventHappens}" IsVisible="{Binding IsTiedToAnEvent}"
                            FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />

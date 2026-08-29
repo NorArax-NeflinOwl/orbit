@@ -151,6 +151,7 @@ public static class MauiProgram
 		services.AddSingleton<PrivateItemGate>();
 		services.AddTransient<PushRegistration>();
 		services.AddSingleton<IDeviceLocation, PhoneLocation>();
+		services.AddSingleton<IPlacePicker, PhonePlacePicker>();
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
 		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
@@ -276,6 +277,7 @@ public static class MauiProgram
 		services.AddTransient<CalendarPage>();
 		services.AddTransient<CalendarViewModel>();
 		services.AddTransient<MapPage>();
+		services.AddTransient<PlacePickerPage>();
 		services.AddTransient<MapViewModel>();
 		services.AddTransient<InventoryPage>();
 		services.AddTransient<InventoryViewModel>();

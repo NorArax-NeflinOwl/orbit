@@ -5,6 +5,7 @@ using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Location;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Screens;
@@ -24,6 +25,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly LocalCalendarEventRepository _calendarEvents;
+    private readonly IPlacePicker _placePicker;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly TasksClient _tasksClient;
     private readonly EditLock _editLock;
@@ -62,10 +64,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
         TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck,
-        LocalCalendarEventRepository calendarEvents)
+        LocalCalendarEventRepository calendarEvents, IPlacePicker placePicker)
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
+        _placePicker = placePicker;
         _synchronizer = synchronizer;
         _translations = translations;
         _timeProvider = timeProvider;
@@ -206,6 +209,26 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     [RelayCommand]
     private void CancelItemEdit() => BeingEdited = null;
+
+    /// <summary>
+    /// Points at where this entry happens on a map instead of typing it - see <see cref="IPlacePicker"/>,
+    /// and Orbit.Web's "Show map" beside the same box. Nothing is written back until the reader confirms
+    /// the pin: a stray tap on a map must not rewrite an address somebody typed.
+    /// </summary>
+    [RelayCommand]
+    private async Task ShowMapAsync(CancellationToken cancellationToken)
+    {
+        if (BeingEdited is not { CanSayWhereItHappens: true } editor)
+        {
+            return;
+        }
+
+        var picked = await _placePicker.PickAsync(editor.Location, cancellationToken);
+        if (picked.Outcome is PickedPlaceOutcome.Chosen)
+        {
+            editor.Location = picked.Address;
+        }
+    }
 
     [RelayCommand]
     private Task SaveItemAsync(CancellationToken cancellationToken)
