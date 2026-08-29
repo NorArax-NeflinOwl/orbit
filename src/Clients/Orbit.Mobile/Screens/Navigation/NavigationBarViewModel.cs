@@ -9,6 +9,7 @@ using Orbit.Core.Permissions;
 using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Presence;
 using Orbit.Mobile.Sync;
+using Orbit.Mobile.Update;
 
 namespace Orbit.Mobile.Screens.Navigation;
 
@@ -33,6 +34,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly LocalStoreReset _localStore;
     private readonly UserPermissions _permissions;
     private readonly SyncState _syncState;
+    private readonly MobileVersionGate _versionGate;
     private readonly IScreenNavigator _navigator;
 
     /// <summary>The signed-in reader's initials, which is what the avatar shows - there are no pictures in Orbit.</summary>
@@ -93,7 +95,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
-        IScreenNavigator navigator)
+        MobileVersionGate versionGate, IScreenNavigator navigator)
     {
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
@@ -103,6 +105,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         _localStore = localStore;
         _permissions = permissions;
         _syncState = syncState;
+        _versionGate = versionGate;
+
         _navigator = navigator;
         _presence.Changed += OnPresenceChanged;
         _permissions.Changed += OnPermissionsChanged;
@@ -153,6 +157,16 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     public bool HasUnread => UnreadLabel.Length > 0;
 
+    /// <summary>
+    /// Whether a newer Orbit is out. Read from what startup already learned rather than asked again -
+    /// see MobileVersionGate - so opening a screen costs nothing and the answer survives being offline.
+    ///
+    /// Startup says it once, in a prompt the reader is free to dismiss; this is what remains afterwards,
+    /// and the only standing sign that there is anything to do about it.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isUpdateAvailable;
+
     partial void OnUnreadLabelChanged(string value) => OnPropertyChanged(nameof(HasUnread));
 
     /// <summary>
@@ -170,6 +184,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         // Shared with whatever screen is behind the bar, so the two cannot disagree and only one
         // request is made between them.
         await _permissions.EnsureLoadedAsync(cancellationToken);
+
+        IsUpdateAvailable = await _versionGate.RememberedDecisionAsync(cancellationToken) is { OffersUpdate: true };
 
         try
         {
@@ -276,6 +292,10 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     [RelayCommand]
     private void GoToNotifications() => LeaveMenuFor(_navigator.ShowNotifications);
+
+    /// <summary>Where a newer Orbit comes from - Orbit.Web's "Get the app", called what it is here.</summary>
+    [RelayCommand]
+    private void GoToUpdate() => LeaveMenuFor(_navigator.ShowUpdate);
 
     /// <summary>
     /// Notification settings, reached from here rather than from the notification list. They are the

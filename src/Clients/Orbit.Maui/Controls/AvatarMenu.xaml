@@ -101,6 +101,24 @@
                     </Border>
                 </Grid>
 
+                <!-- Orbit.Web's "Get the app", which on a phone is an update rather than a download.
+                     Badged like Notifications above and for the same reason: startup says it once in a
+                     prompt the reader may dismiss, and this is what is left standing afterwards. -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding GoToUpdateCommand}" />
+                    </Grid.GestureRecognizers>
+                    <Label Grid.Column="0" Text="{controls:Translate 'Update'}" VerticalOptions="Center" />
+                    <!-- A dot rather than a count: there is one newer version, not a number of them. -->
+                    <Border Grid.Column="1" IsVisible="{Binding IsUpdateAvailable}" StrokeThickness="0"
+                            HeightRequest="12" WidthRequest="12" VerticalOptions="Center"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="6" />
+                        </Border.StrokeShape>
+                    </Border>
+                </Grid>
+
                 <Label Text="{controls:Translate 'Settings'}">
                     <Label.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding GoToAccountCommand}" />

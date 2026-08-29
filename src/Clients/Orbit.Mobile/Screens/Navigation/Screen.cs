@@ -32,5 +32,6 @@ public enum Screen
     Map,
     Notifications,
     Account,
+    Update,
     Diagnostics
 }

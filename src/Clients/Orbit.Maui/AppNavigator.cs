@@ -9,6 +9,7 @@ using Orbit.Maui.Features.Location;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Notifications;
 using Orbit.Maui.Features.Tasks;
+using Orbit.Maui.Features.Update;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Screens;
@@ -68,6 +69,8 @@ public sealed class AppNavigator : IScreenNavigator
 		=> ShowAsRoot<WarehouseDetailPage>(Screen.Warehouse, page => page.ViewModel.Open(localId));
 
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>(Screen.Notifications);
+
+	public void ShowUpdate() => ShowAsRoot<UpdatePage>(Screen.Update);
 
 	// No ShowNotificationSettings any more: the settings moved onto the account screen - see
 	// AccountPage's notification section - so there is no page of their own left to navigate to.

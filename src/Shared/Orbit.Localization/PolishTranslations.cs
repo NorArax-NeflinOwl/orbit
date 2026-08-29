@@ -1256,6 +1256,18 @@ public static class PolishTranslations
         ["Read by everyone"] = "Przeczytane przez wszystkich",
         ["Read {0}"] = "Przeczytane {0}",
 
+        // The same page on a phone, where the reader already has the app and the word for it is
+        // "update" - see UpdateViewModel. Only the platform being read on is drawn there, so the
+        // strings below are shared with the web's page rather than doubled.
+        ["Update"] = "Aktualizacja",
+        ["Where a newer Orbit comes from, and how to install it."] =
+            "Skąd wziąć nowszego Orbita i jak go zainstalować.",
+        ["Orbit {0} is out. You have {1}."] = "Jest Orbit {0}. Masz {1}.",
+        ["A newer Orbit is out."] = "Jest nowszy Orbit.",
+        ["You have Orbit {0}, which is the newest there is."] = "Masz Orbita {0} — nowszego nie ma.",
+        ["Orbit hasn't been able to check for a newer version yet."] =
+            "Orbit nie zdążył jeszcze sprawdzić, czy jest nowsza wersja.",
+
         // The page the phone apps are downloaded from.
         ["Orbit — Get the app"] = "Orbit — Pobierz aplikację",
         ["Get the app"] = "Pobierz aplikację",

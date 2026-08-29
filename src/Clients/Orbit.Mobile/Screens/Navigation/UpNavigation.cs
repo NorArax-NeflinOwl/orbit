@@ -40,6 +40,7 @@ public sealed class UpNavigation
         [Screen.Map] = Screen.Dashboard,
         [Screen.Notifications] = Screen.Dashboard,
         [Screen.Account] = Screen.Dashboard,
+        [Screen.Update] = Screen.Dashboard,
         [Screen.Diagnostics] = Screen.Account
     };
 

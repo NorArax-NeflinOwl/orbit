@@ -308,6 +308,8 @@ public static class MauiProgram
 		services.AddTransient<WarehouseDetailPage>();
 		services.AddTransient<WarehouseDetailViewModel>();
 		services.AddTransient<NotificationFeedPage>();
+		services.AddTransient<Features.Update.UpdatePage>();
+		services.AddTransient<Orbit.Mobile.Screens.Update.UpdateViewModel>();
 		services.AddTransient<NotificationFeedViewModel>();
 		services.AddTransient<NotificationSettingsViewModel>();
 		services.AddTransient<DiagnosticsPage>();
