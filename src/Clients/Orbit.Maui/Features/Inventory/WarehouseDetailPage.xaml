@@ -27,16 +27,37 @@
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
         </VerticalStackLayout>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsShowingList}">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemName}"
-                   ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="2" Spacing="8" IsVisible="{Binding IsShowingList}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemName}"
+                       ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
+            </Grid>
+
+            <!-- Narrows what is on screen, never what is saved: the whole list still goes back on save,
+                 so a filter that reached it would delete the rows it hid. -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding CanNarrow}">
+                <Picker Grid.Column="0" Title="{controls:Translate 'Product type'}"
+                        ItemsSource="{Binding ProductTypes}" SelectedItem="{Binding ChosenProductType}" />
+                <Picker Grid.Column="1" Title="{controls:Translate 'Category'}"
+                        ItemsSource="{Binding Categories}" SelectedItem="{Binding ChosenCategory}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsNarrowed}">
+                <Label Grid.Column="0" Text="{Binding FilterNote}" FontSize="11" VerticalOptions="Center"
+                       LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Show everything'}" FontSize="12"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowEverythingCommand}" />
+            </Grid>
+        </VerticalStackLayout>
 
         <CollectionView Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
 
             <CollectionView.EmptyView>
-                <Label Text="{controls:Translate 'Nothing in this warehouse yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                <!-- Bound rather than fixed: an empty shelf and a shelf narrowed down to nothing need
+                     different words. See WarehouseDetailViewModel.EmptyMessage. -->
+                <Label Text="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EmptyMessage, x:DataType=inventory:WarehouseDetailPage}"
+                       Padding="24" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
             </CollectionView.EmptyView>
 
             <!-- RelativeSource walks the visual tree, so the ancestor has to be an element - the page,
@@ -60,7 +81,7 @@
                                    Style="{StaticResource SubtleLabel}" />
                         </VerticalStackLayout>
                         <!-- Below its own minimum, which is the whole reason to set one. -->
-                        <Label Grid.Column="1" Text="{Binding Quantity}" VerticalOptions="Center"
+                        <Label Grid.Column="1" Text="{Binding Amount}" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
                             <Label.Triggers>
                                 <DataTrigger TargetType="Label" Binding="{Binding IsRunningLow}" Value="True">
@@ -98,11 +119,17 @@
                 <Entry Placeholder="{controls:Translate 'Product type'}" Text="{Binding ProductType}" />
                 <Entry Placeholder="{controls:Translate 'Category'}" Text="{Binding Category}" />
 
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <!-- The unit sits beside the numbers it qualifies rather than below with the rest of the
+                     settings, for the reason Orbit.Web's editor gives: "2" and "2 kg" are different
+                     amounts, and the second is the one somebody stocking a shelf can act on. -->
+                <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
                     <Entry Grid.Column="0" Placeholder="{controls:Translate 'Quantity'}" Text="{Binding Quantity}"
                            Keyboard="Numeric" />
                     <Entry Grid.Column="1" Placeholder="{controls:Translate 'Minimum'}" Text="{Binding MinimumQuantity}"
                            Keyboard="Numeric" />
+                    <Picker Grid.Column="2" Title="{controls:Translate 'Unit'}" WidthRequest="96"
+                            ItemsSource="{Binding Units}" SelectedItem="{Binding ChosenUnit}"
+                            ItemDisplayBinding="{Binding ShortName, x:DataType=screens:InventoryUnitChoice}" />
                 </Grid>
 
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

@@ -88,6 +88,108 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
+    /// An amount of "2" says nothing about whether that is two bottles or two litres, which is why
+    /// Orbit.Web writes the unit beside it. Pieces are left off: "2" of a thing already means two of
+    /// them.
+    /// </summary>
+    [Fact]
+    public async Task An_amount_is_said_in_what_it_is_counted_in()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Milk", "Bottle", "Kitchen", 2, 5, nameof(InventoryUnit.Litre), null, "None"),
+            new WarehouseItemDto(Guid.NewGuid(), "Cups", "Piece", "Kitchen", 4, null, nameof(InventoryUnit.Piece), null, "None"));
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        var milk = screen.Items.Single(row => row.Name == "Milk");
+        Assert.Equal("2 l", milk.Amount);
+        Assert.Contains("5 l", milk.Detail);
+        Assert.Equal("4", screen.Items.Single(row => row.Name == "Cups").Amount);
+    }
+
+    /// <summary>
+    /// A full warehouse could only be read top to bottom on the phone. Narrowing shows fewer rows and
+    /// changes nothing about what is stored - the save carries the whole list either way.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_can_be_narrowed_to_one_kind_of_thing()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(Guid.NewGuid(), "Soap", "Bar", "Bathroom", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.ChosenProductType = "Bag";
+
+        Assert.Equal("Coffee", Assert.Single(screen.Items).Name);
+        Assert.True(screen.IsNarrowed);
+        Assert.Contains("1", screen.FilterNote);
+    }
+
+    /// <summary>
+    /// The whole shelf comes back, which is what stops somebody saving a warehouse in the belief that
+    /// the rows they cannot see are gone.
+    /// </summary>
+    [Fact]
+    public async Task Narrowing_hides_rows_without_dropping_them()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(Guid.NewGuid(), "Soap", "Bar", "Bathroom", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+        screen.ChosenCategory = "Kitchen";
+
+        await screen.RenameCommand.ExecuteAsync(null);
+        screen.ShowEverythingCommand.Execute(null);
+
+        Assert.Equal(2, screen.Items.Count);
+        Assert.False(screen.IsNarrowed);
+    }
+
+    /// <summary>
+    /// A new row is filed under nothing yet, so a filter left in place would hide it the moment it
+    /// appeared - which reads as an Add button that does nothing.
+    /// </summary>
+    [Fact]
+    public async Task Adding_an_item_steps_the_filter_aside()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+        screen.ChosenProductType = "Bag";
+
+        screen.NewItemName = "Tea";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsNarrowed);
+        Assert.Contains(screen.Items, row => row.Name == "Tea");
+    }
+
+    /// <summary>
+    /// The unit is the phone's to set, not just to pass along - a shelf counted in kilograms is stocked
+    /// from the phone as often as from the browser.
+    /// </summary>
+    [Fact]
+    public async Task An_items_unit_can_be_changed()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Flour", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.ChosenUnit = InventoryUnitChoice.For(
+            screen.BeingEdited.Units, nameof(InventoryUnit.Kilogram));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Equal(nameof(InventoryUnit.Kilogram), Assert.Single(screen.Items).Item.Unit);
+    }
+
+    /// <summary>
     /// An empty minimum box means no minimum, which is not a minimum of zero: zero would mark everything
     /// as adequately stocked forever, and is a different statement about the shelf.
     /// </summary>

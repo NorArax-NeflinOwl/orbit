@@ -38,14 +38,34 @@ public sealed partial class WarehouseItemEditor : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Every unit the picker offers - see <see cref="InventoryUnitChoice"/>. Taken in the factory for
+    /// the same reason as <see cref="Channels"/>: the picker reads it once, when the form appears.
+    /// </summary>
+    public IReadOnlyList<InventoryUnitChoice> Units { get; private init; } = [];
+
+    /// <summary>Bound to the picker, which needs a choice out of Units rather than a string.</summary>
+    public InventoryUnitChoice? ChosenUnit
+    {
+        get => InventoryUnitChoice.For(Units, Unit);
+        set
+        {
+            if (value is not null)
+            {
+                Unit = value.Value;
+            }
+        }
+    }
+
     private readonly Guid? _id;
 
     /// <summary>
-    /// What the two amounts are counted in. Carried through untouched rather than edited: the phone's
-    /// form has no unit picker yet, and a save that dropped the unit would quietly turn a kilogram of
-    /// flour set on the web into a piece of it.
+    /// What the two amounts are counted in. A fixed list rather than free text like the type and
+    /// category above: the quantity and the minimum are compared as bare numbers, so both have to mean
+    /// the same thing.
     /// </summary>
-    public string Unit { get; private set; } = nameof(InventoryUnit.Piece);
+    [ObservableProperty]
+    private string _unit = nameof(InventoryUnit.Piece);
 
     [ObservableProperty]
     private string _name = string.Empty;
@@ -78,6 +98,7 @@ public sealed partial class WarehouseItemEditor : ObservableObject
         => new(item.Id)
         {
             Channels = NotificationChannelChoice.All(translations),
+            Units = InventoryUnitChoice.All(translations),
             Unit = item.Unit,
             Name = item.Name,
             ProductType = item.ProductType,

@@ -30,6 +30,17 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private Guid _localId;
     private IReadOnlyList<WarehouseItemDto> _items = [];
 
+    /// <summary>What is on screen has been narrowed down to - see <see cref="WarehouseItemFilter"/>.</summary>
+    private readonly WarehouseItemFilter _filter = new();
+
+    /// <summary>
+    /// What the two pickers say when nothing is chosen. Held rather than looked up each time because the
+    /// chosen value is compared against it, and a dictionary lookup per comparison would be the only
+    /// thing standing between a filter and the whole shelf.
+    /// </summary>
+    private readonly string _anyProductType;
+    private readonly string _anyCategory;
+
     [ObservableProperty]
     private string _name = string.Empty;
 
@@ -55,9 +66,45 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         _inventoryClient = inventoryClient;
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
+        _anyProductType = translations["Any type"];
+        _anyCategory = translations["Any category"];
+        ChosenProductType = _anyProductType;
+        ChosenCategory = _anyCategory;
     }
 
     public ObservableCollection<WarehouseItemRow> Items { get; } = [];
+
+    /// <summary>
+    /// The types and categories actually on this shelf, each behind an "any" that stands for no choice -
+    /// a filter offering something nothing is filed under is a dead end.
+    /// </summary>
+    public ObservableCollection<string> ProductTypes { get; } = [];
+
+    public ObservableCollection<string> Categories { get; } = [];
+
+    [ObservableProperty]
+    private string _chosenProductType;
+
+    [ObservableProperty]
+    private string _chosenCategory;
+
+    /// <summary>Hidden while there is nothing to narrow - an empty shelf, or one filed under nothing.</summary>
+    public bool CanNarrow => ProductTypes.Count > 1 || Categories.Count > 1;
+
+    public bool IsNarrowed => _filter.IsActive;
+
+    /// <summary>
+    /// Said out loud while the shelf is narrowed, so nobody saves a warehouse thinking the rows they
+    /// cannot see are gone.
+    /// </summary>
+    public string FilterNote => _filter.IsActive
+        ? _translations.Format("Showing {0} of {1} items. Saving keeps all of them.", Items.Count, _items.Count)
+        : string.Empty;
+
+    /// <summary>An empty shelf and a shelf whose rows are all hidden are different situations.</summary>
+    public string EmptyMessage => _filter.IsActive
+        ? _translations["Nothing here matches that. The rest of the warehouse is still there - clear the filter to see it."]
+        : _translations["Nothing in this warehouse yet."];
 
     /// <summary>
     /// The item whose details are open, or null while the list is. One at a time and in place rather
@@ -89,6 +136,10 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         var name = NewItemName.Trim();
         NewItemName = string.Empty;
 
+        // A row added while the shelf is narrowed is filed under nothing yet, so it would be hidden the
+        // moment it appeared. The filter steps aside for it, as it does on the web.
+        ShowEverything();
+
         // No id: this one has never been saved, and claiming an id nothing has would be a lie the server
         // would have to sort out. See WarehouseItemDto.Id.
         return SaveAsync(
@@ -119,6 +170,14 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     [RelayCommand]
     private void CancelItemEdit() => BeingEdited = null;
+
+    /// <summary>Puts the whole shelf back, whatever the two pickers were narrowed to.</summary>
+    [RelayCommand]
+    private void ShowEverything()
+    {
+        ChosenProductType = _anyProductType;
+        ChosenCategory = _anyCategory;
+    }
 
     [RelayCommand]
     private Task SaveItemAsync(CancellationToken cancellationToken)
@@ -228,11 +287,71 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             ShowWhoElseIsEditing();
         }
 
+        ShowWhatIsOnTheShelf();
+    }
+
+    /// <summary>
+    /// Rebuilds the rows and what the pickers offer from <see cref="_items"/>. A choice whose last item
+    /// has gone stands for nothing, so it steps aside rather than hiding the whole shelf.
+    /// </summary>
+    private void ShowWhatIsOnTheShelf()
+    {
+        Offer(ProductTypes, _anyProductType, item => item.ProductType);
+        Offer(Categories, _anyCategory, item => item.Category);
+
+        if (!ProductTypes.Contains(ChosenProductType))
+        {
+            ChosenProductType = _anyProductType;
+        }
+
+        if (!Categories.Contains(ChosenCategory))
+        {
+            ChosenCategory = _anyCategory;
+        }
+
+        ShowMatchingRows();
+        OnPropertyChanged(nameof(CanNarrow));
+    }
+
+    private void Offer(ObservableCollection<string> options, string forAny, Func<WarehouseItemDto, string> of)
+    {
+        var onTheShelf = _items
+            .Select(item => of(item).Trim())
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase);
+
+        options.Clear();
+        options.Add(forAny);
+        foreach (var value in onTheShelf)
+        {
+            options.Add(value);
+        }
+    }
+
+    private void ShowMatchingRows()
+    {
         Items.Clear();
-        foreach (var item in warehouse.Items)
+        foreach (var item in _items.Where(_filter.Matches))
         {
             Items.Add(WarehouseItemRow.From(item, _translations));
         }
+
+        OnPropertyChanged(nameof(IsNarrowed));
+        OnPropertyChanged(nameof(FilterNote));
+        OnPropertyChanged(nameof(EmptyMessage));
+    }
+
+    partial void OnChosenProductTypeChanged(string value)
+    {
+        _filter.ProductType = value == _anyProductType ? string.Empty : value;
+        ShowMatchingRows();
+    }
+
+    partial void OnChosenCategoryChanged(string value)
+    {
+        _filter.Category = value == _anyCategory ? string.Empty : value;
+        ShowMatchingRows();
     }
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
