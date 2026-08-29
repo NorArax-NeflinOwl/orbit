@@ -1,0 +1,1177 @@
+2026-08-29 18:21:40.395 +02:00 [INF] Executed DbCommand (15ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2026-08-29 18:21:40.610 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT 1
+2026-08-29 18:21:40.653 +02:00 [INF] Executed DbCommand (4ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+    "MigrationId" character varying(150) NOT NULL,
+    "ProductVersion" character varying(32) NOT NULL,
+    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+);
+2026-08-29 18:21:40.660 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+LOCK TABLE "__EFMigrationsHistory" IN ACCESS EXCLUSIVE MODE
+2026-08-29 18:21:40.661 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2026-08-29 18:21:40.853 +02:00 [INF] Executed DbCommand (7ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT p."Permission", p."Code", p."CreatedAtUtc"
+FROM "PermissionCodes" AS p
+2026-08-29 18:21:40.870 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT p."Permission", p."Code", p."CreatedAtUtc"
+FROM "PermissionCodes" AS p
+2026-08-29 18:21:40.871 +02:00 [INF] 4 permission unlock codes are in place - read them with: SELECT "Permission", "Code" FROM "PermissionCodes";
+2026-08-29 18:21:40.942 +02:00 [DBG] Hosting starting
+2026-08-29 18:21:40.954 +02:00 [INF] User profile is available. Using 'C:\Users\ppudi\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-08-29 18:21:40.990 +02:00 [DBG] Reading data from file 'C:\Users\ppudi\AppData\Local\ASP.NET\DataProtection-Keys\key-5b16be38-0256-4037-8399-bf91b44b7cb6.xml'.
+2026-08-29 18:21:41.012 +02:00 [DBG] Found key {5b16be38-0256-4037-8399-bf91b44b7cb6}.
+2026-08-29 18:21:41.023 +02:00 [DBG] Considering key {5b16be38-0256-4037-8399-bf91b44b7cb6} with expiration date 2026-11-18 18:55:28Z as default key.
+2026-08-29 18:21:41.024 +02:00 [DBG] Forwarded activator type request from Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor, Microsoft.AspNetCore.DataProtection, Version=10.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60 to Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor, Microsoft.AspNetCore.DataProtection, Culture=neutral, PublicKeyToken=adb9793829ddae60
+2026-08-29 18:21:41.026 +02:00 [DBG] Decrypting secret element using Windows DPAPI.
+2026-08-29 18:21:41.027 +02:00 [DBG] Forwarded activator type request from Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel.AuthenticatedEncryptorDescriptorDeserializer, Microsoft.AspNetCore.DataProtection, Version=10.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60 to Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel.AuthenticatedEncryptorDescriptorDeserializer, Microsoft.AspNetCore.DataProtection, Culture=neutral, PublicKeyToken=adb9793829ddae60
+2026-08-29 18:21:41.029 +02:00 [DBG] Opening CNG algorithm 'AES' from provider 'null' with chaining mode CBC.
+2026-08-29 18:21:41.029 +02:00 [DBG] Opening CNG algorithm 'SHA256' from provider 'null' with HMAC.
+2026-08-29 18:21:41.030 +02:00 [DBG] Using key {5b16be38-0256-4037-8399-bf91b44b7cb6} as the default key.
+2026-08-29 18:21:41.030 +02:00 [DBG] Key ring with default key {5b16be38-0256-4037-8399-bf91b44b7cb6} was loaded during application startup.
+2026-08-29 18:21:41.106 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT n."UserId", n."RetentionDays"
+FROM "NotificationSettings" AS n
+2026-08-29 18:21:41.120 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT c."Id", c."Color", c."CreatedAtUtc", c."CreationNotificationChannel", c."Description", c."EndUtc", c."GuestsJson", c."IsAllDay", c."LocationAddress", c."LocationLatitude", c."LocationLongitude", c."LockExpiresAtUtc", c."LockedByUserId", c."LockedByUserName", c."Priority", c."RecurrenceFrequency", c."RecurrenceIntervalCount", c."RecurrenceUntilUtc", c."ReminderNotificationChannel", c."RemindersJson", c."StartUtc", c."Title", c."UpdatedAtUtc", c."UserId"
+FROM "CalendarEvents" AS c
+WHERE c."RemindersJson" <> '[]' AND c."ReminderNotificationChannel" <> 'None'
+2026-08-29 18:21:41.136 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."DailyReminderNotificationChannel", t."DailyReminderTimeOfDayMinutes"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE t."RemindDaily" AND t."LinkedTaskListId" IS NULL AND t."DailyReminderNotificationChannel" <> 'None'
+2026-08-29 18:21:41.151 +02:00 [INF] Executed DbCommand (4ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."OverdueNotificationChannel"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE NOT (t."IsCompleted") AND t."DueDateUtc" IS NOT NULL AND t."LinkedTaskListId" IS NULL AND t."OverdueNotificationChannel" <> 'None'
+2026-08-29 18:21:41.160 +02:00 [INF] Executed DbCommand (11ms) [Parameters=[@thresholdUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId", w."UserId"
+FROM "InventoryItems" AS i
+INNER JOIN "Warehouses" AS w ON i."WarehouseId" = w."Id"
+WHERE i."ExpiryDate" IS NOT NULL AND i."ExpiryDate" <= @thresholdUtc AND i."ExpiryNotificationChannel" <> 'None'
+2026-08-29 18:21:41.165 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@taskItemId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "TaskOverdueNotificationDeliveries" AS t
+    WHERE t."TaskItemId" = @taskItemId)
+2026-08-29 18:21:41.168 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@inventoryItemId='?' (DbType = Guid), @expiryDate='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "InventoryExpiryNotificationDeliveries" AS i
+    WHERE i."InventoryItemId" = @inventoryItemId AND i."ExpiryDate" = @expiryDate)
+2026-08-29 18:21:41.200 +02:00 [INF] Executed DbCommand (52ms) [Parameters=[@userIds='?' (DbType = Object), @cutoffUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+DELETE FROM "NotificationEntries" AS n
+WHERE n."UserId" = ANY (@userIds) AND n."CreatedAtUtc" < @cutoffUtc
+2026-08-29 18:21:41.204 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@userIds='?' (DbType = Object), @cutoffUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+DELETE FROM "NotificationEntries" AS n
+WHERE n."UserId" = ANY (@userIds) AND n."CreatedAtUtc" < @cutoffUtc
+2026-08-29 18:21:41.209 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@configuredUserIds='?' (DbType = Object), @defaultCutoffUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+DELETE FROM "NotificationEntries" AS n
+WHERE NOT (n."UserId" = ANY (@configuredUserIds) AND n."UserId" = ANY (@configuredUserIds) IS NOT NULL) AND n."CreatedAtUtc" < @defaultCutoffUtc
+2026-08-29 18:21:41.293 +02:00 [DBG] Middleware configuration started with options: {AllowedHosts = *, AllowEmptyHosts = True, IncludeFailureMessage = True}
+2026-08-29 18:21:41.293 +02:00 [DBG] Wildcard detected, all requests with hosts will be allowed.
+2026-08-29 18:21:41.301 +02:00 [INF] Now listening on: http://0.0.0.0:5099
+2026-08-29 18:21:41.301 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-08-29 18:21:41.301 +02:00 [INF] Hosting environment: Development
+2026-08-29 18:21:41.301 +02:00 [INF] Content root path: E:\Git\orbit\.claude\worktrees\android-windows-rebuild-2cb886
+2026-08-29 18:21:41.301 +02:00 [DBG] Hosting started
+2026-08-29 18:21:43.808 +02:00 [DBG] Connection id "0HNO5T6EO7F5O" accepted.
+2026-08-29 18:21:43.808 +02:00 [DBG] Connection id "0HNO5T6EO7F5O" started.
+2026-08-29 18:21:44.017 +02:00 [DBG] AuthenticationScheme: Bearer was not authenticated.
+2026-08-29 18:21:44.028 +02:00 [INF] HTTP GET /api/config/client-flags responded 200 in 31.5553 ms
+2026-08-29 18:21:44.029 +02:00 [DBG] Connection id "0HNO5T6EO7F5O" completed keep alive response.
+2026-08-29 18:21:44.030 +02:00 [DBG] Connection id "0HNO5T6EO7F5O" received FIN.
+2026-08-29 18:21:44.030 +02:00 [DBG] Connection id "0HNO5T6EO7F5O" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:21:44.030 +02:00 [DBG] Connection id "0HNO5T6EO7F5O" disconnecting.
+2026-08-29 18:21:44.032 +02:00 [DBG] Connection id "0HNO5T6EO7F5O" stopped.
+2026-08-29 18:22:15.177 +02:00 [DBG] Connection id "0HNO5T6EO7F5P" accepted.
+2026-08-29 18:22:15.177 +02:00 [DBG] Connection id "0HNO5T6EO7F5P" started.
+2026-08-29 18:22:15.553 +02:00 [DBG] AuthenticationScheme: Bearer was not authenticated.
+2026-08-29 18:22:15.559 +02:00 [INF] HTTP GET /api/config/mobile-version responded 200 in 7.2002 ms
+2026-08-29 18:22:15.560 +02:00 [DBG] Connection id "0HNO5T6EO7F5P" completed keep alive response.
+2026-08-29 18:22:15.729 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" accepted.
+2026-08-29 18:22:15.730 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" started.
+2026-08-29 18:22:16.091 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:16.092 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:16.096 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:16.102 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:22:16.146 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:22:16.299 +02:00 [INF] Executed DbCommand (4ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:22:16.307 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 204 ms
+2026-08-29 18:22:16.308 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 266.1250 ms
+2026-08-29 18:22:16.309 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" completed keep alive response.
+2026-08-29 18:22:16.655 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:16.655 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:16.657 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:16.659 +02:00 [INF] GetUserPermissionsQuery started
+2026-08-29 18:22:16.668 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Permission"
+FROM "UserPermissions" AS u
+WHERE u."UserId" = @userId
+2026-08-29 18:22:16.671 +02:00 [INF] GetUserPermissionsQuery completed in 11 ms
+2026-08-29 18:22:16.674 +02:00 [INF] HTTP GET /api/users/me/permissions responded 200 in 19.6792 ms
+2026-08-29 18:22:16.674 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" completed keep alive response.
+2026-08-29 18:22:17.427 +02:00 [DBG] Connection id "0HNO5T6EO7F5R" accepted.
+2026-08-29 18:22:17.427 +02:00 [DBG] Connection id "0HNO5T6EO7F5R" started.
+2026-08-29 18:22:17.515 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" accepted.
+2026-08-29 18:22:17.515 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" started.
+2026-08-29 18:22:17.694 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:17.694 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:17.695 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:17.695 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:17.697 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:17.697 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:17.699 +02:00 [INF] GetUnreadNotificationEntriesQuery started
+2026-08-29 18:22:17.700 +02:00 [INF] GetNotesQuery started
+2026-08-29 18:22:17.709 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@userId='?' (DbType = Guid), @updatedSinceUtc_Value='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT n."Id", n."ContentJson", n."CreatedAtUtc", n."EncryptedCiphertext", n."EncryptedNonce", n."IsPinned", n."IsPrivate", n."LockExpiresAtUtc", n."LockedByUserId", n."LockedByUserName", n."Priority", n."Title", n."UpdatedAtUtc", n."UserId"
+FROM "Notes" AS n
+WHERE n."UserId" = @userId AND n."UpdatedAtUtc" >= @updatedSinceUtc_Value
+2026-08-29 18:22:17.710 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@userId='?' (DbType = Guid), @p='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT n."Id", n."Body", n."CreatedAtUtc", n."DismissedAtUtc", n."Kind", n."ReadAtUtc", n."Title", n."Url", n."UserId"
+FROM "NotificationEntries" AS n
+WHERE n."UserId" = @userId AND n."ReadAtUtc" IS NULL
+ORDER BY n."CreatedAtUtc" DESC
+LIMIT @p
+2026-08-29 18:22:17.710 +02:00 [INF] GetUnreadNotificationEntriesQuery completed in 10 ms
+2026-08-29 18:22:17.713 +02:00 [INF] HTTP GET /api/notifications/unread responded 200 in 18.7414 ms
+2026-08-29 18:22:17.713 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" completed keep alive response.
+2026-08-29 18:22:17.716 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@recipientUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT n."Id", n."AcceptedAtUtc", n."AccessLevel", n."CreatedAtUtc", n."OwnerUserId", n."RecipientUserId", n."SourceNoteId"
+FROM "NoteShares" AS n
+WHERE n."RecipientUserId" = @recipientUserId AND n."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:17.727 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT n."SourceNoteId"
+FROM "NoteShares" AS n
+WHERE n."OwnerUserId" = @ownerUserId AND n."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:17.729 +02:00 [INF] GetNotesQuery completed in 29 ms
+2026-08-29 18:22:17.734 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@userId='?' (DbType = Guid), @entityType='?', @sinceUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."EntityId"
+FROM "SyncTombstones" AS s
+WHERE s."UserId" = @userId AND s."EntityType" = @entityType AND s."DeletedAtUtc" >= @sinceUtc
+2026-08-29 18:22:17.737 +02:00 [INF] HTTP GET /api/notes/changes responded 200 in 42.4131 ms
+2026-08-29 18:22:17.737 +02:00 [DBG] Connection id "0HNO5T6EO7F5R" completed keep alive response.
+2026-08-29 18:22:18.300 +02:00 [DBG] Connection id "0HNO5T6EO7F5T" accepted.
+2026-08-29 18:22:18.300 +02:00 [DBG] Connection id "0HNO5T6EO7F5T" started.
+2026-08-29 18:22:18.709 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:18.709 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:18.709 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:18.710 +02:00 [INF] GetTaskListsQuery started
+2026-08-29 18:22:18.753 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[@userId='?' (DbType = Guid), @updatedSinceUtc_Value='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."CreatedAtUtc", t."EncryptedCiphertext", t."EncryptedNonce", t."IsCompleted", t."IsGroup", t."IsPinned", t."IsPrivate", t."LinkedWarehouseId", t."LockExpiresAtUtc", t."LockedByUserId", t."LockedByUserName", t."Priority", t."Title", t."UpdatedAtUtc", t."UserId", t0."Id", t0."DailyReminderNotificationChannel", t0."DailyReminderTimeOfDayMinutes", t0."Description", t0."DueDateUtc", t0."IsCompleted", t0."Kind", t0."LinkedCalendarEventId", t0."LinkedTaskListId", t0."Location", t0."OverdueNotificationChannel", t0."Position", t0."RemindDaily", t0."TaskId"
+FROM "Tasks" AS t
+LEFT JOIN "TaskItemEntity" AS t0 ON t."Id" = t0."TaskId"
+WHERE t."UserId" = @userId AND t."UpdatedAtUtc" >= @updatedSinceUtc_Value
+ORDER BY t."Id"
+2026-08-29 18:22:18.759 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@recipientUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."AcceptedAtUtc", t."AccessLevel", t."CreatedAtUtc", t."OwnerUserId", t."RecipientUserId", t."SourceTaskListId"
+FROM "TaskShares" AS t
+WHERE t."RecipientUserId" = @recipientUserId AND t."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:18.763 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT t."SourceTaskListId"
+FROM "TaskShares" AS t
+WHERE t."OwnerUserId" = @ownerUserId AND t."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:18.765 +02:00 [INF] GetTaskListsQuery completed in 54 ms
+2026-08-29 18:22:18.767 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @entityType='?', @sinceUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."EntityId"
+FROM "SyncTombstones" AS s
+WHERE s."UserId" = @userId AND s."EntityType" = @entityType AND s."DeletedAtUtc" >= @sinceUtc
+2026-08-29 18:22:18.792 +02:00 [INF] HTTP GET /api/tasks/changes responded 200 in 83.1752 ms
+2026-08-29 18:22:18.792 +02:00 [DBG] Connection id "0HNO5T6EO7F5T" completed keep alive response.
+2026-08-29 18:22:19.264 +02:00 [DBG] Connection id "0HNO5T6EO7F5U" accepted.
+2026-08-29 18:22:19.264 +02:00 [DBG] Connection id "0HNO5T6EO7F5U" started.
+2026-08-29 18:22:19.738 +02:00 [INF] Failed to validate the token.
+Microsoft.IdentityModel.Tokens.SecurityTokenExpiredException: IDX10223: Lifetime validation failed. The token is expired. ValidTo (UTC): '29-Aug-26 4:21:49 PM', Current time (UTC): '29-Aug-26 4:22:19 PM'.
+   at Microsoft.IdentityModel.Tokens.ValidatorUtilities.ValidateLifetime(Nullable`1 notBefore, Nullable`1 expires, SecurityToken securityToken, TokenValidationParameters validationParameters)
+   at Microsoft.IdentityModel.Tokens.Validators.ValidateLifetime(Nullable`1 notBefore, Nullable`1 expires, SecurityToken securityToken, TokenValidationParameters validationParameters)
+   at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ValidateTokenPayloadAsync(JsonWebToken jsonWebToken, TokenValidationParameters validationParameters, BaseConfiguration configuration)
+   at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ValidateJWSAsync(JsonWebToken jsonWebToken, TokenValidationParameters validationParameters, BaseConfiguration configuration)
+2026-08-29 18:22:19.744 +02:00 [INF] Bearer was not authenticated. Failure message: IDX10223: Lifetime validation failed. The token is expired. ValidTo (UTC): '29-Aug-26 4:21:49 PM', Current time (UTC): '29-Aug-26 4:22:19 PM'.
+2026-08-29 18:22:19.745 +02:00 [DBG] Policy authentication schemes  did not succeed
+2026-08-29 18:22:19.745 +02:00 [INF] Authorization failed. These requirements were not met:
+DenyAnonymousAuthorizationRequirement: Requires an authenticated user.
+2026-08-29 18:22:19.748 +02:00 [INF] AuthenticationScheme: Bearer was challenged.
+2026-08-29 18:22:19.748 +02:00 [INF] HTTP GET /api/calendar-events/changes responded 401 in 13.5978 ms
+2026-08-29 18:22:19.748 +02:00 [DBG] Connection id "0HNO5T6EO7F5U" completed keep alive response.
+2026-08-29 18:22:20.251 +02:00 [DBG] Connection id "0HNO5T6EO7F5V" accepted.
+2026-08-29 18:22:20.251 +02:00 [DBG] Connection id "0HNO5T6EO7F5V" started.
+2026-08-29 18:22:20.763 +02:00 [DBG] AuthenticationScheme: Bearer was not authenticated.
+2026-08-29 18:22:20.766 +02:00 [DBG] Connection id "0HNO5T6EO7F5V", Request id "0HNO5T6EO7F5V:00000001": started reading request body.
+2026-08-29 18:22:20.772 +02:00 [DBG] Connection id "0HNO5T6EO7F5V", Request id "0HNO5T6EO7F5V:00000001": done reading request body.
+2026-08-29 18:22:20.782 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@tokenHash='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT r."Id", r."CreatedAtUtc", r."ExpiresAtUtc", r."RevokedAtUtc", r."TokenHash", r."UserId"
+FROM "RefreshTokens" AS r
+WHERE r."TokenHash" = @tokenHash
+LIMIT 1
+2026-08-29 18:22:20.797 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[@p5='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime), @p3='?', @p4='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "RefreshTokens" SET "CreatedAtUtc" = @p0, "ExpiresAtUtc" = @p1, "RevokedAtUtc" = @p2, "TokenHash" = @p3, "UserId" = @p4
+WHERE "Id" = @p5;
+2026-08-29 18:22:20.809 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime), @p3='?' (DbType = DateTime), @p4='?', @p5='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "RefreshTokens" ("Id", "CreatedAtUtc", "ExpiresAtUtc", "RevokedAtUtc", "TokenHash", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5);
+2026-08-29 18:22:20.811 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:22:20.818 +02:00 [INF] HTTP POST /api/auth/refresh responded 200 in 55.1444 ms
+2026-08-29 18:22:20.818 +02:00 [DBG] Connection id "0HNO5T6EO7F5V" completed keep alive response.
+2026-08-29 18:22:21.308 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:21.308 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:21.308 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:21.309 +02:00 [INF] GetCalendarEventsQuery started
+2026-08-29 18:22:21.317 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@userId='?' (DbType = Guid), @updatedSinceUtc_Value='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT c."Id", c."Color", c."CreatedAtUtc", c."CreationNotificationChannel", c."Description", c."EndUtc", c."GuestsJson", c."IsAllDay", c."LocationAddress", c."LocationLatitude", c."LocationLongitude", c."LockExpiresAtUtc", c."LockedByUserId", c."LockedByUserName", c."Priority", c."RecurrenceFrequency", c."RecurrenceIntervalCount", c."RecurrenceUntilUtc", c."ReminderNotificationChannel", c."RemindersJson", c."StartUtc", c."Title", c."UpdatedAtUtc", c."UserId"
+FROM "CalendarEvents" AS c
+WHERE c."UserId" = @userId AND c."UpdatedAtUtc" >= @updatedSinceUtc_Value
+2026-08-29 18:22:21.324 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@recipientUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT c."Id", c."AcceptedAtUtc", c."AccessLevel", c."CreatedAtUtc", c."OwnerUserId", c."RecipientUserId", c."SourceCalendarEventId"
+FROM "CalendarEventShares" AS c
+WHERE c."RecipientUserId" = @recipientUserId AND c."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:21.327 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT c."SourceCalendarEventId"
+FROM "CalendarEventShares" AS c
+WHERE c."OwnerUserId" = @ownerUserId AND c."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:21.328 +02:00 [INF] GetCalendarEventsQuery completed in 18 ms
+2026-08-29 18:22:21.329 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @entityType='?', @sinceUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."EntityId"
+FROM "SyncTombstones" AS s
+WHERE s."UserId" = @userId AND s."EntityType" = @entityType AND s."DeletedAtUtc" >= @sinceUtc
+2026-08-29 18:22:21.331 +02:00 [INF] HTTP GET /api/calendar-events/changes responded 200 in 23.8072 ms
+2026-08-29 18:22:21.331 +02:00 [DBG] Connection id "0HNO5T6EO7F5U" completed keep alive response.
+2026-08-29 18:22:21.389 +02:00 [DBG] Connection id "0HNO5T6EO7F60" accepted.
+2026-08-29 18:22:21.389 +02:00 [DBG] Connection id "0HNO5T6EO7F60" started.
+2026-08-29 18:22:21.845 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:21.845 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:21.845 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:21.847 +02:00 [INF] GetWarehousesQuery started
+2026-08-29 18:22:21.856 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @updatedSinceUtc_Value='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."UserId" = @userId AND w."UpdatedAtUtc" >= @updatedSinceUtc_Value
+2026-08-29 18:22:21.862 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@recipientUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."AcceptedAtUtc", w."AccessLevel", w."CreatedAtUtc", w."OwnerUserId", w."RecipientUserId", w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."RecipientUserId" = @recipientUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:21.866 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:21.866 +02:00 [INF] GetWarehousesQuery completed in 19 ms
+2026-08-29 18:22:21.867 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @entityType='?', @sinceUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."EntityId"
+FROM "SyncTombstones" AS s
+WHERE s."UserId" = @userId AND s."EntityType" = @entityType AND s."DeletedAtUtc" >= @sinceUtc
+2026-08-29 18:22:21.869 +02:00 [INF] HTTP GET /api/warehouses/changes responded 200 in 23.9389 ms
+2026-08-29 18:22:21.869 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:33.590 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:33.590 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:33.590 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:33.591 +02:00 [INF] GetWarehousesQuery started
+2026-08-29 18:22:33.593 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @updatedSinceUtc_Value='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."UserId" = @userId AND w."UpdatedAtUtc" >= @updatedSinceUtc_Value
+2026-08-29 18:22:33.595 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@recipientUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."AcceptedAtUtc", w."AccessLevel", w."CreatedAtUtc", w."OwnerUserId", w."RecipientUserId", w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."RecipientUserId" = @recipientUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:33.596 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:33.597 +02:00 [INF] GetWarehousesQuery completed in 5 ms
+2026-08-29 18:22:33.598 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @entityType='?', @sinceUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."EntityId"
+FROM "SyncTombstones" AS s
+WHERE s."UserId" = @userId AND s."EntityType" = @entityType AND s."DeletedAtUtc" >= @sinceUtc
+2026-08-29 18:22:33.598 +02:00 [INF] HTTP GET /api/warehouses/changes responded 200 in 8.2006 ms
+2026-08-29 18:22:33.598 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:33.761 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:33.761 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:33.761 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:33.761 +02:00 [INF] GetUnreadNotificationEntriesQuery started
+2026-08-29 18:22:33.763 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @p='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT n."Id", n."Body", n."CreatedAtUtc", n."DismissedAtUtc", n."Kind", n."ReadAtUtc", n."Title", n."Url", n."UserId"
+FROM "NotificationEntries" AS n
+WHERE n."UserId" = @userId AND n."ReadAtUtc" IS NULL
+ORDER BY n."CreatedAtUtc" DESC
+LIMIT @p
+2026-08-29 18:22:33.763 +02:00 [INF] GetUnreadNotificationEntriesQuery completed in 1 ms
+2026-08-29 18:22:33.763 +02:00 [INF] HTTP GET /api/notifications/unread responded 200 in 2.4536 ms
+2026-08-29 18:22:33.764 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" completed keep alive response.
+2026-08-29 18:22:35.403 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:35.403 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:35.403 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:35.403 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:22:35.405 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:22:35.407 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:22:35.408 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 4 ms
+2026-08-29 18:22:35.408 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 5.1584 ms
+2026-08-29 18:22:35.408 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" completed keep alive response.
+2026-08-29 18:22:40.227 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:40.227 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:40.227 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:40.227 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:22:40.236 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:40.238 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:40.240 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:22:40.263 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:22:40.263 +02:00 [INF] AcquireWarehouseLockCommand completed in 35 ms
+2026-08-29 18:22:40.263 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 37.0138 ms
+2026-08-29 18:22:40.263 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:40.551 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:40.551 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:40.551 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:40.551 +02:00 [INF] GetUnreadNotificationEntriesQuery started
+2026-08-29 18:22:40.554 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @p='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT n."Id", n."Body", n."CreatedAtUtc", n."DismissedAtUtc", n."Kind", n."ReadAtUtc", n."Title", n."Url", n."UserId"
+FROM "NotificationEntries" AS n
+WHERE n."UserId" = @userId AND n."ReadAtUtc" IS NULL
+ORDER BY n."CreatedAtUtc" DESC
+LIMIT @p
+2026-08-29 18:22:40.554 +02:00 [INF] GetUnreadNotificationEntriesQuery completed in 3 ms
+2026-08-29 18:22:40.554 +02:00 [INF] HTTP GET /api/notifications/unread responded 200 in 3.6705 ms
+2026-08-29 18:22:40.554 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" completed keep alive response.
+2026-08-29 18:22:40.996 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT c."Id", c."Color", c."CreatedAtUtc", c."CreationNotificationChannel", c."Description", c."EndUtc", c."GuestsJson", c."IsAllDay", c."LocationAddress", c."LocationLatitude", c."LocationLongitude", c."LockExpiresAtUtc", c."LockedByUserId", c."LockedByUserName", c."Priority", c."RecurrenceFrequency", c."RecurrenceIntervalCount", c."RecurrenceUntilUtc", c."ReminderNotificationChannel", c."RemindersJson", c."StartUtc", c."Title", c."UpdatedAtUtc", c."UserId"
+FROM "CalendarEvents" AS c
+WHERE c."RemindersJson" <> '[]' AND c."ReminderNotificationChannel" <> 'None'
+2026-08-29 18:22:40.996 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@thresholdUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId", w."UserId"
+FROM "InventoryItems" AS i
+INNER JOIN "Warehouses" AS w ON i."WarehouseId" = w."Id"
+WHERE i."ExpiryDate" IS NOT NULL AND i."ExpiryDate" <= @thresholdUtc AND i."ExpiryNotificationChannel" <> 'None'
+2026-08-29 18:22:40.996 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."DailyReminderNotificationChannel", t."DailyReminderTimeOfDayMinutes"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE t."RemindDaily" AND t."LinkedTaskListId" IS NULL AND t."DailyReminderNotificationChannel" <> 'None'
+2026-08-29 18:22:40.998 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@inventoryItemId='?' (DbType = Guid), @expiryDate='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "InventoryExpiryNotificationDeliveries" AS i
+    WHERE i."InventoryItemId" = @inventoryItemId AND i."ExpiryDate" = @expiryDate)
+2026-08-29 18:22:41.006 +02:00 [INF] Executed DbCommand (4ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."OverdueNotificationChannel"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE NOT (t."IsCompleted") AND t."DueDateUtc" IS NOT NULL AND t."LinkedTaskListId" IS NULL AND t."OverdueNotificationChannel" <> 'None'
+2026-08-29 18:22:41.008 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@taskItemId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "TaskOverdueNotificationDeliveries" AS t
+    WHERE t."TaskItemId" = @taskItemId)
+2026-08-29 18:22:49.902 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:49.902 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:49.902 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:49.903 +02:00 [INF] ReleaseWarehouseLockCommand started
+2026-08-29 18:22:49.906 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:49.906 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:49.909 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:22:49.909 +02:00 [INF] ReleaseWarehouseLockCommand completed in 6 ms
+2026-08-29 18:22:49.909 +02:00 [INF] HTTP DELETE /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 7.5466 ms
+2026-08-29 18:22:49.909 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:49.922 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:49.922 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:49.922 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:49.922 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:22:49.924 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:49.925 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:49.925 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:22:49.927 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:22:49.927 +02:00 [INF] AcquireWarehouseLockCommand completed in 4 ms
+2026-08-29 18:22:49.927 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 5.2266 ms
+2026-08-29 18:22:49.927 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:49.972 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:49.973 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:49.973 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:49.973 +02:00 [DBG] Connection id "0HNO5T6EO7F60", Request id "0HNO5T6EO7F60:00000006": started reading request body.
+2026-08-29 18:22:49.973 +02:00 [DBG] Connection id "0HNO5T6EO7F60", Request id "0HNO5T6EO7F60:00000006": done reading request body.
+2026-08-29 18:22:49.980 +02:00 [INF] [ACTION:"Edit"] UpdateWarehouseCommand started
+2026-08-29 18:22:49.984 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:49.985 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:49.987 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:22:49.995 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId"
+FROM "InventoryItems" AS i
+WHERE i."WarehouseId" = @warehouseId
+2026-08-29 18:22:50.011 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @warehouseId
+LIMIT 1
+2026-08-29 18:22:50.029 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t1."Id", t1."CreatedAtUtc", t1."EncryptedCiphertext", t1."EncryptedNonce", t1."IsCompleted", t1."IsGroup", t1."IsPinned", t1."IsPrivate", t1."LinkedWarehouseId", t1."LockExpiresAtUtc", t1."LockedByUserId", t1."LockedByUserName", t1."Priority", t1."Title", t1."UpdatedAtUtc", t1."UserId", t0."Id", t0."DailyReminderNotificationChannel", t0."DailyReminderTimeOfDayMinutes", t0."Description", t0."DueDateUtc", t0."IsCompleted", t0."Kind", t0."LinkedCalendarEventId", t0."LinkedTaskListId", t0."Location", t0."OverdueNotificationChannel", t0."Position", t0."RemindDaily", t0."TaskId"
+FROM (
+    SELECT t."Id", t."CreatedAtUtc", t."EncryptedCiphertext", t."EncryptedNonce", t."IsCompleted", t."IsGroup", t."IsPinned", t."IsPrivate", t."LinkedWarehouseId", t."LockExpiresAtUtc", t."LockedByUserId", t."LockedByUserName", t."Priority", t."Title", t."UpdatedAtUtc", t."UserId"
+    FROM "Tasks" AS t
+    WHERE t."Id" = @id AND t."UserId" = @userId
+    LIMIT 1
+) AS t1
+LEFT JOIN "TaskItemEntity" AS t0 ON t1."Id" = t0."TaskId"
+ORDER BY t1."Id"
+2026-08-29 18:22:50.041 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @warehouseId
+LIMIT 1
+2026-08-29 18:22:50.043 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:50.048 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."TaskListId", i."WarehouseId"
+FROM "InventoryManagedTaskLists" AS i
+WHERE i."WarehouseId" = @warehouseId
+LIMIT 1
+2026-08-29 18:22:50.050 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t1."Id", t1."CreatedAtUtc", t1."EncryptedCiphertext", t1."EncryptedNonce", t1."IsCompleted", t1."IsGroup", t1."IsPinned", t1."IsPrivate", t1."LinkedWarehouseId", t1."LockExpiresAtUtc", t1."LockedByUserId", t1."LockedByUserName", t1."Priority", t1."Title", t1."UpdatedAtUtc", t1."UserId", t0."Id", t0."DailyReminderNotificationChannel", t0."DailyReminderTimeOfDayMinutes", t0."Description", t0."DueDateUtc", t0."IsCompleted", t0."Kind", t0."LinkedCalendarEventId", t0."LinkedTaskListId", t0."Location", t0."OverdueNotificationChannel", t0."Position", t0."RemindDaily", t0."TaskId"
+FROM (
+    SELECT t."Id", t."CreatedAtUtc", t."EncryptedCiphertext", t."EncryptedNonce", t."IsCompleted", t."IsGroup", t."IsPinned", t."IsPrivate", t."LinkedWarehouseId", t."LockExpiresAtUtc", t."LockedByUserId", t."LockedByUserName", t."Priority", t."Title", t."UpdatedAtUtc", t."UserId"
+    FROM "Tasks" AS t
+    WHERE t."Id" = @id AND t."UserId" = @userId
+    LIMIT 1
+) AS t1
+LEFT JOIN "TaskItemEntity" AS t0 ON t1."Id" = t0."TaskId"
+ORDER BY t1."Id"
+2026-08-29 18:22:50.052 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @warehouseId
+LIMIT 1
+2026-08-29 18:22:50.054 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t1."Id", t1."CreatedAtUtc", t1."EncryptedCiphertext", t1."EncryptedNonce", t1."IsCompleted", t1."IsGroup", t1."IsPinned", t1."IsPrivate", t1."LinkedWarehouseId", t1."LockExpiresAtUtc", t1."LockedByUserId", t1."LockedByUserName", t1."Priority", t1."Title", t1."UpdatedAtUtc", t1."UserId", t0."Id", t0."DailyReminderNotificationChannel", t0."DailyReminderTimeOfDayMinutes", t0."Description", t0."DueDateUtc", t0."IsCompleted", t0."Kind", t0."LinkedCalendarEventId", t0."LinkedTaskListId", t0."Location", t0."OverdueNotificationChannel", t0."Position", t0."RemindDaily", t0."TaskId"
+FROM (
+    SELECT t."Id", t."CreatedAtUtc", t."EncryptedCiphertext", t."EncryptedNonce", t."IsCompleted", t."IsGroup", t."IsPinned", t."IsPrivate", t."LinkedWarehouseId", t."LockExpiresAtUtc", t."LockedByUserId", t."LockedByUserName", t."Priority", t."Title", t."UpdatedAtUtc", t."UserId"
+    FROM "Tasks" AS t
+    WHERE t."Id" = @id AND t."UserId" = @userId
+    LIMIT 1
+) AS t1
+LEFT JOIN "TaskItemEntity" AS t0 ON t1."Id" = t0."TaskId"
+ORDER BY t1."Id"
+2026-08-29 18:22:50.061 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@taskList_Id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."CreatedAtUtc", t."EncryptedCiphertext", t."EncryptedNonce", t."IsCompleted", t."IsGroup", t."IsPinned", t."IsPrivate", t."LinkedWarehouseId", t."LockExpiresAtUtc", t."LockedByUserId", t."LockedByUserName", t."Priority", t."Title", t."UpdatedAtUtc", t."UserId"
+FROM "Tasks" AS t
+WHERE t."Id" = @taskList_Id
+LIMIT 1
+2026-08-29 18:22:50.085 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@taskList_Id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."DailyReminderNotificationChannel", t."DailyReminderTimeOfDayMinutes", t."Description", t."DueDateUtc", t."IsCompleted", t."Kind", t."LinkedCalendarEventId", t."LinkedTaskListId", t."Location", t."OverdueNotificationChannel", t."Position", t."RemindDaily", t."TaskId"
+FROM "TaskItemEntity" AS t
+WHERE t."TaskId" = @taskList_Id
+2026-08-29 18:22:50.126 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p1='?' (DbType = Guid), @p0='?' (DbType = Boolean)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "TaskItemEntity" SET "IsCompleted" = @p0
+WHERE "Id" = @p1;
+2026-08-29 18:22:50.133 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@item_Id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId"
+FROM "InventoryItems" AS i
+WHERE i."Id" = @item_Id
+LIMIT 1
+2026-08-29 18:22:50.165 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[@p2='?' (DbType = Guid), @p0='?' (DbType = Decimal), @p1='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "InventoryItems" SET "Quantity" = @p0, "UpdatedAtUtc" = @p1
+WHERE "Id" = @p2;
+2026-08-29 18:22:50.170 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?' (DbType = DateTime), @p3='?' (DbType = DateTime), @p4='?', @p5='?' (DbType = Decimal), @p6='?', @p7='?' (DbType = Guid), @p8='?' (DbType = Guid), @p9='?' (DbType = Int32), @p10='?', @p11='?' (DbType = Decimal), @p12='?', @p13='?' (DbType = DateTime), @p14='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "InventoryItems" ("Id", "Category", "CreatedAtUtc", "ExpiryDate", "ExpiryNotificationChannel", "MinimumQuantity", "Name", "PendingRestockTaskItemId", "PendingRestockTaskListId", "Position", "ProductType", "Quantity", "Unit", "UpdatedAtUtc", "WarehouseId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14);
+2026-08-29 18:22:50.172 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@item_Id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId"
+FROM "InventoryItems" AS i
+WHERE i."Id" = @item_Id
+LIMIT 1
+2026-08-29 18:22:50.173 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @warehouseId
+LIMIT 1
+2026-08-29 18:22:50.174 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:50.175 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."TaskListId", i."WarehouseId"
+FROM "InventoryManagedTaskLists" AS i
+WHERE i."WarehouseId" = @warehouseId
+LIMIT 1
+2026-08-29 18:22:50.176 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t1."Id", t1."CreatedAtUtc", t1."EncryptedCiphertext", t1."EncryptedNonce", t1."IsCompleted", t1."IsGroup", t1."IsPinned", t1."IsPrivate", t1."LinkedWarehouseId", t1."LockExpiresAtUtc", t1."LockedByUserId", t1."LockedByUserName", t1."Priority", t1."Title", t1."UpdatedAtUtc", t1."UserId", t0."Id", t0."DailyReminderNotificationChannel", t0."DailyReminderTimeOfDayMinutes", t0."Description", t0."DueDateUtc", t0."IsCompleted", t0."Kind", t0."LinkedCalendarEventId", t0."LinkedTaskListId", t0."Location", t0."OverdueNotificationChannel", t0."Position", t0."RemindDaily", t0."TaskId"
+FROM (
+    SELECT t."Id", t."CreatedAtUtc", t."EncryptedCiphertext", t."EncryptedNonce", t."IsCompleted", t."IsGroup", t."IsPinned", t."IsPrivate", t."LinkedWarehouseId", t."LockExpiresAtUtc", t."LockedByUserId", t."LockedByUserName", t."Priority", t."Title", t."UpdatedAtUtc", t."UserId"
+    FROM "Tasks" AS t
+    WHERE t."Id" = @id AND t."UserId" = @userId
+    LIMIT 1
+) AS t1
+LEFT JOIN "TaskItemEntity" AS t0 ON t1."Id" = t0."TaskId"
+ORDER BY t1."Id"
+2026-08-29 18:22:50.176 +02:00 [INF] [ACTION:"Edit"] UpdateWarehouseCommand completed in 196 ms
+2026-08-29 18:22:50.177 +02:00 [INF] HTTP PUT /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec responded 204 in 204.4265 ms
+2026-08-29 18:22:50.177 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:50.194 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:50.194 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:50.194 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:50.195 +02:00 [INF] GetWarehousesQuery started
+2026-08-29 18:22:50.198 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @updatedSinceUtc_Value='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."UserId" = @userId AND w."UpdatedAtUtc" >= @updatedSinceUtc_Value
+2026-08-29 18:22:50.199 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@recipientUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."AcceptedAtUtc", w."AccessLevel", w."CreatedAtUtc", w."OwnerUserId", w."RecipientUserId", w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."RecipientUserId" = @recipientUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:50.201 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:50.201 +02:00 [INF] GetWarehousesQuery completed in 6 ms
+2026-08-29 18:22:50.203 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@userId='?' (DbType = Guid), @entityType='?', @sinceUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."EntityId"
+FROM "SyncTombstones" AS s
+WHERE s."UserId" = @userId AND s."EntityType" = @entityType AND s."DeletedAtUtc" >= @sinceUtc
+2026-08-29 18:22:50.205 +02:00 [INF] HTTP GET /api/warehouses/changes responded 200 in 11.2912 ms
+2026-08-29 18:22:50.206 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:50.230 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:50.230 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:50.230 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:50.231 +02:00 [INF] GetInventoryItemsQuery started
+2026-08-29 18:22:50.234 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:50.235 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:50.236 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId"
+FROM "InventoryItems" AS i
+WHERE i."WarehouseId" = @warehouseId
+2026-08-29 18:22:50.238 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@warehouseId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @warehouseId
+LIMIT 1
+2026-08-29 18:22:50.239 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t1."Id", t1."CreatedAtUtc", t1."EncryptedCiphertext", t1."EncryptedNonce", t1."IsCompleted", t1."IsGroup", t1."IsPinned", t1."IsPrivate", t1."LinkedWarehouseId", t1."LockExpiresAtUtc", t1."LockedByUserId", t1."LockedByUserName", t1."Priority", t1."Title", t1."UpdatedAtUtc", t1."UserId", t0."Id", t0."DailyReminderNotificationChannel", t0."DailyReminderTimeOfDayMinutes", t0."Description", t0."DueDateUtc", t0."IsCompleted", t0."Kind", t0."LinkedCalendarEventId", t0."LinkedTaskListId", t0."Location", t0."OverdueNotificationChannel", t0."Position", t0."RemindDaily", t0."TaskId"
+FROM (
+    SELECT t."Id", t."CreatedAtUtc", t."EncryptedCiphertext", t."EncryptedNonce", t."IsCompleted", t."IsGroup", t."IsPinned", t."IsPrivate", t."LinkedWarehouseId", t."LockExpiresAtUtc", t."LockedByUserId", t."LockedByUserName", t."Priority", t."Title", t."UpdatedAtUtc", t."UserId"
+    FROM "Tasks" AS t
+    WHERE t."Id" = @id AND t."UserId" = @userId
+    LIMIT 1
+) AS t1
+LEFT JOIN "TaskItemEntity" AS t0 ON t1."Id" = t0."TaskId"
+ORDER BY t1."Id"
+2026-08-29 18:22:50.239 +02:00 [INF] GetInventoryItemsQuery completed in 8 ms
+2026-08-29 18:22:50.244 +02:00 [INF] HTTP GET /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/items responded 200 in 14.7959 ms
+2026-08-29 18:22:50.244 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:50.282 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:50.283 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:50.283 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:50.283 +02:00 [INF] ReleaseWarehouseLockCommand started
+2026-08-29 18:22:50.284 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:50.285 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:50.287 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:22:50.287 +02:00 [INF] ReleaseWarehouseLockCommand completed in 4 ms
+2026-08-29 18:22:50.287 +02:00 [INF] HTTP DELETE /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 4.7437 ms
+2026-08-29 18:22:50.287 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:50.293 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:50.293 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:50.293 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:50.293 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:22:50.295 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:22:50.296 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:22:50.297 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:22:50.299 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:22:50.299 +02:00 [INF] AcquireWarehouseLockCommand completed in 5 ms
+2026-08-29 18:22:50.299 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 5.9033 ms
+2026-08-29 18:22:50.299 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:22:55.400 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:22:55.400 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:22:55.400 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:22:55.400 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:22:55.403 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:22:55.405 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:22:55.405 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 4 ms
+2026-08-29 18:22:55.405 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 5.6721 ms
+2026-08-29 18:22:55.405 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" completed keep alive response.
+2026-08-29 18:23:10.303 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:23:10.303 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:23:10.304 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:23:10.304 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:23:10.305 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:23:10.306 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:23:10.306 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:23:10.308 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:23:10.308 +02:00 [INF] AcquireWarehouseLockCommand completed in 4 ms
+2026-08-29 18:23:10.308 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 4.8866 ms
+2026-08-29 18:23:10.308 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:23:15.401 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:23:15.401 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:23:15.401 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:23:15.401 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:23:15.403 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:23:15.404 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:23:15.404 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 3 ms
+2026-08-29 18:23:15.405 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 3.5567 ms
+2026-08-29 18:23:15.405 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" completed keep alive response.
+2026-08-29 18:23:30.137 +02:00 [DBG] Connection id "0HNO5T6EO7F5P" received FIN.
+2026-08-29 18:23:30.138 +02:00 [DBG] Connection id "0HNO5T6EO7F5P" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:23:30.138 +02:00 [DBG] Connection id "0HNO5T6EO7F5P" disconnecting.
+2026-08-29 18:23:30.139 +02:00 [DBG] Connection id "0HNO5T6EO7F5P" stopped.
+2026-08-29 18:23:30.304 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:23:30.304 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:23:30.304 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:23:30.304 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:23:30.305 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:23:30.306 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:23:30.307 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:23:30.308 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:23:30.309 +02:00 [INF] AcquireWarehouseLockCommand completed in 4 ms
+2026-08-29 18:23:30.309 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 4.8459 ms
+2026-08-29 18:23:30.309 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:23:32.430 +02:00 [DBG] Connection id "0HNO5T6EO7F5R" received FIN.
+2026-08-29 18:23:32.430 +02:00 [DBG] Connection id "0HNO5T6EO7F5R" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:23:32.430 +02:00 [DBG] Connection id "0HNO5T6EO7F5R" disconnecting.
+2026-08-29 18:23:32.430 +02:00 [DBG] Connection id "0HNO5T6EO7F5R" stopped.
+2026-08-29 18:23:33.308 +02:00 [DBG] Connection id "0HNO5T6EO7F5T" received FIN.
+2026-08-29 18:23:33.308 +02:00 [DBG] Connection id "0HNO5T6EO7F5T" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:23:33.308 +02:00 [DBG] Connection id "0HNO5T6EO7F5T" disconnecting.
+2026-08-29 18:23:33.308 +02:00 [DBG] Connection id "0HNO5T6EO7F5T" stopped.
+2026-08-29 18:23:34.265 +02:00 [DBG] Connection id "0HNO5T6EO7F5U" received FIN.
+2026-08-29 18:23:34.265 +02:00 [DBG] Connection id "0HNO5T6EO7F5U" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:23:34.265 +02:00 [DBG] Connection id "0HNO5T6EO7F5U" disconnecting.
+2026-08-29 18:23:34.265 +02:00 [DBG] Connection id "0HNO5T6EO7F5U" stopped.
+2026-08-29 18:23:35.258 +02:00 [DBG] Connection id "0HNO5T6EO7F5V" received FIN.
+2026-08-29 18:23:35.259 +02:00 [DBG] Connection id "0HNO5T6EO7F5V" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:23:35.259 +02:00 [DBG] Connection id "0HNO5T6EO7F5V" disconnecting.
+2026-08-29 18:23:35.259 +02:00 [DBG] Connection id "0HNO5T6EO7F5V" stopped.
+2026-08-29 18:23:35.401 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:23:35.401 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:23:35.402 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:23:35.402 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:23:35.403 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:23:35.405 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:23:35.405 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 3 ms
+2026-08-29 18:23:35.405 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 3.6989 ms
+2026-08-29 18:23:35.405 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" completed keep alive response.
+2026-08-29 18:23:40.998 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."DailyReminderNotificationChannel", t."DailyReminderTimeOfDayMinutes"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE t."RemindDaily" AND t."LinkedTaskListId" IS NULL AND t."DailyReminderNotificationChannel" <> 'None'
+2026-08-29 18:23:40.998 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."OverdueNotificationChannel"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE NOT (t."IsCompleted") AND t."DueDateUtc" IS NOT NULL AND t."LinkedTaskListId" IS NULL AND t."OverdueNotificationChannel" <> 'None'
+2026-08-29 18:23:40.998 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@thresholdUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId", w."UserId"
+FROM "InventoryItems" AS i
+INNER JOIN "Warehouses" AS w ON i."WarehouseId" = w."Id"
+WHERE i."ExpiryDate" IS NOT NULL AND i."ExpiryDate" <= @thresholdUtc AND i."ExpiryNotificationChannel" <> 'None'
+2026-08-29 18:23:40.999 +02:00 [DBG] HttpMessageHandler expired after 120000ms for client ''
+2026-08-29 18:23:40.999 +02:00 [DBG] HttpMessageHandler expired after 120000ms for client 'FirebasePushNotificationSender'
+2026-08-29 18:23:40.999 +02:00 [DBG] HttpMessageHandler expired after 120000ms for client 'FirebaseAccessTokenProvider'
+2026-08-29 18:23:40.999 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT c."Id", c."Color", c."CreatedAtUtc", c."CreationNotificationChannel", c."Description", c."EndUtc", c."GuestsJson", c."IsAllDay", c."LocationAddress", c."LocationLatitude", c."LocationLongitude", c."LockExpiresAtUtc", c."LockedByUserId", c."LockedByUserName", c."Priority", c."RecurrenceFrequency", c."RecurrenceIntervalCount", c."RecurrenceUntilUtc", c."ReminderNotificationChannel", c."RemindersJson", c."StartUtc", c."Title", c."UpdatedAtUtc", c."UserId"
+FROM "CalendarEvents" AS c
+WHERE c."RemindersJson" <> '[]' AND c."ReminderNotificationChannel" <> 'None'
+2026-08-29 18:23:40.999 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@taskItemId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "TaskOverdueNotificationDeliveries" AS t
+    WHERE t."TaskItemId" = @taskItemId)
+2026-08-29 18:23:41.000 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@inventoryItemId='?' (DbType = Guid), @expiryDate='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "InventoryExpiryNotificationDeliveries" AS i
+    WHERE i."InventoryItemId" = @inventoryItemId AND i."ExpiryDate" = @expiryDate)
+2026-08-29 18:23:47.526 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" received FIN.
+2026-08-29 18:23:47.526 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:23:47.526 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" disconnecting.
+2026-08-29 18:23:47.526 +02:00 [DBG] Connection id "0HNO5T6EO7F5S" stopped.
+2026-08-29 18:23:50.313 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:23:50.313 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:23:50.313 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:23:50.313 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:23:50.314 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:23:50.316 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:23:50.317 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:23:50.319 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:23:50.319 +02:00 [INF] AcquireWarehouseLockCommand completed in 6 ms
+2026-08-29 18:23:50.319 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 6.5248 ms
+2026-08-29 18:23:50.319 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:23:51.001 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:23:51.003 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.015ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:23:55.400 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:23:55.400 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:23:55.400 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:23:55.400 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:23:55.401 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:23:55.403 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:23:55.403 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 3 ms
+2026-08-29 18:23:55.403 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 3.6391 ms
+2026-08-29 18:23:55.403 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" completed keep alive response.
+2026-08-29 18:24:01.018 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:24:01.018 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0026ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:24:10.307 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:24:10.307 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:24:10.307 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:24:10.307 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:24:10.308 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:24:10.309 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:24:10.310 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:24:10.312 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:24:10.312 +02:00 [INF] AcquireWarehouseLockCommand completed in 4 ms
+2026-08-29 18:24:10.312 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 5.1449 ms
+2026-08-29 18:24:10.312 +02:00 [DBG] Connection id "0HNO5T6EO7F60" completed keep alive response.
+2026-08-29 18:24:11.019 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:24:11.019 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0018ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:24:15.399 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:24:15.399 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:24:15.400 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:24:15.400 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:24:15.401 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:24:15.403 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:24:15.403 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 3 ms
+2026-08-29 18:24:15.403 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 3.7418 ms
+2026-08-29 18:24:15.403 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" completed keep alive response.
+2026-08-29 18:24:21.022 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:24:21.022 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0024ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:24:30.304 +02:00 [DBG] Connection id "0HNO5T6EO7F60" received FIN.
+2026-08-29 18:24:30.304 +02:00 [DBG] Connection id "0HNO5T6EO7F60" disconnecting.
+2026-08-29 18:24:30.304 +02:00 [DBG] Connection id "0HNO5T6EO7F60" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:24:30.305 +02:00 [DBG] Connection id "0HNO5T6EO7F61" accepted.
+2026-08-29 18:24:30.305 +02:00 [DBG] Connection id "0HNO5T6EO7F61" started.
+2026-08-29 18:24:30.312 +02:00 [DBG] Connection id "0HNO5T6EO7F60" stopped.
+2026-08-29 18:24:30.748 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" received FIN.
+2026-08-29 18:24:30.748 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" sending FIN because: "The Socket transport's send loop completed gracefully."
+2026-08-29 18:24:30.749 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" disconnecting.
+2026-08-29 18:24:30.749 +02:00 [DBG] Connection id "0HNO5T6EO7F5Q" stopped.
+2026-08-29 18:24:30.750 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:24:30.750 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:24:30.750 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:24:30.751 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:24:30.752 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:24:30.753 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:24:30.753 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:24:30.755 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:24:30.755 +02:00 [INF] AcquireWarehouseLockCommand completed in 4 ms
+2026-08-29 18:24:30.755 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 4.8953 ms
+2026-08-29 18:24:30.755 +02:00 [DBG] Connection id "0HNO5T6EO7F61" completed keep alive response.
+2026-08-29 18:24:31.022 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:24:31.022 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0022ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:24:35.401 +02:00 [DBG] Connection id "0HNO5T6EO7F62" accepted.
+2026-08-29 18:24:35.401 +02:00 [DBG] Connection id "0HNO5T6EO7F62" started.
+2026-08-29 18:24:35.865 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:24:35.865 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:24:35.865 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:24:35.865 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:24:35.867 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:24:35.868 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:24:35.868 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 2 ms
+2026-08-29 18:24:35.868 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 3.5312 ms
+2026-08-29 18:24:35.869 +02:00 [DBG] Connection id "0HNO5T6EO7F62" completed keep alive response.
+2026-08-29 18:24:40.993 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."DailyReminderNotificationChannel", t."DailyReminderTimeOfDayMinutes"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE t."RemindDaily" AND t."LinkedTaskListId" IS NULL AND t."DailyReminderNotificationChannel" <> 'None'
+2026-08-29 18:24:40.993 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@thresholdUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId", w."UserId"
+FROM "InventoryItems" AS i
+INNER JOIN "Warehouses" AS w ON i."WarehouseId" = w."Id"
+WHERE i."ExpiryDate" IS NOT NULL AND i."ExpiryDate" <= @thresholdUtc AND i."ExpiryNotificationChannel" <> 'None'
+2026-08-29 18:24:40.993 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."OverdueNotificationChannel"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE NOT (t."IsCompleted") AND t."DueDateUtc" IS NOT NULL AND t."LinkedTaskListId" IS NULL AND t."OverdueNotificationChannel" <> 'None'
+2026-08-29 18:24:40.993 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT c."Id", c."Color", c."CreatedAtUtc", c."CreationNotificationChannel", c."Description", c."EndUtc", c."GuestsJson", c."IsAllDay", c."LocationAddress", c."LocationLatitude", c."LocationLongitude", c."LockExpiresAtUtc", c."LockedByUserId", c."LockedByUserName", c."Priority", c."RecurrenceFrequency", c."RecurrenceIntervalCount", c."RecurrenceUntilUtc", c."ReminderNotificationChannel", c."RemindersJson", c."StartUtc", c."Title", c."UpdatedAtUtc", c."UserId"
+FROM "CalendarEvents" AS c
+WHERE c."RemindersJson" <> '[]' AND c."ReminderNotificationChannel" <> 'None'
+2026-08-29 18:24:40.993 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@inventoryItemId='?' (DbType = Guid), @expiryDate='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "InventoryExpiryNotificationDeliveries" AS i
+    WHERE i."InventoryItemId" = @inventoryItemId AND i."ExpiryDate" = @expiryDate)
+2026-08-29 18:24:40.994 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@taskItemId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "TaskOverdueNotificationDeliveries" AS t
+    WHERE t."TaskItemId" = @taskItemId)
+2026-08-29 18:24:41.022 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:24:41.022 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0026ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:24:50.303 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:24:50.303 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:24:50.303 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:24:50.303 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:24:50.304 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:24:50.305 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:24:50.306 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:24:50.308 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:24:50.308 +02:00 [INF] AcquireWarehouseLockCommand completed in 4 ms
+2026-08-29 18:24:50.308 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 5.2529 ms
+2026-08-29 18:24:50.308 +02:00 [DBG] Connection id "0HNO5T6EO7F61" completed keep alive response.
+2026-08-29 18:24:51.035 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:24:51.035 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0021ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:24:55.402 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:24:55.403 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:24:55.403 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:24:55.403 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:24:55.404 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:24:55.406 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:24:55.406 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 3 ms
+2026-08-29 18:24:55.406 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 3.6543 ms
+2026-08-29 18:24:55.406 +02:00 [DBG] Connection id "0HNO5T6EO7F62" completed keep alive response.
+2026-08-29 18:25:01.043 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:25:01.043 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0027ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:25:10.305 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:25:10.305 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:25:10.305 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:25:10.305 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:25:10.307 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:25:10.307 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:25:10.308 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:25:10.310 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:25:10.310 +02:00 [INF] AcquireWarehouseLockCommand completed in 4 ms
+2026-08-29 18:25:10.310 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 5.0421 ms
+2026-08-29 18:25:10.310 +02:00 [DBG] Connection id "0HNO5T6EO7F61" completed keep alive response.
+2026-08-29 18:25:11.047 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:25:11.047 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0023ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:25:15.402 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:25:15.402 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:25:15.402 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:25:15.402 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:25:15.404 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:25:15.406 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:25:15.406 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 3 ms
+2026-08-29 18:25:15.406 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 4.3279 ms
+2026-08-29 18:25:15.406 +02:00 [DBG] Connection id "0HNO5T6EO7F62" completed keep alive response.
+2026-08-29 18:25:21.056 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:25:21.056 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0022ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:25:30.306 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:25:30.306 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:25:30.306 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:25:30.306 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:25:30.308 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:25:30.309 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:25:30.310 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:25:30.311 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:25:30.311 +02:00 [INF] AcquireWarehouseLockCommand completed in 5 ms
+2026-08-29 18:25:30.312 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 5.5129 ms
+2026-08-29 18:25:30.312 +02:00 [DBG] Connection id "0HNO5T6EO7F61" completed keep alive response.
+2026-08-29 18:25:31.067 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:25:31.067 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0033ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:25:35.402 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:25:35.402 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:25:35.402 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:25:35.402 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand started
+2026-08-29 18:25:35.404 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:25:35.405 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p18='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = DateTime), @p4='?', @p5='?', @p6='?' (DbType = Double), @p7='?' (DbType = Double), @p8='?' (DbType = DateTime), @p9='?', @p10='?', @p11='?' (DbType = DateTime), @p12='?' (DbType = Int32), @p13='?', @p14='?', @p15='?', @p16='?', @p17='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "CreatedAtUtc" = @p0, "DisplayName" = @p1, "Email" = @p2, "EmailVerifiedAtUtc" = @p3, "GoogleSubjectId" = @p4, "LocationAddress" = @p5, "LocationLatitude" = @p6, "LocationLongitude" = @p7, "LocationRecordedAtUtc" = @p8, "PasswordHash" = @p9, "PresenceAvailability" = @p10, "PresenceLastSeenAtUtc" = @p11, "PrivateKeyDerivationIterations" = @p12, "PrivateKeySaltBase64" = @p13, "PrivateKeyWrapNonceBase64" = @p14, "PublicKeyBase64" = @p15, "UserName" = @p16, "WrappedPrivateKeyBase64" = @p17
+WHERE "Id" = @p18;
+2026-08-29 18:25:35.406 +02:00 [INF] [ACTION:"Edit"] PresenceHeartbeatCommand completed in 3 ms
+2026-08-29 18:25:35.406 +02:00 [INF] HTTP POST /api/users/me/presence/heartbeat responded 204 in 3.5371 ms
+2026-08-29 18:25:35.406 +02:00 [DBG] Connection id "0HNO5T6EO7F62" completed keep alive response.
+2026-08-29 18:25:41.004 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT c."Id", c."Color", c."CreatedAtUtc", c."CreationNotificationChannel", c."Description", c."EndUtc", c."GuestsJson", c."IsAllDay", c."LocationAddress", c."LocationLatitude", c."LocationLongitude", c."LockExpiresAtUtc", c."LockedByUserId", c."LockedByUserName", c."Priority", c."RecurrenceFrequency", c."RecurrenceIntervalCount", c."RecurrenceUntilUtc", c."ReminderNotificationChannel", c."RemindersJson", c."StartUtc", c."Title", c."UpdatedAtUtc", c."UserId"
+FROM "CalendarEvents" AS c
+WHERE c."RemindersJson" <> '[]' AND c."ReminderNotificationChannel" <> 'None'
+2026-08-29 18:25:41.004 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."OverdueNotificationChannel"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE NOT (t."IsCompleted") AND t."DueDateUtc" IS NOT NULL AND t."LinkedTaskListId" IS NULL AND t."OverdueNotificationChannel" <> 'None'
+2026-08-29 18:25:41.004 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."TaskId", t0."UserId", t0."Title", t."Description", t."DueDateUtc", t."DailyReminderNotificationChannel", t."DailyReminderTimeOfDayMinutes"
+FROM "TaskItemEntity" AS t
+INNER JOIN "Tasks" AS t0 ON t."TaskId" = t0."Id"
+WHERE t."RemindDaily" AND t."LinkedTaskListId" IS NULL AND t."DailyReminderNotificationChannel" <> 'None'
+2026-08-29 18:25:41.004 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@thresholdUtc='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT i."Id", i."Category", i."CreatedAtUtc", i."ExpiryDate", i."ExpiryNotificationChannel", i."MinimumQuantity", i."Name", i."PendingRestockTaskItemId", i."PendingRestockTaskListId", i."Position", i."ProductType", i."Quantity", i."Unit", i."UpdatedAtUtc", i."WarehouseId", w."UserId"
+FROM "InventoryItems" AS i
+INNER JOIN "Warehouses" AS w ON i."WarehouseId" = w."Id"
+WHERE i."ExpiryDate" IS NOT NULL AND i."ExpiryDate" <= @thresholdUtc AND i."ExpiryNotificationChannel" <> 'None'
+2026-08-29 18:25:41.005 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@taskItemId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "TaskOverdueNotificationDeliveries" AS t
+    WHERE t."TaskItemId" = @taskItemId)
+2026-08-29 18:25:41.005 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@inventoryItemId='?' (DbType = Guid), @expiryDate='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1
+    FROM "InventoryExpiryNotificationDeliveries" AS i
+    WHERE i."InventoryItemId" = @inventoryItemId AND i."ExpiryDate" = @expiryDate)
+2026-08-29 18:25:41.067 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:25:41.067 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0025ms - processed: 0 items - remaining: 3 items
+2026-08-29 18:25:50.305 +02:00 [DBG] Successfully validated the token.
+2026-08-29 18:25:50.305 +02:00 [DBG] AuthenticationScheme: Bearer was successfully authenticated.
+2026-08-29 18:25:50.305 +02:00 [DBG] Authorization was successful.
+2026-08-29 18:25:50.305 +02:00 [INF] AcquireWarehouseLockCommand started
+2026-08-29 18:25:50.307 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid), @userId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT w."Id", w."CreatedAtUtc", w."EncryptedCiphertext", w."EncryptedNonce", w."IsPrivate", w."LockExpiresAtUtc", w."LockedByUserId", w."LockedByUserName", w."Name", w."UpdatedAtUtc", w."UserId"
+FROM "Warehouses" AS w
+WHERE w."Id" = @id AND w."UserId" = @userId
+LIMIT 1
+2026-08-29 18:25:50.307 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@ownerUserId='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT DISTINCT w."SourceWarehouseId"
+FROM "WarehouseShares" AS w
+WHERE w."OwnerUserId" = @ownerUserId AND w."AcceptedAtUtc" IS NOT NULL
+2026-08-29 18:25:50.308 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@id='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT u."Id", u."CreatedAtUtc", u."DisplayName", u."Email", u."EmailVerifiedAtUtc", u."GoogleSubjectId", u."LocationAddress", u."LocationLatitude", u."LocationLongitude", u."LocationRecordedAtUtc", u."PasswordHash", u."PresenceAvailability", u."PresenceLastSeenAtUtc", u."PrivateKeyDerivationIterations", u."PrivateKeySaltBase64", u."PrivateKeyWrapNonceBase64", u."PublicKeyBase64", u."UserName", u."WrappedPrivateKeyBase64"
+FROM "Users" AS u
+WHERE u."Id" = @id
+LIMIT 1
+2026-08-29 18:25:50.310 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p10='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?', @p2='?', @p3='?' (DbType = Boolean), @p4='?' (DbType = DateTime), @p5='?' (DbType = Guid), @p6='?', @p7='?', @p8='?' (DbType = DateTime), @p9='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Warehouses" SET "CreatedAtUtc" = @p0, "EncryptedCiphertext" = @p1, "EncryptedNonce" = @p2, "IsPrivate" = @p3, "LockExpiresAtUtc" = @p4, "LockedByUserId" = @p5, "LockedByUserName" = @p6, "Name" = @p7, "UpdatedAtUtc" = @p8, "UserId" = @p9
+WHERE "Id" = @p10;
+2026-08-29 18:25:50.310 +02:00 [INF] AcquireWarehouseLockCommand completed in 4 ms
+2026-08-29 18:25:50.310 +02:00 [INF] HTTP POST /api/warehouses/375cb381-bcf1-4fc8-bb37-999a84363aec/lock responded 204 in 5.2095 ms
+2026-08-29 18:25:50.310 +02:00 [DBG] Connection id "0HNO5T6EO7F61" completed keep alive response.
+2026-08-29 18:25:51.077 +02:00 [DBG] Starting HttpMessageHandler cleanup cycle with 3 items
+2026-08-29 18:25:51.077 +02:00 [DBG] Ending HttpMessageHandler cleanup cycle after 0.0026ms - processed: 0 items - remaining: 3 items
