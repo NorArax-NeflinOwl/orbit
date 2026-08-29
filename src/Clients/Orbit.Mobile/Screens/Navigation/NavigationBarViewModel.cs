@@ -124,7 +124,10 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         {
             SyncCondition.Syncing => _translations["Syncing…"],
             SyncCondition.Synced => _translations["Synced"],
-            SyncCondition.Offline => _translations["Offline"],
+            // Not "Offline": that word is already the answer to "is this person there", and one English
+            // string cannot be both - Polish has a different word for each ("Niedostępny" about somebody,
+            // "Bez połączenia" about the app). This row is about the connection, so it says so.
+            SyncCondition.Offline => _translations["No connection"],
             SyncCondition.Failed => _translations["Couldn't sync"],
             // Before anything has tried, saying "Synced" would be a claim and saying "Offline" a
             // slander. The row stays quiet instead.

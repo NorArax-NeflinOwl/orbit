@@ -7,12 +7,14 @@ using Xunit;
 namespace Orbit.Web.Tests.Services;
 
 /// <summary>
-/// The Polish dictionary as a whole, rather than one string at a time. Two things about it can only be
-/// found this way, and both take the app down rather than reading badly:
+/// The Polish dictionary as a whole, rather than one string at a time. Some of what can be wrong with it
+/// is invisible from any single entry:
 ///
-/// A duplicate key throws from the dictionary initializer, which runs at type-init - so the app dies the
-/// moment somebody switches to Polish, on a page that has nothing to do with the duplicate. That has
-/// nearly shipped more than once.
+/// A key written twice is the quiet one. The dictionary is built from indexer initialisers, which
+/// <i>overwrite</i> rather than throw, so the second wins and the first leaves no trace anywhere in the
+/// built dictionary - which is why the check below reads the source instead. Ten pairs had accumulated
+/// before anybody looked, four of them with different Polish; a group's roster was headed with the word
+/// meant for counting people.
 ///
 /// A value referring to a placeholder its English does not supply throws FormatException when that line
 /// is written. Fewer placeholders than the English is allowed and deliberate: Polish plurals do not map
@@ -24,8 +26,54 @@ public sealed class PolishTranslationsTests
     [Fact]
     public void The_dictionary_can_be_built_at_all()
     {
-        // Reading anything from it runs the initializer, which is where a duplicate key would throw.
         Assert.NotEmpty(PolishTranslations.ByEnglish);
+    }
+
+    [Fact]
+    public void No_English_string_is_translated_twice()
+    {
+        var twice = KeysWrittenInTheSource()
+            .GroupBy(key => key, StringComparer.Ordinal)
+            .Where(entries => entries.Count() > 1)
+            .Select(entries => entries.Key)
+            .OrderBy(key => key, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(twice.Count == 0, $"Translated twice: {string.Join(" | ", twice)}");
+    }
+
+    [Fact]
+    public void The_source_was_actually_found()
+    {
+        // Guards the check above: a moved file would otherwise let it pass by reading nothing at all,
+        // which is the failure mode that matters for a test that reads its subject off disk.
+        Assert.True(KeysWrittenInTheSource().Count > 500);
+    }
+
+    /// <summary>
+    /// Every key as it is written in the dictionary's own source, duplicates and all - the one place a
+    /// key that was overwritten still exists. Read off disk the way Orbit.Mobile.Tests' own translation
+    /// sweep reads the markup it checks.
+    /// </summary>
+    private static IReadOnlyList<string> KeysWrittenInTheSource()
+    {
+        var source = Path.Combine(
+            RepositoryRoot(), "src", "Shared", "Orbit.Localization", "PolishTranslations.cs");
+
+        // The escape alternative matters: several keys carry a quoted phrase of their own.
+        return [.. Regex.Matches(File.ReadAllText(source), """^\s*\["((?:[^"\\]|\\.)*)"\]\s*=""", RegexOptions.Multiline)
+            .Select(match => match.Groups[1].Value)];
+    }
+
+    private static string RepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Orbit.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName ?? throw new InvalidOperationException("Could not find Orbit.sln above the test binaries.");
     }
 
     [Fact]
