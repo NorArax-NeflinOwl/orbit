@@ -29,6 +29,14 @@ public sealed record DashboardRow(Guid LocalId, string Title, string Detail)
     public bool ShowsSeparator { get; init; }
 
     /// <summary>
+    /// How much the list matters, when that is worth saying - Orbit.Web badges the same rows. Empty
+    /// for a Normal one, which is what everything is unless somebody said otherwise.
+    /// </summary>
+    public string Priority { get; init; } = string.Empty;
+
+    public bool HasPriority => Priority.Length > 0;
+
+    /// <summary>
     /// Whether this row carries the coloured dot Orbit.Web draws beside an event. True only on the
     /// calendar card: the other cards' rows have no dot there either.
     /// </summary>

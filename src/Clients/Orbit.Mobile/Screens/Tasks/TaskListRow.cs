@@ -22,7 +22,8 @@ namespace Orbit.Mobile.Screens.Tasks;
 public sealed record TaskListRow(
     Guid LocalId, string Title, int ItemCount, int CompletedCount, bool IsPinned,
     DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
-    string Progress, string Status, string State, string NextThing, string NextThingOnList)
+    string Progress, string Status, string State, string NextThing, string NextThingOnList,
+    string Priority)
 {
     /// <param name="everyList">
     /// What else the phone holds, so a row that only points at another list can be looked up on the list
@@ -44,10 +45,21 @@ public sealed record TaskListRow(
             OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
             TaskListView.Describe(taskList.Status, translations),
             next?.Description ?? string.Empty,
-            next?.OnList ?? string.Empty);
+            next?.OnList ?? string.Empty,
+            PriorityChoice.For(taskList.Priority, translations).Name)
+        {
+            HasPriority = PriorityChoice.For(taskList.Priority, translations).IsWorthSaying
+        };
     }
 
     public bool IsEditable => Refusal is OfflineEditRefusal.None;
+
+    /// <summary>
+    /// Whether the priority is worth a badge. Normal is what a list is unless somebody said otherwise,
+    /// so marking every one of them would say nothing about any - see PriorityChoice.IsWorthSaying,
+    /// which is the line Orbit.Web draws too.
+    /// </summary>
+    public bool HasPriority { get; init; }
 
     public bool HasStatus => Status.Length > 0;
 

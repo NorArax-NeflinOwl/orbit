@@ -130,9 +130,9 @@
                                     <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Rows}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="screens:DashboardRow">
-                                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto,Auto"
+                                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto,Auto,Auto"
                                                       Padding="0,8">
-                                                    <BoxView Grid.Row="0" Grid.ColumnSpan="4" HeightRequest="1"
+                                                    <BoxView Grid.Row="0" Grid.ColumnSpan="5" HeightRequest="1"
                                                              Margin="0,-8,0,8" IsVisible="{Binding ShowsSeparator}"
                                                              Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
                                                     <Grid.GestureRecognizers>
@@ -149,15 +149,22 @@
                                                              Fill="{Binding Colour, Converter={StaticResource EventColour}}" />
                                                     <Label Grid.Row="1" Grid.Column="1" Text="{Binding Title}" FontSize="15"
                                                            LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                                    <!-- Only where it says something, as Orbit.Web badges the same rows -
+                                                         see PriorityChoice.IsWorthSaying. -->
+                                                    <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource FilterChip}"
+                                                            Padding="7,2" Margin="8,0,0,0" VerticalOptions="Center"
+                                                            IsVisible="{Binding HasPriority}">
+                                                        <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
+                                                    </Border>
                                                     <!-- The bar Orbit.Web fills beside the count. A ProgressBar rather than two
                                                          boxes: on iOS it is already the pill the web draws by hand. -->
-                                                    <ProgressBar Grid.Row="1" Grid.Column="2" WidthRequest="52" HeightRequest="5"
+                                                    <ProgressBar Grid.Row="1" Grid.Column="3" WidthRequest="52" HeightRequest="5"
                                                                  Margin="8,0,0,0" VerticalOptions="Center"
                                                                  IsVisible="{Binding HasProgress}"
                                                                  Progress="{Binding Progress}"
                                                                  ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                                                  BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}" />
-                                                    <Label Grid.Row="1" Grid.Column="3" Text="{Binding Detail}" FontSize="12"
+                                                    <Label Grid.Row="1" Grid.Column="4" Text="{Binding Detail}" FontSize="12"
                                                            Margin="8,0,0,0"
                                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" VerticalOptions="Center" />
                                                 </Grid>

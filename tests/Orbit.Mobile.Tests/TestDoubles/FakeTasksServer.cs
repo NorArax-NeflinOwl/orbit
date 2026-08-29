@@ -210,9 +210,12 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             Title = body!.Title,
             Items = ToDtos(body.Items),
             // Sent on every update and stored by the real endpoint - a fake that dropped it made
-            // "this list is now a group list" look like a client that had not sent it.
+            // "this list is now a group list" look like a client that had not sent it. The priority
+            // went the same way afterwards: the push carried it, the pull brought back the fake's own
+            // "Normal" over the top, and the phone looked like it had never sent one.
             IsGroup = body.IsGroup,
             IsPrivate = body.IsPrivate,
+            Priority = body.Priority,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 

@@ -516,6 +516,73 @@ public sealed class TaskListDetailScreenTests
         Assert.Equal(["Wake up", "Coffee"], screen.Items.Select(row => row.Description));
     }
 
+    /// <summary>
+    /// How much a list matters is one of the five orders the phone sorts by, and it could neither show
+    /// one nor set one: the sort was by something invisible, and a browser was the only way to change
+    /// it. Orbit.Web's task editor has had the same three choices all along.
+    /// </summary>
+    [Fact]
+    public async Task How_much_a_list_matters_can_be_set_here()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Move house");
+
+        screen.ChosenPriority = screen.Priorities.Single(choice => choice.Value == "High");
+        // The save the choice started, rather than a second one: setting it is what does the writing.
+        await screen.SaveListCommand.ExecutionTask!;
+        await context.SynchroniseAsync();
+
+        Assert.Equal("High", context.Server.TaskLists.Single().Priority);
+    }
+
+    /// <summary>Set as soon as it is chosen, the way making a list a group list is.</summary>
+    [Fact]
+    public async Task Choosing_a_priority_is_saved_without_anything_else_being_pressed()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Move house");
+
+        screen.ChosenPriority = screen.Priorities.Single(choice => choice.Value == "Low");
+        await screen.SaveListCommand.ExecutionTask!;
+
+        var stored = await context.FindAsync(screen);
+        Assert.Equal("Low", stored.Priority);
+    }
+
+    /// <summary>
+    /// A save writes the whole list, so a priority left out of it would go back to Normal every time
+    /// somebody renamed the list from a phone - the mistake TaskList.Update's own comment records.
+    /// </summary>
+    [Fact]
+    public async Task Renaming_a_list_leaves_its_priority_alone()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Move house");
+        screen.ChosenPriority = screen.Priorities.Single(choice => choice.Value == "High");
+        await screen.SaveListCommand.ExecutionTask!;
+
+        screen.Title = "Move house, finally";
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        var stored = await context.FindAsync(screen);
+        Assert.Equal("High", stored.Priority);
+        Assert.Equal("Move house, finally", stored.Title);
+    }
+
+    /// <summary>What is stored is what the picker opens on, or the reader cannot see what they set.</summary>
+    [Fact]
+    public async Task The_picker_opens_on_what_the_list_already_is()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Move house");
+        screen.ChosenPriority = screen.Priorities.Single(choice => choice.Value == "High");
+        await screen.SaveListCommand.ExecutionTask!;
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("High", screen.ChosenPriority.Value);
+    }
+
     /// <summary>A phone with a local store and a server it can sometimes reach, and no MAUI in sight.</summary>
     private sealed class ScreenContext : IDisposable
     {
@@ -583,6 +650,13 @@ public sealed class TaskListDetailScreenTests
         }
 
         public Task<SyncResult> SynchroniseAsync() => Synchronizer.SynchroniseAsync(CancellationToken.None);
+
+        /// <summary>The list as the phone holds it, for the fields no screen property mirrors.</summary>
+        public async Task<LocalTaskList> FindAsync(TaskListDetailViewModel screen)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            return dbContext.TaskLists.Single(list => list.Title == screen.Title);
+        }
 
         /// <summary>A list with entries in the order they were typed, which is where arranging starts.</summary>
         public async Task<TaskListDetailViewModel> WithEntriesAsync(params string[] descriptions)

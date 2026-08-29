@@ -94,6 +94,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // Generating a warehouse or pointing at a different one changes the list itself, so the screen
         // re-reads rather than letting the panel and the list drift apart.
         StockCheck.Changed += (_, _) => LoadCommand.Execute(null);
+
+        Priorities = PriorityChoice.All(translations);
+        _chosenPriority = PriorityChoice.For(nameof(Orbit.Core.Abstractions.ItemPriority.Normal), translations);
     }
 
     public ObservableCollection<TaskItemRow> Items { get; } = [];
@@ -105,6 +108,23 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     private bool _isGroup;
+
+    /// <summary>
+    /// How much this list matters - Orbit.Web has had the same three choices on its task editor all
+    /// along, and the phone could sort by them without ever being able to see or set one.
+    /// </summary>
+    public IReadOnlyList<PriorityChoice> Priorities { get; }
+
+    [ObservableProperty]
+    private PriorityChoice _chosenPriority;
+
+    /// <summary>
+    /// What a save writes down, kept beside the picker rather than read off it. The generated setter
+    /// hands the new value to the hook below, and a save started from there must not have to guess
+    /// whether the property itself has caught up yet - it had not, and every priority chosen on the
+    /// phone was saved as the one it replaced.
+    /// </summary>
+    private string _priority = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
 
     /// <summary>"Can this be done?" - see StockCheckPanel. Only a group list is asked.</summary>
     public StockCheckPanel StockCheck { get; }
@@ -396,7 +416,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     private async Task SaveAsync(IReadOnlyList<TaskItemDto> items, CancellationToken cancellationToken)
     {
-        var outcome = await _taskLists.UpdateAsync(_localId, Title, items, IsGroup, cancellationToken);
+        var outcome = await _taskLists.UpdateAsync(
+            _localId, new TaskListContent(Title, items, IsGroup, _priority), cancellationToken);
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
             Status = _translations[RefusalMessage];
@@ -427,6 +448,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _items = taskList.Items;
         _isShowingWhatIsStored = true;
         IsGroup = taskList.IsGroup;
+        ChosenPriority = PriorityChoice.For(taskList.Priority, _translations);
         _isShowingWhatIsStored = false;
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
@@ -482,6 +504,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnIsGroupChanged(bool value)
     {
+        if (!_isShowingWhatIsStored)
+        {
+            SaveListCommand.Execute(null);
+        }
+    }
+
+    /// <summary>Saved as soon as it is chosen, the way making a list a group list is.</summary>
+    partial void OnChosenPriorityChanged(PriorityChoice value)
+    {
+        _priority = value.Value;
         if (!_isShowingWhatIsStored)
         {
             SaveListCommand.Execute(null);
