@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Chat.GroupsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
+    x:DataType="screens:GroupsViewModel"
+    Title="{controls:Translate 'Groups'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+
+        <!-- In place of the whole section when this account has not unlocked it. -->
+        <controls:FeatureLocked Grid.Row="1" Margin="20" VerticalOptions="Start"
+                                IsVisible="{Binding IsLocked}"
+                                Explanation="{Binding LockedExplanation}"
+                                OpenAccountCommand="{Binding OpenAccountCommand}" />
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12"
+          IsVisible="{Binding IsUnlocked}">
+
+        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Groups'}">
+            <controls:PageHeader.Subtitle>
+                <controls:Translate Text="Conversations with more than one other person." />
+            </controls:PageHeader.Subtitle>
+        </controls:PageHeader>
+        <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+
+        <RefreshView Grid.Row="2" IsVisible="{Binding IsNotCreating}"
+                     IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Groups}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenGroupCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
+
+                <!-- No EmptyView: the label above already says why the list is empty, and a second
+                     copy of the same sentence read as a bug. -->
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="data:LocalChatGroup">
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
+                            <!-- Label first, count second: Polish declines the noun after a number, so
+                                 "{0} members" cannot be translated into one correct form. -->
+                            <Label FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{controls:Translate 'Members'}" />
+                                        <Span Text=": " />
+                                        <Span Text="{Binding Members.Count}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+        <!-- Choosing who a new group holds. Replaces the list rather than sitting above it, so the
+             checkboxes are not competing with a second scrolling area on a phone screen. -->
+        <Grid Grid.Row="2" IsVisible="{Binding IsCreating}" RowDefinitions="Auto,Auto,*" RowSpacing="10">
+            <Entry Grid.Row="0" Placeholder="{controls:Translate 'Group name'}" Text="{Binding NewGroupName}" />
+            <Label Grid.Row="1" Text="{controls:Translate 'Who is in it'}" FontAttributes="Bold" />
+            <CollectionView Grid.Row="2" ItemsSource="{Binding Candidates}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="screens:SelectableContact">
+                        <Grid ColumnDefinitions="Auto,*" Padding="0,8" ColumnSpacing="8">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" />
+                            <Label Grid.Column="1" Text="{Binding DisplayName}" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsCreating}">
+            <Button Grid.Column="0" Text="{controls:Translate 'Create'}" Command="{Binding CreateCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Cancel'}" Command="{Binding CancelCreatingCommand}"
+                    Style="{StaticResource LinkButton}" />
+        </Grid>
+
+        <Button Grid.Row="3" Text="{controls:Translate 'New group'}" Command="{Binding StartCreatingCommand}"
+                IsVisible="{Binding IsNotCreating}" />
+
+        <Button Grid.Row="4" Text="{controls:Translate 'Back to chat'}" Command="{Binding GoBackCommand}"
+                Style="{StaticResource LinkButton}" />
+
+    </Grid>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

@@ -308,6 +308,64 @@ namespace Orbit.Data.Migrations
                     b.ToTable("Contacts");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.DiagnosticLogEntryEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppVersion")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("DeviceModel")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("OperatingSystemVersion")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("TimestampUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceivedAtUtc");
+
+                    b.HasIndex("UserId", "ReceivedAtUtc");
+
+                    b.ToTable("DiagnosticLogEntries");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.EventReminderDeliveryEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -690,24 +748,36 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("AuthBase64")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DevicePlatform")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("DeviceToken")
+                        .HasColumnType("text");
+
                     b.Property<string>("Endpoint")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("P256dhBase64")
-                        .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Transport")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DeviceToken")
+                        .IsUnique();
 
                     b.HasIndex("Endpoint")
                         .IsUnique();
@@ -784,6 +854,33 @@ namespace Orbit.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("SharedLocations");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.SyncTombstoneEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "EntityType", "DeletedAtUtc");
+
+                    b.ToTable("SyncTombstones");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskDailyReminderDeliveryEntity", b =>

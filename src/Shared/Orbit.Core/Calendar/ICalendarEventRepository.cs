@@ -2,7 +2,13 @@ namespace Orbit.Core.Calendar;
 
 public interface ICalendarEventRepository
 {
-    Task<IReadOnlyList<CalendarEvent>> GetAllAsync(Guid userId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Everything userId owns, or - when updatedSinceUtc is given - only what changed at or after it.
+    /// The cursor is applied in the database: a client catching up asks for a delta, and answering it by
+    /// fetching everything and discarding most of it saved the wire and nothing else.
+    /// </summary>
+    Task<IReadOnlyList<CalendarEvent>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken);
 
     Task<CalendarEvent?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken);
 

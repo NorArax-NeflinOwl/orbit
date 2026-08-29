@@ -14,6 +14,7 @@ using Orbit.GoogleIntegration;
 using Orbit.Api.Calendar;
 using Orbit.Api.Chat;
 using Orbit.Api.Config;
+using Orbit.Api.Diagnostics;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Permissions;
 using Orbit.Api.Sharing;
@@ -144,6 +145,13 @@ try
     builder.Services.Configure<VapidSettings>(builder.Configuration.GetSection("Vapid"));
     builder.Services.AddSingleton<WebPush.WebPushClient>();
     builder.Services.AddSingleton<IPushNotificationSender, VapidPushNotificationSender>();
+    // Firebase reaches the Orbit.Maui apps; PushNotificationDispatcher picks between the two by
+    // transport. Unconfigured, it logs and skips exactly as the VAPID sender does.
+    builder.Services.Configure<FirebaseSettings>(builder.Configuration.GetSection(FirebaseSettings.SectionName));
+    builder.Services.AddHttpClient<FirebaseAccessTokenProvider>();
+    builder.Services.AddHttpClient<FirebasePushNotificationSender>();
+    builder.Services.AddSingleton<IPushNotificationSender>(services =>
+        services.GetRequiredService<FirebasePushNotificationSender>());
     builder.Services.AddHostedService<OverdueTaskNotificationBackgroundService>();
     builder.Services.AddHostedService<DailyTaskReminderBackgroundService>();
     builder.Services.AddHostedService<InventoryExpiryReminderBackgroundService>();
@@ -156,6 +164,8 @@ try
     builder.Services.AddSingleton<IVerificationCodeGenerator, VerificationCodeGenerator>();
     builder.Services.Configure<GoogleAuthSettings>(builder.Configuration.GetSection(GoogleAuthSettings.SectionName));
     builder.Services.AddSingleton<IGoogleIdentityVerifier, GoogleIdentityVerifier>();
+    builder.Services.Configure<MobileVersionSettings>(builder.Configuration.GetSection(MobileVersionSettings.SectionName));
+    builder.Services.Configure<DiagnosticLogSettings>(builder.Configuration.GetSection(DiagnosticLogSettings.SectionName));
 
     // Fails fast on startup instead of on the first login attempt if the signing key was never
     // configured, or is too short to be a usable HMAC-SHA256 key - see JwtSettings for where it's
@@ -333,6 +343,7 @@ try
     app.MapPushNotificationEndpoints();
     app.MapNotificationEndpoints();
     app.MapConfigEndpoints();
+    app.MapDiagnosticLogEndpoints();
     app.MapPublicShareEndpoints();
     app.MapTransferEndpoints();
     app.MapHealthEndpoints();

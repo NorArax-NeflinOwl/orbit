@@ -123,6 +123,12 @@ builder.Services.AddSingleton<Translations>();
 builder.Services.AddScoped<NotificationFeedState>();
 builder.Services.AddScoped<ClientExceptionLog>();
 
+// Where the phone builds are published, if they are - see MobileAppDownloads. Read once here rather
+// than in the page, so the page has nothing to know about configuration.
+builder.Services.AddSingleton(new MobileAppDownloads(
+    builder.Configuration["MobileDownloads:Android"] ?? string.Empty,
+    builder.Configuration["MobileDownloads:Ios"] ?? string.Empty));
+
 // A third-party host, not Orbit.Api - deliberately not given AuthorizationMessageHandler, so Orbit's
 // own bearer token is never sent to it (see GeocodingApiClient's class comment).
 builder.Services.AddHttpClient<GeocodingApiClient>(

@@ -128,8 +128,7 @@ public sealed class SharedItemNotifierTests
             _notifier = new SharedItemNotifier(
                 _settingsRepository,
                 new NotificationRecorder(_settingsRepository, _entryRepository),
-                new PushNotificationDispatcher(
-                    _pushSubscriptionRepository, PushNotificationSender, NullLogger<PushNotificationDispatcher>.Instance),
+                new PushNotificationDispatcher(_pushSubscriptionRepository, [PushNotificationSender], NullLogger<PushNotificationDispatcher>.Instance),
                 _userRepository);
         }
 
@@ -145,7 +144,7 @@ public sealed class SharedItemNotifierTests
 
         public Task SubscribeRecipientToPushAsync()
             => _pushSubscriptionRepository.AddOrReplaceAsync(
-                PushSubscription.Create(RecipientId, "https://push.example/a", "p256dh", "auth"), CancellationToken.None);
+                PushSubscription.CreateForBrowser(RecipientId, new WebPushRegistration("https://push.example/a", "p256dh", "auth")), CancellationToken.None);
 
         private Task UpdateSettingsAsync(bool allowNotifications, bool allowShareNotifications)
         {

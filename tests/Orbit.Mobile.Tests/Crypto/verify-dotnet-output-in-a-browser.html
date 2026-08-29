@@ -1,0 +1,54 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Can the browser read what .NET wrote?</title>
+<pre id="output">running…</pre>
+<script type="module">
+import * as e2ee from './e2eeChat.js';
+const output = document.getElementById('output');
+
+async function verify() {
+    const produced = await (await fetch('./dotnet-produced.json')).json();
+    const results = {};
+
+    // Fresh user ids, so nothing left in IndexedDB from generating the vectors can be mistaken for a pass.
+    const bob = 'cccccccc-0000-4000-8000-00000000bbbb';
+    const alice = 'dddddddd-0000-4000-8000-00000000aaaa';
+
+    const restoredBob = await e2ee.restoreOwnPrivateKeyFromBackup(bob, produced.backupPassword, {
+        ciphertextBase64: produced.bobBackup.CiphertextBase64,
+        nonceBase64: produced.bobBackup.NonceBase64,
+        saltBase64: produced.bobBackup.SaltBase64,
+        iterations: produced.bobBackup.Iterations
+    });
+    results.bobRestored = restoredBob === produced.bobPublicKeyBase64;
+
+    const decrypted = await e2ee.decryptMessage(
+        bob, produced.alicePublicKeyBase64,
+        produced.messageFromDotNet.CiphertextBase64, produced.messageFromDotNet.NonceBase64);
+    results.messageFromDotNetDecrypts = decrypted === produced.messageFromDotNet.plainText;
+    results.decryptedText = decrypted;
+
+    // The private-note form: sealed by .NET for one reader, opened by the browser as that reader.
+    await e2ee.restoreOwnPrivateKeyFromBackup(alice, produced.backupPassword, {
+        ciphertextBase64: produced.aliceBackup.CiphertextBase64, nonceBase64: produced.aliceBackup.NonceBase64,
+        saltBase64: produced.aliceBackup.SaltBase64, iterations: produced.aliceBackup.Iterations
+    });
+    const selfOpened = await e2ee.decryptForSelf(
+        alice, produced.selfSealedByDotNet.CiphertextBase64, produced.selfSealedByDotNet.NonceBase64);
+    results.selfSealedOpensWithAlicesKey = selfOpened === produced.selfSealedByDotNet.plainText;
+
+    // A JWK backup written by .NET, imported by the browser.
+    const freshUser = 'eeeeeeee-0000-4000-8000-00000000ffff';
+    const restoredFresh = await e2ee.restoreOwnPrivateKeyFromBackup(freshUser, produced.freshBackupPassword, {
+        ciphertextBase64: produced.freshBackupFromDotNet.CiphertextBase64,
+        nonceBase64: produced.freshBackupFromDotNet.NonceBase64,
+        saltBase64: produced.freshBackupFromDotNet.SaltBase64,
+        iterations: produced.freshBackupFromDotNet.Iterations
+    });
+    results.dotNetBackupImports = restoredFresh === produced.freshPublicKeyBase64;
+
+    output.textContent = JSON.stringify(results, null, 2);
+}
+
+verify().catch(error => { output.textContent = 'ERROR: ' + error; });
+</script>

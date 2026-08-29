@@ -1,0 +1,3 @@
+/* Why Orbit asks for the phone's position. iOS shows this in its own permission prompt, so it cannot
+   come from the app's dictionary - the prompt exists before any of the app's code has run. */
+"NSLocationWhenInUseUsageDescription" = "Orbit uses your location to record where you are and to share it with people you choose. It is encrypted for them before it leaves your phone.";

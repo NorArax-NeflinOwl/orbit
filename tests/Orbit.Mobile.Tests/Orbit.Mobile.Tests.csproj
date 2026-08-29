@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Orbit.Mobile.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="coverlet.collector" Version="10.0.1" />
+    <!-- Sync is decided by timestamps and cursors, so the tests need to say what time it is rather
+         than race the clock. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.10.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The vectors a real browser produced; the crypto tests read them at runtime. -->
+    <None Update="Crypto\browser-e2ee-vectors.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- HttpUtility.ParseQueryString, for reading the change-feed cursor back out in FakeNotesServer. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Clients\Orbit.Mobile\Orbit.Mobile.csproj" />
+  </ItemGroup>
+
+</Project>

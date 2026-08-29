@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Firebase config for the iOS app, from Firebase console > Project settings > Your apps > iOS.
+     Copy to GoogleService-Info.plist (gitignored) and fill in the real values. BUNDLE_ID MUST equal
+     the csproj's ApplicationId, or the app registers under an id Firebase does not know and push
+     never arrives. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string></string>
+	<key>GCM_SENDER_ID</key>
+	<string></string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.orbitmaui.ios</string>
+	<key>PROJECT_ID</key>
+	<string></string>
+	<key>STORAGE_BUCKET</key>
+	<string></string>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string></string>
+</dict>
+</plist>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.FeatureLocked"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:Name="Root">
+
+    <!-- Shown in place of a section this account has not unlocked, as Orbit.Web's FeatureLocked does.
+         It says what is missing and where to fix it: an empty list here would be a lie, because there
+         may well be plenty to show once the permission is there. -->
+    <Border Style="{StaticResource CardBorder}" Padding="16">
+        <VerticalStackLayout Spacing="8">
+            <Label Text="{controls:Translate 'Not unlocked yet'}" FontAttributes="Bold" />
+            <Label Text="{Binding Explanation, Source={x:Reference Root}, x:DataType=controls:FeatureLocked}"
+                   FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+            <Label FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}">
+                <Label.Text>
+                    <controls:Translate Text="Enter the code for it on the account screen, under Permissions." />
+                </Label.Text>
+            </Label>
+            <Button Text="{controls:Translate 'Account'}" HorizontalOptions="Start" FontSize="13" Padding="12,6"
+                    Command="{Binding OpenAccountCommand, Source={x:Reference Root}, x:DataType=controls:FeatureLocked}" />
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

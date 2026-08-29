@@ -1,0 +1,70 @@
+@page "/download"
+@using Orbit.Web.Services
+@inject MobileAppDownloads Downloads
+@inject Translations T
+
+<PageTitle>@T["Orbit — Get the app"]</PageTitle>
+
+@* Deliberately has no [Authorize]: this is where somebody goes to install the app they have not signed
+   into yet, and a download page that first demands a sign-in is a door locked from the outside.
+
+   Where the builds live is configuration, not a constant here - see MobileAppDownloads. Both cards say
+   what to do when there is nothing published rather than hiding, because "no Android build yet" and
+   "this page is broken" look identical to a reader when the section simply is not there. *@
+<div class="page-header">
+    <div>
+        <h1>@T["Get the app"]</h1>
+        <p class="page-subtitle">
+            @T["The phone apps sign in to this same Orbit, with the same account and the same data."]
+        </p>
+    </div>
+</div>
+
+<div class="card-grid">
+    <section class="card">
+        <div class="card-header">
+            <h2 class="card-title">@T["Android"]</h2>
+        </div>
+
+        @if (Downloads.HasAndroid)
+        {
+            <p>
+                <a class="btn-primary" href="@Downloads.AndroidUrl">@T["Download for Android"]</a>
+            </p>
+            <ol>
+                <li>@T["Open the downloaded file. Android will ask whether this browser may install apps - allow it."]</li>
+                <li>@T["Install, then open Orbit and sign in with your usual account."]</li>
+            </ol>
+            <p class="page-subtitle">
+                @T["This build is not from Google Play, so Android checks with you before installing it. That is the prompt about unknown sources, and it is expected here."]
+            </p>
+        }
+        else
+        {
+            <p class="empty-hint">@T["No Android build has been published yet."]</p>
+        }
+    </section>
+
+    <section class="card">
+        <div class="card-header">
+            <h2 class="card-title">@T["iPhone"]</h2>
+        </div>
+
+        @if (Downloads.HasIos)
+        {
+            <p>
+                <a class="btn-primary" href="@Downloads.IosUrl">@T["Open the TestFlight invitation"]</a>
+            </p>
+            <ol>
+                <li>@T["Install Apple's TestFlight app, then open the invitation on the iPhone itself."]</li>
+                <li>@T["Install Orbit from TestFlight and sign in with your usual account."]</li>
+            </ol>
+        }
+        else
+        {
+            <p class="empty-hint">
+                @T["No iPhone build has been published yet. iOS installs nothing a browser downloaded, so this will be a TestFlight invitation rather than a file."]
+            </p>
+        }
+    </section>
+</div>

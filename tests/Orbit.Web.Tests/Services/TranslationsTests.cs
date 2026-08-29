@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Localization;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Xunit;

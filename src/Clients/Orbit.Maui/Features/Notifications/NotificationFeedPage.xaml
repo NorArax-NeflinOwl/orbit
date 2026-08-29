@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Notifications.NotificationFeedPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:feed="clr-namespace:Orbit.Maui.Features.Notifications"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notifications;assembly=Orbit.Mobile"
+    x:DataType="screens:NotificationFeedViewModel"
+    Title="{controls:Translate 'Notifications'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20" RowSpacing="12">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="12">
+            <controls:PageHeader Title="{controls:Translate 'Notifications'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Everything Orbit has told you, newest first." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+
+            <!-- Link buttons, not filled ones. These are things done to the list rather than the point
+                 of the screen, and three solid blocks of accent colour above it read as the content.
+                 Wrapping, not truncating: Polish says "Oznacz wszystkie jako przeczytane" where English
+                 says "Mark all read", and a third of the width cuts it off mid-word. -->
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                <Button Grid.Column="0" Text="{controls:Translate 'Mark all read'}" FontSize="12" Padding="6,4"
+                        LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        Command="{Binding MarkEverythingReadCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" FontSize="12" Padding="6,4"
+                        LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        Command="{Binding ClearCommand}" />
+                <Button Grid.Column="2" Text="{Binding ShowEverythingLabel}" FontSize="12" Padding="6,4"
+                        LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        Command="{Binding ShowEverythingCommand}" />
+            </Grid>
+
+            <!-- Settings moved to the avatar's menu, where the rest of the account's settings are. -->
+            <Button Text="{controls:Translate 'Back'}" FontSize="13" Padding="8,4" HorizontalOptions="Start"
+                    Style="{StaticResource LinkButton}" Command="{Binding GoBackCommand}" />
+
+            <Label Text="{controls:Translate 'Nothing here yet.'}" IsVisible="{Binding HasNothing}"
+                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" HorizontalOptions="Center" Margin="0,20,0,0" />
+        </VerticalStackLayout>
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Rows}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="screens:NotificationRow">
+                    <Grid ColumnDefinitions="Auto,*" Padding="0,10" ColumnSpacing="10">
+
+                        <!-- An unread entry is the only thing worth drawing the eye to, so it is the only
+                             thing marked. A read one carries no dot rather than a greyed-out one. -->
+                        <BoxView Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                 VerticalOptions="Start" Margin="0,6,0,0"
+                                 Color="{StaticResource Primary}" IsVisible="{Binding IsUnread}" />
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                            <Label Text="{Binding Title}" FontAttributes="Bold" />
+                            <Label Text="{Binding Body}" FontSize="13" LineBreakMode="WordWrap" />
+                            <Button Text="{controls:Translate 'Open'}" FontSize="12" Padding="12,2" HorizontalOptions="Start"
+                                    IsVisible="{Binding CanBeOpened}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=feed:NotificationFeedPage}"
+                                    CommandParameter="{Binding .}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

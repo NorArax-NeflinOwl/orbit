@@ -217,6 +217,48 @@ az containerapp ingress show -n orbit-api -g Orbit
 az containerapp ingress show -n orbit-web -g Orbit
 ```
 
+### 5. Where the phone apps are downloaded from
+
+Optional, and only needed once there is a build to hand out. `/download` in the web client offers
+whatever [`MobileDownloads`](../src/Clients/Orbit.Web/wwwroot/appsettings.json) names, and says nothing
+is published where it names nothing - so the page is safe to deploy before any of this exists.
+
+This repository is private, so a GitHub release asset is not a link a phone can follow: downloading one
+needs a GitHub sign-in. A storage container with anonymous read on the blobs is what makes a plain link
+work.
+
+```bash
+az storage account create -n orbitdownloads -g Orbit -l polandcentral --sku Standard_LRS \
+  --allow-blob-public-access true
+az storage container create --account-name orbitdownloads -n apps --public-access blob
+```
+
+Then give the release workflow somewhere to put the file, as repository *variables* rather than secrets
+(neither value is one):
+
+| Variable | Value |
+| --- | --- |
+| `DOWNLOADS_STORAGE_ACCOUNT` | `orbitdownloads` |
+| `DOWNLOADS_CONTAINER` | `apps` |
+
+The identity the workflow signs in as needs **Storage Blob Data Contributor** on that account -
+`azure/login` gets it in, and nothing else grants it the right to write a blob:
+
+```bash
+az role assignment create --assignee <identity-orbit's object id> \
+  --role "Storage Blob Data Contributor" \
+  --scope $(az storage account show -n orbitdownloads -g Orbit --query id -o tsv)
+```
+
+Finally, point the two places at it. `MobileDownloads:Android` in orbit-web's
+`wwwroot/appsettings.json` is what the page links to, and `MobileVersion:Android:UpdateUrl` in
+orbit-api's configuration is where the forced-update gate sends an app that is too old - the same
+address, since the page is where a new build comes from:
+
+    https://orbitdownloads.blob.core.windows.net/apps/orbit-android.apk
+
+The blob name never changes, so neither setting has to be touched again when a newer build is released.
+
 ## Verifying a deploy
 
 ```bash

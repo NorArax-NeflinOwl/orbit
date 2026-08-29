@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.OrbitMark"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Orbit's mark: a body and the path around it. The same drawing as the app icon and as
+         Orbit.Web's sidebar logo, so the three cannot drift apart. -->
+    <Grid>
+        <Ellipse x:Name="Ring" Rotation="-28" Fill="Transparent"
+                 Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                 HorizontalOptions="Center" VerticalOptions="Center" />
+        <Ellipse x:Name="Body"
+                 Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                 HorizontalOptions="Center" VerticalOptions="Center" />
+    </Grid>
+</ContentView>

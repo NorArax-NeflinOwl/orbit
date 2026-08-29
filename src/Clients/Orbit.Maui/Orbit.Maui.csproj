@@ -1,0 +1,166 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!-- iOS and Android only. The template also offers MacCatalyst, Windows, and Tizen heads; Orbit
+		ships two mobile apps (see info/orbit-maui-plan.md), and every extra head is another target to
+		keep building, test, and answer platform questions for. Add one back when there is a reason to. -->
+		<TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
+
+		<!-- Except on Linux, which cannot build net10.0-ios at all: Apple's toolchain is macOS-only, and
+		there is no iOS workload to install on a Linux runner. Listing it there is not a build that fails
+		late, it is a *restore* that fails immediately - restore evaluates every framework named here
+		even when the build asks for one - so the Android head could not be built in CI at all while it
+		was. Windows keeps both: an iOS build there goes through a paired Mac, which needs the framework
+		listed. -->
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('linux'))">net10.0-android</TargetFrameworks>
+
+		<OutputType>Exe</OutputType>
+		<RootNamespace>Orbit.Maui</RootNamespace>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<!-- Enable XAML source generation for faster build times and improved performance.
+		     This generates C# code from XAML at compile time instead of runtime inflation.
+		     To disable, remove this line.
+		     For individual files, you can override by setting Inflator metadata:
+		       <MauiXaml Update="MyPage.xaml" Inflator="Default" /> (reverts to defaults: Runtime for Debug, XamlC for Release)
+		       <MauiXaml Update="MyPage.xaml" Inflator="Runtime" /> (force runtime inflation) -->
+		<MauiXamlInflator>SourceGen</MauiXamlInflator>
+
+		<!-- Display name -->
+		<ApplicationTitle>Orbit</ApplicationTitle>
+
+		<!-- App Identifier. Must match what Firebase has registered for each head (google-services.json's
+		package_name and GoogleService-Info.plist's BUNDLE_ID) - an app registering under an id Firebase
+		does not know gets no push at all. The two heads differ because that is how they are registered in
+		the Firebase project, so this is set per platform rather than once. -->
+		<ApplicationId Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">com.orbitmaui.ios</ApplicationId>
+		<ApplicationId Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">com.orbitmaui.android</ApplicationId>
+
+		<!-- ApplicationDisplayVersion is the SemVer the version gate compares against, and
+		ApplicationVersion the monotonic build number stores order by - see info/orbit-maui-plan.md's
+		"Forced update". Both are read at runtime by AppVersion rather than duplicated in code. -->
+		<ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<!-- iOS 17 is the floor: it is what the iPhone 15 Pro shipped with, and what Live Activities,
+		interactive widgets, and App Intents need in their current form.
+
+		Android 10 (API 29) is the floor rather than the template's 21, and the reason is the screen lock:
+		BiometricPrompt only accepts a biometric and the device credential together from API 29 on, and
+		below that the fallback to a PIN needs a second, deprecated code path. Orbit's private notes rely
+		on that fallback - see Platforms/Android/PhoneAuthentication.cs. Scoped storage and the system
+		dark theme land in the same release, so the whole app has one shape to build for. -->
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">17.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">29.0</SupportedOSPlatformVersion>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<!-- The port the development build looks for Orbit.Api on - see OrbitApiSettings, which reads it
+		back out of the assembly. Overridable so that two app heads being worked on at once can each have
+		their own server: the address is baked into the app rather than configured on it, so without this
+		they share one, and the second server started is running for nobody.
+
+		  dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -p:OrbitDevelopmentApiPort=5099 -->
+		<OrbitDevelopmentApiPort Condition="'$(OrbitDevelopmentApiPort)' == ''">5080</OrbitDevelopmentApiPort>
+
+		<!-- The deployment a build is for, read back out of the assembly by the same OrbitApiSettings.
+		Empty is a development build, which looks for a server on the machine that produced it; a build
+		somebody is going to install has to be told where Orbit actually lives, because there is nothing
+		to configure it with once it is on the phone.
+
+		It is orbit-web's address rather than orbit-api's: the API has internal ingress only on Azure and
+		is reached through the web client's nginx - see src/Clients/Orbit.Web/nginx.azure.conf.
+
+		  dotnet publish src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -c Release \
+		    -p:OrbitApiBaseAddress=https://orbit-web.example.azurecontainerapps.io/ -->
+		<OrbitApiBaseAddress Condition="'$(OrbitApiBaseAddress)' == ''"></OrbitApiBaseAddress>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+			<_Parameter1>OrbitDevelopmentApiPort</_Parameter1>
+			<_Parameter2>$(OrbitDevelopmentApiPort)</_Parameter2>
+		</AssemblyAttribute>
+		<!-- Only when a build was told one: an empty metadata value is not the same as an absent
+		attribute to MSBuild, and OrbitApiSettings already reads "absent" as a development build. -->
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute"
+						   Condition="'$(OrbitApiBaseAddress)' != ''">
+			<_Parameter1>OrbitApiBaseAddress</_Parameter1>
+			<_Parameter2>$(OrbitApiBaseAddress)</_Parameter2>
+		</AssemblyAttribute>
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- App Icon -->
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+
+		<!-- Splash Screen -->
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+
+		<!-- Images -->
+		<MauiImage Include="Resources\Images\*" />
+		
+		<!-- Custom Fonts -->
+		<MauiFont Include="Resources\Fonts\*" />
+
+		<!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$(TargetFramework.Contains('-ios'))">
+		<!-- The text in iOS's own location prompt. It cannot come from the app's dictionary: the system
+		shows it before any of Orbit's code has run, and picks the language from the phone's settings
+		rather than from the language chosen inside the app. -->
+		<BundleResource Include="Platforms\iOS\Resources\Base.lproj\InfoPlist.strings" LogicalName="Base.lproj/InfoPlist.strings" />
+		<BundleResource Include="Platforms\iOS\Resources\pl.lproj\InfoPlist.strings" LogicalName="pl.lproj/InfoPlist.strings" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<!-- The map on the location screen. On iOS this is MapKit, which needs no API key and no account -
+		on Android it would be Google Maps and would need both, so that is a decision for when Android is
+		actually built. -->
+		<PackageReference Include="Microsoft.Maui.Controls.Maps" Version="$(MauiVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<!-- Property change notification and commands, so view models are the shape MVVM expects without
+		hand-writing INotifyPropertyChanged on every one of them. -->
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<!-- IHttpClientFactory: three clients with different handler pipelines (see MauiProgram), which is
+		the part that has to stay straight - only one of them may carry the access token. -->
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<!-- The prompt that confirms who is holding the phone before private notes open. Android only:
+		iOS asks the same question through LocalAuthentication, which is part of the platform and needs
+		no package.
+
+		Pinned below the newest build on purpose. These bindings carry exact AndroidX dependency ranges,
+		and from 1.1.0.31 they want a Lifecycle newer than the one MAUI 10.0.20 pins - which restores as
+		a pile of NU1608 warnings and two AndroidX versions in one app. 1.1.0.30 binds the same
+		androidx.biometric 1.1.0 against the versions MAUI already brings. Raise it when MAUI does. -->
+		<PackageReference Include="Xamarin.AndroidX.Biometric" Version="1.1.0.30" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('Platforms\Android\AndroidManifestOverlay.xml')">
+		<!-- Merged into the manifest at build time, and carrying one thing: the Google Maps key, which is
+		deployment-specific and gitignored. Conditional on the file existing so a clone without it still
+		builds - see Platforms/Android/MapAvailability.cs for what the app does then. -->
+		<AndroidManifestOverlay Include="Platforms\Android\AndroidManifestOverlay.xml" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- The same request/response types the API serves and Orbit.Web consumes, rather than a
+		hand-written mirror of them. This is the reason the client is MAUI rather than native: a contract
+		change breaks this build at compile time instead of failing on a device in the field. -->
+		<ProjectReference Include="..\..\Shared\Orbit.Contracts\Orbit.Contracts.csproj" />
+		<!-- Everything decided without a device - the version gate, auth, and from phase 2 the sync spine.
+		It is a separate project so an ordinary test project can reference it; a MAUI head cannot be
+		unit-tested that way. -->
+		<ProjectReference Include="..\Orbit.Mobile\Orbit.Mobile.csproj" />
+	</ItemGroup>
+
+</Project>

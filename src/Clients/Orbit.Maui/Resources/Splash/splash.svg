@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- The same mark as the app icon, on the accent MauiSplashScreen paints behind it. -->
+<svg width="456" height="456" viewBox="0 0 456 456" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(228 228)">
+        <ellipse cx="0" cy="0" rx="193" ry="96" fill="none" stroke="#FFFFFF" stroke-width="28"
+                 transform="rotate(-28)" />
+        <circle cx="0" cy="0" r="53" fill="#FFFFFF" />
+    </g>
+</svg>

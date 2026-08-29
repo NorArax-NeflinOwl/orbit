@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#512BD4</color>
+    <!-- What Android paints the status bar with, through MAUI's theme. Not a darker shade of the
+         primary, despite the Material name: the bar sits directly above Orbit's navigation bar, and the
+         web puts the same surface colour there (app.css gives the sidebar its elevated background, and
+         below 680px that sidebar becomes the top bar). Left as the template's indigo it read as a band
+         of a colour nothing else on the screen uses. Matches SurfaceLight in
+         Resources/Styles/Colors.xaml; see values-night for the other half. Only visible up to API 34 -
+         from 35 Android draws the app behind the bar instead. -->
+    <color name="colorPrimaryDark">#FFFFFF</color>
+    <color name="colorAccent">#2B0B98</color>
+</resources>

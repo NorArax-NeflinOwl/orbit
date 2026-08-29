@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Mobile;
 using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
 
@@ -25,8 +26,14 @@ public sealed class PushSubscriptionRepository : IPushSubscriptionRepository
 
     public async Task AddOrReplaceAsync(PushSubscription subscription, CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.PushSubscriptions
-            .FirstOrDefaultAsync(entity => entity.Endpoint == subscription.Endpoint, cancellationToken);
+        // Matched on whichever value identifies this destination: a browser keeps its endpoint across
+        // re-subscribes, an app keeps its registration token, and both are unique (see OrbitDbContext).
+        var endpoint = subscription.WebPush?.Endpoint;
+        var deviceToken = subscription.Device?.Token;
+        var existing = await _dbContext.PushSubscriptions.FirstOrDefaultAsync(
+            entity => (endpoint != null && entity.Endpoint == endpoint)
+                || (deviceToken != null && entity.DeviceToken == deviceToken),
+            cancellationToken);
 
         if (existing is null)
         {
@@ -34,13 +41,14 @@ public sealed class PushSubscriptionRepository : IPushSubscriptionRepository
         }
         else
         {
-            // The endpoint (its unique key - see OrbitDbContext) already exists, possibly for a
-            // different user than before (e.g. someone else signed into the same browser and re-enabled
-            // push) - every field is refreshed rather than only the keys, so the subscription always
-            // belongs to whoever most recently subscribed with it.
+            // The destination already exists, possibly for a different user than before (someone else
+            // signed into the same browser, or the same phone) - every field is refreshed rather than
+            // only the keys, so it always belongs to whoever most recently subscribed with it.
             existing.UserId = subscription.UserId;
-            existing.P256dhBase64 = subscription.P256dhBase64;
-            existing.AuthBase64 = subscription.AuthBase64;
+            existing.Transport = subscription.Transport.ToString();
+            existing.P256dhBase64 = subscription.WebPush?.P256dhBase64;
+            existing.AuthBase64 = subscription.WebPush?.AuthBase64;
+            existing.DevicePlatform = subscription.Device?.Platform.ToString();
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -73,17 +81,34 @@ public sealed class PushSubscriptionRepository : IPushSubscriptionRepository
     }
 
     private static PushSubscription ToDomain(PushSubscriptionEntity entity)
-        => PushSubscription.FromPersistence(
-            entity.Id, entity.UserId, entity.Endpoint, entity.P256dhBase64, entity.AuthBase64, entity.CreatedAtUtc);
+    {
+        var transport = Enum.TryParse<PushTransport>(entity.Transport, out var parsed) ? parsed : PushTransport.WebPush;
+        return PushSubscription.FromPersistence(
+            entity.Id, entity.UserId, transport, ToWebPush(entity), ToDevice(entity), entity.CreatedAtUtc);
+    }
+
+    /// <summary>Null unless all three Web Push columns are present - they are only ever written together.</summary>
+    private static WebPushRegistration? ToWebPush(PushSubscriptionEntity entity)
+        => entity.Endpoint is not null && entity.P256dhBase64 is not null && entity.AuthBase64 is not null
+            ? new WebPushRegistration(entity.Endpoint, entity.P256dhBase64, entity.AuthBase64)
+            : null;
+
+    private static DeviceRegistration? ToDevice(PushSubscriptionEntity entity)
+        => entity.DeviceToken is not null && Enum.TryParse<MobilePlatform>(entity.DevicePlatform, out var platform)
+            ? new DeviceRegistration(entity.DeviceToken, platform)
+            : null;
 
     private static PushSubscriptionEntity ToEntity(PushSubscription subscription)
         => new()
         {
             Id = subscription.Id,
             UserId = subscription.UserId,
-            Endpoint = subscription.Endpoint,
-            P256dhBase64 = subscription.P256dhBase64,
-            AuthBase64 = subscription.AuthBase64,
+            Transport = subscription.Transport.ToString(),
+            Endpoint = subscription.WebPush?.Endpoint,
+            P256dhBase64 = subscription.WebPush?.P256dhBase64,
+            AuthBase64 = subscription.WebPush?.AuthBase64,
+            DeviceToken = subscription.Device?.Token,
+            DevicePlatform = subscription.Device?.Platform.ToString(),
             CreatedAtUtc = subscription.CreatedAtUtc
         };
 }

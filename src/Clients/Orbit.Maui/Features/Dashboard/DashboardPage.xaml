@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Dashboard.DashboardPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:dashboard="clr-namespace:Orbit.Maui.Features.Dashboard"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Dashboard;assembly=Orbit.Mobile"
+    x:DataType="screens:DashboardViewModel"
+    Title="{controls:Translate 'Dashboard'}">
+
+    <ContentPage.Resources>
+        <controls:EventColourConverter x:Key="EventColour" />
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="20" Spacing="14">
+
+                <Label Text="{controls:Translate 'Dashboard'}" Style="{StaticResource PageTitle}" />
+                <!-- The page's own overflow, as Orbit.Web has it: which parts of the dashboard to show
+                     at all. A panel that stays open rather than an action sheet, because several are
+                     usually changed at once and a sheet closes after the first. -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Grid.Column="0" Text="{controls:Translate 'Everything on your plate, in one place.'}"
+                           Style="{StaticResource PageSubtitle}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="⋯" FontSize="20" Padding="12,0" HeightRequest="36"
+                            Style="{StaticResource LinkButton}"
+                            Command="{Binding ToggleCardChoicesCommand}" />
+                </Grid>
+
+                <Border Style="{StaticResource CardBorder}" Padding="18,12" Margin="0,4"
+                        IsVisible="{Binding IsChoosingCards}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="{controls:Translate 'Show on the dashboard'}"
+                               Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding CardChoices}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="screens:DashboardCardChoice">
+                                    <!-- The whole row is the target, and the switch only reports: a
+                                         toggle on its own is a small thing to hit, and the app has no
+                                         behaviours package to hang a command off its Toggled event. -->
+                                    <Grid ColumnDefinitions="*,Auto" Padding="0,6">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCardShownCommand, x:DataType=dashboard:DashboardPage}"
+                                                CommandParameter="{Binding .}" />
+                                        </Grid.GestureRecognizers>
+                                        <Label Grid.Column="0" Text="{Binding Name}" FontSize="15" VerticalOptions="Center" />
+                                        <Switch Grid.Column="1" IsToggled="{Binding IsShown, Mode=OneWay}"
+                                                InputTransparent="True" VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- What is happening today, rather than how much there is in total - the same three
+                     counts Orbit.Web puts in its "today strip". -->
+                <Border Style="{StaticResource CardBorder}" Padding="18,16" Margin="0,4">
+                    <VerticalStackLayout Spacing="8" BindingContext="{Binding Today}"
+                                         x:DataType="screens:TodaySummary">
+                        <Label Text="{Binding Date}" FontSize="15" FontAttributes="Bold" />
+
+                        <!-- A dot, the count, then what it counts - the shape of Orbit.Web's today
+                             strip. Three across there, stacked here, because a phone is not that wide. -->
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                            <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
+                                     Fill="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
+                            <Label Grid.Column="1" Text="{Binding TasksDueToday}" FontSize="14" FontAttributes="Bold" />
+                            <Label Grid.Column="2" Text="{controls:Translate 'tasks due today'}" FontSize="14"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                            <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
+                                     Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <Label Grid.Column="1" Text="{Binding EventsToday}" FontSize="14" FontAttributes="Bold" />
+                            <Label Grid.Column="2" Text="{controls:Translate 'events today'}" FontSize="14"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                            <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
+                                     Fill="{AppThemeBinding Light={StaticResource SuccessLight}, Dark={StaticResource SuccessDark}}" />
+                            <Label Grid.Column="1" Text="{Binding PendingChatRequests}" FontSize="14" FontAttributes="Bold" />
+                            <Label Grid.Column="2" Text="{controls:Translate 'new chat requests'}" FontSize="14"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{controls:Translate 'Nothing here yet. Add a note or a task to get started.'}"
+                       IsVisible="{Binding HasNothing}" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                       HorizontalOptions="Center" Margin="0,20" LineBreakMode="WordWrap" />
+
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Cards}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:DashboardCard">
+                            <Border Style="{StaticResource CardBorder}">
+                                <VerticalStackLayout Spacing="8">
+                                    <!-- The heading is a heading: larger than the rows beneath it and
+                                         ruled off from them, so the card's name does not read as its
+                                         first entry. -->
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+                                        <Label Grid.Column="0" Text="{Binding Title}" Style="{StaticResource CardTitle}"
+                                               VerticalOptions="Center" />
+                                        <Border Grid.Column="1" Style="{StaticResource CardCount}">
+                                            <Label Text="{Binding Count}" Style="{StaticResource CardCountLabel}" />
+                                        </Border>
+                                        <controls:PinButton Grid.Column="2" IsPinned="{Binding IsPinned}"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=dashboard:DashboardPage}"
+                                                            CommandParameter="{Binding .}" />
+                                        <!-- The card's own overflow, as Orbit.Web has it: what this
+                                             card is narrowed to. An action sheet rather than a panel,
+                                             unlike the page's menu above - one choice, then done. -->
+                                        <Button Grid.Column="3" Text="⋯" FontSize="18" Padding="8,0"
+                                                HeightRequest="32" WidthRequest="36"
+                                                IsVisible="{Binding CanBeFiltered}"
+                                                Style="{StaticResource LinkButton}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardFilterCommand, x:DataType=dashboard:DashboardPage}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+
+                                    <BoxView HeightRequest="1"
+                                             Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+
+                                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Rows}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="screens:DashboardRow">
+                                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto,Auto"
+                                                      Padding="0,8">
+                                                    <BoxView Grid.Row="0" Grid.ColumnSpan="4" HeightRequest="1"
+                                                             Margin="0,-8,0,8" IsVisible="{Binding ShowsSeparator}"
+                                                             Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                                                    <Grid.GestureRecognizers>
+                                                        <TapGestureRecognizer
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=dashboard:DashboardPage}"
+                                                            CommandParameter="{Binding .}" />
+                                                    </Grid.GestureRecognizers>
+                                                    <!-- The event's own colour, as Orbit.Web shows it beside the same row.
+                                                         The gap is the dot's margin rather than the grid's spacing, so a row
+                                                         without one is not indented by a column that isn't there. -->
+                                                    <Ellipse Grid.Row="1" Grid.Column="0" WidthRequest="8" HeightRequest="8"
+                                                             Margin="0,0,8,0" VerticalOptions="Center"
+                                                             IsVisible="{Binding HasColourDot}"
+                                                             Fill="{Binding Colour, Converter={StaticResource EventColour}}" />
+                                                    <Label Grid.Row="1" Grid.Column="1" Text="{Binding Title}" FontSize="15"
+                                                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                                    <!-- The bar Orbit.Web fills beside the count. A ProgressBar rather than two
+                                                         boxes: on iOS it is already the pill the web draws by hand. -->
+                                                    <ProgressBar Grid.Row="1" Grid.Column="2" WidthRequest="52" HeightRequest="5"
+                                                                 Margin="8,0,0,0" VerticalOptions="Center"
+                                                                 IsVisible="{Binding HasProgress}"
+                                                                 Progress="{Binding Progress}"
+                                                                 ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                                 BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}" />
+                                                    <Label Grid.Row="1" Grid.Column="3" Text="{Binding Detail}" FontSize="12"
+                                                           Margin="8,0,0,0"
+                                                           TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" VerticalOptions="Center" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+</ContentPage>

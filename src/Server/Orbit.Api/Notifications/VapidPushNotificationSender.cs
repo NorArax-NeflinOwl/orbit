@@ -15,6 +15,8 @@ namespace Orbit.Api.Notifications;
 /// </summary>
 public sealed class VapidPushNotificationSender : IPushNotificationSender
 {
+    public PushTransport Transport => PushTransport.WebPush;
+
     private readonly IOptionsMonitor<VapidSettings> _settings;
     private readonly WebPush.WebPushClient _webPushClient;
     private readonly ILogger<VapidPushNotificationSender> _logger;
@@ -42,7 +44,16 @@ public sealed class VapidPushNotificationSender : IPushNotificationSender
             return;
         }
 
-        var webPushSubscription = new WebPush.PushSubscription(subscription.Endpoint, subscription.P256dhBase64, subscription.AuthBase64);
+        if (subscription.WebPush is not { } registration)
+        {
+            // Routed here by transport, so this cannot normally happen - a row claiming Web Push
+            // without the fields Web Push needs is corrupt rather than merely unconfigured.
+            _logger.LogError("Subscription {SubscriptionId} claims Web Push but carries no registration", subscription.Id);
+            return;
+        }
+
+        var webPushSubscription = new WebPush.PushSubscription(
+            registration.Endpoint, registration.P256dhBase64, registration.AuthBase64);
         var vapidDetails = new WebPush.VapidDetails(
             currentSettings.Subject, currentSettings.PublicKeyBase64Url, currentSettings.PrivateKeyBase64Url);
         // Read by wwwroot/service-worker.js's "push" event handler in Orbit.Web - the property names

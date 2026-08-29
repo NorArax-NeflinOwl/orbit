@@ -35,6 +35,8 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<InventoryExpiryNotificationDeliveryEntity> InventoryExpiryNotificationDeliveries => Set<InventoryExpiryNotificationDeliveryEntity>();
     public DbSet<NotificationSettingsEntity> NotificationSettings => Set<NotificationSettingsEntity>();
     public DbSet<NotificationEntryEntity> NotificationEntries => Set<NotificationEntryEntity>();
+    public DbSet<DiagnosticLogEntryEntity> DiagnosticLogEntries => Set<DiagnosticLogEntryEntity>();
+    public DbSet<SyncTombstoneEntity> SyncTombstones => Set<SyncTombstoneEntity>();
     public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
     public DbSet<UserPermissionEntity> UserPermissions => Set<UserPermissionEntity>();
     public DbSet<PermissionCodeEntity> PermissionCodes => Set<PermissionCodeEntity>();
@@ -283,13 +285,13 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<PushSubscriptionEntity>(entity =>
         {
             entity.HasKey(subscription => subscription.Id);
-            entity.Property(subscription => subscription.Endpoint).IsRequired();
-            entity.Property(subscription => subscription.P256dhBase64).IsRequired();
-            entity.Property(subscription => subscription.AuthBase64).IsRequired();
-            // A browser's subscription endpoint is unique across all users - this is what
-            // PushSubscriptionRepository.AddOrReplaceAsync relies on to decide insert-vs-update, and
-            // also the index that makes "who does this endpoint belong to" fast.
+            entity.Property(subscription => subscription.Transport).IsRequired().HasMaxLength(20);
+            entity.Property(subscription => subscription.DevicePlatform).HasMaxLength(20);
+            // Both identify one destination, and re-registering the same one must update rather than
+            // duplicate (see PushSubscriptionRepository.AddOrReplaceAsync). Unique with nulls allowed,
+            // since a row only ever carries one of the two.
             entity.HasIndex(subscription => subscription.Endpoint).IsUnique();
+            entity.HasIndex(subscription => subscription.DeviceToken).IsUnique();
             // Every "notify this user" fan-out (see PushNotificationDispatcher) looks up subscriptions
             // by UserId; this index makes that fast instead of scanning the whole table.
             entity.HasIndex(subscription => subscription.UserId);
@@ -397,6 +399,29 @@ public sealed class OrbitDbContext : DbContext
             entity.HasIndex(link => link.Token).IsUnique();
             // GetLiveForItemAsync's exact filter: one live link per item per owner.
             entity.HasIndex(link => new { link.OwnerUserId, link.ItemType, link.ItemId });
+        });
+
+        modelBuilder.Entity<SyncTombstoneEntity>(entity =>
+        {
+            entity.HasKey(tombstone => tombstone.Id);
+            entity.Property(tombstone => tombstone.EntityType).IsRequired().HasMaxLength(40);
+            // Every read is "this user's deletions of this kind since a moment" - see SyncTombstoneRepository.
+            entity.HasIndex(tombstone => new { tombstone.UserId, tombstone.EntityType, tombstone.DeletedAtUtc });
+        });
+
+        modelBuilder.Entity<DiagnosticLogEntryEntity>(entity =>
+        {
+            entity.HasKey(entry => entry.Id);
+            entity.Property(entry => entry.Level).IsRequired().HasMaxLength(20);
+            entity.Property(entry => entry.Message).IsRequired().HasMaxLength(1000);
+            entity.Property(entry => entry.Detail).HasMaxLength(4000);
+            entity.Property(entry => entry.AppVersion).IsRequired().HasMaxLength(40);
+            entity.Property(entry => entry.Platform).IsRequired().HasMaxLength(20);
+            entity.Property(entry => entry.OperatingSystemVersion).IsRequired().HasMaxLength(40);
+            entity.Property(entry => entry.DeviceModel).IsRequired().HasMaxLength(80);
+            // Reads are "this user's most recent report"; retention sweeps by ReceivedAtUtc alone.
+            entity.HasIndex(entry => new { entry.UserId, entry.ReceivedAtUtc });
+            entity.HasIndex(entry => entry.ReceivedAtUtc);
         });
 
         modelBuilder.Entity<NotificationEntryEntity>(entity =>

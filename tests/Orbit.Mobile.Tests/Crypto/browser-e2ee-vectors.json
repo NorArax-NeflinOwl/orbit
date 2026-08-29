@@ -1,0 +1,40 @@
+{
+  "rawSharedSecretEqualsAesKey": true,
+  "alice": {
+    "userId": "aaaaaaaa-0000-4000-8000-000000000001",
+    "publicKeyBase64": "BLUti1bGV2Qc3eFDRNAEE0tf/EM2RCxMN+ObNIQfPbGsshM8hxCjmFEVUXIqJ2pyu7hMZxip9fdDZdh1pFugwTo=",
+    "backup": {
+      "ciphertextBase64": "lcVl5cYqakSAg99TfeRcEKyXKhgmtVBWoU3P11bL7xt1SWe59FMmOxLiDSCJnkFCAA8yeAAbGRoJCEStlDZBSb9XaVX66kh99nYB0n/RERiS47PoBvyNQJTVjNXoPrq57Lf0dyntORYiJE43DC+hFzATxaKRwjHh6AtzgjmpMKUXCKhujKiShumFFUt1zDuus3QaX2u8kD8x1NXTWakNQF14SaLRFEiXq3tPoPebKamIPmUcW4o2vYdpkHJkRQXbYJ/2/9S8rn7r0GvM7TGpeOXy+y8LHygGwsyoMbun6ZONvFg=",
+      "nonceBase64": "tIaNvnIBO0tefCVC",
+      "saltBase64": "7nzvN48Ek94nF88i3VS47Q==",
+      "iterations": 600000
+    }
+  },
+  "bob": {
+    "userId": "bbbbbbbb-0000-4000-8000-000000000002",
+    "publicKeyBase64": "BKrgplHrvVFQCXZet1i1C6x5ju5AV1dROSrlTzPJw2UL+VOfHFek5JZeiUErE5LZD/rgDajNamnDojFAjgINaek=",
+    "backup": {
+      "ciphertextBase64": "iU0GapoUxlUulb2K6F9hFW7bO+gDOOnADer/G5ruEtDLJ8KvVRkRk0bHd41+WcqriZsT2zRAWxlhf2/R7hX/ysfRf6ph953VwwByeYL3/hX6ylhbC9pC9OMIZp4+90Bm+6LjrNR8ZOXAREdDwm5FnD/LpZX8CB66xCJD0/FoRKVLn+9dS7jnAzpU5H+Jmv/VG2PGUQ0Im3Cirhkt5ogjWN2QlS6I+hQVhOnTwbp7T3GuyzswFZ6/5/CQ8V5aHLY/Je8uENmX44aRRSUJPhZrFHEFFbnvG8F6dB2U5DnPBw+HfSc=",
+      "nonceBase64": "ze0g42LvkN19tYwA",
+      "saltBase64": "u0H2ib+aoILsm8QenYYduw==",
+      "iterations": 600000
+    }
+  },
+  "backupPassword": "correct horse battery staple",
+  "sharedSecretBase64": "iYhtin1FBJyus39XoGDcFzzsn0dRq5dpJIqJRHgZmnQ=",
+  "aliceToBob": {
+    "ciphertextBase64": "DPecvXBl+iUgO6Tzap8lzFZXH3lCY/KE8b5ScMAxhmV+GJ4TsG0hDXevKb0bLbvSev6V5yY6w+fLc6YzwifHqyiu2VaESwYP99k=",
+    "nonceBase64": "5aTpFUVSNADvyznK",
+    "plainText": "Cześć! ECDH bez KDF — zażółć gęślą jaźń. 🔐"
+  },
+  "bobToAlice": {
+    "ciphertextBase64": "TKLD5V2HZWY/2bdSuSxIPtMrl+0b2bErFs6OpiMb1CaVFYk5cWxe78fB",
+    "nonceBase64": "dG42WxYx96FmI9MG",
+    "plainText": "Reply from the other side."
+  },
+  "aliceToSelf": {
+    "ciphertextBase64": "kEehGBTFgtHIwTWaqt7tnnS0qR9ZnlAhqeTGaUxMLfMOTYNmvjl8Pp1/RjHFjogCxKIsiBHu",
+    "nonceBase64": "5SLhjb48BCr1pZz+",
+    "plainText": "A private note, sealed for one reader."
+  }
+}

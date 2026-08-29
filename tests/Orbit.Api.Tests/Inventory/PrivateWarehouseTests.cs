@@ -77,7 +77,7 @@ public sealed class PrivateWarehouseTests
 
         // There is no item row to notice, which is the cost of the server not being able to read one.
         Assert.Empty(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
-        Assert.Empty(await context.TaskRepository.GetAllAsync(context.OwnerId, CancellationToken.None));
+        Assert.Empty(await context.TaskRepository.GetAllAsync(context.OwnerId, updatedSinceUtc: null, CancellationToken.None));
     }
 
     [Fact]

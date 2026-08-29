@@ -18,6 +18,17 @@ public interface IWarehouseShareRepository
 
     /// <summary>Every warehouse recipientUserId has accepted access to, regardless of owner - see WarehouseAccessResolver.ResolveAllAsync.</summary>
     Task<IReadOnlyList<WarehouseShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which of ownerUserId's own warehouses somebody else currently holds accepted access to - the owner's
+    /// side of the relationship, which nothing else exposes. Mirrors INoteShareRepository's method of the
+    /// same shape, and exists for the same reason: a mobile client cannot hold an edit lock, so anything
+    /// another person can change is read-only while offline (info/orbit-maui-plan.md §5.4).
+    ///
+    /// A whole set in one query, because the caller asks it of every warehouse in a list.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> GetSharedOutWarehouseIdsAsync(Guid ownerUserId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Drops the accepted grant that puts this warehouse on recipientUserId's list, taking it off their
     /// list without touching the owner's. Scoped to the recipient, so it can only ever remove their own

@@ -4,6 +4,8 @@ using Microsoft.Extensions.Options;
 using Orbit.Api.Notifications;
 using Orbit.Contracts.PushNotifications;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Mobile;
+using Orbit.Core.PushNotifications.SubscribeDeviceToPush;
 using Orbit.Core.PushNotifications.SubscribeToPush;
 using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 
@@ -28,6 +30,22 @@ public static class PushSubscriptionEndpoints
             await dispatcher.SendAsync(
                 new SubscribeToPushCommand(GetUserId(user), request.Endpoint, request.P256dhBase64, request.AuthBase64),
                 cancellationToken);
+            return Results.NoContent();
+        });
+
+        // The mobile counterpart: a phone has one FCM registration token, not an endpoint plus the two
+        // Web Push encryption keys, so it registers through its own route rather than pretending.
+        push.MapPost("/device-subscriptions", async (
+            DevicePushSubscriptionRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            if (!Enum.TryParse<MobilePlatform>(request.Platform, ignoreCase: true, out var platform))
+            {
+                return Results.BadRequest(new { message = $"Unknown platform '{request.Platform}'." });
+            }
+
+            await dispatcher.SendAsync(
+                new SubscribeDeviceToPushCommand(GetUserId(user), request.DeviceToken, platform), cancellationToken);
             return Results.NoContent();
         });
 

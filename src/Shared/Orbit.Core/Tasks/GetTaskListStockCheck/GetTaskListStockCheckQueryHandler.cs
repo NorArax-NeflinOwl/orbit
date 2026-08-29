@@ -28,7 +28,7 @@ public sealed class GetTaskListStockCheckQueryHandler : IRequestHandler<GetTaskL
         }
 
         // The whole tree, because a group list's work is on the lists below it rather than on itself.
-        var reachable = await _taskRepository.GetAllAsync(request.UserId, cancellationToken);
+        var reachable = await _taskRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var work = LinkedTaskListTree.WorkIn(taskList, reachable);
         var stock = await _inventoryRepository.GetAllAsync(warehouseId, cancellationToken);
 

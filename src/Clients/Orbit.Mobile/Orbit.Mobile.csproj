@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Plain net10.0, not a MAUI target framework, on purpose: everything here is decided without
+    reference to a device, so it can be unit-tested by an ordinary test project. Orbit.Maui supplies the
+    platform pieces (Keychain, app version, connectivity) through the interfaces alongside each. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Orbit.Mobile</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <!-- The screens' view models live here so they can be unit-tested (see Screens/IScreenNavigator).
+    The toolkit supplies ObservableObject and RelayCommand and nothing platform-specific, so it builds
+    for plain net10.0 exactly as it does for the app heads. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <!-- The local store (info/orbit-maui-plan.md §5.1). EF Core rather than the lighter sqlite-net
+    because the same shapes are already written against EF Core on the server, and migrations are a
+    solved problem there. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <!-- EF Core's SQLite provider still resolves SQLitePCLRaw 2.1.11, which carries a known high-severity
+    advisory (GHSA-2m69-gcr7-jv3q). Pinned directly to the first patched release so the resolved version
+    clears the NuGet audit check - the same treatment AngleSharp gets in Orbit.Web.Tests. Remove once the
+    provider's own floor moves past it. -->
+    <!-- PrivateAssets="native" because this is the desktop build of the SQLite engine, and it must not
+    reach the app heads. This project is plain net10.0, so NuGet resolves the portable variant here; the
+    heads resolve the platform one (lib.e_sqlite3.android's AAR, lib.e_sqlite3.ios) for themselves. Left
+    to flow, the portable copy's runtimes/linux-arm64 build wins the packaging race and lands in the APK
+    as lib/arm64-v8a/libe_sqlite3.so - an aarch64 ELF built against glibc, which Android cannot load, so
+    the app dies on its first database call with DllNotFoundException: e_sqlite3. The unit tests still
+    need the native engine here, which is why it is private rather than excluded. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" PrivateAssets="native" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
+    <!-- Design-time only: generates the local migrations. Not used at runtime by either app head. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lets the tests check how the Google authorization request is built without making that part of
+         GoogleSignIn's public surface - the same treatment Orbit.Api gives its endpoint handlers. -->
+    <InternalsVisibleTo Include="Orbit.Mobile.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Orbit.Contracts\Orbit.Contracts.csproj" />
+    <!-- For the vocabulary the server and the app have to agree on - MobilePlatform and the version
+    verdicts. Orbit.Web references Orbit.Core for the same reason. -->
+    <ProjectReference Include="..\..\Shared\Orbit.Core\Orbit.Core.csproj" />
+    <ProjectReference Include="..\..\Shared\Orbit.Localization\Orbit.Localization.csproj" />
+  </ItemGroup>
+
+</Project>

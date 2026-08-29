@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Account.AccountPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:notifications="clr-namespace:Orbit.Mobile.Screens.Notifications;assembly=Orbit.Mobile"
+    xmlns:account="clr-namespace:Orbit.Maui.Features.Account"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Account;assembly=Orbit.Mobile"
+    x:DataType="screens:AccountViewModel"
+    Title="{controls:Translate 'Settings'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+    <ScrollView Grid.Row="1">
+        <VerticalStackLayout Padding="24" Spacing="18">
+
+            <controls:PageHeader Title="{controls:Translate 'Settings'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Who you are to Orbit, and what this device is allowed to do." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
+
+            <!-- Tabs rather than one long scroll, as Orbit.Web's Options page has: changing a password
+                 and unlocking a feature are different errands. -->
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Tabs}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:AccountTabRow">
+                            <Button Text="{Binding Name}" FontSize="13" Padding="12,4" BackgroundColor="Transparent"
+                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseTabCommand, x:DataType=account:AccountPage}"
+                                    CommandParameter="{Binding .}">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding IsChosen}" Value="True">
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                        <Setter Property="FontAttributes" Value="Bold" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+
+            <!-- How Orbit looks on this device. Kept here rather than on the server for the same reason
+                 the web keeps it in the browser: a phone in a pocket and a browser at a desk want
+                 different answers. The language stays in the avatar's menu, where it was asked for. -->
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingAppearance}">
+                <Label Text="{controls:Translate 'Appearance'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Choose how Orbit looks on this device.'}" FontSize="12"
+                       LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Picker ItemsSource="{Binding Themes}" SelectedItem="{Binding ChosenThemeOption}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:ThemeChoice}" />
+
+                <!-- How Orbit is allowed to interrupt, which Orbit.Web keeps in this same tab. -->
+                <VerticalStackLayout Spacing="14" Margin="0,10,0,0" BindingContext="{Binding Notifications}"
+                                     x:DataType="notifications:NotificationSettingsViewModel">
+                    <Label Text="{controls:Translate 'Notifications'}" Style="{StaticResource FieldLabel}" />
+                    <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
+                           LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Grid.Column="0">
+                            <Label Text="{controls:Translate 'Notify me'}" />
+                            <Label Text="{controls:Translate 'Off means nothing is recorded or sent at all.'}"
+                                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding AllowNotifications}" VerticalOptions="Center" />
+                    </Grid>
+
+                    <!-- Hidden rather than disabled: with the master switch off these do nothing at all,
+                         and a switch that can be moved without effect is worse than one not offered. -->
+                    <VerticalStackLayout Spacing="14" IsVisible="{Binding CanChooseChannels}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="{controls:Translate 'Push to this phone'}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowPush}" VerticalOptions="Center" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="{controls:Translate 'Email'}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowEmail}" VerticalOptions="Center" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout Grid.Column="0">
+                                <Label Text="{controls:Translate 'When something is shared with me'}" />
+                                <Label Text="{controls:Translate 'It always appears in your notifications. This also pushes or emails.'}"
+                                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowShareNotifications}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <Button Text="{controls:Translate 'Save'}" HorizontalOptions="Start" FontSize="13" Padding="14,6"
+                            Command="{Binding SaveCommand}" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- One statement for the whole screen: none of this can happen without the server. -->
+            <Label Text="{controls:Translate 'Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later.'}"
+                   IsVisible="{Binding IsOffline}"
+                   TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
+                   LineBreakMode="WordWrap" />
+
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
+
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
+                <Label Text="{controls:Translate 'Login'}" Style="{StaticResource FieldLabel}" />
+                <!-- See RegisterPage for why this is not the default text keyboard. -->
+                <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
+                <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
+                <Button Text="{controls:Translate 'Change username'}" Command="{Binding ChangeUserNameCommand}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
+                <Label Text="{controls:Translate 'Email address'}" Style="{StaticResource FieldLabel}" />
+                <!-- The address in use today and whether anybody has stood behind it, which Orbit.Web
+                     shows above this same form. Read from the server rather than the session - see
+                     AccountViewModel.ShowAccountAsync. -->
+                <Label Text="{Binding EmailAddress}" FontSize="14" />
+                <Label Text="{Binding EmailVerificationLabel}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                <Entry Placeholder="{controls:Translate 'New email address'}" Text="{Binding NewEmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
+                <Button Text="{controls:Translate 'Send confirmation code'}" Command="{Binding RequestEmailChangeCommand}" />
+                <Entry Placeholder="{controls:Translate 'Confirmation code'}" Text="{Binding EmailConfirmationCode}" Keyboard="Numeric" />
+                <Button Text="{controls:Translate 'Confirm new address'}" Command="{Binding ConfirmEmailChangeCommand}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
+                <Label Text="{controls:Translate 'Password'}" Style="{StaticResource FieldLabel}" />
+                <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />
+                <Entry Placeholder="{controls:Translate 'New password'}" Text="{Binding NewPassword}" IsPassword="True" />
+                <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
+            </VerticalStackLayout>
+
+            <!-- A file somebody keeps, not a copy the app maintains. Importing creates new things
+                 rather than restoring old ones, so it never puts what is already here at risk. -->
+            <VerticalStackLayout Spacing="8" IsVisible="{Binding IsShowingAccount}">
+                <Label Text="{controls:Translate 'Export'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Button Text="{controls:Translate 'Export everything'}" HorizontalOptions="Start"
+                        IsEnabled="{Binding IsOnline}" Command="{Binding ExportCommand}" />
+
+                <Label Text="{controls:Translate 'Import'}" FontAttributes="Bold" Margin="0,8,0,0" />
+                <Button x:Name="ImportButton" Text="{controls:Translate 'Import'}" HorizontalOptions="Start"
+                        IsEnabled="{Binding IsOnline}" Clicked="OnImportClicked" />
+
+                <Label Text="{Binding TransferMessage}" IsVisible="{Binding HasTransferMessage}"
+                       FontSize="12" LineBreakMode="WordWrap"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </VerticalStackLayout>
+
+            <!-- The one irreversible thing this screen can do, so it is last, filled red rather than the
+                 quiet DestructiveButton the per-item deletes use, and asks for the password again on its
+                 own line - see AccountViewModel.DeleteAccountPassword. The confirmation itself is the
+                 page's job: it is a platform prompt. -->
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}" Margin="0,8,0,0">
+                <Label Text="{controls:Translate 'Delete account'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding DeleteAccountPassword}" IsPassword="True"
+                       IsVisible="{Binding RequiresPasswordToDelete}" />
+                <Button x:Name="DeleteAccountButton" Text="{controls:Translate 'Delete account'}" HorizontalOptions="Start"
+                        Style="{StaticResource DangerButton}" Clicked="OnDeleteAccountClicked" />
+            </VerticalStackLayout>
+
+            <!-- The same list Orbit.Web puts under Options, Permissions, and the same wording: what each
+                 part of Orbit is, whether it is unlocked, and what it needs first when it is not. -->
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingPermissions}">
+                <Label Text="{controls:Translate 'Permissions'}" Style="{StaticResource FieldLabel}" />
+
+                <CollectionView ItemsSource="{Binding Permissions}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="screens:PermissionRow">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,6">
+                                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                    <Label Text="{Binding Name}" FontSize="15" />
+                                    <Label Text="{Binding Explanation}" FontSize="12" LineBreakMode="WordWrap"
+                                           Style="{StaticResource SubtleLabel}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                       FontSize="12" VerticalOptions="Center" LineBreakMode="WordWrap"
+                                       Style="{StaticResource SubtleLabel}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Label Text="{Binding PermissionMessage}" IsVisible="{Binding HasPermissionMessage}"
+                       FontSize="12" LineBreakMode="WordWrap"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Entry Grid.Column="0" Placeholder="{controls:Translate 'Unlock code'}"
+                           Text="{Binding PermissionCode}"
+                           ReturnType="Go" ReturnCommand="{Binding RedeemCodeCommand}" />
+                    <Button Grid.Column="1" Text="{controls:Translate 'Unlock'}"
+                            Command="{Binding RedeemCodeCommand}" />
+                </Grid>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingDebug}">
+                <Button Text="{controls:Translate 'Diagnostics'}" Command="{Binding GoToDiagnosticsCommand}"
+                        HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
+
+                <Button Text="{controls:Translate 'Chat key'}" Command="{Binding GoToChatKeyCommand}"
+                        HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
+            </VerticalStackLayout>
+
+
+        </VerticalStackLayout>
+    </ScrollView>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

@@ -91,7 +91,7 @@ public sealed class TaskListPinningTests
 
         await context.TaskListCoordinator.EnsureManagedTaskListAsync(warehouseId, CancellationToken.None);
 
-        var taskList = Assert.Single(await context.TaskRepository.GetAllAsync(ownerId, CancellationToken.None));
+        var taskList = Assert.Single(await context.TaskRepository.GetAllAsync(ownerId, updatedSinceUtc: null, CancellationToken.None));
         Assert.Equal(RestockTaskNaming.TitleFor("Pantry"), taskList.Title);
         Assert.True(taskList.IsPinned);
     }

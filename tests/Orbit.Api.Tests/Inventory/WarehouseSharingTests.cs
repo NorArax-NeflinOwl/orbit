@@ -144,7 +144,7 @@ public sealed class WarehouseSharingTests
         var recipientUserId = Guid.NewGuid();
         var warehouseId = context.AddWarehouse(ownerUserId);
         context.AddAcceptedShare(warehouseId, ownerUserId, recipientUserId, ShareAccessLevel.CanEdit);
-        var handler = new DeleteWarehouseCommandHandler(context.WarehouseRepository, context.InventoryRepository, new InMemoryWarehouseShareRepository());
+        var handler = new DeleteWarehouseCommandHandler(context.WarehouseRepository, context.InventoryRepository, new InMemoryWarehouseShareRepository(), new InMemorySyncTombstoneRepository());
 
         var deleted = await handler.HandleAsync(new DeleteWarehouseCommand(recipientUserId, warehouseId), CancellationToken.None);
 
@@ -160,7 +160,7 @@ public sealed class WarehouseSharingTests
         var warehouseId = context.AddWarehouse(ownerUserId);
         await context.InventoryRepository.AddAsync(
             InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
-        var handler = new DeleteWarehouseCommandHandler(context.WarehouseRepository, context.InventoryRepository, new InMemoryWarehouseShareRepository());
+        var handler = new DeleteWarehouseCommandHandler(context.WarehouseRepository, context.InventoryRepository, new InMemoryWarehouseShareRepository(), new InMemorySyncTombstoneRepository());
 
         var deleted = await handler.HandleAsync(new DeleteWarehouseCommand(ownerUserId, warehouseId), CancellationToken.None);
 
@@ -178,7 +178,7 @@ public sealed class WarehouseSharingTests
         context.AddAcceptedShare(warehouseId, ownerUserId, recipientUserId, ShareAccessLevel.CanEdit);
         Assert.Single(await ListWarehousesAsync(context, recipientUserId));
 
-        await new DeleteWarehouseCommandHandler(context.WarehouseRepository, context.InventoryRepository, new InMemoryWarehouseShareRepository())
+        await new DeleteWarehouseCommandHandler(context.WarehouseRepository, context.InventoryRepository, new InMemoryWarehouseShareRepository(), new InMemorySyncTombstoneRepository())
             .HandleAsync(new DeleteWarehouseCommand(ownerUserId, warehouseId), CancellationToken.None);
 
         // The grant row is left behind deliberately; the resolver reads it as "not found".

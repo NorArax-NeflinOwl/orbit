@@ -10,6 +10,13 @@ namespace Orbit.Contracts.Inventory;
 /// reaches this warehouse through a share, so the share panel can keep the owner out of the recipient
 /// picker - offering them would always be rejected server-side. Mirrors NoteDto.
 /// </summary>
+/// <param name="IsSharedWithOthers">
+/// The owner's side of sharing: somebody else holds accepted access. Always false when
+/// <paramref name="IsShared"/> is true, since that describes the other end of the same relationship.
+/// The mobile client needs it to decide what may be edited offline - it cannot hold an edit lock, so
+/// anything another person can change is read-only until it is back online (info/orbit-maui-plan.md
+/// §5.4). Mirrors NoteDto.
+/// </param>
 public sealed record WarehouseDto(
     Guid Id,
     string Name,
@@ -22,4 +29,5 @@ public sealed record WarehouseDto(
     Guid? OriginalOwnerUserId,
     /// <summary>Readable only by its owner - Name is empty and everything is inside EncryptedContent.</summary>
     bool IsPrivate = false,
-    EncryptedContentDto? EncryptedContent = null);
+    EncryptedContentDto? EncryptedContent = null,
+    bool IsSharedWithOthers = false);

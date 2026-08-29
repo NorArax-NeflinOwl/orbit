@@ -6,6 +6,8 @@ using Orbit.Contracts;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
+using Orbit.Api.Sync;
+using Orbit.Core.Sync;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.AcceptTaskListShare;
 using Orbit.Core.Tasks.AcquireTaskListLock;
@@ -40,6 +42,22 @@ public static class TaskEndpoints
         {
             var result = await dispatcher.SendAsync(new GetTaskListsQuery(GetUserId(user)), cancellationToken);
             return Results.Ok(result.Select(ToDto));
+        });
+
+        // What a client needs to catch up after being away - see ChangeFeedDto. Separate from GET /
+        // so the existing full-list shape stays exactly as the web client expects it.
+        tasks.MapGet("/changes", async (
+            DateTimeOffset since, ClaimsPrincipal user, IDispatcher dispatcher,
+            ISyncTombstoneRepository tombstones, CancellationToken cancellationToken) =>
+        {
+            var userId = GetUserId(user);
+            var cursor = ChangeFeed.StartCursor();
+            // The cursor goes to the database rather than being applied to everything it returned.
+            var all = await dispatcher.SendAsync(new GetTaskListsQuery(userId, since), cancellationToken);
+            var changed = all.Select(ToDto).ToList();
+
+            return Results.Ok(await ChangeFeed.BuildAsync(
+                changed, cursor, userId, SyncEntityType.TaskList, since, tombstones, cancellationToken));
         });
 
         tasks.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -289,7 +307,7 @@ public static class TaskEndpoints
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
             taskList.Status.ToString(),
-            taskList.IsPinned, taskList.LinkedWarehouseId);
+            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedWarehouseId);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

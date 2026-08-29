@@ -15,11 +15,11 @@ public sealed class PushNotificationDispatcherTests
         var userId = Guid.NewGuid();
         var subscriptionRepository = new InMemoryPushSubscriptionRepository();
         await subscriptionRepository.AddOrReplaceAsync(
-            PushSubscription.Create(userId, "https://push.example/a", "p256dh-a", "auth-a"), CancellationToken.None);
+            PushSubscription.CreateForBrowser(userId, new WebPushRegistration("https://push.example/a", "p256dh-a", "auth-a")), CancellationToken.None);
         await subscriptionRepository.AddOrReplaceAsync(
-            PushSubscription.Create(userId, "https://push.example/b", "p256dh-b", "auth-b"), CancellationToken.None);
+            PushSubscription.CreateForBrowser(userId, new WebPushRegistration("https://push.example/b", "p256dh-b", "auth-b")), CancellationToken.None);
         var sender = new RecordingPushNotificationSender();
-        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, sender, NullLogger<PushNotificationDispatcher>.Instance);
+        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, [sender], NullLogger<PushNotificationDispatcher>.Instance);
 
         await dispatcher.NotifyUserAsync(userId, SamplePayload, CancellationToken.None);
 
@@ -32,7 +32,7 @@ public sealed class PushNotificationDispatcherTests
     {
         var subscriptionRepository = new InMemoryPushSubscriptionRepository();
         var sender = new RecordingPushNotificationSender();
-        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, sender, NullLogger<PushNotificationDispatcher>.Instance);
+        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, [sender], NullLogger<PushNotificationDispatcher>.Instance);
 
         await dispatcher.NotifyUserAsync(Guid.NewGuid(), SamplePayload, CancellationToken.None);
 
@@ -44,11 +44,11 @@ public sealed class PushNotificationDispatcherTests
     {
         var userId = Guid.NewGuid();
         var subscriptionRepository = new InMemoryPushSubscriptionRepository();
-        var expiredSubscription = PushSubscription.Create(userId, "https://push.example/expired", "p256dh", "auth");
+        var expiredSubscription = PushSubscription.CreateForBrowser(userId, new WebPushRegistration("https://push.example/expired", "p256dh", "auth"));
         await subscriptionRepository.AddOrReplaceAsync(expiredSubscription, CancellationToken.None);
         var sender = new RecordingPushNotificationSender();
         sender.ExpiredSubscriptionIds.Add(expiredSubscription.Id);
-        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, sender, NullLogger<PushNotificationDispatcher>.Instance);
+        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, [sender], NullLogger<PushNotificationDispatcher>.Instance);
 
         await dispatcher.NotifyUserAsync(userId, SamplePayload, CancellationToken.None);
 
@@ -61,13 +61,13 @@ public sealed class PushNotificationDispatcherTests
     {
         var userId = Guid.NewGuid();
         var subscriptionRepository = new InMemoryPushSubscriptionRepository();
-        var expiredSubscription = PushSubscription.Create(userId, "https://push.example/expired", "p256dh", "auth");
-        var workingSubscription = PushSubscription.Create(userId, "https://push.example/working", "p256dh", "auth");
+        var expiredSubscription = PushSubscription.CreateForBrowser(userId, new WebPushRegistration("https://push.example/expired", "p256dh", "auth"));
+        var workingSubscription = PushSubscription.CreateForBrowser(userId, new WebPushRegistration("https://push.example/working", "p256dh", "auth"));
         await subscriptionRepository.AddOrReplaceAsync(expiredSubscription, CancellationToken.None);
         await subscriptionRepository.AddOrReplaceAsync(workingSubscription, CancellationToken.None);
         var sender = new RecordingPushNotificationSender();
         sender.ExpiredSubscriptionIds.Add(expiredSubscription.Id);
-        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, sender, NullLogger<PushNotificationDispatcher>.Instance);
+        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, [sender], NullLogger<PushNotificationDispatcher>.Instance);
 
         await dispatcher.NotifyUserAsync(userId, SamplePayload, CancellationToken.None);
 
