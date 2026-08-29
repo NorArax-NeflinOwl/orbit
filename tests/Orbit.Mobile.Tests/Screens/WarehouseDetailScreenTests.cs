@@ -263,6 +263,22 @@ public sealed class WarehouseDetailScreenTests
         Assert.Equal(["Coffee", "Soap"], screen.Items.Select(row => row.Name));
     }
 
+    /// <summary>
+    /// A private shelf arrives sealed and this phone has no key for it. Saving one sends a private
+    /// warehouse with no ciphertext, which the server refuses - see the same guard on the task list.
+    /// </summary>
+    [Fact]
+    public async Task A_private_warehouse_is_read_only_here()
+    {
+        using var context = new ScreenContext();
+
+        var screen = await context.OpenPrivateWarehouseAsync();
+
+        Assert.True(screen.IsReadOnly);
+        Assert.False(screen.CanEdit);
+        Assert.NotEmpty(screen.ReadOnlyReason);
+    }
+
     private static WarehouseItemDto Product(string name, string category = "General")
         => new(Guid.NewGuid(), name, "Bag", category, 1, null, nameof(InventoryUnit.Piece), null, "None");
 
@@ -397,6 +413,19 @@ public sealed class WarehouseDetailScreenTests
         /// <summary>What the local store holds now - for the one test that expects it to hold nothing.</summary>
         public async Task<IReadOnlyList<LocalWarehouse>> StoredWarehousesAsync()
             => await _warehouses.GetAllAsync();
+
+        /// <summary>A shelf sealed with a key this phone has not got, as the sync would bring one down.</summary>
+        public async Task<WarehouseDetailViewModel> OpenPrivateWarehouseAsync()
+        {
+            var warehouse = await AddWarehouseAsync();
+            await using (var dbContext = _localStore.CreateDbContext())
+            {
+                dbContext.Warehouses.Single().IsPrivate = true;
+                await dbContext.SaveChangesAsync();
+            }
+
+            return await OpenAsync(warehouse.LocalId);
+        }
 
         public async Task<LocalWarehouse> AddWarehouseAsync(params WarehouseItemDto[] items)
         {

@@ -1197,6 +1197,10 @@ public static class PolishTranslations
             "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["This note is private, and its words are sealed with a key this phone doesn't have."] =
             "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["This list is private, and its contents are sealed with a key this phone doesn't have."] =
+            "Ta lista jest prywatna, a jej zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["This warehouse is private, and its contents are sealed with a key this phone doesn't have."] =
+            "Ten magazyn jest prywatny, a jego zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
 
         // One group message's own info view: who it reached, and who has opened it.
         ["{0} - read {1}"] = "{0} — przeczytano {1}",

@@ -452,9 +452,22 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _isShowingWhatIsStored = false;
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
-        // Asked of the store rather than decided here, so the screen and the write agree by construction.
-        IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
-        ReadOnlyReason = string.Empty;
+        // Sealed with a key this phone has not got, so there is nothing here to change: the readable
+        // fields arrive empty, and saving would send a private list with no ciphertext - which the
+        // server refuses outright, and which would replace the sealed list with an empty one if it did
+        // not. NoteDetailViewModel has always drawn this line; the list and the shelf did not.
+        if (taskList.IsPrivate)
+        {
+            IsReadOnly = true;
+            ReadOnlyReason = _translations[
+                "This list is private, and its contents are sealed with a key this phone doesn't have."];
+        }
+        else
+        {
+            // Asked of the store rather than decided here, so the screen and the write agree by construction.
+            IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
+            ReadOnlyReason = string.Empty;
+        }
 
         if (!IsReadOnly && taskList.ServerId is { } lockedServerId)
         {

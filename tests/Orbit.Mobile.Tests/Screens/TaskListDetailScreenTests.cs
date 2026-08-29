@@ -583,6 +583,24 @@ public sealed class TaskListDetailScreenTests
         Assert.Equal("High", screen.ChosenPriority.Value);
     }
 
+    /// <summary>
+    /// A private list arrives sealed: its readable fields are empty and its contents are in a payload
+    /// this phone has no key for. Offering to edit it was worse than useless - saving sends a private
+    /// list with no ciphertext, which the server refuses outright, so the change was queued, retried
+    /// five times and given up on. And had it landed, it would have replaced the sealed list with the
+    /// empty one on screen. The note screen has always drawn this line; the list did not.
+    /// </summary>
+    [Fact]
+    public async Task A_private_list_is_read_only_here()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenPrivateTaskListAsync();
+
+        Assert.True(screen.IsReadOnly);
+        Assert.False(screen.CanEdit);
+        Assert.NotEmpty(screen.ReadOnlyReason);
+    }
+
     /// <summary>A phone with a local store and a server it can sometimes reach, and no MAUI in sight.</summary>
     private sealed class ScreenContext : IDisposable
     {
@@ -618,6 +636,20 @@ public sealed class TaskListDetailScreenTests
         public TaskListSynchronizer Synchronizer { get; }
 
         public RecordingScreenNavigator Navigator { get; } = new();
+
+        /// <summary>A list sealed with a key this phone has not got, as the sync would bring one down.</summary>
+        public async Task<TaskListDetailViewModel> OpenPrivateTaskListAsync()
+        {
+            var screen = OpenTaskList("Sealed");
+            await using (var dbContext = _localStore.CreateDbContext())
+            {
+                dbContext.TaskLists.Single().IsPrivate = true;
+                await dbContext.SaveChangesAsync();
+            }
+
+            await screen.LoadCommand.ExecuteAsync(null);
+            return screen;
+        }
 
         public TaskListDetailViewModel OpenTaskList(string title)
         {
