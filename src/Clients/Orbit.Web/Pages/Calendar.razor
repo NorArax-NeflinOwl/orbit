@@ -319,7 +319,8 @@
             .Where(pair => pair.item.DueDateUtc is not null)
             .Select(pair => new DueTaskDto(
                 pair.taskList.Id, pair.item.Id, pair.taskList.Title, pair.item.Description,
-                pair.item.DueDateUtc!.Value, pair.item.IsCompleted, HasPlace(pair.item)))
+                pair.item.DueDateUtc!.Value, pair.item.IsCompleted, HasPlace(pair.item),
+                pair.item.LinkedCalendarEventId))
             .OrderBy(dueTask => dueTask.DueDateUtc)
             .ToList();
     }

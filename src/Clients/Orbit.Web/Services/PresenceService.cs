@@ -59,15 +59,32 @@ public sealed class PresenceService(UsersApiClient usersApiClient, IJSRuntime js
         _ = RunHeartbeatAsync();
     }
 
-    public async Task SetAvailabilityAsync(PresenceAvailability availability)
+    /// <summary>
+    /// Answers whether the choice actually took, so whoever offered it can say when it did not. It used
+    /// to answer nothing: a refused request left the picker showing the old choice with no word about
+    /// it, and somebody who had just clicked "do not disturb" carried on being told they were available.
+    /// A connection that is simply down is the same answer rather than an exception thrown out of a
+    /// click handler, which in WebAssembly reaches the console and nobody else.
+    /// </summary>
+    public async Task<bool> SetAvailabilityAsync(PresenceAvailability availability)
     {
-        if (!await usersApiClient.SetAvailabilityAsync(availability.ToString()))
+        try
         {
-            return;
+            if (!await usersApiClient.SetAvailabilityAsync(availability.ToString()))
+            {
+                logger.LogWarning("The server refused the availability change to {Availability}", availability);
+                return false;
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            logger.LogWarning(exception, "Could not reach the server to change availability to {Availability}", availability);
+            return false;
         }
 
         Availability = availability;
         Changed?.Invoke();
+        return true;
     }
 
     private async Task RunHeartbeatAsync()

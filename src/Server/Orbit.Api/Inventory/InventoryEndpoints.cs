@@ -185,13 +185,26 @@ public static class InventoryEndpoints
     private static EncryptedContentDto? ToDto(EncryptedPayload? encryptedContent)
         => encryptedContent is null ? null : new EncryptedContentDto(encryptedContent.Ciphertext, encryptedContent.Nonce);
 
-    private static IReadOnlyList<WarehouseItemInput> ToDomainItems(IReadOnlyList<WarehouseItemDto> items)
+    internal static IReadOnlyList<WarehouseItemInput> ToDomainItems(IReadOnlyList<WarehouseItemDto> items)
         => items
             .Select(item => new WarehouseItemInput(
                 item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
-                RequestEnum.Parse<InventoryUnit>(item.Unit, "unit"), item.ExpiryDate,
+                UnitOf(item), item.ExpiryDate,
                 RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel")))
             .ToList();
+
+    /// <summary>
+    /// An item that says nothing about its unit is counted in pieces - the rule the whole feature is
+    /// written to (see InventoryUnit), and what every row already on a shelf was given when the column
+    /// was added. Refusing the save instead turned a client built before units existed - a cached copy
+    /// of the app, say - into one that could no longer save a warehouse at all, with a message about a
+    /// field its version has never heard of. A unit that is named but not recognised is still refused:
+    /// that is a typo, not a silence.
+    /// </summary>
+    internal static InventoryUnit UnitOf(WarehouseItemDto item)
+        => string.IsNullOrWhiteSpace(item.Unit)
+            ? InventoryUnit.Piece
+            : RequestEnum.Parse<InventoryUnit>(item.Unit, "unit");
 
     private static InventoryItemDto ToDto(InventoryItem item)
         => new(

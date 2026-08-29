@@ -16,6 +16,37 @@
             <button type="button" class="icon-btn" title="@(T["Close"])" aria-label="@(T["Close"])" @onclick="CancelAsync">✕</button>
         </div>
 
+        @* Two ways to the same pin: name the place, or point at it. Naming it is the one that works
+           when somebody knows the address but not where it is on a map, which is most of the time. *@
+        <div class="map-overlay-search">
+            <input class="map-overlay-search-box" @bind="_searchText" @bind:event="oninput"
+                   @onkeydown="OnSearchKeyDownAsync" placeholder="@(T["Search for an address"])"
+                   aria-label="@(T["Search for an address"])" />
+            <button type="button" class="btn-secondary" disabled="@(_isSearching || _searchText.Trim().Length == 0)"
+                    @onclick="SearchAsync">@T["Search"]</button>
+        </div>
+
+        @if (_isSearching)
+        {
+            <p class="map-overlay-hint">@T["Searching…"]</p>
+        }
+        else if (_matches.Count > 0)
+        {
+            @* Every match, not just the best one: street names repeat, and "Długa 4" is a real address
+               in a dozen towns. Picking one is what moves the pin. *@
+            <div class="map-overlay-matches">
+                @foreach (var match in _matches)
+                {
+                    <button type="button" class="avatar-dropdown-item map-overlay-match"
+                            @onclick="() => UsePlaceAsync(match)">@match.Name</button>
+                }
+            </div>
+        }
+        else if (_hasSearched)
+        {
+            <p class="map-overlay-hint">@T["Nothing found for that. Try fewer words, or point at it on the map."]</p>
+        }
+
         <p class="map-overlay-hint">@T["Click the map to drop a pin."]</p>
         <div id="@MapElementId" class="map-overlay-map"></div>
 
@@ -53,6 +84,14 @@
     private string? _pickedAddress;
 
     private bool _isLookingUpTheAddress;
+
+    /// <summary>What the reader is looking for, and what came back.</summary>
+    private string _searchText = string.Empty;
+    private bool _isSearching;
+    private IReadOnlyList<FoundPlace> _matches = [];
+
+    /// <summary>Whether a search has been run at all - what tells "nothing found" from "nothing asked".</summary>
+    private bool _hasSearched;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -92,6 +131,60 @@
         _pickedAddress = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude) ?? string.Empty;
         _isLookingUpTheAddress = false;
         StateHasChanged();
+    }
+
+    private async Task OnSearchKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && _searchText.Trim().Length > 0)
+        {
+            await SearchAsync();
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        _isSearching = true;
+        _matches = [];
+        try
+        {
+            _matches = await GeocodingApiClient.SearchPlacesAsync(_searchText);
+        }
+        finally
+        {
+            _isSearching = false;
+            _hasSearched = true;
+        }
+
+        // One answer is not a choice, so it is taken as one: asking somebody to confirm the only match
+        // twice - once as a row, once as the question below - is asking the same thing twice.
+        if (_matches is [{ } only])
+        {
+            await UsePlaceAsync(only);
+        }
+    }
+
+    /// <summary>
+    /// Moves the pin to a place the reader named. The address comes from the search rather than from a
+    /// second lookup: it is the name they picked by, and looking it up again could answer differently.
+    /// </summary>
+    private async Task UsePlaceAsync(FoundPlace place)
+    {
+        _matches = [];
+        _pickedAddress = place.Name;
+        if (_mapPickerModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mapPickerModule.InvokeVoidAsync("moveMarker", MapElementId, place.Latitude, place.Longitude);
+        }
+        catch (JSException exception)
+        {
+            // The question below still stands: the address is what gets saved, not the pin.
+            Logger.LogWarning(exception, "The pin could not be moved to the place that was found");
+        }
     }
 
     private async Task ConfirmAsync()

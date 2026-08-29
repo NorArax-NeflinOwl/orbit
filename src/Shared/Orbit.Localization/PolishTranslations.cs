@@ -234,8 +234,12 @@ public static class PolishTranslations
         ["Type"] = "Typ",
         ["Calendar event"] = "Wydarzenie w kalendarzu",
         ["Back to Calendar"] = "Wróć do kalendarza",
+        ["Couldn't change your availability. Check your connection and try again."] = "Nie udało się zmienić dostępności. Sprawdź połączenie i spróbuj ponownie.",
         ["Show map"] = "Pokaż mapę",
         ["Pick a place"] = "Wskaż miejsce",
+        ["Search for an address"] = "Wyszukaj adres",
+        ["Searching…"] = "Szukam…",
+        ["Nothing found for that. Try fewer words, or point at it on the map."] = "Nic nie znaleziono. Spróbuj krócej albo wskaż miejsce na mapie.",
         ["Click the map to drop a pin."] = "Kliknij mapę, aby postawić pinezkę.",
         // The phone's own wording for the same map: nobody clicks a phone.
         ["Tap the map to drop a pin."] = "Dotknij mapy, aby postawić pinezkę.",
