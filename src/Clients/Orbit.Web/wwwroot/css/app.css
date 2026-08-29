@@ -3831,3 +3831,14 @@ input.note-editor-title {
     opacity: 0.45;
     cursor: default;
 }
+
+/* The map on a task item's summary. Sized here rather than by the page, since Leaflet measures its
+   container once at creation and needs a real height to lay the tile grid out from - see
+   locationMap.js's waitForSize. */
+.task-item-map {
+    height: 380px;
+    margin-top: 20px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+}

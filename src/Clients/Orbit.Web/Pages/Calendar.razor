@@ -163,7 +163,7 @@
                                 <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
                                 <span class="row-title">@Written(dueTask.TaskListTitle): @Written(dueTask.Description)</span>
                                 <span class="row-meta">@dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-                                <button type="button" class="btn-secondary" @onclick="() => GoToTaskList(dueTask.TaskListId)">@T["Open"]</button>
+                                <button type="button" class="btn-secondary" @onclick="() => GoToDueTask(dueTask)">@T["Open"]</button>
                             </div>
                         }
                     </div>
@@ -190,13 +190,13 @@
         @switch (_viewState.ViewMode)
         {
             case CalendarViewMode.Day:
-                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToTaskList" />
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToDueTask" />
                 break;
             case CalendarViewMode.Year:
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
                 break;
             default:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToTaskList" />
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToDueTask" />
                 break;
         }
     </div>
@@ -319,7 +319,7 @@
             .Where(pair => pair.item.DueDateUtc is not null)
             .Select(pair => new DueTaskDto(
                 pair.taskList.Id, pair.item.Id, pair.taskList.Title, pair.item.Description,
-                pair.item.DueDateUtc!.Value, pair.item.IsCompleted))
+                pair.item.DueDateUtc!.Value, pair.item.IsCompleted, HasPlace(pair.item)))
             .OrderBy(dueTask => dueTask.DueDateUtc)
             .ToList();
     }
@@ -380,6 +380,28 @@
     /// Opens the checklist rather than the deep editor: clicking a deadline on a calendar is a move
     /// towards ticking it off, not towards rewriting the list it is on.
     /// </summary>
+    /// <summary>
+    /// What clicking a deadline opens. Somewhere to be opens as its own summary, with the time and a map
+    /// - the checklist is the right landing for something to tick off and the wrong one for something
+    /// you have to get to. Everything else opens as the list, at the shallow level.
+    /// </summary>
+    private void GoToDueTask(DueTaskDto dueTask)
+    {
+        if (dueTask.HasPlace)
+        {
+            Logger.LogInformation(
+                "User opened the summary of task item {TaskItemId} from the calendar", dueTask.TaskItemId);
+            NavigationManager.NavigateTo($"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}");
+            return;
+        }
+
+        GoToTaskList(dueTask.TaskListId);
+    }
+
+    /// <summary>Whether this entry is somewhere as well as at some time - see TaskItemKind.</summary>
+    private static bool HasPlace(TaskItemDto item)
+        => item.LinkedCalendarEventId is not null || item.Location.Length > 0;
+
     private void GoToTaskList(Guid taskListId)
     {
         var opened = WhicheverListGathersIt(taskListId);

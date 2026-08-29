@@ -62,7 +62,7 @@
                             @foreach (var dueTask in day.DueTasks.Take(MaxVisibleDueTasks))
                             {
                                 <button type="button" class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-task-chip-completed" : "")"
-                                        @onclick="() => TaskSelectedAsync(dueTask.TaskListId)" @onclick:stopPropagation="true">
+                                        @onclick@onclick="() => TaskSelectedAsync(dueTask)" @onclick:stopPropagation="true">
                                     <span class="calendar-event-chip-time">@dueTask.DueDateUtc.LocalDateTime.ToString("HH:mm")</span>
                                     <span class="calendar-event-chip-title">@dueTask.Label</span>
                                 </button>
@@ -116,7 +116,7 @@
     public EventCallback<Guid> OnEventSelected { get; set; }
 
     [Parameter]
-    public EventCallback<Guid> OnTaskSelected { get; set; }
+    public EventCallback<DueTaskDto> OnTaskSelected { get; set; }
 
     private static string DayCssClass(MonthGridDay day)
     {
@@ -144,5 +144,5 @@
 
     private Task EventSelectedAsync(Guid eventId) => OnEventSelected.InvokeAsync(eventId);
 
-    private Task TaskSelectedAsync(Guid taskListId) => OnTaskSelected.InvokeAsync(taskListId);
+    private Task TaskSelectedAsync(DueTaskDto dueTask) => OnTaskSelected.InvokeAsync(dueTask);
 }

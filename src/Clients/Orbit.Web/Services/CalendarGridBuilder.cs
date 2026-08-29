@@ -310,13 +310,19 @@ public sealed record DayGrid(
 /// MonthGridDay.DueTasks / DayGrid.DueTasks - so tasks with a deadline show up on the calendar the same
 /// way events do, without being calendar events themselves.
 /// </summary>
+/// <param name="HasPlace">
+/// Whether this deadline is somewhere as well as at some time. It changes what clicking it opens: a
+/// place to get to opens as its own summary, with a map; everything else opens as the list to tick it
+/// off on - see Calendar.razor.
+/// </param>
 /// <param name="TaskListTitle">
 /// The list the item is on. Carried because a calendar shows a day's worth of things from everywhere at
 /// once: "Milk" says nothing on its own, while "Shopping: Milk" says where it came from - see
 /// <see cref="Label"/>.
 /// </param>
 public sealed record DueTaskDto(
-    Guid TaskListId, Guid TaskItemId, string TaskListTitle, string Description, DateTimeOffset DueDateUtc, bool IsCompleted)
+    Guid TaskListId, Guid TaskItemId, string TaskListTitle, string Description, DateTimeOffset DueDateUtc,
+    bool IsCompleted, bool HasPlace = false)
 {
     /// <summary>How the entry reads on the calendar: the list it is on, then what it says.</summary>
     public string Label => TaskListTitle.Length == 0 ? Description : $"{TaskListTitle}: {Description}";

@@ -579,6 +579,22 @@ that was true still work.
 Rows that can't be ticked by hand render as disabled checkboxes: items whose completion follows a
 linked list (see above), and any list reached through a read-only share.
 
+There is a third depth, reached only from the calendar: **the summary of a single entry**
+(`/tasks/{taskListId}/items/{itemId}`, `TaskItemSummary.razor`). An entry that has both a due date and a
+place is an appointment rather than something to tick off, so clicking it on the calendar opens that one
+entry — its name, the list it is on, when it is, where it is, and a Leaflet map with a pin — instead of
+the whole checklist. Two buttons lead back out: **Back to Calendar** and **Show Tasks**, the latter to
+the shallow level of the list. A deadline with no place still opens the checklist, since there would be
+nothing on such a page the list does not already show. `Calendar.razor`'s `GoToDueTask` makes that
+choice, from the `HasPlace` flag `DueTaskDto` carries.
+
+The pin comes from whichever source holds the address. An entry tied to a calendar event takes the
+event's stored coordinates directly — the link exists so the address lives in one place. An entry with
+only its own typed address has no coordinates, so it is looked up once through
+`GeocodingApiClient.FindPlaceAsync` (Nominatim's forward search, the mirror of the reverse lookup the
+event editor's map picker uses). An address nobody can find leaves the words on the page and draws no
+map, rather than dropping a pin in the wrong country.
+
 ### Group lists
 
 Setting `isGroup` marks a list as one that gathers other lists. It changes nothing about completion —
