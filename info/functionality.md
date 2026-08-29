@@ -257,12 +257,29 @@ those two sections are already independent for access-level purposes.
 
 ## Group chats
 
-Groups are not a place of their own: both chat screens show **one conversation list**
+Groups are not a place of their own: the chat page shows **one conversation list**
 (`ConversationList`) holding people and groups together - people first, most recently spoken to first,
 then groups by name, since a group has no last-message time of its own to sort by. A row says which kind
 it is with a small mark, one search box filters both, and "New group" sits under the list rather than in
 a page header. Looking for "who have I been talking to" is one place, and moving between a group and a
 person does not change screens.
+
+Groups are not a screen of their own either. `Chat.razor` answers `/chat/groups` and
+`/chat/groups/{id}` alongside `/chat/{userId}`, so a group opens in the same shell a person does — same
+list down the side, same header, same thread — and `GroupConversation` (a component, not a page) draws
+only what is genuinely different about a group: who wrote each message, whether everyone has read it,
+and an admin's reach over somebody else's message. Switching between a person and a group is a
+parameter change on one page rather than a change of screen, and starting a new group happens where the
+conversation would be instead of on a separate form.
+
+The thread header carries **one menu in its corner** for the conversation itself. For a person it
+offers **Info**, which opens their card (`/contacts/{userId}`, `ContactInfo.razor` — the same page the
+contact list's "Info" button and the dashboard's contacts card open). For a group it offers **Members**
+(`/chat/groups/{id}/members`, `GroupMembers.razor` — the roster, with the add/remove/promote controls
+an admin gets and the "Leave group" button everybody gets) and **Info** (`/chat/groups/{id}/info`, name,
+size, when it started, and this reader's own role). The roster is a page rather than a panel folded into
+the thread: one row per person with two buttons each for an admin, above the messages, left the
+conversation itself below the fold on every visit.
 
 A chat with more than one other person, under the same end-to-end encryption one-to-one chats already
 have. There is no group key: the sender's browser encrypts the same text **once per other member**,

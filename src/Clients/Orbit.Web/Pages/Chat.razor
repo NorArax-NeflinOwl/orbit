@@ -1,4 +1,10 @@
 @page "/chat/{userId:guid}"
+@* A group is a conversation like any other, so it opens on the same page rather than on one of its
+   own - same list down the side, same thread, same header. It used to be a separate screen, which made
+   switching between a person and a group a change of page and left two places to look for "who have I
+   been talking to". See GroupConversation for the part that is genuinely different about a group. *@
+@page "/chat/groups"
+@page "/chat/groups/{GroupId:guid}"
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Globalization
@@ -60,7 +66,7 @@ else
            to restore the key, so it's asked for here instead of sending the user around the login page. *@
         <ChatPasswordGate OnUnlocked="OnEncryptionKeyUnlockedAsync" />
     }
-    else if (_otherUser is null)
+    else if (!IsGroupMode && _otherUser is null)
     {
         <p>@T["Loading…"]</p>
     }
@@ -68,22 +74,100 @@ else
     {
         <div class="chat-layout">
             <div class="chat-list-backdrop @(_isDrawerOpen ? "open" : "")" @onclick="CloseDrawer"></div>
-            <ConversationList Conversations="Conversations" ActiveId="UserId" IsOpen="_isDrawerOpen"
+            <ConversationList Conversations="Conversations" ActiveId="ActiveConversationId" IsOpen="_isDrawerOpen"
                               IsCollapsed="_isContactListCollapsed" OnToggleCollapsed="ToggleContactListCollapsedAsync"
                               Search="@_chatSearch" SearchChanged="value => _chatSearch = value"
-                              OnSelected="OpenConversation" OnNewGroup="GoToNewGroup" />
+                              OnSelected="OpenConversation" OnNewGroup="StartCreatingGroup" />
 
             <div class="chat-thread">
-                <div class="chat-thread-header">
-                    <button type="button" class="icon-btn chat-list-toggle" title="@(T["Conversations"])" @onclick="ToggleDrawer">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
-                    </button>
-                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(_otherUser.Id);width:34px;height:34px;font-size:12.5px;">@AvatarHelper.GetInitials(_otherUser.DisplayName)</span>
-                    <div>
-                        <div class="chat-thread-name">@_otherUser.DisplayName</div>
+                @if (ActiveConversationName is { } activeName)
+                {
+                    <div class="chat-thread-header">
+                        <button type="button" class="icon-btn chat-list-toggle" title="@(T["Conversations"])" @onclick="ToggleDrawer">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
+                        </button>
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(ActiveConversationId);width:34px;height:34px;font-size:12.5px;">@AvatarHelper.GetInitials(activeName)</span>
+                        <div>
+                            <div class="chat-thread-name">@activeName</div>
+                        </div>
+                        @* Everything about the conversation itself, behind one trigger in the corner -
+                           the same shape a message's own menu uses, so the two read as one idea. *@
+                        <div class="chat-thread-menu">
+                            <button type="button" class="icon-btn chat-thread-menu-trigger" title="@(T["Conversation options"])"
+                                    @onclick="ToggleConversationMenu" @onclick:stopPropagation="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="4" r="1.7" /><circle cx="10" cy="10" r="1.7" /><circle cx="10" cy="16" r="1.7" /></svg>
+                            </button>
+                            @if (_isConversationMenuOpen)
+                            {
+                                <div class="chat-bubble-menu-dropdown chat-thread-menu-dropdown" @onclick:stopPropagation="true">
+                                    @if (IsGroupMode)
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="GoToGroupMembers">@T["Members"]</button>
+                                        <button type="button" class="avatar-dropdown-item" @onclick="GoToGroupInfo">@T["Info"]</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="GoToContactInfo">@T["Info"]</button>
+                                    }
+                                </div>
+                            }
+                        </div>
                     </div>
-                </div>
+                }
 
+                @if (IsGroupMode)
+                {
+                    @if (_isCreatingGroup)
+                    {
+                        <div class="card group-create-card">
+                            <div class="field">
+                                <label for="groupNameInput">@T["Group name"]</label>
+                                <input id="groupNameInput" @bind="_newGroupName" @bind:event="oninput" placeholder="@(T["Weekend trip"])" />
+                            </div>
+                            <div class="field">
+                                <label>@T["Who's in it"]</label>
+                                @if (_contacts.Count == 0)
+                                {
+                                    <p class="empty-hint">@T["You need at least one contact to start a group."]</p>
+                                }
+                                else
+                                {
+                                    @foreach (var contact in _establishedChats)
+                                    {
+                                        <label class="check-row">
+                                            <input type="checkbox" checked="@_newGroupMemberIds.Contains(contact.UserId)"
+                                                   @onchange="args => ToggleNewGroupMember(contact.UserId, (bool)args.Value!)" />
+                                            <span class="check-row-text">@contact.DisplayName</span>
+                                        </label>
+                                    }
+                                }
+                            </div>
+                            @if (_groupErrorMessage is not null)
+                            {
+                                <p class="error">@_groupErrorMessage</p>
+                            }
+                            <div class="form-actions">
+                                <button type="button" class="btn-primary" disabled="@(_isCreatingGroupBusy || _newGroupName.Trim().Length == 0)"
+                                        @onclick="CreateGroupAsync">@T["Create"]</button>
+                                <button type="button" class="btn-secondary" @onclick="CancelCreatingGroup">@T["Cancel"]</button>
+                            </div>
+                        </div>
+                    }
+                    else if (_selectedGroup is { } selectedGroup)
+                    {
+                        <GroupConversation Group="selectedGroup" OwnUserId="_ownUserId" Contacts="_contacts" />
+                    }
+                    else
+                    {
+                        <p class="empty-hint">@T["Pick a conversation from the list, or start a new group."]</p>
+                    }
+                }
+                else if (_otherUser is null)
+                {
+                    <p>@T["Loading…"]</p>
+                }
+                else
+                {
                 @if (_otherUser.PublicKeyBase64 is null)
                 {
                     <p>
@@ -267,6 +351,7 @@ else
                         <button type="button" class="btn-primary" @onclick="SendMessageAsync" disabled="@(_isSending || RequiresApprovalFromMe)">@T["Send"]</button>
                     </div>
                 }
+                }
             </div>
         </div>
     }
@@ -279,6 +364,37 @@ else
 
     [Parameter]
     public Guid UserId { get; set; }
+
+    /// <summary>The group on screen, when this page was reached by one of the /chat/groups routes.</summary>
+    [Parameter]
+    public Guid? GroupId { get; set; }
+
+    /// <summary>
+    /// Whether the page is showing groups rather than a person. True for /chat/groups even with no group
+    /// named: that is the conversation list with nothing opened yet, not a conversation with nobody.
+    /// </summary>
+    private bool IsGroupMode => NavigationManager.ToBaseRelativePath(NavigationManager.Uri)
+        .StartsWith("chat/groups", StringComparison.OrdinalIgnoreCase);
+
+    private ChatGroupDto? _selectedGroup => GroupId is { } groupId
+        ? _groups.FirstOrDefault(group => group.Id == groupId)
+        : null;
+
+    /// <summary>Which row in the conversation list is the open one - a group's id or a person's.</summary>
+    private Guid ActiveConversationId => IsGroupMode ? GroupId ?? Guid.Empty : UserId;
+
+    /// <summary>What the thread is headed with, or null when nothing is open yet.</summary>
+    private string? ActiveConversationName
+        => IsGroupMode ? _selectedGroup?.Name : _otherUser?.DisplayName;
+
+    /// <summary>Whether the conversation's own menu (Info, and a group's Members) is showing.</summary>
+    private bool _isConversationMenuOpen;
+
+    private bool _isCreatingGroup;
+    private bool _isCreatingGroupBusy;
+    private string _newGroupName = string.Empty;
+    private readonly HashSet<Guid> _newGroupMemberIds = [];
+    private string? _groupErrorMessage;
 
     private Guid _ownUserId;
     private Guid _loadedUserId;
@@ -493,23 +609,60 @@ else
             return;
         }
 
-        await LoadConversationForCurrentUserAsync();
+        // "New group" is offered from the conversation list, and asks for it by coming here.
+        if (IsGroupMode && GroupId is null && NavigationManager.Uri.Contains("new=1", StringComparison.Ordinal))
+        {
+            StartCreatingGroup();
+        }
+
+        if (!IsGroupMode)
+        {
+            await LoadConversationForCurrentUserAsync();
+        }
     }
 
     /// <summary>
-    /// The drawer (see the markup above) lets the user switch contacts without leaving this page, which
-    /// Blazor's router treats as a parameter change on the same component instance rather than a fresh
-    /// page load - so unlike a normal navigation-in from Dashboard/Contacts, OnInitializedAsync does NOT
-    /// run again. This re-runs the same per-contact setup whenever UserId actually changes.
+    /// The drawer (see the markup above) lets the user switch conversations without leaving this page,
+    /// which Blazor's router treats as a parameter change on the same component instance rather than a
+    /// fresh page load - so unlike a normal navigation-in from Dashboard/Contacts, OnInitializedAsync
+    /// does NOT run again. This re-runs the same per-conversation setup whenever the open one changes.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
-        if (_encryptionUnavailable || _encryptionKeyLocked || UserId == _loadedUserId)
+        if (_encryptionUnavailable || _encryptionKeyLocked)
+        {
+            return;
+        }
+
+        _isConversationMenuOpen = false;
+
+        // A group's messages are GroupConversation's to load; what this page holds for a person has to
+        // go, or the poll loop keeps running against a conversation that is no longer on screen.
+        if (IsGroupMode)
+        {
+            await CloseOneToOneConversationAsync();
+            return;
+        }
+
+        _isCreatingGroup = false;
+        if (UserId == _loadedUserId)
         {
             return;
         }
 
         await LoadConversationForCurrentUserAsync();
+    }
+
+    /// <summary>Leaves the one-to-one conversation this page was showing, so a group can take the thread.</summary>
+    private async Task CloseOneToOneConversationAsync()
+    {
+        StopPolling();
+        _loadedUserId = Guid.Empty;
+        _otherUser = null;
+        _isDrawerOpen = false;
+        _messages.Clear();
+        _decryptedContentByMessageId.Clear();
+        await DetachScrollObserverAsync();
     }
 
     private async Task LoadConversationForCurrentUserAsync()
@@ -1371,6 +1524,8 @@ else
     {
         if (conversation.IsGroup)
         {
+            _isDrawerOpen = false;
+            _isCreatingGroup = false;
             NavigationManager.NavigateTo($"/chat/groups/{conversation.Id}");
             return;
         }
@@ -1378,7 +1533,84 @@ else
         SwitchContact(conversation.Id);
     }
 
-    private void GoToNewGroup() => NavigationManager.NavigateTo("/chat/groups?new=1");
+    private void ToggleConversationMenu() => _isConversationMenuOpen = !_isConversationMenuOpen;
+
+    /// <summary>Who the other person is - the same card the contact list and the dashboard open.</summary>
+    private void GoToContactInfo()
+    {
+        _isConversationMenuOpen = false;
+        NavigationManager.NavigateTo($"/contacts/{UserId}");
+    }
+
+    private void GoToGroupMembers()
+    {
+        _isConversationMenuOpen = false;
+        NavigationManager.NavigateTo($"/chat/groups/{GroupId}/members");
+    }
+
+    private void GoToGroupInfo()
+    {
+        _isConversationMenuOpen = false;
+        NavigationManager.NavigateTo($"/chat/groups/{GroupId}/info");
+    }
+
+    /// <summary>
+    /// Opens the "new group" form in the thread. Starting one is a conversation-shaped act, so it
+    /// happens where the conversation would be rather than on a page of its own.
+    /// </summary>
+    private void StartCreatingGroup()
+    {
+        _isDrawerOpen = false;
+        _newGroupName = string.Empty;
+        _newGroupMemberIds.Clear();
+        _groupErrorMessage = null;
+        _isCreatingGroup = true;
+
+        if (!IsGroupMode)
+        {
+            NavigationManager.NavigateTo("/chat/groups?new=1");
+        }
+    }
+
+    private void CancelCreatingGroup()
+    {
+        _isCreatingGroup = false;
+        _groupErrorMessage = null;
+    }
+
+    private void ToggleNewGroupMember(Guid contactUserId, bool isSelected)
+    {
+        if (isSelected)
+        {
+            _newGroupMemberIds.Add(contactUserId);
+        }
+        else
+        {
+            _newGroupMemberIds.Remove(contactUserId);
+        }
+    }
+
+    private async Task CreateGroupAsync()
+    {
+        _isCreatingGroupBusy = true;
+        _groupErrorMessage = null;
+        try
+        {
+            var groupId = await ChatApiClient.CreateGroupAsync(_newGroupName.Trim(), [.. _newGroupMemberIds]);
+            _groups = await ChatApiClient.GetGroupsAsync();
+            _isCreatingGroup = false;
+            NavigationManager.NavigateTo($"/chat/groups/{groupId}");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to create a chat group");
+            _groupErrorMessage = T["That didn't work. Reload the group and try again."];
+        }
+        finally
+        {
+            _isCreatingGroupBusy = false;
+        }
+    }
 
     private void GoToContacts() => NavigationManager.NavigateTo("/contacts");
 

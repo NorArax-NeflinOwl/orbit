@@ -194,9 +194,11 @@ else
         {
             <div class="card @(DashboardPins.IsPinned("contacts") ? "card-pinned" : "")">
                 <div class="card-header"><span class="card-title">@T["Contacts"]</span><span class="card-header-end"><span class="card-count">@_contactsAlphabetically.Count()</span><PinButton IsPinned='DashboardPins.IsPinned("contacts")' OnPinnedChanged='pinned => SetCardPinnedAsync("contacts", pinned)' /></span></div>
+                @* To the person's card, not into a conversation with them - that is what the "Recent
+                   chats" card above is for, and two cards that do the same thing are one card. *@
                 @foreach (var contact in _contactsAlphabetically)
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToContactInfo(contact.UserId)">
                         <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                     </button>
@@ -610,6 +612,12 @@ else
     {
         Logger.LogInformation("User clicked a group on the dashboard ({GroupId})", groupId);
         NavigationManager.NavigateTo($"/chat/groups/{groupId}");
+    }
+
+    private void GoToContactInfo(Guid contactUserId)
+    {
+        Logger.LogInformation("User opened a contact's card from the dashboard ({ContactUserId})", contactUserId);
+        NavigationManager.NavigateTo($"/contacts/{contactUserId}");
     }
 
     private void GoToChat(Guid contactUserId)

@@ -3854,3 +3854,67 @@ input.note-editor-title {
     border-radius: 14px;
     overflow: hidden;
 }
+
+/* The conversation's own menu, in the corner of the thread header: who the other person is, and for a
+   group, who is in it. Pushed to the far end so it does not crowd the name beside it. */
+.chat-thread-menu {
+    position: relative;
+    margin-left: auto;
+}
+
+/* Always visible, unlike a message's trigger: the header carries no hover target of its own to reveal it. */
+.chat-thread-menu .chat-thread-menu-trigger {
+    opacity: 1;
+}
+
+/* Who wrote a message, on everyone else's messages in a group thread - see GroupConversation. */
+.chat-bubble-sender {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 2px;
+}
+
+.contact-info-identity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+}
+
+.contact-info-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 17px;
+}
+
+.contact-info-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+}
+
+.contact-info-login {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* A contact row that carries a second action beside it - see Contacts.razor. The row itself keeps the
+   whole width it had; only the button is laid alongside. */
+.contact-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.contact-row .chat-list-item {
+    flex: 1;
+    min-width: 0;
+}
+
+.contact-row-info {
+    flex: 0 0 auto;
+}

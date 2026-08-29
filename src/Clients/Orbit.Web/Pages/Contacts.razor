@@ -57,6 +57,7 @@ else
                     <span class="chat-list-name">@_searchResult.DisplayName</span>
                     <span class="chat-list-preview">@_searchResult.UserName</span>
                 </span>
+                <button type="button" class="btn-secondary" @onclick="() => OpenContactInfo(_searchResult.Id)">@T["Info"]</button>
                 <button type="button" class="btn-secondary" @onclick="() => OpenChat(_searchResult.Id)">@T["Open chat"]</button>
             </div>
         </div>
@@ -110,15 +111,20 @@ else
     else
     {
         <div class="card">
+            @* Two things to do with a name here, so two controls rather than one row that has to guess:
+               the row opens the conversation, and "Info" opens the person's card. *@
             @foreach (var contact in _establishedChats)
             {
-                <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
-                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
-                    <span class="chat-list-meta">
-                        <span class="chat-list-name">@contact.DisplayName</span>
-                        <span class="chat-list-preview">@contact.UserName</span>
-                    </span>
-                </button>
+                <div class="contact-row">
+                    <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
+                        <span class="chat-list-meta">
+                            <span class="chat-list-name">@contact.DisplayName</span>
+                            <span class="chat-list-preview">@contact.UserName</span>
+                        </span>
+                    </button>
+                    <button type="button" class="btn-secondary contact-row-info" @onclick="() => OpenContactInfo(contact.UserId)">@T["Info"]</button>
+                </div>
             }
         </div>
     }
@@ -229,6 +235,12 @@ else
     {
         Logger.LogInformation("User opening chat with {ContactUserId}", userId);
         NavigationManager.NavigateTo($"/chat/{userId}");
+    }
+
+    private void OpenContactInfo(Guid userId)
+    {
+        Logger.LogInformation("User opening the contact card of {ContactUserId}", userId);
+        NavigationManager.NavigateTo($"/contacts/{userId}");
     }
 
     private void OpenGroup(Guid groupId)
