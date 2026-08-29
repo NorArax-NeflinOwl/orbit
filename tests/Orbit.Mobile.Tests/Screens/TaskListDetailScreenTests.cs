@@ -200,7 +200,7 @@ public sealed class TaskListDetailScreenTests
         screen.NewItemDescription = "Call the plumber";
         await screen.AddItemCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
-        screen.LoadCommand.Execute(null);
+        await screen.LoadCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items.Single());
         var later = screen.MoveTargets.Single(target => target.Name == "Later");
@@ -221,7 +221,7 @@ public sealed class TaskListDetailScreenTests
         context.OpenTaskList("Later");
         var screen = context.OpenTaskList("Today");
         await context.SynchroniseAsync();
-        screen.LoadCommand.Execute(null);
+        await screen.LoadCommand.ExecuteAsync(null);
 
         Assert.DoesNotContain(screen.MoveTargets, target => target.Name == "Today");
         Assert.Contains(screen.MoveTargets, target => target.Name == "Later");
@@ -238,7 +238,7 @@ public sealed class TaskListDetailScreenTests
         context.OpenTaskList("Later");
         var screen = context.OpenTaskList("Today");
         await context.SynchroniseAsync();
-        screen.LoadCommand.Execute(null);
+        await screen.LoadCommand.ExecuteAsync(null);
 
         screen.NewItemDescription = "Call the plumber";
         context.Server.IsUnreachable = true;
