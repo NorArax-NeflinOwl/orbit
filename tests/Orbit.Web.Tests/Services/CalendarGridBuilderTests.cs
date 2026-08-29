@@ -218,6 +218,86 @@ public sealed class CalendarGridBuilderTests
         Assert.Equal(0, thirdPlaced.ColumnIndex);
     }
 
+
+    [Fact]
+    public void An_entry_tied_to_an_event_is_left_off_the_day_that_event_is_already_on()
+    {
+        // It is the same appointment. Drawn on the day its event is drawn, it is that appointment
+        // written out a second time, one line under the other.
+        var appointment = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 0, 0), new DateTime(2026, 8, 21, 10, 0, 0));
+        var tiedToIt = CreateDueTask(new DateTime(2026, 8, 21, 9, 0, 0)) with { LinkedCalendarEventId = appointment.Id };
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [appointment], [tiedToIt]);
+
+        Assert.Single(grid.TimedEvents);
+        Assert.Empty(grid.DueTasks);
+    }
+
+    [Fact]
+    public void The_same_entry_still_shows_on_a_day_its_event_is_not_on()
+    {
+        // Nothing stands for it there, so leaving it out would lose it rather than tidy it away.
+        var appointment = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 0, 0), new DateTime(2026, 8, 21, 10, 0, 0));
+        var dueLater = CreateDueTask(new DateTime(2026, 8, 25, 9, 0, 0)) with { LinkedCalendarEventId = appointment.Id };
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 25), [appointment], [dueLater]);
+
+        Assert.Single(grid.DueTasks);
+    }
+
+    [Fact]
+    public void An_entry_tied_to_nothing_is_never_left_off()
+    {
+        // An ordinary deadline that happens to fall on the same day as an event is not a duplicate.
+        var appointment = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 0, 0), new DateTime(2026, 8, 21, 10, 0, 0));
+        var ordinary = CreateDueTask(new DateTime(2026, 8, 21, 9, 0, 0));
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [appointment], [ordinary]);
+
+        Assert.Single(grid.DueTasks);
+    }
+
+    [Fact]
+    public void An_entry_tied_to_an_event_nobody_can_see_stays_where_it_is()
+    {
+        // The event was deleted, or belongs to somebody else. Nothing on the day stands for this, so
+        // hiding it would hide the appointment altogether.
+        var goneForever = CreateDueTask(new DateTime(2026, 8, 21, 9, 0, 0)) with { LinkedCalendarEventId = Guid.NewGuid() };
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 21), [], [goneForever]);
+
+        Assert.Single(grid.DueTasks);
+    }
+
+    [Fact]
+    public void The_month_view_leaves_it_off_the_same_day_the_day_view_does()
+    {
+        var appointment = CreateTimedEvent(new DateTime(2026, 8, 21, 9, 0, 0), new DateTime(2026, 8, 21, 10, 0, 0));
+        var tiedToIt = CreateDueTask(new DateTime(2026, 8, 21, 9, 0, 0)) with { LinkedCalendarEventId = appointment.Id };
+        var alsoThatDay = CreateDueTask(new DateTime(2026, 8, 21, 18, 0, 0), description: "Buy milk");
+
+        var weeks = CalendarGridBuilder.BuildMonthGrid(new DateOnly(2026, 8, 1), [appointment], [tiedToIt, alsoThatDay]);
+
+        var day = weeks.SelectMany(week => week.Days).Single(day => day.Date == new DateOnly(2026, 8, 21));
+        Assert.Same(alsoThatDay, Assert.Single(day.DueTasks));
+    }
+
+    [Fact]
+    public void A_repeat_takes_its_entry_off_every_day_it_lands_on()
+    {
+        // The event is stored once and drawn on each of its dates, so "already there" has to be asked
+        // of the occurrence rather than of the date the event happens to be stored under.
+        var weekly = CreateTimedEvent(new DateTime(2026, 8, 3, 9, 0, 0), new DateTime(2026, 8, 3, 10, 0, 0)) with
+        {
+            Details = CreateTimedEvent(new DateTime(2026, 8, 3, 9, 0, 0), new DateTime(2026, 8, 3, 10, 0, 0)).Details
+                with { Recurrence = new RecurrenceDto("Weekly", 1, null) }
+        };
+        var tiedToIt = CreateDueTask(new DateTime(2026, 8, 17, 9, 0, 0)) with { LinkedCalendarEventId = weekly.Id };
+
+        var grid = CalendarGridBuilder.BuildDayGrid(new DateOnly(2026, 8, 17), [weekly], [tiedToIt]);
+
+        Assert.Empty(grid.DueTasks);
+    }
     private static CalendarEventDto CreateTimedEvent(DateTime localStart, DateTime localEnd, string title = "Event")
         => new(
             Guid.NewGuid(),

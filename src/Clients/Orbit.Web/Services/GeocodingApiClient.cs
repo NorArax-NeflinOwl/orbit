@@ -48,37 +48,58 @@ public sealed class GeocodingApiClient
     /// </summary>
     public async Task<GeocodedPlace?> FindPlaceAsync(string address, CancellationToken cancellationToken = default)
     {
+        var matches = await SearchPlacesAsync(address, limit: 1, cancellationToken);
+        return matches is [{ } best, ..] ? new GeocodedPlace(best.Latitude, best.Longitude) : null;
+    }
+
+    /// <summary>
+    /// The places an address could mean, so somebody looking one up can say which they meant. Several
+    /// rather than one because street names repeat: "Długa 4" is a real address in a dozen towns, and
+    /// quietly taking the first would drop a pin in whichever of them Nominatim happened to rank first.
+    /// Empty when nothing matches or the lookup fails - both read as "nothing found for that", which is
+    /// the truth either way and leaves whatever was already typed alone.
+    /// </summary>
+    public async Task<IReadOnlyList<FoundPlace>> SearchPlacesAsync(
+        string address, int limit = 5, CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(address))
         {
-            return null;
+            return [];
         }
 
         try
         {
-            var requestUri = $"search?format=jsonv2&limit=1&q={Uri.EscapeDataString(address.Trim())}";
+            var requestUri = $"search?format=jsonv2&limit={limit}&q={Uri.EscapeDataString(address.Trim())}";
             var matches = await _httpClient.GetFromJsonAsync<List<NominatimSearchResult>>(requestUri, cancellationToken);
-            if (matches is not [{ } best, ..]
-                || !double.TryParse(best.Latitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var latitude)
-                || !double.TryParse(best.Longitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude))
-            {
-                return null;
-            }
-
-            return new GeocodedPlace(latitude, longitude);
+            return [.. (matches ?? []).Select(ToFoundPlace).OfType<FoundPlace>()];
         }
         catch (HttpRequestException)
         {
-            return null;
+            return [];
         }
     }
+
+    /// <summary>A match whose coordinates will not parse is no match at all - see NominatimSearchResult.</summary>
+    private static FoundPlace? ToFoundPlace(NominatimSearchResult match)
+        => double.TryParse(match.Latitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var latitude)
+            && double.TryParse(match.Longitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude)
+                ? new FoundPlace(match.DisplayName ?? string.Empty, latitude, longitude)
+                : null;
 
     private sealed record NominatimReverseGeocodeResponse([property: JsonPropertyName("display_name")] string? DisplayName);
 
     /// <summary>Nominatim returns the coordinates as strings, which is why they are parsed rather than bound.</summary>
     private sealed record NominatimSearchResult(
         [property: JsonPropertyName("lat")] string? Latitude,
-        [property: JsonPropertyName("lon")] string? Longitude);
+        [property: JsonPropertyName("lon")] string? Longitude,
+        [property: JsonPropertyName("display_name")] string? DisplayName);
 }
 
 /// <summary>Where an address turned out to be - see <see cref="GeocodingApiClient.FindPlaceAsync"/>.</summary>
 public sealed record GeocodedPlace(double Latitude, double Longitude);
+
+/// <summary>
+/// One answer to a search for an address - see <see cref="GeocodingApiClient.SearchPlacesAsync"/>.
+/// <paramref name="Name"/> is Nominatim's full written form of it, which is what a reader picks by.
+/// </summary>
+public sealed record FoundPlace(string Name, double Latitude, double Longitude);
