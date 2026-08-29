@@ -254,7 +254,7 @@ public sealed partial class GroupDetailViewModel : ObservableObject
         Members.Clear();
         foreach (var member in group.Members.OrderByDescending(member => member.Role == "Admin").ThenBy(member => member.DisplayName))
         {
-            Members.Add(GroupMemberRow.From(member, ownUserId, IsAdmin));
+            Members.Add(GroupMemberRow.From(member, ownUserId, IsAdmin, _translations));
         }
     }
 

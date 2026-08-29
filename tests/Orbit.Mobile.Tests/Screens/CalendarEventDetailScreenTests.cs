@@ -353,6 +353,42 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Null(screen.LocationInGoogleMapsUrl);
     }
 
+    /// <summary>
+    /// How much an event matters is what sorts it against the others and what the dashboard's filter
+    /// reads. Orbit.Web's editor has always set it; the phone could neither set one nor keep the one a
+    /// browser had set - the push left it out, so the contract's "Normal" answered for the reader and
+    /// the next pull wrote that back. The same mistake notes had.
+    /// </summary>
+    [Fact]
+    public async Task How_much_an_event_matters_survives_an_edit_from_here()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0), priority: "High");
+        var screen = await context.OpenAsync(stored.LocalId);
+        Assert.Equal("High", screen.ChosenPriority.Value);
+
+        screen.Title = "Standup, moved";
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("High", Assert.Single(context.Server.Events).Details.Priority);
+        Assert.Equal("High", (await context.OpenAsync(stored.LocalId)).ChosenPriority.Value);
+    }
+
+    [Fact]
+    public async Task An_event_can_be_marked_as_mattering_more_from_here()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.ChosenPriority = screen.Priorities.Single(choice => choice.Value == "Low");
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("Low", Assert.Single(context.Server.Events).Details.Priority);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -362,6 +398,9 @@ public sealed class CalendarEventDetailScreenTests
         public FakeUsersServer Users => _users;
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-15T10:00:00Z"));
         private readonly FakeCalendarServer _server;
+
+        /// <summary>What the server ends up holding, which is where a dropped field shows up.</summary>
+        public FakeCalendarServer Server => _server;
         private readonly LocalCalendarEventRepository _events;
         private readonly CalendarEventSynchronizer _synchronizer;
 
@@ -382,7 +421,8 @@ public sealed class CalendarEventDetailScreenTests
 
         public Task<LocalCalendarEvent> AddEventAsync(
             DateTime localStart, DateTime localEnd, bool isAllDay = false, RecurrenceDto? recurrence = null,
-            IReadOnlyList<int>? reminderMinutes = null, IReadOnlyList<Guid>? guests = null)
+            IReadOnlyList<int>? reminderMinutes = null, IReadOnlyList<Guid>? guests = null,
+            string priority = "Normal")
         {
             var start = new DateTimeOffset(localStart, TimeZoneInfo.Local.GetUtcOffset(localStart)).ToUniversalTime();
             var end = new DateTimeOffset(localEnd, TimeZoneInfo.Local.GetUtcOffset(localEnd)).ToUniversalTime();
@@ -390,7 +430,7 @@ public sealed class CalendarEventDetailScreenTests
             return _events.CreateAsync(
                 new CalendarEventDetailsDto(
                     "Standup", null, null, null, start, end, isAllDay, recurrence, guests ?? [],
-                    reminderMinutes ?? [], "None", "None"));
+                    reminderMinutes ?? [], "None", "None", priority));
         }
 
         /// <summary>One contact this phone knows, which is what makes somebody invitable.</summary>

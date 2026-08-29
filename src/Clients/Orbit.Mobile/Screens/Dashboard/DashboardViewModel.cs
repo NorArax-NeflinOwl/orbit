@@ -537,7 +537,12 @@ public sealed partial class DashboardViewModel : ObservableObject
             {
                 // The dot Orbit.Web draws here too, in the event's own colour.
                 HasColourDot = true,
-                Colour = calendarEvent.Details.Color
+                Colour = calendarEvent.Details.Color,
+                // And the badge it draws on this card's rows, on the same terms as the other two cards.
+                Priority = Tasks.PriorityChoice.For(calendarEvent.Details.Priority, _translations)
+                    is { IsWorthSaying: true } priority
+                    ? priority.Name
+                    : string.Empty
             })
             .ToList();
 

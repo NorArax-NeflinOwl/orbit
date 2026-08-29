@@ -116,7 +116,10 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
             details.Color, details.StartUtc, details.EndUtc, details.IsAllDay,
             details.Recurrence is { } recurrence ? new RecurrenceDto(recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc) : null,
             details.Guests, details.ReminderMinutesBeforeStart,
-            details.CreationNotificationChannel, details.ReminderNotificationChannel);
+            details.CreationNotificationChannel, details.ReminderNotificationChannel,
+            // Dropping this made a client that sent no priority look exactly like one that did - the
+            // fourth fake in this suite to hide a real bug that way. See FakeNotesServer.
+            details.Priority);
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 

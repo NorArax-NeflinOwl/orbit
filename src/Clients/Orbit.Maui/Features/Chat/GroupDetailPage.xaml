@@ -34,7 +34,7 @@
                                     TextColor="{DynamicResource Accent}" IsVisible="{Binding CanBeDemoted}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DemoteCommand, x:DataType=chat:GroupDetailPage}"
                                     CommandParameter="{Binding .}" />
-                            <Button Text="{controls:Translate 'Remove'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
+                            <Button Text="{Binding RemovalLabel}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
                                     TextColor="{DynamicResource Accent}" IsVisible="{Binding CanBeRemoved}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveCommand, x:DataType=chat:GroupDetailPage}"
                                     CommandParameter="{Binding .}" />
