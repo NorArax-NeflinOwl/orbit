@@ -137,7 +137,10 @@ public sealed partial class TasksViewModel : ObservableObject
         TaskLists.Clear();
         foreach (var taskList in TaskListView.Arrange(_stored, StatusFilter, SortOrder))
         {
-            TaskLists.Add(TaskListRow.From(taskList, _pending.Contains(taskList.LocalId), _networkStatus, _translations));
+            // Every list, not just the visible ones: a group's row looks up what its links stand for,
+            // and a member filtered off the screen is still where that work sits.
+            TaskLists.Add(TaskListRow.From(
+                taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations));
         }
 
         OnPropertyChanged(nameof(SortDescription));

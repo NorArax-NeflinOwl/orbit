@@ -87,14 +87,33 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                 <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
                                        VerticalOptions="Center" />
-                                <controls:PinButton Grid.Column="1" IsPinned="{Binding IsPinned}"
+                                <!-- Where the list stands, in the same words as the chips above it. -->
+                                <Border Grid.Column="1" Style="{StaticResource FilterChip}" Padding="8,3"
+                                        VerticalOptions="Center">
+                                    <Label Text="{Binding State}" Style="{StaticResource FilterChipLabel}" />
+                                </Border>
+                                <controls:PinButton Grid.Column="2" IsPinned="{Binding IsPinned}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=tasks:TasksPage}"
                                                     CommandParameter="{Binding .}" />
                             </Grid>
                             <Label Text="{Binding Progress}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+
+                            <!-- One line, and the one worth having: what is still to be done on this
+                                 list. A row that only points at another list is not work itself, so what
+                                 it stands for is looked up there and that list is named beside it. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasNextThing}"
+                                  Margin="0,4,0,0">
+                                <Label Grid.Column="0" Text="{Binding NextThing}" FontSize="13"
+                                       LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1" Text="{Binding NextThingOnList}" FontSize="11"
+                                       IsVisible="{Binding IsNextThingOnAnotherList}" VerticalOptions="Center"
+                                       Style="{StaticResource SubtleLabel}" />
+                            </Grid>
+                            <Label Text="{controls:Translate 'Nothing left to do.'}" FontSize="13" Margin="0,4,0,0"
+                                   IsVisible="{Binding HasNothingLeftToDo}" Style="{StaticResource SubtleLabel}" />
                             <!-- Why a list is waiting, or why it cannot be edited right now. -->
                             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
