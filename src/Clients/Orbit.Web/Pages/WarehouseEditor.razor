@@ -62,13 +62,55 @@ else
             }
 
             <h2 class="options-heading">@T["Items"]</h2>
+
+            @* Narrows what is on screen, never what is saved: the whole list still goes back on Save,
+               hidden rows included - see WarehouseFormModel.ToRequest, which reads Items and not this. *@
+            @if (_formModel.Items.Count > 0 && (ProductTypesOnTheShelf.Count > 0 || CategoriesOnTheShelf.Count > 0))
+            {
+                <div class="inventory-filters">
+                    <label>
+                        @T["Product type"]
+                        <select @bind="_filter.ProductType" aria-label="@(T["Product type"])">
+                            <option value="">@T["Any type"]</option>
+                            @foreach (var productType in ProductTypesOnTheShelf)
+                            {
+                                <option value="@productType">@productType</option>
+                            }
+                        </select>
+                    </label>
+                    <label>
+                        @T["Category"]
+                        <select @bind="_filter.Category" aria-label="@(T["Category"])">
+                            <option value="">@T["Any category"]</option>
+                            @foreach (var category in CategoriesOnTheShelf)
+                            {
+                                <option value="@category">@category</option>
+                            }
+                        </select>
+                    </label>
+                    @if (_filter.IsActive)
+                    {
+                        <button type="button" class="btn-secondary" @onclick="ClearFilters">@T["Show everything"]</button>
+                    }
+                </div>
+            }
+
             @if (_formModel.Items.Count == 0)
             {
                 <p>@T["No items yet."]</p>
             }
+            else if (VisibleItems.Count == 0)
+            {
+                <p class="empty-hint">@T["Nothing here matches that. The rest of the warehouse is still there - clear the filter to see it."]</p>
+            }
             else
             {
-                @foreach (var item in _formModel.Items)
+                @if (_filter.IsActive)
+                {
+                    @* Said out loud so nobody saves a warehouse thinking the rows they cannot see are gone. *@
+                    <p class="empty-hint">@T.Format("Showing {0} of {1} items. Saving keeps all of them.", VisibleItems.Count, _formModel.Items.Count)</p>
+                }
+                @foreach (var item in VisibleItems)
                 {
                     <div class="editor-item @(_itemOrder.IsDragging(item) ? "dragging" : "")" @key="item"
                          @ondragover:preventDefault="true" @ondrop="() => DropItemOn(item)">
@@ -110,6 +152,18 @@ else
                                 <label title="@(T["Restock once the amount drops below this"])">
                                     @T["Min"]
                                     <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
+                                </label>
+                                @* Beside the numbers it qualifies rather than behind the toggle with the
+                                   rest: "2" and "2 kg" are different amounts, and the second one is the
+                                   one somebody stocking a shelf can act on. *@
+                                <label title="@(T["What this is counted in"])">
+                                    @T["Unit"]
+                                    <select class="editor-item-unit" @bind="item.Unit" aria-label="@(T["Unit"])">
+                                        @foreach (var option in InventoryUnitOption.All)
+                                        {
+                                            <option value="@option.Value" title="@T[option.Name]">@T[option.ShortName]</option>
+                                        }
+                                    </select>
                                 </label>
                                 <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
                                         title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
@@ -180,6 +234,9 @@ else
 
     /// <summary>The row being dragged to a new place on the shelf, while one is - see DragReordering.</summary>
     private readonly DragReordering<WarehouseItemFormModel> _itemOrder = new();
+
+    /// <summary>What the reader has narrowed the shelf down to. Never touches what is saved - see ItemFilter.</summary>
+    private readonly ItemFilter _filter = new();
     private string? _saveErrorMessage;
 
     private bool _isShared;
@@ -248,8 +305,58 @@ else
     }
 
     /// <summary>A new row opens straight to its fields - there is nothing to recognise it by yet.</summary>
+    /// <summary>
+    /// The rows on screen. Only ever a view: <see cref="WarehouseFormModel.Items"/> stays the list that
+    /// is saved, so narrowing the shelf cannot delete what it hides.
+    /// </summary>
+    private IReadOnlyList<WarehouseItemFormModel> VisibleItems
+        => [.. _formModel.Items.Where(_filter.Matches)];
+
+    /// <summary>The types actually on this shelf - a filter offering one nothing is filed under is a dead end.</summary>
+    private IReadOnlyList<string> ProductTypesOnTheShelf => DistinctValues(item => item.ProductType);
+
+    private IReadOnlyList<string> CategoriesOnTheShelf => DistinctValues(item => item.Category);
+
+    private IReadOnlyList<string> DistinctValues(Func<WarehouseItemFormModel, string> of)
+        => [.. _formModel.Items
+            .Select(item => of(item).Trim())
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase)];
+
+    private void ClearFilters() => _filter.Clear();
+
+    /// <summary>
+    /// Which rows the reader wants to see. The two together because they are chosen together, cleared
+    /// together, and mean nothing apart - see the "grouping variables into objects" rule.
+    /// </summary>
+    private sealed class ItemFilter
+    {
+        /// <summary>Empty means "any", which is what an untouched filter says.</summary>
+        public string ProductType { get; set; } = string.Empty;
+
+        public string Category { get; set; } = string.Empty;
+
+        public bool IsActive => ProductType.Length > 0 || Category.Length > 0;
+
+        public void Clear()
+        {
+            ProductType = string.Empty;
+            Category = string.Empty;
+        }
+
+        public bool Matches(WarehouseItemFormModel item)
+            => Matches(ProductType, item.ProductType) && Matches(Category, item.Category);
+
+        private static bool Matches(string chosen, string itemValue)
+            => chosen.Length == 0 || string.Equals(chosen, itemValue.Trim(), StringComparison.CurrentCultureIgnoreCase);
+    }
+
     private void AddItem()
     {
+        // A row added while the shelf is narrowed would be filed under nothing and hidden the moment it
+        // appeared, so the filter steps aside for it.
+        _filter.Clear();
         var item = new WarehouseItemFormModel();
         _formModel.Items.Add(item);
         _expandedItem = item;
@@ -449,6 +556,7 @@ else
                         Category = item.Category,
                         Quantity = item.Quantity,
                         MinimumQuantity = item.MinimumQuantity,
+                        Unit = item.Unit,
                         ExpiryDate = item.ExpiryDate is { } expiryDate ? DateOnly.FromDateTime(expiryDate.LocalDateTime) : null,
                         ExpiryNotificationChannel = item.ExpiryNotificationChannel
                     })
@@ -461,7 +569,7 @@ else
                 Items
                     .Select(item => new WarehouseItemDto(
                         item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
-                        ToExpiryDateUtc(item), item.ExpiryNotificationChannel))
+                        item.Unit, ToExpiryDateUtc(item), item.ExpiryNotificationChannel))
                     .ToList(),
                 IsPrivate);
 
@@ -490,6 +598,10 @@ else
         public string Category { get; set; } = string.Empty;
         public decimal Quantity { get; set; }
         public decimal? MinimumQuantity { get; set; }
+
+        /// <summary>What the two amounts above are counted in - see InventoryUnitOption.</summary>
+        public string Unit { get; set; } = InventoryUnitOption.Default.Value;
+
         public DateOnly? ExpiryDate { get; set; }
         public string ExpiryNotificationChannel { get; set; } = "Push";
     }

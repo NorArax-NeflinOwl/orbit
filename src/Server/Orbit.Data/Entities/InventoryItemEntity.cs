@@ -14,6 +14,10 @@ public sealed class InventoryItemEntity
     public string Category { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal? MinimumQuantity { get; set; }
+
+    /// <summary>Serialized <see cref="Orbit.Core.Inventory.InventoryUnit"/> - "Piece", "Kilogram", "Litre" and so on.</summary>
+    public string Unit { get; set; } = "Piece";
+
     public DateTimeOffset? ExpiryDate { get; set; }
 
     /// <summary>Serialized <see cref="Orbit.Core.Notifications.NotificationChannel"/> - "None"/"Email"/"Push"/"Both".</summary>

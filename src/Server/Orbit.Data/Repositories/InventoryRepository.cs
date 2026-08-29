@@ -59,6 +59,7 @@ public sealed class InventoryRepository : IInventoryRepository
         entity.Category = item.Category;
         entity.Quantity = item.Quantity;
         entity.MinimumQuantity = item.MinimumQuantity;
+        entity.Unit = item.Unit.ToString();
         entity.ExpiryDate = item.ExpiryDate;
         entity.ExpiryNotificationChannel = item.ExpiryNotificationChannel.ToString();
         entity.PendingRestockTaskListId = item.PendingRestockTaskListId;
@@ -99,7 +100,8 @@ public sealed class InventoryRepository : IInventoryRepository
     private static InventoryItem ToDomain(InventoryItemEntity entity)
         => InventoryItem.FromPersistence(
             entity.Id, entity.WarehouseId, entity.Name, entity.ProductType, entity.Category, entity.Quantity, entity.MinimumQuantity,
-            entity.ExpiryDate, Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true),
+            Enum.Parse<InventoryUnit>(entity.Unit, ignoreCase: true), entity.ExpiryDate,
+            Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true),
             entity.PendingRestockTaskListId, entity.PendingRestockTaskItemId, entity.Position, entity.CreatedAtUtc,
             entity.UpdatedAtUtc);
 
@@ -113,6 +115,7 @@ public sealed class InventoryRepository : IInventoryRepository
             Category = item.Category,
             Quantity = item.Quantity,
             MinimumQuantity = item.MinimumQuantity,
+            Unit = item.Unit.ToString(),
             ExpiryDate = item.ExpiryDate,
             ExpiryNotificationChannel = item.ExpiryNotificationChannel.ToString(),
             PendingRestockTaskListId = item.PendingRestockTaskListId,

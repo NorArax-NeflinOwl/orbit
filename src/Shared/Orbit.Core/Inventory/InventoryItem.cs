@@ -17,6 +17,10 @@ public sealed class InventoryItem
     public string Category { get; private set; }
     public decimal Quantity { get; private set; }
     public decimal? MinimumQuantity { get; private set; }
+
+    /// <summary>What <see cref="Quantity"/> and <see cref="MinimumQuantity"/> are counted in.</summary>
+    public InventoryUnit Unit { get; private set; }
+
     public DateTimeOffset? ExpiryDate { get; private set; }
 
     /// <summary>Which channel(s), if any, warn the owner as ExpiryDate approaches - see InventoryExpiryReminderScheduler.</summary>
@@ -50,8 +54,9 @@ public sealed class InventoryItem
 
     private InventoryItem(
         Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
-        DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, Guid? pendingRestockTaskListId,
-        Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
+        InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
+        Guid? pendingRestockTaskListId, Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc,
+        DateTimeOffset updatedAtUtc)
     {
         Id = id;
         WarehouseId = warehouseId;
@@ -60,6 +65,7 @@ public sealed class InventoryItem
         Category = category;
         Quantity = quantity;
         MinimumQuantity = minimumQuantity;
+        Unit = unit;
         ExpiryDate = expiryDate;
         ExpiryNotificationChannel = expiryNotificationChannel;
         PendingRestockTaskListId = pendingRestockTaskListId;
@@ -71,22 +77,24 @@ public sealed class InventoryItem
 
     public static InventoryItem Create(
         Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
-        DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, int position = 0)
+        InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, int position = 0)
     {
         var now = DateTimeOffset.UtcNow;
         return new InventoryItem(
-            Guid.NewGuid(), warehouseId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
-            pendingRestockTaskListId: null, pendingRestockTaskItemId: null, position, now, now);
+            Guid.NewGuid(), warehouseId, name, productType, category, quantity, minimumQuantity, unit, expiryDate,
+            expiryNotificationChannel, pendingRestockTaskListId: null, pendingRestockTaskItemId: null, position, now, now);
     }
 
     /// <summary>Rebuilds an inventory item from already-persisted values, bypassing creation rules.</summary>
     public static InventoryItem FromPersistence(
         Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
-        DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, Guid? pendingRestockTaskListId,
-        Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
+        InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
+        Guid? pendingRestockTaskListId, Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc,
+        DateTimeOffset updatedAtUtc)
         => new(
-            id, warehouseId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
-            pendingRestockTaskListId, pendingRestockTaskItemId, position, createdAtUtc, updatedAtUtc);
+            id, warehouseId, name, productType, category, quantity, minimumQuantity, unit, expiryDate,
+            expiryNotificationChannel, pendingRestockTaskListId, pendingRestockTaskItemId, position, createdAtUtc,
+            updatedAtUtc);
 
     /// <summary>
     /// Brings this item up to the level it is meant to be kept at, which is what finishing its restock
@@ -112,15 +120,21 @@ public sealed class InventoryItem
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>
+    /// Every field a caller may change, with nothing optional: a defaulted parameter here is how a
+    /// caller that never mentioned the unit quietly resets it to pieces - the same trap
+    /// TaskList.Update used to hold for priority.
+    /// </summary>
     public void Update(
         string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
-        DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel)
+        InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel)
     {
         Name = name;
         ProductType = productType;
         Category = category;
         Quantity = quantity;
         MinimumQuantity = minimumQuantity;
+        Unit = unit;
         ExpiryDate = expiryDate;
         ExpiryNotificationChannel = expiryNotificationChannel;
         UpdatedAtUtc = DateTimeOffset.UtcNow;

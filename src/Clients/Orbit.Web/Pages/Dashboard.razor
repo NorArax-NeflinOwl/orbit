@@ -63,7 +63,10 @@ else
 {
     @if (CardPreferences.IsVisible("today"))
     {
-        <div class="today-strip">
+        @* The whole strip is the way to the calendar: it is a summary of a day, and the page that shows
+           a day is the calendar. A button rather than a link so it reads as one thing to press. *@
+        <button type="button" class="today-strip today-strip-button" title="@(T["Open the calendar"])"
+                @onclick="GoToCalendar">
             <span class="today-strip-date">@DateTime.Today.ToString("dddd, d MMMM", T.DisplayCulture)</span>
             <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong>@T["tasks due today"]</span>
             <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong>@T["events today"]</span>
@@ -73,7 +76,7 @@ else
             {
                 <span class="today-stat"><span class="stat-dot" style="background:var(--success)"></span><strong>@PendingChatRequestCount</strong>@T["new chat requests"]</span>
             }
-        </div>
+        </button>
     }
 
     <div class="card-grid">
@@ -85,6 +88,7 @@ else
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditNote(note.Id)">
                         <span class="row-title">@note.Title</span>
+                        @RenderPriorityBadge(note.Priority)
                         <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
                     </button>
                 }
@@ -99,6 +103,7 @@ else
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToTaskList(taskList.Id)">
                         <span class="row-title">@Written(taskList.Title)</span>
+                        @RenderPriorityBadge(taskList.Priority)
                         @if (taskList.Items.Count > 0)
                         {
                             <span class="progress-track"><span class="progress-fill" style="width:@(CompletionPercent(taskList))%"></span></span>
@@ -113,18 +118,17 @@ else
             </div>
         }
 
-        @if (_upcomingEvents.Any() && CardPreferences.IsVisible("upcoming"))
+        @if (UpcomingToShow.Count > 0 && CardPreferences.IsVisible("upcoming"))
         {
             <div class="card @(DashboardPins.IsPinned("upcoming") ? "card-pinned" : "")">
-                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-header-end"><span class="card-count">@EventsToShow.Count</span><PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' /><CardFilterMenu Filter='CardPreferences.FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' /></span></div>
-                @foreach (var calendarEvent in EventsToShow.Take(6))
+                <div class="card-header"><span class="card-title">@T["Upcoming"]</span><span class="card-header-end"><span class="card-count">@UpcomingToShow.Count</span><PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' /><CardFilterMenu Filter='CardPreferences.FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' /></span></div>
+                @foreach (var entry in UpcomingToShow.Take(6))
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToEditEvent(calendarEvent.Id)">
-                        <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
-                        <span class="row-title">
-                            @calendarEvent.Details.Title @(calendarEvent.IsShared ? T["(shared)"] : "")
-                        </span>
-                        <span class="row-meta">@FormatEventMeta(calendarEvent.Details)</span>
+                    <button type="button" class="list-row list-row-button" @onclick="() => NavigationManager.NavigateTo(entry.Url)">
+                        <span class="stat-dot" style="background:@entry.Colour"></span>
+                        <span class="row-title">@entry.Title</span>
+                        @RenderPriorityBadge(entry.Priority)
+                        <span class="row-meta">@entry.When</span>
                     </button>
                 }
             </div>
@@ -190,9 +194,11 @@ else
         {
             <div class="card @(DashboardPins.IsPinned("contacts") ? "card-pinned" : "")">
                 <div class="card-header"><span class="card-title">@T["Contacts"]</span><span class="card-header-end"><span class="card-count">@_contactsAlphabetically.Count()</span><PinButton IsPinned='DashboardPins.IsPinned("contacts")' OnPinnedChanged='pinned => SetCardPinnedAsync("contacts", pinned)' /></span></div>
+                @* To the person's card, not into a conversation with them - that is what the "Recent
+                   chats" card above is for, and two cards that do the same thing are one card. *@
                 @foreach (var contact in _contactsAlphabetically)
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
+                    <button type="button" class="list-row list-row-button" @onclick="() => GoToContactInfo(contact.UserId)">
                         <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                     </button>
@@ -255,8 +261,96 @@ else
     private IReadOnlyList<TaskDto> TaskListsToShow =>
         [.. (_taskLists ?? []).Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
 
-    private IReadOnlyList<CalendarEventDto> EventsToShow =>
-        [.. _upcomingEvents.Where(calendarEvent => Matches("upcoming", isPinned: false, calendarEvent.Details.Priority))];
+    private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
+        [.. Upcoming().Where(entry => Matches("upcoming", isPinned: false, entry.Priority))];
+
+    /// <summary>
+    /// One thing coming up - an event, or a task item with a deadline. Both, because this card and the
+    /// calendar answer the same question and were answering it differently: the calendar shows deadlines
+    /// beside events, and a card headed "Upcoming" that left them out was not what is coming up.
+    /// </summary>
+    /// <param name="When">Already written for reading; the sort happens on <paramref name="At"/>.</param>
+    private sealed record UpcomingEntry(
+        DateTimeOffset At, string Title, string When, string Colour, string Priority, string Url);
+
+    /// <summary>
+    /// Everything still ahead, soonest first. A recurring event is taken at its next occurrence rather
+    /// than at the date it happens to be stored under - the calendar has always drawn it that way (see
+    /// CalendarEventOccurrenceExpander), so a weekly standup entered months ago was plainly visible
+    /// there and missing from here. Only the next one: this card answers "what is coming up", not "every
+    /// time this will ever happen again".
+    /// </summary>
+    private IEnumerable<UpcomingEntry> Upcoming()
+    {
+        var nowUtc = DateTimeOffset.UtcNow;
+        var entries = (_events ?? [])
+            .Select(calendarEvent => NextOccurrenceOf(calendarEvent, nowUtc))
+            .OfType<CalendarEventDto>()
+            .Select(ToUpcomingEntry)
+            .Concat(UpcomingDeadlines(nowUtc));
+        return entries.OrderBy(entry => entry.At);
+    }
+
+    /// <summary>
+    /// How far ahead a repeat is looked for. A year covers what the calendar's own year view shows, and
+    /// bounds the walk for a daily event that has been running since forever.
+    /// </summary>
+    private static readonly TimeSpan UpcomingWindow = TimeSpan.FromDays(365);
+
+    private static CalendarEventDto? NextOccurrenceOf(CalendarEventDto calendarEvent, DateTimeOffset nowUtc)
+        => calendarEvent.Details.Recurrence is null
+            ? calendarEvent.Details.EndUtc >= nowUtc ? calendarEvent : null
+            : CalendarEventOccurrenceExpander
+                .ExpandOccurrences(calendarEvent, nowUtc, nowUtc + UpcomingWindow)
+                .FirstOrDefault(occurrence => occurrence.Details.EndUtc >= nowUtc);
+
+    private UpcomingEntry ToUpcomingEntry(CalendarEventDto calendarEvent) => new(
+        calendarEvent.Details.StartUtc,
+        calendarEvent.Details.Title + (calendarEvent.IsShared ? " " + T["(shared)"] : string.Empty),
+        FormatEventMeta(calendarEvent.Details),
+        string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color,
+        calendarEvent.Details.Priority,
+        $"/calendar/{calendarEvent.Id}");
+
+    /// <summary>
+    /// The deadlines on task lists, named the way the calendar names them - "Shopping: Milk", since a
+    /// card gathering things from everywhere has to say where each one came from. Finished ones are left
+    /// out: this is what is still ahead, and something already ticked off is not.
+    /// </summary>
+    private IEnumerable<UpcomingEntry> UpcomingDeadlines(DateTimeOffset nowUtc)
+        => (_taskLists ?? [])
+            .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
+            .Where(pair => !pair.item.IsCompleted
+                && pair.item.LinkedTaskListId is null
+                && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc)
+            .Select(pair => new UpcomingEntry(
+                pair.item.DueDateUtc!.Value,
+                $"{Written(pair.taskList.Title)}: {Written(pair.item.Description)}",
+                pair.item.DueDateUtc!.Value.LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
+                "var(--task)",
+                pair.taskList.Priority,
+                $"/tasks/{pair.taskList.Id}"));
+
+    /// <summary>
+    /// The High/Low mark beside a row, when a reader has said this one is not like the others. Normal is
+    /// the default and says nothing, so it is drawn as nothing rather than as a badge on every line.
+    /// </summary>
+    private RenderFragment? RenderPriorityBadge(string priority)
+    {
+        var parsed = PriorityOf(priority);
+        if (parsed == ItemPriority.Normal)
+        {
+            return null;
+        }
+
+        return builder =>
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", $"card-badge card-badge-priority-{parsed.ToString().ToLowerInvariant()}");
+            builder.AddContent(2, parsed == ItemPriority.High ? T["High"] : T["Low"]);
+            builder.CloseElement();
+        };
+    }
 
     /// <summary>
     /// Whether one item survives its card's filter. Priorities arrive as names, the way everything else
@@ -322,15 +416,6 @@ else
         .SelectMany(taskList => taskList.Items)
         .Count(item => !item.IsCompleted && item.DueDateUtc is { } due && due.ToLocalTime().Date == DateTime.Today);
 
-    /// <summary>
-    /// What is still ahead, soonest first. An event that has already finished is not upcoming, and a card
-    /// headed "Upcoming" that opens with last month is a card nobody reads twice. An event running right
-    /// now still counts: it has not been and gone.
-    /// </summary>
-    private IEnumerable<CalendarEventDto> _upcomingEvents
-        => (_events ?? [])
-            .Where(calendarEvent => calendarEvent.Details.EndUtc >= DateTimeOffset.UtcNow)
-            .OrderBy(calendarEvent => calendarEvent.Details.StartUtc);
 
     private int EventsTodayCount => (_events ?? [])
         .Count(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date == DateTime.Today);
@@ -529,6 +614,12 @@ else
         NavigationManager.NavigateTo($"/chat/groups/{groupId}");
     }
 
+    private void GoToContactInfo(Guid contactUserId)
+    {
+        Logger.LogInformation("User opened a contact's card from the dashboard ({ContactUserId})", contactUserId);
+        NavigationManager.NavigateTo($"/contacts/{contactUserId}");
+    }
+
     private void GoToChat(Guid contactUserId)
     {
         Logger.LogInformation("User clicked a contact on the dashboard ({ContactUserId})", contactUserId);
@@ -556,5 +647,11 @@ else
     {
         Logger.LogInformation("User clicked a calendar event on the dashboard ({EventId})", eventId);
         NavigationManager.NavigateTo($"/calendar/{eventId}");
+    }
+
+    private void GoToCalendar()
+    {
+        Logger.LogInformation("User clicked today's summary on the dashboard");
+        NavigationManager.NavigateTo("/calendar");
     }
 }

@@ -159,7 +159,7 @@ public sealed class WarehouseSharingTests
         var ownerUserId = Guid.NewGuid();
         var warehouseId = context.AddWarehouse(ownerUserId);
         await context.InventoryRepository.AddAsync(
-            InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 2m, 1m, null, NotificationChannel.Push), CancellationToken.None);
+            InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
         var handler = new DeleteWarehouseCommandHandler(context.WarehouseRepository, context.InventoryRepository, new InMemoryWarehouseShareRepository());
 
         var deleted = await handler.HandleAsync(new DeleteWarehouseCommand(ownerUserId, warehouseId), CancellationToken.None);

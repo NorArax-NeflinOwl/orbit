@@ -1,0 +1,401 @@
+@using System.Net
+@using System.Text.Json
+@using Orbit.Contracts.Chat
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject EncryptedChatMessageReader EncryptedChatMessageReader
+@inject NavigationManager NavigationManager
+@inject ILogger<GroupConversation> Logger
+@inject Translations T
+
+@* A conversation with several people, drawn as the same thread a conversation with one person is. It
+   used to be a page of its own, which made a group chat look and behave like a different feature - see
+   Chat.razor, which now hosts both. Only what is genuinely different about a group lives here: who
+   wrote each message, whether everyone has read it, and an admin's reach over somebody else's message. *@
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+
+<div class="chat-messages" @onclick="CloseMessageMenu">
+    @if (_messages.Count == 0)
+    {
+        <p class="empty-hint">@T["Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you."]</p>
+    }
+    @foreach (var message in _messages)
+    {
+        var isOwn = message.SenderUserId == OwnUserId;
+
+        <div class="chat-bubble-row @(isOwn ? "own" : "theirs")">
+            @if (_editingMessageId == message.Id)
+            {
+                <div class="chat-bubble-edit" @onclick:stopPropagation="true">
+                    <input class="chat-input" @bind="_editDraft" @bind:event="oninput" aria-label="@(T["Edit"])" />
+                    <div class="chat-bubble-edit-actions">
+                        <button type="button" class="btn-secondary" @onclick="CancelEditing">@T["Cancel"]</button>
+                        <button type="button" class="btn-primary" disabled="@(_isBusy || _editDraft.Trim().Length == 0)"
+                                @onclick="() => SaveEditAsync(message)">@T["Save"]</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="chat-bubble-wrap">
+                    <p class="chat-bubble">
+                        @* Who wrote it, on everyone else's messages - the one thing a group thread needs
+                           that a two-person one does not. *@
+                        @if (!isOwn)
+                        {
+                            <span class="chat-bubble-sender">@DisplayNameFor(message.SenderUserId)</span>
+                        }
+                        @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
+                    </p>
+                    <div class="chat-bubble-menu">
+                        <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
+                                disabled="@_isBusy" @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
+                        </button>
+                        @* Editing is the sender's alone; deleting an admin can also do, but putting
+                           different words in somebody's mouth is not something moderation should reach. *@
+                        @if (_openMessageMenuId == message.Id)
+                        {
+                            <div class="chat-bubble-menu-dropdown" @onclick:stopPropagation="true">
+                                @if (CanEdit(message))
+                                {
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => StartEditing(message)">@T["Edit"]</button>
+                                }
+                                @if (message.GroupMessageId is not null)
+                                {
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
+                                }
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
+                                @if (CanDelete(message))
+                                {
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
+                                }
+                            </div>
+                        }
+                        @if (_forwardingMessageId == message.Id)
+                        {
+                            <div class="chat-bubble-menu-dropdown chat-forward-picker" @onclick:stopPropagation="true">
+                                <div class="chat-forward-picker-title">@T["Forward to…"]</div>
+                                @* Into a one-to-one conversation only: everybody in this group already has it. *@
+                                @foreach (var contact in Contacts)
+                                {
+                                    <button type="button" class="avatar-dropdown-item" disabled="@_isBusy"
+                                            @onclick="() => ForwardAsync(message, contact)">@contact.DisplayName</button>
+                                }
+                                @if (Contacts.Count == 0)
+                                {
+                                    <span class="chat-forward-picker-empty">@T["No other chats yet."]</span>
+                                }
+                                <button type="button" class="avatar-dropdown-item" @onclick="CancelForwarding">@T["Cancel"]</button>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <span class="chat-bubble-meta">
+                    @message.SentAtUtc.ToLocalTime().ToString("HH:mm")
+                    @if (message.IsEdited)
+                    {
+                        <text>@T["· Edited"]</text>
+                    }
+                    @* Read only once every other member has read it - one member still behind and the
+                       sender should not be told the message landed. *@
+                    @if (isOwn && message.ReadByEveryone is { } readByEveryone)
+                    {
+                        @(readByEveryone ? T[" · Read"] : T[" · Sent"])
+                    }
+                </span>
+            }
+        </div>
+
+        @if (_infoMessageId == message.Id)
+        {
+            <div class="card group-message-info">
+                <div class="card-header">
+                    <span class="card-title">@T["Who has read this"]</span>
+                    <button type="button" class="btn-secondary" @onclick="CloseInfo">@T["Close"]</button>
+                </div>
+                @* Every member the message actually reached. Somebody who joined afterwards is absent
+                   rather than shown as not having read it: nothing was addressed to them, which is the
+                   same reason they cannot open it. *@
+                @foreach (var receipt in _infoReceipts)
+                {
+                    <div class="list-row">
+                        <span class="row-title">@DisplayNameFor(receipt.RecipientUserId)</span>
+                        <span class="row-meta">
+                            @(receipt.ReadAtUtc is { } readAt
+                                ? T.Format("Read {0}", readAt.LocalDateTime.ToString("dd.MM HH:mm"))
+                                : T["Delivered"])
+                        </span>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+<div class="chat-input-bar">
+    @* Bound on every keystroke, not on losing focus: without it the Send button stayed greyed out while
+       somebody typed, because _draft was still empty as far as it knew. *@
+    <input class="chat-input" @bind="_draft" @bind:event="oninput"
+           placeholder="@(T["Write to the group"])" @onkeydown="OnDraftKeyDownAsync" />
+    <button type="button" class="btn-primary" disabled="@(_isBusy || _draft.Trim().Length == 0)" @onclick="SendAsync">@T["Send"]</button>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ChatGroupDto Group { get; set; } = null!;
+
+    [Parameter, EditorRequired] public Guid OwnUserId { get; set; }
+
+    /// <summary>Who this reader can forward a message on to, and whose names their messages are shown under.</summary>
+    [Parameter] public IReadOnlyList<ContactDto> Contacts { get; set; } = [];
+
+    private const string AdminRole = "Admin";
+
+    private IReadOnlyList<ChatMessageDto> _messages = [];
+
+    /// <summary>Decrypted message bodies, keyed by message id - the ciphertext itself is never rendered.</summary>
+    private readonly Dictionary<Guid, string> _plainTextByMessageId = [];
+
+    /// <summary>Which group is on screen, so switching between two of them reloads rather than showing the first one's messages.</summary>
+    private Guid _loadedGroupId;
+
+    private string _draft = string.Empty;
+    private bool _isBusy;
+    private string? _errorMessage;
+
+    private Guid? _openMessageMenuId;
+    private Guid? _editingMessageId;
+    private string _editDraft = string.Empty;
+    private Guid? _forwardingMessageId;
+
+    /// <summary>Which message has its per-member delivery panel open, and what that panel is showing.</summary>
+    private Guid? _infoMessageId;
+    private IReadOnlyList<GroupMessageReceiptDto> _infoReceipts = [];
+
+    private bool IsOwnAdmin => Group.OwnRole == AdminRole;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Group.Id == _loadedGroupId)
+        {
+            return;
+        }
+
+        _loadedGroupId = Group.Id;
+        _plainTextByMessageId.Clear();
+        _messages = [];
+        _draft = string.Empty;
+        CloseInfo();
+        CancelEditing();
+        CancelForwarding();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _messages = await ChatApiClient.GetGroupConversationAsync(Group.Id);
+            await DecryptMessagesAsync();
+            // Having the group open is what counts as reading it - the same coarse stand-in the
+            // one-to-one conversation uses, and what the senders' ticks are drawn from.
+            await ChatApiClient.MarkGroupConversationAsReadAsync(Group.Id);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load the conversation in group {GroupId}", Group.Id);
+            _errorMessage = T["Couldn't load this conversation. Check your connection and try again."];
+        }
+    }
+
+    /// <summary>
+    /// Each copy is encrypted between its sender and its recipient, so the key to open it is the pairwise
+    /// one with whichever of those two isn't the reader. A copy that won't open renders as a placeholder
+    /// rather than taking the conversation down - see decryptMessage's own null return.
+    /// </summary>
+    private async Task DecryptMessagesAsync()
+    {
+        foreach (var message in _messages)
+        {
+            if (_plainTextByMessageId.ContainsKey(message.Id))
+            {
+                continue;
+            }
+
+            var otherPartyUserId = message.SenderUserId == OwnUserId ? message.RecipientUserId : message.SenderUserId;
+            var plainText = await EncryptedChatMessageReader.TryDecryptFromAsync(
+                OwnUserId, otherPartyUserId, message.CiphertextBase64, message.NonceBase64);
+            _plainTextByMessageId[message.Id] = plainText ?? T["(can't be opened on this device)"];
+        }
+    }
+
+    /// <summary>The same rule the server enforces (ChatGroup.CanDeleteMessageFrom), so the button only appears when it would work.</summary>
+    private bool CanDelete(ChatMessageDto message)
+        => message.SenderUserId == OwnUserId || IsOwnAdmin;
+
+    /// <summary>
+    /// Editing needs both the sender's own hand and something to address every copy by - a message
+    /// stored before GroupMessageId existed has no way to reach its siblings.
+    /// </summary>
+    private bool CanEdit(ChatMessageDto message)
+        => message.SenderUserId == OwnUserId && message.GroupMessageId is not null;
+
+    private void ToggleMessageMenu(Guid messageId)
+        => _openMessageMenuId = _openMessageMenuId == messageId ? null : messageId;
+
+    private void CloseMessageMenu() => _openMessageMenuId = null;
+
+    /// <summary>
+    /// Opens the per-member view of what became of one message. Fetched when asked for rather than
+    /// alongside the conversation: it is opened for one message at a time, and drawing it for every
+    /// message would be a query per message on every load.
+    /// </summary>
+    private async Task ShowInfoAsync(ChatMessageDto message)
+        => await RunAsync(async () =>
+        {
+            _openMessageMenuId = null;
+            _editingMessageId = null;
+            _forwardingMessageId = null;
+            _infoMessageId = message.Id;
+            _infoReceipts = await ChatApiClient.GetGroupMessageReceiptsAsync(Group.Id, message.GroupMessageId!.Value);
+        });
+
+    private void CloseInfo()
+    {
+        _infoMessageId = null;
+        _infoReceipts = [];
+    }
+
+    private void StartEditing(ChatMessageDto message)
+    {
+        _openMessageMenuId = null;
+        _infoMessageId = null;
+        _forwardingMessageId = null;
+        _editingMessageId = message.Id;
+        _editDraft = _plainTextByMessageId.GetValueOrDefault(message.Id) ?? string.Empty;
+    }
+
+    private void CancelEditing()
+    {
+        _editingMessageId = null;
+        _editDraft = string.Empty;
+    }
+
+    private async Task SaveEditAsync(ChatMessageDto message)
+        => await RunAsync(async () =>
+        {
+            var newText = _editDraft.Trim();
+            if (!await EncryptedChatMessageSender.EditGroupMessageAsync(
+                    OwnUserId, Group.Id, message.GroupMessageId!.Value, OtherMemberIds(), newText))
+            {
+                _errorMessage = T["That message is no longer yours to edit."];
+                return;
+            }
+
+            // Replaced locally as well, so the edit shows before the next load rather than after it.
+            _plainTextByMessageId[message.Id] = newText;
+            CancelEditing();
+            await LoadAsync();
+        });
+
+    private void StartForwarding(ChatMessageDto message)
+    {
+        _openMessageMenuId = null;
+        _editingMessageId = null;
+        _infoMessageId = null;
+        _forwardingMessageId = message.Id;
+    }
+
+    private void CancelForwarding() => _forwardingMessageId = null;
+
+    /// <summary>
+    /// Forwards into a one-to-one conversation, carrying who wrote it - the group is not a place a
+    /// message can be forwarded to, since everyone in it already has it.
+    /// </summary>
+    private async Task ForwardAsync(ChatMessageDto message, ContactDto recipient)
+        => await RunAsync(async () =>
+        {
+            var content = _plainTextByMessageId.GetValueOrDefault(message.Id);
+            if (string.IsNullOrEmpty(content))
+            {
+                _errorMessage = T["Couldn't forward the message."];
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(new ForwardedMessagePayload(
+                message.SenderUserId, DisplayNameFor(message.SenderUserId), content));
+            await EncryptedChatMessageSender.SendAsync(OwnUserId, recipient.UserId, payloadJson);
+            CancelForwarding();
+        });
+
+    private async Task DeleteMessageAsync(ChatMessageDto message)
+        => await RunAsync(async () =>
+        {
+            if (!await ChatApiClient.DeleteMessageAsync(message.Id))
+            {
+                _errorMessage = T["That message is no longer yours to delete."];
+                return;
+            }
+
+            _openMessageMenuId = null;
+            await LoadAsync();
+        });
+
+    private async Task OnDraftKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && _draft.Trim().Length > 0)
+        {
+            await SendAsync();
+        }
+    }
+
+    private async Task SendAsync()
+        => await RunAsync(async () =>
+        {
+            await EncryptedChatMessageSender.SendToGroupAsync(OwnUserId, Group.Id, OtherMemberIds(), _draft.Trim());
+            _draft = string.Empty;
+            await LoadAsync();
+        });
+
+    /// <summary>Everybody a copy has to be encrypted for - the sender already holds the text.</summary>
+    private IReadOnlyList<Guid> OtherMemberIds()
+        => [.. Group.Members.Select(member => member.UserId).Where(userId => userId != OwnUserId)];
+
+    private string DisplayNameFor(Guid userId)
+        => userId == OwnUserId
+            ? T["You"]
+            : Contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? T["Someone"];
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _isBusy = true;
+        _errorMessage = null;
+        try
+        {
+            await action();
+        }
+        catch (InvalidOperationException exception)
+        {
+            // Raised when a member has never signed in, so there is no key to encrypt for them.
+            Logger.LogWarning(exception, "A group action could not complete");
+            _errorMessage = exception.Message;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "A group action failed");
+            _errorMessage = T["That didn't work. Reload the group and try again."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+}

@@ -41,5 +41,44 @@ public sealed class GeocodingApiClient
         }
     }
 
+    /// <summary>
+    /// The other direction: where an address written by hand actually is, so it can be put on a map.
+    /// Null when Nominatim recognises nothing - a place nobody can find is shown as the words somebody
+    /// typed rather than as a pin in the wrong country.
+    /// </summary>
+    public async Task<GeocodedPlace?> FindPlaceAsync(string address, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            return null;
+        }
+
+        try
+        {
+            var requestUri = $"search?format=jsonv2&limit=1&q={Uri.EscapeDataString(address.Trim())}";
+            var matches = await _httpClient.GetFromJsonAsync<List<NominatimSearchResult>>(requestUri, cancellationToken);
+            if (matches is not [{ } best, ..]
+                || !double.TryParse(best.Latitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var latitude)
+                || !double.TryParse(best.Longitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude))
+            {
+                return null;
+            }
+
+            return new GeocodedPlace(latitude, longitude);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+
     private sealed record NominatimReverseGeocodeResponse([property: JsonPropertyName("display_name")] string? DisplayName);
+
+    /// <summary>Nominatim returns the coordinates as strings, which is why they are parsed rather than bound.</summary>
+    private sealed record NominatimSearchResult(
+        [property: JsonPropertyName("lat")] string? Latitude,
+        [property: JsonPropertyName("lon")] string? Longitude);
 }
+
+/// <summary>Where an address turned out to be - see <see cref="GeocodingApiClient.FindPlaceAsync"/>.</summary>
+public sealed record GeocodedPlace(double Latitude, double Longitude);

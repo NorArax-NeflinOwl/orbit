@@ -106,6 +106,11 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(item => item.Description).IsRequired().HasMaxLength(500);
             entity.Property(item => item.OverdueNotificationChannel).HasMaxLength(20);
             entity.Property(item => item.DailyReminderNotificationChannel).HasMaxLength(20);
+            // Every entry written before kinds existed is the ordinary sort, and has nowhere to be.
+            entity.Property(item => item.Kind).IsRequired().HasMaxLength(20)
+                .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
+            // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
+            entity.Property(item => item.Location).IsRequired().HasMaxLength(300).HasDefaultValue(string.Empty);
         });
 
         modelBuilder.Entity<CalendarEventEntity>(entity =>
@@ -380,12 +385,6 @@ public sealed class OrbitDbContext : DbContext
             // the default a new list gets rather than as an unparseable empty string.
             entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
                 .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
-            // Same reason, for the same kind of column: every list written before kinds existed is the
-            // ordinary sort.
-            entity.Property(row => row.Kind).IsRequired().HasMaxLength(20)
-                .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskListKind.Checklist));
-            // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
-            entity.Property(row => row.Location).IsRequired().HasMaxLength(300).HasDefaultValue(string.Empty);
         });
 
         modelBuilder.Entity<PublicShareLinkEntity>(entity =>

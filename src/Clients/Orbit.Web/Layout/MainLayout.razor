@@ -459,14 +459,27 @@
         }
 
         var path = new Uri(location, UriKind.Absolute).AbsolutePath;
-        if (!NotificationFeedState.HasUnreadFor(path))
+        // Not just this exact path: a page can settle a notification pointing at the page it sits under,
+        // which is how opening a task list's deep editor clears a reminder about the list - see
+        // NotificationFeedState.UnreadUrlsSettledBy.
+        var settled = NotificationFeedState.UnreadUrlsSettledBy(path);
+        if (settled.Count == 0)
         {
             return;
         }
 
-        if (await NotificationsApiClient.MarkReadAtUrlAsync(path))
+        var anyMarked = false;
+        foreach (var url in settled)
         {
-            NotificationFeedState.MarkReadFor(path);
+            if (await NotificationsApiClient.MarkReadAtUrlAsync(url))
+            {
+                NotificationFeedState.MarkReadFor(url);
+                anyMarked = true;
+            }
+        }
+
+        if (anyMarked)
+        {
             StateHasChanged();
         }
     }

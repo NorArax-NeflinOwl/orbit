@@ -17,6 +17,26 @@ public sealed class TaskItem
     public bool IsCompleted { get; private set; }
     public Guid? LinkedTaskListId { get; private set; }
 
+    /// <summary>What this entry is, and so what else it carries - see <see cref="TaskItemKind"/>.</summary>
+    public TaskItemKind Kind { get; private set; }
+
+    /// <summary>
+    /// Where a calendar entry happens, as the reader wrote it. Empty for every other kind, and empty
+    /// for one tied to a calendar event: that event already holds the place, and a second copy here
+    /// would be a second answer to the same question - see <see cref="LinkedCalendarEventId"/>.
+    /// </summary>
+    public string Location { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// The calendar event this entry is the same appointment as, when it is one. The event is where the
+    /// place and the time then live, so the two cannot drift apart.
+    ///
+    /// Not validated: an event that is later deleted leaves this pointing at nothing, and a client
+    /// reading it treats that as "no event" - the same way a link to a deleted task list is treated as
+    /// "not completed" rather than as a failure (see LinkedTaskCompletionResolver).
+    /// </summary>
+    public Guid? LinkedCalendarEventId { get; private set; }
+
     /// <summary>
     /// Which channel(s), if any, notify the owner once this item becomes overdue - see
     /// <see cref="Orbit.Core.Tasks.OverdueNotifications.OverdueTaskNotificationScheduler"/>.
@@ -40,7 +60,7 @@ public sealed class TaskItem
     private TaskItem(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId,
         NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
-        TimeOnly dailyReminderTimeOfDay)
+        TimeOnly dailyReminderTimeOfDay, TaskItemKind kind, string location, Guid? linkedCalendarEventId)
     {
         Id = id;
         Description = description;
@@ -51,7 +71,18 @@ public sealed class TaskItem
         RemindDaily = remindDaily;
         DailyReminderNotificationChannel = dailyReminderNotificationChannel;
         DailyReminderTimeOfDay = dailyReminderTimeOfDay;
+        Kind = kind;
+        LinkedCalendarEventId = kind == TaskItemKind.Calendar ? linkedCalendarEventId : null;
+        Location = WhereItHappens(kind, location, LinkedCalendarEventId);
     }
+
+    /// <summary>
+    /// The place an entry keeps for itself. Only a calendar entry has one at all, and one tied to an
+    /// event keeps none: the event holds the place, and storing it twice is how the two come to disagree
+    /// - which is the whole reason the link exists.
+    /// </summary>
+    private static string WhereItHappens(TaskItemKind kind, string location, Guid? linkedCalendarEventId)
+        => kind == TaskItemKind.Calendar && linkedCalendarEventId is null ? location.Trim() : string.Empty;
 
     /// <summary>
     /// Brings a finished entry back as something still to do, keeping its identity - the same row the
@@ -92,10 +123,12 @@ public sealed class TaskItem
     public static TaskItem Create(
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId = null,
         NotificationChannel overdueNotificationChannel = NotificationChannel.Push, bool remindDaily = false,
-        NotificationChannel dailyReminderNotificationChannel = NotificationChannel.Push, TimeOnly dailyReminderTimeOfDay = default)
+        NotificationChannel dailyReminderNotificationChannel = NotificationChannel.Push, TimeOnly dailyReminderTimeOfDay = default,
+        TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null)
         => new(
             Guid.NewGuid(), description, dueDateUtc, linkedTaskListId is null && isCompleted, linkedTaskListId,
-            overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay);
+            overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
+            kind, location, linkedCalendarEventId);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -105,8 +138,10 @@ public sealed class TaskItem
     public static TaskItem FromPersistence(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId,
         NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
-        TimeOnly dailyReminderTimeOfDay)
+        TimeOnly dailyReminderTimeOfDay, TaskItemKind kind = TaskItemKind.Checklist, string location = "",
+        Guid? linkedCalendarEventId = null)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListId,
-            overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay);
+            overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
+            kind, location, linkedCalendarEventId);
 }

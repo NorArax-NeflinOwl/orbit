@@ -10,4 +10,4 @@ namespace Orbit.Core.Inventory;
 /// </summary>
 public sealed record WarehouseItemInput(
     Guid? Id, string Name, string ProductType, string Category, decimal Quantity, decimal? MinimumQuantity,
-    DateTimeOffset? ExpiryDate, NotificationChannel ExpiryNotificationChannel);
+    InventoryUnit Unit, DateTimeOffset? ExpiryDate, NotificationChannel ExpiryNotificationChannel);

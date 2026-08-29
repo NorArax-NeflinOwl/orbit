@@ -1,11 +1,13 @@
 @page "/tasks"
 @attribute [Authorize]
+@implements IDisposable
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject TaskListArrangement Arrangement
+@inject NotificationFeedState NotificationFeedState
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Tasks> Logger
@@ -90,6 +92,20 @@ else
                                 </svg>
                             </span>
                         }
+                        @* Before the name, so a page of cards answers "which list was that reminder
+                           about?" at a glance rather than by opening them one at a time. Goes out when
+                           the list is opened - see NotificationFeedState.UnreadUrlsSettledBy. *@
+                        @if (UnreadCountFor(taskList) is > 0 and var unread)
+                        {
+                            <span class="task-card-notification" title="@T.Format("{0} new", unread)"
+                                  aria-label="@T.Format("{0} new", unread)">
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" />
+                                    <path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" />
+                                </svg>
+                            </span>
+                        }
                         @Written(taskList.Title)
                         @if (taskList.IsGroup)
                         {
@@ -117,16 +133,42 @@ else
                         {
                             <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
                         }
+                        @* Folds the card down to its heading, one line of what is on it, and its buttons -
+                           for a page of lists where only some are this week's work. *@
+                        <button type="button" class="icon-btn"
+                                title="@(Arrangement.IsCollapsed(taskList.Id) ? T["Expand"] : T["Minimise"])"
+                                aria-label="@(Arrangement.IsCollapsed(taskList.Id) ? T["Expand"] : T["Minimise"])"
+                                aria-expanded="@(Arrangement.IsCollapsed(taskList.Id) ? "false" : "true")"
+                                @onclick="() => ToggleCollapsedAsync(taskList)">
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="@(Arrangement.IsCollapsed(taskList.Id) ? "M4.5 7.5 10 13l5.5-5.5" : "M4.5 12.5 10 7l5.5 5.5")" />
+                            </svg>
+                        </button>
                     </span>
                 </div>
 
-                @* Where a calendar list happens - the one thing that kind of list carries beyond its
-                   entries, and the thing you would want to see without opening it. *@
-                @if (taskList.Location.Length > 0)
+                @if (Arrangement.IsCollapsed(taskList.Id))
                 {
-                    <p class="row-meta">@taskList.Location</p>
+                    @* One line, and the one worth having: what is still to be done on this list. A folded
+                       card is somebody saying "not this week" - the row is there to remind them what the
+                       list is about, not to be worked from. *@
+                    @if (NextUnfinishedItem(taskList) is { } nextItem)
+                    {
+                        <div class="list-row task-preview-row">
+                            <span class="task-preview-mark"></span>
+                            <span class="row-title">@Written(nextItem.Description)</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-row">
+                            <span class="row-meta">@(taskList.Items.Count == 0 ? T["No items on this list."] : T["Nothing left to do."])</span>
+                        </div>
+                    }
                 }
-
+                else
+                {
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
                    checklist view one click away for working through it. *@
                 @foreach (var item in taskList.Items.Take(PreviewItemCount))
@@ -173,6 +215,7 @@ else
                 {
                     <p class="empty-hint">@T["No items on this list."]</p>
                 }
+                }
 
                 <div class="card-actions">
                     <button type="button" class="btn-primary" @onclick="() => GoToChecklist(taskList.Id)">@T["Open checklist"]</button>
@@ -189,7 +232,10 @@ else
 
     /// <summary>What the chips offer, in the order a list moves through its statuses - with "shared" after them, since it is about where a list came from rather than how far along it is.</summary>
     private static readonly TaskListFilter[] SelectableFilters =
-        [TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue, TaskListFilter.Completed, TaskListFilter.Shared];
+    [
+        TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue, TaskListFilter.Completed,
+        TaskListFilter.Shared, TaskListFilter.Group
+    ];
 
     private TaskListFilter _filter = TaskListFilter.All;
 
@@ -210,13 +256,15 @@ else
     }
 
     /// <summary>
-    /// A status chip matches the status the list is in; "Shared" matches where it came from instead. The
-    /// two are compared by name because the chips are one list, and the statuses are the other.
+    /// A status chip matches the status the list is in; "Shared" matches where it came from and "Group"
+    /// what kind of list it is. The status ones are compared by name because the chips are one list, and
+    /// the statuses are the other.
     /// </summary>
     private static bool Matches(TaskDto taskList, TaskListFilter filter) => filter switch
     {
         TaskListFilter.All => true,
         TaskListFilter.Shared => taskList.IsShared,
+        TaskListFilter.Group => taskList.IsGroup,
         _ => ParseStatus(taskList).ToString() == filter.ToString()
     };
 
@@ -288,6 +336,28 @@ else
         Logger.LogInformation("Task list filter set to {Filter}", filter);
     }
 
+    /// <summary>
+    /// How many unread notifications are about this list - an overdue item on it, or its daily reminder.
+    /// They all point at the list's own page (see OverdueTaskPushContent), which is what makes them
+    /// countable per card.
+    /// </summary>
+    private int UnreadCountFor(TaskDto taskList) => NotificationFeedState.CountForSection($"/tasks/{taskList.Id}");
+
+    private async Task ToggleCollapsedAsync(TaskDto taskList)
+    {
+        var isCollapsed = !Arrangement.IsCollapsed(taskList.Id);
+        Logger.LogInformation(
+            "User {Action} the card for task list {TaskListId}", isCollapsed ? "minimised" : "expanded", taskList.Id);
+        await Arrangement.SetCollapsedAsync(taskList.Id, isCollapsed);
+    }
+
+    /// <summary>
+    /// The one row a folded card shows: what is still to be done. A row that only points at another list
+    /// is skipped - it is how the tree is held together, not something to be reminded of.
+    /// </summary>
+    private static TaskItemDto? NextUnfinishedItem(TaskDto taskList)
+        => taskList.Items.FirstOrDefault(item => !item.IsCompleted && item.LinkedTaskListId is null);
+
     private async Task SetSortOrderAsync(TaskListSortOrder sortOrder)
     {
         await Arrangement.SetSortOrderAsync(sortOrder);
@@ -334,6 +404,7 @@ else
         TaskListFilter.Completed => T["Done"],
         TaskListFilter.Overdue => T["Overdue"],
         TaskListFilter.Shared => T["Shared"],
+        TaskListFilter.Group => T["Group"],
         TaskListFilter.All => T["All"],
         _ => T["Not started"]
     };
@@ -368,7 +439,10 @@ else
         Pending,
         Overdue,
         Completed,
-        Shared
+        Shared,
+
+        /// <summary>A list that gathers other lists - see TaskList.IsGroup.</summary>
+        Group
     }
 
     /// <summary>How much of a list to show on its card before falling back to "and N more" - a card is for recognising a list, not working through it.</summary>
@@ -395,6 +469,9 @@ else
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Tasks page opened, loading task lists");
+        // MainLayout owns the polling; this only listens, so a reminder arriving while the page is open
+        // lights the card it is about without this page fetching anything of its own.
+        NotificationFeedState.Changed += OnNotificationsChanged;
         await Arrangement.InitializeAsync();
         try
         {
@@ -410,6 +487,10 @@ else
         }
         Logger.LogInformation("Loaded {TaskListCount} task lists", _taskLists.Count);
     }
+
+    private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
 
     private void GoToAddTaskList()
     {

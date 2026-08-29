@@ -1,0 +1,205 @@
+@page "/tasks/{TaskListId:guid}/items/{ItemId:guid}"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Tasks
+@using Orbit.Core.Tasks
+@using Orbit.Web.Services
+@inject TasksApiClient TasksApiClient
+@inject CalendarApiClient CalendarApiClient
+@inject GeocodingApiClient GeocodingApiClient
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ILogger<TaskItemSummary> Logger
+@inject Translations T
+
+@* One appointment, on its own page: what it is, when it is, and where. This is what a deadline with a
+   place opens as from the calendar - the checklist is the right landing for something to tick off, and
+   the wrong one for something you have to get to. See Calendar.razor's GoToDueTask. *@
+<PageTitle>@(_item is null ? T["Task"] : Written(_item.Description))</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>@(_item is null ? T["Task"] : Written(_item.Description))</h1>
+        @if (_taskList is not null)
+        {
+            <p class="page-subtitle">@Written(_taskList.Title)</p>
+        }
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-secondary" @onclick="GoToCalendar">@T["Back to Calendar"]</button>
+        <button type="button" class="btn-primary" @onclick="GoToTaskList">@T["Show Tasks"]</button>
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <p>@T["Loading…"]</p>
+}
+else if (_item is null)
+{
+    <p>@T["That task item no longer exists."]</p>
+}
+else
+{
+    <div class="card">
+        <div class="list-row">
+            <span class="row-title">@T["When"]</span>
+            <span class="row-meta">@(_item.DueDateUtc is { } dueDate ? dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm") : T["No date set"])</span>
+        </div>
+        <div class="list-row">
+            <span class="row-title">@T["Where"]</span>
+            <span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span>
+        </div>
+        @if (_item.IsCompleted)
+        {
+            <div class="list-row">
+                <span class="row-meta">@T["Already done."]</span>
+            </div>
+        }
+    </div>
+
+    @* Drawn only once there is somewhere to draw. An address nobody could find stays as the words
+       somebody typed rather than becoming a pin in the wrong country - see GeocodingApiClient. *@
+    @if (_pin is not null)
+    {
+        <div id="@MapElementId" class="task-item-map"></div>
+    }
+    else if (_place.Length > 0)
+    {
+        <p class="empty-hint">@T["That place could not be found on the map."]</p>
+    }
+}
+
+@code {
+    [Parameter] public Guid TaskListId { get; set; }
+
+    [Parameter] public Guid ItemId { get; set; }
+
+    private const string MapElementId = "taskItemMap";
+
+    private bool _isLoading = true;
+    private TaskDto? _taskList;
+    private TaskItemDto? _item;
+
+    /// <summary>Where this happens, in words - the event's address when one is linked, the entry's own otherwise.</summary>
+    private string _place = string.Empty;
+
+    private GeocodedPlace? _pin;
+
+    /// <summary>Held so the map can be torn down when this page goes away - see locationMap.js.</summary>
+    private IJSObjectReference? _mapModule;
+
+    /// <summary>Whether the pin still needs drawing. The map element only exists once there is one.</summary>
+    private bool _isWaitingToDrawTheMap;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _taskList = await TasksApiClient.GetTaskListByIdAsync(TaskListId);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load task list {TaskListId} for an item summary", TaskListId);
+            _isLoading = false;
+            return;
+        }
+
+        _item = _taskList?.Items.FirstOrDefault(candidate => candidate.Id == ItemId);
+        await ResolveThePlaceAsync();
+        _isLoading = false;
+    }
+
+    /// <summary>
+    /// Where this entry happens, and where that is on a map. An entry tied to a calendar event takes
+    /// both from the event, which is the whole point of the link - it is the one place the address is
+    /// stored, so there is nothing here to disagree with it. An entry with its own address has only the
+    /// words, so they are looked up.
+    /// </summary>
+    private async Task ResolveThePlaceAsync()
+    {
+        if (_item is null)
+        {
+            return;
+        }
+
+        if (_item.LinkedCalendarEventId is { } eventId && await LoadEventAsync(eventId) is { Details.Location: { } location })
+        {
+            _place = location.Address ?? string.Empty;
+            _pin = new GeocodedPlace(location.Latitude, location.Longitude);
+        }
+        else
+        {
+            _place = _item.Location;
+            _pin = await GeocodingApiClient.FindPlaceAsync(_place);
+        }
+
+        _isWaitingToDrawTheMap = _pin is not null;
+    }
+
+    /// <summary>Best-effort: a calendar that will not load leaves the entry's own words standing rather than taking the page down.</summary>
+    private async Task<CalendarEventDto?> LoadEventAsync(Guid eventId)
+    {
+        try
+        {
+            return await CalendarApiClient.GetCalendarEventByIdAsync(eventId);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to read the event task item {ItemId} is tied to", ItemId);
+            return null;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_isWaitingToDrawTheMap || _pin is not { } pin)
+        {
+            return;
+        }
+
+        _isWaitingToDrawTheMap = false;
+        try
+        {
+            _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
+            await _mapModule.InvokeVoidAsync("showLocation", MapElementId, pin.Latitude, pin.Longitude, _place);
+        }
+        catch (JSException exception)
+        {
+            // The words are still on the page above; only the picture is missing.
+            Logger.LogWarning(exception, "Failed to draw the map for task item {ItemId}", ItemId);
+        }
+    }
+
+    private void GoToCalendar() => NavigationManager.NavigateTo("/calendar");
+
+    /// <summary>The list this entry is on, at the shallow level - see TaskListChecklist.</summary>
+    private void GoToTaskList() => NavigationManager.NavigateTo($"/tasks/{TaskListId}");
+
+    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_mapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mapModule.InvokeVoidAsync("dispose", MapElementId);
+            await _mapModule.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is already gone, which is one of the ways this page ends.
+        }
+    }
+}

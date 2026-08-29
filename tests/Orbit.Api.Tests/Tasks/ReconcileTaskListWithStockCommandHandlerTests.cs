@@ -37,7 +37,7 @@ public sealed class ReconcileTaskListWithStockCommandHandlerTests
 
     private void Stock(string name, decimal quantity)
         => _context.InventoryRepository.AddAsync(
-            InventoryItem.Create(_warehouseId, name, "Part", "Shelf", quantity, null, null, NotificationChannel.None),
+            InventoryItem.Create(_warehouseId, name, "Part", "Shelf", quantity, null, InventoryUnit.Piece, null, NotificationChannel.None),
             CancellationToken.None).GetAwaiter().GetResult();
 
     private TaskList LinkedToTheWarehouse(TaskList taskList)

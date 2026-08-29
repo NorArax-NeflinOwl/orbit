@@ -257,12 +257,29 @@ those two sections are already independent for access-level purposes.
 
 ## Group chats
 
-Groups are not a place of their own: both chat screens show **one conversation list**
+Groups are not a place of their own: the chat page shows **one conversation list**
 (`ConversationList`) holding people and groups together - people first, most recently spoken to first,
 then groups by name, since a group has no last-message time of its own to sort by. A row says which kind
 it is with a small mark, one search box filters both, and "New group" sits under the list rather than in
 a page header. Looking for "who have I been talking to" is one place, and moving between a group and a
 person does not change screens.
+
+Groups are not a screen of their own either. `Chat.razor` answers `/chat/groups` and
+`/chat/groups/{id}` alongside `/chat/{userId}`, so a group opens in the same shell a person does — same
+list down the side, same header, same thread — and `GroupConversation` (a component, not a page) draws
+only what is genuinely different about a group: who wrote each message, whether everyone has read it,
+and an admin's reach over somebody else's message. Switching between a person and a group is a
+parameter change on one page rather than a change of screen, and starting a new group happens where the
+conversation would be instead of on a separate form.
+
+The thread header carries **one menu in its corner** for the conversation itself. For a person it
+offers **Info**, which opens their card (`/contacts/{userId}`, `ContactInfo.razor` — the same page the
+contact list's "Info" button and the dashboard's contacts card open). For a group it offers **Members**
+(`/chat/groups/{id}/members`, `GroupMembers.razor` — the roster, with the add/remove/promote controls
+an admin gets and the "Leave group" button everybody gets) and **Info** (`/chat/groups/{id}/info`, name,
+size, when it started, and this reader's own role). The roster is a page rather than a panel folded into
+the thread: one row per person with two buttons each for an admin, above the messages, left the
+conversation itself below the fold on every visit.
 
 A chat with more than one other person, under the same end-to-end encryption one-to-one chats already
 have. There is no group key: the sender's browser encrypts the same text **once per other member**,
@@ -505,10 +522,18 @@ linkable lists; it does not check for longer cycles client-side, so building one
 API's validation and surfaces as a failed save rather than a client-side error message — a known rough
 edge, not a silent gap (see [Future Plan](future-plan.md#known-scope-cuts-and-rough-edges)).
 
-A task list also says what it is for: `kind` is `Checklist` (the default) or `Calendar`, and a calendar
-list — one whose entries are appointments rather than errands — also carries a `location`. Every other
-kind has nowhere to be and stores nothing for it, including a list changed back from one: the location
-travels with the kind and is dropped when it stops applying (`TaskList.SetKind`).
+Each **item** also says what it is: `kind` is `Checklist` (the default) or `Calendar`. A calendar entry
+is somewhere to be rather than something to fetch, so it also carries a `location`, and can name the
+`linkedCalendarEventId` of the calendar event it is the same appointment as. The kind sits on the item
+rather than on the list because a list is rarely all one or all the other — a day's plan holds two
+errands and an appointment, and asking somebody to keep those on separate lists is asking them to keep
+the list that matches their day in two places.
+
+**The place is stored once.** An entry tied to an event keeps no location of its own: the event already
+holds one, and a second copy is how the two come to disagree. Every other kind of entry has nowhere to
+be and stores nothing for it, including one changed back from a calendar entry. The link itself is not
+validated — an event deleted afterwards leaves it pointing at nothing, which reads as "no event", the
+same way a link to a deleted task list reads as "not completed".
 
 In the Blazor client, each item's due date and time are edited separately (`DateField` plus `TimeField`)
 and combined into one timestamp on save; a date picked without a time is stored as midnight. Both are
@@ -556,7 +581,7 @@ A task list can be opened at either of two depths, both reachable from the task 
   two people doing it at the same time is normal rather than a conflict. It still goes through the same
   `PUT /api/tasks/{id}`, so it does respect someone else's lock — a save during another user's deep edit
   comes back 409 and the checkbox snaps back to what the server holds.
-- **Deep** (`/tasks/{id}/edit`, `TaskEditor.razor`) — the full editor: title, kind, grouping, every
+- **Deep** (`/tasks/{id}/edit`, `TaskEditor.razor`) — the full editor: title, grouping, every
   item's text, due date, link, notification settings, adding and removing items. This is the level that
   takes the edit lock described under [Edit locking](#edit-locking).
 
@@ -570,6 +595,22 @@ that was true still work.
 
 Rows that can't be ticked by hand render as disabled checkboxes: items whose completion follows a
 linked list (see above), and any list reached through a read-only share.
+
+There is a third depth, reached only from the calendar: **the summary of a single entry**
+(`/tasks/{taskListId}/items/{itemId}`, `TaskItemSummary.razor`). An entry that has both a due date and a
+place is an appointment rather than something to tick off, so clicking it on the calendar opens that one
+entry — its name, the list it is on, when it is, where it is, and a Leaflet map with a pin — instead of
+the whole checklist. Two buttons lead back out: **Back to Calendar** and **Show Tasks**, the latter to
+the shallow level of the list. A deadline with no place still opens the checklist, since there would be
+nothing on such a page the list does not already show. `Calendar.razor`'s `GoToDueTask` makes that
+choice, from the `HasPlace` flag `DueTaskDto` carries.
+
+The pin comes from whichever source holds the address. An entry tied to a calendar event takes the
+event's stored coordinates directly — the link exists so the address lives in one place. An entry with
+only its own typed address has no coordinates, so it is looked up once through
+`GeocodingApiClient.FindPlaceAsync` (Nominatim's forward search, the mirror of the reverse lookup the
+event editor's map picker uses). An address nobody can find leaves the words on the page and draws no
+map, rather than dropping a pin in the wrong country.
 
 ### Group lists
 
@@ -660,12 +701,34 @@ since there's nothing persisted yet to move.
 ## Inventory
 
 `POST /api/inventory` and `PUT /api/inventory/{id}` both take `{ name, productType, category, quantity,
-minimumQuantity, expiryDate, expiryNotificationChannel }` — `productType` and `category` are free text
-(no fixed list), `quantity`/`minimumQuantity` are decimal (not integer) so fractional amounts like
+minimumQuantity, unit, expiryDate, expiryNotificationChannel }` — `productType` and `category` are free
+text (no fixed list), `quantity`/`minimumQuantity` are decimal (not integer) so fractional amounts like
 "1.5 kg" are representable, and `minimumQuantity`/`expiryDate` are both optional: not every product
 needs a restock threshold or an expiry date. `GET /api/inventory` and `GET /api/inventory/{id}` return
 the same shape back plus `id`, `isBelowMinimum` and `hasPendingRestockTask` (both derived, computed
 server-side so the client never reimplements the comparison), and `createdAtUtc`/`updatedAtUtc`.
+
+`unit` says what the two amounts are counted in, and unlike the type and the category it **is** a fixed
+list (`InventoryUnit`): `Piece`, `Kilogram`, `Milligram`, `Litre`, `Millilitre`, `Pack`. Fixed because
+`quantity` and `minimumQuantity` are compared as bare numbers, so both have to mean the same thing —
+"szt." typed three ways would leave a shelf that looks stocked and a restock task nobody understands.
+An item that says nothing is counted in pieces, which is also what every item stocked before units
+existed became. The editor writes the short form beside the amount (`kg`, `ml`, `pcs`) and keeps the
+full name in each option's tooltip, and a restock errand carries it too - "Restock: Flour (5 kg)"
+(`RestockTaskNaming.EntryFor`). Pieces are left off there, since "(5)" of a thing already means five of
+them, and an errand raised from a checklist carries no unit at all: repetition is the quantity on a
+checklist (`StockRequirementCounter`), so its number counts lines rather than an amount of anything.
+The short forms live in Core (`InventoryUnitShortForm`) because both sides need the same list - the
+server writes them into an errand, and the client reads them back to say them in the reader's language
+(`OrbitWrittenNames`), which only touches a trailing "(number unit)" whose unit is one Orbit itself
+wrote.
+
+**A full shelf can be narrowed down.** The warehouse editor offers a product-type and a category filter,
+each listing only values something is actually filed under, so neither can be set to a dead end. This is
+a view and nothing more: `WarehouseFormModel.ToRequest` reads the whole item list, so a save made while
+the shelf is narrowed keeps the rows that were hidden — the editor says so on screen (`Showing 1 of 2
+items. Saving keeps all of them.`) rather than leaving it to be discovered. Adding a row clears the
+filter, since a new row is filed under nothing and would otherwise be hidden the moment it appeared.
 
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
 warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -

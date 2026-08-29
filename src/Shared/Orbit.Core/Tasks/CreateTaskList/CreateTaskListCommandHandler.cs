@@ -19,7 +19,7 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
 
         var taskList = TaskList.Create(
             request.UserId, request.Title, request.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent,
-            request.Priority, isPinned: false, request.Kind, request.Location);
+            request.Priority);
         await _taskRepository.AddAsync(taskList, cancellationToken);
         return taskList.Id;
     }
