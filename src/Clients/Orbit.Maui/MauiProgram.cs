@@ -163,6 +163,14 @@ public static class MauiProgram
 		// Its own client, deliberately outside the three below: it talks to Google rather than to Orbit,
 		// and must never carry an Orbit access token.
 		services.AddHttpClient<IGoogleSignIn, GoogleSignIn>();
+		// The same rule for OpenStreetMap's Nominatim - a third-party host, so no Orbit token goes near
+		// it. Orbit.Web registers its own copy the same way. Nominatim asks callers to identify
+		// themselves, and refuses ones that do not.
+		services.AddHttpClient<PlaceSearch>(client =>
+		{
+			client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+			client.DefaultRequestHeaders.UserAgent.ParseAdd("Orbit/1.0 (https://github.com/NorArax-NeflinOwl/orbit)");
+		});
 	}
 
 	private static void RegisterPlatformServices(IServiceCollection services)
