@@ -1,4 +1,5 @@
 using Orbit.Mobile.Localization;
+using System.ComponentModel;
 using System.Windows.Input;
 using Orbit.Mobile.Screens.Tasks;
 
@@ -71,6 +72,7 @@ public partial class TaskListDetailPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		_viewModel.PropertyChanged += OnViewModelPropertyChanged;
 		_viewModel.LoadCommand.Execute(null);
 	}
 
@@ -87,6 +89,7 @@ public partial class TaskListDetailPage : ContentPage
 	protected override async void OnDisappearing()
 	{
 		base.OnDisappearing();
+		_viewModel.PropertyChanged -= OnViewModelPropertyChanged;
 		await _viewModel.CloseAsync();
 	}
 
@@ -96,6 +99,30 @@ public partial class TaskListDetailPage : ContentPage
 	/// </summary>
 	public ICommand ShowItemMenuCommand { get; }
 
+	/// <summary>
+	/// The question the view model arms when "Update stock levels" is crossed off with errands still
+	/// open - see TaskListDetailViewModel.RestockTickBeingAsked. Asked from the page rather than there
+	/// because a confirmation prompt is the platform's, the same split as the action sheets above.
+	/// </summary>
+	private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
+	{
+		if (eventArgs.PropertyName != nameof(TaskListDetailViewModel.IsAskingToFinishRestocking)
+			|| !_viewModel.IsAskingToFinishRestocking)
+		{
+			return;
+		}
+
+		var finishesTheRound = await DisplayAlertAsync(
+			_translations["Update stock levels"],
+			_translations["Finish this list and set every item in the warehouse to its minimum?"],
+			_translations["Finish the whole list"],
+			_translations["Just this one"]);
+
+		await (finishesTheRound
+			? _viewModel.FinishRestockingCommand.ExecuteAsync(null)
+			: _viewModel.TickOnlyThisCommand.ExecuteAsync(null));
+	}
+
 	private async Task ShowItemMenuAsync(TaskItemRow? item)
 	{
 		if (item is null)
@@ -104,8 +131,11 @@ public partial class TaskListDetailPage : ContentPage
 		}
 
 		var remove = _translations["Delete item"];
+		var moveUp = _translations["Move up"];
+		var moveDown = _translations["Move down"];
 		var chosen = await DisplayActionSheet(
-			_translations["Item options"], _translations["Cancel"], remove, _translations["Edit"]);
+			_translations["Item options"], _translations["Cancel"], remove,
+			_translations["Edit"], moveUp, moveDown);
 
 		if (chosen == remove)
 		{
@@ -114,6 +144,14 @@ public partial class TaskListDetailPage : ContentPage
 		else if (chosen == _translations["Edit"])
 		{
 			_viewModel.EditItemCommand.Execute(item);
+		}
+		else if (chosen == moveUp)
+		{
+			_viewModel.MoveItemUpCommand.Execute(item);
+		}
+		else if (chosen == moveDown)
+		{
+			_viewModel.MoveItemDownCommand.Execute(item);
 		}
 	}
 }

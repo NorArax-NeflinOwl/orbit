@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Core.Mobile;
+using Orbit.Mobile.Update;
 using Orbit.Mobile.Api;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Authentication;
@@ -153,6 +156,50 @@ public sealed class NavigationBarTests
         Assert.Equal(PresenceAppearance.Unavailable, bar.Appearance);
     }
 
+    /// <summary>
+    /// Startup says a newer build is out once, in a prompt the reader is free to dismiss. The badge is
+    /// what is left standing afterwards, and the only sign there is anything to do about it.
+    /// </summary>
+    [Fact]
+    public async Task A_newer_version_is_badged_in_the_menu()
+    {
+        var context = new BarContext("Ala");
+        context.RememberANewerVersionIsOut();
+
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(bar.IsUpdateAvailable);
+    }
+
+    /// <summary>
+    /// Read from what startup already learned rather than asked again, so it is right on a train and
+    /// costs nothing on every screen - the server here is unreachable and the answer still arrives.
+    /// </summary>
+    [Fact]
+    public async Task Nothing_newer_leaves_the_badge_off()
+    {
+        var context = new BarContext("Ala");
+
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(bar.IsUpdateAvailable);
+    }
+
+    [Fact]
+    public void The_update_row_leads_to_where_a_newer_build_is()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+        bar.ToggleMenuCommand.Execute(null);
+
+        bar.GoToUpdateCommand.Execute(null);
+
+        Assert.Equal("ShowUpdate", context.Navigator.LastDestination);
+        Assert.False(bar.IsMenuOpen);
+    }
+
     [Fact]
     public void The_logo_leads_to_the_dashboard()
     {
@@ -204,12 +251,34 @@ public sealed class NavigationBarTests
         public SyncState SyncState { get; } = new(
             FixedNetworkStatus.Online, new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T09:00:00Z")));
 
+        /// <summary>
+        /// What the app already knows about its own version, which is where the bar's update badge
+        /// comes from - see NavigationBarViewModel.IsUpdateAvailable. Nothing remembered by default,
+        /// which is a build that has never been told there is anything newer.
+        /// </summary>
+        public InMemoryVersionVerdictCache Versions { get; } = new();
+
+        /// <summary>Remembers that a newer build exists, as startup would have.</summary>
+        public void RememberANewerVersionIsOut()
+            => Versions.WriteAsync(
+                new CachedVersionVerdict(
+                    InstalledVersion, MobileVersionVerdict.UpdateAvailable, "1.4.0", "https://orbit.example/apk"),
+                CancellationToken.None).GetAwaiter().GetResult();
+
+        private const string InstalledVersion = "1.3.0";
+
         public NavigationBarViewModel Open()
             => new(
                 _sessionStore, new NotificationsClient(Server.ToHttpClient()),
                 new AuthenticationClient(Server.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
                 Presence, new Translations(new InMemoryLanguageStore()),
-                new LocalStoreReset(LocalStore), UnlockedPermissions.For(LocalStore), SyncState, Navigator);
+                new LocalStoreReset(LocalStore), UnlockedPermissions.For(LocalStore), SyncState,
+                new MobileVersionGate(
+                    new AppVersion(MobilePlatform.Android, InstalledVersion),
+                    // Unreachable on purpose: the bar reads what is remembered and asks nobody.
+                    StubHttpMessageHandler.Unreachable().ToHttpClient(), Versions,
+                    NullLogger<MobileVersionGate>.Instance),
+                Navigator);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

@@ -27,6 +27,8 @@ public sealed class UpNavigation
         [Screen.TaskList] = Screen.Tasks,
         [Screen.Calendar] = Screen.Dashboard,
         [Screen.CalendarEvent] = Screen.Calendar,
+        // The calendar, not the list: this only ever opens from there - see CalendarViewModel.OpenDeadline.
+        [Screen.TaskItem] = Screen.Calendar,
         [Screen.Inventory] = Screen.Dashboard,
         [Screen.Warehouse] = Screen.Inventory,
         [Screen.Contacts] = Screen.Dashboard,
@@ -38,6 +40,7 @@ public sealed class UpNavigation
         [Screen.Map] = Screen.Dashboard,
         [Screen.Notifications] = Screen.Dashboard,
         [Screen.Account] = Screen.Dashboard,
+        [Screen.Update] = Screen.Dashboard,
         [Screen.Diagnostics] = Screen.Account
     };
 

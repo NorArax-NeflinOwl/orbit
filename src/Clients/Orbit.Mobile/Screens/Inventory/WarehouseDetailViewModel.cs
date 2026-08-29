@@ -82,11 +82,17 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     public ObservableCollection<string> Categories { get; } = [];
 
+    /// <summary>
+    /// Nullable because the platform makes it so: emptying a bound Picker's items sets its selection to
+    /// nothing, and the binding writes that null back here - which happens on every reload, before the
+    /// options are put back. See <see cref="ShowWhatIsOnTheShelf"/>.
+    /// </summary>
     [ObservableProperty]
-    private string _chosenProductType;
+    private string? _chosenProductType;
 
+    /// <inheritdoc cref="ChosenProductType"/>
     [ObservableProperty]
-    private string _chosenCategory;
+    private string? _chosenCategory;
 
     /// <summary>Hidden while there is nothing to narrow - an empty shelf, or one filed under nothing.</summary>
     public bool CanNarrow => ProductTypes.Count > 1 || Categories.Count > 1;
@@ -217,6 +223,52 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             ? Task.CompletedTask
             : SaveAsync([.. _items.Where(candidate => !Matches(candidate, row.Item))], cancellationToken);
 
+    /// <summary>
+    /// Moves a product one place up the shelf, or one place down. The order a warehouse is saved in is
+    /// the order it is stored in - see InventoryItem.Position - so arranging it here is how it reads
+    /// everywhere, which is the same thing Orbit.Web's drag handles do.
+    ///
+    /// One place among what is <i>shown</i>, not among what is stored. A narrowed shelf hides rows, and
+    /// swapping with a hidden neighbour would move the product without anything on screen changing -
+    /// which reads as a button that does nothing.
+    /// </summary>
+    [RelayCommand]
+    private Task MoveItemUpAsync(WarehouseItemRow? row, CancellationToken cancellationToken)
+        => MoveItemAsync(row, by: -1, cancellationToken);
+
+    [RelayCommand]
+    private Task MoveItemDownAsync(WarehouseItemRow? row, CancellationToken cancellationToken)
+        => MoveItemAsync(row, by: 1, cancellationToken);
+
+    private Task MoveItemAsync(WarehouseItemRow? row, int by, CancellationToken cancellationToken)
+    {
+        if (row is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var shown = _items.Where(_filter.Matches).ToList();
+        var shownFrom = shown.FindIndex(candidate => Matches(candidate, row.Item));
+        var shownTo = shownFrom + by;
+
+        // The ends are where a shelf stops, not a failure: the top row has nowhere above it.
+        if (shownFrom < 0 || shownTo < 0 || shownTo >= shown.Count)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Taken out and put back on the far side of the row it passed, rather than swapped: with rows
+        // hidden between the two, swapping would carry the hidden ones along with it.
+        var reordered = _items.ToList();
+        var moved = reordered.Single(candidate => Matches(candidate, row.Item));
+        reordered.Remove(moved);
+
+        var passed = reordered.FindIndex(candidate => Matches(candidate, shown[shownTo]));
+        reordered.Insert(by > 0 ? passed + 1 : passed, moved);
+
+        return SaveAsync(reordered, cancellationToken);
+    }
+
     /// <inheritdoc cref="Tasks.TaskListDetailViewModel.RenameAsync"/>
     [RelayCommand]
     private Task RenameAsync(CancellationToken cancellationToken) => SaveAsync(_items, cancellationToken);
@@ -299,12 +351,12 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Offer(ProductTypes, _anyProductType, item => item.ProductType);
         Offer(Categories, _anyCategory, item => item.Category);
 
-        if (!ProductTypes.Contains(ChosenProductType))
+        if (ChosenProductType is not { } productType || !ProductTypes.Contains(productType))
         {
             ChosenProductType = _anyProductType;
         }
 
-        if (!Categories.Contains(ChosenCategory))
+        if (ChosenCategory is not { } category || !Categories.Contains(category))
         {
             ChosenCategory = _anyCategory;
         }
@@ -342,17 +394,24 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(EmptyMessage));
     }
 
-    partial void OnChosenProductTypeChanged(string value)
+    partial void OnChosenProductTypeChanged(string? value)
     {
-        _filter.ProductType = value == _anyProductType ? string.Empty : value;
+        _filter.ProductType = Narrowing(value, _anyProductType);
         ShowMatchingRows();
     }
 
-    partial void OnChosenCategoryChanged(string value)
+    partial void OnChosenCategoryChanged(string? value)
     {
-        _filter.Category = value == _anyCategory ? string.Empty : value;
+        _filter.Category = Narrowing(value, _anyCategory);
         ShowMatchingRows();
     }
+
+    /// <summary>
+    /// What a chosen option narrows the shelf by - nothing, for the "any" entry and for the null a
+    /// cleared Picker writes back. Both mean "not narrowed"; only one of them is a person choosing.
+    /// </summary>
+    private static string Narrowing(string? chosen, string forAny)
+        => chosen is null || chosen == forAny ? string.Empty : chosen;
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {

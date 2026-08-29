@@ -14,6 +14,22 @@ public enum TaskListSortOrder
 }
 
 /// <summary>
+/// Remembers how this reader arranges their task lists, between launches - see IThemeStore for the same
+/// shape, and Orbit.Web's TaskListArrangement, which keeps the same choice on the device for the same
+/// reason: it describes one page for one reader and says nothing about the lists themselves.
+///
+/// Only the order. What is filtered to is a narrowing somebody does for a moment - "show me the overdue
+/// ones" - and bringing it back a week later would answer a question nobody asked twice. The web draws
+/// the line in the same place.
+/// </summary>
+public interface ITaskListSortOrderStore
+{
+    TaskListSortOrder Read();
+
+    void Write(TaskListSortOrder sortOrder);
+}
+
+/// <summary>
 /// Which task lists to show and in what order - the filtering and sorting the phone did not have, and
 /// the same choices the web's task page makes, so the two do not disagree about what "Overdue" means.
 ///

@@ -125,7 +125,11 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             ParseQuantity() ?? 0,
             ParseMinimum(),
             Unit,
-            Expires ? new DateTimeOffset(ExpiryDate.Date, TimeZoneInfo.Local.GetUtcOffset(ExpiryDate.Date)) : null,
+            // Converted rather than sent with the local offset the picker works in - see the same line
+            // in TaskItemEditor for what a non-zero offset costs on the way to Postgres.
+            Expires
+                ? new DateTimeOffset(ExpiryDate.Date, TimeZoneInfo.Local.GetUtcOffset(ExpiryDate.Date)).ToUniversalTime()
+                : null,
             ExpiryNotificationChannel);
 
     private decimal? ParseQuantity()

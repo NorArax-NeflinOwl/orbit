@@ -20,7 +20,8 @@ public sealed partial class TranslationCoverageTests
     /// A product's name and a bare glyph read the same in both languages. Listed rather than inferred,
     /// so adding one is a decision somebody makes on purpose.
     /// </summary>
-    private static readonly HashSet<string> SameInEveryLanguage = ["Orbit", "+", "−", "✕", "English", "Polski"];
+    private static readonly HashSet<string> SameInEveryLanguage =
+        ["Orbit", "Google", "+", "−", "✕", "English", "Polski"];
 
     [Fact]
     public void Every_string_the_app_asks_to_translate_has_a_Polish_translation()

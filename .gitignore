@@ -17,8 +17,10 @@ _to_delete/
 **/bin/
 **/obj/
 
-# Orbit.Api prototype runtime artifact (Serilog file sink)
+# Orbit.Api runtime artifact (Serilog file sink). Written beside the working directory the server was
+# started from, which is the repository root when the built executable is run from there - see info/build.md.
 /src/Server/Orbit.Api/logs/
+/logs/
 
 # Per-developer IDE settings; not shared across the team.
 *.csproj.user

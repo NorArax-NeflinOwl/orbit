@@ -96,6 +96,10 @@ public static class PolishTranslations
         ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
         ["Finish this list and set every item in the warehouse to its minimum?"] =
             "Czy chcesz zakończyć zadanie i ustawić wszystkim elementom minimalną wartość na magazynie?",
+        // The two answers to the question above. The web has the browser's own OK and Cancel; a phone
+        // alert names its buttons, and "OK" would not say which of the two things it does.
+        ["Finish the whole list"] = "Zakończ całą listę",
+        ["Just this one"] = "Tylko to",
         ["{0} brought up to their minimum."] = "Uzupełniono do minimum: {0}.",
         ["Couldn't finish the restocking. Try again."] = "Nie udało się zakończyć uzupełniania. Spróbuj ponownie.",
         ["Couldn't recalculate against the warehouse. Try again."] =
@@ -251,6 +255,8 @@ public static class PolishTranslations
         ["What this is counted in"] = "W czym to jest liczone",
         ["Any type"] = "Dowolny typ",
         ["Any category"] = "Dowolna kategoria",
+        ["Move up"] = "Przenieś w górę",
+        ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",
         ["Nothing here matches that. The rest of the warehouse is still there - clear the filter to see it."] = "Nic tu nie pasuje. Reszta magazynu nadal tam jest - wyczyść filtr, żeby ją zobaczyć.",
         ["Showing {0} of {1} items. Saving keeps all of them."] = "Widocznych {0} z {1} pozycji. Zapis zachowuje wszystkie.",
@@ -1243,6 +1249,18 @@ public static class PolishTranslations
         ["Delivered"] = "Dostarczone",
         ["Read by everyone"] = "Przeczytane przez wszystkich",
         ["Read {0}"] = "Przeczytane {0}",
+
+        // The same page on a phone, where the reader already has the app and the word for it is
+        // "update" - see UpdateViewModel. Only the platform being read on is drawn there, so the
+        // strings below are shared with the web's page rather than doubled.
+        ["Update"] = "Aktualizacja",
+        ["Where a newer Orbit comes from, and how to install it."] =
+            "Skąd wziąć nowszego Orbita i jak go zainstalować.",
+        ["Orbit {0} is out. You have {1}."] = "Jest Orbit {0}. Masz {1}.",
+        ["A newer Orbit is out."] = "Jest nowszy Orbit.",
+        ["You have Orbit {0}, which is the newest there is."] = "Masz Orbita {0} — nowszego nie ma.",
+        ["Orbit hasn't been able to check for a newer version yet."] =
+            "Orbit nie zdążył jeszcze sprawdzić, czy jest nowsza wersja.",
 
         // The page the phone apps are downloaded from.
         ["Orbit — Get the app"] = "Orbit — Pobierz aplikację",

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Web;
+using Orbit.Contracts.Config;
 using Orbit.Contracts.Users;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
@@ -64,6 +65,18 @@ internal sealed class FakeUsersServer : HttpMessageHandler
             && request.RequestUri!.AbsolutePath.EndsWith("/users/me", StringComparison.Ordinal))
         {
             return DeleteAccountAsync(request, cancellationToken);
+        }
+
+        // Asked by the account screen's Google row, which is absent unless a client id comes back -
+        // see GoogleAccountLink. GoogleAccountLinkTests is where the offered case is exercised.
+        if (request.RequestUri.AbsolutePath.EndsWith("/config/client-flags", StringComparison.Ordinal))
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new ClientFlagsDto(
+                    ExceptionDetailsAllowed: false, GoogleClientId: string.Empty, WebAddress: string.Empty,
+                    GoogleAndroidClientId: string.Empty, GoogleIosClientId: string.Empty))
+            });
         }
 
         if (request.RequestUri!.AbsolutePath.EndsWith("/search", StringComparison.Ordinal))

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Tasks.TaskItemSummaryPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
+    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+    x:DataType="screens:TaskItemSummaryViewModel"
+    Title="{Binding Description}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+    <ScrollView Grid.Row="1">
+        <VerticalStackLayout Padding="20" Spacing="12">
+
+            <controls:PageHeader Title="{Binding Description}" Subtitle="{Binding TaskListTitle}" />
+
+            <!-- When and where, the two things this screen exists to answer, as Orbit.Web lays them
+                 out on the same page. -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="8">
+                <Label Grid.Row="0" Grid.Column="0" Text="{controls:Translate 'When'}"
+                       Style="{StaticResource SubtleLabel}" FontSize="13" />
+                <Label Grid.Row="0" Grid.Column="1" Text="{Binding When}" LineBreakMode="WordWrap" />
+                <Label Grid.Row="1" Grid.Column="0" Text="{controls:Translate 'Where'}"
+                       Style="{StaticResource SubtleLabel}" FontSize="13" />
+                <Label Grid.Row="1" Grid.Column="1" Text="{Binding Where}" LineBreakMode="WordWrap" />
+            </Grid>
+
+            <Label Text="{controls:Translate 'Already done.'}" IsVisible="{Binding IsCompleted}"
+                   FontSize="12" Style="{StaticResource SubtleLabel}" />
+
+            <!-- Drawn only once there is somewhere to draw, and built in code-behind for the reason
+                 MapPage gives: the control's pin carries a platform Location, and a build with no map
+                 key must not create the control at all - see MapAvailability. -->
+            <ContentView x:Name="MapArea" HeightRequest="240" IsVisible="{Binding HasPin}">
+                <maps:Map x:Name="PlaceMap" IsShowingUser="False" />
+            </ContentView>
+
+            <Label Text="{controls:Translate 'That place could not be found on the map.'}"
+                   IsVisible="{Binding IsPlaceUnknown}" FontSize="12" LineBreakMode="WordWrap"
+                   Style="{StaticResource SubtleLabel}" />
+
+            <Button Text="{controls:Translate 'Show Tasks'}" HorizontalOptions="Start"
+                    Command="{Binding ShowTaskListCommand}" />
+            <Button Text="{controls:Translate 'Back to Calendar'}" HorizontalOptions="Start"
+                    Style="{StaticResource LinkButton}" Command="{Binding GoBackCommand}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

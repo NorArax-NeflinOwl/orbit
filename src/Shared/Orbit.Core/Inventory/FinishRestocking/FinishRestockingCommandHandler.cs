@@ -31,14 +31,7 @@ public sealed class FinishRestockingCommandHandler : IRequestHandler<FinishResto
 
         // The whole list, the standing reminder included: the question asked was whether to finish the
         // task, and the reminder is brought back tomorrow by RemindDaily rather than by being left open.
-        var crossedOff = false;
-        foreach (var item in taskList.Items.Where(item => !item.IsCompleted))
-        {
-            item.Complete();
-            crossedOff = true;
-        }
-
-        if (crossedOff)
+        if (taskList.CompleteEverything())
         {
             await _taskRepository.UpdateAsync(taskList, cancellationToken);
         }

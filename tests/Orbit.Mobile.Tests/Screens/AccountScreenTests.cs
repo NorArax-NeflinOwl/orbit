@@ -276,7 +276,14 @@ public sealed class AccountScreenTests
                 new NotificationSettingsViewModel(
                     new NotificationsClient(Notifications.ToHttpClient()),
                     new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator()),
-                Navigator);
+                Navigator,
+                // Not offered: this fake answers client-flags with no client id for this app, which is
+                // what a deployment without Google configured looks like - see GoogleAccountLinkTests.
+                new GoogleAccountLink(
+                    new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
+                    new AuthenticationClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
+                    new GoogleSignIn(new FakeSignInBrowser(), _users.ToHttpClient()),
+                    new Translations(new InMemoryLanguageStore())));
 
         public void Dispose()
         {

@@ -105,7 +105,8 @@ public sealed partial class AccountViewModel : ObservableObject
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
         UserPermissions permissions, IThemeStore themes, TransferClient transfer, LocalStoreReset localStore,
-        Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator)
+        Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator,
+        GoogleAccountLink googleLink)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
@@ -120,6 +121,10 @@ public sealed partial class AccountViewModel : ObservableObject
         _theme = themes.Read();
         Notifications = notifications;
         _navigator = navigator;
+        GoogleLink = googleLink;
+        // Connecting or disconnecting changes what the account is, so the screen reads it again rather
+        // than keeping the copy it showed before.
+        GoogleLink.Changed += (_, _) => _ = ShowAccountAsync();
     }
 
     /// <summary>
@@ -128,6 +133,9 @@ public sealed partial class AccountViewModel : ObservableObject
     /// one called "Account" - two doors to the same room, and neither name said which.
     /// </summary>
     public Notifications.NotificationSettingsViewModel Notifications { get; }
+
+    /// <summary>Signing in with Google as well as with a password - see <see cref="GoogleAccountLink"/>.</summary>
+    public GoogleAccountLink GoogleLink { get; }
 
     /// <summary>
     /// Which section is showing. Tabs rather than one long scroll, as Orbit.Web's Options page has -
@@ -297,6 +305,7 @@ public sealed partial class AccountViewModel : ObservableObject
             EmailAddress = account.Email;
             IsEmailVerified = account.IsEmailVerified;
             RequiresPasswordToDelete = account.HasPassword;
+            await GoogleLink.ShowAsync(account);
         }
         catch (HttpRequestException)
         {

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Update.UpdatePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Update;assembly=Orbit.Mobile"
+    x:DataType="screens:UpdateViewModel"
+    Title="{controls:Translate 'Update'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+    <ScrollView Grid.Row="1">
+        <VerticalStackLayout Padding="20" Spacing="12">
+
+            <controls:PageHeader Title="{controls:Translate 'Update'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Where a newer Orbit comes from, and how to install it." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
+
+            <Label Text="{Binding Summary}" LineBreakMode="WordWrap" />
+
+            <!-- One platform, its own. Orbit.Web offers both because it does not know what the reader
+                 is holding; a phone does, and the other half would only be read past. -->
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsAndroid}">
+                <Label Text="{controls:Translate 'Android'}" Style="{StaticResource FieldLabel}" />
+                <Button Text="{controls:Translate 'Download for Android'}" HorizontalOptions="Start"
+                        IsVisible="{Binding CanUpdate}" Command="{Binding GetItCommand}" />
+                <Label IsVisible="{Binding CanUpdate}" FontSize="12" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}">
+                    <Label.Text>
+                        <controls:Translate Text="Open the downloaded file. Android will ask whether this browser may install apps - allow it." />
+                    </Label.Text>
+                </Label>
+                <Label IsVisible="{Binding CanUpdate}" FontSize="12" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}">
+                    <Label.Text>
+                        <controls:Translate Text="This build is not from Google Play, so Android checks with you before installing it. That is the prompt about unknown sources, and it is expected here." />
+                    </Label.Text>
+                </Label>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsIphone}">
+                <Label Text="{controls:Translate 'iPhone'}" Style="{StaticResource FieldLabel}" />
+                <Button Text="{controls:Translate 'Open the TestFlight invitation'}" HorizontalOptions="Start"
+                        IsVisible="{Binding CanUpdate}" Command="{Binding GetItCommand}" />
+                <Label IsVisible="{Binding CanUpdate}" FontSize="12" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}">
+                    <Label.Text>
+                        <controls:Translate Text="Install Apple's TestFlight app, then open the invitation on the iPhone itself." />
+                    </Label.Text>
+                </Label>
+            </VerticalStackLayout>
+
+            <Label Text="{controls:Translate 'The phone apps sign in to this same Orbit, with the same account and the same data.'}"
+                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" Margin="0,8,0,0" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

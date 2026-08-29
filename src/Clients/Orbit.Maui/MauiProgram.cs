@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Orbit.Core.Mobile;
 using Orbit.Maui.Configuration;
+using Orbit.Maui.Diagnostics;
 using Orbit.Maui.Features.Account;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Screens.Authentication;
@@ -84,6 +85,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton(diagnosticVerbosity);
 		builder.Logging.AddProvider(new DiagnosticLogProvider(diagnosticLog, diagnosticVerbosity));
 
+		// And the failures nothing handles, which the provider above never sees: the process ends
+		// before anything writes them - see CrashLogging.
+		CrashLogging.Watch(new CrashLog(diagnosticLog));
+
 		var app = builder.Build();
 		LocalDatabase.Migrate(app.Services);
 		return app;
@@ -129,6 +134,7 @@ public static class MauiProgram
 		services.AddTransient<SharedItemSharing>();
 		services.AddTransient<SharePanel>();
 		services.AddTransient<StockCheckPanel>();
+		services.AddTransient<GoogleAccountLink>();
 		services.AddTransient<SharedLocations>();
 		services.AddTransient<NotificationOpener>();
 		// One holder for the whole app: the tap is recorded by platform code and taken by whatever
@@ -185,6 +191,7 @@ public static class MauiProgram
 		services.AddSingleton<ISessionStorage, SecureSessionStorage>();
 		services.AddSingleton<IChatKeyStorage, SecureChatKeyStorage>();
 		services.AddSingleton<IVersionVerdictCache, PreferencesVersionVerdictCache>();
+		services.AddSingleton<ITaskListSortOrderStore, PreferencesTaskListSortOrderStore>();
 		services.AddSingleton<SessionStore>();
 
 		// What the app reports about itself to the version gate. Read from the build rather than
@@ -290,6 +297,8 @@ public static class MauiProgram
 		services.AddTransient<TasksViewModel>();
 		services.AddTransient<TaskListDetailPage>();
 		services.AddTransient<TaskListDetailViewModel>();
+		services.AddTransient<TaskItemSummaryPage>();
+		services.AddTransient<TaskItemSummaryViewModel>();
 		services.AddTransient<CalendarPage>();
 		services.AddTransient<CalendarViewModel>();
 		services.AddTransient<MapPage>();
@@ -300,6 +309,8 @@ public static class MauiProgram
 		services.AddTransient<WarehouseDetailPage>();
 		services.AddTransient<WarehouseDetailViewModel>();
 		services.AddTransient<NotificationFeedPage>();
+		services.AddTransient<Features.Update.UpdatePage>();
+		services.AddTransient<Orbit.Mobile.Screens.Update.UpdateViewModel>();
 		services.AddTransient<NotificationFeedViewModel>();
 		services.AddTransient<NotificationSettingsViewModel>();
 		services.AddTransient<DiagnosticsPage>();

@@ -42,6 +42,7 @@ public sealed class InventoryRepository : IInventoryRepository
     public async Task AddAsync(InventoryItem item, CancellationToken cancellationToken)
     {
         _dbContext.InventoryItems.Add(ToEntity(item));
+        await MarkWarehouseChangedAsync(item.WarehouseId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -67,6 +68,7 @@ public sealed class InventoryRepository : IInventoryRepository
         entity.Position = item.Position;
         entity.UpdatedAtUtc = item.UpdatedAtUtc;
 
+        await MarkWarehouseChangedAsync(item.WarehouseId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -80,6 +82,7 @@ public sealed class InventoryRepository : IInventoryRepository
         }
 
         _dbContext.InventoryItems.Remove(entity);
+        await MarkWarehouseChangedAsync(warehouseId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -95,6 +98,26 @@ public sealed class InventoryRepository : IInventoryRepository
 
         _dbContext.InventoryItems.RemoveRange(entities);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Says the warehouse changed, in the same write as the item that changed inside it.
+    ///
+    /// The change feed's unit is the warehouse: its items travel inside it and are gated by its
+    /// timestamp - see WarehouseRepository.GetAllAsync. So an item written on its own never reached
+    /// another device. Finishing a restock round brought the shelf up to its minimums on the server and
+    /// left every phone showing what it last saw; the next save from one of them wrote that back over
+    /// the top-up. Saving a warehouse stamps it anyway, so this only matters for the writes that go
+    /// straight at an item, which are all the server's own.
+    /// </summary>
+    private async Task MarkWarehouseChangedAsync(Guid warehouseId, CancellationToken cancellationToken)
+    {
+        // Gone already when the whole warehouse is being deleted, which is not a change to report.
+        if (await _dbContext.Warehouses.FirstOrDefaultAsync(
+                warehouse => warehouse.Id == warehouseId, cancellationToken) is { } entity)
+        {
+            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
     }
 
     private static InventoryItem ToDomain(InventoryItemEntity entity)

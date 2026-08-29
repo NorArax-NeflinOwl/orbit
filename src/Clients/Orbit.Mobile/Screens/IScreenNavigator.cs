@@ -42,6 +42,13 @@ public interface IScreenNavigator
 
     void ShowTaskList(Guid localId);
 
+    /// <summary>
+    /// One entry on its own, opened from the calendar when it is somewhere as well as at some time -
+    /// see TaskItemSummaryViewModel. Carries the list too, because that is what the phone stores an
+    /// entry inside.
+    /// </summary>
+    void ShowTaskItem(Guid taskListLocalId, Guid itemId);
+
     void ShowCalendar();
 
     /// <summary>One event, opened from the calendar - see CalendarEventDetailViewModel.</summary>
@@ -55,6 +62,9 @@ public interface IScreenNavigator
 
     /// <summary>What happened while the reader was elsewhere - see NotificationFeedViewModel.</summary>
     void ShowNotifications();
+
+    /// <summary>Where a newer Orbit comes from - see UpdateViewModel.</summary>
+    void ShowUpdate();
 
     /// <summary>What Orbit is allowed to interrupt the reader with - see NotificationSettingsViewModel.</summary>
     /// <summary>The app's own log, and the one way it leaves the phone - see DiagnosticsViewModel.</summary>
