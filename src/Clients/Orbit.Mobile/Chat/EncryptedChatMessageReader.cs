@@ -69,13 +69,25 @@ public sealed class EncryptedChatMessageReader
                 IsReadByThem: isMine && theyReadUpToUtc is { } readUpTo && message.SentAtUtc <= readUpTo,
                 ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
                 Invitation: opened.Invitation,
-                EditAccessRequest: opened.EditAccessRequest));
+                EditAccessRequest: opened.EditAccessRequest)
+            {
+                QuotedMessageId = opened.QuotedMessageId,
+                QuotedPreview = opened.QuotedPreview
+            });
         }
 
         foreach (var message in queued)
         {
+            var opened = Read(message.Text);
             conversation.Add(new ReadableChatMessage(
-                IsMine: true, message.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true));
+                IsMine: true, opened.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true,
+                ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
+                Invitation: opened.Invitation,
+                EditAccessRequest: opened.EditAccessRequest)
+            {
+                QuotedMessageId = opened.QuotedMessageId,
+                QuotedPreview = opened.QuotedPreview
+            });
         }
 
         return conversation;
@@ -119,14 +131,26 @@ public sealed class EncryptedChatMessageReader
                 ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
                 IsReadByEveryone: isMine ? message.IsReadByEveryone : null,
                 Invitation: opened.Invitation,
-                EditAccessRequest: opened.EditAccessRequest));
+                EditAccessRequest: opened.EditAccessRequest)
+            {
+                QuotedMessageId = opened.QuotedMessageId,
+                QuotedPreview = opened.QuotedPreview
+            });
         }
 
         foreach (var message in queued)
         {
+            var opened = Read(message.Text);
             conversation.Add(new ReadableChatMessage(
-                IsMine: true, message.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true,
-                SenderName: _translations["You"]));
+                IsMine: true, opened.Text, message.QueuedAtUtc, IsEdited: false, IsWaitingToSend: true,
+                SenderName: _translations["You"],
+                ForwardedFromDisplayName: opened.ForwardedFromDisplayName,
+                Invitation: opened.Invitation,
+                EditAccessRequest: opened.EditAccessRequest)
+            {
+                QuotedMessageId = opened.QuotedMessageId,
+                QuotedPreview = opened.QuotedPreview
+            });
         }
 
         return conversation;
@@ -137,23 +161,34 @@ public sealed class EncryptedChatMessageReader
     /// </summary>
     private readonly record struct OpenedMessage(
         string? Text, string? ForwardedFromDisplayName, SharedItemInvitation? Invitation = null,
-        EditAccessRequest? EditAccessRequest = null);
+        EditAccessRequest? EditAccessRequest = null, Guid? QuotedMessageId = null, string? QuotedPreview = null);
 
     /// <summary>
-    /// Decrypts, then unwraps a forward if that is what it is. The two belong together: a forward's
-    /// words are inside the payload, so anything that decrypted but was not unwrapped would show the
-    /// reader raw JSON.
+    /// Decrypts, then reads whatever came out. The two belong together: a forward's or a reply's words
+    /// are inside a payload, so anything that decrypted but was not unwrapped would show the reader raw
+    /// JSON.
     /// </summary>
     private static OpenedMessage Open(ChatIdentity identity, string otherPartyPublicKeyBase64, EncryptedText encrypted)
-    {
-        if (identity.Decrypt(otherPartyPublicKeyBase64, encrypted) is not { } plainText)
-        {
-            return new OpenedMessage(null, null);
-        }
+        => identity.Decrypt(otherPartyPublicKeyBase64, encrypted) is { } plainText
+            ? Read(plainText)
+            : new OpenedMessage(null, null);
 
+    /// <summary>
+    /// What one plaintext says. Split out from <see cref="Open"/> because a message still in the queue
+    /// has never been encrypted - see EncryptedChatMessageSender - and needs reading all the same.
+    /// </summary>
+    private static OpenedMessage Read(string plainText)
+    {
         if (ForwardedMessage.TryUnwrap(plainText) is { } forwarded)
         {
             return new OpenedMessage(forwarded.Content, forwarded.OriginalAuthorDisplayName);
+        }
+
+        // An answer to one particular message, which the screen quotes above the reply itself.
+        if (ReplyMessage.TryUnwrap(plainText) is { } reply)
+        {
+            return new OpenedMessage(
+                reply.Content, null, QuotedMessageId: reply.ReplyToMessageId, QuotedPreview: reply.ReplyToPreview);
         }
 
         // An offer to share something, which is an ordinary message whose plaintext is structured - see

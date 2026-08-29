@@ -54,6 +54,15 @@
                                     </FormattedString>
                                 </Label.FormattedText>
                             </Label>
+                            <!-- What this message is answering. The quote travels with the reply rather
+                                 than being looked up, so it still reads right after the original was
+                                 edited or deleted - see ReplyMessagePayload. -->
+                            <Border IsVisible="{Binding IsReply}" Padding="8,4" Margin="0,0,0,2"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource AccentSubtleLight}, Dark={StaticResource AccentSubtleDark}}">
+                                <Label Text="{Binding QuotedPreview}" FontSize="12" LineBreakMode="TailTruncation"
+                                       MaxLines="2" Style="{StaticResource SubtleLabel}" />
+                            </Border>
                             <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
 
                             <!-- Somebody asking to be allowed to change something of yours. Nothing to
@@ -139,14 +148,27 @@
         <Label Grid.Row="3" Text="{Binding CannotWriteReason}" IsVisible="{Binding CannotWrite}"
                FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanCompose}">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
-                   ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Command="{Binding SendCommand}" />
-            <Button Grid.Column="2" Text="{controls:Translate 'Cancel'}" IsVisible="{Binding IsEditing}"
-                    Command="{Binding CancelEditingCommand}"
-                    Style="{StaticResource LinkButton}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="3" Spacing="4" IsVisible="{Binding CanCompose}">
+            <!-- What the box is answering, said above it: a reply that named nothing on screen would
+                 leave the reader guessing what they were about to answer. -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" IsVisible="{Binding HasReplyingTo}">
+                <Label Grid.Column="0" Text="{controls:Translate 'Replying to'}" FontSize="12"
+                       VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                <Label Grid.Column="1" Text="{Binding ReplyingToPreview}" FontSize="12"
+                       LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                <Button Grid.Column="2" Text="✕" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                        Command="{Binding CancelReplyingCommand}" Style="{StaticResource LinkButton}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
+                       ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Command="{Binding SendCommand}" />
+                <Button Grid.Column="2" Text="{controls:Translate 'Cancel'}" IsVisible="{Binding IsEditing}"
+                        Command="{Binding CancelEditingCommand}"
+                        Style="{StaticResource LinkButton}" />
+            </Grid>
+        </VerticalStackLayout>
 
         <!-- These screens replace each other rather than stacking, so there is no navigation bar to go
              back through - every screen carries its own way out. -->

@@ -39,6 +39,9 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
     /// <summary>The message the compose box is currently rewriting, if it is rewriting one.</summary>
     private ReadableChatMessage? _beingEdited;
+
+    /// <inheritdoc cref="ConversationViewModel.StartReplying"/>
+    private ReadableChatMessage? _beingAnswered;
     /// <summary>
     /// True while <see cref="Status"/> is explaining something the reader just did - a message refused,
     /// an edit that could not go through. The poll runs every few seconds and would otherwise wipe the
@@ -66,6 +69,10 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEditing;
 
+    /// <inheritdoc cref="ConversationViewModel.ReplyingToPreview"/>
+    [ObservableProperty]
+    private string _replyingToPreview = string.Empty;
+
     public GroupConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         ChatRepository chatRepository, ChatSynchronizer synchronizer, ChatClient chatClient,
@@ -84,6 +91,11 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     public ObservableCollection<ReadableChatMessage> Messages { get; } = [];
 
     public bool HasStatus => Status.Length > 0;
+
+    /// <inheritdoc cref="ConversationViewModel.HasReplyingTo"/>
+    public bool HasReplyingTo => ReplyingToPreview.Length > 0;
+
+    partial void OnReplyingToPreviewChanged(string value) => OnPropertyChanged(nameof(HasReplyingTo));
 
     /// <summary>
     /// A group with nobody else in it has no one to encrypt for, and the server keeps no copy for the
@@ -166,7 +178,8 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
         try
         {
-            var result = await _sender.SendToGroupAsync(_group.Id, text, cancellationToken);
+            var result = await _sender.SendToGroupAsync(_group.Id, Compose(text), cancellationToken);
+            StopAnswering();
             SayWhatHappened(Describe(result));
         }
         catch (EncryptionKeyLockedException)
@@ -193,10 +206,48 @@ public sealed partial class GroupConversationViewModel : ObservableObject
             return;
         }
 
+        StopAnswering();
         _beingEdited = message;
         Draft = message.Text ?? string.Empty;
         IsEditing = true;
     }
+
+    /// <inheritdoc cref="ConversationViewModel.StartReplying"/>
+    [RelayCommand]
+    private void StartReplying(ReadableChatMessage? message)
+    {
+        if (message is not { CanBeRepliedTo: true })
+        {
+            return;
+        }
+
+        if (IsEditing)
+        {
+            CancelEditing();
+        }
+
+        _beingAnswered = message;
+        ReplyingToPreview = ReplyMessagePayload.Preview(message.Text ?? string.Empty);
+    }
+
+    [RelayCommand]
+    private void CancelReplying() => StopAnswering();
+
+    private void StopAnswering()
+    {
+        _beingAnswered = null;
+        ReplyingToPreview = string.Empty;
+    }
+
+    /// <summary>
+    /// What actually goes out. A group reply names the posting rather than this device's copy of it:
+    /// every member holds a different copy, and an id only this phone knows resolves for nobody else.
+    /// </summary>
+    private string Compose(string text)
+        => _beingAnswered is { Text: { Length: > 0 } answered } answeredMessage
+            && (answeredMessage.GroupMessageId ?? answeredMessage.MessageId) is { } answeredId
+            ? ReplyMessage.Wrap(answeredId, answered, text)
+            : text;
 
     /// <summary>
     /// Who this message reached and who has read it, as lines somebody can read. Composed here rather

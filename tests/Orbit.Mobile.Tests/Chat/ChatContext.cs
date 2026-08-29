@@ -3,6 +3,7 @@ using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -112,6 +113,27 @@ internal sealed class ChatContext : IDisposable
 
     public Task<IReadOnlyList<ReadableChatMessage>> ReadConversationAsync(DateTimeOffset? theyReadUpToUtc = null)
         => Reader.ReadAsync(OtherUserId, OtherPublicKeyBase64, theyReadUpToUtc, CancellationToken.None);
+
+    /// <summary>
+    /// The conversation screen for the other party, built on the same pieces the tests use directly -
+    /// so what a test sets up through them is what the screen then reads.
+    /// </summary>
+    public ConversationViewModel Conversation()
+    {
+        var screen = new ConversationViewModel(
+            Reader, Sender, Editor, Forwarder,
+            // Accepting a shared item needs four clients this screen never reaches in these tests: what
+            // is under test is the compose box, not what a share offer does when it is taken up.
+            new SharedItemAcceptance(
+                new NotesClient(Server.ToHttpClient()), new TasksClient(Server.ToHttpClient()),
+                new CalendarClient(Server.ToHttpClient()), new InventoryClient(Server.ToHttpClient())),
+            Repository, Synchronizer, ChatClient,
+            new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator());
+
+        screen.Open(LocalContact.ForSomebodyNotYetSpokenTo(
+            OtherUserId, "bob", "Bob", OtherPublicKeyBase64));
+        return screen;
+    }
 
     public void Dispose()
     {

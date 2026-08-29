@@ -45,6 +45,11 @@ public partial class ConversationPage : ContentPage
 			actions.Add(_translations["Forward"]);
 		}
 
+		if (message.CanBeRepliedTo)
+		{
+			actions.Add(_translations["Reply"]);
+		}
+
 		var chosen = await DisplayActionSheetAsync(
 			_translations["Message options"], _translations["Cancel"], destruction: null, actions.ToArray());
 
@@ -59,6 +64,10 @@ public partial class ConversationPage : ContentPage
 		else if (chosen == _translations["Forward"])
 		{
 			_viewModel.StartForwardingCommand.Execute(message);
+		}
+		else if (chosen == _translations["Reply"])
+		{
+			_viewModel.StartReplyingCommand.Execute(message);
 		}
 	}
 

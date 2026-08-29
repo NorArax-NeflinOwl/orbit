@@ -42,6 +42,11 @@ public partial class GroupConversationPage : ContentPage
 			actions.Add(_translations["Delete"]);
 		}
 
+		if (message.CanBeRepliedTo)
+		{
+			actions.Add(_translations["Reply"]);
+		}
+
 		var chosen = await DisplayActionSheetAsync(
 			_translations["Message options"], _translations["Cancel"], destruction: null, [.. actions]);
 
@@ -56,6 +61,10 @@ public partial class GroupConversationPage : ContentPage
 		else if (chosen == _translations["Delete"])
 		{
 			_viewModel.DeleteCommand.Execute(message);
+		}
+		else if (chosen == _translations["Reply"])
+		{
+			_viewModel.StartReplyingCommand.Execute(message);
 		}
 	}
 
