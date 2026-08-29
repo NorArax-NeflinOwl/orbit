@@ -31,7 +31,7 @@ else
 {
 
     <div class="field-row" style="margin-bottom:24px;">
-        <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="@(T["Email address or username"])" />
+        <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="@(T["Email address or login"])" />
         <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">@T["Search"]</button>
     </div>
 
@@ -57,6 +57,7 @@ else
                     <span class="chat-list-name">@_searchResult.DisplayName</span>
                     <span class="chat-list-preview">@_searchResult.UserName</span>
                 </span>
+                <button type="button" class="btn-secondary" @onclick="() => OpenContactInfo(_searchResult.Id)">@T["Info"]</button>
                 <button type="button" class="btn-secondary" @onclick="() => OpenChat(_searchResult.Id)">@T["Open chat"]</button>
             </div>
         </div>
@@ -80,6 +81,23 @@ else
         </div>
     }
 
+    @if (_groups.Count > 0)
+    {
+        <h2>@T["Groups"]</h2>
+        <div class="card" style="margin-bottom:24px;">
+            @foreach (var group in _groups)
+            {
+                <button type="button" class="chat-list-item" @onclick="() => OpenGroup(group.Id)">
+                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
+                    <span class="chat-list-meta">
+                        <span class="chat-list-name">@group.Name</span>
+                        <span class="chat-list-preview">@T.Format("{0} in it", group.Members.Count)</span>
+                    </span>
+                </button>
+            }
+        </div>
+    }
+
     <h2>@T["Chats"]</h2>
 
     @if (_contacts is null)
@@ -88,20 +106,25 @@ else
     }
     else if (!_establishedChats.Any())
     {
-        <p>@T["No chats. Search for a user by email address or username to start a conversation."]</p>
+        <p>@T["No chats. Search for a user by email address or login to start a conversation."]</p>
     }
     else
     {
         <div class="card">
+            @* Two things to do with a name here, so two controls rather than one row that has to guess:
+               the row opens the conversation, and "Info" opens the person's card. *@
             @foreach (var contact in _establishedChats)
             {
-                <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
-                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
-                    <span class="chat-list-meta">
-                        <span class="chat-list-name">@contact.DisplayName</span>
-                        <span class="chat-list-preview">@contact.UserName</span>
-                    </span>
-                </button>
+                <div class="contact-row">
+                    <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
+                        <span class="chat-list-meta">
+                            <span class="chat-list-name">@contact.DisplayName</span>
+                            <span class="chat-list-preview">@contact.UserName</span>
+                        </span>
+                    </button>
+                    <button type="button" class="btn-secondary contact-row-info" @onclick="() => OpenContactInfo(contact.UserId)">@T["Info"]</button>
+                </div>
             }
         </div>
     }
@@ -120,12 +143,20 @@ else
     /// Chat requests someone else sent that the current user hasn't approved yet - see
     /// ChatConversationAccess. Shown separately from established chats, with a "new request" badge,
     /// instead of mixed into the regular chat list.
+    ///
+    /// None at all for an account without Chat: approving one is the only thing to do with it, and that
+    /// is exactly what such an account cannot do - so being shown them is being shown a dead end.
     /// </summary>
     private IEnumerable<ContactDto> _pendingRequests
-        => (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser);
+        => Permissions.Has(ApplicationPermission.Chat)
+            ? (_contacts ?? []).Where(contact => contact.RequiresApprovalFromCurrentUser)
+            : [];
 
     private IEnumerable<ContactDto> _establishedChats
         => (_contacts ?? []).Where(contact => !contact.RequiresApprovalFromCurrentUser);
+
+    /// <summary>The groups this account is in - conversations too, and listed here for that reason.</summary>
+    private IReadOnlyList<ChatGroupDto> _groups = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -155,6 +186,10 @@ else
         try
         {
             _contacts = await ChatApiClient.GetContactsAsync();
+            // A group is a conversation like any other on this page - leaving them off meant the one
+            // page headed "Contacts" was the only place in the app that pretended they did not exist.
+            // Not asked for without Chat, which is what a group is: the API would refuse it anyway.
+            _groups = Permissions.Has(ApplicationPermission.Chat) ? await ChatApiClient.GetGroupsAsync() : [];
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -187,7 +222,7 @@ else
             _searchResult = await UsersApiClient.SearchUserAsync(identifier);
             if (_searchResult is null)
             {
-                _searchError = T["No user found with that email address or username."];
+                _searchError = T["No user found with that email address or login."];
             }
         }
         finally
@@ -200,5 +235,17 @@ else
     {
         Logger.LogInformation("User opening chat with {ContactUserId}", userId);
         NavigationManager.NavigateTo($"/chat/{userId}");
+    }
+
+    private void OpenContactInfo(Guid userId)
+    {
+        Logger.LogInformation("User opening the contact card of {ContactUserId}", userId);
+        NavigationManager.NavigateTo($"/contacts/{userId}");
+    }
+
+    private void OpenGroup(Guid groupId)
+    {
+        Logger.LogInformation("User opening group chat {GroupId}", groupId);
+        NavigationManager.NavigateTo($"/chat/groups/{groupId}");
     }
 }

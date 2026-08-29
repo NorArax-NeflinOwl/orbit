@@ -462,6 +462,10 @@ namespace Orbit.Data.Migrations
                     b.Property<decimal>("Quantity")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -992,8 +996,25 @@ namespace Orbit.Data.Migrations
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Checklist");
+
+                    b.Property<Guid?>("LinkedCalendarEventId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("LinkedTaskListId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasDefaultValue("");
 
                     b.Property<string>("OverdueNotificationChannel")
                         .IsRequired()

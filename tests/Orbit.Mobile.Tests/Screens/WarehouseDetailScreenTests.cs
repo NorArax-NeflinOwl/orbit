@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using Orbit.Core.Inventory;
 using Orbit.Contracts.Inventory;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
@@ -25,7 +26,7 @@ public sealed class WarehouseDetailScreenTests
     {
         using var context = new ScreenContext();
         var warehouse = await context.AddWarehouseAsync(
-            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, 5, null, "None"));
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, 5, nameof(InventoryUnit.Piece), null, "None"));
 
         var screen = await context.OpenAsync(warehouse.LocalId);
 
@@ -41,8 +42,8 @@ public sealed class WarehouseDetailScreenTests
     {
         using var context = new ScreenContext();
         var warehouse = await context.AddWarehouseAsync(
-            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, 5, null, "None"),
-            new WarehouseItemDto(Guid.NewGuid(), "Tea", "Bag", "Kitchen", 9, 5, null, "None"));
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, 5, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(Guid.NewGuid(), "Tea", "Bag", "Kitchen", 9, 5, nameof(InventoryUnit.Piece), null, "None"));
 
         var screen = await context.OpenAsync(warehouse.LocalId);
 
@@ -56,7 +57,7 @@ public sealed class WarehouseDetailScreenTests
     {
         using var context = new ScreenContext();
         var warehouse = await context.AddWarehouseAsync(
-            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 0, null, null, "None"));
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 0, null, nameof(InventoryUnit.Piece), null, "None"));
 
         var screen = await context.OpenAsync(warehouse.LocalId);
 
@@ -68,7 +69,7 @@ public sealed class WarehouseDetailScreenTests
     {
         using var context = new ScreenContext();
         var warehouse = await context.AddWarehouseAsync(
-            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Piece", "General", 1, null, null, "None"));
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Piece", "General", 1, null, nameof(InventoryUnit.Piece), null, "None"));
         var screen = await context.OpenAsync(warehouse.LocalId);
 
         screen.EditItemCommand.Execute(screen.Items[0]);
@@ -95,7 +96,7 @@ public sealed class WarehouseDetailScreenTests
     {
         using var context = new ScreenContext();
         var warehouse = await context.AddWarehouseAsync(
-            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, 5, null, "None"));
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, 5, nameof(InventoryUnit.Piece), null, "None"));
         var screen = await context.OpenAsync(warehouse.LocalId);
 
         screen.EditItemCommand.Execute(screen.Items[0]);
@@ -111,7 +112,7 @@ public sealed class WarehouseDetailScreenTests
         using var context = new ScreenContext();
         var warehouse = await context.AddWarehouseAsync(
             new WarehouseItemDto(
-                Guid.NewGuid(), "Milk", "Bottle", "Kitchen", 1, null,
+                Guid.NewGuid(), "Milk", "Bottle", "Kitchen", 1, null, nameof(InventoryUnit.Piece),
                 new DateTimeOffset(2027, 3, 1, 0, 0, 0, TimeSpan.Zero), "Push"));
         var screen = await context.OpenAsync(warehouse.LocalId);
 
@@ -128,7 +129,7 @@ public sealed class WarehouseDetailScreenTests
     {
         using var context = new ScreenContext();
         var warehouse = await context.AddWarehouseAsync(
-            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Piece", "General", 1, null, null, "None"));
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Piece", "General", 1, null, nameof(InventoryUnit.Piece), null, "None"));
         var screen = await context.OpenAsync(warehouse.LocalId);
 
         screen.EditItemCommand.Execute(screen.Items[0]);

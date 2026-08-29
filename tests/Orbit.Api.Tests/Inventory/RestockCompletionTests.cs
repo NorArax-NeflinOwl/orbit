@@ -22,7 +22,7 @@ public sealed class RestockCompletionTests
         decimal quantity = 0, decimal minimum = 5)
     {
         var warehouseId = _context.AddWarehouse(_userId);
-        var item = InventoryItem.Create(warehouseId, "Flour", "Food", "Dry", quantity, minimum, null, NotificationChannel.None);
+        var item = InventoryItem.Create(warehouseId, "Flour", "Food", "Dry", quantity, minimum, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryRepository.AddAsync(item, CancellationToken.None);
         var raised = await _context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
         await _context.InventoryRepository.UpdateAsync(raised, CancellationToken.None);
@@ -53,7 +53,7 @@ public sealed class RestockCompletionTests
         // an amount and never lowers one.
         var (warehouseId, taskListId, item) = await ALowItemWithItsErrandAsync();
         var stockedGenerously = await ShelfItemAsync(warehouseId);
-        stockedGenerously.Update("Flour", "Food", "Dry", 9, 5, null, NotificationChannel.None);
+        stockedGenerously.Update("Flour", "Food", "Dry", 9, 5, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryRepository.UpdateAsync(stockedGenerously, CancellationToken.None);
 
         var toppedUp = await ACompletion().ApplyAsync(taskListId, [item.PendingRestockTaskItemId!.Value], CancellationToken.None);
@@ -105,7 +105,7 @@ public sealed class RestockCompletionTests
     public async Task Finishing_the_whole_list_fills_every_shelf_item_and_crosses_the_errands_off()
     {
         var (warehouseId, taskListId, _) = await ALowItemWithItsErrandAsync();
-        var second = InventoryItem.Create(warehouseId, "Sugar", "Food", "Dry", 1, 4, null, NotificationChannel.None);
+        var second = InventoryItem.Create(warehouseId, "Sugar", "Food", "Dry", 1, 4, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryRepository.AddAsync(second, CancellationToken.None);
         await _context.InventoryRepository.UpdateAsync(
             await _context.TaskListCoordinator.EnsureRestockTaskAsync(second, CancellationToken.None), CancellationToken.None);

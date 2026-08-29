@@ -12,5 +12,7 @@ public sealed record WarehouseItemDto(
     string Category,
     decimal Quantity,
     decimal? MinimumQuantity,
+    /// <summary>Serialized Orbit.Core.Inventory.InventoryUnit - what the two amounts above are counted in.</summary>
+    string Unit,
     DateTimeOffset? ExpiryDate,
     string ExpiryNotificationChannel);

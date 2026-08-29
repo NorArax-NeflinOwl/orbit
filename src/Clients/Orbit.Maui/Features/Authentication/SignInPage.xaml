@@ -15,7 +15,7 @@
 
             <Label Text="{controls:Translate 'Orbit'}" FontSize="40" FontAttributes="Bold" HorizontalOptions="Center" />
 
-            <Entry Placeholder="{controls:Translate 'Email or username'}"
+            <Entry Placeholder="{controls:Translate 'Email or login'}"
                    Text="{Binding EmailOrUserName}"
                    Keyboard="Email"
                    IsSpellCheckEnabled="False"

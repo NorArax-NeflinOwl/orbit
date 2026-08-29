@@ -16,7 +16,7 @@ public sealed class CreateWarehouseRefusesItemsTests
         // If Items ever leaves SaveWarehouseRequest, the guard in InventoryEndpoints becomes dead code
         // and this test is the reminder to take it out with it.
         var request = new SaveWarehouseRequest("Workshop", [
-            new WarehouseItemDto(Id: null, "Screw", "Part", "Hardware", 5, null, null, "None")]);
+            new WarehouseItemDto(Id: null, "Screw", "Part", "Hardware", 5, null, "Piece", null, "None")]);
 
         Assert.Single(request.Items);
     }

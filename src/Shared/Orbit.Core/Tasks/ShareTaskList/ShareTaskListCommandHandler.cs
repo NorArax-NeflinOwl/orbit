@@ -9,12 +9,16 @@ public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListC
 {
     private readonly TaskListAccessResolver _taskListAccessResolver;
     private readonly ITaskListShareRepository _taskListShareRepository;
+    private readonly TaskListShareCascade _taskListShareCascade;
     private readonly ISharedItemNotifier _sharedItemNotifier;
 
-    public ShareTaskListCommandHandler(TaskListAccessResolver taskListAccessResolver, ITaskListShareRepository taskListShareRepository, ISharedItemNotifier sharedItemNotifier)
+    public ShareTaskListCommandHandler(
+        TaskListAccessResolver taskListAccessResolver, ITaskListShareRepository taskListShareRepository,
+        TaskListShareCascade taskListShareCascade, ISharedItemNotifier sharedItemNotifier)
     {
         _taskListAccessResolver = taskListAccessResolver;
         _taskListShareRepository = taskListShareRepository;
+        _taskListShareCascade = taskListShareCascade;
         _sharedItemNotifier = sharedItemNotifier;
     }
 
@@ -56,11 +60,21 @@ public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListC
                 await _taskListShareRepository.UpdateAsync(existingShare, cancellationToken);
             }
 
+            // Re-run even though the offer itself is unchanged: what this list gathers may have grown
+            // since it was first shared, and the recipient is meant to have the whole of it.
+            await _taskListShareCascade.GrantAsync(
+                taskList.UserId, taskList.Id, request.RecipientUserId, request.AccessLevel,
+                acceptImmediately: existingShare.IsAccepted, cancellationToken);
             return new ShareOutcome(existingShare.Id, AlreadyShared: true, accessLevelRaised);
         }
 
         var share = TaskListShare.Create(taskList.Id, taskList.UserId, request.RecipientUserId, request.AccessLevel);
         await _taskListShareRepository.AddAsync(share, cancellationToken);
+        // The lists this one gathers, and the inventory it is measured against, follow the offer rather
+        // than being offered one by one: one message to accept, and the whole tree opens behind it.
+        await _taskListShareCascade.GrantAsync(
+            taskList.UserId, taskList.Id, request.RecipientUserId, request.AccessLevel,
+            acceptImmediately: false, cancellationToken);
         await _sharedItemNotifier.NotifyAsync(
             request.RecipientUserId, request.OwnerUserId, SharedItemKind.TaskList, taskList.Title, cancellationToken);
         return new ShareOutcome(share.Id, AlreadyShared: false);

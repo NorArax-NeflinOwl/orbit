@@ -107,6 +107,46 @@ public sealed class DashboardTests : OrbitTestContext
     }
 
     [Fact]
+    public void Nobody_is_told_about_chat_requests_that_are_not_there()
+    {
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // A standing "0 new chat requests" is not news.
+        Assert.DoesNotContain("new chat requests", cut.Markup);
+    }
+
+    [Fact]
+    public void Somebody_waiting_to_be_answered_is_counted()
+    {
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "bartek", "Bartek Nowak", "bartek@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: true, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("new chat requests", cut.Markup);
+    }
+
+    [Fact]
+    public void An_account_without_chat_is_not_shown_requests_it_could_not_answer()
+    {
+        Services.Remove(Services.Single(service => service.ServiceType == typeof(UserPermissionState)));
+        RegisterPermissions(ApplicationPermission.Contacts);
+        RegisterChatApiClient([new ContactDto(
+            Guid.NewGuid(), "bartek", "Bartek Nowak", "bartek@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: true, IsPendingApprovalFromOtherParty: false)]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // Approving one is the only thing to do with it, and that is exactly what this account cannot do.
+        Assert.DoesNotContain("new chat requests", cut.Markup);
+    }
+
+    [Fact]
     public void Group_chats_get_their_own_column()
     {
         RegisterChatApiClient([], [Group("Weekend trip", memberCount: 3), Group("Book club", memberCount: 5)]);
@@ -190,8 +230,9 @@ public sealed class DashboardTests : OrbitTestContext
         FindColumn(cut, "Tasks").QuerySelector(".list-row")!.Click();
 
         // Clicking a list here means "let me get on with it", which is ticking things off - reworking
-        // the list's own settings is a deliberate trip to the editor from there.
-        Assert.EndsWith($"/tasks/{taskList.Id}/checklist", Services.GetRequiredService<NavigationManager>().Uri);
+        // the list's own settings is a deliberate trip to the editor from there. "/tasks/{id}" is the
+        // checklist; the editor is at "/tasks/{id}/edit".
+        Assert.EndsWith($"/tasks/{taskList.Id}", Services.GetRequiredService<NavigationManager>().Uri);
     }
 
     private static ChatGroupDto Group(string name, int memberCount, string ownRole = "Member")
@@ -456,11 +497,14 @@ public sealed class DashboardTests : OrbitTestContext
         Services.AddSingleton(new TasksApiClient(httpClient));
     }
 
-    private static TaskDto TaskList(string title)
+    private static TaskDto TaskList(string title, params TaskItemDto[] items) => TaskList(title, "Normal", items);
+
+    private static TaskDto TaskList(string title, string priority, params TaskItemDto[] items)
         => new(
-            Guid.NewGuid(), title, [], IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
+            Guid.NewGuid(), title, items, IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
+            Priority: priority);
 
     private void RegisterEmptyCalendarApiClient()
     {
@@ -517,13 +561,95 @@ public sealed class DashboardTests : OrbitTestContext
         Services.AddSingleton(new CalendarApiClient(httpClient));
     }
 
-    private static CalendarEventDto Event(string title, DateTimeOffset startUtc, int lengthHours = 1)
+    private static CalendarEventDto Event(
+        string title, DateTimeOffset startUtc, int lengthHours = 1, RecurrenceDto? recurrence = null,
+        string priority = "Normal")
         => new(
             Guid.NewGuid(),
             new CalendarEventDetailsDto(
                 title, Description: null, Location: null, Color: null, startUtc, startUtc.AddHours(lengthHours),
-                IsAllDay: false, Recurrence: null, Guests: [], ReminderMinutesBeforeStart: [],
-                CreationNotificationChannel: "None", ReminderNotificationChannel: "None"),
+                IsAllDay: false, Recurrence: recurrence, Guests: [], ReminderMinutesBeforeStart: [],
+                CreationNotificationChannel: "None", ReminderNotificationChannel: "None", Priority: priority),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+
+    [Fact]
+    public void A_repeating_event_is_upcoming_at_its_next_repeat()
+    {
+        // Stored back in the spring, still on the calendar every week - and missing from this card until
+        // it started expanding recurrences the way the calendar always has.
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterTasksApiClient([]);
+        RegisterCalendarApiClient([
+            Event("Standup", DateTimeOffset.UtcNow.AddDays(-60), recurrence: new RecurrenceDto("Weekly", 1, null))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Standup", FindColumn(cut, "Upcoming").TextContent);
+    }
+
+    [Fact]
+    public void A_deadline_is_upcoming_too_and_says_which_list_it_is_on()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        RegisterTasksApiClient([TaskList("Shopping", DueItem("Milk", DateTimeOffset.UtcNow.AddDays(1)))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // The calendar shows deadlines beside events; a card headed "Upcoming" that left them out was
+        // not showing what is coming up.
+        Assert.Contains("Shopping: Milk", FindColumn(cut, "Upcoming").TextContent);
+    }
+
+    [Fact]
+    public void A_deadline_already_ticked_off_is_not_upcoming()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        RegisterTasksApiClient([TaskList("Shopping", DueItem("Milk", DateTimeOffset.UtcNow.AddDays(1), isCompleted: true))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Upcoming");
+    }
+
+    [Fact]
+    public void A_row_that_matters_more_than_the_rest_says_so()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        RegisterTasksApiClient([TaskList("Urgent", priority: "High"), TaskList("Ordinary")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // Normal is the default and says nothing, so it is drawn as nothing rather than on every line.
+        var badge = Assert.Single(FindColumn(cut, "Tasks").QuerySelectorAll(".card-badge"));
+        Assert.Equal("High", badge.TextContent);
+    }
+
+    [Fact]
+    public void Todays_summary_opens_the_calendar()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        RegisterTasksApiClient([TaskList("Errands")]);
+        var cut = RenderComponent<Dashboard>();
+
+        cut.Find(".today-strip").Click();
+
+        // It is a summary of a day, and the page that shows a day is the calendar.
+        Assert.EndsWith("/calendar", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    private static TaskItemDto DueItem(string description, DateTimeOffset dueDateUtc, bool isCompleted = false)
+        => new(
+            Guid.NewGuid(), description, dueDateUtc, isCompleted, LinkedTaskListId: null,
+            OverdueNotificationChannel: "None", RemindDaily: false,
+            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0));
 }

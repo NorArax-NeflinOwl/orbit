@@ -19,9 +19,9 @@ public sealed class GetInventoryItemsQueryHandlerTests
         var kitchenId = context.AddWarehouse(userId, "Kitchen");
         var garageId = context.AddWarehouse(userId, "Garage");
         await context.InventoryRepository.AddAsync(
-            InventoryItem.Create(kitchenId, "Milk", "Dairy", "Fridge", 2m, 1m, null, NotificationChannel.Push), CancellationToken.None);
+            InventoryItem.Create(kitchenId, "Milk", "Dairy", "Fridge", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
         await context.InventoryRepository.AddAsync(
-            InventoryItem.Create(garageId, "Screws", "Hardware", "Shelf", 2m, 1m, null, NotificationChannel.Push), CancellationToken.None);
+            InventoryItem.Create(garageId, "Screws", "Hardware", "Shelf", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
 
         var results = await handler.HandleAsync(new GetInventoryItemsQuery(userId, kitchenId), CancellationToken.None);
 
@@ -50,7 +50,7 @@ public sealed class GetInventoryItemsQueryHandlerTests
         var warehouseId = context.AddWarehouse(ownerUserId);
         context.AddAcceptedShare(warehouseId, ownerUserId, recipientUserId, ShareAccessLevel.ReadOnly);
         await context.InventoryRepository.AddAsync(
-            InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 2m, 1m, null, NotificationChannel.Push), CancellationToken.None);
+            InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
 
         var results = await handler.HandleAsync(new GetInventoryItemsQuery(recipientUserId, warehouseId), CancellationToken.None);
 
@@ -67,7 +67,7 @@ public sealed class GetInventoryItemsQueryHandlerTests
 
         // The list the reference points at was deleted; completing the task no longer counts as losing
         // it, since that is what let a second "Restock: Milk" appear beside the finished one.
-        var item = InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 0m, 1m, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(warehouseId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item.SetPendingRestockTask(Guid.NewGuid(), Guid.NewGuid());
         await context.InventoryRepository.AddAsync(item, CancellationToken.None);
 

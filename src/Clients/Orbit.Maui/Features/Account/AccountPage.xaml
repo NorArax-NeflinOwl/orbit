@@ -107,7 +107,7 @@
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Username'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Login'}" Style="{StaticResource FieldLabel}" />
                 <!-- See RegisterPage for why this is not the default text keyboard. -->
                 <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
                 <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />

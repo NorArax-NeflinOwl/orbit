@@ -224,13 +224,56 @@ public sealed class UpdateWarehouseCommandHandlerTests
         => new AcquireWarehouseLockCommandHandler(context.AccessResolver, context.WarehouseRepository, context.UserRepository)
             .HandleAsync(new AcquireWarehouseLockCommand(userId, warehouseId), CancellationToken.None);
 
+
+    [Fact]
+    public async Task HandleAsync_stores_the_unit_a_new_item_arrives_with()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+
+        await CreateHandler(context).HandleAsync(
+            new UpdateWarehouseCommand(
+                userId, warehouseId, "Kitchen", [NewItem("Flour", quantity: 5m) with { Unit = InventoryUnit.Kilogram }],
+                IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
+        Assert.Equal(InventoryUnit.Kilogram, stored.Unit);
+    }
+
+    [Fact]
+    public async Task HandleAsync_keeps_the_unit_of_an_item_saved_again_unchanged()
+    {
+        // The trap a defaulted parameter on InventoryItem.Update would set: a save that says nothing new
+        // about the unit quietly turning kilograms back into pieces.
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var warehouseId = context.AddWarehouse(userId);
+        var existing = await AddStoredItemAsync(context, warehouseId, "Flour", quantity: 5m);
+        existing.Update(
+            existing.Name, existing.ProductType, existing.Category, existing.Quantity, existing.MinimumQuantity,
+            InventoryUnit.Kilogram, existing.ExpiryDate, existing.ExpiryNotificationChannel);
+        await context.InventoryRepository.UpdateAsync(existing, CancellationToken.None);
+
+        await CreateHandler(context).HandleAsync(
+            new UpdateWarehouseCommand(
+                userId, warehouseId, "Kitchen",
+                [NewItem("Flour", quantity: 8m) with { Id = existing.Id, Unit = InventoryUnit.Kilogram }],
+                IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var stored = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None));
+        Assert.Equal(InventoryUnit.Kilogram, stored.Unit);
+        Assert.Equal(8m, stored.Quantity);
+    }
     private static WarehouseItemInput NewItem(string name, decimal quantity, decimal? minimumQuantity = null)
-        => new(Id: null, name, "Dairy", "Fridge", quantity, minimumQuantity, ExpiryDate: null, NotificationChannel.Push);
+        => new(Id: null, name, "Dairy", "Fridge", quantity, minimumQuantity, InventoryUnit.Piece, ExpiryDate: null, NotificationChannel.Push);
 
     private static async Task<InventoryItem> AddStoredItemAsync(
         InventoryTestContext context, Guid warehouseId, string name, decimal quantity)
     {
-        var item = InventoryItem.Create(warehouseId, name, "Dairy", "Fridge", quantity, null, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(warehouseId, name, "Dairy", "Fridge", quantity, null, InventoryUnit.Piece, null, NotificationChannel.Push);
         await context.InventoryRepository.AddAsync(item, CancellationToken.None);
         return item;
     }

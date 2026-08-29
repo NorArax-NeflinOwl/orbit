@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -18,7 +20,29 @@ namespace Orbit.Web.Tests.Pages;
 /// </summary>
 public sealed class TasksTests : OrbitTestContext
 {
-    public TasksTests() => Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+    public TasksTests()
+    {
+        Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        Services.AddSingleton(new TaskListArrangement(new StubJSRuntime()));
+        // MainLayout owns the polling in the real app; the page only reads this to badge the card a
+        // reminder is about, so an empty feed is the right default here.
+        Services.AddSingleton(_notifications);
+    }
+
+    private readonly NotificationFeedState _notifications = new();
+
+    /// <summary>Opens the menu the sort orders live behind, and picks one by the words on it.</summary>
+    private static void SortBy(IRenderedFragment cut, string label)
+    {
+        if (cut.FindAll(".overflow-menu-dropdown").Count == 0)
+        {
+            cut.Find(".overflow-menu-trigger").Click();
+        }
+
+        cut.FindAll(".overflow-menu-dropdown .avatar-dropdown-item")
+            .First(option => option.TextContent.Contains(label))
+            .Click();
+    }
 
     [Fact]
     public void Each_task_list_gets_its_own_card()
@@ -104,6 +128,25 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     [Fact]
+    public void Opening_a_list_means_its_checklist_and_the_editor_has_to_be_asked_for()
+    {
+        var taskList = TaskList("Kitchen", Item("Paint walls"));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".card-actions button").First(button => button.TextContent.Contains("Open checklist")).Click();
+
+        // "/tasks/{id}" is the shallow level, wherever somebody arrives from; the deep editor lives one
+        // named click further on, so nothing lands there by default.
+        Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+
+        cut.FindAll(".card-actions button").First(button => button.TextContent.Trim() == "Edit").Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}/edit", navigationManager.Uri);
+    }
+
+    [Fact]
     public void An_account_with_no_lists_gets_a_hint_instead_of_an_empty_grid()
     {
         RegisterTasksApiClient([]);
@@ -125,7 +168,119 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         Assert.Contains("Overdue", cut.Markup);
-        Assert.Equal(5, cut.FindAll(".filter-chip").Count);
+        // All, the four statuses, and the two chips that are about what a list is rather than how far
+        // along it is: where it came from, and whether it gathers other lists.
+        Assert.Equal(7, cut.FindAll(".filter-chip").Count);
+    }
+
+    [Fact]
+    public void The_shared_filter_shows_only_what_somebody_else_owns()
+    {
+        var mine = TaskList("Kitchen", "Normal", "New", DateTimeOffset.UtcNow);
+        var theirs = TaskList("From Bob", "Normal", "New", DateTimeOffset.UtcNow) with
+        {
+            IsShared = true, SharedByUserName = "bob", AccessLevel = "ReadOnly"
+        };
+        RegisterTasksApiClient([mine, theirs]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Shared")).Click();
+
+        Assert.Contains("From Bob", cut.Find(".card-grid").InnerHtml);
+        Assert.DoesNotContain("Kitchen", cut.Find(".card-grid").InnerHtml);
+    }
+
+    [Fact]
+    public void The_group_filter_shows_only_the_lists_that_gather_others()
+    {
+        var member = TaskList("Shopping", Item("Milk"));
+        var group = TaskList("Saturday", LinkTo(member)) with { IsGroup = true };
+        RegisterTasksApiClient([group, member]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Group")).Click();
+
+        // One card, and it is the group. Asserted by counting rather than by looking for the member's
+        // title, which legitimately appears inside the group's card as the row that points at it.
+        var card = Assert.Single(cut.FindAll(".task-list-card"));
+        Assert.Contains("Saturday", card.QuerySelector(".card-title")!.TextContent);
+    }
+
+    [Fact]
+    public void A_minimised_card_keeps_its_heading_one_row_and_its_buttons()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls", isCompleted: true), Item("Fit worktop"), Item("Tile"))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Minimise").Click();
+
+        // One row, and the one worth having: what is still to be done. The heading and the buttons stay.
+        var row = Assert.Single(cut.FindAll(".task-preview-row"));
+        Assert.Contains("Fit worktop", row.TextContent);
+        Assert.DoesNotContain("Tile", cut.Find(".card-grid").InnerHtml);
+        Assert.Contains("Kitchen", cut.Find(".card-title").TextContent);
+        Assert.Contains("Open checklist", cut.Find(".card-actions").TextContent);
+    }
+
+    [Fact]
+    public void A_minimised_card_can_be_brought_back()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls"), Item("Fit worktop"))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Minimise").Click();
+
+        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Expand").Click();
+
+        Assert.Equal(2, cut.FindAll(".task-preview-row").Count);
+    }
+
+    [Fact]
+    public void A_list_something_unread_is_about_says_so_in_front_of_its_name()
+    {
+        var quiet = TaskList("Kitchen", Item("Paint walls"));
+        var reminded = TaskList("Garden", Item("Mow"));
+        RegisterTasksApiClient([quiet, reminded]);
+        _notifications.Set([Notification($"/tasks/{reminded.Id}")]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // A page of cards should answer "which list was that reminder about?" without opening any.
+        var flagged = Assert.Single(cut.FindAll(".task-list-card"), card => card.QuerySelector(".task-card-notification") is not null);
+        Assert.Contains("Garden", flagged.QuerySelector(".card-title")!.TextContent);
+    }
+
+    private static NotificationEntryDto Notification(string url)
+        => new(Guid.NewGuid(), "TaskOverdue", "Overdue task", "Body", url, DateTimeOffset.UtcNow, IsRead: false);
+
+    [Fact]
+    public void A_row_pointing_at_another_list_shows_what_is_on_it()
+    {
+        var member = TaskList("Shopping", Item("Milk"), Item("Bread"));
+        var group = TaskList("Saturday", LinkTo(member)) with { IsGroup = true };
+        RegisterTasksApiClient([group, member]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // Otherwise a group list's card is a stack of titles, which says nothing about the work.
+        var groupCard = cut.FindAll(".task-list-card").First(card => card.TextContent.Contains("Saturday"));
+        Assert.Contains("Milk", groupCard.TextContent);
+        Assert.Contains("Bread", groupCard.TextContent);
+    }
+
+    [Fact]
+    public void Only_the_order_somebody_arranged_themselves_can_be_dragged()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", "Normal", "New", DateTimeOffset.UtcNow),
+            TaskList("Garden", "Normal", "New", DateTimeOffset.UtcNow)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // Moving a card by hand under any other order would not survive the next redraw.
+        Assert.Empty(cut.FindAll(".task-list-card .drag-handle"));
+
+        SortBy(cut, "The way I arranged them");
+
+        Assert.Equal(2, cut.FindAll(".task-list-card .drag-handle").Count);
     }
 
     [Fact]
@@ -167,7 +322,7 @@ public sealed class TasksTests : OrbitTestContext
             TaskList("Apple", "Normal", "New", DateTimeOffset.UtcNow)]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.Find(".list-sort select").Change("Alphabetical");
+        SortBy(cut, "A to Z");
 
         Assert.StartsWith("Apple", CardTitles(cut)[0]);
     }
@@ -180,7 +335,7 @@ public sealed class TasksTests : OrbitTestContext
             TaskList("Ancient", "Normal", "New", DateTimeOffset.UtcNow.AddYears(-1))]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.Find(".list-sort select").Change("Oldest");
+        SortBy(cut, "Oldest first");
 
         Assert.StartsWith("Ancient", CardTitles(cut)[0]);
     }
@@ -217,9 +372,9 @@ public sealed class TasksTests : OrbitTestContext
             TaskList("Zebra", "Low", "New", DateTimeOffset.UtcNow, isPinned: true)]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        foreach (var order in new[] { "Alphabetical", "ReverseAlphabetical", "Newest", "Oldest", "Priority" })
+        foreach (var order in new[] { "A to Z", "Z to A", "Newest first", "Oldest first", "Most important first" })
         {
-            cut.Find(".list-sort select").Change(order);
+            SortBy(cut, order);
             Assert.StartsWith("Zebra", CardTitles(cut)[0]);
         }
     }
@@ -288,6 +443,10 @@ public sealed class TasksTests : OrbitTestContext
             createdAtUtc, createdAtUtc,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
             Priority: priority, Status: status, IsPinned: isPinned);
+
+    /// <summary>A row that only points at another list - how a group list gathers its members.</summary>
+    private static TaskItemDto LinkTo(TaskDto member)
+        => Item(member.Title) with { LinkedTaskListId = member.Id };
 
     private static TaskItemDto Item(string description, bool isCompleted = false)
         => new(

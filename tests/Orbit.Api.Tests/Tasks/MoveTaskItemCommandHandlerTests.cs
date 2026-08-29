@@ -36,6 +36,28 @@ public sealed class MoveTaskItemCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_leaves_both_lists_as_important_as_they_were()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var item = TaskItem.Create("Buy milk", null, false);
+        var sourceList = TaskList.Create(userId, "Errands", [item], priority: ItemPriority.High);
+        var targetList = TaskList.Create(userId, "Groceries", [], priority: ItemPriority.Low);
+        await repository.AddAsync(sourceList, CancellationToken.None);
+        await repository.AddAsync(targetList, CancellationToken.None);
+
+        await handler.HandleAsync(new MoveTaskItemCommand(userId, sourceList.Id, item.Id, targetList.Id), CancellationToken.None);
+
+        // Moving one entry says nothing about how much either list matters - it used to reset both to
+        // Normal, because TaskList.Update took the priority as an optional parameter and this left it out.
+        var storedSource = await repository.GetByIdAsync(userId, sourceList.Id, CancellationToken.None);
+        var storedTarget = await repository.GetByIdAsync(userId, targetList.Id, CancellationToken.None);
+        Assert.Equal(ItemPriority.High, storedSource!.Priority);
+        Assert.Equal(ItemPriority.Low, storedTarget!.Priority);
+    }
+
+    [Fact]
     public async Task HandleAsync_returns_NotFound_when_the_item_does_not_exist_in_the_source_list()
     {
         var repository = new InMemoryTaskRepository();

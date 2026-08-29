@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
+using Orbit.Core.Inventory;
 using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Sync;
 
@@ -44,7 +45,8 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     {
         var now = _timeProvider.GetUtcNow();
         _items[warehouseId].Add(new InventoryItemDto(
-            Guid.NewGuid(), name, "Piece", "General", quantity, null, null, "None", false, false, now, now));
+            Guid.NewGuid(), name, "Piece", "General", quantity, null, nameof(InventoryUnit.Piece), null, "None",
+            false, false, now, now));
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -109,7 +111,8 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         // came back with its id keeps that id.
         _items[id] = body.Items.Select(item => new InventoryItemDto(
             item.Id ?? Guid.NewGuid(), item.Name, item.ProductType, item.Category, item.Quantity,
-            item.MinimumQuantity, item.ExpiryDate, item.ExpiryNotificationChannel, false, false, now, now)).ToList();
+            item.MinimumQuantity, item.Unit, item.ExpiryDate, item.ExpiryNotificationChannel,
+            false, false, now, now)).ToList();
 
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }

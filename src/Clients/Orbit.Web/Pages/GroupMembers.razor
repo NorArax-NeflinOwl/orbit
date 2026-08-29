@@ -1,0 +1,212 @@
+@page "/chat/groups/{GroupId:guid}/members"
+@attribute [Authorize]
+@using System.Net
+@using Orbit.Contracts.Chat
+@using Orbit.Core.Permissions
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<GroupMembers> Logger
+@inject UserPermissionState Permissions
+@inject Translations T
+
+@* Who is in a group, and who may change that. A page rather than a panel folded into the thread: the
+   roster is one row per person with two buttons each for an admin, which above the messages left the
+   conversation itself below the fold on every visit. *@
+<PageTitle>@(_group?.Name ?? T["Members"])</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>@T["Members"]</h1>
+        @if (_group is not null)
+        {
+            <p class="page-subtitle">@_group.Name</p>
+        }
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-secondary" @onclick="GoToChat">@T["Back to chat"]</button>
+    </div>
+</div>
+
+@if (!Permissions.Has(ApplicationPermission.Chat))
+{
+    <FeatureLocked Explanation="@(T["Conversations, with one person or with several."])" />
+}
+else if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+
+@if (_group is { } group)
+{
+    <div class="card">
+        @* Membership is only editable by an admin - see ChatGroup, which refuses it server-side too. *@
+        @foreach (var member in group.Members)
+        {
+            <div class="list-row group-member-row">
+                <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(member.UserId)">@AvatarHelper.GetInitials(DisplayNameFor(member.UserId))</span>
+                <span class="row-title">@DisplayNameFor(member.UserId)</span>
+                @if (member.Role == AdminRole)
+                {
+                    <span class="card-badge group-member-badge">@T["Admin"]</span>
+                }
+                @if (IsOwnAdmin && member.UserId != _ownUserId)
+                {
+                    <button type="button" class="btn-secondary" disabled="@_isBusy"
+                            @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
+                        @(member.Role == AdminRole ? T["Demote"] : T["Make admin"])
+                    </button>
+                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
+                }
+                @* Showing yourself out is not the same act as removing somebody, and needs no admin
+                   standing - see ChatGroup.RemoveMember. Without this there was no way out of a group. *@
+                @if (member.UserId == _ownUserId)
+                {
+                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="LeaveGroupAsync">@T["Leave group"]</button>
+                }
+            </div>
+        }
+
+        @if (IsOwnAdmin && _addableContacts.Count > 0)
+        {
+            <div class="field-row">
+                <select @bind="_contactToAddId">
+                    <option value="">@T["Add someone…"]</option>
+                    @foreach (var contact in _addableContacts)
+                    {
+                        <option value="@contact.UserId">@contact.DisplayName</option>
+                    }
+                </select>
+                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="AddMemberAsync">@T["Add"]</button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid GroupId { get; set; }
+
+    private const string AdminRole = "Admin";
+    private const string MemberRole = "Member";
+
+    private Guid _ownUserId;
+    private ChatGroupDto? _group;
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private string _contactToAddId = string.Empty;
+    private bool _isBusy;
+    private string? _errorMessage;
+
+    private bool IsOwnAdmin => _group?.OwnRole == AdminRole;
+
+    /// <summary>Contacts not already in this group - the only people an admin can usefully add.</summary>
+    private IReadOnlyList<ContactDto> _addableContacts
+        => _group is { } group
+            ? [.. _contacts.Where(contact => group.Members.All(member => member.UserId != contact.UserId))]
+            : [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Waits for the first permission read, so this page never decides it is locked before it has
+        // been told - see UserPermissionState.EnsureLoadedAsync.
+        await Permissions.EnsureLoadedAsync();
+        if (!Permissions.Has(ApplicationPermission.Chat))
+        {
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
+            var groups = await ChatApiClient.GetGroupsAsync();
+            _group = groups.FirstOrDefault(group => group.Id == GroupId);
+            _contacts = await ChatApiClient.GetContactsAsync();
+
+            if (_group is null)
+            {
+                _errorMessage = T["That group is no longer one you're in."];
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load the members of group {GroupId}", GroupId);
+            _errorMessage = T["Couldn't load your groups. Check your connection and try again."];
+        }
+    }
+
+    private void GoToChat() => NavigationManager.NavigateTo($"/chat/groups/{GroupId}");
+
+    private async Task AddMemberAsync()
+    {
+        if (!Guid.TryParse(_contactToAddId, out var userId))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await ChatApiClient.AddGroupMemberAsync(GroupId, userId);
+            _contactToAddId = string.Empty;
+            await LoadAsync();
+        });
+    }
+
+    private async Task RemoveMemberAsync(Guid userId)
+        => await RunAsync(async () =>
+        {
+            await ChatApiClient.RemoveGroupMemberAsync(GroupId, userId);
+            await LoadAsync();
+        });
+
+    /// <summary>
+    /// Leaves the group and goes back to the conversation list, since the group this page was showing is
+    /// no longer one this reader is in. The server refuses a sole admin who would strand the others -
+    /// that comes back as a 400 naming the rule, which RunAsync surfaces.
+    /// </summary>
+    private async Task LeaveGroupAsync()
+        => await RunAsync(async () =>
+        {
+            await ChatApiClient.RemoveGroupMemberAsync(GroupId, _ownUserId);
+            NavigationManager.NavigateTo("/chat/groups");
+        });
+
+    private async Task ChangeRoleAsync(Guid userId, string role)
+        => await RunAsync(async () =>
+        {
+            await ChatApiClient.ChangeGroupMemberRoleAsync(GroupId, userId, role);
+            await LoadAsync();
+        });
+
+    private string DisplayNameFor(Guid userId)
+        => userId == _ownUserId
+            ? T["You"]
+            : _contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? T["Someone"];
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _isBusy = true;
+        _errorMessage = null;
+        try
+        {
+            await action();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "A group membership change failed");
+            _errorMessage = T["That didn't work. Reload the group and try again."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+}

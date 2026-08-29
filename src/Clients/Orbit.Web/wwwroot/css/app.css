@@ -5,6 +5,10 @@
    resolution already happened by the time either script ran; every element in the app should read
    colors from these variables, never a literal hex/oklch value, so both themes stay consistent. */
 :root {
+    /* The one colour the reader picks (see AccentColorService). Every accent token below is written
+       against it rather than against a literal hue, so setting this single value repaints the app in
+       both themes at once. */
+    --accent-hue: 288;
     --bg: oklch(97.5% 0.007 75);
     --bg-elevated: oklch(99.5% 0.003 75);
     --bg-subtle: oklch(95% 0.01 75);
@@ -12,10 +16,10 @@
     --text-primary: oklch(24% 0.014 55);
     --text-secondary: oklch(46% 0.018 55);
     --text-tertiary: oklch(62% 0.014 55);
-    --accent: oklch(56% 0.16 288);
-    --accent-hover: oklch(50% 0.17 288);
-    --accent-subtle: oklch(93% 0.035 288);
-    --accent-on: oklch(99% 0.005 288);
+    --accent: oklch(56% 0.16 var(--accent-hue));
+    --accent-hover: oklch(50% 0.17 var(--accent-hue));
+    --accent-subtle: oklch(93% 0.035 var(--accent-hue));
+    --accent-on: oklch(99% 0.005 var(--accent-hue));
     --task: oklch(52% 0.14 55);
     --success: oklch(58% 0.13 150);
     --danger: oklch(58% 0.16 25);
@@ -32,10 +36,10 @@
     --text-primary: oklch(95% 0.006 75);
     --text-secondary: oklch(78% 0.012 70);
     --text-tertiary: oklch(58% 0.012 70);
-    --accent: oklch(74% 0.13 288);
-    --accent-hover: oklch(80% 0.11 288);
-    --accent-subtle: oklch(32% 0.06 288);
-    --accent-on: oklch(14% 0.02 288);
+    --accent: oklch(74% 0.13 var(--accent-hue));
+    --accent-hover: oklch(80% 0.11 var(--accent-hue));
+    --accent-subtle: oklch(32% 0.06 var(--accent-hue));
+    --accent-on: oklch(14% 0.02 var(--accent-hue));
     --task: oklch(72% 0.13 55);
     --success: oklch(72% 0.12 150);
     --danger: oklch(70% 0.15 25);
@@ -1360,6 +1364,20 @@ input.note-editor-title {
     flex-wrap: wrap;
 }
 
+/* The strip is a button now (it opens the calendar), so it has to shed what a <button> brings with it
+   and keep looking like the panel it is. */
+.today-strip-button {
+    width: 100%;
+    text-align: left;
+    font-size: inherit;
+    font-weight: inherit;
+    cursor: pointer;
+}
+
+.today-strip-button:hover {
+    background: var(--bg-subtle);
+}
+
 .today-strip-date {
     font-family: var(--font-display);
     font-weight: 600;
@@ -1952,10 +1970,150 @@ input.note-editor-title {
     margin: 0 0 16px 0;
 }
 
+/* Orbit's own date and time boxes - see DateField/TimeField for why the browser's are not used. Both
+   are plain text inputs, so they inherit the ordinary input look above; only the widths, the calendar
+   button and the popup are new. */
+.time-field {
+    width: 6.5em;
+    text-align: center;
+}
+
+.date-field {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.date-field-input {
+    width: 9em;
+    text-align: center;
+}
+
+/* Anchored to the box rather than flowing after it, so opening a month does not push the form about. */
+.date-field-popup {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 30;
+    width: max-content;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-elevated);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+}
+
+.date-field-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.date-field-popup-month {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.date-field-weekdays,
+.date-field-days {
+    display: grid;
+    grid-template-columns: repeat(7, 32px);
+    gap: 2px;
+}
+
+.date-field-weekdays span {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.date-field-day {
+    padding: 0;
+    height: 30px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.date-field-day:hover {
+    background: var(--bg-subtle);
+}
+
+/* A day borrowed from the neighbouring month to fill out the row - dimmed rather than left blank, so
+   the grid stays a grid. Mirrors .calendar-month-grid-day-outside. */
+.date-field-day-outside {
+    color: var(--text-tertiary);
+}
+
+.date-field-day-today {
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+}
+
+.date-field-day-chosen,
+.date-field-day-chosen:hover {
+    background: var(--accent);
+    color: var(--accent-on);
+}
+
+.date-field-popup-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
 .theme-picker {
     display: flex;
     gap: 14px;
     flex-wrap: wrap;
+}
+
+/* One swatch per accent colour. Each button carries its own --accent-hue inline (see Options.razor), so
+   the tokens below resolve to the colour that button stands for rather than to the chosen one. */
+.accent-picker {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.accent-option {
+    /* The accent tokens are written out again here, rather than inherited from :root. A custom property
+       holding var(--accent-hue) is substituted where it is *declared*, so what :root passes down is
+       already the chosen colour - the inline hue on this button arrives too late to change it, and every
+       swatch came out in whichever colour was currently picked. Declaring them against this button's own
+       hue is what makes each swatch show the colour it stands for. Keep in step with :root above. */
+    --accent: oklch(56% 0.16 var(--accent-hue));
+    --accent-hover: oklch(50% 0.17 var(--accent-hue));
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+:root[data-theme="dark"] .accent-option {
+    --accent: oklch(74% 0.13 var(--accent-hue));
+    --accent-hover: oklch(80% 0.11 var(--accent-hue));
+}
+
+.accent-option:hover {
+    background: var(--accent-hover);
+}
+
+/* An outline rather than a heavier border, so the chosen swatch does not change size when it is picked. */
+.accent-option.active {
+    border-color: var(--bg);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .theme-option {
@@ -2001,7 +2159,7 @@ input.note-editor-title {
     width: 36%;
     height: 8px;
     border-radius: 3px;
-    background: oklch(56% 0.16 288);
+    background: var(--accent);
 }
 
 .tp-line {
@@ -2850,6 +3008,17 @@ input.note-editor-title {
     flex-direction: column;
 }
 
+/* The bell in front of a task list's name, when something unread is about that list. In the accent
+   colour rather than the text colour: it is the one thing on a page of cards that is asking to be
+   noticed. */
+.task-card-notification {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 5px;
+    color: var(--accent);
+    vertical-align: -2px;
+}
+
 .card-badge {
     margin-left: 6px;
     /* Squeezed by a crowded header a badge breaks its own text across two lines; it moves to the next
@@ -2887,6 +3056,20 @@ input.note-editor-title {
     width: 14px;
     color: var(--success);
     font-size: 12px;
+}
+
+/* What a row that only points at another list actually stands for. Indented and quieter than the rows
+   of the card's own list, so the card still reads as one list with something folded into it. */
+.task-preview-row-linked {
+    padding-left: 22px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+/* The card being carried somewhere else, kept visible but clearly picked up - mirrors .editor-item.dragging. */
+.task-list-card.dragging {
+    opacity: 0.45;
+    border-style: dashed;
 }
 
 .empty-hint {
@@ -3659,4 +3842,106 @@ input.note-editor-title {
 .overflow-menu-dropdown .avatar-dropdown-item:disabled {
     opacity: 0.45;
     cursor: default;
+}
+
+/* The map on a task item's summary. Sized here rather than by the page, since Leaflet measures its
+   container once at creation and needs a real height to lay the tile grid out from - see
+   locationMap.js's waitForSize. */
+.task-item-map {
+    height: 380px;
+    margin-top: 20px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+/* The conversation's own menu, in the corner of the thread header: who the other person is, and for a
+   group, who is in it. Pushed to the far end so it does not crowd the name beside it. */
+.chat-thread-menu {
+    position: relative;
+    margin-left: auto;
+}
+
+/* Always visible, unlike a message's trigger: the header carries no hover target of its own to reveal it. */
+.chat-thread-menu .chat-thread-menu-trigger {
+    opacity: 1;
+}
+
+/* Who wrote a message, on everyone else's messages in a group thread - see GroupConversation. */
+.chat-bubble-sender {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 2px;
+}
+
+.contact-info-identity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+}
+
+.contact-info-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 17px;
+}
+
+.contact-info-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+}
+
+.contact-info-login {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* A contact row that carries a second action beside it - see Contacts.razor. The row itself keeps the
+   whole width it had; only the button is laid alongside. */
+.contact-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.contact-row .chat-list-item {
+    flex: 1;
+    min-width: 0;
+}
+
+.contact-row-info {
+    flex: 0 0 auto;
+}
+
+/* Narrowing a shelf down to one type or category - see WarehouseEditor.razor. Sits above the item list
+   and wraps on a narrow screen rather than pushing the list sideways. */
+.inventory-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.inventory-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.inventory-filters select {
+    min-width: 160px;
+}
+
+/* Narrow, because it holds "kg" rather than "Kilogram" - the full name is in each option's tooltip. */
+.editor-item-unit {
+    width: 74px;
 }

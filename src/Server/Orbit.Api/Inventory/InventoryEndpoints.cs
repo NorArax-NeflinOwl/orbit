@@ -188,15 +188,16 @@ public static class InventoryEndpoints
     private static IReadOnlyList<WarehouseItemInput> ToDomainItems(IReadOnlyList<WarehouseItemDto> items)
         => items
             .Select(item => new WarehouseItemInput(
-                item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity, item.ExpiryDate,
+                item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+                RequestEnum.Parse<InventoryUnit>(item.Unit, "unit"), item.ExpiryDate,
                 RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel")))
             .ToList();
 
     private static InventoryItemDto ToDto(InventoryItem item)
         => new(
-            item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity, item.ExpiryDate,
-            item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum, item.PendingRestockTaskItemId is not null,
-            item.CreatedAtUtc, item.UpdatedAtUtc);
+            item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+            item.Unit.ToString(), item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum,
+            item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc);
 
     private static IResult ToApiResult(EditOutcome outcome)
         => outcome.Kind switch

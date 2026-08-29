@@ -11,9 +11,14 @@ public sealed class ShareTaskListCommandHandlerTests
 {
     private static ShareTaskListCommandHandler CreateHandler(
         InMemoryTaskRepository taskRepository, InMemoryTaskListShareRepository taskListShareRepository,
-        RecordingSharedItemNotifier? sharedItemNotifier = null)
+        RecordingSharedItemNotifier? sharedItemNotifier = null,
+        InMemoryWarehouseRepository? warehouseRepository = null,
+        InMemoryWarehouseShareRepository? warehouseShareRepository = null)
         => new(
             new TaskListAccessResolver(taskRepository, taskListShareRepository, new InMemoryUserRepository()), taskListShareRepository,
+            new TaskListShareCascade(
+                taskRepository, warehouseRepository ?? new InMemoryWarehouseRepository(),
+                taskListShareRepository, warehouseShareRepository ?? new InMemoryWarehouseShareRepository()),
             sharedItemNotifier ?? new RecordingSharedItemNotifier());
 
     [Fact]

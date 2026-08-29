@@ -1,0 +1,96 @@
+@page "/chat/groups/{GroupId:guid}/info"
+@attribute [Authorize]
+@using System.Net
+@using Orbit.Contracts.Chat
+@using Orbit.Core.Permissions
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<GroupInfo> Logger
+@inject UserPermissionState Permissions
+@inject Translations T
+
+@* What a group is, as against who is in it - see GroupMembers for the roster. The chat thread's menu
+   offers both, the same way it offers a person's card for a two-person conversation. *@
+<PageTitle>@(_group?.Name ?? T["Group chat"])</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>@(_group?.Name ?? T["Group chat"])</h1>
+        <p class="page-subtitle">@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</p>
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-secondary" @onclick="GoToChat">@T["Back to chat"]</button>
+        <button type="button" class="btn-primary" @onclick="GoToMembers">@T["Members"]</button>
+    </div>
+</div>
+
+@if (!Permissions.Has(ApplicationPermission.Chat))
+{
+    <FeatureLocked Explanation="@(T["Conversations, with one person or with several."])" />
+}
+else if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+else if (_group is { } group)
+{
+    <div class="card">
+        <div class="list-row">
+            <span class="row-title">@T["Name"]</span>
+            <span class="row-meta">@group.Name</span>
+        </div>
+        <div class="list-row">
+            <span class="row-title">@T["Members"]</span>
+            <span class="row-meta">@T.Format("{0} members", group.Members.Count)</span>
+        </div>
+        <div class="list-row">
+            <span class="row-title">@T["Started"]</span>
+            <span class="row-meta">@group.CreatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+        </div>
+        <div class="list-row">
+            <span class="row-title">@T["Your role"]</span>
+            <span class="row-meta">@(group.OwnRole == AdminRole ? T["Admin"] : T["Member"])</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid GroupId { get; set; }
+
+    private const string AdminRole = "Admin";
+
+    private ChatGroupDto? _group;
+    private string? _errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Permissions.EnsureLoadedAsync();
+        if (!Permissions.Has(ApplicationPermission.Chat))
+        {
+            return;
+        }
+
+        try
+        {
+            _group = (await ChatApiClient.GetGroupsAsync()).FirstOrDefault(group => group.Id == GroupId);
+            if (_group is null)
+            {
+                _errorMessage = T["That group is no longer one you're in."];
+            }
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load group {GroupId}", GroupId);
+            _errorMessage = T["Couldn't load your groups. Check your connection and try again."];
+        }
+    }
+
+    private void GoToChat() => NavigationManager.NavigateTo($"/chat/groups/{GroupId}");
+
+    private void GoToMembers() => NavigationManager.NavigateTo($"/chat/groups/{GroupId}/members");
+}

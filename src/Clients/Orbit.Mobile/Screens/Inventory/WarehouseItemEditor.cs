@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 using Orbit.Contracts.Inventory;
+using Orbit.Core.Inventory;
 using Orbit.Core.Notifications;
 
 namespace Orbit.Mobile.Screens.Inventory;
@@ -39,6 +40,13 @@ public sealed partial class WarehouseItemEditor : ObservableObject
 
     private readonly Guid? _id;
 
+    /// <summary>
+    /// What the two amounts are counted in. Carried through untouched rather than edited: the phone's
+    /// form has no unit picker yet, and a save that dropped the unit would quietly turn a kilogram of
+    /// flour set on the web into a piece of it.
+    /// </summary>
+    public string Unit { get; private set; } = nameof(InventoryUnit.Piece);
+
     [ObservableProperty]
     private string _name = string.Empty;
 
@@ -70,6 +78,7 @@ public sealed partial class WarehouseItemEditor : ObservableObject
         => new(item.Id)
         {
             Channels = NotificationChannelChoice.All(translations),
+            Unit = item.Unit,
             Name = item.Name,
             ProductType = item.ProductType,
             Category = item.Category,
@@ -94,6 +103,7 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             Category.Trim() is { Length: > 0 } category ? category : "General",
             ParseQuantity() ?? 0,
             ParseMinimum(),
+            Unit,
             Expires ? new DateTimeOffset(ExpiryDate.Date, TimeZoneInfo.Local.GetUtcOffset(ExpiryDate.Date)) : null,
             ExpiryNotificationChannel);
 

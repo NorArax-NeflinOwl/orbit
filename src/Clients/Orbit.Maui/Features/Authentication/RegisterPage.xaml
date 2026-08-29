@@ -23,7 +23,7 @@
             <Entry Placeholder="{controls:Translate 'Email address'}" Text="{Binding EmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
             <!-- Plain, not the default text keyboard: iOS capitalises the first letter of a sentence,
                  which silently turns a typed username into a different one. -->
-            <Entry Placeholder="{controls:Translate 'Username'}" Text="{Binding UserName}" Keyboard="Plain" />
+            <Entry Placeholder="{controls:Translate 'Login'}" Text="{Binding UserName}" Keyboard="Plain" />
             <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
             <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding Password}" IsPassword="True" ReturnType="Go"
                    ReturnCommand="{Binding RegisterCommand}" />

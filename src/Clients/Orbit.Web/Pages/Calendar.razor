@@ -9,6 +9,7 @@
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
 @inject TasksApiClient TasksApiClient
+@inject PanelPreferences Panels
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
@@ -37,7 +38,7 @@
 <div class="calendar-toolbar">
     <button type="button" class="icon-btn @(_viewState.IsEventListVisible ? "active" : "")"
             title="@(_viewState.IsEventListVisible ? T["Hide event list"] : T["Show event list"])"
-            aria-pressed="@AriaBool(_viewState.IsEventListVisible)" @onclick="ToggleEventListVisibility">
+            aria-pressed="@AriaBool(_viewState.IsEventListVisible)" @onclick="ToggleEventListVisibilityAsync">
         @if (_viewState.IsEventListVisible)
         {
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.3" /></svg>
@@ -49,7 +50,7 @@
     </button>
     <button type="button" class="icon-btn @(_viewState.IsTaskListVisible ? "active" : "")"
             title="@(_viewState.IsTaskListVisible ? T["Hide task list"] : T["Show task list"])"
-            aria-pressed="@AriaBool(_viewState.IsTaskListVisible)" @onclick="ToggleTaskListVisibility">
+            aria-pressed="@AriaBool(_viewState.IsTaskListVisible)" @onclick="ToggleTaskListVisibilityAsync">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
     </button>
 </div>
@@ -160,9 +161,9 @@
                         {
                             <div class="list-row task-preview-row @(dueTask.IsCompleted ? "completed" : "")">
                                 <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
-                                <span class="row-title">@dueTask.Description</span>
+                                <span class="row-title">@Written(dueTask.TaskListTitle): @Written(dueTask.Description)</span>
                                 <span class="row-meta">@dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-                                <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(dueTask.TaskListId)">@T["Open"]</button>
+                                <button type="button" class="btn-secondary" @onclick="() => GoToDueTask(dueTask)">@T["Open"]</button>
                             </div>
                         }
                     </div>
@@ -189,13 +190,13 @@
         @switch (_viewState.ViewMode)
         {
             case CalendarViewMode.Day:
-                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToEditTaskList" />
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToDueTask" />
                 break;
             case CalendarViewMode.Year:
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
                 break;
             default:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToEditTaskList" />
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToDueTask" />
                 break;
         }
     </div>
@@ -229,6 +230,12 @@
 
     private IReadOnlyList<CalendarEventDto>? _events;
     private IReadOnlyList<DueTaskDto>? _dueTasks;
+
+    /// <summary>
+    /// Every list the due tasks came from, kept from that same read - it is what says which list a
+    /// clicked deadline belongs to, and which list gathers that one (see GoToTaskList).
+    /// </summary>
+    private IReadOnlyList<TaskDto> _taskLists = [];
     private IReadOnlyList<ContactDto> _contacts = [];
     private readonly CalendarViewState _viewState = new();
 
@@ -273,6 +280,10 @@
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Calendar page opened, loading events");
+        // Before the first render, so the panels come back open rather than opening a moment later.
+        await Panels.InitializeAsync();
+        _viewState.IsEventListVisible = Panels.IsOpen(PanelPreferences.Panel.CalendarEventList);
+        _viewState.IsTaskListVisible = Panels.IsOpen(PanelPreferences.Panel.CalendarTaskList);
         try
         {
             _events = await CalendarApiClient.GetCalendarEventsAsync();
@@ -302,14 +313,19 @@
     /// </summary>
     private async Task<IReadOnlyList<DueTaskDto>> LoadDueTasksAsync()
     {
-        var taskLists = await TasksApiClient.GetTaskListsAsync();
-        return taskLists
+        _taskLists = await TasksApiClient.GetTaskListsAsync();
+        return _taskLists
             .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
             .Where(pair => pair.item.DueDateUtc is not null)
-            .Select(pair => new DueTaskDto(pair.taskList.Id, pair.item.Id, pair.item.Description, pair.item.DueDateUtc!.Value, pair.item.IsCompleted))
+            .Select(pair => new DueTaskDto(
+                pair.taskList.Id, pair.item.Id, pair.taskList.Title, pair.item.Description,
+                pair.item.DueDateUtc!.Value, pair.item.IsCompleted, HasPlace(pair.item)))
             .OrderBy(dueTask => dueTask.DueDateUtc)
             .ToList();
     }
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
 
     /// <summary>
     /// Looks up guestUserId's login for display, preferring the already-loaded contact list and falling
@@ -360,11 +376,64 @@
         NavigationManager.NavigateTo($"/calendar/{eventId}");
     }
 
-    private void GoToEditTaskList(Guid taskListId)
+    /// <summary>
+    /// Opens the checklist rather than the deep editor: clicking a deadline on a calendar is a move
+    /// towards ticking it off, not towards rewriting the list it is on.
+    /// </summary>
+    /// <summary>
+    /// What clicking a deadline opens. Somewhere to be opens as its own summary, with the time and a map
+    /// - the checklist is the right landing for something to tick off and the wrong one for something
+    /// you have to get to. Everything else opens as the list, at the shallow level.
+    /// </summary>
+    private void GoToDueTask(DueTaskDto dueTask)
     {
-        Logger.LogInformation("User clicked a due-task entry on the calendar for task list {TaskListId}", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}");
+        if (dueTask.HasPlace)
+        {
+            Logger.LogInformation(
+                "User opened the summary of task item {TaskItemId} from the calendar", dueTask.TaskItemId);
+            NavigationManager.NavigateTo($"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}");
+            return;
+        }
+
+        GoToTaskList(dueTask.TaskListId);
     }
+
+    /// <summary>Whether this entry is somewhere as well as at some time - see TaskItemKind.</summary>
+    private static bool HasPlace(TaskItemDto item)
+        => item.LinkedCalendarEventId is not null || item.Location.Length > 0;
+
+    private void GoToTaskList(Guid taskListId)
+    {
+        var opened = WhicheverListGathersIt(taskListId);
+        Logger.LogInformation(
+            "User clicked a due-task entry on the calendar for task list {TaskListId}, opening {OpenedTaskListId}",
+            taskListId, opened);
+        NavigationManager.NavigateTo($"/tasks/{opened}");
+    }
+
+    /// <summary>
+    /// The list to actually open: one gathered by a group list is read as part of that group, so the
+    /// group opens instead - and the group's own group above that, up to the top of the tree. A list
+    /// nothing gathers is its own answer.
+    ///
+    /// The already-seen set is what stops a pair of lists that gather each other from looping forever.
+    /// </summary>
+    private Guid WhicheverListGathersIt(Guid taskListId)
+    {
+        var alreadySeen = new HashSet<Guid> { taskListId };
+        while (Gatherer(taskListId) is { } gatherer && alreadySeen.Add(gatherer))
+        {
+            taskListId = gatherer;
+        }
+
+        return taskListId;
+    }
+
+    private Guid? Gatherer(Guid taskListId)
+        => _taskLists
+            .FirstOrDefault(candidate => candidate.IsGroup
+                && candidate.Items.Any(item => item.LinkedTaskListId == taskListId))
+            ?.Id;
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
     {
@@ -394,9 +463,17 @@
         Logger.LogInformation("Calendar event {EventId} deleted", calendarEvent.Id);
     }
 
-    private void ToggleEventListVisibility() => _viewState.IsEventListVisible = !_viewState.IsEventListVisible;
+    private async Task ToggleEventListVisibilityAsync()
+    {
+        _viewState.IsEventListVisible = !_viewState.IsEventListVisible;
+        await Panels.SetOpenAsync(PanelPreferences.Panel.CalendarEventList, _viewState.IsEventListVisible);
+    }
 
-    private void ToggleTaskListVisibility() => _viewState.IsTaskListVisible = !_viewState.IsTaskListVisible;
+    private async Task ToggleTaskListVisibilityAsync()
+    {
+        _viewState.IsTaskListVisible = !_viewState.IsTaskListVisible;
+        await Panels.SetOpenAsync(PanelPreferences.Panel.CalendarTaskList, _viewState.IsTaskListVisible);
+    }
 
     private void ToggleShowDueTasksInYearView()
     {

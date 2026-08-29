@@ -1,7 +1,5 @@
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
+using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Tasks;
-using Orbit.Data;
 using Orbit.Data.Repositories;
 using Xunit;
 
@@ -15,20 +13,12 @@ namespace Orbit.Api.Tests.Tasks;
 /// </summary>
 public sealed class TaskItemOrderTests : IDisposable
 {
-    private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"orbit-order-{Guid.NewGuid():N}.db");
-    private readonly OrbitDbContext _dbContext;
-
-    public TaskItemOrderTests()
-    {
-        _dbContext = new OrbitDbContext(
-            new DbContextOptionsBuilder<OrbitDbContext>().UseSqlite($"Data Source={_databasePath}").Options);
-        _dbContext.Database.EnsureCreated();
-    }
+    private readonly TemporarySqliteDatabase _database = new();
 
     [Fact]
     public async Task A_list_comes_back_in_the_order_it_was_written_in()
     {
-        var repository = new TaskRepository(_dbContext);
+        var repository = new TaskRepository(_database.DbContext);
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Errands", Items("A", "B", "C", "D", "E"));
         await repository.AddAsync(taskList, CancellationToken.None);
@@ -41,7 +31,7 @@ public sealed class TaskItemOrderTests : IDisposable
     [Fact]
     public async Task Ticking_something_off_leaves_every_other_entry_where_it_was()
     {
-        var repository = new TaskRepository(_dbContext);
+        var repository = new TaskRepository(_database.DbContext);
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Errands", Items("A", "B", "C", "D", "E"));
         await repository.AddAsync(taskList, CancellationToken.None);
@@ -53,7 +43,8 @@ public sealed class TaskItemOrderTests : IDisposable
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
                 item.DailyReminderTimeOfDay))
             .ToList();
-        reread.Update(reread.Title, withOneTicked, reread.IsGroup, reread.IsPrivate, reread.EncryptedContent);
+        reread.Update(
+            reread.Title, withOneTicked, reread.IsGroup, reread.IsPrivate, reread.EncryptedContent, reread.Priority);
         await repository.UpdateAsync(reread, CancellationToken.None);
 
         var afterwards = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
@@ -65,13 +56,5 @@ public sealed class TaskItemOrderTests : IDisposable
     private static IReadOnlyList<TaskItem> Items(params string[] descriptions)
         => descriptions.Select(description => TaskItem.Create(description, dueDateUtc: null, isCompleted: false)).ToList();
 
-    public void Dispose()
-    {
-        _dbContext.Dispose();
-        // Disposing the DbContext returns its connection to Microsoft.Data.Sqlite's pool instead of
-        // releasing the file handle, which makes File.Delete fail on Windows with a sharing violation
-        // unless the pool is cleared first - the same reason DatabaseHealthCheckTests clears it.
-        SqliteConnection.ClearAllPools();
-        File.Delete(_databasePath);
-    }
+    public void Dispose() => _database.Dispose();
 }

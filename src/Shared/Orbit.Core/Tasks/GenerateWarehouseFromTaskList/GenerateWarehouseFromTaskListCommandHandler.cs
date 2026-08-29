@@ -26,6 +26,9 @@ public sealed class GenerateWarehouseFromTaskListCommandHandler : IRequestHandle
     private const string GeneratedProductType = "Part";
     private const string GeneratedCategory = "From a task list";
 
+    /// <summary>A checklist line says how many, never in what - so what it names is counted, one by one.</summary>
+    private const InventoryUnit GeneratedUnit = InventoryUnit.Piece;
+
     private readonly IDispatcher _dispatcher;
     private readonly ITaskRepository _taskRepository;
     private readonly IInventoryRepository _inventoryRepository;
@@ -67,7 +70,8 @@ public sealed class GenerateWarehouseFromTaskListCommandHandler : IRequestHandle
             await _inventoryRepository.AddAsync(
                 InventoryItem.Create(
                     warehouseId, requirement.Name, GeneratedProductType, GeneratedCategory, requirement.Done,
-                    minimumQuantity: requirement.Required, expiryDate: null, NotificationChannel.None, position),
+                    minimumQuantity: requirement.Required, GeneratedUnit, expiryDate: null, NotificationChannel.None,
+                    position),
                 cancellationToken);
         }
 

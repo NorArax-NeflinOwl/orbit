@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Inventory;
+using Orbit.Core.Inventory;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -91,7 +92,8 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         // No id: this one has never been saved, and claiming an id nothing has would be a lie the server
         // would have to sort out. See WarehouseItemDto.Id.
         return SaveAsync(
-            [.. _items, new WarehouseItemDto(null, name, "Piece", "General", 1, null, null, "None")],
+            [.. _items, new WarehouseItemDto(
+                null, name, "Piece", "General", 1, null, nameof(InventoryUnit.Piece), null, "None")],
             cancellationToken);
     }
 

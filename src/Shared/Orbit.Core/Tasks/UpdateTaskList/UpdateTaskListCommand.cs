@@ -5,4 +5,5 @@ namespace Orbit.Core.Tasks.UpdateTaskList;
 [ClientAction(ClientActionCategory.Edit)]
 public sealed record UpdateTaskListCommand(
     Guid UserId, Guid Id, string Title, IReadOnlyList<TaskItem> Items, bool IsGroup, bool IsPrivate, EncryptedPayload? EncryptedContent,
-    ItemPriority Priority = ItemPriority.Normal) : IRequest<EditOutcome>;
+    ItemPriority Priority = ItemPriority.Normal)
+    : IRequest<EditOutcome>;

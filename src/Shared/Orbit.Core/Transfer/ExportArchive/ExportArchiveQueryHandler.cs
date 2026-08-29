@@ -68,7 +68,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
                 warehouse.Name, warehouse.IsPrivate, ToArchived(warehouse.EncryptedContent),
                 items.Select(item => new ArchivedWarehouseItem(
                     item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
-                    item.ExpiryDate, item.ExpiryNotificationChannel.ToString())).ToList()));
+                    item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.Unit.ToString())).ToList()));
         }
 
         return archived;

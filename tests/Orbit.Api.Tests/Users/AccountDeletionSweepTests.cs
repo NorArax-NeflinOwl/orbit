@@ -1,10 +1,10 @@
 using System.Reflection;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Chat.Groups;
-using Orbit.Core.Permissions;
-using Orbit.Data;
 using Orbit.Core.Sync;
+using Orbit.Core.Permissions;
+using Orbit.Api.Tests.TestDoubles;
+using Orbit.Data;
 using Orbit.Data.Entities;
 using Orbit.Data.Repositories;
 using Xunit;
@@ -20,27 +20,14 @@ namespace Orbit.Api.Tests.Users;
 /// SQLite stands in for PostgreSQL here for the same reason DatabaseHealthCheckTests uses it - what's
 /// being tested is which rows the method decides to delete, not anything provider-specific.
 /// </summary>
-public sealed class AccountDeletionSweepTests : IAsyncLifetime
+public sealed class AccountDeletionSweepTests : IDisposable
 {
-    private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"orbit-deletion-tests-{Guid.NewGuid():N}.db");
-    private OrbitDbContext _dbContext = null!;
+    private readonly TemporarySqliteDatabase _database = new();
+    private readonly OrbitDbContext _dbContext;
 
-    public async Task InitializeAsync()
-    {
-        _dbContext = new OrbitDbContext(
-            new DbContextOptionsBuilder<OrbitDbContext>().UseSqlite($"Data Source={_databasePath}").Options);
-        await _dbContext.Database.EnsureCreatedAsync();
-    }
+    public AccountDeletionSweepTests() => _dbContext = _database.DbContext;
 
-    public async Task DisposeAsync()
-    {
-        await _dbContext.DisposeAsync();
-        // Disposing the DbContext returns its connection to Microsoft.Data.Sqlite's pool instead of
-        // releasing the file handle, which makes File.Delete fail on Windows with a sharing violation
-        // unless the pool is cleared first - the same reason DatabaseHealthCheckTests clears it.
-        SqliteConnection.ClearAllPools();
-        File.Delete(_databasePath);
-    }
+    public void Dispose() => _database.Dispose();
 
     [Fact]
     public async Task Every_table_holding_the_account_is_emptied()

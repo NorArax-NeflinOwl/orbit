@@ -60,7 +60,7 @@ public sealed class EmptyNoteTests
         var note = Note.Create(Guid.NewGuid(), "Shopping list", [NoteContentLine.PlainText("Milk")]);
 
         // Otherwise the rule would only hold for as long as it took to save once and edit it back down.
-        Assert.Throws<InvalidRequestException>(() => note.Update(string.Empty, [], isPrivate: false, encryptedContent: null));
+        Assert.Throws<InvalidRequestException>(() => note.Update(string.Empty, [], isPrivate: false, encryptedContent: null, note.Priority));
     }
 
     [Fact]

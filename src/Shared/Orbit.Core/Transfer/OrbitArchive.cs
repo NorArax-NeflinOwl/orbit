@@ -57,8 +57,12 @@ public sealed record ArchivedEventLocation(string Address, double? Latitude, dou
 public sealed record ArchivedWarehouse(
     string Name, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent, IReadOnlyList<ArchivedWarehouseItem> Items);
 
+/// <param name="Unit">
+/// Defaulted, and last, so an archive written before units existed still imports - it says nothing about
+/// what its amounts were counted in, and pieces is the honest reading of that rather than a refusal.
+/// </param>
 public sealed record ArchivedWarehouseItem(
     string Name, string ProductType, string Category, decimal Quantity, decimal? MinimumQuantity,
-    DateTimeOffset? ExpiryDate, string ExpiryNotificationChannel);
+    DateTimeOffset? ExpiryDate, string ExpiryNotificationChannel, string Unit = "Piece");
 
 public sealed record ArchivedEncryptedContent(string Ciphertext, string Nonce);

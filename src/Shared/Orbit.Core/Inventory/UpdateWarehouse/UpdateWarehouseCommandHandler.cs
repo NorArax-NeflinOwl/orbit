@@ -102,7 +102,7 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
 
             existing.Update(
                 input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
-                input.ExpiryDate, input.ExpiryNotificationChannel);
+                input.Unit, input.ExpiryDate, input.ExpiryNotificationChannel);
             existing.MoveTo(position);
             await SaveWithRestockTaskAsync(existing, cancellationToken);
         }
@@ -113,7 +113,7 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
     {
         var item = InventoryItem.Create(
             warehouseId, input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
-            input.ExpiryDate, input.ExpiryNotificationChannel, position);
+            input.Unit, input.ExpiryDate, input.ExpiryNotificationChannel, position);
         await _inventoryRepository.AddAsync(item, cancellationToken);
         await SaveWithRestockTaskAsync(item, cancellationToken);
     }

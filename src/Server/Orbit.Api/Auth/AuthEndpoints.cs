@@ -47,10 +47,14 @@ public static class AuthEndpoints
             LoginRequest request, IDispatcher dispatcher, TokenService tokenService,
             RefreshTokenService refreshTokenService, CancellationToken cancellationToken) =>
         {
-            var user = await dispatcher.SendAsync(new LoginQuery(request.EmailOrUserName, request.Password), cancellationToken);
+            var result = await dispatcher.SendAsync(new LoginQuery(request.EmailOrUserName, request.Password), cancellationToken);
 
-            return user is null
-                ? Results.Unauthorized()
+            // 401 either way, with the reason in the body - see LoginQueryHandler for why a refusal says
+            // which half of what was typed was wrong.
+            return result.User is not { } user
+                ? Results.Json(
+                    new LoginRejectionDto(result.Rejection.ToString(), DescribeRejection(result.Rejection)),
+                    statusCode: StatusCodes.Status401Unauthorized)
                 : Results.Ok(await ToAuthResponseAsync(user, tokenService, refreshTokenService, cancellationToken));
         }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
 
@@ -119,6 +123,17 @@ public static class AuthEndpoints
             return Results.NoContent();
         });
     }
+
+    /// <summary>
+    /// The refusal in words, for anything reading the response body on its own. Orbit's own client
+    /// branches on the reason instead, so it can say this in the reader's language.
+    /// </summary>
+    private static string DescribeRejection(LoginRejection rejection) => rejection switch
+    {
+        LoginRejection.NoSuchAccount => "No account uses that email address or login.",
+        LoginRejection.NoPasswordSet => "This account signs in with Google and has no password yet.",
+        _ => "That password is wrong."
+    };
 
     private static async Task<AuthResponse> ToAuthResponseAsync(
         User user, TokenService tokenService, RefreshTokenService refreshTokenService, CancellationToken cancellationToken)

@@ -21,7 +21,7 @@
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync" class="editor-form">
     <div class="field">
-        <label>@T["Email or username"]</label>
+        <label>@T["Email or login"]</label>
         <InputText id="emailOrUserName" @bind-Value="_formModel.EmailOrUserName" />
     </div>
     <div class="field">
@@ -91,7 +91,11 @@
 
         _errorMessage = result.Outcome switch
         {
-            AuthOutcome.InvalidCredentials => T["Invalid email, username, or password."],
+            AuthOutcome.TooManyAttempts => T["Too many attempts. Wait a minute and try again."],
+            AuthOutcome.NoSuchAccount => T["No account uses that email address or login."],
+            AuthOutcome.WrongPassword => T["That password is wrong."],
+            AuthOutcome.PasswordNotSet => T["This account signs in with Google and has no password yet. Use the Google button below."],
+            AuthOutcome.InvalidCredentials => T["Invalid email, login, or password."],
             _ => T["An error occurred while logging in. Try again."]
         };
         _isSubmitting = false;
@@ -147,7 +151,10 @@
 
         if (result.Outcome != AuthOutcome.Success)
         {
-            _errorMessage = T["Couldn't sign in with Google. Try again."];
+            // The rate limit is worth saying out loud: "try again" is exactly the wrong advice for it.
+            _errorMessage = result.Outcome == AuthOutcome.TooManyAttempts
+                ? T["Too many attempts. Wait a minute and try again."]
+                : T["Couldn't sign in with Google. Try again."];
             return;
         }
 

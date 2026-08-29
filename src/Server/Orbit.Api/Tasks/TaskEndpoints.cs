@@ -20,7 +20,7 @@ using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
 using Orbit.Core.Inventory.FinishRestocking;
-using Orbit.Core.Tasks.CompleteWorkCoveredByStock;
+using Orbit.Core.Tasks.ReconcileTaskListWithStock;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.RaiseStockShortfalls;
@@ -120,14 +120,15 @@ public static class TaskEndpoints
             return warehouseId is null ? Results.NotFound() : Results.Ok(warehouseId);
         });
 
-        // Crosses off the work the warehouse already covers - the other half of the check below, so
-        // the reader is not left ticking by hand what the panel just told them is on the shelf.
-        tasks.MapPost("/{id:guid}/stock-check/completed", async (
+        // Brings the list and the warehouse back into step both ways - the other half of the check
+        // below, so the reader is neither left ticking by hand what the panel just told them is on the
+        // shelf, nor left with a shelf holding things no list has heard of.
+        tasks.MapPost("/{id:guid}/stock-check/reconciliation", async (
             Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var completed = await dispatcher.SendAsync(
-                new CompleteWorkCoveredByStockCommand(GetUserId(user), id), cancellationToken);
-            return Results.Ok(new CompleteWorkCoveredByStockResultDto(completed));
+            var reconciliation = await dispatcher.SendAsync(
+                new ReconcileTaskListWithStockCommand(GetUserId(user), id), cancellationToken);
+            return Results.Ok(new StockReconciliationResultDto(reconciliation.CrossedOff, reconciliation.Added));
         });
 
         // "Everything on this list is done" - see FinishRestockingCommandHandler. Its own endpoint
@@ -243,12 +244,14 @@ public static class TaskEndpoints
     {
         var overdueChannel = RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel");
         var dailyChannel = RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel");
+        var kind = RequestEnum.Parse<TaskItemKind>(item.Kind, "kind");
 
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
-                overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay);
+                overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
+                kind, item.Location, item.LinkedCalendarEventId);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -256,7 +259,8 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.LinkedTaskListId is null && item.IsCompleted, item.LinkedTaskListId,
-            overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay);
+            overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
+            kind, item.Location, item.LinkedCalendarEventId);
     }
 
 
@@ -286,7 +290,10 @@ public static class TaskEndpoints
                     item.OverdueNotificationChannel.ToString(),
                     item.RemindDaily,
                     item.DailyReminderNotificationChannel.ToString(),
-                    item.DailyReminderTimeOfDay))
+                    item.DailyReminderTimeOfDay,
+                    item.Kind.ToString(),
+                    item.Location,
+                    item.LinkedCalendarEventId))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

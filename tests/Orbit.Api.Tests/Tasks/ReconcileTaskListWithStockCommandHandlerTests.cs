@@ -2,21 +2,22 @@ using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Inventory;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
-using Orbit.Core.Tasks.CompleteWorkCoveredByStock;
+using Orbit.Core.Tasks.ReconcileTaskListWithStock;
 using Xunit;
 
 namespace Orbit.Api.Tests.Tasks;
 
 /// <summary>
-/// Crossing off the work a warehouse already covers - the other half of pricing a list against one.
+/// Bringing a list and its warehouse back into step: crossing off the work the shelf covers, and
+/// writing on what the shelf holds that no list mentions - the other half of pricing a list against one.
 /// </summary>
-public sealed class CompleteWorkCoveredByStockCommandHandlerTests
+public sealed class ReconcileTaskListWithStockCommandHandlerTests
 {
     private readonly Guid _userId = Guid.NewGuid();
     private readonly InventoryTestContext _context = new();
     private readonly Guid _warehouseId;
 
-    public CompleteWorkCoveredByStockCommandHandlerTests()
+    public ReconcileTaskListWithStockCommandHandlerTests()
     {
         _warehouseId = _context.AddWarehouse(_userId);
     }
@@ -36,7 +37,7 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
 
     private void Stock(string name, decimal quantity)
         => _context.InventoryRepository.AddAsync(
-            InventoryItem.Create(_warehouseId, name, "Part", "Shelf", quantity, null, null, NotificationChannel.None),
+            InventoryItem.Create(_warehouseId, name, "Part", "Shelf", quantity, null, InventoryUnit.Piece, null, NotificationChannel.None),
             CancellationToken.None).GetAwaiter().GetResult();
 
     private TaskList LinkedToTheWarehouse(TaskList taskList)
@@ -46,9 +47,9 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
         return taskList;
     }
 
-    private Task<int> RunAsync(Guid taskListId)
-        => new CompleteWorkCoveredByStockCommandHandler(_context.TaskRepository, _context.InventoryRepository)
-            .HandleAsync(new CompleteWorkCoveredByStockCommand(_userId, taskListId), CancellationToken.None);
+    private Task<StockReconciliation> RunAsync(Guid taskListId)
+        => new ReconcileTaskListWithStockCommandHandler(_context.TaskRepository, _context.InventoryRepository)
+            .HandleAsync(new ReconcileTaskListWithStockCommand(_userId, taskListId), CancellationToken.None);
 
     private IReadOnlyList<(string Description, bool IsCompleted)> ItemsIn(Guid taskListId)
         => [.. _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None)
@@ -60,7 +61,7 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
         var shopping = LinkedToTheWarehouse(Store("Zakupy", isGroup: false, Work("Mleko"), Work("Chleb")));
         Stock("Mleko", 1);
 
-        var crossedOff = await RunAsync(shopping.Id);
+        var crossedOff = (await RunAsync(shopping.Id)).CrossedOff;
 
         Assert.Equal(1, crossedOff);
         Assert.Equal([("Mleko", true), ("Chleb", false)], ItemsIn(shopping.Id));
@@ -73,7 +74,7 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
             "Zakupy", isGroup: false, Work("Makaron"), Work("Makaron"), Work("Makaron"), Work("Makaron"), Work("Makaron")));
         Stock("Makaron", 3);
 
-        var crossedOff = await RunAsync(shopping.Id);
+        var crossedOff = (await RunAsync(shopping.Id)).CrossedOff;
 
         Assert.Equal(3, crossedOff);
         Assert.Equal(3, ItemsIn(shopping.Id).Count(item => item.IsCompleted));
@@ -88,7 +89,7 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
             "Zakupy", isGroup: false, Work("Dżem", isCompleted: true), Work("Dżem"), Work("Dżem"), Work("Dżem")));
         Stock("Dżem", 3);
 
-        var crossedOff = await RunAsync(shopping.Id);
+        var crossedOff = (await RunAsync(shopping.Id)).CrossedOff;
 
         Assert.Equal(2, crossedOff);
         Assert.Equal(3, ItemsIn(shopping.Id).Count(item => item.IsCompleted));
@@ -102,7 +103,7 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
         Stock("Ser", 1);
         Stock("Mleko", 1);
 
-        var crossedOff = await RunAsync(shopping.Id);
+        var crossedOff = (await RunAsync(shopping.Id)).CrossedOff;
 
         Assert.Equal(2, crossedOff);
         Assert.Equal([("Ser", true)], ItemsIn(recipe.Id));
@@ -116,7 +117,7 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
             "Zakupy", isGroup: false, Work("Mąka", dueDateUtc: DateTimeOffset.UtcNow.AddDays(7))));
         Stock("Mąka", 5);
 
-        Assert.Equal(0, await RunAsync(shopping.Id));
+        Assert.Equal(0, (await RunAsync(shopping.Id)).CrossedOff);
         Assert.Equal([("Mąka", false)], ItemsIn(shopping.Id));
     }
 
@@ -125,7 +126,7 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
     {
         var shopping = LinkedToTheWarehouse(Store("Zakupy", isGroup: false, Work("Mleko")));
 
-        Assert.Equal(0, await RunAsync(shopping.Id));
+        Assert.Equal(0, (await RunAsync(shopping.Id)).CrossedOff);
         Assert.Equal([("Mleko", false)], ItemsIn(shopping.Id));
     }
 
@@ -135,7 +136,7 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
         var shopping = Store("Zakupy", isGroup: false, Work("Mleko"));
         Stock("Mleko", 5);
 
-        Assert.Equal(0, await RunAsync(shopping.Id));
+        Assert.Equal(0, (await RunAsync(shopping.Id)).CrossedOff);
     }
 
     [Fact]
@@ -144,11 +145,65 @@ public sealed class CompleteWorkCoveredByStockCommandHandlerTests
         var shopping = LinkedToTheWarehouse(Store("Zakupy", isGroup: false, Work("Mleko")));
         Stock("Mleko", 5);
 
-        var handler = new CompleteWorkCoveredByStockCommandHandler(_context.TaskRepository, _context.InventoryRepository);
-        var crossedOff = await handler.HandleAsync(
-            new CompleteWorkCoveredByStockCommand(Guid.NewGuid(), shopping.Id), CancellationToken.None);
+        var handler = new ReconcileTaskListWithStockCommandHandler(_context.TaskRepository, _context.InventoryRepository);
+        var reconciliation = await handler.HandleAsync(
+            new ReconcileTaskListWithStockCommand(Guid.NewGuid(), shopping.Id), CancellationToken.None);
 
-        Assert.Equal(0, crossedOff);
+        Assert.Equal(StockReconciliation.Nothing, reconciliation);
         Assert.Equal([("Mleko", false)], ItemsIn(shopping.Id));
+    }
+
+    [Fact]
+    public async Task Something_only_the_shelf_knows_about_is_written_onto_the_list()
+    {
+        var shopping = LinkedToTheWarehouse(Store("Zakupy", isGroup: false, Work("Mleko")));
+        Stock("Mleko", 1);
+        Stock("Masło", 1);
+
+        var reconciliation = await RunAsync(shopping.Id);
+
+        Assert.Equal(1, reconciliation.Added);
+        // Written on and then crossed off in the same pass: the shelf holds it, so it is not work left.
+        Assert.Equal([("Mleko", true), ("Masło", true)], ItemsIn(shopping.Id));
+    }
+
+    [Fact]
+    public async Task A_shelf_entry_with_nothing_on_it_becomes_work_to_do()
+    {
+        var shopping = LinkedToTheWarehouse(Store("Zakupy", isGroup: false, Work("Mleko")));
+        Stock("Masło", 0);
+
+        var reconciliation = await RunAsync(shopping.Id);
+
+        Assert.Equal(1, reconciliation.Added);
+        Assert.Equal(0, reconciliation.CrossedOff);
+        Assert.Equal([("Mleko", false), ("Masło", false)], ItemsIn(shopping.Id));
+    }
+
+    [Fact]
+    public async Task A_shelf_holding_several_of_one_thing_writes_one_line_for_it()
+    {
+        var shopping = LinkedToTheWarehouse(Store("Zakupy", isGroup: false, Work("Mleko")));
+        Stock("Śruba", 50);
+
+        await RunAsync(shopping.Id);
+
+        // Fifty screws on a shelf are not fifty errands, whatever the counting rule reads into repetition.
+        Assert.Equal([("Mleko", false), ("Śruba", true)], ItemsIn(shopping.Id));
+    }
+
+    [Fact]
+    public async Task Something_a_linked_list_already_asks_for_is_not_written_again()
+    {
+        var recipe = Store("Kolacja", isGroup: false, Work("Ser"));
+        var shopping = LinkedToTheWarehouse(Store("Zakupy", isGroup: true, LinkTo(recipe)));
+        Stock("Ser", 1);
+
+        var reconciliation = await RunAsync(shopping.Id);
+
+        Assert.Equal(0, reconciliation.Added);
+        // Only the row that holds the tree together, still - and the cheese crossed off where it lives.
+        Assert.Equal([("Kolacja", false)], ItemsIn(shopping.Id));
+        Assert.Equal([("Ser", true)], ItemsIn(recipe.Id));
     }
 }

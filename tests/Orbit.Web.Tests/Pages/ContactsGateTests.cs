@@ -82,4 +82,41 @@ public sealed class ContactsGateTests : OrbitTestContext
 
         Assert.NotEmpty(cut.FindAll("input"));
     }
+
+    [Fact]
+    public void The_groups_this_account_is_in_are_listed_beside_its_chats()
+    {
+        RegisterPermissions([nameof(ApplicationPermission.Contacts), nameof(ApplicationPermission.Chat)]);
+        RegisterContactsAndGroups(groupsJson: """[{"id":"11111111-1111-1111-1111-111111111111","name":"Weekend trip","createdByUserId":"22222222-2222-2222-2222-222222222222","createdAtUtc":"2026-01-01T00:00:00+00:00","ownRole":"Member","members":[]}]""");
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        // A group is a conversation like any other; this was the one page in the app that left them out.
+        Assert.Contains("Weekend trip", cut.Markup);
+    }
+
+    [Fact]
+    public void An_account_without_chat_is_not_shown_groups_it_could_not_open()
+    {
+        RegisterPermissions([nameof(ApplicationPermission.Contacts)]);
+        RegisterContactsAndGroups(groupsJson: """[{"id":"11111111-1111-1111-1111-111111111111","name":"Weekend trip","createdByUserId":"22222222-2222-2222-2222-222222222222","createdAtUtc":"2026-01-01T00:00:00+00:00","ownRole":"Member","members":[]}]""");
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.DoesNotContain("Weekend trip", cut.Markup);
+    }
+
+    private void RegisterContactsAndGroups(string groupsJson)
+    {
+        var handler = new StubHttpMessageHandler(request => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                request.RequestUri!.AbsolutePath.EndsWith("/groups", StringComparison.Ordinal) ? groupsJson : "[]",
+                Encoding.UTF8,
+                "application/json")
+        });
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        Services.AddSingleton(new ChatApiClient(httpClient));
+        Services.AddSingleton(new UsersApiClient(httpClient));
+    }
 }

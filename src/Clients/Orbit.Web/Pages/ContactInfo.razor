@@ -1,0 +1,159 @@
+@page "/contacts/{UserId:guid}"
+@attribute [Authorize]
+@using System.Net
+@using Orbit.Contracts.Chat
+@using Orbit.Contracts.Users
+@using Orbit.Core.Permissions
+@using Orbit.Web.Services
+@inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<ContactInfo> Logger
+@inject UserPermissionState Permissions
+@inject Translations T
+
+@* Who somebody is, on one page: their name, how to reach them, and whether they are here right now.
+   Reachable from the contact list, from the dashboard's contacts card, and from the chat thread's own
+   menu - the three places somebody is already looking at a name and wanting to know more about it. *@
+<PageTitle>@(_displayName.Length > 0 ? _displayName : T["Contact"])</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>@(_displayName.Length > 0 ? _displayName : T["Contact"])</h1>
+        <p class="page-subtitle">@T["Who this is, and how to reach them."]</p>
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-secondary" @onclick="GoToContacts">@T["Back to Contacts"]</button>
+        @if (Permissions.Has(ApplicationPermission.Chat))
+        {
+            <button type="button" class="btn-primary" @onclick="GoToChat">@T["Open chat"]</button>
+        }
+    </div>
+</div>
+
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+else if (_isLoading)
+{
+    <p>@T["Loading…"]</p>
+}
+else
+{
+    <div class="card contact-info-card">
+        <div class="contact-info-identity">
+            <span class="avatar-sm contact-info-avatar" style="background:@AvatarHelper.AvatarColor(UserId)">
+                @AvatarHelper.GetInitials(_displayName)
+                @if (_contact is { } presenceContact)
+                {
+                    <PresenceDot Status="Conversation.PresenceOf(presenceContact)" />
+                }
+            </span>
+            <div>
+                <div class="contact-info-name">@_displayName</div>
+                <div class="contact-info-login">@_userName</div>
+            </div>
+        </div>
+
+        @if (_contact is { } contact)
+        {
+            <div class="list-row">
+                <span class="row-title">@T["Email address"]</span>
+                <span class="row-meta">@contact.Email</span>
+            </div>
+            <div class="list-row">
+                <span class="row-title">@T["Status"]</span>
+                <span class="row-meta">@T[PresenceLabel(contact)]</span>
+            </div>
+            <div class="list-row">
+                <span class="row-title">@T["Last message"]</span>
+                <span class="row-meta">@contact.LastMessageAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+            </div>
+            @* Said plainly rather than left to be discovered by a message that goes nowhere. *@
+            @if (contact.RequiresApprovalFromCurrentUser)
+            {
+                <p class="empty-hint">@T["They asked to chat with you. Open the conversation to allow it."]</p>
+            }
+            else if (contact.IsPendingApprovalFromOtherParty)
+            {
+                <p class="empty-hint">@T["Waiting for them to allow this conversation."]</p>
+            }
+        }
+        else
+        {
+            @* Somebody found by search rather than somebody already spoken to: there is no conversation
+               behind them yet, so there is nothing to say about one. *@
+            <p class="empty-hint">@T["No conversation with them yet."]</p>
+        }
+
+        @if (!_hasEncryptionKey)
+        {
+            <p class="empty-hint">@T.Format("{0} hasn't set up encryption yet - they need to log in in their own browser first before you can message them.", _displayName)</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid UserId { get; set; }
+
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private ContactDto? _contact;
+    private string _displayName = string.Empty;
+    private string _userName = string.Empty;
+    private bool _hasEncryptionKey = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Permissions.EnsureLoadedAsync();
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            // The account itself is what this page is about; the contact entry adds what this reader's
+            // own conversation with them says, which only exists once there has been one.
+            var user = await UsersApiClient.GetUserAsync(UserId);
+            if (user is null)
+            {
+                _errorMessage = T["Orbit can't reach that account right now."];
+                return;
+            }
+
+            _displayName = user.DisplayName;
+            _userName = user.UserName;
+            _hasEncryptionKey = user.PublicKeyBase64 is not null;
+            _contact = Permissions.Has(ApplicationPermission.Chat)
+                ? (await ChatApiClient.GetContactsAsync()).FirstOrDefault(candidate => candidate.UserId == UserId)
+                : null;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load the contact card for {UserId}", UserId);
+            _errorMessage = T["Couldn't load this contact. Check your connection and try again."];
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    /// <summary>The English label for what the presence dot is showing, translated like any other text.</summary>
+    private static string PresenceLabel(ContactDto contact)
+        => Conversation.PresenceOf(contact) switch
+        {
+            Orbit.Core.Users.PresenceStatus.Available => "Available",
+            Orbit.Core.Users.PresenceStatus.Away => "Away",
+            Orbit.Core.Users.PresenceStatus.DoNotDisturb => "Do not disturb",
+            _ => "Offline"
+        };
+
+    private void GoToContacts() => NavigationManager.NavigateTo("/contacts");
+
+    private void GoToChat() => NavigationManager.NavigateTo($"/chat/{UserId}");
+}

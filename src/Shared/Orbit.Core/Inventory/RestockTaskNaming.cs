@@ -10,8 +10,15 @@ namespace Orbit.Core.Inventory;
 /// </summary>
 public static class RestockTaskNaming
 {
-    private const string ListTitlePrefix = "Restock supplies";
-    private const string EntryPrefix = "Restock: ";
+    /// <summary>
+    /// Public because a client showing one of these names has to recognise it to say it in the reader's
+    /// language - see Orbit.Web's OrbitWrittenNames. What is stored stays this English either way: it is
+    /// also how <see cref="IsManagedTitle"/> knows its own list again.
+    /// </summary>
+    public const string ListTitlePrefix = "Restock supplies";
+
+    /// <summary>Public for the same reason as <see cref="ListTitlePrefix"/>.</summary>
+    public const string EntryPrefix = "Restock: ";
 
     /// <summary>
     /// The standing, never-recreated reminder on every restock list. Named here rather than only where
@@ -31,15 +38,26 @@ public static class RestockTaskNaming
     public static bool IsManagedTitle(string title) => title.StartsWith(ListTitlePrefix, StringComparison.Ordinal);
 
     /// <summary>
-    /// One entry, carrying how many to bring back: "Restock: Flour (5)". The number is what the shelf is
-    /// meant to hold - reading the errand should not need the warehouse open beside it.
+    /// One entry, carrying how many to bring back: "Restock: Flour (5 kg)". The number is what the shelf
+    /// is meant to hold - reading the errand should not need the warehouse open beside it, and "5" of
+    /// something measured in kilograms does not say enough on its own to act on.
     /// </summary>
-    public static string EntryFor(string productName, decimal? quantity)
+    /// <param name="unit">
+    /// What the number is counted in, or null when there is nothing to say - which is the case for an
+    /// errand raised from a checklist, where the number counts lines rather than an amount of anything.
+    /// Pieces are left off too: "(5)" of a thing already means five of them.
+    /// </param>
+    public static string EntryFor(string productName, decimal? quantity, InventoryUnit? unit)
     {
         var name = productName.Trim();
-        return quantity is { } wanted && wanted > 0
-            ? $"{EntryPrefix}{name} ({Format(wanted)})"
-            : $"{EntryPrefix}{name}";
+        if (quantity is not { } wanted || wanted <= 0)
+        {
+            return $"{EntryPrefix}{name}";
+        }
+
+        return unit is { } counted && counted != InventoryUnit.Piece
+            ? $"{EntryPrefix}{name} ({Format(wanted)} {InventoryUnitShortForm.Of(counted)})"
+            : $"{EntryPrefix}{name} ({Format(wanted)})";
     }
 
     /// <summary>
