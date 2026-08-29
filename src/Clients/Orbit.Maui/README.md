@@ -94,6 +94,13 @@ thing in PowerShell, because the shell VS Code runs a task in is the machine's o
 listed, which is well before Android has finished booting; an install into that window fails. The boot
 task polls `sys.boot_completed` afterwards for that reason.
 
+**Clear the app's data and a debug build stops starting.** `adb shell pm clear` looks like the quick way
+to get a fresh install, and it leaves the app unable to run at all: a debug build keeps its assemblies in
+`files/.__override__` rather than in the APK, and clearing the data deletes them. It comes up as
+*Orbit keeps stopping*, with `No assemblies found ... Assuming this is part of Fast Deployment` in
+logcat, and it does not fix itself on the next deploy - the install has to go and come back, which is
+what `maui-android: reinstall clean` does anyway.
+
 An uninstall clears the local SQLite database on both platforms. On iOS it leaves the **chat key**,
 which lives in the Keychain and survives one; on Android the key is app data and goes with everything
 else, so a clean reinstall there means restoring the key backup on the next sign-in.
