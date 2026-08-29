@@ -42,7 +42,7 @@
 		<!-- ApplicationDisplayVersion is the SemVer the version gate compares against, and
 		ApplicationVersion the monotonic build number stores order by - see info/orbit-maui-plan.md's
 		"Forced update". Both are read at runtime by AppVersion rather than duplicated in code. -->
-		<ApplicationDisplayVersion>0.1.1</ApplicationDisplayVersion>
+		<ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
 		<!-- iOS 17 is the floor: it is what the iPhone 15 Pro shipped with, and what Live Activities,
