@@ -8,14 +8,14 @@
     xmlns:account="clr-namespace:Orbit.Maui.Features.Account"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Account;assembly=Orbit.Mobile"
     x:DataType="screens:AccountViewModel"
-    Title="{controls:Translate 'Account'}">
+    Title="{controls:Translate 'Settings'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
     <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="24" Spacing="18">
 
-            <controls:PageHeader Title="{controls:Translate 'Account'}">
+            <controls:PageHeader Title="{controls:Translate 'Settings'}">
                 <controls:PageHeader.Subtitle>
                     <controls:Translate Text="Who you are to Orbit, and what this device is allowed to do." />
                 </controls:PageHeader.Subtitle>
@@ -209,9 +209,6 @@
                         HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
 
-            <Button Text="{controls:Translate 'Back to dashboard'}"
-                    Command="{Binding GoBackCommand}"
-                    Style="{StaticResource LinkButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

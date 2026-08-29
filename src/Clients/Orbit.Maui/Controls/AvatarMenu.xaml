@@ -101,7 +101,7 @@
                     </Border>
                 </Grid>
 
-                <Label Text="{controls:Translate 'Account'}">
+                <Label Text="{controls:Translate 'Settings'}">
                     <Label.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding GoToAccountCommand}" />
                     </Label.GestureRecognizers>

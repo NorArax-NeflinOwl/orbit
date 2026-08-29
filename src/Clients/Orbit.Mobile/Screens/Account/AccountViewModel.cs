@@ -479,9 +479,6 @@ public sealed partial class AccountViewModel : ObservableObject
     [RelayCommand]
     private void GoToDiagnostics() => _navigator.ShowDiagnostics();
 
-    [RelayCommand]
-    private void GoBack() => _navigator.ShowDashboard();
-
     /// <param name="successMessage">
     /// A dictionary key rather than the text itself, so every caller gets translated without each one
     /// having to remember to ask - see <see cref="Translations"/>.
