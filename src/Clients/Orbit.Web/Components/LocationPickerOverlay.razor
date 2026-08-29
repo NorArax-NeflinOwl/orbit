@@ -1,0 +1,140 @@
+@implements IAsyncDisposable
+@using Orbit.Web.Services
+@inject GeocodingApiClient GeocodingApiClient
+@inject IJSRuntime JSRuntime
+@inject ILogger<LocationPickerOverlay> Logger
+@inject Translations T
+
+@* A map over the page, for saying where something happens by pointing at it. Over the page rather than
+   inside the form: a map needs room, and an editor row is the last place with any. Nothing is written
+   back until the pin is confirmed - a stray click on a map should not silently rewrite an address
+   somebody typed. See mapPicker.js, which the calendar's event editor drives the same way. *@
+<div class="map-overlay" @onclick="CancelAsync">
+    <div class="map-overlay-panel" @onclick:stopPropagation="true">
+        <div class="map-overlay-header">
+            <h2>@T["Pick a place"]</h2>
+            <button type="button" class="icon-btn" title="@(T["Close"])" aria-label="@(T["Close"])" @onclick="CancelAsync">✕</button>
+        </div>
+
+        <p class="map-overlay-hint">@T["Click the map to drop a pin."]</p>
+        <div id="@MapElementId" class="map-overlay-map"></div>
+
+        @if (_pickedAddress is not null)
+        {
+            <div class="map-overlay-confirm">
+                <span class="map-overlay-address">@(_pickedAddress.Length > 0 ? _pickedAddress : T["That place has no address, so only the pin says where it is."])</span>
+                <span class="map-overlay-question">@T["Use this place?"]</span>
+                <button type="button" class="btn-primary" disabled="@_isLookingUpTheAddress" @onclick="ConfirmAsync">@T["Yes, use it"]</button>
+                <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
+            </div>
+        }
+        else if (_isLookingUpTheAddress)
+        {
+            <p class="map-overlay-hint">@T["Looking that place up…"]</p>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>Where the thing being edited already is, so the map opens there rather than at nothing.</summary>
+    [Parameter] public string Address { get; set; } = string.Empty;
+
+    /// <summary>The address of the confirmed pin. Raised once, and only on a confirmation.</summary>
+    [Parameter] public EventCallback<string> OnPicked { get; set; }
+
+    [Parameter] public EventCallback OnCancelled { get; set; }
+
+    private const string MapElementId = "locationPickerMap";
+
+    private IJSObjectReference? _mapPickerModule;
+    private DotNetObjectReference<LocationPickerOverlay>? _selfReference;
+
+    /// <summary>Where the pin is, in words - null until one is dropped, which is what asks the question.</summary>
+    private string? _pickedAddress;
+
+    private bool _isLookingUpTheAddress;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // Where the address already points, so somebody correcting a place starts beside it rather than
+        // hunting for it again. An address nobody can find just opens the map at its default view.
+        var startingPoint = await GeocodingApiClient.FindPlaceAsync(Address);
+        try
+        {
+            _mapPickerModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapPicker.js");
+            _selfReference = DotNetObjectReference.Create(this);
+            await _mapPickerModule.InvokeVoidAsync(
+                "initializeMapPicker", MapElementId, _selfReference, startingPoint?.Latitude, startingPoint?.Longitude);
+        }
+        catch (JSException exception)
+        {
+            // Leaflet did not load. The address box behind this overlay still works.
+            Logger.LogWarning(exception, "The map could not be opened");
+            await CancelAsync();
+        }
+    }
+
+    /// <summary>Called from mapPicker.js when the reader clicks a point on the map.</summary>
+    [JSInvokable]
+    public async Task OnMapLocationPicked(double latitude, double longitude)
+    {
+        _isLookingUpTheAddress = true;
+        _pickedAddress = null;
+        StateHasChanged();
+
+        // Words, not coordinates: a task item stores only an address, so a pin has to be turned into one
+        // before it is worth anything here.
+        _pickedAddress = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude) ?? string.Empty;
+        _isLookingUpTheAddress = false;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (_pickedAddress is not { } address)
+        {
+            return;
+        }
+
+        await DisposeMapAsync();
+        await OnPicked.InvokeAsync(address);
+    }
+
+    private async Task CancelAsync()
+    {
+        await DisposeMapAsync();
+        await OnCancelled.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync() => await DisposeMapAsync();
+
+    private async ValueTask DisposeMapAsync()
+    {
+        if (_mapPickerModule is null)
+        {
+            return;
+        }
+
+        var module = _mapPickerModule;
+        _mapPickerModule = null;
+        try
+        {
+            await module.InvokeVoidAsync("disposeMapPicker", MapElementId);
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is already gone, which is one of the ways this overlay ends.
+        }
+        finally
+        {
+            _selfReference?.Dispose();
+            _selfReference = null;
+        }
+    }
+}

@@ -1,4 +1,5 @@
 using System.Net;
+using AngleSharp.Dom;
 using System.Net.Http.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -422,6 +423,67 @@ public sealed class TasksTests : OrbitTestContext
     private static string[] CardTitles(IRenderedFragment cut)
         => cut.FindAll(".card-title").Select(title => title.TextContent.Trim()).ToArray();
 
+
+    [Fact]
+    public void A_minimised_group_card_says_what_is_still_to_be_done_on_its_members()
+    {
+        // A group's rows only point at other lists, so looking for work among them found none and the
+        // folded card said "Nothing left to do." over six open errands.
+        var member = TaskList("Recipes", Item("Buy flour"));
+        var group = TaskList("Cooking", LinkTo(member));
+        RegisterTasksApiClient([group, member]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        MinimiseTheCardFor(cut, "Cooking");
+
+        var row = FoldedRowOf(cut, "Cooking");
+        Assert.Contains("Buy flour", row.TextContent);
+        // And where it came from, since the errand is not on the card's own list.
+        Assert.Contains("Recipes", row.TextContent);
+        Assert.DoesNotContain("Nothing left to do", row.TextContent);
+    }
+
+    [Fact]
+    public void A_minimised_group_card_with_nothing_left_anywhere_still_says_so()
+    {
+        // The guard on the fix above: it must find work through a link, not invent it.
+        var member = TaskList("Recipes", Item("Buy flour", isCompleted: true));
+        var group = TaskList("Cooking", LinkTo(member) with { IsCompleted = true });
+        RegisterTasksApiClient([group, member]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        MinimiseTheCardFor(cut, "Cooking");
+
+        Assert.Contains("Nothing left to do", FoldedRowOf(cut, "Cooking").TextContent);
+    }
+
+    [Fact]
+    public void A_list_one_item_over_the_preview_is_shown_in_full()
+    {
+        // "and 1 more…" takes exactly the room the row it stands for would have taken, so hiding that
+        // row saves nothing and costs the reader the one thing it was hiding.
+        var items = Enumerable.Range(1, 5).Select(number => Item($"Item {number}")).ToArray();
+        RegisterTasksApiClient([TaskList("Shopping", items)]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Equal(5, cut.FindAll(".task-preview-row").Count);
+        Assert.Contains("Item 5", cut.Markup);
+        Assert.DoesNotContain("and 1 more", cut.Markup);
+    }
+
+    /// <summary>Folds the card whose title says this, whichever order the cards happen to be in.</summary>
+    private static void MinimiseTheCardFor(IRenderedFragment cut, string title)
+        => CardFor(cut, title).QuerySelectorAll(".icon-btn")
+            .First(button => button.GetAttribute("title") == "Minimise")
+            .Click();
+
+    private static IElement FoldedRowOf(IRenderedFragment cut, string title)
+        => CardFor(cut, title).QuerySelector(".list-row")!;
+
+    private static IElement CardFor(IRenderedFragment cut, string title)
+        => cut.FindAll(".task-list-card")
+            .First(card => card.QuerySelector(".card-title")!.TextContent.Contains(title, StringComparison.Ordinal));
     private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
     {
         var handler = new StubHttpMessageHandler(_ =>
