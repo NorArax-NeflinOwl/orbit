@@ -131,8 +131,11 @@ public partial class TaskListDetailPage : ContentPage
 		}
 
 		var remove = _translations["Delete item"];
+		var moveUp = _translations["Move up"];
+		var moveDown = _translations["Move down"];
 		var chosen = await DisplayActionSheet(
-			_translations["Item options"], _translations["Cancel"], remove, _translations["Edit"]);
+			_translations["Item options"], _translations["Cancel"], remove,
+			_translations["Edit"], moveUp, moveDown);
 
 		if (chosen == remove)
 		{
@@ -141,6 +144,14 @@ public partial class TaskListDetailPage : ContentPage
 		else if (chosen == _translations["Edit"])
 		{
 			_viewModel.EditItemCommand.Execute(item);
+		}
+		else if (chosen == moveUp)
+		{
+			_viewModel.MoveItemUpCommand.Execute(item);
+		}
+		else if (chosen == moveDown)
+		{
+			_viewModel.MoveItemDownCommand.Execute(item);
 		}
 	}
 }

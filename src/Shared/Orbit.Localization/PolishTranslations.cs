@@ -255,6 +255,8 @@ public static class PolishTranslations
         ["What this is counted in"] = "W czym to jest liczone",
         ["Any type"] = "Dowolny typ",
         ["Any category"] = "Dowolna kategoria",
+        ["Move up"] = "Przenieś w górę",
+        ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",
         ["Nothing here matches that. The rest of the warehouse is still there - clear the filter to see it."] = "Nic tu nie pasuje. Reszta magazynu nadal tam jest - wyczyść filtr, żeby ją zobaczyć.",
         ["Showing {0} of {1} items. Saving keeps all of them."] = "Widocznych {0} z {1} pozycji. Zapis zachowuje wszystkie.",

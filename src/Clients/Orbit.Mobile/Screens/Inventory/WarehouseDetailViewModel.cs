@@ -223,6 +223,52 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             ? Task.CompletedTask
             : SaveAsync([.. _items.Where(candidate => !Matches(candidate, row.Item))], cancellationToken);
 
+    /// <summary>
+    /// Moves a product one place up the shelf, or one place down. The order a warehouse is saved in is
+    /// the order it is stored in - see InventoryItem.Position - so arranging it here is how it reads
+    /// everywhere, which is the same thing Orbit.Web's drag handles do.
+    ///
+    /// One place among what is <i>shown</i>, not among what is stored. A narrowed shelf hides rows, and
+    /// swapping with a hidden neighbour would move the product without anything on screen changing -
+    /// which reads as a button that does nothing.
+    /// </summary>
+    [RelayCommand]
+    private Task MoveItemUpAsync(WarehouseItemRow? row, CancellationToken cancellationToken)
+        => MoveItemAsync(row, by: -1, cancellationToken);
+
+    [RelayCommand]
+    private Task MoveItemDownAsync(WarehouseItemRow? row, CancellationToken cancellationToken)
+        => MoveItemAsync(row, by: 1, cancellationToken);
+
+    private Task MoveItemAsync(WarehouseItemRow? row, int by, CancellationToken cancellationToken)
+    {
+        if (row is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var shown = _items.Where(_filter.Matches).ToList();
+        var shownFrom = shown.FindIndex(candidate => Matches(candidate, row.Item));
+        var shownTo = shownFrom + by;
+
+        // The ends are where a shelf stops, not a failure: the top row has nowhere above it.
+        if (shownFrom < 0 || shownTo < 0 || shownTo >= shown.Count)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Taken out and put back on the far side of the row it passed, rather than swapped: with rows
+        // hidden between the two, swapping would carry the hidden ones along with it.
+        var reordered = _items.ToList();
+        var moved = reordered.Single(candidate => Matches(candidate, row.Item));
+        reordered.Remove(moved);
+
+        var passed = reordered.FindIndex(candidate => Matches(candidate, shown[shownTo]));
+        reordered.Insert(by > 0 ? passed + 1 : passed, moved);
+
+        return SaveAsync(reordered, cancellationToken);
+    }
+
     /// <inheritdoc cref="Tasks.TaskListDetailViewModel.RenameAsync"/>
     [RelayCommand]
     private Task RenameAsync(CancellationToken cancellationToken) => SaveAsync(_items, cancellationToken);

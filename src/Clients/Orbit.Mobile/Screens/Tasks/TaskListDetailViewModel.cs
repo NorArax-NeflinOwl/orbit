@@ -336,6 +336,39 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             ? Task.CompletedTask
             : SaveAsync(_items.Where(item => item.Id != row.Id).ToList(), cancellationToken);
 
+    /// <summary>
+    /// Moves an entry one place. A checklist is read in order - first this, then that - and the phone
+    /// could only add to the end of one, so an entry put down out of turn stayed out of turn. Orbit.Web
+    /// drags them; a phone offers up and down, which is a target a thumb can hit in a scrolling list.
+    ///
+    /// Nothing is sent that is not sent anyway: the order a list is saved in is the order it is stored
+    /// in, entry by entry - see TaskRepository.ToItemEntity - so arranging them here is arranging them
+    /// everywhere.
+    /// </summary>
+    [RelayCommand]
+    private Task MoveItemUpAsync(TaskItemRow? row, CancellationToken cancellationToken)
+        => MoveItemAsync(row, by: -1, cancellationToken);
+
+    [RelayCommand]
+    private Task MoveItemDownAsync(TaskItemRow? row, CancellationToken cancellationToken)
+        => MoveItemAsync(row, by: 1, cancellationToken);
+
+    private Task MoveItemAsync(TaskItemRow? row, int by, CancellationToken cancellationToken)
+    {
+        var reordered = _items.ToList();
+        var from = row is null ? -1 : reordered.FindIndex(item => item.Id == row.Id);
+        var to = from + by;
+
+        // The ends are where a list stops, not a failure: the first entry has nowhere above it.
+        if (from < 0 || to < 0 || to >= reordered.Count)
+        {
+            return Task.CompletedTask;
+        }
+
+        (reordered[from], reordered[to]) = (reordered[to], reordered[from]);
+        return SaveAsync(reordered, cancellationToken);
+    }
+
     [RelayCommand]
     private async Task DeleteListAsync(CancellationToken cancellationToken)
     {

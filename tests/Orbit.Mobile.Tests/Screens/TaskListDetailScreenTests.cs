@@ -459,6 +459,63 @@ public sealed class TaskListDetailScreenTests
         Assert.All(context.Server.TaskLists.Single().Items, item => Assert.True(item.IsCompleted));
     }
 
+    /// <summary>
+    /// A checklist is read in order - first this, then that - and the phone could only add to the end
+    /// of one, so an entry put down out of turn stayed out of turn for good. Orbit.Web has dragged them
+    /// into place all along.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_moved_up_the_list()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.WithEntriesAsync("Wake up", "Coffee", "Leave");
+
+        await screen.MoveItemUpCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Leave"));
+
+        Assert.Equal(["Wake up", "Leave", "Coffee"], screen.Items.Select(row => row.Description));
+    }
+
+    [Fact]
+    public async Task An_entry_can_be_moved_down_the_list()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.WithEntriesAsync("Wake up", "Coffee", "Leave");
+
+        await screen.MoveItemDownCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Wake up"));
+
+        Assert.Equal(["Coffee", "Wake up", "Leave"], screen.Items.Select(row => row.Description));
+    }
+
+    /// <summary>
+    /// The order has to reach the server, or it is an arrangement that survives until the next device
+    /// reads the list - the entries are stored in the order they are sent, one position each.
+    /// </summary>
+    [Fact]
+    public async Task The_new_order_is_what_the_server_holds()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.WithEntriesAsync("Wake up", "Coffee", "Leave");
+
+        await screen.MoveItemUpCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Leave"));
+
+        Assert.Equal(
+            ["Wake up", "Leave", "Coffee"],
+            context.Server.TaskLists.Single().Items.Select(item => item.Description));
+    }
+
+    /// <summary>The ends are where a list stops, not a failure - the first entry has nowhere above it.</summary>
+    [Fact]
+    public async Task The_ends_of_the_list_hold()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.WithEntriesAsync("Wake up", "Coffee");
+
+        await screen.MoveItemUpCommand.ExecuteAsync(screen.Items[0]);
+        await screen.MoveItemDownCommand.ExecuteAsync(screen.Items[1]);
+
+        Assert.Equal(["Wake up", "Coffee"], screen.Items.Select(row => row.Description));
+    }
+
     /// <summary>A phone with a local store and a server it can sometimes reach, and no MAUI in sight.</summary>
     private sealed class ScreenContext : IDisposable
     {
@@ -526,6 +583,19 @@ public sealed class TaskListDetailScreenTests
         }
 
         public Task<SyncResult> SynchroniseAsync() => Synchronizer.SynchroniseAsync(CancellationToken.None);
+
+        /// <summary>A list with entries in the order they were typed, which is where arranging starts.</summary>
+        public async Task<TaskListDetailViewModel> WithEntriesAsync(params string[] descriptions)
+        {
+            var screen = OpenTaskList("Morning");
+            foreach (var description in descriptions)
+            {
+                screen.NewItemDescription = description;
+                await screen.AddItemCommand.ExecuteAsync(null);
+            }
+
+            return screen;
+        }
 
         /// <summary>
         /// A round of restocking as the warehouse's daily reminder leaves it: one errand, and the
