@@ -701,12 +701,28 @@ since there's nothing persisted yet to move.
 ## Inventory
 
 `POST /api/inventory` and `PUT /api/inventory/{id}` both take `{ name, productType, category, quantity,
-minimumQuantity, expiryDate, expiryNotificationChannel }` — `productType` and `category` are free text
-(no fixed list), `quantity`/`minimumQuantity` are decimal (not integer) so fractional amounts like
+minimumQuantity, unit, expiryDate, expiryNotificationChannel }` — `productType` and `category` are free
+text (no fixed list), `quantity`/`minimumQuantity` are decimal (not integer) so fractional amounts like
 "1.5 kg" are representable, and `minimumQuantity`/`expiryDate` are both optional: not every product
 needs a restock threshold or an expiry date. `GET /api/inventory` and `GET /api/inventory/{id}` return
 the same shape back plus `id`, `isBelowMinimum` and `hasPendingRestockTask` (both derived, computed
 server-side so the client never reimplements the comparison), and `createdAtUtc`/`updatedAtUtc`.
+
+`unit` says what the two amounts are counted in, and unlike the type and the category it **is** a fixed
+list (`InventoryUnit`): `Piece`, `Kilogram`, `Milligram`, `Litre`, `Millilitre`, `Pack`. Fixed because
+`quantity` and `minimumQuantity` are compared as bare numbers, so both have to mean the same thing —
+"szt." typed three ways would leave a shelf that looks stocked and a restock task nobody understands.
+An item that says nothing is counted in pieces, which is also what every item stocked before units
+existed became. The editor writes the short form beside the amount (`kg`, `ml`, `pcs`) and keeps the
+full name in each option's tooltip — see `InventoryUnitOption` for both, and the restock errand's own
+text still carries only the number (`RestockTaskNaming`).
+
+**A full shelf can be narrowed down.** The warehouse editor offers a product-type and a category filter,
+each listing only values something is actually filed under, so neither can be set to a dead end. This is
+a view and nothing more: `WarehouseFormModel.ToRequest` reads the whole item list, so a save made while
+the shelf is narrowed keeps the rows that were hidden — the editor says so on screen (`Showing 1 of 2
+items. Saving keeps all of them.`) rather than leaving it to be discovered. Adding a row clears the
+filter, since a new row is filed under nothing and would otherwise be hidden the moment it appeared.
 
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
 warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -

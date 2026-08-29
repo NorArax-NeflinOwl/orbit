@@ -3918,3 +3918,30 @@ input.note-editor-title {
 .contact-row-info {
     flex: 0 0 auto;
 }
+
+/* Narrowing a shelf down to one type or category - see WarehouseEditor.razor. Sits above the item list
+   and wraps on a narrow screen rather than pushing the list sideways. */
+.inventory-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.inventory-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.inventory-filters select {
+    min-width: 160px;
+}
+
+/* Narrow, because it holds "kg" rather than "Kilogram" - the full name is in each option's tooltip. */
+.editor-item-unit {
+    width: 74px;
+}

@@ -237,7 +237,7 @@ public sealed class InventoryApiClient
             : content.Items
                 .Select(item => new InventoryItemDto(
                     item.Id ?? Guid.Empty, item.Name, item.ProductType, item.Category, item.Quantity,
-                    item.MinimumQuantity, item.ExpiryDate, item.ExpiryNotificationChannel,
+                    item.MinimumQuantity, item.Unit, item.ExpiryDate, item.ExpiryNotificationChannel,
                     IsBelowMinimum(item), HasPendingRestockTask: false,
                     // The server keeps no rows for these, so it has no timestamps to report either.
                     CreatedAtUtc: default, UpdatedAtUtc: default))

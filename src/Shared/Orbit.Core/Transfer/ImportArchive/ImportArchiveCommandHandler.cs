@@ -153,7 +153,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 await _inventoryRepository.AddAsync(
                     InventoryItem.Create(
                         warehouse.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
-                        item.ExpiryDate, ParseChannel(item.ExpiryNotificationChannel)),
+                        ParseUnit(item.Unit), item.ExpiryDate, ParseChannel(item.ExpiryNotificationChannel)),
                     cancellationToken);
             }
         }
@@ -175,6 +175,10 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     /// <summary>An unrecognised channel reads as None: a file should not be able to switch on notifications this account never asked for.</summary>
     private static NotificationChannel ParseChannel(string channel)
         => Enum.TryParse<NotificationChannel>(channel, out var parsed) ? parsed : NotificationChannel.None;
+
+    /// <summary>An unrecognised unit reads as pieces, the same way an unrecognised channel reads as None.</summary>
+    private static InventoryUnit ParseUnit(string unit)
+        => Enum.TryParse<InventoryUnit>(unit, out var parsed) ? parsed : InventoryUnit.Piece;
 
     private static ItemPriority ParsePriority(string priority)
         => Enum.TryParse<ItemPriority>(priority, out var parsed) ? parsed : ItemPriority.Normal;

@@ -181,7 +181,7 @@ public sealed class WarehouseEditorTests : OrbitTestContext
 
     private static InventoryItemDto Item(string name, decimal quantity, decimal? minimum = null)
         => new(
-            Guid.NewGuid(), name, "Food", "Dry", quantity, minimum, ExpiryDate: null,
+            Guid.NewGuid(), name, "Food", "Dry", quantity, minimum, Unit: "Piece", ExpiryDate: null,
             ExpiryNotificationChannel: "None", IsBelowMinimum: minimum is { } value && quantity < value,
             HasPendingRestockTask: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
 }
