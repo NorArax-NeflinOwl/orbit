@@ -127,8 +127,6 @@ public sealed partial class NotesViewModel : ObservableObject
     }
 
     /// <summary>The way back to the dashboard, as every other list screen has - see NotesPage.</summary>
-    [RelayCommand]
-    private void GoBack() => _navigator.ShowDashboard();
 
     [RelayCommand(CanExecute = nameof(CanAddNote))]
     private async Task AddNoteAsync(CancellationToken cancellationToken)

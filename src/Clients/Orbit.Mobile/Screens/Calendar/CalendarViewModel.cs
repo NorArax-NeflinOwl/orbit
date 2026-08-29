@@ -194,9 +194,6 @@ public sealed partial class CalendarViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private void GoBack() => _navigator.ShowDashboard();
-
     private async Task ShowStoredEventsAsync(CancellationToken cancellationToken)
     {
         var stored = await _events.GetAllAsync(cancellationToken);

@@ -81,8 +81,6 @@
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" LineBreakMode="WordWrap" />
 
-            <Button Text="{controls:Translate 'Back to dashboard'}" Command="{Binding GoBackCommand}"
-                    Style="{StaticResource LinkButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

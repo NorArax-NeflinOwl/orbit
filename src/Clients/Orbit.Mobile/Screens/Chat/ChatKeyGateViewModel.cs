@@ -187,9 +187,6 @@ public sealed partial class ChatKeyGateViewModel : ObservableObject
         _ => ChatKeyGateMode.EnterPassword
     };
 
-    [RelayCommand]
-    private void GoBack() => _navigator.ShowDashboard();
-
     private async Task UnlockWithCurrentPasswordAsync(CancellationToken cancellationToken)
     {
         try

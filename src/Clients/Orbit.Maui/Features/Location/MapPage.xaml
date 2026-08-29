@@ -124,8 +124,6 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
-            <Button Text="{controls:Translate 'Back to dashboard'}" Command="{Binding GoBackCommand}"
-                    Style="{StaticResource LinkButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

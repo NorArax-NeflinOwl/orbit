@@ -115,9 +115,6 @@ public sealed partial class TasksViewModel : ObservableObject
         await ShowStoredListsAsync(cancellationToken);
     }
 
-    [RelayCommand]
-    private void GoBack() => _navigator.ShowDashboard();
-
     private async Task ShowStoredListsAsync(CancellationToken cancellationToken)
     {
         var stored = await _taskLists.GetAllAsync(cancellationToken);

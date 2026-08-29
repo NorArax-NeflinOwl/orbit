@@ -174,8 +174,6 @@
             </CollectionView>
         </RefreshView>
 
-        <Button Grid.Row="5" Text="{controls:Translate 'Back to dashboard'}" Command="{Binding GoBackCommand}"
-                Style="{StaticResource LinkButton}" />
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />

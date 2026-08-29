@@ -227,9 +227,6 @@ public sealed partial class ContactsViewModel : ObservableObject
     [RelayCommand]
     private void OpenAccount() => _navigator.ShowAccount();
 
-    [RelayCommand]
-    private void GoBack() => _navigator.ShowDashboard();
-
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
     partial void OnFoundPersonChanged(LocalContact? value) => OnPropertyChanged(nameof(HasFoundSomebody));
