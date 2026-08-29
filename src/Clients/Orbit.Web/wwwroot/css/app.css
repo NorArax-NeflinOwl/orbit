@@ -1549,8 +1549,17 @@ input.note-editor-title {
     justify-content: center;
 }
 
-.chat-list.collapsed .chat-list-meta {
-    display: none;
+/* Everything but the initials, hidden rather than left out of the markup - see ConversationList.
+   Behind a width query because folding is a desktop affordance: on a narrow screen this list is a
+   slide-out drawer, where there is nothing to fold. Saying so here rather than undoing it further down
+   means the drawer needs no rules to put any of this back, and none to keep in step with these. */
+@media (min-width: 681px) {
+    .chat-list.collapsed .chat-list-meta,
+    .chat-list.collapsed .chat-list-search,
+    .chat-list.collapsed .chat-list-empty,
+    .chat-list.collapsed .chat-list-new-group {
+        display: none;
+    }
 }
 
 .chat-list-item {
@@ -1576,7 +1585,12 @@ input.note-editor-title {
     background: var(--accent-subtle);
 }
 
+/* A column, so the name and what is waiting under it are two lines. Razor drops the whitespace between
+   two elements written on separate lines, so as plain inline spans they ran together into one word -
+   "Anna2 new". The preview's own ellipsis only means anything on a line of its own, too. */
 .chat-list-meta {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
     flex: 1;
 }
@@ -1943,8 +1957,11 @@ input.note-editor-title {
         justify-content: flex-start;
     }
 
-    .chat-list.collapsed .chat-list-meta {
-        display: block;
+    /* Folding has nothing to fold here, so the button that does it would only change what the next
+       desktop visit looks like - and, before the rules above, was the one way into a drawer nobody
+       could read. The drawer is opened and closed from the thread header instead (.chat-list-toggle). */
+    .chat-list-collapse-toggle {
+        display: none;
     }
 }
 
