@@ -107,8 +107,8 @@ else, so a clean reinstall there means restoring the key backup on the next sign
 
 ## Running it against a local server
 
-The API address is `OrbitApiSettings.Development`, and it differs per platform because "the machine
-running the server" is not the same address from each:
+A build told nothing looks for a development server on the machine that produced it. That address
+differs per platform, because "the machine running the server" is not the same address from each:
 
 | Running on | Reaches the development machine's `localhost:5080` as |
 | --- | --- |
@@ -116,11 +116,16 @@ running the server" is not the same address from each:
 | Android emulator | `http://10.0.2.2:5080` — the emulator's fixed alias for its host |
 | A physical device | Neither. Use the machine's LAN address, and note iOS refuses plaintext HTTP to it |
 
-**The port is fixed, which two people cannot share.** `OrbitApiSettings.Development` writes 5080 into
-the app, so anyone running a second Orbit.Api on the same machine - an Android session and an iOS one
-side by side, say - is running it for nobody: whichever server took 5080 first is the one both phones
-reach. Nothing here reads it from configuration yet, so the two either take turns or one of them edits
-that constant.
+**The port is fixed, which two people cannot share.** `OrbitApiSettings` writes 5080 into the app, so
+anyone running a second Orbit.Api on the same machine - an Android session and an iOS one side by side,
+say - is running it for nobody: whichever server took 5080 first is the one both phones reach. Pass
+`-p:OrbitDevelopmentApiPort=5099` to give one of them a server of its own.
+
+**A build for somebody to install is told where Orbit lives**, because there is nothing to configure it
+with once it is on a phone. That is `-p:OrbitApiBaseAddress=<address>`, and the address is orbit-web's
+rather than orbit-api's: on Azure the API has internal ingress only and is reached through the web
+client's nginx, which proxies `/api/` to it. See `.github/workflows/android-release.yml`, which is the
+build that does this.
 
 **Working from Windows, that first row stops being true.** The simulator is on the paired Mac, so its
 `localhost` is the Mac's — and the API is running on the Windows machine. Forward the port back over SSH

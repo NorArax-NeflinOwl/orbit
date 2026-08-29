@@ -67,7 +67,7 @@ public static class MauiProgram
 
 		RegisterPlatformServices(builder.Services);
 		RegisterLocalStore(builder.Services);
-		RegisterHttpClients(builder.Services, OrbitApiSettings.Development);
+		RegisterHttpClients(builder.Services, OrbitApiSettings.Current);
 		RegisterScreens(builder.Services);
 
 #if DEBUG
