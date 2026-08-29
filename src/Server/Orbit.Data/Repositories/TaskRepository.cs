@@ -146,7 +146,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.LockedByUserId,
             entity.LockedByUserName,
             entity.LockExpiresAtUtc,
-            Enum.TryParse<TaskListPriority>(entity.Priority, out var priority) ? priority : TaskListPriority.Normal,
+            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
             entity.IsPinned, entity.LinkedWarehouseId);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)

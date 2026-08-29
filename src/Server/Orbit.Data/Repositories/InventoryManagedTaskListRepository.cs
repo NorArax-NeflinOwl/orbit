@@ -22,6 +22,15 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
         return entity?.TaskListId;
     }
 
+    public async Task<Guid?> GetWarehouseIdAsync(Guid taskListId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.InventoryManagedTaskLists
+            .AsNoTracking()
+            .FirstOrDefaultAsync(row => row.TaskListId == taskListId, cancellationToken);
+
+        return entity?.WarehouseId;
+    }
+
     public async Task SetTaskListIdAsync(Guid warehouseId, Guid taskListId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryManagedTaskLists

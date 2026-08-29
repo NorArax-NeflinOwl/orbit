@@ -74,6 +74,13 @@ namespace Orbit.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("Normal");
+
                     b.Property<string>("RecurrenceFrequency")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -444,6 +451,9 @@ namespace Orbit.Data.Migrations
                     b.Property<Guid?>("PendingRestockTaskListId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ProductType")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -519,6 +529,13 @@ namespace Orbit.Data.Migrations
                     b.Property<string>("LockedByUserName")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("Normal");
 
                     b.Property<string>("Title")
                         .IsRequired()

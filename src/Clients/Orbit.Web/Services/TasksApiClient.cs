@@ -95,6 +95,27 @@ public sealed class TasksApiClient
         return result?.AddedCount ?? 0;
     }
 
+    /// <summary>Crosses off what the linked warehouse covers, and answers how many entries that was.</summary>
+    public async Task<int> CompleteWorkCoveredByStockAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/stock-check/completed", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<CompleteWorkCoveredByStockResultDto>(cancellationToken);
+        return result?.CompletedCount ?? 0;
+    }
+
+    /// <summary>
+    /// Says the whole restock list is done: crosses off what is left of it and brings its warehouse up
+    /// to the levels it is meant to hold. Answers how many shelf items moved.
+    /// </summary>
+    public async Task<int> FinishRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/restocking/finished", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<FinishRestockingResultDto>(cancellationToken);
+        return result?.ToppedUpCount ?? 0;
+    }
+
     public async Task<IReadOnlyList<TaskDto>> GetTaskListsAsync(CancellationToken cancellationToken = default)
     {
         var taskLists = await _httpClient.GetFromJsonAsync<List<TaskDto>>("api/tasks", cancellationToken) ?? [];

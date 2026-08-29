@@ -87,7 +87,8 @@ public sealed class NoteRepository : INoteRepository
             entity.IsPrivate,
             ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.IsPinned);
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.IsPinned,
+            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal);
 
     private static NoteEntity ToEntity(Note note)
         => new()
@@ -98,6 +99,7 @@ public sealed class NoteRepository : INoteRepository
             ContentJson = JsonSerializer.Serialize(note.Content),
             IsPrivate = note.IsPrivate,
             IsPinned = note.IsPinned,
+            Priority = note.Priority.ToString(),
             EncryptedCiphertext = note.EncryptedContent?.Ciphertext,
             EncryptedNonce = note.EncryptedContent?.Nonce,
             LockedByUserId = note.LockedByUserId,

@@ -2,7 +2,8 @@ namespace Orbit.Data.Entities;
 
 /// <summary>
 /// The code that unlocks one permission - see Orbit.Core.Permissions.PermissionCode. One row per
-/// permission, made once and kept, so it can be read with a plain SELECT and survives a redeploy.
+/// permission, so it can be read with a plain SELECT, survives a redeploy, and can be rotated by
+/// rewriting the row - by the application or by hand.
 /// </summary>
 public sealed class PermissionCodeEntity
 {
@@ -11,5 +12,6 @@ public sealed class PermissionCodeEntity
 
     public string Code { get; set; } = string.Empty;
 
+    /// <summary>When the code standing in this row was made. A rotation moves it forward.</summary>
     public DateTimeOffset CreatedAtUtc { get; set; }
 }

@@ -89,27 +89,31 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
             await _inventoryRepository.DeleteAsync(request.WarehouseId, removed.Id, cancellationToken);
         }
 
-        foreach (var input in request.Items)
+        // The order the rows arrive in is the order somebody arranged them in on screen, so it is what
+        // the shelf keeps - see InventoryItem.Position.
+        foreach (var (input, position) in request.Items.Select((input, position) => (input, position)))
         {
             var existing = input.Id is { } id ? existingItems.FirstOrDefault(item => item.Id == id) : null;
             if (existing is null)
             {
-                await AddItemAsync(request.WarehouseId, input, cancellationToken);
+                await AddItemAsync(request.WarehouseId, input, position, cancellationToken);
                 continue;
             }
 
             existing.Update(
                 input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
                 input.ExpiryDate, input.ExpiryNotificationChannel);
+            existing.MoveTo(position);
             await SaveWithRestockTaskAsync(existing, cancellationToken);
         }
     }
 
-    private async Task AddItemAsync(Guid warehouseId, WarehouseItemInput input, CancellationToken cancellationToken)
+    private async Task AddItemAsync(
+        Guid warehouseId, WarehouseItemInput input, int position, CancellationToken cancellationToken)
     {
         var item = InventoryItem.Create(
             warehouseId, input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
-            input.ExpiryDate, input.ExpiryNotificationChannel);
+            input.ExpiryDate, input.ExpiryNotificationChannel, position);
         await _inventoryRepository.AddAsync(item, cancellationToken);
         await SaveWithRestockTaskAsync(item, cancellationToken);
     }

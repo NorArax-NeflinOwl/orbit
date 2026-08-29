@@ -38,7 +38,11 @@ public sealed class RaiseStockShortfallsCommandHandler : IRequestHandler<RaiseSt
             return 0;
         }
 
+        // How many are short, not how many the work needs: the shelf already holds the rest, and an
+        // errand for eight when six are on the shelf is an errand nobody can read.
         return await _inventoryTaskListCoordinator.EnsureShortfallTasksAsync(
-            warehouseId, [.. check.Shortfalls.Select(shortfall => shortfall.Name)], cancellationToken);
+            warehouseId,
+            [.. check.Shortfalls.Select(shortfall => new RestockNeed(shortfall.Name, shortfall.Missing))],
+            cancellationToken);
     }
 }

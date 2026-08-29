@@ -20,19 +20,31 @@ public static class StockRequirementCounter
     /// </summary>
     public static TaskListStockCheck Count(
         IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock, DateTimeOffset nowUtc)
+        => Measure(items.Where(item => !IsNotDueYet(item, nowUtc)), stock);
+
+    /// <summary>
+    /// What the work calls for in total, whenever each piece of it falls due, against an empty shelf.
+    /// This is the question a shelf being built has to answer - it holds what the whole job will need -
+    /// while <see cref="Count"/> answers whether the job can be started today.
+    /// </summary>
+    public static TaskListStockCheck CountRegardlessOfDueDate(IEnumerable<TaskItem> items)
+        => Measure(items, []);
+
+    private static TaskListStockCheck Measure(IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock)
     {
         var available = stock
             .GroupBy(item => Normalize(item.Name))
             .ToDictionary(group => group.Key, group => group.Sum(item => item.Quantity));
 
         var required = new Dictionary<string, decimal>();
+        var done = new Dictionary<string, decimal>();
         // The order things are first asked for, so the report reads like the list it came from.
         var namesInOrder = new List<string>();
         var displayNames = new Dictionary<string, string>();
 
         foreach (var item in items)
         {
-            if (item.LinkedTaskListId is not null || IsNotDueYet(item, nowUtc))
+            if (item.LinkedTaskListId is not null)
             {
                 continue;
             }
@@ -47,16 +59,22 @@ public static class StockRequirementCounter
             {
                 namesInOrder.Add(key);
                 displayNames[key] = item.Description.Trim();
+                done[key] = 0;
             }
             else
             {
                 required[key] += 1;
             }
+
+            if (item.IsCompleted)
+            {
+                done[key] += 1;
+            }
         }
 
         return new TaskListStockCheck(
             [.. namesInOrder.Select(key => new StockRequirement(
-                displayNames[key], required[key], available.GetValueOrDefault(key)))]);
+                displayNames[key], required[key], available.GetValueOrDefault(key), done[key]))]);
     }
 
     /// <summary>

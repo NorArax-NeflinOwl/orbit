@@ -1,0 +1,34 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What one dashboard card is showing of what it could show. A menu rather than a row of chips: a card
+   is a summary, and the filter is something a reader sets once and forgets. *@
+<OverflowMenu>
+    <span class="overflow-menu-heading">@T["Show"]</span>
+    @foreach (var option in Options)
+    {
+        <button type="button" class="avatar-dropdown-item @(option == Filter ? "chosen" : "")"
+                @onclick="() => FilterChanged.InvokeAsync(option)">
+            <span class="card-filter-mark">@(option == Filter ? "✓" : "")</span>
+            @T[NameOf(option)]
+        </button>
+    }
+</OverflowMenu>
+
+@code {
+    [Parameter, EditorRequired] public DashboardCardFilter Filter { get; set; }
+
+    /// <summary>What this card can be filtered by - a card whose items cannot be pinned does not offer it.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<DashboardCardFilter> Options { get; set; } = [];
+
+    [Parameter, EditorRequired] public EventCallback<DashboardCardFilter> FilterChanged { get; set; }
+
+    private static string NameOf(DashboardCardFilter filter) => filter switch
+    {
+        DashboardCardFilter.Pinned => "Pinned",
+        DashboardCardFilter.HighPriority => "High",
+        DashboardCardFilter.NormalPriority => "Normal",
+        DashboardCardFilter.LowPriority => "Low",
+        _ => "All"
+    };
+}

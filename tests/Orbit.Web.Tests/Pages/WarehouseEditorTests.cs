@@ -106,6 +106,36 @@ public sealed class WarehouseEditorTests : OrbitTestContext
         Assert.Equal(2, cut.FindAll(".item-warning").Count);
     }
 
+    [Fact]
+    public void An_item_dragged_onto_another_takes_its_place()
+    {
+        // The shelf is saved in the order its rows are written in - see InventoryItem.Position - so
+        // arranging them here is what the warehouse is read back in.
+        RegisterApiClients([Item("Flour", quantity: 1), Item("Sugar", quantity: 1), Item("Salt", quantity: 1)]);
+        var cut = RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
+
+        cut.FindAll(".drag-handle").ToArray()[2].DragStart();
+        cut.FindAll(".editor-item").ToArray()[0].Drop();
+
+        Assert.Equal(["Salt", "Flour", "Sugar"], ItemNamesIn(cut));
+    }
+
+    [Fact]
+    public void An_item_dropped_where_it_already_was_stays_put()
+    {
+        RegisterApiClients([Item("Flour", quantity: 1), Item("Sugar", quantity: 1)]);
+        var cut = RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
+
+        cut.FindAll(".drag-handle").ToArray()[0].DragStart();
+        cut.FindAll(".editor-item").ToArray()[0].Drop();
+
+        Assert.Equal(["Flour", "Sugar"], ItemNamesIn(cut));
+    }
+
+    /// <summary>What each row's name box holds, in the order the rows are rendered.</summary>
+    private static IReadOnlyList<string> ItemNamesIn(IRenderedComponent<WarehouseEditor> cut)
+        => [.. cut.FindAll(".editor-item-main").Select(box => box.GetAttribute("value") ?? "")];
+
     private void RegisterApiClients(IReadOnlyList<InventoryItemDto> items)
     {
         var handler = new StubHttpMessageHandler(request =>

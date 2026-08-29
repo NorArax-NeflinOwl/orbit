@@ -63,7 +63,10 @@ public static class NoteEndpoints
             CreateNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var id = await dispatcher.SendAsync(
-                new CreateNoteCommand(GetUserId(user), request.Title, ToDomainContent(request.Content), request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
+                new CreateNoteCommand(
+                    GetUserId(user), request.Title, ToDomainContent(request.Content), request.IsPrivate,
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
+                cancellationToken);
             return Results.Created($"/api/notes/{id}", id);
         });
 
@@ -71,7 +74,10 @@ public static class NoteEndpoints
             Guid id, UpdateNoteRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             var outcome = await dispatcher.SendAsync(
-                new UpdateNoteCommand(GetUserId(user), id, request.Title, ToDomainContent(request.Content), request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
+                new UpdateNoteCommand(
+                    GetUserId(user), id, request.Title, ToDomainContent(request.Content), request.IsPrivate,
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
+                cancellationToken);
             return ToApiResult(outcome);
         });
 
@@ -172,7 +178,7 @@ public static class NoteEndpoints
             note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.IsPrivate, ToDto(note.EncryptedContent),
             note.CreatedAtUtc, note.UpdatedAtUtc,
             note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null,
-            note.IsSharedWithOthers, note.IsPinned);
+            note.IsSharedWithOthers, note.IsPinned, note.Priority.ToString());
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

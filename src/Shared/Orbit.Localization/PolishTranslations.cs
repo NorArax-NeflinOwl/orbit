@@ -79,6 +79,30 @@ public static class PolishTranslations
         ["Save view"] = "Zapisz widok",
         ["Show the lists"] = "Pokaż listy",
         ["Show single items"] = "Pokaż pojedyncze elementy",
+        ["In list order"] = "W kolejności listy",
+        ["Left to do first"] = "Najpierw do zrobienia",
+        ["{0} crossed off, because the warehouse covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
+        ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
+        ["Finish this list and set every item in the warehouse to its minimum?"] =
+            "Czy chcesz zakończyć zadanie i ustawić wszystkim elementom minimalną wartość na magazynie?",
+        ["{0} brought up to their minimum."] = "Uzupełniono do minimum: {0}.",
+        ["Couldn't finish the restocking. Try again."] = "Nie udało się zakończyć uzupełniania. Spróbuj ponownie.",
+        ["Couldn't recalculate against the warehouse. Try again."] =
+            "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
+        ["Hide"] = "Ukryj",
+        ["Show on the dashboard"] = "Pokaż na pulpicie",
+        ["Show"] = "Pokaż",
+        ["Search conversations"] = "Szukaj rozmów",
+        ["Orbit can't reach that account, so this conversation can't be opened right now."] =
+            "Orbit nie może połączyć się z tym kontem, więc tej rozmowy nie da się teraz otworzyć.",
+        ["Sorts this note against the others, and is what the dashboard's filter reads."] =
+            "Sortuje tę notatkę względem innych i jest tym, co czyta filtr na pulpicie.",
+        ["Sorts this event against the others, and is what the dashboard's filter reads."] =
+            "Sortuje to wydarzenie względem innych i jest tym, co czyta filtr na pulpicie.",
+        ["Group chat"] = "Czat grupowy",
+        ["Everything here is hidden. The menu at the top right brings it back."] =
+            "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
+        ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Opens Google's own form with this event filled in. Nothing is saved there until you save it."] = "Otwiera formularz Google z wypełnionym wydarzeniem. Nic się tam nie zapisze, dopóki sam nie zapiszesz.",
         ["Google Calendar"] = "Kalendarz Google",
         ["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."] = "Zapisywanie swojej pozycji. Udostępnienie jej lub podgląd cudzej wymaga też kontaktów.",
@@ -219,7 +243,6 @@ public static class PolishTranslations
 
         // ---- Chat ----
         ["Chats"] = "Rozmowy",
-        ["Group chats"] = "Czaty grupowe",
         ["New request"] = "Nowa prośba",
         ["New requests"] = "Nowe prośby",
         ["Open chat"] = "Otwórz rozmowę",
@@ -366,9 +389,8 @@ public static class PolishTranslations
         ["Jump to newest message"] = "Przejdź do najnowszej wiadomości",
         ["Write to the group"] = "Napisz do grupy",
         ["New group"] = "Nowa grupa",
+        ["No groups yet."] = "Nie masz jeszcze żadnej grupy.",
         ["Group name"] = "Nazwa grupy",
-        ["Your groups"] = "Twoje grupy",
-        ["No groups yet."] = "Nie masz jeszcze grup.",
         ["Who's in it"] = "Kto należy",
         ["Weekend trip"] = "Wyjazd na weekend",
         ["You need at least one contact to start a group."] =
@@ -766,8 +788,6 @@ public static class PolishTranslations
         ["Due date"] = "Termin",
         ["Due time"] = "Godzina",
         ["That message is no longer yours to edit."] = "Tej wiadomości nie możesz już edytować.",
-        ["Search chats"] = "Szukaj rozmów",
-        ["Search groups"] = "Szukaj grup",
         ["Nothing matches that."] = "Nic nie pasuje.",
         ["Leave group"] = "Opuść grupę",
         ["You aren't in this group."] = "Nie należysz do tej grupy.",

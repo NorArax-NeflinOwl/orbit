@@ -1,4 +1,5 @@
 using Orbit.Core.Notifications;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Xunit;
 
@@ -70,17 +71,17 @@ public sealed class TaskListStatusTests
 
     [Fact]
     public void A_list_defaults_to_normal_priority()
-        => Assert.Equal(TaskListPriority.Normal, ListWith().Priority);
+        => Assert.Equal(ItemPriority.Normal, ListWith().Priority);
 
     [Fact]
     public void Updating_a_list_keeps_the_priority_it_was_given()
     {
-        var taskList = TaskList.Create(Guid.NewGuid(), "Errands", [], priority: TaskListPriority.High);
+        var taskList = TaskList.Create(Guid.NewGuid(), "Errands", [], priority: ItemPriority.High);
 
         taskList.Update("Errands", [Item("Buy milk")], isGroup: false, isPrivate: false, encryptedContent: null,
-            priority: TaskListPriority.High);
+            priority: ItemPriority.High);
 
-        Assert.Equal(TaskListPriority.High, taskList.Priority);
+        Assert.Equal(ItemPriority.High, taskList.Priority);
     }
 
     [Fact]
@@ -89,14 +90,14 @@ public sealed class TaskListStatusTests
         // LinkedTaskCompletionResolver rebuilds every list through FromPersistence to resolve linked
         // items, and dropped the priority silently while that parameter was optional - which is why it
         // no longer is.
-        var original = TaskList.Create(Guid.NewGuid(), "Errands", [Item("Buy milk")], priority: TaskListPriority.High);
+        var original = TaskList.Create(Guid.NewGuid(), "Errands", [Item("Buy milk")], priority: ItemPriority.High);
 
         var rebuilt = TaskList.FromPersistence(
             original.Id, original.UserId, original.Title, original.Items, original.IsGroup, original.IsPrivate,
             original.EncryptedContent, original.CreatedAtUtc, original.UpdatedAtUtc,
             original.LockedByUserId, original.LockedByUserName, original.LockExpiresAtUtc, original.Priority, original.IsPinned);
 
-        Assert.Equal(TaskListPriority.High, rebuilt.Priority);
+        Assert.Equal(ItemPriority.High, rebuilt.Priority);
     }
 
     private static TaskList ListWith(params TaskItem[] items) => TaskList.Create(Guid.NewGuid(), "Errands", items);

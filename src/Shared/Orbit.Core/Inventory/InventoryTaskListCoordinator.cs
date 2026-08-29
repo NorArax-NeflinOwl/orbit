@@ -15,16 +15,15 @@ namespace Orbit.Core.Inventory;
 /// </summary>
 public sealed class InventoryTaskListCoordinator
 {
-    /// <summary>Title of the system-managed task list this coordinator creates/reuses per warehouse.</summary>
-    public const string ManagedTaskListTitle = "Restock supplies";
 
     /// <summary>
-    /// Description of the standing, never-recreated reminder task. RemindDaily brings it back every day
-    /// at its own time of day, whether or not the reader ticked it off yesterday - which is what makes
-    /// one task enough, instead of a new one appearing each morning. Tasks has no recurrence engine to
-    /// build a self-recreating task on top of, and this covers the same intent without one.
+    /// The standing, never-recreated reminder task - see RestockTaskNaming for its wording. RemindDaily
+    /// brings it back every day at its own time of day, whether or not the reader ticked it off
+    /// yesterday, which is what makes one task enough instead of a new one appearing each morning.
+    /// Tasks has no recurrence engine to build a self-recreating task on top of, and this covers the
+    /// same intent without one.
     /// </summary>
-    public const string UpdateStockReminderDescription = "Update stock levels";
+    public const string UpdateStockReminderDescription = RestockTaskNaming.UpdateStockReminderDescription;
 
     /// <summary>
     /// When the standing reminder comes back and says so. Morning rather than the midnight a bare
@@ -61,12 +60,16 @@ public sealed class InventoryTaskListCoordinator
             return null;
         }
 
+        var title = RestockTaskNaming.TitleFor(
+            (await _warehouseRepository.GetByIdAsync(ownerUserId, warehouseId, cancellationToken))?.Name ?? string.Empty);
+
         var trackedTaskListId = await _managedTaskListRepository.GetTaskListIdAsync(warehouseId, cancellationToken);
         if (trackedTaskListId is { } existingId)
         {
             var existingTaskList = await _taskRepository.GetByIdAsync(ownerUserId, existingId, cancellationToken);
             if (existingTaskList is not null)
             {
+                await RenameIfTheWarehouseWasRenamedAsync(existingTaskList, title, cancellationToken);
                 return existingId;
             }
         }
@@ -77,7 +80,7 @@ public sealed class InventoryTaskListCoordinator
             dailyReminderTimeOfDay: UpdateStockReminderTimeOfDay);
         // Pinned from the moment it exists: this is the one list Orbit maintains rather than the reader,
         // and it is only useful if it is where they will see it.
-        var taskList = TaskList.Create(ownerUserId, ManagedTaskListTitle, [reminderItem], isPinned: true);
+        var taskList = TaskList.Create(ownerUserId, title, [reminderItem], isPinned: true);
         await _taskRepository.AddAsync(taskList, cancellationToken);
         await _managedTaskListRepository.SetTaskListIdAsync(warehouseId, taskList.Id, cancellationToken);
         return taskList.Id;
@@ -135,7 +138,8 @@ public sealed class InventoryTaskListCoordinator
                 $"The restock list for this warehouse is private, so Orbit can't add \"{item.Name}\" to it. Turn privacy off for that list first.");
         }
 
-        var restockItem = TaskItem.Create($"{RestockDescriptionPrefix}{item.Name}", dueDateUtc: null, isCompleted: false);
+        var restockItem = TaskItem.Create(
+            RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity), dueDateUtc: null, isCompleted: false);
         taskList.Update(taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 
@@ -151,9 +155,9 @@ public sealed class InventoryTaskListCoordinator
     /// the same errand, not a second one. Returns how many were actually added.
     /// </summary>
     public async Task<int> EnsureShortfallTasksAsync(
-        Guid warehouseId, IReadOnlyCollection<string> names, CancellationToken cancellationToken)
+        Guid warehouseId, IReadOnlyCollection<RestockNeed> needs, CancellationToken cancellationToken)
     {
-        if (names.Count == 0 || await EnsureManagedTaskListAsync(warehouseId, cancellationToken) is not { } taskListId)
+        if (needs.Count == 0 || await EnsureManagedTaskListAsync(warehouseId, cancellationToken) is not { } taskListId)
         {
             return 0;
         }
@@ -171,15 +175,18 @@ public sealed class InventoryTaskListCoordinator
                 "The restock list for this warehouse is private, so Orbit can't add what's missing to it. Turn privacy off for that list first.");
         }
 
+        // Matched on the product rather than the whole line: an errand for five of something and one
+        // for eight of it are the same errand, and a changed minimum must not put a second copy on the
+        // list beside the first.
         var alreadyWaiting = taskList.Items
             .Where(item => !item.IsCompleted)
-            .Select(item => item.Description.Trim())
+            .Select(item => RestockTaskNaming.ProductIn(item.Description))
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 
-        var added = names
-            .Select(name => $"{RestockDescriptionPrefix}{name.Trim()}")
-            .Where(description => alreadyWaiting.Add(description))
-            .Select(description => TaskItem.Create(description, dueDateUtc: null, isCompleted: false))
+        var added = needs
+            .Where(need => alreadyWaiting.Add(need.ProductName.Trim()))
+            .Select(need => TaskItem.Create(
+                RestockTaskNaming.EntryFor(need.ProductName, need.Quantity), dueDateUtc: null, isCompleted: false))
             .ToList();
         if (added.Count == 0)
         {
@@ -191,6 +198,22 @@ public sealed class InventoryTaskListCoordinator
         return added.Count;
     }
 
-    /// <summary>What a restock entry is called, so the two places that create one agree.</summary>
-    private const string RestockDescriptionPrefix = "Restock: ";
+    /// <summary>
+    /// Keeps the list's title in step with its warehouse's name. Only a title Orbit itself wrote is
+    /// touched: a reader who renamed the list meant to.
+    /// </summary>
+    private async Task RenameIfTheWarehouseWasRenamedAsync(
+        TaskList taskList, string title, CancellationToken cancellationToken)
+    {
+        if (taskList.Title == title || !RestockTaskNaming.IsManagedTitle(taskList.Title))
+        {
+            return;
+        }
+
+        taskList.Update(title, taskList.Items, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent);
+        await _taskRepository.UpdateAsync(taskList, cancellationToken);
+    }
 }
+
+/// <summary>One thing to bring back, and how many of it - see RestockTaskNaming.EntryFor.</summary>
+public sealed record RestockNeed(string ProductName, decimal? Quantity);

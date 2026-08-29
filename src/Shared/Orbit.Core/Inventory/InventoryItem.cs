@@ -31,6 +31,13 @@ public sealed class InventoryItem
 
     public Guid? PendingRestockTaskItemId { get; private set; }
 
+    /// <summary>
+    /// Where this item sits on its warehouse's shelf, as somebody arranged it. Kept because a warehouse
+    /// is read in an order that means something to whoever stocks it - what is next to what - which an
+    /// alphabetical list does not preserve. Everything starts at zero and falls back to name order.
+    /// </summary>
+    public int Position { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
@@ -44,7 +51,7 @@ public sealed class InventoryItem
     private InventoryItem(
         Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, Guid? pendingRestockTaskListId,
-        Guid? pendingRestockTaskItemId, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
+        Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
     {
         Id = id;
         WarehouseId = warehouseId;
@@ -57,28 +64,53 @@ public sealed class InventoryItem
         ExpiryNotificationChannel = expiryNotificationChannel;
         PendingRestockTaskListId = pendingRestockTaskListId;
         PendingRestockTaskItemId = pendingRestockTaskItemId;
+        Position = position;
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
     }
 
     public static InventoryItem Create(
         Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
-        DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel)
+        DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, int position = 0)
     {
         var now = DateTimeOffset.UtcNow;
         return new InventoryItem(
             Guid.NewGuid(), warehouseId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
-            pendingRestockTaskListId: null, pendingRestockTaskItemId: null, now, now);
+            pendingRestockTaskListId: null, pendingRestockTaskItemId: null, position, now, now);
     }
 
     /// <summary>Rebuilds an inventory item from already-persisted values, bypassing creation rules.</summary>
     public static InventoryItem FromPersistence(
         Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, Guid? pendingRestockTaskListId,
-        Guid? pendingRestockTaskItemId, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
+        Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
         => new(
             id, warehouseId, name, productType, category, quantity, minimumQuantity, expiryDate, expiryNotificationChannel,
-            pendingRestockTaskListId, pendingRestockTaskItemId, createdAtUtc, updatedAtUtc);
+            pendingRestockTaskListId, pendingRestockTaskItemId, position, createdAtUtc, updatedAtUtc);
+
+    /// <summary>
+    /// Brings this item up to the level it is meant to be kept at, which is what finishing its restock
+    /// errand means: somebody went and got it. Answers whether anything changed - an item already at or
+    /// above its minimum, or without one, is left exactly as it is rather than being pushed down to it.
+    /// </summary>
+    public bool TopUpToMinimum()
+    {
+        if (MinimumQuantity is not { } minimum || Quantity >= minimum)
+        {
+            return false;
+        }
+
+        Quantity = minimum;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        return true;
+    }
+
+    /// <summary>Puts this item where the person arranging the shelf dropped it.</summary>
+    public void MoveTo(int position)
+    {
+        Position = position;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
 
     public void Update(
         string name, string productType, string category, decimal quantity, decimal? minimumQuantity,

@@ -14,8 +14,9 @@
     @if (_isOpen)
     {
         @* Closing on any click inside is deliberate: every entry here is an action, and a menu that
-           stayed open behind the thing it just started would be in the way of reading the result. *@
-        <div class="overflow-menu-dropdown" @onclick="Close">
+           stayed open behind the thing it just started would be in the way of reading the result. A
+           menu of settings is the exception - closing after each one would make changing two a chore. *@
+        <div class="overflow-menu-dropdown" @onclick="OnClickInside">
             @ChildContent
         </div>
     }
@@ -25,9 +26,18 @@
     /// <summary>The menu's entries - ordinary buttons, styled by .avatar-dropdown-item like the other menus.</summary>
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>For a menu whose entries are settings rather than actions - see the dropdown above.</summary>
+    [Parameter] public bool StaysOpen { get; set; }
+
     private bool _isOpen;
 
     private void Toggle() => _isOpen = !_isOpen;
 
-    private void Close() => _isOpen = false;
+    private void OnClickInside()
+    {
+        if (!StaysOpen)
+        {
+            _isOpen = false;
+        }
+    }
 }

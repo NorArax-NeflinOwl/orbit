@@ -69,6 +69,10 @@ public sealed class OrbitDbContext : DbContext
             // Every note query is scoped to a single user's notes; this is the index that makes those
             // lookups fast instead of scanning the whole table.
             entity.HasIndex(note => note.UserId);
+            // Matches ItemPriority.Normal, so rows written before this column existed read back as
+            // the default rather than as an unparseable empty string.
+            entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
+                .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
         });
 
         modelBuilder.Entity<NoteShareEntity>(entity =>
@@ -121,6 +125,10 @@ public sealed class OrbitDbContext : DbContext
             // Every calendar event query is scoped to a single user's events; this is the index that
             // makes those lookups fast instead of scanning the whole table.
             entity.HasIndex(calendarEvent => calendarEvent.UserId);
+            // Matches ItemPriority.Normal, so rows written before this column existed read back as
+            // the default rather than as an unparseable empty string.
+            entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
+                .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
         });
 
         modelBuilder.Entity<CalendarEventShareEntity>(entity =>
@@ -370,10 +378,10 @@ public sealed class OrbitDbContext : DbContext
 
         modelBuilder.Entity<TaskEntity>(entity =>
         {
-            // Matches TaskListPriority.Normal, so rows written before this column existed read back as
+            // Matches ItemPriority.Normal, so rows written before this column existed read back as
             // the default a new list gets rather than as an unparseable empty string.
             entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
-                .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskListPriority.Normal));
+                .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
         });
 
         modelBuilder.Entity<PublicShareLinkEntity>(entity =>

@@ -15,4 +15,6 @@ public sealed record CalendarEventDetailsDto(
     IReadOnlyList<Guid> Guests,
     IReadOnlyList<int> ReminderMinutesBeforeStart,
     string CreationNotificationChannel,
-    string ReminderNotificationChannel);
+    string ReminderNotificationChannel,
+    /// <summary>ItemPriority by name - "Low", "Normal" or "High".</summary>
+    string Priority = "Normal");

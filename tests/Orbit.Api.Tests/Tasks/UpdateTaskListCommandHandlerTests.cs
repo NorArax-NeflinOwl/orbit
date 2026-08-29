@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Inventory;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.UpdateTaskList;
@@ -12,7 +13,9 @@ public sealed class UpdateTaskListCommandHandlerTests
         => new(
             new TaskListAccessResolver(taskRepository, taskListShareRepository ?? new InMemoryTaskListShareRepository(), new InMemoryUserRepository()),
             taskRepository,
-            new TaskListLinkValidator(taskRepository));
+            new TaskListLinkValidator(taskRepository),
+            // No warehouse tracks these lists, so finishing an entry on one means nothing to a shelf.
+            new RestockCompletion(new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository()));
 
     [Fact]
     public async Task HandleAsync_updates_a_task_list_owned_by_the_requesting_user()

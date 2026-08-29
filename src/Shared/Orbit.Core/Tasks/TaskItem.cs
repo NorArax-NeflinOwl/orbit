@@ -70,6 +70,21 @@ public sealed class TaskItem
     }
 
     /// <summary>
+    /// Crosses an entry off. Used where something other than the reader's own tick establishes that the
+    /// work is done - a warehouse that turns out to hold what the entry asks for.
+    ///
+    /// A linked entry is left alone for the same reason <see cref="Reopen"/> leaves it: its completion
+    /// follows the list it points at.
+    /// </summary>
+    public void Complete()
+    {
+        if (LinkedTaskListId is null)
+        {
+            IsCompleted = true;
+        }
+    }
+
+    /// <summary>
     /// A linked item's completion can't be set directly - it always follows the list it links to (see
     /// <see cref="LinkedTaskCompletionResolver"/>) - so <paramref name="isCompleted"/> is ignored in
     /// favor of "not completed" whenever <paramref name="linkedTaskListId"/> is set.

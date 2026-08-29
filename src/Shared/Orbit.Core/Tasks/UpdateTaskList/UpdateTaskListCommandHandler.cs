@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Inventory;
 
 namespace Orbit.Core.Tasks.UpdateTaskList;
 
@@ -7,13 +8,16 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     private readonly TaskListAccessResolver _taskListAccessResolver;
     private readonly ITaskRepository _taskRepository;
     private readonly TaskListLinkValidator _taskListLinkValidator;
+    private readonly RestockCompletion _restockCompletion;
 
     public UpdateTaskListCommandHandler(
-        TaskListAccessResolver taskListAccessResolver, ITaskRepository taskRepository, TaskListLinkValidator taskListLinkValidator)
+        TaskListAccessResolver taskListAccessResolver, ITaskRepository taskRepository,
+        TaskListLinkValidator taskListLinkValidator, RestockCompletion restockCompletion)
     {
         _taskListAccessResolver = taskListAccessResolver;
         _taskRepository = taskRepository;
         _taskListLinkValidator = taskListLinkValidator;
+        _restockCompletion = restockCompletion;
     }
 
     /// <summary>Mirrors Orbit.Core.Notes.UpdateNote.UpdateNoteCommandHandler - see its class comment for what NotFound/Locked mean here.</summary>
@@ -42,9 +46,21 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         // TaskListLinkValidator has always validated against.
         await _taskListLinkValidator.ValidateAsync(taskList.UserId, request.Id, request.Items, cancellationToken);
 
+        // Read before the update, since afterwards there is nothing left to compare against.
+        var alreadyDone = taskList.Items.Where(item => item.IsCompleted).Select(item => item.Id).ToHashSet();
+
         taskList.Update(
             request.Title, request.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
+
+        // Crossing off a restock errand says the shelf was filled - see RestockCompletion, which does
+        // nothing at all for the ordinary lists this handler mostly saves.
+        var justDone = taskList.Items
+            .Where(item => item.IsCompleted && !alreadyDone.Contains(item.Id))
+            .Select(item => item.Id)
+            .ToList();
+        await _restockCompletion.ApplyAsync(request.Id, justDone, cancellationToken);
+
         return EditOutcome.Success;
     }
 }

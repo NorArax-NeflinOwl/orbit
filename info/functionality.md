@@ -82,7 +82,50 @@ The JWT signing key is a secret and is never checked into source control:
 `requests.http` at the repo root has ready-to-run register/login/notes requests (works with Visual
 Studio's built-in HTTP file support or VS Code's "REST Client" extension).
 
+## Permissions
+
+Four things an account can hold (`ApplicationPermission`), and an account starts with none of them:
+
+| Permission | What it opens | Needs |
+| --- | --- | --- |
+| `Contacts` | Looking anybody up, and being findable at all | — |
+| `Chat` | Conversations, one-to-one and group | `Contacts` |
+| `Sharing` | Handing a note, list or event to another account | `Contacts` |
+| `Location` | Recording your own position and seeing it on the map | — |
+
+`Contacts` is the master of the social half: without it an account can neither look anybody up nor be
+turned up by anybody else's search (`UserVisibility`), which is why `GET /api/users/{id}` answers **404**
+for an account that has not unlocked it even to somebody who is already a contact - knowing an id is not
+meant to be a way around being invisible. `Chat` and `Sharing` are stored when redeemed but stay inert
+until `Contacts` is held too (`PermissionPrerequisites`), so granting them in either order works.
+`Location` stands apart: recording and sharing your own position needs nothing else, but *seeing* what
+others have shared needs `Contacts`, since that is somebody else's account becoming visible.
+
+A permission is unlocked by typing its code (`POST /api/users/me/permissions/redeem`, rate-limited like
+the other endpoints that change an account). The codes are rows in `PermissionCodes`, one per permission,
+made on the first start that finds one missing and left alone by every start after that:
+
+```sql
+SELECT "Permission", "Code" FROM "PermissionCodes";
+```
+
+Twelve characters of Crockford base32 without I, L, O and U, so nothing in a code can be misread off a
+screen; what somebody types is trimmed and upper-cased before it is compared, and every stored code is
+compared even after one matches, so how long the answer takes says nothing about which code a typed one
+was close to. A code can be **rotated** - `PermissionCodeStore.RotateAsync`, or the `UPDATE` in the
+deployment's own notes - and nothing caches one, so a change takes effect on the next code somebody
+types, with no restart.
+
+## Priorities
+
+Every note, task list and calendar event carries a priority - `Low`, `Normal` or `High`
+(`ItemPriority`), chosen in its editor and stored by name rather than by number, so the values mean the
+same thing on the wire, in the database and in a log line. It sorts the task list page, marks a card with
+a badge, and is what the dashboard's per-card filter reads. Rows written before the column existed read
+as `Normal`, so nothing has to be revisited.
+
 ## Notes
+
 
 `POST /api/notes` and `PUT /api/notes/{id}` both take `{ title, content }`, where `content` is an
 ordered list of lines, each `{ text, isChecklistItem, isChecked }` — a note is plain text and checklist
@@ -187,6 +230,13 @@ own content fieldset (`_canEditContent`), not the separately-gated Guests sectio
 those two sections are already independent for access-level purposes.
 
 ## Group chats
+
+Groups are not a place of their own: both chat screens show **one conversation list**
+(`ConversationList`) holding people and groups together - people first, most recently spoken to first,
+then groups by name, since a group has no last-message time of its own to sort by. A row says which kind
+it is with a small mark, one search box filters both, and "New group" sits under the list rather than in
+a page header. Looking for "who have I been talking to" is one place, and moving between a group and a
+person does not change screens.
 
 A chat with more than one other person, under the same end-to-end encryption one-to-one chats already
 have. There is no group key: the sender's browser encrypts the same text **once per other member**,
@@ -467,8 +517,59 @@ card with its items tickable in place. Ticking an item there saves that member l
 and the group's own linked row then follows it automatically through the usual completion resolution:
 check off the last item on a member list and the group's row for it ticks itself.
 
-Expansion goes exactly one level deep. A member that is itself a group list stays a single row rather
-than unfolding further, so one screen can't turn into an unbounded tree.
+Expansion goes all the way down. A member that is itself a group list unfolds too, and so does a member
+of that, so the checklist shows the whole tree rather than stopping one level in - work a click away on
+the screen meant for ticking through is work that gets missed. Each list is drawn once however many
+places link to it, and a list that links back to one of its own ancestors stops at the repeat rather
+than unfolding forever (`LinkedTaskListTree`).
+
+### Reading a nested list flat, and keeping how it reads
+
+A tree two levels deep reads as a stack of cards, which is right for seeing how the work is organised
+and wrong for working through it. **Show single items** folds the whole tree into one run of items, each
+labelled with the list it came from, leaving out the rows that only point at another list. It is offered
+only where there is something to flatten.
+
+**Sort** chooses between the list's own order, A to Z, and what is left to do first - which puts the
+undone at the top and the done at the bottom, each alphabetically, so a half-finished list reads as what
+is left of it. Flattened, A to Z runs across the whole tree -
+sorting list by list would look random once the headings are gone. **Save view** keeps both the view and
+the order as the way that list opens next time, on that device (`ChecklistViewPreference`, localStorage,
+the same category as the dashboard's own layout).
+
+### Arranging a list by hand
+
+In the deep editor each item carries a drag handle, and dropping one where another sits puts it there.
+The list is saved in the order its rows are written in - `TaskRepository` numbers them by position - so
+what is arranged here is what the checklist reads back under "in list order". Only the handle is
+draggable, so a row full of text boxes does not start a drag whenever somebody selects what they typed.
+HTML5 dragging is mouse and trackpad; it does not work by touch.
+
+### Can this list be done?
+
+A group list can be pointed at a warehouse (`PUT /api/tasks/{id}/warehouse`), and
+`GET /api/tasks/{id}/stock-check` then answers what the work costs against it. The counting rule is that
+**repetition is quantity**: a tree naming "Makaron świderki" in three recipes needs three
+(`StockRequirementCounter`). That is what makes a checklist a bill of materials without asking anybody
+to type a number beside every line. A line with a due date in the future is not counted - that work has
+not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
+puts what is short onto the warehouse's standing restock list, where the daily reminder brings it up;
+names already waiting are left alone. The panel can be put away with its own Hide button, kept by the
+same "Save view" as the view and the order - a list nobody prices should not open with it every time.
+
+`POST /api/tasks/{id}/stock-check/completed` is the other half, and what "recalculate against the
+inventory" does: it crosses off the work the warehouse already covers. Counted per product rather than
+per line, so three jars on the shelf finish three of the five lines asking for one, oldest first; stock
+spent on a line already crossed off is not spent again, and work dated in the future is left alone
+because the check does not count it either.
+
+`POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
+distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
+list has already crossed off, since a ticked line is something somebody has fetched - and points the list
+at the result. Everything the tree names is included, including lines dated in the
+future: the shelf holds what the whole job will need, while the check counts only what is due. Both are
+reached from the three-dot menu on the checklist and the deep editor, where "recalculate" is offered
+greyed until a warehouse is chosen rather than hidden.
 
 ### Moving an item to another task list
 
@@ -493,6 +594,12 @@ minimumQuantity, expiryDate, expiryNotificationChannel }` — `productType` and 
 needs a restock threshold or an expiry date. `GET /api/inventory` and `GET /api/inventory/{id}` return
 the same shape back plus `id`, `isBelowMinimum` and `hasPendingRestockTask` (both derived, computed
 server-side so the client never reimplements the comparison), and `createdAtUtc`/`updatedAtUtc`.
+
+A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
+warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -
+which is the whole order for a warehouse nobody has arranged, since everything in one sits at position
+zero. A shelf generated from a task list keeps the order the work asks for things rather than the
+alphabet.
 
 **Items live in warehouses, and the warehouse is what sharing understands.** An `InventoryItem` carries
 a `WarehouseId` rather than an owner of its own, so "may this caller read/change this item" is answered
@@ -582,6 +689,25 @@ the top and shows a passive "Expires soon"/"Expired" badge, computed client-side
 today — keeping that half of the feature entirely client-side rather than adding another notification
 path.
 
+### The restock list
+
+One per warehouse, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless
+the reader renamed the list themselves. It holds one standing "Update stock levels" reminder that comes
+back daily, plus an errand per product that has gone low.
+
+An errand says how many to bring: "Restock: Flour (5)" is the level the shelf is meant to hold when a
+product goes low, and how many are short when a task list comes up short. Entries are matched on the
+product rather than the whole line, so raising one for eight after one for five does not put a second
+copy on the list.
+
+Crossing an errand off brings its item up to that level - saying it once, on the list, rather than twice.
+Only ever upwards: somebody who stocked more than the minimum keeps it, because finishing an errand is
+not a claim about how much is there beyond it.
+
+Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
+Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the warehouse
+up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
+
 ## Calendar
 
 `POST /api/calendar-events` and `PUT /api/calendar-events/{id}` both take `{ details }`, where `details`
@@ -650,7 +776,26 @@ endpoints. Any reminder claims already recorded for it in `EventReminderDeliveri
 since they're not a foreign key relationship and a deleted event simply stops producing new reminders.
 The Blazor client's calendar page asks for confirmation before calling this endpoint.
 
-### Calendar event reminders
+#### The restock list
+
+One per warehouse, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless
+the reader renamed the list themselves. It holds one standing "Update stock levels" reminder that comes
+back daily, plus an errand per product that has gone low.
+
+An errand says how many to bring: "Restock: Flour (5)" is the level the shelf is meant to hold when a
+product goes low, and how many are short when a task list comes up short. Entries are matched on the
+product rather than the whole line, so raising one for eight after one for five does not put a second
+copy on the list.
+
+Crossing an errand off brings its item up to that level - saying it once, on the list, rather than twice.
+Only ever upwards: somebody who stocked more than the minimum keeps it, because finishing an errand is
+not a claim about how much is there beyond it.
+
+Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
+Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the warehouse
+up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
+
+## Calendar event reminders
 
 Two independent notification emails can go to the event's owner and to every guest who has accepted a
 share of it (see `ResolveRecipientsAsync`) — the `guests` list on the event itself is the editor's
@@ -807,6 +952,23 @@ task lists yet) is left out entirely rather than shown with a "nothing here yet"
 point of this page is a quick glance at what exists, not a third copy of each list page's empty state.
 Clicking any item navigates straight to its editor (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`),
 the same page `Notes`/`Tasks`/`Calendar`'s own "Edit" button opens — the dashboard has no editing of its own.
+
+### Deciding what the page shows
+
+Not everybody's dashboard is everybody's. The menu in the page's top right lists every part of it - the
+day's strip and each card - with a tick beside the ones being shown, so anything unwanted can be put away
+and brought back. A page with everything put away says so, rather than looking like one that failed to
+load.
+
+Each card that has something to filter by carries its own menu in its top right: everything, what is
+pinned, or one priority. The count beside a card's title counts what the card is showing rather than
+what it holds, so a filtered card cannot look like one that lost something. A calendar event offers no
+"pinned" - it has a priority but nothing to pin it to.
+
+Both live on the device (`DashboardCardPreferences`, localStorage), like the pins beside them: they
+describe one page for one reader and say nothing about what the cards hold. What is stored is what is
+*hidden*, so a card added to the dashboard later shows up for everybody rather than staying invisible to
+whoever saved a layout before it existed.
 
 ## Push notifications
 

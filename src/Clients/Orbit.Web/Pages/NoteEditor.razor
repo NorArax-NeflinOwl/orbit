@@ -54,6 +54,16 @@ else
                 <label>@T["Title"]</label>
                 <InputText @bind-Value="_formModel.Title" class="note-editor-title" />
             </div>
+            <div class="field">
+                <label for="notePrioritySelect">@T["Priority"]</label>
+                <InputSelect id="notePrioritySelect" @bind-Value="_formModel.Priority">
+                    <option value="Low">@T["Low"]</option>
+                    <option value="Normal">@T["Normal"]</option>
+                    <option value="High">@T["High"]</option>
+                </InputSelect>
+                <small>@T["Sorts this note against the others, and is what the dashboard's filter reads."]</small>
+            </div>
+
             @* Only the owner may turn this on: a note reached through a share belongs to someone else,
                and "private" means private to its creator. *@
             @if (!_isShared)
@@ -212,7 +222,10 @@ else
                 var note = await NotesApiClient.GetNoteByIdAsync(noteId);
                 if (note is not null)
                 {
-                    _formModel = new NoteFormModel { Title = note.Title, Content = note.Content, IsPrivate = note.IsPrivate };
+                    _formModel = new NoteFormModel
+                    {
+                        Title = note.Title, Content = note.Content, IsPrivate = note.IsPrivate, Priority = note.Priority
+                    };
                     _isShared = note.IsShared;
                     _access = SharedItemAccess.For(note.IsShared, note.AccessLevel);
                     _isSharedReadOnly = note.IsShared && !_access.CanEdit;
@@ -274,12 +287,12 @@ else
         {
             if (IsNewNote)
             {
-                var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate));
+                var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority));
                 Logger.LogInformation("Note {NoteId} created", newNoteId);
             }
             else
             {
-                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate));
+                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -487,5 +500,8 @@ else
 
         /// <summary>Encrypt this note so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }
+
+        /// <summary>ItemPriority by name, the way the API takes it - see NoteDto.Priority.</summary>
+        public string Priority { get; set; } = "Normal";
     }
 }

@@ -1159,6 +1159,11 @@ input.note-editor-title {
 .card-title {
     display: flex;
     align-items: center;
+    /* A list carrying every badge at once - group, priority, status, pinned - is wider than its card.
+       The badges drop onto a second line rather than running past the edge, and min-width lets the
+       title itself shrink instead of holding the row open. */
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 8px;
     font-family: var(--font-display);
     font-weight: 600;
@@ -1170,6 +1175,7 @@ input.note-editor-title {
 }
 
 .card-count {
+    flex-shrink: 0;
     font-size: 11.5px;
     color: var(--text-tertiary);
     background: var(--bg-subtle);
@@ -1555,6 +1561,22 @@ input.note-editor-title {
 .chat-list-meta {
     min-width: 0;
     flex: 1;
+}
+
+/* Marks a row in the conversation list as a group rather than a person, now that both share it. */
+.conversation-kind {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    color: var(--text-tertiary);
+    vertical-align: middle;
+}
+
+/* Sits under the conversations rather than in the page header: starting a group belongs with the list
+   of them, and both chat screens show that list. */
+.chat-list-new-group {
+    margin: 8px;
+    width: calc(100% - 16px);
 }
 
 .chat-list-name {
@@ -2703,6 +2725,29 @@ input.note-editor-title {
     margin-bottom: 8px;
 }
 
+/* The row that is currently being carried somewhere else, kept visible but clearly picked up. */
+.editor-item.dragging {
+    opacity: 0.45;
+    border-style: dashed;
+}
+
+.drag-handle {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 2px;
+    color: var(--text-tertiary);
+    cursor: grab;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.drag-handle:hover {
+    color: var(--text-secondary);
+}
+
 .editor-item-summary {
     display: flex;
     align-items: center;
@@ -2807,6 +2852,9 @@ input.note-editor-title {
 
 .card-badge {
     margin-left: 6px;
+    /* Squeezed by a crowded header a badge breaks its own text across two lines; it moves to the next
+       line whole instead. */
+    white-space: nowrap;
     padding: 1px 7px;
     border-radius: 999px;
     background: var(--bg-subtle);
@@ -3568,6 +3616,29 @@ input.note-editor-title {
 .overflow-menu {
     position: relative;
     display: inline-flex;
+}
+
+/* The chosen entry in a menu of choices, and the column its tick sits in. */
+.avatar-dropdown-item.chosen {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.card-filter-mark {
+    display: inline-block;
+    width: 12px;
+    color: var(--accent);
+}
+
+/* Says what a menu of settings is about, above its entries. */
+.overflow-menu-heading {
+    display: block;
+    padding: 6px 8px 4px 8px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .overflow-menu-dropdown {

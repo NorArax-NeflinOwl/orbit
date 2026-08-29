@@ -33,6 +33,9 @@ public sealed class Note
     /// </summary>
     public bool IsPinned { get; private set; }
 
+    /// <summary>How much this note matters, for sorting and for filtering a crowded page. See <see cref="ItemPriority"/>.</summary>
+    public ItemPriority Priority { get; private set; }
+
     /// <summary>The sealed title and lines of a private note; null for an ordinary one. See <see cref="EncryptedPayload"/>.</summary>
     public EncryptedPayload? EncryptedContent { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
@@ -67,7 +70,8 @@ public sealed class Note
     private Note(
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned)
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned,
+        ItemPriority priority)
     {
         Id = id;
         UserId = userId;
@@ -78,27 +82,29 @@ public sealed class Note
         LockedByUserName = lockedByUserName;
         LockExpiresAtUtc = lockExpiresAtUtc;
         IsPinned = isPinned;
+        Priority = priority;
     }
 
     public static Note Create(
         Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate = false,
-        EncryptedPayload? encryptedContent = null, bool isPinned = false)
+        EncryptedPayload? encryptedContent = null, bool isPinned = false, ItemPriority priority = ItemPriority.Normal)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(title, content, isPrivate);
         var now = DateTimeOffset.UtcNow;
         return new Note(
             Guid.NewGuid(), userId, title, content, isPrivate, encryptedContent, now, now,
-            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null, isPinned);
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null, isPinned, priority);
     }
 
     /// <summary>Rebuilds a note from already-persisted values, bypassing creation rules.</summary>
     public static Note FromPersistence(
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned = false)
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned = false,
+        ItemPriority priority = ItemPriority.Normal)
         => new(id, userId, title, content, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
-            lockedByUserId, lockedByUserName, lockExpiresAtUtc, isPinned);
+            lockedByUserId, lockedByUserName, lockExpiresAtUtc, isPinned, priority);
 
     /// <summary>
     /// Stamps how the current caller relates to this note - see the class comment. Called exactly once,
@@ -124,11 +130,14 @@ public sealed class Note
     /// Kept out of this method itself so a locked/read-only note fails with a specific EditOutcome
     /// instead of a generic exception.
     /// </summary>
-    public void Update(string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent)
+    public void Update(
+        string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
+        ItemPriority priority = ItemPriority.Normal)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(title, content, isPrivate);
         (Title, Content, IsPrivate, EncryptedContent) = ReadableOrSealed(title, content, isPrivate, encryptedContent);
+        Priority = priority;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Inventory;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.CreateTaskList;
@@ -143,7 +144,9 @@ public sealed class PrivateTaskListTests
 
         public Task<EditOutcome> UpdateAsync(
             Guid taskListId, string title, IReadOnlyList<TaskItem> items, bool isPrivate, EncryptedPayload? encryptedContent)
-            => new UpdateTaskListCommandHandler(Resolver, TaskRepository, new TaskListLinkValidator(TaskRepository))
+            => new UpdateTaskListCommandHandler(
+                    Resolver, TaskRepository, new TaskListLinkValidator(TaskRepository),
+                    new RestockCompletion(new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository()))
                 .HandleAsync(
                     new UpdateTaskListCommand(OwnerId, taskListId, title, items, IsGroup: false, isPrivate, encryptedContent),
                     CancellationToken.None);

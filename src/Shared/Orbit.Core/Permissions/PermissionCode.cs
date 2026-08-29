@@ -3,8 +3,9 @@ using System.Security.Cryptography;
 namespace Orbit.Core.Permissions;
 
 /// <summary>
-/// The code that unlocks one permission, as it is stored. Made once and kept: a code that changed under
-/// whoever was told it would be worse than no code at all.
+/// The code that unlocks one permission, as it is stored. A code can be replaced - see
+/// <see cref="PermissionCodeStore.RotateAsync"/> - and <c>CreatedAtUtc</c> then says when the code that
+/// is standing now was made, so a rotation is visible in the row rather than silent.
 /// </summary>
 public sealed record PermissionCode(ApplicationPermission Permission, string Code, DateTimeOffset CreatedAtUtc)
 {

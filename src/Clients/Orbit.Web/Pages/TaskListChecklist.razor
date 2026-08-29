@@ -1,6 +1,7 @@
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
 @using Orbit.Contracts.Inventory
+@using Orbit.Core.Inventory
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
@@ -9,6 +10,7 @@
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ChecklistViewPreference ChecklistViewPreference
 @inject InventoryApiClient InventoryApiClient
+@inject IJSRuntime JSRuntime
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
 
@@ -43,19 +45,28 @@ else
             </p>
         </div>
         <div class="page-header-actions">
+            @* What order to read the items in. Offered whatever the list looks like: a single long
+               list is exactly where reading it off alphabetically helps. *@
+            <label class="list-sort">
+                @T["Sort"]
+                <select value="@_reading.Order" @onchange="OnOrderChanged">
+                    <option value="@nameof(ChecklistOrder.AsArranged)">@T["In list order"]</option>
+                    <option value="@nameof(ChecklistOrder.Alphabetical)">@T["A to Z"]</option>
+                    <option value="@nameof(ChecklistOrder.UndoneFirst)">@T["Left to do first"]</option>
+                </select>
+            </label>
             @* Only for a tree deep enough to be worth flattening. A group whose members are plain lists
                already reads as one page with headings; the choice is what a nested one needs. *@
             @if (HasNestedLists)
             {
-                <button type="button" class="btn-secondary" @onclick="ToggleViewAsync">
-                    @(_view == ChecklistView.Flat ? T["Show the lists"] : T["Show single items"])
-                </button>
-                <button type="button" class="btn-secondary" disabled="@(_savedView == _view)" @onclick="SaveViewAsync">
-                    @(_savedView == _view ? T["View saved"] : T["Save view"])
+                <button type="button" class="btn-secondary" @onclick="ToggleView">
+                    @(_reading.View == ChecklistView.Flat ? T["Show the lists"] : T["Show single items"])
                 </button>
             }
+            <button type="button" class="btn-secondary" disabled="@(_savedReading == _reading)" @onclick="SaveViewAsync">
+                @(_savedReading == _reading ? T["View saved"] : T["Save view"])
+            </button>
             <button type="button" class="btn-secondary" @onclick="GoToDeepEditor">@T["Edit"]</button>
-            <button type="button" class="btn-secondary" @onclick="GoToTaskLists">@T["Back"]</button>
             @* The things this list can do that are not "tick something off" - see OverflowMenu. *@
             <OverflowMenu>
                 <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
@@ -84,6 +95,11 @@ else
         <div class="card stock-check-card">
             <div class="card-header">
                 <span class="card-title">@T["Can this be done?"]</span>
+                @* Kept with the view and the order, so a list that is never priced opens without the
+                   panel rather than with it every time. *@
+                <button type="button" class="btn-secondary" @onclick="ToggleStockCheckHidden">
+                    @(_reading.IsStockCheckHidden ? T["Show"] : T["Hide"])
+                </button>
                 <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync">
                     <option value="">@T["Not measured against a warehouse"]</option>
                     @foreach (var warehouse in _warehouses)
@@ -93,7 +109,7 @@ else
                 </select>
             </div>
 
-            @if (_stockCheck is { } stockCheck)
+            @if (_stockCheck is { } stockCheck && !_reading.IsStockCheckHidden)
             {
                 <p class="options-subtext">
                     @if (stockCheck.IsAchievable)
@@ -143,17 +159,17 @@ else
         </div>
     }
 
-    @if (_view == ChecklistView.Flat)
+    @if (_reading.View == ChecklistView.Flat)
     {
         @* Every piece of actual work in the tree, in the order the lists come in, with the rows that
            only point at another list left out - those are how the tree is held together, not something
            to tick. *@
         <div class="card checklist-card">
-            @if (_flatItems.Count == 0)
+            @if (FlatItemsToShow.Count == 0)
             {
                 <p class="checklist-empty">@T["No items."]</p>
             }
-            @foreach (var entry in _flatItems)
+            @foreach (var entry in FlatItemsToShow)
             {
                 <label class="check-row @(entry.Item.IsCompleted ? "completed" : "")">
                     <input type="checkbox" checked="@entry.Item.IsCompleted"
@@ -189,7 +205,7 @@ else
             }
             else
             {
-                @foreach (var item in section.TaskList.Items)
+                @foreach (var item in ItemsToShow(section.TaskList))
                 {
                     <label class="check-row @(item.IsCompleted ? "completed" : "")">
                         <input type="checkbox" checked="@item.IsCompleted"
@@ -233,11 +249,11 @@ else
     private IReadOnlyList<ChecklistSection> _sections = [];
 
     /// <summary>
-    /// Which way this list is being read right now, and which way it was saved to open. They differ
-    /// while somebody is trying the other view without having kept it.
+    /// How this list is being read right now, and how it was saved to open. They differ while somebody
+    /// is trying another view or order without having kept it.
     /// </summary>
-    private ChecklistView _view = ChecklistView.Tree;
-    private ChecklistView? _savedView;
+    private ChecklistReading _reading = ChecklistReading.Default;
+    private ChecklistReading? _savedReading;
 
     /// <summary>The warehouses this reader could measure against, and which one is chosen.</summary>
     private IReadOnlyList<WarehouseDto> _warehouses = [];
@@ -297,13 +313,10 @@ else
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         _sections = BuildSections();
         await LoadStockCheckAsync();
-        // Only asked for once the sections are built: a list with nothing nested in it has no second
-        // view to open in, whatever was saved for it before.
-        if (HasNestedLists)
-        {
-            _savedView = await ChecklistViewPreference.GetAsync(Id);
-            _view = _savedView ?? ChecklistView.Tree;
-        }
+        // Only asked for once the sections are built, since whether the saved view still applies
+        // depends on what this list turned out to hold.
+        _savedReading = WhatStillApplies(await ChecklistViewPreference.GetAsync(Id));
+        _reading = _savedReading ?? ChecklistReading.Default;
 
         _isLoading = false;
     }
@@ -379,6 +392,11 @@ else
     private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, bool isCompleted)
     {
         _errorMessage = null;
+        if (isCompleted && await AskedToFinishTheWholeRestockAsync(taskList, item))
+        {
+            return;
+        }
+
         var toggledIndex = taskList.Items.ToList().IndexOf(item);
         var items = taskList.Items
             .Select((existingItem, index) => new TaskItemRequest(
@@ -542,6 +560,48 @@ else
     }
 
     /// <summary>Asks the question again - the shelf moves without this page hearing about it.</summary>
+    /// <summary>
+    /// Crossing off "Update stock levels" while errands are still open on the same list is either the
+    /// end of a round of restocking or a tick on one reminder. Only the reader knows which, so they are
+    /// asked - and answering yes finishes the rest and brings the shelf up to its minimums in one go.
+    /// Answers whether it handled the tick, so the ordinary save is skipped when it did.
+    /// </summary>
+    private async Task<bool> AskedToFinishTheWholeRestockAsync(TaskDto taskList, TaskItemDto item)
+    {
+        if (item.Description != RestockTaskNaming.UpdateStockReminderDescription
+            || !taskList.Items.Any(other => other.Id != item.Id && !other.IsCompleted))
+        {
+            return false;
+        }
+
+        if (!await JSRuntime.InvokeAsync<bool>(
+                "confirm", T["Finish this list and set every item in the warehouse to its minimum?"]))
+        {
+            return false;
+        }
+
+        try
+        {
+            var toppedUp = await TasksApiClient.FinishRestockingAsync(taskList.Id);
+            Logger.LogInformation(
+                "User finished restocking from task list {TaskListId}, topping up {ToppedUpCount} items", taskList.Id, toppedUp);
+            _shortfallMessage = T.Format("{0} brought up to their minimum.", toppedUp);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to finish restocking from task list {TaskListId}", taskList.Id);
+            _errorMessage = T["Couldn't finish the restocking. Try again."];
+            return true;
+        }
+
+        await LoadAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Reads the warehouse again and crosses off the work it turns out to cover, then redraws both the
+    /// panel and the lists - the point of asking is to have the answer applied, not just shown.
+    /// </summary>
     private async Task RecalculateAsync()
     {
         _isWorkingOnInventory = true;
@@ -549,11 +609,18 @@ else
         Logger.LogInformation("User recalculated the stock check for task list {TaskListId}", Id);
         try
         {
+            var completed = await TasksApiClient.CompleteWorkCoveredByStockAsync(Id);
+            _shortfallMessage = completed > 0
+                ? T.Format("{0} crossed off, because the warehouse covers them.", completed)
+                : T["Nothing new is covered by the warehouse."];
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
             _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to recalculate the stock check for task list {TaskListId}", Id);
+            _errorMessage = T["Couldn't recalculate against the warehouse. Try again."];
         }
         finally
         {
@@ -561,18 +628,72 @@ else
         }
     }
 
-    private async Task ToggleViewAsync()
+    private void ToggleView()
     {
-        _view = _view == ChecklistView.Flat ? ChecklistView.Tree : ChecklistView.Flat;
-        Logger.LogInformation("User switched the checklist to the {View} view", _view);
-        await Task.CompletedTask;
+        _reading = _reading with { View = _reading.View == ChecklistView.Flat ? ChecklistView.Tree : ChecklistView.Flat };
+        Logger.LogInformation("User switched the checklist to the {View} view", _reading.View);
+    }
+
+    /// <summary>
+    /// Puts the panel that prices this list against a warehouse out of the way, or brings it back. Kept
+    /// with the rest of how this list reads, so "Save view" keeps it too.
+    /// </summary>
+    private void ToggleStockCheckHidden()
+    {
+        _reading = _reading with { IsStockCheckHidden = !_reading.IsStockCheckHidden };
+        Logger.LogInformation(
+            "User {Action} the stock check on task list {TaskListId}", _reading.IsStockCheckHidden ? "hid" : "showed", Id);
+    }
+
+    private void OnOrderChanged(ChangeEventArgs args)
+    {
+        _reading = _reading with
+        {
+            Order = Enum.TryParse<ChecklistOrder>(args.Value?.ToString(), out var order) ? order : ChecklistOrder.AsArranged
+        };
     }
 
     /// <summary>Keeps the way this list is being read now as the way it opens next time - on this device.</summary>
     private async Task SaveViewAsync()
     {
-        Logger.LogInformation("User saved the {View} view as the default for task list {TaskListId}", _view, Id);
-        await ChecklistViewPreference.SaveAsync(Id, _view);
-        _savedView = _view;
+        Logger.LogInformation(
+            "User saved the {View} view in {Order} order as the default for task list {TaskListId}",
+            _reading.View, _reading.Order, Id);
+        await ChecklistViewPreference.SaveAsync(Id, _reading);
+        _savedReading = _reading;
     }
+
+    /// <summary>
+    /// A saved reading, with the flat view dropped when there is no longer anything to flatten: a list
+    /// can lose the nesting it was saved flat for, and would otherwise open in a view it can't offer.
+    /// </summary>
+    private ChecklistReading? WhatStillApplies(ChecklistReading? saved)
+        => saved is null || HasNestedLists ? saved : saved with { View = ChecklistView.Tree };
+
+    /// <summary>
+    /// One list's items the way this reader asked for them. Alphabetical is by what each item says,
+    /// which is how a shopping list gets read off in a shop; as arranged is the order the list was
+    /// written in, which is what dragging items about in the editor sets.
+    /// </summary>
+    private IReadOnlyList<TaskItemDto> ItemsToShow(TaskDto taskList) => _reading.Order switch
+    {
+        ChecklistOrder.Alphabetical => [.. taskList.Items.OrderBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        ChecklistOrder.UndoneFirst => [.. taskList.Items
+            .OrderBy(item => item.IsCompleted)
+            .ThenBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        _ => taskList.Items
+    };
+
+    /// <summary>
+    /// The flat view's items in the chosen order. Alphabetical runs across the whole tree here rather
+    /// than list by list: the headings are gone in this view, so a list-by-list sort would look random.
+    /// </summary>
+    private IReadOnlyList<FlatChecklistEntry> FlatItemsToShow => _reading.Order switch
+    {
+        ChecklistOrder.Alphabetical => [.. _flatItems.OrderBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        ChecklistOrder.UndoneFirst => [.. _flatItems
+            .OrderBy(entry => entry.Item.IsCompleted)
+            .ThenBy(entry => entry.Item.Description, StringComparer.CurrentCultureIgnoreCase)],
+        _ => _flatItems
+    };
 }

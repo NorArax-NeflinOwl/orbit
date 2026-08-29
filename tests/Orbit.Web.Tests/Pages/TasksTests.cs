@@ -236,6 +236,18 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     [Fact]
+    public void The_pin_sits_where_the_rest_of_the_app_puts_it()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", "Normal", "New", DateTimeOffset.UtcNow)]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // Top right of the card, beside the count - the same corner a note and a dashboard card use.
+        Assert.Single(cut.FindAll(".card-header .card-header-end .pin-button"));
+        Assert.Empty(cut.FindAll(".card-actions .pin-button"));
+    }
+
+    [Fact]
     public void A_list_you_only_hold_a_share_of_offers_no_pin()
     {
         // Pinning moves the card on its owner's page, so a recipient pinning it would be rearranging
