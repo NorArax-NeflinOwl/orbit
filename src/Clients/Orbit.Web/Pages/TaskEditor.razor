@@ -205,6 +205,9 @@ else
                                 <label>@T["Location"]<InputText @bind-Value="item.Location"
                                                                 placeholder="@(T["Where this happens"])" />
                                 </label>
+                                @* Typing an address is one way; pointing at it is the other, and the
+                                   one that works when nobody knows what the street is called. *@
+                                <button type="button" class="btn-secondary" @onclick="() => OpenTheMapFor(item)">@T["Show map"]</button>
                             }
                             else
                             {
@@ -329,6 +332,11 @@ else
             <p class="info">@_shareInfoMessage</p>
         }
     }
+}
+
+@if (_itemBeingPlacedOnTheMap is { } itemOnTheMap)
+{
+    <LocationPickerOverlay Address="@itemOnTheMap.Location" OnPicked="UseThePickedPlace" OnCancelled="CloseTheMap" />
 }
 
 @code {
@@ -567,6 +575,25 @@ else
     /// has to be filled before anybody opens an entry rather than after.
     /// </summary>
     private IReadOnlyList<CalendarEventDto> _linkableEvents = [];
+
+    /// <summary>The entry whose place is being pointed at on the map, while one is - see LocationPickerOverlay.</summary>
+    private TaskItemFormModel? _itemBeingPlacedOnTheMap;
+
+    private void OpenTheMapFor(TaskItemFormModel item) => _itemBeingPlacedOnTheMap = item;
+
+    /// <summary>The pin was confirmed, so its address replaces whatever the box held.</summary>
+    private void UseThePickedPlace(string address)
+    {
+        if (_itemBeingPlacedOnTheMap is { } item)
+        {
+            Logger.LogInformation("User set an entry's location from the map");
+            item.Location = address;
+        }
+
+        _itemBeingPlacedOnTheMap = null;
+    }
+
+    private void CloseTheMap() => _itemBeingPlacedOnTheMap = null;
 
     /// <summary>
     /// Where the event an entry is tied to happens, for the line that stands in for the location box.

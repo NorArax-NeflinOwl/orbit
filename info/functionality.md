@@ -535,6 +535,15 @@ be and stores nothing for it, including one changed back from a calendar entry. 
 validated — an event deleted afterwards leaves it pointing at nothing, which reads as "no event", the
 same way a link to a deleted task list reads as "not completed".
 
+An entry's own location can be typed or pointed at: **Show map** opens `LocationPickerOverlay` over the
+page — a map (Leaflet, via the same `mapPicker.js` the calendar's event editor drives) that takes a pin
+and reverse-geocodes it into an address. Over the page because a map needs room and an editor row has
+none. Nothing is written back until the pin is confirmed: the overlay asks "Use this place?" with the
+address it found, and only a yes replaces what the box held — a stray click on a map must not silently
+rewrite an address somebody typed. The map opens where the box already points, when that address can be
+found (`GeocodingApiClient.FindPlaceAsync`). Only the address is stored; the item keeps no coordinates,
+which is why the pin has to become words before it is worth anything.
+
 In the Blazor client, each item's due date and time are edited separately (`DateField` plus `TimeField`)
 and combined into one timestamp on save; a date picked without a time is stored as midnight. Both are
 Orbit's own boxes rather than the browser's `<input type="date">`/`<input type="time">`, which draw
@@ -558,6 +567,15 @@ gone. The Blazor client's task list page asks for confirmation before calling th
 few of its rows. A row that only points at another list is followed — the first few items of the list it
 points at are drawn under it — so a group list's card says something about the work rather than being a
 stack of titles.
+
+A list one row over the preview limit is drawn in full: "and 1 more…" takes exactly the room the row it
+stands for would have taken, so hiding that row saves nothing and costs the reader the one thing it was
+hiding (`RowsToShow`). Two over, and the summary line starts earning its place.
+
+A card can be folded down to its heading, one row and its buttons. That one row is what is still to be
+done, and a row that only points at another list is not work itself — so what it stands for is looked up
+on the list it points at, and shown with that list's name beside it. A group's card is nothing but such
+rows, and used to fold down to "Nothing left to do." with every one of its members' errands still open.
 
 Chips narrow the page to a status, or to **Shared**, which is about where a list came from rather than
 how far along it is; "All" is a chip like the rest, so there is always exactly one answer to what is on
