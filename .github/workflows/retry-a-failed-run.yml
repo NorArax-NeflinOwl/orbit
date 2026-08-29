@@ -1,0 +1,60 @@
+# Re-runs the failed jobs of a run once, when what failed was the runner rather than Orbit.
+#
+# Two deploys in one afternoon were lost to things that had nothing to do with the code: an apt source
+# on the runner image answering 403, and Chrome abandoning downloads mid-flight because Docker was
+# still bringing a container's network up. Both were fixed where they happened, and both would have
+# passed on a second attempt - somebody just had to be watching to press the button. This presses it.
+#
+# It is deliberately not a general "retry everything until it works":
+#
+#   - Once. The guard is run_attempt, so the retry's own failure is final and a broken build still goes
+#     red, a few minutes later than it would have.
+#   - Never over a red suite. A test that failed is a fact about the code, and running it again is how
+#     a flaky test gets to stay flaky. Only a run whose `test` job passed is retried.
+#   - Only the jobs that failed, so a green suite is not paid for twice.
+name: Retry a run that failed on the runner
+
+on:
+  workflow_run:
+    workflows:
+      - Build, test and deploy Orbit to Azure Container Apps
+      - Release the Android app
+    types:
+      - completed
+
+permissions:
+  actions: write   # re-running a workflow run is a write to Actions
+
+jobs:
+  retry:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.run_attempt == 1
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      RUN_NAME: ${{ github.event.workflow_run.name }}
+    steps:
+      - name: Retry unless the suite is what failed
+        run: |
+          FAILED=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID/jobs" \
+            --jq '.jobs[] | select(.conclusion == "failure") | .name')
+
+          if [ -z "$FAILED" ]; then
+            echo "::notice::$RUN_NAME failed with no failed job to re-run - cancelled, or a startup failure. Leaving it."
+            exit 0
+          fi
+
+          echo "Failed jobs in $RUN_NAME: $(echo "$FAILED" | tr '\n' ' ')"
+
+          # The suite is the one job whose failure is never the runner's fault, and retrying it is how a
+          # flaky test survives. Everything else - a registry that refused a push, an apt mirror, a
+          # browser that lost its connection - is worth one more attempt.
+          if echo "$FAILED" | grep -qx "test"; then
+            echo "::notice::The suite failed, which is a fact about the code rather than a hiccup. Not retrying."
+            exit 0
+          fi
+
+          gh run rerun "$RUN_ID" --failed
+          echo "::notice::Retrying the failed jobs of $RUN_NAME once. If they fail again, that is the answer."
