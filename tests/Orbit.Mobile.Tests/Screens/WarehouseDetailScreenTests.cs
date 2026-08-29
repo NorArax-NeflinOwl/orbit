@@ -170,6 +170,29 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
+    /// What a MAUI Picker does that no test did: emptying its ItemsSource clears its selection, and the
+    /// binding writes that null back here. Every reload empties both pickers before refilling them, so
+    /// the null arrived on the way to redrawing the shelf - and the filter, holding it, dereferenced it.
+    /// Adding one item to a warehouse was enough to kill the app.
+    /// </summary>
+    [Fact]
+    public async Task A_picker_that_clears_its_own_selection_does_not_take_the_screen_down()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.ChosenCategory = null;
+        screen.NewItemName = "Tea";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        // Nothing narrowed by a selection nobody made: the whole shelf, the new row included.
+        Assert.False(screen.IsNarrowed);
+        Assert.Equal(2, screen.Items.Count);
+    }
+
+    /// <summary>
     /// The unit is the phone's to set, not just to pass along - a shelf counted in kilograms is stocked
     /// from the phone as often as from the browser.
     /// </summary>

@@ -82,11 +82,17 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     public ObservableCollection<string> Categories { get; } = [];
 
+    /// <summary>
+    /// Nullable because the platform makes it so: emptying a bound Picker's items sets its selection to
+    /// nothing, and the binding writes that null back here - which happens on every reload, before the
+    /// options are put back. See <see cref="ShowWhatIsOnTheShelf"/>.
+    /// </summary>
     [ObservableProperty]
-    private string _chosenProductType;
+    private string? _chosenProductType;
 
+    /// <inheritdoc cref="ChosenProductType"/>
     [ObservableProperty]
-    private string _chosenCategory;
+    private string? _chosenCategory;
 
     /// <summary>Hidden while there is nothing to narrow - an empty shelf, or one filed under nothing.</summary>
     public bool CanNarrow => ProductTypes.Count > 1 || Categories.Count > 1;
@@ -299,12 +305,12 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Offer(ProductTypes, _anyProductType, item => item.ProductType);
         Offer(Categories, _anyCategory, item => item.Category);
 
-        if (!ProductTypes.Contains(ChosenProductType))
+        if (ChosenProductType is not { } productType || !ProductTypes.Contains(productType))
         {
             ChosenProductType = _anyProductType;
         }
 
-        if (!Categories.Contains(ChosenCategory))
+        if (ChosenCategory is not { } category || !Categories.Contains(category))
         {
             ChosenCategory = _anyCategory;
         }
@@ -342,17 +348,24 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(EmptyMessage));
     }
 
-    partial void OnChosenProductTypeChanged(string value)
+    partial void OnChosenProductTypeChanged(string? value)
     {
-        _filter.ProductType = value == _anyProductType ? string.Empty : value;
+        _filter.ProductType = Narrowing(value, _anyProductType);
         ShowMatchingRows();
     }
 
-    partial void OnChosenCategoryChanged(string value)
+    partial void OnChosenCategoryChanged(string? value)
     {
-        _filter.Category = value == _anyCategory ? string.Empty : value;
+        _filter.Category = Narrowing(value, _anyCategory);
         ShowMatchingRows();
     }
+
+    /// <summary>
+    /// What a chosen option narrows the shelf by - nothing, for the "any" entry and for the null a
+    /// cleared Picker writes back. Both mean "not narrowed"; only one of them is a person choosing.
+    /// </summary>
+    private static string Narrowing(string? chosen, string forAny)
+        => chosen is null || chosen == forAny ? string.Empty : chosen;
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {
