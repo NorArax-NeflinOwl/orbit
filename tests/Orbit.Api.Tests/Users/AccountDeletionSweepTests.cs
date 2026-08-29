@@ -1,6 +1,8 @@
 using System.Reflection;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Chat.Groups;
+using Orbit.Core.Sync;
 using Orbit.Core.Permissions;
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Data;
@@ -99,7 +101,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
         nameof(NoteEntity), nameof(TaskEntity), nameof(CalendarEventEntity), nameof(WarehouseEntity),
         nameof(RefreshTokenEntity), nameof(PushSubscriptionEntity), nameof(NotificationSettingsEntity),
         nameof(NotificationEntryEntity), nameof(UserVerificationCodeEntity), nameof(ChatGroupMemberEntity),
-        nameof(UserPermissionEntity)
+        nameof(DiagnosticLogEntryEntity), nameof(SyncTombstoneEntity), nameof(UserPermissionEntity)
     ];
 
     private async Task SeedEverythingOwnedByAsync(Guid userId)
@@ -119,6 +121,8 @@ public sealed class AccountDeletionSweepTests : IDisposable
         var groupId = Guid.NewGuid();
         _dbContext.ChatGroups.Add(new ChatGroupEntity { Id = groupId, Name = "Team", CreatedByUserId = userId, CreatedAtUtc = now });
         _dbContext.ChatGroupMembers.Add(new ChatGroupMemberEntity { Id = Guid.NewGuid(), GroupId = groupId, UserId = userId, Role = nameof(ChatGroupRole.Member), JoinedAtUtc = now });
+        _dbContext.DiagnosticLogEntries.Add(new DiagnosticLogEntryEntity { Id = Guid.NewGuid(), UserId = userId, ReceivedAtUtc = now, TimestampUtc = now, Level = "Error", Message = "Something went wrong" });
+        _dbContext.SyncTombstones.Add(new SyncTombstoneEntity { Id = Guid.NewGuid(), UserId = userId, EntityType = SyncEntityType.Note, EntityId = Guid.NewGuid(), DeletedAtUtc = now });
         await _dbContext.SaveChangesAsync();
     }
 
@@ -134,6 +138,8 @@ public sealed class AccountDeletionSweepTests : IDisposable
         (nameof(_dbContext.NotificationEntries), await _dbContext.NotificationEntries.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.UserPermissions), await _dbContext.UserPermissions.CountAsync(row => row.UserId == userId)),
         (nameof(_dbContext.UserVerificationCodes), await _dbContext.UserVerificationCodes.CountAsync(row => row.UserId == userId)),
-        (nameof(_dbContext.ChatGroupMembers), await _dbContext.ChatGroupMembers.CountAsync(row => row.UserId == userId))
+        (nameof(_dbContext.ChatGroupMembers), await _dbContext.ChatGroupMembers.CountAsync(row => row.UserId == userId)),
+        (nameof(_dbContext.DiagnosticLogEntries), await _dbContext.DiagnosticLogEntries.CountAsync(row => row.UserId == userId)),
+        (nameof(_dbContext.SyncTombstones), await _dbContext.SyncTombstones.CountAsync(row => row.UserId == userId))
     ];
 }

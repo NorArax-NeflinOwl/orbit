@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Notes.NotesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
+    x:DataType="screens:NotesViewModel"
+    Title="{controls:Translate 'Notes'}">
+
+    <ContentPage.Resources>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Padding="20" RowSpacing="10">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="10">
+            <controls:PageHeader Title="{controls:Translate 'Notes'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Everything you have written down, and anything shared with you." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0"
+                       Placeholder="{controls:Translate 'New note'}"
+                       Text="{Binding NewNoteTitle}"
+                       ReturnType="Done"
+                       ReturnCommand="{Binding AddNoteCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddNoteCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Notes}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
+
+                <CollectionView.EmptyView>
+                    <Label Text="{controls:Translate 'No notes yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="screens:NoteListItem">
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <!-- The pin sits beside the title as it does on the web. Filled when it is
+                                 set, outlined when it is not, so the row says which it is without a
+                                 word - and absent on a note somebody else owns, whose order is theirs. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold"
+                                       VerticalOptions="Center" />
+                                <controls:PinButton Grid.Column="1" IsVisible="{Binding CanBePinned}"
+                                                    IsPinned="{Binding IsPinned}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=notes:NotesPage}"
+                                                    CommandParameter="{Binding .}" />
+                            </Grid>
+
+                            <!-- A hidden row keeps its place - a note vanishing from the list would look
+                                 like it had been deleted - but says nothing about itself until unlocked. -->
+                            <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}" FontSize="12" Padding="12,2"
+                                    HorizontalOptions="Start" Style="{StaticResource LinkButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=notes:NotesPage}" />
+
+                            <Label Text="{Binding Updated}"
+                                   IsVisible="{Binding CanBeOpened}"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <!-- Why a note is waiting, or why it cannot be edited right now. -->
+                            <Label Text="{Binding Status}"
+                                   IsVisible="{Binding HasStatus}"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <BoxView HeightRequest="1" Margin="0,12,0,0"
+                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+
+    </Grid>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

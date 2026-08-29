@@ -19,7 +19,8 @@ public sealed class SubscribeToPushCommandHandler : IRequestHandler<SubscribeToP
     /// </summary>
     public async Task<bool> HandleAsync(SubscribeToPushCommand request, CancellationToken cancellationToken)
     {
-        var subscription = PushSubscription.Create(request.UserId, request.Endpoint, request.P256dhBase64, request.AuthBase64);
+        var subscription = PushSubscription.CreateForBrowser(
+            request.UserId, new WebPushRegistration(request.Endpoint, request.P256dhBase64, request.AuthBase64));
         await _pushSubscriptionRepository.AddOrReplaceAsync(subscription, cancellationToken);
         return true;
     }

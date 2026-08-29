@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Chat.GroupDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
+    x:DataType="screens:GroupDetailViewModel"
+    Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12">
+
+        <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
+        <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Members}" IsVisible="{Binding IsNotAdding}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="screens:GroupMemberRow">
+                    <VerticalStackLayout Padding="0,10" Spacing="2">
+                        <Label Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold" />
+                        <Label Text="{Binding Description}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                        <!-- Only an admin is offered any of this; the server decides for certain. -->
+                        <HorizontalStackLayout Spacing="16">
+                            <Button Text="{controls:Translate 'Make admin'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" IsVisible="{Binding CanBePromoted}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.PromoteCommand, x:DataType=chat:GroupDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                            <Button Text="{controls:Translate 'Remove admin'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" IsVisible="{Binding CanBeDemoted}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.DemoteCommand, x:DataType=chat:GroupDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                            <Button Text="{controls:Translate 'Remove'}" FontSize="12" Padding="10,2" BackgroundColor="Transparent"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" IsVisible="{Binding CanBeRemoved}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveCommand, x:DataType=chat:GroupDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Choosing who to add replaces the list, so the checkboxes are not competing with it. -->
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Candidates}" IsVisible="{Binding IsAdding}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="screens:SelectableContact">
+                    <Grid ColumnDefinitions="Auto,*" Padding="0,8" ColumnSpacing="8">
+                        <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" />
+                        <Label Grid.Column="1" Text="{Binding DisplayName}" VerticalOptions="Center" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Button Grid.Row="3" Text="{controls:Translate 'Add someone'}" Command="{Binding StartAddingCommand}"
+                IsVisible="{Binding CanOfferAdding}" />
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsAdding}">
+            <Button Grid.Column="0" Text="{controls:Translate 'Add'}" Command="{Binding AddSelectedCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Cancel'}" Command="{Binding CancelAddingCommand}"
+                    Style="{StaticResource LinkButton}" />
+        </Grid>
+
+        <Button Grid.Row="4" Text="{controls:Translate 'Back to groups'}" Command="{Binding GoBackCommand}"
+                Style="{StaticResource LinkButton}" />
+
+    </Grid>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Authentication.SignInPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Authentication;assembly=Orbit.Mobile"
+    x:DataType="screens:SignInViewModel"
+    Title="{controls:Translate 'Sign in'}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="32" Spacing="20" VerticalOptions="Center">
+
+            <controls:OrbitMark MarkSize="80" HorizontalOptions="Center" />
+
+            <Label Text="{controls:Translate 'Orbit'}" FontSize="40" FontAttributes="Bold" HorizontalOptions="Center" />
+
+            <Entry Placeholder="{controls:Translate 'Email or login'}"
+                   Text="{Binding EmailOrUserName}"
+                   Keyboard="Email"
+                   IsSpellCheckEnabled="False"
+                   ReturnType="Next" />
+
+            <Entry Placeholder="{controls:Translate 'Password'}"
+                   Text="{Binding Password}"
+                   IsPassword="True"
+                   ReturnType="Go"
+                   ReturnCommand="{Binding SignInCommand}" />
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
+                   LineBreakMode="WordWrap" />
+
+            <Button Text="{controls:Translate 'Sign in'}" Command="{Binding SignInCommand}" />
+
+            <!-- Absent rather than disabled where the deployment has no Google client id for this app:
+                 there is nothing behind the button then, and offering one would only ever waste a tap.
+                 Below the password sign-in and not above it, as on the web's login page. -->
+            <Label Text="{controls:Translate 'or'}" IsVisible="{Binding IsGoogleOffered}"
+                   HorizontalOptions="Center" FontSize="12" Style="{StaticResource SubtleLabel}" />
+
+            <Button Text="{controls:Translate 'Continue with Google'}"
+                    IsVisible="{Binding IsGoogleOffered}"
+                    Command="{Binding SignInWithGoogleCommand}"
+                    Style="{StaticResource SecondaryButton}" />
+
+            <Button Text="{controls:Translate 'Create an account'}"
+                    Command="{Binding GoToRegisterCommand}"
+                    Style="{StaticResource LinkButton}" />
+
+            <ActivityIndicator IsRunning="{Binding SignInCommand.IsRunning}"
+                               IsVisible="{Binding SignInCommand.IsRunning}"
+                               HorizontalOptions="Center" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

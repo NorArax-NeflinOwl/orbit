@@ -253,11 +253,11 @@ public sealed class ArchiveRoundTripTests
                     _noteRepository, _taskRepository, _calendarEventRepository, _warehouseRepository, _inventoryRepository)
                 .HandleAsync(new ImportArchiveCommand(UserId, archive), CancellationToken.None);
 
-        public Task<IReadOnlyList<Note>> OwnNotesAsync() => _noteRepository.GetAllAsync(UserId, CancellationToken.None);
+        public Task<IReadOnlyList<Note>> OwnNotesAsync() => _noteRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
-        public Task<IReadOnlyList<TaskList>> OwnTaskListsAsync() => _taskRepository.GetAllAsync(UserId, CancellationToken.None);
+        public Task<IReadOnlyList<TaskList>> OwnTaskListsAsync() => _taskRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
-        public Task<IReadOnlyList<Warehouse>> OwnWarehousesAsync() => _warehouseRepository.GetAllAsync(UserId, CancellationToken.None);
+        public Task<IReadOnlyList<Warehouse>> OwnWarehousesAsync() => _warehouseRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
         public Task<IReadOnlyList<InventoryItem>> ItemsInAsync(Guid warehouseId)
             => _inventoryRepository.GetAllAsync(warehouseId, CancellationToken.None);

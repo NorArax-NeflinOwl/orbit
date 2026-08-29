@@ -65,6 +65,18 @@ public sealed class NoteShareRepository : INoteShareRepository
         return entities.Select(ToDomain).ToList();
     }
 
+    public async Task<IReadOnlySet<Guid>> GetSharedOutNoteIdsAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        var noteIds = await _dbContext.NoteShares
+            .AsNoTracking()
+            .Where(share => share.OwnerUserId == ownerUserId && share.AcceptedAtUtc != null)
+            .Select(share => share.SourceNoteId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return noteIds.ToHashSet();
+    }
+
     private static NoteShare ToDomain(NoteShareEntity entity)
         => NoteShare.FromPersistence(
             entity.Id, entity.SourceNoteId, entity.OwnerUserId, entity.RecipientUserId,

@@ -39,7 +39,7 @@ public sealed class ReconcileTaskListWithStockCommandHandler : IRequestHandler<R
             return StockReconciliation.Nothing;
         }
 
-        var reachable = await _taskRepository.GetAllAsync(request.UserId, cancellationToken);
+        var reachable = await _taskRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var tree = LinkedTaskListTree.Flatten(taskList, reachable);
         var stock = await _inventoryRepository.GetAllAsync(warehouseId, cancellationToken);
 

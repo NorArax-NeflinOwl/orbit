@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Notes.NoteDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
+    x:DataType="screens:NoteDetailViewModel"
+    Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+
+        <!-- The title is the note's own, so it is edited in place rather than shown twice. -->
+        <Entry Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
+               Placeholder="{controls:Translate 'Untitled'}"
+               ReturnType="Done" ReturnCommand="{Binding RenameCommand}" />
+
+        <Label Grid.Row="1" Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
+               FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+        <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+               FontSize="12" LineBreakMode="WordWrap"
+               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+
+        <VerticalStackLayout Grid.Row="3" Spacing="8" IsVisible="{Binding CanEdit}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0" Placeholder="{controls:Translate 'New line'}" Text="{Binding NewLine}"
+                       ReturnType="Done" ReturnCommand="{Binding AddLineCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddLineCommand}" />
+            </Grid>
+            <Button Text="{controls:Translate 'Checklist item'}" HorizontalOptions="Start"
+                    FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding AddChecklistItemCommand}" />
+        </VerticalStackLayout>
+
+        <CollectionView Grid.Row="4" ItemsSource="{Binding Lines}">
+
+            <CollectionView.EmptyView>
+                <Label Text="{controls:Translate 'Nothing written here yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+            </CollectionView.EmptyView>
+
+            <!-- RelativeSource walks the visual tree, so the ancestor named here is the page, whose
+                 BindingContext is the view model - see TaskListDetailPage for the same note. -->
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="screens:NoteLineRow">
+                    <!-- The tick box leads the line, as it does in Orbit.Web's editor, and the line
+                         itself is written in rather than read: it was a label here, so a line could be
+                         written once and never corrected. Everything else a line can have done to it is
+                         behind one "⋯", the way a chat message's options are. -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" Padding="0,4">
+                        <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="36" FontSize="17"
+                                Padding="0" BackgroundColor="Transparent" IsVisible="{Binding IsChecklistItem}"
+                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
+                                CommandParameter="{Binding .}" />
+
+                        <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
+                               BackgroundColor="Transparent" ReturnType="Done"
+                               IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
+                               ReturnCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.SaveLinesCommand, x:DataType=notes:NoteDetailPage}" />
+
+                        <Button Grid.Column="2" Text="⋯" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
+                                IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanEdit, x:DataType=notes:NoteDetailPage}"
+                                TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowLineMenuCommand, x:DataType=notes:NoteDetailPage}"
+                                CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+        </CollectionView>
+
+        <controls:SharePanel Grid.Row="5" BindingContext="{Binding Share}" Margin="0,4" />
+
+        <HorizontalStackLayout Grid.Row="6" Spacing="16">
+            <Button Text="{controls:Translate 'Back to notes'}" Command="{Binding GoBackCommand}"
+                    Style="{StaticResource LinkButton}" />
+            <Button Text="{controls:Translate 'Delete note'}" Command="{Binding DeleteCommand}"
+                    IsVisible="{Binding CanEdit}" Style="{StaticResource DestructiveButton}" />
+        </HorizontalStackLayout>
+
+    </Grid>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

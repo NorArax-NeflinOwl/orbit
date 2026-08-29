@@ -12,7 +12,8 @@ twelve route groups, all of which the mobile client is expected to consume. See
 [Current Status](current-status.md) for what "every feature" currently means.
 
 **Settled so far:** the name (`Orbit.Maui`, reusing the folder already reserved for it), the framework
-(§1), and that the app works offline (§5). Still open: §12.
+(§1), that the app works offline (§5), and that offline editing is **restrictive** — only items nobody
+else can change (§5.4). Still open: §12.
 
 ## 1. Framework: .NET MAUI
 
@@ -201,6 +202,37 @@ restoring the password-wrapped backup at sign-in — which means **sign-in must 
 and a Google-only account (no password set) therefore cannot read chat on a new device until it sets
 one. Orbit.Web already handles this exact case; the mobile client must too, not discover it late.
 
+**Built, following Orbit.Web's shape deliberately.** `OwnEncryptionKeyProvider` mirrors the web client's
+split: `EnsurePublicKeyAsync`/`OpenAsync` never create or restore anything, and only
+`UnlockOrCreateAsync` — called right after signing in or registering, while the plaintext password
+exists — may. A password change re-wraps the backup through `RewrapAsync`, without which the backup
+stays readable only under the old password and the next device silently starts a fresh key, losing every
+earlier message.
+
+**Two deliberate departures from the web client**, both the same principle: never replace a key unless
+the server has confirmed there is nothing to replace.
+
+1. Orbit.Web treats a *failed* backup lookup as "no backup exists" and generates a fresh key, so a
+   browser is never locked out of chat. On a phone, losing the network mid-sign-in is ordinary rather
+   than rare, and the same rule would discard the user's real key for the length of a tunnel. The API
+   already distinguishes the two — it answers 204 for "no backup", deliberately, rather than 404 — so
+   the mobile client acts only on that answer, and a lookup it could not make leaves chat locked.
+   Locked is recoverable; generated is not.
+2. Likewise when a backup exists but the password does not open it, which means it was wrapped under an
+   older password. The key inside is still the account's real one.
+
+**The gate is built too.** `ChatKeyGatePage` mirrors the web's `ChatPasswordGate`, keeping the same
+three situations in one place because they differ only in which secret unlocks the key: a Google account
+with no password sets one, a known password on a new device restores the backup, and a forgotten
+password resets by email code.
+
+The reset path is where the two departures above have to be answered rather than merely stated. Orbit.Web
+gets a working reset for free, because it generates a fresh key whenever a backup will not open; the
+mobile provider refuses that by default, so a reset would otherwise leave chat locked forever - the old
+backup can never be opened by anyone again, including its owner. So the gate calls
+`ReplaceAfterPasswordResetAsync` explicitly. That keeps the rule intact and names it precisely: not
+"never replace a key", but "never replace one without being asked".
+
 ### 4.2 Push notifications: Web Push, APNs, and FCM are three different things
 
 This is the largest server-side change the mobile client forces, and going cross-platform makes it
@@ -230,6 +262,22 @@ Required work, server-side:
 
 None of this is exotic, but it is a schema change plus two integrations, and it should be scoped and
 merged **before** the mobile client needs it rather than alongside.
+
+### 4.2.1 The iOS push failure nothing can detect
+
+FCM reaches iOS through APNs, so iOS delivery depends on an APNs auth key uploaded in the Firebase
+console under **Project settings → Cloud Messaging**. There are two ways it goes wrong and they are not
+alike:
+
+- **No usable key at all.** FCM answers 401 with `THIRD_PARTY_AUTH_ERROR`, which
+  `FirebasePushNotificationSender` now names explicitly instead of reporting as a generic refusal.
+- **A key that is present but wrong for the bundle id.** FCM accepts the send, answers 200, and the
+  message dies at Apple. Nothing on the server observes this - there is no delivery receipt to read.
+
+The second one cannot be turned into a check, so it belongs on the release checklist: after changing the
+bundle id, the Apple team, or the APNs key, send one notification to a real iOS device and confirm it
+arrives. `Firebase__ServiceAccountKeyPath` is verified by the deploy workflow, which catches Firebase
+being unconfigured entirely - but not this.
 
 ### 4.3 Google sign-in accepts exactly one audience
 
@@ -305,13 +353,35 @@ deliberately, not defaulted.
 | Notes, tasks, calendar, inventory — read and edit | Chat history | User search (`/api/users/search`) |
 | Recording your own location | Notification feed | Share links, export/import |
 | Composing chat messages (queued, see §5.5) | Contacts | Viewing others' shared locations |
-| | | Sign-in, account changes, Google linking |
+| | | Sign-in, Google linking |
+| | | **Registering an account** |
+| | | **Changing the username, email address, or password** |
+| | | **Deleting the account** |
 
 Anything requiring a fresh server decision — a share offer, a lock, an account change — stays online.
 
-### 5.3 Pulling changes: the API has no delta, and no tombstones
+**Identity is online-only, and the app says so rather than queueing it.** Registering, and changing the
+username, email address, or password, all go straight to the server and are refused up front when there
+is no connection - `AccountClient` has no queued outcome to return. Each needs a verdict only the server
+can give (is this username free, is this email address already registered, is this the current
+password), and each changes how the user signs in *everywhere*, not only on this phone. A queued
+password change is the clearest failure: it would tell someone their password had changed while the old
+one still worked, possibly for days. Registration goes further - the account is created on the server
+before anything is written locally, so a local account the server has never heard of cannot exist.
 
-Two gaps, both server-side, both blocking real sync:
+Notes can wait in an outbox because nothing outside the phone depends on when they land. An identity
+cannot.
+
+**Deleting an account is online-only, and the app should say so rather than queue it.** It is the one
+action where an outbox would actively mislead: the request is irreversible, it needs the password
+checked against the server, and it has effects the phone cannot carry out on its own — on the server
+side it also takes the account out of its chat groups, promoting a new admin where it was the last one.
+An offline "delete my account" that sits in a queue would leave someone believing their account was
+gone while it was still live, possibly for days. Grey the action out while offline and explain why.
+
+### 5.3 Pulling changes: delta and tombstones (built)
+
+Two gaps stood in the way of real sync, both server-side:
 
 1. **No `since` parameter.** Every collection endpoint returns everything it has; only
    `GET /api/chat/messages/{otherUserId}` accepts `sinceUtc`. The main DTOs already carry
@@ -322,10 +392,13 @@ Two gaps, both server-side, both blocking real sync:
    soft-delete tombstones server-side, or a periodic full reconciliation pull to catch what the delta
    missed. Tombstones are the cleaner answer and the larger change.
 
-Until both exist, "sync" is really "re-download everything periodically", which is workable for a
-first milestone and does not scale with the data.
+**Both now exist.** `GET /api/{notes,tasks,calendar-events,warehouses}/changes?since=` returns what
+changed and what was deleted, and deletions are recorded as tombstones in one table covering every
+entity type — see `Orbit.Core.Sync.SyncTombstone`. The cursor comes back as an ISO-8601 UTC string
+ending in `Z`, safe to drop straight into the next URL, and `since` is inclusive so a change landing
+mid-request is re-sent rather than lost.
 
-### 5.4 Pushing changes, and conflicts
+### 5.4 Pushing changes, and conflicts (built for notes)
 
 Local mutations go into an **outbox** and replay in order when connectivity returns. The conflict
 question is where Orbit's existing design bites.
@@ -336,19 +409,29 @@ server-held, time-limited edit locks with a heartbeat (`LockedByUserId`, `LockEx
 **An offline client cannot hold a lock.** It can only find out at replay time that someone else was
 editing, by which point the user has already done the work.
 
-That leaves a decision worth taking deliberately:
+**Decided: restrictive.** Offline editing is allowed only for items **nobody else can change**;
+anything shared, in either direction, is read-only until connectivity returns. The alternative —
+edit anything and resolve on replay — needs a conflict UI and delivers "your change was rejected
+because someone else was editing" long after the user did the work. Refusing up front is honest and
+surprises nobody.
 
-- **Restrictive:** offline editing only for items nobody else can touch (unshared and private ones),
-  with shared items read-only until connectivity returns. Honest, and never surprises anyone.
-- **Permissive:** edit anything offline, resolve on replay — which means designing a conflict UI, and
-  accepting that "your change was rejected because someone else was editing" arrives long after the
-  fact.
+Last-write-wins on `UpdatedAtUtc` then covers what remains, and is defensible there: the only writer
+who can lose anything is the same person on another device. For a shared item it would not be, because
+it silently discards someone else's work — the exact outcome the locks were added to prevent.
 
-For items only the owner can touch, last-write-wins on `UpdatedAtUtc` is defensible and cheap. For
-shared items it is not, because it silently discards the other person's work — the exact outcome the
-locks were added to prevent.
+**Sharing is not a copy, which is why this matters.** Accepting a share does not duplicate the item:
+`NoteAccessResolver` (and its task, calendar, and warehouse equivalents) loads the *owner's* row and
+stamps the caller's access level onto it. Two people with `CanEdit` are editing one row, which is what
+the locks exist for and what makes offline editing of a shared item genuinely unsafe.
 
-### 5.5 Offline and end-to-end encryption
+**One prerequisite the API doesn't meet yet.** A client can see when an item was shared *with* it —
+`IsShared` on the DTO — but nothing tells an **owner** that they shared an item *out*. So the owner's
+copy of a note that someone else can edit looks, to the client, exactly like a private one. Applying
+this policy needs the server to say so: a flag on the owner's view meaning "somebody else has an
+accepted grant on this". Worth doing as its own change, since deriving it per item is a query per item
+unless it is batched.
+
+### 5.5 Offline and end-to-end encryption (the one-to-one half is built)
 
 Two concrete rules, both consequences of §4.1:
 
@@ -359,6 +442,13 @@ Two concrete rules, both consequences of §4.1:
   A message encrypted at compose time and sent an hour later carries a stale membership list and will
   be rejected, correctly. The outbox must therefore store the plaintext (locally, protected per §5.1)
   and perform the fan-out at the moment of sending.
+
+  **Built, and followed even where it isn't needed yet.** `EncryptedChatMessageSender` encrypts at send
+  time for one-to-one messages too, where nothing would notice the difference — precisely so group chat
+  is a fan-out added to a working outbox rather than a rewrite of one. The queue therefore holds
+  plaintext, which is the app's only plaintext at rest and the sharpest argument for answering §5.1.
+  Received messages are cached as ciphertext and opened per screenful, so the local database stays no
+  more revealing than the server.
 
 ### 5.6 Background sync
 
@@ -518,13 +608,13 @@ phase behind it, mostly for free apart from the platform-specific work.
 
 | Phase | Contains | Done when |
 | --- | --- | --- |
-| **0. Server prerequisites** | Version-gate endpoint (§7), diagnostic-log endpoint and table (§8), push transports (§4.2), multi-audience Google (§4.3), delta + tombstones for sync (§5.3), optionally the shared API-client project (§4.4) | Merged into `main`, web client unaffected |
-| **1. Walking skeleton** | `Orbit.Maui` project, `Orbit.Contracts` referenced, auth + `SecureStorage` + single-flight refresh, **version gate on startup (§7)**, sign in/out, one real screen | A real account signs in on a device and an out-of-date build is stopped on the splash screen |
-| **2. Local store and sync spine** | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
-| **3. Crypto spine** | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
-| **4. The content features** | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
-| **5. The rest of chat** | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
-| **6. Location and maps** | Geolocation, maps, recording, sharing, viewing shared | Location parity |
+| **0. Server prerequisites** (built) | Version-gate endpoint (§7), diagnostic-log endpoint and table (§8), push transports (§4.2), multi-audience Google (§4.3), delta + tombstones for sync (§5.3), optionally the shared API-client project (§4.4) | Merged into `main`, web client unaffected |
+| **1. Walking skeleton** (built) | `Orbit.Maui` project, `Orbit.Contracts` referenced, auth + `SecureStorage` + single-flight refresh, **version gate on startup (§7)**, sign in/out, one real screen | A real account signs in on a device and an out-of-date build is stopped on the splash screen |
+| **2. Local store and sync spine** (built) | SQLite schema, repositories, outbox, delta pull, reconciliation, conflict policy — proven on Notes alone before anything else uses it | A note edited offline on the phone appears on the web after reconnect, and vice versa |
+| **3. Crypto spine** (built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
+| **4. The content features** (built) | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
+| **5. The rest of chat** (built) | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
+| **6. Location and maps** (sharing built) | Geolocation, maps, recording, sharing, viewing shared | Location parity |
 | **7. Notifications and diagnostics** | APNs/FCM registration, notification settings, in-app feed, deep links, **file logging and upload (§8)** | A push taps through to the right screen; a user can send a log |
 | **8. Platform polish** | Live Activities and the Dynamic Island location share, Action Button, widgets, accessibility, localisation | Ready for review |
 
@@ -549,17 +639,33 @@ least from being started early.
   against a server that uses edit locks (§5.4) — has no obviously correct answer. Mitigate by proving
   the whole spine on Notes alone in phase 2 and being willing to change the conflict policy before
   four more features depend on it.
-- **Crypto interop is the other schedule risk.** If the shared-secret detail in §4.1 is discovered
-  late, it invalidates every message-handling assumption above it. Mitigate by making phase 3 start
-  with test vectors generated *from the browser*, checked into the repo, and asserted against by both
-  clients.
+
+  **Downgraded, not retired.** Task lists joined the spine as its second entity type, which is what the
+  mitigation was for: the parts that turned out not to be about notes — replaying a queue in order,
+  classifying which failures are worth retrying, remembering a cursor — were extracted rather than
+  copied, and `NoteSynchronizer` shrank from 344 lines to 217 with its tests unchanged and still
+  passing. What each feature still owns is small and visible: which requests its create, update and
+  delete are, and how its DTO becomes a local row. The conflict policy did not need changing. Calendar
+  events and warehouses are now expected to be additions rather than discoveries.
+- ~~**Crypto interop is the other schedule risk.**~~ **Retired.** The mitigation was carried out as
+  written: vectors generated *from the browser* running Orbit.Web's own `e2eeChat.js`, checked into
+  `tests/Orbit.Mobile.Tests/Crypto`, and asserted against. The no-KDF detail in §4.1 is now pinned in
+  two independent ways - the browser proved at generation time that `deriveKey` and the raw
+  `deriveBits` secret are the same key, and .NET decrypts browser ciphertext using
+  `DeriveRawSecretAgreement`. Both directions are verified: browser ciphertext opens in .NET, and a
+  browser opens .NET ciphertext, including a JWK private-key backup written by .NET.
+
+  What is *not* done is the rest of phase 3 - key storage on the device, restore at sign-in, and chat
+  itself. The risk this bullet described was that the spec would be discovered wrong late; that part is
+  settled.
 - **A local database of decrypted content weakens what private items promise** (§5.1). Private notes
   exist so the server cannot read them; caching them in plaintext on the device moves the exposure
   rather than removing it. Decide on database encryption deliberately.
 - **Diagnostic logs are a new way to leak plaintext** (§8) out of an app whose whole design avoids it.
   Scrubbing has to happen at the logging call, and stay a review concern afterwards.
 - **Chat history is not portable to a device that never had the key.** This is by design, but it will
-  read as a bug to users. Needs deliberate onboarding copy, not an error state.
+  read as a bug to users. Needs deliberate onboarding copy, not an error state. The key gate is where
+  that copy lives now; it is written as an explanation rather than a failure.
 - **The Mac is a dependency, not a preference** (§1.1). Under MAUI the project survives moving to
   Windows, but every iOS release build and store submission still needs macOS somewhere. Decide early
   whether that is a machine kept on the LAN or a CI runner, because discovering it at submission time
@@ -567,6 +673,11 @@ least from being started early.
 - **Polling on a phone is not free.** The web client polls chat once a second and the dashboard every
   three. Reproducing that literally on a phone will cost battery and get throttled in the background;
   push-driven refresh plus polling only while foregrounded is the minimum adjustment.
+
+  **The minimum adjustment is in place for chat:** a conversation polls every five seconds and only
+  while its screen is actually in front of someone, started and stopped by the page's own lifecycle.
+  Silent push (§4.2) is still what would make this timely without a timer at all, and nothing else polls
+  yet - the notes screen syncs on open and on pull-to-refresh only.
 - **"Cross-platform" does not cover the interesting part.** The §9 features are per-platform code, so
   is background sync (§5.6), and Android needs its own answers to each. The shared-code win is real
   for the other 80%, not for these.
@@ -579,12 +690,16 @@ least from being started early.
 
 These change the plan materially and are worth answering before the phase they land in:
 
-1. **Offline conflict policy** (§5.4) — restrictive (offline editing only for items nobody else can
-   touch) or permissive (edit anything, resolve on replay)? Needed before phase 2, and the single
-   most consequential open question left.
-2. **Is the local database encrypted?** (§5.1) Plain SQLite in app-private storage, or SQLCipher with
-   the key in the platform keystore. Needed before phase 2, and it is a security decision rather than
-   a technical one.
+1. ~~**Offline conflict policy** (§5.4)~~ — **settled and built: restrictive**, and the owner-side gap
+   is closed for all four shareable types. `IsSharedWithOthers` tells an owner that somebody holds
+   accepted access, so the client can tell a private item from one another person may be editing.
+2. **Is the local database encrypted?** (§5.1) ~~Needed before phase 2~~ — **still open, and now
+   load-bearing.** Phase 2 shipped plain SQLite in app-private storage, relying on platform disk
+   encryption. That is a deliberate deferral rather than an answer: private notes are client-encrypted
+   so the server cannot read them, and the phone now caches them decrypted. Everything needed to change
+   it is in `Orbit.Maui/Platform/LocalDatabase.cs` and one provider registration, so switching to
+   SQLCipher stays cheap - but it does not get cheaper by waiting, and more entity types arriving makes
+   the exposure wider rather than the change harder.
 3. **Does Orbit.Web keep evolving during this build?** Full parity with a moving target is a very
    different project from parity with a frozen one. Right now the answer looks like yes, which argues
    for §4.4's shared-API-client option so parity work happens once rather than twice.
@@ -598,11 +713,23 @@ These change the plan materially and are worth answering before the phase they l
    day-to-day workflow completely.
 6. **Diagnostic log retention** (§8) — how long uploaded logs are kept before deletion.
 
-## 13. Not started yet
+## 13. What exists so far
 
-Deliberately, nothing has been created: `src/Clients/Orbit.Maui` is still the empty folder it was, and
-is still absent from `Orbit.sln`. It should become a real project when phase 1 begins, not be
-scaffolded in advance — an empty directory that reads as work-in-progress already needed an explicit
-note in [Current Status](current-status.md) once to stop confusing people.
+Phases 0 and 1 are built. `src/Clients/` now holds two mobile projects rather than one:
 
-Now that the name is settled, that folder is the plan's home rather than a competing reservation.
+- **`Orbit.Mobile`** (`net10.0`) — everything decided without a device: the version gate, the session
+  store, single-flight refresh, the authorization handler. In `Orbit.sln`, so `dotnet test` covers it.
+- **`Orbit.Maui`** (`net10.0-ios`, `net10.0-android`) — the two app heads. Deliberately *not* in
+  `Orbit.sln`: CI runs on `ubuntu-latest`, which can build neither head.
+
+That split was not in the architecture sketch in §6, and is worth stating plainly: a MAUI head cannot
+be referenced by an ordinary test project, so anything left inside it can only be checked by running
+the app. With the sync spine named as the largest risk in the plan (§11), it needs to be somewhere a
+test can reach it. The view models are the part still on the wrong side of that line — they hold real
+behaviour and currently depend on MAUI's `Launcher` and page navigation. Worth moving before phase 4
+adds five features' worth of them.
+
+**Verified on a simulator, not merely compiled:** an account signs in, the session survives relaunch
+from the Keychain, notes load through the token handler, and an out-of-date build stops on the splash
+screen — including with the server switched off entirely, from the cached verdict, which is the rule
+in §7 that matters most.

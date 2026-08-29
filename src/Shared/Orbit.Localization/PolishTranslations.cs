@@ -1,13 +1,17 @@
-namespace Orbit.Web.Services;
+namespace Orbit.Localization;
 
 /// <summary>
-/// Orbit's interface in Polish, keyed by the English it replaces - see <see cref="Translations"/> for
-/// why the key is the English text itself.
+/// Orbit's interface in Polish, keyed by the English it replaces. The key being the English text
+/// itself is what lets a string with no translation fall back to correct English rather than to a hole,
+/// which is what makes it safe to translate a screen at a time.
+///
+/// Shared by the web and the phone. They show different screens but say many of the same things, and a
+/// second copy of this would drift the moment one of them was corrected.
 ///
 /// Grouped by where the text appears rather than alphabetically, so a page can be checked against the
 /// screen it belongs to. Anything not listed here stays in English, which is the fallback by design.
 /// </summary>
-internal static class PolishTranslations
+public static class PolishTranslations
 {
     public static readonly IReadOnlyDictionary<string, string> ByEnglish = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -237,6 +241,8 @@ internal static class PolishTranslations
         ["Searching…"] = "Szukam…",
         ["Nothing found for that. Try fewer words, or point at it on the map."] = "Nic nie znaleziono. Spróbuj krócej albo wskaż miejsce na mapie.",
         ["Click the map to drop a pin."] = "Kliknij mapę, aby postawić pinezkę.",
+        // The phone's own wording for the same map: nobody clicks a phone.
+        ["Tap the map to drop a pin."] = "Dotknij mapy, aby postawić pinezkę.",
         ["Use this place?"] = "Użyć tego miejsca?",
         ["Yes, use it"] = "Tak, użyj",
         ["Looking that place up…"] = "Szukam tego miejsca…",
@@ -305,6 +311,7 @@ internal static class PolishTranslations
         ["Delete event"] = "Usuń wydarzenie",
         ["Guests"] = "Goście",
         ["Directions"] = "Wyznacz trasę",
+        ["Open in Google Maps"] = "Otwórz w Mapach Google",
         ["Add to Google Calendar"] = "Dodaj do Kalendarza Google",
         ["The event's end can't be before its start."] = "Koniec wydarzenia nie może być przed jego początkiem.",
 
@@ -342,6 +349,9 @@ internal static class PolishTranslations
         ["Accepted - added to your account."] = "Przyjęte — dodane do Twojego konta.",
         ["No chats. Search for a user by email address or login to start a conversation."] =
             "Brak rozmów. Wyszukaj kogoś po adresie e-mail lub loginie, żeby zacząć.",
+        ["Continue with Google"] = "Kontynuuj z Google",
+        ["Google couldn't sign you in to Orbit."] = "Google nie zalogowało Cię do Orbita.",
+        ["or"] = "lub",
         ["Search for someone and start a conversation."] = "Znajdź kogoś i zacznij rozmowę.",
         ["Email address or login"] = "Adres e-mail lub login",
 
@@ -463,6 +473,7 @@ internal static class PolishTranslations
         ["Daily reminder time"] = "Godzina codziennego przypomnienia",
         ["Overdue notification"] = "Powiadomienie po terminie",
         ["No items."] = "Brak pozycji.",
+        ["Back to inventory"] = "Wróć do magazynów",
         ["Back to task lists"] = "Wróć do list zadań",
         ["This task list no longer exists."] = "Ta lista zadań już nie istnieje.",
         ["This task list was shared by"] = "Tę listę zadań udostępnił",
@@ -483,6 +494,7 @@ internal static class PolishTranslations
         ["Jump to newest message"] = "Przejdź do najnowszej wiadomości",
         ["Write to the group"] = "Napisz do grupy",
         ["New group"] = "Nowa grupa",
+        ["No groups yet."] = "Nie masz jeszcze żadnej grupy.",
         ["Group name"] = "Nazwa grupy",
         ["Who's in it"] = "Kto należy",
         ["Weekend trip"] = "Wyjazd na weekend",
@@ -526,6 +538,7 @@ internal static class PolishTranslations
         ["Change password"] = "Zmień hasło",
         ["Email verification"] = "Potwierdzenie adresu e-mail",
         ["Delete account"] = "Usuń konto",
+        ["Your account has been deleted."] = "Twoje konto zostało usunięte.",
         ["Disconnect"] = "Odłącz",
         ["Push notifications"] = "Powiadomienia push",
         ["Allow mobile notification"] = "Zezwalaj na dymek powiadomienia",
@@ -783,6 +796,7 @@ internal static class PolishTranslations
         ["Saved. It's in your account now."] = "Zapisano. Jest teraz na Twoim koncie.",
         ["\"{0}\" is no longer available to you."] = "„{0}” nie jest już dla Ciebie dostępne.",
         ["(can't be opened on this device)"] = "(nie da się otworzyć na tym urządzeniu)",
+        ["The map can't be shown in this build."] = "Ta wersja aplikacji nie potrafi pokazać mapy.",
         ["Unreadable - encrypted with an older key"] = "Nieczytelne — zaszyfrowane starszym kluczem",
         ["another list"] = "inną listą",
         ["another user"] = "inny użytkownik",
@@ -834,6 +848,9 @@ internal static class PolishTranslations
         ["Everything from the last {0}, newest first — cleared ones included. Older than that and they are deleted; change how long in"] = "Wszystko z ostatnich {0}, od najnowszych — łącznie z wyczyszczonymi. Starsze są usuwane; długość zmienisz w sekcji",
         ["day"] = "dzień",
         ["Group list - {0} linked {1} shown below."] = "Lista grupowa — poniżej powiązane listy ({0}).",
+        // The phone's switch that turns a list into a group list needs a name of its own; the web only
+        // ever says it inside the sentence above, which is too long for a label beside a switch.
+        ["Group list"] = "Lista grupowa",
         ["list"] = "lista",
         ["lists"] = "listy",
         ["follows {0}"] = "wynika z: {0}",
@@ -886,14 +903,377 @@ internal static class PolishTranslations
         ["Remove from my list"] = "Usuń z mojej listy",
         ["Remove \"{0}\" from your list? The owner keeps it."] = "Usunąć „{0}” z Twojej listy? Właściciel ją zachowa.",
         ["Delete note \"{0}\"?"] = "Usunąć notatkę „{0}”?",
+
+        // ---- Orbit.Maui's own wording. "Orbit" and the bare glyphs are deliberately absent:
+        // a product's name and a + are the same in both languages. ----
+        ["Add someone"] = "Dodaj osobę",
+        ["Back to account"] = "Wróć do konta",
+        ["Back to chat"] = "Wróć do rozmów",
+        ["Back to dashboard"] = "Wróć do pulpitu",
+        ["Back to groups"] = "Wróć do grup",
+        ["Change username"] = "Zmień nazwę użytkownika",
+        ["Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later."] =
+            "Zmiana nazwy użytkownika, adresu e-mail lub hasła wymaga połączenia z Orbitem. Nic z tego nie zostanie zapisane na później.",
+        ["Chat"] = "Rozmowy",
+        ["Chat is unlocked"] = "Rozmowy są odblokowane",
+        ["Chat key"] = "Klucz rozmów",
+        ["Confirm new address"] = "Potwierdź nowy adres",
+        ["Confirmation code"] = "Kod potwierdzający",
+        ["Create account"] = "Załóż konto",
+        ["Create an account"] = "Załóż konto",
+        ["Creating an account needs a connection to Orbit."] = "Założenie konta wymaga połączenia z Orbitem.",
+        ["Delete list"] = "Usuń listę",
+        ["Find"] = "Szukaj",
+        ["Forward to"] = "Przekaż do",
+        ["I already have an account"] = "Mam już konto",
+        ["It always appears in your notifications. This also pushes or emails."] =
+            "Zawsze pojawi się w powiadomieniach. To dodatkowo wyśle powiadomienie push lub e-mail.",
+        ["Language"] = "Język",
+        ["Mark all read"] = "Oznacz wszystkie jako przeczytane",
+        ["Message"] = "Wiadomość",
+        ["New email address"] = "Nowy adres e-mail",
+        ["New item"] = "Nowa pozycja",
+        ["New list"] = "Nowa lista",
+        ["New username"] = "Nowa nazwa użytkownika",
+        ["New warehouse"] = "Nowy magazyn",
+        ["No messages yet."] = "Nie ma jeszcze wiadomości.",
+        ["No notes yet."] = "Nie ma jeszcze notatek.",
+        ["No warehouses yet."] = "Nie ma jeszcze magazynów.",
+        ["Nobody is sharing their position with you."] = "Nikt nie udostępnia Ci swojego położenia.",
+        ["Nobody."] = "Nikt.",
+        ["Nothing coming up."] = "Nic się nie zbliża.",
+        ["Nothing has been logged yet."] = "Nic jeszcze nie zostało zapisane.",
+        ["Nothing here yet."] = "Nic tu jeszcze nie ma.",
+        ["Nothing here yet. Add a note or a task to get started."] =
+            "Nic tu jeszcze nie ma. Dodaj notatkę albo zadanie, żeby zacząć.",
+        ["Nothing in this warehouse yet."] = "W tym magazynie nic jeszcze nie ma.",
+        ["Nothing on this list yet."] = "Na tej liście nic jeszcze nie ma.",
+        ["Notification settings"] = "Ustawienia powiadomień",
+        ["Notify me"] = "Powiadamiaj mnie",
+        ["Off means nothing is recorded or sent at all."] =
+            "Wyłączone oznacza, że nic nie jest zapisywane ani wysyłane.",
+        ["Push to this phone"] = "Powiadomienia na ten telefon",
+        ["Read"] = "Przeczytane",
+        ["Read my position"] = "Odczytaj moje położenie",
+        ["Record everything"] = "Zapisuj wszystko",
+        ["Remove admin"] = "Odbierz uprawnienia administratora",
+        ["Send confirmation code"] = "Wyślij kod potwierdzający",
+        ["Send to Orbit"] = "Wyślij do Orbita",
+        ["Set password and start chat over"] = "Ustaw hasło i zacznij rozmowy od nowa",
+        ["Settings"] = "Ustawienia",
+        ["Share it"] = "Udostępnij",
+        ["Share with"] = "Udostępnij osobie",
+        ["Sign in"] = "Zaloguj się",
+        ["Sign in with Google"] = "Zaloguj się przez Google",
+        ["Google couldn't be used to sign in to Orbit."] = "Nie udało się zalogować do Orbita przez Google.",
+        ["Sign out"] = "Wyloguj się",
+        ["Status"] = "Status",
+        ["This device now holds your encryption key."] = "To urządzenie ma teraz Twój klucz szyfrujący.",
+        ["Update Orbit"] = "Zaktualizuj Orbita",
+        ["Waiting for them to accept your request"] = "Czeka na akceptację zaproszenia",
+        ["Waiting to send"] = "Czeka na wysłanie",
+        ["Wants to chat with you"] = "Chce z Tobą porozmawiać",
+        ["Warnings and errors otherwise. Goes back to that on the next launch."] =
+            "W przeciwnym razie tylko ostrzeżenia i błędy. Po następnym uruchomieniu wraca do tego ustawienia.",
+        ["When something is shared with me"] = "Gdy ktoś mi coś udostępni",
+        ["Where you are"] = "Gdzie jesteś",
+        ["Who can see you"] = "Kto Cię widzi",
+        ["Who is in it"] = "Kto należy do grupy",
+        ["Available"] = "Dostępny",
+        ["Couldn't sync"] = "Nie udało się zsynchronizować",
+        ["Just now"] = "Przed chwilą",
+        ["Offline"] = "Bez połączenia",
+        ["Synced"] = "Zsynchronizowano",
+        ["Syncing…"] = "Synchronizowanie…",
+        ["Unavailable"] = "Niedostępny",
+        ["Untitled event"] = "Wydarzenie bez tytułu",
+        ["Untitled list"] = "Lista bez tytułu",
+        ["Wants to chat"] = "Chce porozmawiać",
+        ["{0}d ago"] = "{0} dni temu",
+        ["Finding somebody new needs a connection."] = "Znalezienie nowej osoby wymaga połączenia.",
+        ["No conversations yet."] = "Nie ma jeszcze rozmów.",
+        ["Nobody has that email address or username. It has to match exactly."] =
+            "Nikt nie ma takiego adresu e-mail ani nazwy użytkownika. Musi się zgadzać dokładnie.",
+        ["{0} hasn't set up chat yet, so there is nothing to encrypt a message for. They need to open Orbit's chat once, on any device."] =
+            "{0} nie ma jeszcze skonfigurowanych rozmów, więc nie ma czym zaszyfrować wiadomości. Musi raz otworzyć rozmowy w Orbicie, na dowolnym urządzeniu.",
+        ["Not read yet."] = "Jeszcze nie odczytano.",
+        ["Signed in as {0}"] = "Zalogowano jako {0}",
+        // ---- Everything the phone's screens say back to the reader: what a change did, why one
+        // was refused, and the short lines under a row. Composed in code, so the XAML sweep that
+        // came first could not see any of it. ----
+        ["Waiting to sync"] = "Czeka na synchronizację",
+        ["{0} is editing this right now - it stays read-only until they finish."]
+            = "{0} właśnie to edytuje - pozostaje tylko do odczytu, dopóki nie skończy.",
+        ["Who you are to Orbit, and what this device is allowed to do."]
+            = "Kim jesteś dla Orbita i co wolno temu urządzeniu.",
+        ["Already accepted"] = "Już przyjęto",
+        ["Item options"] = "Opcje pozycji",
+        ["{0} minutes before"] = "{0} min przed",
+        ["List options"] = "Opcje listy",
+        ["Built a warehouse from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
+        ["There was nothing on this list to build a warehouse from."]
+            = "Na tej liście nie było nic, z czego można zbudować magazyn.",
+        ["Added {0} to the restock list."] = "Dodano {0} do listy uzupełnień.",
+        ["Nothing new to add - what is short is already waiting there."]
+            = "Nie ma nic nowego do dodania - brakujące już tam czekają.",
+        ["Couldn't work out what this needs without a connection."]
+            = "Bez połączenia nie da się ustalić, czego to wymaga.",
+        ["Invite"] = "Zaproś",
+        ["Somebody else"] = "Ktoś inny",
+        ["Name of the place"] = "Nazwa miejsca",
+        ["Couldn't work out where this phone is."] = "Nie udało się ustalić, gdzie jest ten telefon.",
+        ["Delete warehouse"] = "Usuń magazyn",
+        ["Delete item"] = "Usuń pozycję",
+        ["Line options"] = "Opcje wiersza",
+        ["Make it a checklist item"] = "Zmień w pozycję listy",
+        ["Make it an ordinary line"] = "Zmień w zwykły wiersz",
+        ["Delete line"] = "Usuń wiersz",
+        ["Everything Orbit has told you, newest first."] = "Wszystko, co Orbit Ci powiedział, od najnowszych.",
+        ["Moved to {0}."] = "Przeniesiono do: {0}.",
+        ["Couldn't move it. Try again."] = "Nie udało się przenieść. Spróbuj ponownie.",
+        ["Shared with you - read-only until you're back online"] =
+            "Udostępnione Tobie — tylko do odczytu, dopóki nie wrócisz online",
+        ["Shared with others - read-only until you're back online"] =
+            "Udostępnione innym — tylko do odczytu, dopóki nie wrócisz online",
+        ["Saved on this phone - it will sync later"] = "Zapisano na tym telefonie — zsynchronizuje się później",
+        ["Somebody else can change this warehouse, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać ten magazyn, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+
+        // Counted things put the label first and the number after it. Polish declines the noun
+        // after a numeral - one, two and five each take a different form - so "{0} items" has no
+        // single correct translation, while "Pozycji: {0}" is right for every count.
+        ["Items: {0}"] = "Pozycji: {0}",
+        ["Done: {0} of {1}"] = "Ukończone: {0} z {1}",
+        ["No items yet"] = "Nie ma jeszcze pozycji",
+        ["Members"] = "Osób",
+        ["Tasks due today"] = "Zadania na dziś",
+        ["Events today"] = "Wydarzenia dziś",
+        ["New chat requests"] = "Nowe zaproszenia do rozmowy",
+        ["Sent. Entries: {0}. Thank you."] = "Wysłano. Wpisów: {0}. Dziękujemy.",
+
+        ["Updated {0}"] = "Zmieniono {0}",
+        ["{0} · all day"] = "{0} · cały dzień",
+        ["{0} – {1}"] = "{0} – {1}",
+        ["Untitled"] = "Bez tytułu",
+        ["Someone"] = "Ktoś",
+        ["Live · updated {0}"] = "Na żywo · zaktualizowano {0}",
+        ["One-off · shared {0}"] = "Jednorazowo · udostępniono {0}",
+
+        // Chat: sending, editing and forwarding.
+        ["Offline - your message is saved and will send later"] =
+            "Bez połączenia — wiadomość jest zapisana i wyśle się później",
+        ["Offline - showing what's on this phone"] = "Bez połączenia — pokazujemy to, co jest na telefonie",
+        ["Offline, and this device hasn't seen your conversations yet."] =
+            "Bez połączenia, a to urządzenie nie widziało jeszcze Twoich rozmów.",
+        ["Offline, and this device hasn't seen your groups yet."] =
+            "Bez połączenia, a to urządzenie nie widziało jeszcze Twoich grup.",
+        ["Couldn't refresh just now"] = "Nie udało się teraz odświeżyć",
+        ["Couldn't sync this conversation just now"] = "Nie udało się teraz zsynchronizować tej rozmowy",
+        ["This person hasn't set up chat yet."] = "Ta osoba nie ma jeszcze skonfigurowanych rozmów.",
+        ["Accepting a chat request needs a connection."] = "Przyjęcie zaproszenia do rozmowy wymaga połączenia.",
+        ["Accept their chat request first - your message wasn't sent."] =
+            "Najpierw przyjmij zaproszenie do rozmowy — wiadomość nie została wysłana.",
+        ["Somebody here hasn't set up chat yet, so this couldn't be encrypted."] =
+            "Ktoś tutaj nie ma jeszcze skonfigurowanych rozmów, więc nie dało się tego zaszyfrować.",
+        ["Somebody here hasn't set up chat, so it couldn't be re-encrypted."] =
+            "Ktoś tutaj nie ma skonfigurowanych rozmów, więc nie dało się tego zaszyfrować ponownie.",
+        ["This conversation is no longer available - your message wasn't sent."] =
+            "Ta rozmowa nie jest już dostępna — wiadomość nie została wysłana.",
+        ["Your message couldn't be sent."] = "Nie udało się wysłać wiadomości.",
+        ["Changing a message needs a connection."] = "Zmiana wiadomości wymaga połączenia.",
+        ["That message can't be changed any more."] = "Tej wiadomości nie można już zmienić.",
+        ["No other conversations to forward this to yet."] = "Nie ma jeszcze innych rozmów, do których można to przekazać.",
+        ["Forwarded to {0}."] = "Przekazano do: {0}.",
+        ["Forwarded from"] = "Przekazane od",
+
+        // Groups.
+        ["Give the group a name."] = "Nadaj grupie nazwę.",
+        ["Pick at least one person."] = "Wybierz przynajmniej jedną osobę.",
+        ["You have nobody to add yet - start a conversation first."] =
+            "Nie masz jeszcze kogo dodać — zacznij najpierw rozmowę.",
+        ["Everybody you have a conversation with is already in this group."] =
+            "Wszyscy, z którymi rozmawiasz, są już w tej grupie.",
+        ["Creating a group needs a connection."] = "Utworzenie grupy wymaga połączenia.",
+        ["Changing who is in a group needs a connection."] = "Zmiana składu grupy wymaga połączenia.",
+        ["This group is no longer available."] = "Ta grupa nie jest już dostępna.",
+
+        // Signing in, the account screen and the chat key.
+        ["Couldn't reach Orbit. Check your connection and try again."] =
+            "Nie udało się połączyć z Orbitem. Sprawdź połączenie i spróbuj ponownie.",
+        ["Those details weren't recognised."] = "Nie rozpoznano tych danych.",
+        ["Couldn't create that account."] = "Nie udało się założyć tego konta.",
+        ["Couldn't load your account. Check your connection and try again."] =
+            "Nie udało się wczytać Twojego konta. Sprawdź połączenie i spróbuj ponownie.",
+        ["Couldn't set that password."] = "Nie udało się ustawić tego hasła.",
+        ["Couldn't send a reset code."] = "Nie udało się wysłać kodu resetu.",
+        ["We will email a code to {0}."] = "Wyślemy kod na adres {0}.",
+        ["Couldn't unlock your chat key. Either that isn't the password it was saved under, or Orbit couldn't be reached. Nothing was changed."] =
+            "Nie udało się odblokować klucza rozmów. Albo to nie jest hasło, pod którym go zapisano, albo Orbit był poza zasięgiem. Nic nie zostało zmienione.",
+        ["Password changed, but your chat key backup couldn't be updated. Open \"Chat key\" to fix it, or older messages may not open on a new device."] =
+            "Hasło zmienione, ale nie udało się zaktualizować kopii klucza rozmów. Otwórz „Klucz rozmów”, aby to naprawić — inaczej starsze wiadomości mogą się nie otworzyć na nowym urządzeniu.",
+        ["Password changed, but your chat key backup couldn't be updated. Sign in again while online to fix it."] =
+            "Hasło zmienione, ale nie udało się zaktualizować kopii klucza rozmów. Zaloguj się ponownie z połączeniem, aby to naprawić.",
+
+        // Notifications and diagnostics.
+        ["Show all"] = "Pokaż wszystkie",
+        ["Recent only"] = "Tylko ostatnie",
+        ["This notification points somewhere this version of Orbit doesn't have. Updating should fix it."] =
+            "To powiadomienie prowadzi w miejsce, którego ta wersja Orbita nie zna. Aktualizacja powinna to naprawić.",
+        ["Couldn't find what this is about on this phone. It may need a connection to catch up first."] =
+            "Nie znaleziono na tym telefonie tego, czego dotyczy. Może najpierw potrzebować połączenia, żeby nadrobić zaległości.",
+        ["There is nothing to send yet."] = "Nie ma jeszcze czego wysłać.",
+        ["Sent, but nothing in the log could be read."] = "Wysłano, ale nie udało się odczytać nic z dziennika.",
+        ["Couldn't send it - Orbit is out of reach."] = "Nie udało się wysłać — Orbit jest poza zasięgiem.",
+        ["Orbit wouldn't accept the log. Try signing in again."] =
+            "Orbit nie przyjął dziennika. Spróbuj zalogować się ponownie.",
+        ["{0} - Orbit is out of reach."] = "{0} — Orbit jest poza zasięgiem.",
+        ["{0}. Try signing in again."] = "{0}. Spróbuj zalogować się ponownie.",
+
+        // The forced-update gate.
+        ["This version of Orbit is no longer supported. Update to continue."] =
+            "Ta wersja Orbita nie jest już wspierana. Zaktualizuj, aby kontynuować.",
+        ["This version of Orbit is no longer supported. Update to {0} to continue."] =
+            "Ta wersja Orbita nie jest już wspierana. Zaktualizuj do {0}, aby kontynuować.",
+        // The longer explanations on Orbit.Maui's own screens. They were written straight into the
+        // markup rather than asked of the dictionary, which is why the first sweep walked past them.
+        ["Chat is end-to-end encrypted and your key is protected with a password. This account signs in with Google and doesn't have one yet, so pick one now - it's also what lets you read your messages on another device."] =
+            "Rozmowy są szyfrowane end-to-end, a klucz chroni hasło. To konto loguje się przez Google i jeszcze go nie ma, więc ustaw je teraz — to również ono pozwala czytać wiadomości na innym urządzeniu.",
+        ["This device doesn't have a copy of your encryption key yet. Enter your password to restore it from your encrypted backup - it never leaves this device."] =
+            "To urządzenie nie ma jeszcze kopii Twojego klucza szyfrującego. Wpisz hasło, aby odtworzyć go z zaszyfrowanej kopii — klucz nie opuszcza tego urządzenia.",
+        ["Setting a new password starts your chat over: messages encrypted under the old one stay unreadable, because Orbit's servers never had the key to them."] =
+            "Nowe hasło zaczyna rozmowy od nowa: wiadomości zaszyfrowane starym pozostaną nieczytelne, bo serwery Orbita nigdy nie miały do nich klucza.",
+        ["This message can't be opened on this device."] = "Tej wiadomości nie da się otworzyć na tym urządzeniu.",
+        ["This position can't be opened on this device."] = "Tej lokalizacji nie da się otworzyć na tym urządzeniu.",
+        ["Saved."] = "Zapisano.",
+        ["Pinning needs a connection."] = "Przypięcie wymaga połączenia.",
+
+        // The note editor - the screen a note opens into.
+        ["New line"] = "Nowy wiersz",
+        ["Nothing written here yet."] = "Nic tu jeszcze nie napisano.",
+        ["Back to notes"] = "Wróć do notatek",
+        ["Delete note"] = "Usuń notatkę",
+
+        // A warehouse item's own details, which the phone could neither show nor set.
+        ["Quantity"] = "Ilość",
+
+        // Somebody offering to share something, which arrives in a conversation.
+        ["Shared something with you"] = "Udostępnił(a) Ci coś",
+        ["Read only"] = "Tylko do odczytu",
+
+        // A link anyone can read the thing by, with no Orbit account and nothing to accept.
+        ["Share a link"] = "Udostępnij linkiem",
+
+        // Asking whoever owns something to let you change it, and seeing that ask arrive.
+        ["Asked to edit"] = "Prosi o prawo edycji",
+        ["Asked them. They will see it in your conversation."] = "Poproszono. Zobaczy to w Waszej rozmowie.",
+        ["Couldn't send that request."] = "Nie udało się wysłać tej prośby.",
+        ["Stop the link"] = "Wyłącz link",
+        ["That link no longer works."] = "Ten link już nie działa.",
+        ["Couldn't make a link for that."] = "Nie udało się utworzyć linku do tego.",
+        ["This Orbit doesn't have a web address set, so a link can't be built."] =
+            "Ten Orbit nie ma ustawionego adresu wersji webowej, więc nie da się zbudować linku.",
+        ["Sharing needs a connection."] = "Udostępnianie wymaga połączenia.",
+        ["Couldn't share that."] = "Nie udało się tego udostępnić.",
+        ["{0} is yours now."] = "{0} — już Twoje.",
+        ["That offer is no longer available."] = "Ta oferta nie jest już dostępna.",
+        ["Accepting what somebody shared needs a connection."] = "Przyjęcie udostępnionej rzeczy wymaga połączenia.",
+
+        // A task-list entry's own details, and the filters over the lists themselves.
+        ["New"] = "Nowe",
+        ["Pending"] = "W toku",
+        ["Due {0}"] = "Termin: {0}",
+        ["Daily at {0}"] = "Codziennie o {0}",
+        ["When it is overdue"] = "Gdy termin minie",
+        ["Remind me daily"] = "Przypominaj codziennie",
+        ["Minimum"] = "Minimum",
+        ["Minimum: {0}"] = "Minimum: {0}",
+        ["Expires {0}"] = "Termin: {0}",
+
+        // The event editor - the screen a calendar entry opens into.
+        ["When"] = "Kiedy",
+        ["Back to calendar"] = "Wróć do kalendarza",
+        ["Somebody else can change this event, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać to wydarzenie, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["Somebody else can change this note, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["This note is private, and its words are sealed with a key this phone doesn't have."] =
+            "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
+
+        // One group message's own info view: who it reached, and who has opened it.
+        ["{0} - read {1}"] = "{0} — przeczytano {1}",
+        ["{0} - delivered"] = "{0} — dostarczono",
+        ["Nobody else has a copy of this yet."] = "Nikt inny nie ma jeszcze kopii tej wiadomości.",
+        ["Couldn't read who has seen this."] = "Nie udało się odczytać, kto to widział.",
+        ["Orbit's own log, on this phone. Nothing leaves it unless you send it."] =
+            "Własny dziennik Orbita, na tym telefonie. Nic z niego nie wychodzi, dopóki go nie wyślesz.",
+        // The map screen: reading a position, sharing it, and stopping.
+        ["You"] = "Ty",
+        ["Couldn't reach Orbit just now."] = "Nie udało się teraz połączyć z Orbitem.",
+        ["Orbit needs permission to use your location. Turn it on in Settings."] =
+            "Orbit potrzebuje zgody na dostęp do Twojej lokalizacji. Włącz ją w Ustawieniach.",
+        ["Couldn't get a position - try again outdoors."] =
+            "Nie udało się ustalić położenia — spróbuj ponownie na zewnątrz.",
+        ["Read your position, but couldn't save it - Orbit is out of reach."] =
+            "Odczytano Twoje położenie, ale nie udało się go zapisać — Orbit jest poza zasięgiem.",
+        ["Read your position, but Orbit wouldn't store it. Try signing in again."] =
+            "Odczytano Twoje położenie, ale Orbit go nie zapisał. Spróbuj zalogować się ponownie.",
+        ["Read your position first."] = "Najpierw odczytaj swoje położenie.",
+        ["Nobody to share with yet - start a conversation first."] =
+            "Nie masz jeszcze komu udostępnić — zacznij najpierw rozmowę.",
+        ["Shared with {0}."] = "Udostępniono: {0}.",
+        ["Sharing a position needs a connection."] = "Udostępnienie położenia wymaga połączenia.",
+        ["Orbit wouldn't accept that share. Try signing in again."] =
+            "Orbit nie przyjął tego udostępnienia. Spróbuj zalogować się ponownie.",
+        ["Stopping needs a connection - they can still see you until it goes through."] =
+            "Zatrzymanie wymaga połączenia — do tego czasu ta osoba nadal Cię widzi.",
+        ["Orbit wouldn't stop that share - they can still see you."] =
+            "Orbit nie zatrzymał tego udostępnienia — ta osoba nadal Cię widzi.",
+
+        ["Cleared."] = "Wyczyszczono.",
+
+        ["Couldn't mark them read"] = "Nie udało się oznaczyć ich jako przeczytane",
+        ["Couldn't clear them"] = "Nie udało się ich wyczyścić",
+        ["Couldn't read your notifications"] = "Nie udało się odczytać Twoich powiadomień",
+        ["Couldn't read your notification settings"] = "Nie udało się odczytać ustawień powiadomień",
+        ["Couldn't save your notification settings"] = "Nie udało się zapisać ustawień powiadomień",
+
+        // The phone's own way into the permissions the web puts under Options.
+        ["Enter the code for it on the account screen, under Permissions."] =
+            "Wpisz kod do niego na ekranie konta, w sekcji Uprawnienia.",
+        ["{0} is unlocked."] = "{0} — odblokowano.",
+
+        // ---- Orbit.Web's newer screens, merged from main. ----
         ["Full screen"] = "Pełny ekran",
         ["Leave full screen"] = "Zamknij pełny ekran",
-        ["Someone"] = "Ktoś",
         ["Info"] = "Info",
         ["Who has read this"] = "Kto to przeczytał",
         ["Close"] = "Zamknij",
         ["Delivered"] = "Dostarczone",
         ["Read by everyone"] = "Przeczytane przez wszystkich",
         ["Read {0}"] = "Przeczytane {0}",
+
+        // The page the phone apps are downloaded from.
+        ["Orbit — Get the app"] = "Orbit — Pobierz aplikację",
+        ["Get the app"] = "Pobierz aplikację",
+        ["The phone apps sign in to this same Orbit, with the same account and the same data."] =
+            "Aplikacje na telefon logują się do tego samego Orbita, tym samym kontem i z tymi samymi danymi.",
+        ["Android"] = "Android",
+        ["iPhone"] = "iPhone",
+        ["Download for Android"] = "Pobierz na Androida",
+        ["Open the downloaded file. Android will ask whether this browser may install apps - allow it."] =
+            "Otwórz pobrany plik. Android zapyta, czy ta przeglądarka może instalować aplikacje — zezwól.",
+        ["Install, then open Orbit and sign in with your usual account."] =
+            "Zainstaluj, otwórz Orbita i zaloguj się swoim zwykłym kontem.",
+        ["This build is not from Google Play, so Android checks with you before installing it. That is the prompt about unknown sources, and it is expected here."] =
+            "Ta wersja nie pochodzi z Google Play, więc Android pyta o zgodę przed instalacją. To właśnie pytanie o nieznane źródła — tak ma być.",
+        ["No Android build has been published yet."] = "Nie opublikowano jeszcze wersji na Androida.",
+        ["Open the TestFlight invitation"] = "Otwórz zaproszenie w TestFlight",
+        ["Install Apple's TestFlight app, then open the invitation on the iPhone itself."] =
+            "Zainstaluj aplikację TestFlight od Apple, a potem otwórz zaproszenie na samym iPhonie.",
+        ["Install Orbit from TestFlight and sign in with your usual account."] =
+            "Zainstaluj Orbita z TestFlight i zaloguj się swoim zwykłym kontem.",
+        ["No iPhone build has been published yet. iOS installs nothing a browser downloaded, so this will be a TestFlight invitation rather than a file."] =
+            "Nie opublikowano jeszcze wersji na iPhone'a. iOS nie zainstaluje niczego, co pobrała przeglądarka, więc będzie to zaproszenie w TestFlight, a nie plik.",
+        ["Orbit on your phone"] = "Orbit na telefonie",
     };
 }

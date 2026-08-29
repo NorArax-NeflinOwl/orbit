@@ -15,7 +15,7 @@ public sealed class GetTaskListsQueryHandler : IRequestHandler<GetTaskListsQuery
 
     public async Task<IReadOnlyList<TaskList>> HandleAsync(GetTaskListsQuery request, CancellationToken cancellationToken)
     {
-        var taskLists = await _taskListAccessResolver.ResolveAllAsync(request.UserId, cancellationToken);
+        var taskLists = await _taskListAccessResolver.ResolveAllAsync(request.UserId, request.UpdatedSinceUtc, cancellationToken);
         return _linkedTaskCompletionResolver.ResolveAll(taskLists);
     }
 }

@@ -29,7 +29,7 @@ public sealed class TaskListLinkValidator
             return;
         }
 
-        var taskListsById = (await _taskRepository.GetAllAsync(userId, cancellationToken))
+        var taskListsById = (await _taskRepository.GetAllAsync(userId, updatedSinceUtc: null, cancellationToken))
             .ToDictionary(taskList => taskList.Id);
 
         foreach (var linkedListId in linkedListIds)

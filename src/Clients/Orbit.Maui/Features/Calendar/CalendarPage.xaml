@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Calendar.CalendarPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:calendar="clr-namespace:Orbit.Maui.Features.Calendar"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
+    x:DataType="screens:CalendarViewModel"
+    Title="{controls:Translate 'Calendar'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+
+        <!-- The month at a glance, or the year. Orbit.Web offers day, month and year; the day here is
+             this grid with one of its days chosen, so the switch beneath is the rest of it. -->
+        <VerticalStackLayout Grid.Row="0" Spacing="6">
+            <controls:PageHeader Title="{controls:Translate 'Calendar'}">
+                <controls:PageHeader.Subtitle>
+                    <controls:Translate Text="Your events, and the ones you have been invited to." />
+                </controls:PageHeader.Subtitle>
+            </controls:PageHeader>
+
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
+                <Button Grid.Column="0" Text="‹" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
+                        Command="{Binding ShowEarlierCommand}" />
+                <Label Grid.Column="1" Text="{Binding PeriodLabel}" FontSize="17" FontAttributes="Bold"
+                       HorizontalTextAlignment="Center" VerticalOptions="Center" />
+                <Button Grid.Column="2" Text="›" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
+                        Command="{Binding ShowLaterCommand}" />
+                <Button Grid.Column="3" Text="{controls:Translate 'Today'}" FontSize="12" Padding="8,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowTodayCommand}" />
+            </Grid>
+
+            <!-- Which of the two the grid is showing. The one not showing goes quiet, the way the days
+                 either side of the month do - bold alone is too fine a difference at this size to read. -->
+            <HorizontalStackLayout Spacing="14" HorizontalOptions="Center">
+                <Button Text="{controls:Translate 'Month'}" FontSize="13" Padding="4,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowMonthCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingYear}" Value="True">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="{controls:Translate 'Year'}" FontSize="13" Padding="4,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowYearCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingMonth}" Value="True">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </HorizontalStackLayout>
+
+            <HorizontalStackLayout BindableLayout.ItemsSource="{Binding WeekdayNames}"
+                                   IsVisible="{Binding IsShowingMonth}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Label Text="{Binding .}" FontSize="10" WidthRequest="46" HorizontalTextAlignment="Center"
+                               Style="{StaticResource SubtleLabel}" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+
+            <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Days}"
+                        IsVisible="{Binding IsShowingMonth}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:CalendarDay">
+                        <Grid WidthRequest="46" HeightRequest="40" RowDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseDayCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+
+                            <Label Grid.Row="0" Text="{Binding DayNumber}" FontSize="13" HorizontalTextAlignment="Center"
+                                   VerticalOptions="Center">
+                                <Label.Triggers>
+                                    <!-- The days either side that fill the first and last weeks are shown
+                                         but quiet: a grid with holes is harder to read than one with
+                                         soft edges. -->
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsInMonth}" Value="False">
+                                        <Setter Property="Opacity" Value="0.35" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsToday}" Value="True">
+                                        <Setter Property="FontAttributes" Value="Bold" />
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="FontAttributes" Value="Bold" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+
+                            <!-- One dot for "something happens here", not a count: the number is in the
+                                 list beneath, and a grid cell this size cannot carry both. -->
+                            <Ellipse Grid.Row="1" WidthRequest="5" HeightRequest="5" HorizontalOptions="Center"
+                                     IsVisible="{Binding HasEvents}"
+                                     Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </FlexLayout>
+
+            <!-- The year: twelve months and what each holds. Tapping one opens it. -->
+            <FlexLayout Wrap="Wrap" Direction="Row" JustifyContent="Center" AlignContent="Start"
+                        BindableLayout.ItemsSource="{Binding Months}" IsVisible="{Binding IsShowingYear}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:CalendarYearMonth">
+                        <Grid WidthRequest="104" HeightRequest="58" Margin="2" RowDefinitions="Auto,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseMonthCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+
+                            <Label Grid.Row="0" Text="{Binding Name}" FontSize="14" HorizontalTextAlignment="Center"
+                                   VerticalOptions="End">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsThisMonth}" Value="True">
+                                        <Setter Property="FontAttributes" Value="Bold" />
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+
+                            <!-- A count rather than a dot: twelve cells this size can carry the number,
+                                 and "how busy" is what a year is read for. -->
+                            <Label Grid.Row="1" Text="{Binding EventCount}" FontSize="11" IsVisible="{Binding HasEvents}"
+                                   HorizontalTextAlignment="Center" Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </FlexLayout>
+        </VerticalStackLayout>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New event'}" Text="{Binding NewEventTitle}"
+                   ReturnType="Done" ReturnCommand="{Binding AddEventCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddEventCommand}" />
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
+            <DatePicker Grid.Column="0" Date="{Binding NewEventDate}" />
+            <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" />
+        </Grid>
+
+        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Events}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
+
+                <CollectionView.EmptyView>
+                    <Label Text="{controls:Translate 'Nothing coming up.'}" Padding="24" HorizontalTextAlignment="Center" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="screens:CalendarEventRow">
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                            <Label Text="{Binding When}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+        <!-- What falls due over the same days, beneath the events. A deadline is as much a thing
+             happening on a day as an appointment is, and Orbit.Web's calendar has shown both all
+             along - see CalendarDeadline. -->
+        <VerticalStackLayout Grid.Row="5" Spacing="4" IsVisible="{Binding HasDeadlines}" Margin="0,8,0,0">
+            <Label Text="{controls:Translate 'Tasks with a due date'}" Style="{StaticResource FieldLabel}" />
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Deadlines}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:CalendarDeadline">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,6">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenDeadlineCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+                            <Label Grid.Column="0" Text="{Binding Label}" FontSize="13" LineBreakMode="TailTruncation"
+                                   VerticalOptions="Center">
+                                <Label.Triggers>
+                                    <!-- Struck through rather than hidden: a day whose errands are all
+                                         ticked reads differently from an empty one. -->
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
+                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                            <Label Grid.Column="1" Text="{Binding When}" FontSize="11" VerticalOptions="Center"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+
+    </Grid>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

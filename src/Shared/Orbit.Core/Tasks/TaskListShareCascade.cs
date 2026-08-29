@@ -105,7 +105,7 @@ public sealed class TaskListShareCascade
             return CascadedItems.None;
         }
 
-        var owned = await _taskRepository.GetAllAsync(ownerUserId, cancellationToken);
+        var owned = await _taskRepository.GetAllAsync(ownerUserId, updatedSinceUtc: null, cancellationToken);
         var tree = StockCheck.LinkedTaskListTree.Flatten(root, owned);
         var linkedTaskLists = tree.Where(taskList => taskList.Id != rootTaskListId && !taskList.IsPrivate).ToList();
 

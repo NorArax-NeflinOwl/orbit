@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Sync;
 
 namespace Orbit.Core.Calendar.DeleteCalendarEvent;
 
@@ -6,12 +7,15 @@ public sealed class DeleteCalendarEventCommandHandler : IRequestHandler<DeleteCa
 {
     private readonly ICalendarEventRepository _calendarEventRepository;
     private readonly ICalendarEventShareRepository _calendarEventShareRepository;
+    private readonly ISyncTombstoneRepository _syncTombstoneRepository;
 
     public DeleteCalendarEventCommandHandler(
-        ICalendarEventRepository calendarEventRepository, ICalendarEventShareRepository calendarEventShareRepository)
+        ICalendarEventRepository calendarEventRepository, ICalendarEventShareRepository calendarEventShareRepository,
+        ISyncTombstoneRepository syncTombstoneRepository)
     {
         _calendarEventRepository = calendarEventRepository;
         _calendarEventShareRepository = calendarEventShareRepository;
+        _syncTombstoneRepository = syncTombstoneRepository;
     }
 
     /// <summary>
@@ -30,16 +34,28 @@ public sealed class DeleteCalendarEventCommandHandler : IRequestHandler<DeleteCa
             // Not the owner's. A recipient asking to be rid of something shared with them means
             // taking it off their own list - destroying somebody else's event is not theirs to
             // do. Removing the accepted grant does exactly that and leaves the owner's untouched.
-            if (await _calendarEventShareRepository.FindAcceptedGrantAsync(request.Id, request.UserId, cancellationToken) is not null)
+            if (await _calendarEventShareRepository.FindAcceptedGrantAsync(request.Id, request.UserId, cancellationToken) is null)
             {
-                await _calendarEventShareRepository.RemoveAcceptedGrantAsync(request.Id, request.UserId, cancellationToken);
-                return true;
+                return false;
             }
 
-            return false;
+            await _calendarEventShareRepository.RemoveAcceptedGrantAsync(request.Id, request.UserId, cancellationToken);
+            await RecordTombstoneAsync(request, cancellationToken);
+            return true;
         }
 
         await _calendarEventRepository.DeleteAsync(request.UserId, request.Id, cancellationToken);
+        await RecordTombstoneAsync(request, cancellationToken);
         return true;
     }
+
+    /// <summary>
+    /// Tombstones are per-user, which is what lets a dropped grant leave one: the event is gone
+    /// from this reader's list and from nobody else's, and that is exactly what their next delta
+    /// needs to say.
+    /// </summary>
+    private Task RecordTombstoneAsync(DeleteCalendarEventCommand request, CancellationToken cancellationToken)
+        => _syncTombstoneRepository.RecordAsync(
+            new SyncTombstone(request.UserId, SyncEntityType.CalendarEvent, request.Id, DateTimeOffset.UtcNow),
+            cancellationToken);
 }

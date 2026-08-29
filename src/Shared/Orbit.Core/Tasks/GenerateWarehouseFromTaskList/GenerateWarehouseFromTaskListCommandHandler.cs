@@ -52,7 +52,7 @@ public sealed class GenerateWarehouseFromTaskListCommandHandler : IRequestHandle
             return null;
         }
 
-        var reachable = await _taskRepository.GetAllAsync(request.UserId, cancellationToken);
+        var reachable = await _taskRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var needed = StockRequirementCounter
             .CountRegardlessOfDueDate(LinkedTaskListTree.WorkIn(taskList, reachable))
             .Requirements;

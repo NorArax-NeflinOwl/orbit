@@ -1,0 +1,169 @@
+# Builds an Android APK somebody can install on a phone, and puts it where the download page
+# (src/Clients/Orbit.Web/Pages/Download.razor) can point at it.
+#
+# A workflow of its own rather than another job in main_orbit.yml, and for a different reason than the
+# one at the top of that file: this is not a check that could drift from a gate, it is an act somebody
+# performs. Releasing a build is a decision - it needs a version, a signing key, and somebody to say
+# now - so it is started by hand. main_orbit.yml still builds the Android head on every pull request;
+# that job answers "does it compile", this one answers "here is the thing to install".
+#
+# Nothing here fails silently: a missing signing key stops the build rather than producing an unsigned
+# APK no phone will install.
+name: Release the Android app
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, e.g. 0.1.0 - what the app shows and what the version gate compares'
+        required: true
+        default: '0.1.0'
+
+permissions:
+  id-token: write   # required for OIDC login to Azure, for the upload step
+  contents: read
+
+env:
+  # Where the app looks for Orbit. orbit-web's address rather than orbit-api's: the API has internal
+  # ingress only, and orbit-web's nginx is the only way in (see src/Clients/Orbit.Web/nginx.azure.conf).
+  # Public, like that file's own hostname, so it lives here rather than in a secret.
+  ORBIT_API_BASE_ADDRESS: https://orbit-web.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/
+  APK_NAME: orbit-android.apk
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install the Android workload
+        run: dotnet workload install maui-android
+
+      - name: Install the Android platform the head compiles against
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+
+      # Both files are gitignored because they are a deployment's own business, and both change what the
+      # built app can do rather than whether it builds. Restored from secrets so a release has them, and
+      # skipped with a line saying so where a secret has not been set.
+      #
+      # Firebase does nothing for the app yet, and the step is here ahead of the work rather than after
+      # it: PhonePushNotifications answers NotAvailableHere on both heads, because obtaining an FCM
+      # registration token needs the Firebase SDK referenced in the project and nothing references it.
+      # A release built with this file is no more reachable by push than one built without it - see
+      # info/orbit-maui-plan.md §4.2 for what is still missing.
+      - name: Restore the Firebase configuration
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::notice::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not set. Nothing is lost while the app obtains no FCM token anyway - set it once push is wired up."
+            exit 0
+          fi
+          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d \
+            > src/Clients/Orbit.Maui/Platforms/Android/google-services.json
+
+      - name: Restore the Google Maps key
+        env:
+          MAPS_API_KEY: ${{ secrets.ANDROID_MAPS_API_KEY }}
+        run: |
+          if [ -z "$MAPS_API_KEY" ]; then
+            echo "::warning::ANDROID_MAPS_API_KEY is not set - the map screen will say it has no map."
+            exit 0
+          fi
+          sed "s|android:value=\"\"|android:value=\"$MAPS_API_KEY\"|" \
+            src/Clients/Orbit.Maui/Platforms/Android/AndroidManifestOverlay.xml.example \
+            > src/Clients/Orbit.Maui/Platforms/Android/AndroidManifestOverlay.xml
+
+      # An unsigned APK cannot be installed at all, so this is the one restore that stops the run.
+      # The keystore is also what Google checks a sign-in against: its SHA-1 has to be registered on the
+      # Android OAuth client, or "Continue with Google" comes back refused from a build that is
+      # otherwise fine. Keep one key for every release - a new one is a new app to Google and to Android
+      # alike, and a phone refuses to update across it.
+      - name: Restore the signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. Make a keystore once with 'keytool -genkeypair -v -keystore orbit-release.jks -alias orbit -keyalg RSA -keysize 2048 -validity 10000', then store it base64-encoded in that secret along with ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/orbit-release.jks"
+
+      # APK rather than the AAB a Release publish defaults to: an AAB is what Google Play accepts and
+      # what a phone cannot install. ApplicationVersion is the run number so every release is ordered
+      # even when two carry the same display version - Android refuses a build whose version code is
+      # not higher than the one already installed.
+      - name: Build the signed APK
+        run: |
+          dotnet publish src/Clients/Orbit.Maui/Orbit.Maui.csproj \
+            --framework net10.0-android \
+            --configuration Release \
+            -p:OrbitApiBaseAddress="$ORBIT_API_BASE_ADDRESS" \
+            -p:ApplicationDisplayVersion="${{ inputs.version }}" \
+            -p:ApplicationVersion="${{ github.run_number }}" \
+            -p:AndroidPackageFormat=apk \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore="$RUNNER_TEMP/orbit-release.jks" \
+            -p:AndroidSigningStorePass="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -p:AndroidSigningKeyAlias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+            -p:AndroidSigningKeyPass="${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --output "$RUNNER_TEMP/publish"
+
+          # The publish output carries both the signed APK and the unsigned one it was made from, and
+          # only one of them installs. Picked by name rather than by taking whichever comes first.
+          SIGNED=$(find "$RUNNER_TEMP/publish" -name '*-Signed.apk' | head -1)
+          if [ -z "$SIGNED" ]; then
+            echo "::error::The publish produced no signed APK. Check the signing secrets above."
+            exit 1
+          fi
+          cp "$SIGNED" "$RUNNER_TEMP/$APK_NAME"
+
+      # Always, so a run is never wasted: whatever else is configured, the APK can be fetched from the
+      # run itself. That needs a GitHub account, which is why the upload below exists as well.
+      - name: Keep the APK with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-android-${{ inputs.version }}
+          path: ${{ runner.temp }}/orbit-android.apk
+          if-no-files-found: error
+
+      # This repository is private, so a release asset here would need a GitHub sign-in to download and
+      # the download page could not link to it. Blob storage with anonymous read on one container is
+      # what makes a plain link work from a phone. Skipped rather than failed where no container has
+      # been configured: the artifact above is still a complete answer for somebody testing alone.
+      - name: Log in to Azure
+        if: vars.DOWNLOADS_STORAGE_ACCOUNT != ''
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_439F88151FA943D78D4BF8F33E39354D }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_94E34BA93C604CA382EDE479DD7DF344 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4D66E98B9B334790B251FF8C8748B1B1 }}
+
+      # Overwrites the one address the download page knows, so the page never needs changing again -
+      # what it points at is always the newest release.
+      - name: Publish the APK where the download page points
+        if: vars.DOWNLOADS_STORAGE_ACCOUNT != ''
+        run: |
+          az storage blob upload \
+            --account-name "${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}" \
+            --container-name "${{ vars.DOWNLOADS_CONTAINER }}" \
+            --name "$APK_NAME" \
+            --file "$RUNNER_TEMP/$APK_NAME" \
+            --content-type application/vnd.android.package-archive \
+            --auth-mode login \
+            --overwrite
+          echo "Published to https://${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ vars.DOWNLOADS_CONTAINER }}/$APK_NAME"

@@ -12,6 +12,10 @@ namespace Orbit.Api.Tests.TestDoubles;
 /// </summary>
 internal sealed class RecordingPushNotificationSender : IPushNotificationSender
 {
+    public RecordingPushNotificationSender(PushTransport transport = PushTransport.WebPush) => Transport = transport;
+
+    public PushTransport Transport { get; }
+
     private readonly List<SentPushNotification> _sentNotifications = [];
 
     public IReadOnlyList<SentPushNotification> SentNotifications => _sentNotifications;

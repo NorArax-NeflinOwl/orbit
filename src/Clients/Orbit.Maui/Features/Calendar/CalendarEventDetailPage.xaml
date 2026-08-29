@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Calendar.CalendarEventDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:calendar="clr-namespace:Orbit.Maui.Features.Calendar"
+    xmlns:common="clr-namespace:Orbit.Mobile.Screens;assembly=Orbit.Mobile"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
+    x:DataType="screens:CalendarEventDetailViewModel"
+    Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+    <ScrollView Grid.Row="1">
+        <VerticalStackLayout Padding="20" Spacing="12">
+
+            <Entry Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
+                   Placeholder="{controls:Translate 'Untitled event'}" />
+
+            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12" LineBreakMode="WordWrap"
+                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+
+            <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
+                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+            <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" HeightRequest="110"
+                    Placeholder="{controls:Translate 'Description'}" />
+
+            <!-- Where it is. Orbit.Web picks the point off a map; a phone already knows where it is,
+                 and a place is a point with an optional label - so the name alone is not a location. -->
+            <Label Text="{controls:Translate 'Location'}" Style="{StaticResource FieldLabel}" />
+            <Entry Text="{Binding LocationAddress}" IsReadOnly="{Binding IsReadOnly}"
+                   Placeholder="{controls:Translate 'Name of the place'}"
+                   ReturnType="Done" ReturnCommand="{Binding SaveCommand}" />
+            <HorizontalStackLayout Spacing="10" IsVisible="{Binding CanEdit}">
+                <Button Text="{controls:Translate 'Use my location'}" FontSize="12" Padding="12,6"
+                        Style="{StaticResource SecondaryButton}" Command="{Binding UseMyLocationCommand}" />
+                <Button Text="{controls:Translate 'Remove location'}" FontSize="12" Padding="12,6"
+                        IsVisible="{Binding HasLocation}" Style="{StaticResource SecondaryButton}"
+                        Command="{Binding RemoveLocationCommand}" />
+            </HorizontalStackLayout>
+
+            <!-- The same two hand-offs Orbit.Web puts beside the address in its list: the place, and the
+                 way there. Hidden unless the account qualifies - see GoogleIntegrationAccess. -->
+            <HorizontalStackLayout Spacing="10" IsVisible="{Binding CanOpenLocationInGoogleMaps}">
+                <Button Text="{controls:Translate 'Open in Google Maps'}" FontSize="14"
+                        Style="{StaticResource LinkButton}" Clicked="OnOpenLocationInGoogleMapsClicked" />
+                <Button Text="{controls:Translate 'Directions'}" FontSize="14"
+                        Style="{StaticResource LinkButton}" Clicked="OnOpenDirectionsClicked" />
+            </HorizontalStackLayout>
+
+            <Label Text="{controls:Translate 'When'}" Style="{StaticResource FieldLabel}" />
+
+            <!-- Two dates, not one: the end used to be taken from the start, so an event spanning days
+                 was quietly shortened the first time anybody edited it. -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <DatePicker Grid.Column="0" Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" />
+                <DatePicker Grid.Column="1" Date="{Binding EndDate}" IsEnabled="{Binding CanEdit}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Grid.Column="0" Text="{controls:Translate 'All day'}" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IsAllDay}" IsEnabled="{Binding CanEdit}"
+                        VerticalOptions="Center" />
+            </Grid>
+
+            <!-- Hidden rather than disabled for an all-day event: there is no time to show, and a greyed
+                 pair of times reads as something that could be set and simply is not. -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Grid.Triggers>
+                    <DataTrigger TargetType="Grid" Binding="{Binding IsAllDay}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Grid.Triggers>
+                <TimePicker Grid.Column="0" Time="{Binding StartTime}" IsEnabled="{Binding CanEdit}" />
+                <TimePicker Grid.Column="1" Time="{Binding EndTime}" IsEnabled="{Binding CanEdit}" />
+            </Grid>
+
+            <!-- Whether it repeats, and how. The three frequencies are Orbit.Core's own. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Grid.Column="0" Text="{controls:Translate 'Recurring event'}" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IsRecurring}" IsEnabled="{Binding CanEdit}"
+                        VerticalOptions="Center" />
+            </Grid>
+
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsRecurring}">
+                <Label Text="{controls:Translate 'Frequency'}" Style="{StaticResource FieldLabel}" />
+                <Picker ItemsSource="{Binding Frequencies}" SelectedItem="{Binding ChosenFrequency}"
+                        IsEnabled="{Binding CanEdit}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:RecurrenceChoice}" />
+
+                <Label Text="{controls:Translate 'Every'}" Style="{StaticResource FieldLabel}" />
+                <Entry Text="{Binding RecurrenceIntervalCount}" Keyboard="Numeric"
+                       IsReadOnly="{Binding IsReadOnly}" ReturnType="Done" ReturnCommand="{Binding SaveCommand}" />
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Grid.Column="0" Text="{controls:Translate 'Repeat until (optional)'}"
+                           VerticalOptions="Center" LineBreakMode="WordWrap" />
+                    <Switch Grid.Column="1" IsToggled="{Binding RecurrenceEnds}" IsEnabled="{Binding CanEdit}"
+                            VerticalOptions="Center" />
+                </Grid>
+                <DatePicker Date="{Binding RecurrenceUntil}" IsVisible="{Binding RecurrenceEnds}"
+                            IsEnabled="{Binding CanEdit}" />
+            </VerticalStackLayout>
+
+            <!-- What is set, then what can be added. Picking from the list adds it: an "add" button
+                 after a picker is a second press for a choice already made. -->
+            <!-- Who is coming, and who could be. The same two lists Orbit.Web shows. -->
+            <!-- A palette rather than the browser's colour picker, which a phone has no equivalent of.
+                 The chosen one is ringed; "no colour" is the empty first swatch. -->
+            <Label Text="{controls:Translate 'Color'}" Style="{StaticResource FieldLabel}" />
+            <FlexLayout Wrap="Wrap" Direction="Row" AlignContent="Start"
+                        BindableLayout.ItemsSource="{Binding Colours}" IsVisible="{Binding CanEdit}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:EventColourChoice">
+                        <Border WidthRequest="34" HeightRequest="34" Margin="0,0,8,8" StrokeThickness="2"
+                                Stroke="Transparent" BackgroundColor="{Binding Value}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="17" />
+                            </Border.StrokeShape>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseColourCommand, x:DataType=calendar:CalendarEventDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                            <Border.Triggers>
+                                <!-- No colour is an outline, so the swatch is visible at all. -->
+                                <DataTrigger TargetType="Border" Binding="{Binding HasColour}" Value="False">
+                                    <Setter Property="Stroke"
+                                            Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
+                                    <Setter Property="Stroke"
+                                            Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </FlexLayout>
+
+            <Label Text="{controls:Translate 'Guests'}" Style="{StaticResource FieldLabel}" />
+            <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Guests}">
+                <BindableLayout.EmptyView>
+                    <Label Text="{controls:Translate 'No guests.'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                </BindableLayout.EmptyView>
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:GuestRow">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="{controls:Translate 'Remove'}" FontSize="12" Padding="10,4"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UninviteCommand, x:DataType=calendar:CalendarEventDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <Label Text="{controls:Translate 'Add a guest from contacts'}" Style="{StaticResource FieldLabel}"
+                   IsVisible="{Binding CanEdit}" />
+            <Label IsVisible="{Binding HasNobodyToInvite}" FontSize="12" LineBreakMode="WordWrap"
+                   Style="{StaticResource SubtleLabel}">
+                <Label.Text>
+                    <controls:Translate Text="No contacts. A contact will appear here once you start a chat with someone." />
+                </Label.Text>
+            </Label>
+            <VerticalStackLayout Spacing="6" IsVisible="{Binding CanEdit}"
+                                 BindableLayout.ItemsSource="{Binding ContactsToInvite}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:GuestRow">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="{controls:Translate 'Invite'}" FontSize="12" Padding="10,4"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.InviteCommand, x:DataType=calendar:CalendarEventDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <Label Text="{controls:Translate 'Reminders'}" Style="{StaticResource FieldLabel}" />
+            <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Reminders}">
+                <BindableLayout.EmptyView>
+                    <Label Text="{controls:Translate 'No reminders.'}" FontSize="12"
+                           Style="{StaticResource SubtleLabel}" />
+                </BindableLayout.EmptyView>
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:ReminderRow">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="{controls:Translate 'Remove'}" FontSize="12" Padding="10,4"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.RemoveReminderCommand, x:DataType=calendar:CalendarEventDetailPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+            <!-- A sheet rather than a picker. iOS docks a picker's wheel at the bottom of the screen,
+                 which on a form this long covers Save - and its "Done" lands on top of that button. -->
+            <Button Text="{controls:Translate 'Add reminder'}" HorizontalOptions="Start"
+                    FontSize="12" Padding="12,6" IsVisible="{Binding CanEdit}"
+                    Style="{StaticResource SecondaryButton}"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseReminderCommand, x:DataType=calendar:CalendarEventDetailPage}" />
+
+            <Label Text="{controls:Translate 'Notification when the event is created'}"
+                   Style="{StaticResource FieldLabel}" />
+            <Button Text="{Binding CreationChannel.Name}" HorizontalOptions="Start" FontSize="13" Padding="12,6"
+                    IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseCreationChannelCommand, x:DataType=calendar:CalendarEventDetailPage}" />
+
+            <Label Text="{controls:Translate 'Notification as the event approaches'}"
+                   Style="{StaticResource FieldLabel}" />
+            <Button Text="{Binding ReminderChannel.Name}" HorizontalOptions="Start" FontSize="13" Padding="12,6"
+                    IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseReminderChannelCommand, x:DataType=calendar:CalendarEventDetailPage}" />
+
+            <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveCommand}" />
+
+            <controls:SharePanel BindingContext="{Binding Share}" />
+
+            <!-- Hands the event to Google Calendar as a filled-in form, which is what Orbit.Web offers
+                 here too - a link rather than an API call, see GoogleCalendarEventLink. Hidden unless
+                 the account qualifies; see GoogleIntegrationAccess. -->
+            <Button Text="{controls:Translate 'Add to Google Calendar'}" HorizontalOptions="Start" FontSize="14"
+                    Style="{StaticResource LinkButton}"
+                    IsVisible="{Binding CanAddToGoogleCalendar}"
+                    Clicked="OnAddToGoogleCalendarClicked" />
+
+            <HorizontalStackLayout Spacing="16">
+                <Button Text="{controls:Translate 'Back to calendar'}" Command="{Binding GoBackCommand}"
+                        Style="{StaticResource LinkButton}" />
+                <Button Text="{controls:Translate 'Delete event'}" Command="{Binding DeleteCommand}"
+                        IsVisible="{Binding CanEdit}" Style="{StaticResource DestructiveButton}" />
+            </HorizontalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

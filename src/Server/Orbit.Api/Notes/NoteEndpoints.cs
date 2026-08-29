@@ -5,7 +5,9 @@ using Orbit.Contracts;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
+using Orbit.Api.Sync;
 using Orbit.Core.Notes;
+using Orbit.Core.Sync;
 using Orbit.Core.Notes.AcceptNoteShare;
 using Orbit.Core.Notes.AcquireNoteLock;
 using Orbit.Core.Notes.CreateNote;
@@ -32,6 +34,23 @@ public static class NoteEndpoints
         {
             var result = await dispatcher.SendAsync(new GetNotesQuery(GetUserId(user)), cancellationToken);
             return Results.Ok(result.Select(ToDto));
+        });
+
+        // What a client needs to catch up after being away, in one call: the notes that changed and
+        // the ids that are gone. Kept separate from GET / rather than adding a parameter to it, so the
+        // existing full-list response shape stays exactly as it was for the web client.
+        notes.MapGet("/changes", async (
+            DateTimeOffset since, ClaimsPrincipal user, IDispatcher dispatcher,
+            ISyncTombstoneRepository tombstones, CancellationToken cancellationToken) =>
+        {
+            var userId = GetUserId(user);
+            var cursor = ChangeFeed.StartCursor();
+            // The cursor goes to the database rather than being applied to everything it returned.
+            var notes = await dispatcher.SendAsync(new GetNotesQuery(userId, since), cancellationToken);
+            var changed = notes.Select(ToDto).ToList();
+
+            return Results.Ok(await ChangeFeed.BuildAsync(
+                changed, cursor, userId, SyncEntityType.Note, since, tombstones, cancellationToken));
         });
 
         notes.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -159,7 +178,7 @@ public static class NoteEndpoints
             note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.IsPrivate, ToDto(note.EncryptedContent),
             note.CreatedAtUtc, note.UpdatedAtUtc,
             note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null,
-            note.IsPinned, note.Priority.ToString());
+            note.IsSharedWithOthers, note.IsPinned, note.Priority.ToString());
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

@@ -38,6 +38,17 @@ internal sealed class InMemoryTaskListShareRepository : ITaskListShareRepository
         // so there is nothing to replace here - mirrors InMemoryCalendarEventShareRepository.
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlySet<Guid>> GetSharedOutTaskListIdsAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlySet<Guid> ids = _shares
+            .Where(share => share.OwnerUserId == ownerUserId && share.IsAccepted)
+            .Select(share => share.SourceTaskListId)
+            .ToHashSet();
+
+        return Task.FromResult(ids);
+    }
+
     public Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
     {
         _shares.RemoveAll(share =>

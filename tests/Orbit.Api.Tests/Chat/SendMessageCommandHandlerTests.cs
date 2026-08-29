@@ -131,10 +131,10 @@ public sealed class SendMessageCommandHandlerTests
         await userRepository.AddAsync(sender, CancellationToken.None);
         await userRepository.AddAsync(recipient, CancellationToken.None);
         var subscriptionRepository = new InMemoryPushSubscriptionRepository();
-        var subscription = PushSubscription.Create(recipient.Id, "https://push.example/a", "p256dh", "auth");
+        var subscription = PushSubscription.CreateForBrowser(recipient.Id, new WebPushRegistration("https://push.example/a", "p256dh", "auth"));
         await subscriptionRepository.AddOrReplaceAsync(subscription, CancellationToken.None);
         var pushSender = new RecordingPushNotificationSender();
-        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, pushSender, NullLogger<PushNotificationDispatcher>.Instance);
+        var dispatcher = new PushNotificationDispatcher(subscriptionRepository, [pushSender], NullLogger<PushNotificationDispatcher>.Instance);
         var handler = new SendMessageCommandHandler(
             userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
             dispatcher, CreateNotificationRecorder());
@@ -155,12 +155,12 @@ public sealed class SendMessageCommandHandlerTests
         await userRepository.AddAsync(recipient, CancellationToken.None);
         var subscriptionRepository = new InMemoryPushSubscriptionRepository();
         await subscriptionRepository.AddOrReplaceAsync(
-            PushSubscription.Create(recipient.Id, "https://push.example/a", "p256dh", "auth"), CancellationToken.None);
+            PushSubscription.CreateForBrowser(recipient.Id, new WebPushRegistration("https://push.example/a", "p256dh", "auth")), CancellationToken.None);
         var pushSender = new RecordingPushNotificationSender();
         var entryRepository = new InMemoryNotificationEntryRepository();
         var handler = new SendMessageCommandHandler(
             userRepository, new InMemoryChatMessageRepository(), new InMemoryContactRepository(), new InMemoryChatConversationAccessRepository(),
-            new PushNotificationDispatcher(subscriptionRepository, pushSender, NullLogger<PushNotificationDispatcher>.Instance),
+            new PushNotificationDispatcher(subscriptionRepository, [pushSender], NullLogger<PushNotificationDispatcher>.Instance),
             new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository));
 
         var result = await handler.HandleAsync(
@@ -175,7 +175,7 @@ public sealed class SendMessageCommandHandlerTests
     }
 
     private static PushNotificationDispatcher CreateDispatcher()
-        => new(new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(), NullLogger<PushNotificationDispatcher>.Instance);
+        => new(new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()], NullLogger<PushNotificationDispatcher>.Instance);
 
     private static NotificationRecorder CreateNotificationRecorder()
         => new(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository());

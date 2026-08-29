@@ -15,16 +15,22 @@ public sealed class TaskRepository : ITaskRepository
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<TaskList>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TaskList>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        // SQLite can't translate ORDER BY on a DateTimeOffset column, so the sort has to happen in
-        // memory after fetching (see the EF Core NotSupportedException this avoids) - same reason
-        // NoteRepository sorts after ToListAsync.
-        var entities = await _dbContext.Tasks
+        var query = _dbContext.Tasks
             .AsNoTracking()
             .Include(task => task.Items)
-            .Where(task => task.UserId == userId)
-            .ToListAsync(cancellationToken);
+            .Where(task => task.UserId == userId);
+
+        // Narrowed in the database when the caller only wants what changed. A client catching up asks
+        // for a delta; fetching everything and dropping most of it here saved the wire and nothing else.
+        if (updatedSinceUtc is not null)
+        {
+            query = query.Where(task => task.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        var entities = await query.ToListAsync(cancellationToken);
 
         return entities
             .OrderByDescending(task => task.UpdatedAtUtc)

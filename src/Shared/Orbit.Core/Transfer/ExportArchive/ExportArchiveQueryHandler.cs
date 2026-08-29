@@ -35,10 +35,10 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
 
     public async Task<OrbitArchive> HandleAsync(ExportArchiveQuery request, CancellationToken cancellationToken)
     {
-        var notes = await _noteRepository.GetAllAsync(request.UserId, cancellationToken);
-        var taskLists = await _taskRepository.GetAllAsync(request.UserId, cancellationToken);
-        var calendarEvents = await _calendarEventRepository.GetAllAsync(request.UserId, cancellationToken);
-        var warehouses = await _warehouseRepository.GetAllAsync(request.UserId, cancellationToken);
+        var notes = await _noteRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
+        var taskLists = await _taskRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
+        var calendarEvents = await _calendarEventRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
+        var warehouses = await _warehouseRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
 
         var ownTaskLists = taskLists.Where(taskList => taskList.UserId == request.UserId).ToList();
         var taskListTitlesById = ownTaskLists.ToDictionary(taskList => taskList.Id, taskList => taskList.Title);

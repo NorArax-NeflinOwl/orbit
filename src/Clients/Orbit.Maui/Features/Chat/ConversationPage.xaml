@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Chat.ConversationPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:data="clr-namespace:Orbit.Mobile.Data;assembly=Orbit.Mobile"
+    xmlns:mobile="clr-namespace:Orbit.Mobile.Chat;assembly=Orbit.Mobile"
+    xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
+    x:DataType="screens:ConversationViewModel"
+    Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+
+        <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
+        <VerticalStackLayout Grid.Row="1" Spacing="8">
+            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+
+            <!-- Orbit.Web's .chat-request-banner: a conversation still waiting on somebody says so at
+                 the top, rather than letting the reader write and find out when the send is refused. -->
+            <Border Style="{StaticResource CardBorder}" Padding="14,12" IsVisible="{Binding HasRequestNotice}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding RequestNotice}" FontSize="13" LineBreakMode="WordWrap" />
+                    <Button Text="{controls:Translate 'Allow chatting'}" HorizontalOptions="Start"
+                            FontSize="13" Padding="12,6" IsVisible="{Binding CanApproveRequest}"
+                            Command="{Binding ApproveRequestCommand}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+
+        <RefreshView Grid.Row="2" IsVisible="{Binding IsNotForwarding}"
+                     IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
+
+                <CollectionView.EmptyView>
+                    <Label Text="{controls:Translate 'No messages yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="mobile:ReadableChatMessage">
+                        <VerticalStackLayout Padding="0,8" Spacing="2">
+                            <Label IsVisible="{Binding WasForwarded}"
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{controls:Translate 'Forwarded from'}" />
+                                        <Span Text=" " />
+                                        <Span Text="{Binding ForwardedFromDisplayName}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                            <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
+
+                            <!-- Somebody asking to be allowed to change something of yours. Nothing to
+                                 accept in one tap: widening access means sharing it again. -->
+                            <VerticalStackLayout Spacing="4" IsVisible="{Binding IsEditAccessRequest}">
+                                <Label Text="{controls:Translate 'Asked to edit'}" FontSize="12"
+                                       Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{Binding EditAccessRequestName}" FontAttributes="Bold"
+                                       LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+
+                            <!-- An offer to share something, which arrives as an ordinary message whose
+                                 plaintext is structured. Before this the phone showed the JSON. -->
+                            <VerticalStackLayout Spacing="4" IsVisible="{Binding IsInvitation}">
+                                <Label Text="{controls:Translate 'Shared something with you'}" FontSize="12"
+                                       Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{Binding InvitationName}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                                <Button Text="{controls:Translate 'Accept'}" FontSize="12" Padding="12,4"
+                                        HorizontalOptions="Start" IsVisible="{Binding CanBeAccepted}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AcceptShareCommand, x:DataType=chat:ConversationPage}"
+                                        CommandParameter="{Binding .}" />
+                                <Label Text="{controls:Translate 'Already accepted'}" FontSize="12"
+                                       IsVisible="{Binding WasAccepted}" Style="{StaticResource SubtleLabel}" />
+                            </VerticalStackLayout>
+                            <!-- A message sealed under a key pair since replaced can never be opened. -->
+                            <Label IsVisible="{Binding CannotBeOpened}"
+                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                <Label.Text>
+                                    <controls:Translate Text="This message can't be opened on this device." />
+                                </Label.Text>
+                            </Label>
+                            <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <!-- Only ever on the reader's own messages - see ReadableChatMessage. -->
+                            <Label Text="{controls:Translate 'Read'}" IsVisible="{Binding IsReadByThem}"
+                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            <!-- One trigger rather than three buttons, as Orbit.Web's bubbles have. The
+                                 menu itself is an action sheet rather than a hovering dropdown: on a
+                                 phone that is the same affordance in the shape the platform uses, and
+                                 it is what a thumb can actually hit. -->
+                            <Button Text="⋯" FontSize="18" Padding="12,0" HorizontalOptions="Start"
+                                    IsVisible="{Binding HasActions}"
+                                    Style="{StaticResource LinkButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:ConversationPage}"
+                                    CommandParameter="{Binding .}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+        <!-- Picking where to pass a message on to. Replaces the conversation rather than sitting over
+             it, the same way choosing who to add to a group does. -->
+        <Grid Grid.Row="2" RowDefinitions="Auto,*" RowSpacing="8" IsVisible="{Binding IsForwarding}">
+            <Label Grid.Row="0" Text="{controls:Translate 'Forward to'}" FontAttributes="Bold" />
+            <CollectionView Grid.Row="1" ItemsSource="{Binding ForwardTargets}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="data:LocalContact">
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,10" ColumnSpacing="8">
+                            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding DisplayName}" FontSize="17" />
+                                <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="{controls:Translate 'Send'}" FontSize="13" Padding="14,4"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ForwardToCommand, x:DataType=chat:ConversationPage}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <Button Grid.Row="3" Text="{controls:Translate 'Cancel'}" Command="{Binding CancelForwardingCommand}"
+                IsVisible="{Binding IsForwarding}"
+                Style="{StaticResource LinkButton}" />
+
+        <!-- Somebody who has never opened chat has no key to encrypt for. Saying so is the difference
+             between a screen that is waiting on them and a screen that looks broken. -->
+        <Label Grid.Row="3" Text="{Binding CannotWriteReason}" IsVisible="{Binding CannotWrite}"
+               FontSize="13" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding CanCompose}">
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
+                   ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Command="{Binding SendCommand}" />
+            <Button Grid.Column="2" Text="{controls:Translate 'Cancel'}" IsVisible="{Binding IsEditing}"
+                    Command="{Binding CancelEditingCommand}"
+                    Style="{StaticResource LinkButton}" />
+        </Grid>
+
+        <!-- These screens replace each other rather than stacking, so there is no navigation bar to go
+             back through - every screen carries its own way out. -->
+        <Button Grid.Row="4" Text="{controls:Translate 'Back to chat'}" Command="{Binding GoBackCommand}"
+                Style="{StaticResource LinkButton}" />
+
+    </Grid>
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

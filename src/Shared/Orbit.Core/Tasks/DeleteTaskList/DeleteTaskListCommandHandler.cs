@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Sync;
 
 namespace Orbit.Core.Tasks.DeleteTaskList;
 
@@ -6,12 +7,15 @@ public sealed class DeleteTaskListCommandHandler : IRequestHandler<DeleteTaskLis
 {
     private readonly ITaskRepository _taskRepository;
     private readonly ITaskListShareRepository _taskListShareRepository;
+    private readonly ISyncTombstoneRepository _syncTombstoneRepository;
 
     public DeleteTaskListCommandHandler(
-        ITaskRepository taskRepository, ITaskListShareRepository taskListShareRepository)
+        ITaskRepository taskRepository, ITaskListShareRepository taskListShareRepository,
+        ISyncTombstoneRepository syncTombstoneRepository)
     {
         _taskRepository = taskRepository;
         _taskListShareRepository = taskListShareRepository;
+        _syncTombstoneRepository = syncTombstoneRepository;
     }
 
     /// <summary>
@@ -30,16 +34,28 @@ public sealed class DeleteTaskListCommandHandler : IRequestHandler<DeleteTaskLis
             // Not the owner's. A recipient asking to be rid of something shared with them means
             // taking it off their own list - destroying somebody else's task list is not theirs to
             // do. Removing the accepted grant does exactly that and leaves the owner's untouched.
-            if (await _taskListShareRepository.FindAcceptedGrantAsync(request.Id, request.UserId, cancellationToken) is not null)
+            if (await _taskListShareRepository.FindAcceptedGrantAsync(request.Id, request.UserId, cancellationToken) is null)
             {
-                await _taskListShareRepository.RemoveAcceptedGrantAsync(request.Id, request.UserId, cancellationToken);
-                return true;
+                return false;
             }
 
-            return false;
+            await _taskListShareRepository.RemoveAcceptedGrantAsync(request.Id, request.UserId, cancellationToken);
+            await RecordTombstoneAsync(request, cancellationToken);
+            return true;
         }
 
         await _taskRepository.DeleteAsync(request.UserId, request.Id, cancellationToken);
+        await RecordTombstoneAsync(request, cancellationToken);
         return true;
     }
+
+    /// <summary>
+    /// Tombstones are per-user, which is what lets a dropped grant leave one: the list is gone
+    /// from this reader's list and from nobody else's, and that is exactly what their next delta
+    /// needs to say.
+    /// </summary>
+    private Task RecordTombstoneAsync(DeleteTaskListCommand request, CancellationToken cancellationToken)
+        => _syncTombstoneRepository.RecordAsync(
+            new SyncTombstone(request.UserId, SyncEntityType.TaskList, request.Id, DateTimeOffset.UtcNow),
+            cancellationToken);
 }

@@ -207,7 +207,7 @@ public sealed class GroupMessagingTests
                 groupRepository, contactRepository, userRepository,
                 new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository),
                 new PushNotificationDispatcher(
-                    new InMemoryPushSubscriptionRepository(), new RecordingPushNotificationSender(),
+                    new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
                     NullLogger<PushNotificationDispatcher>.Instance))
             .HandleAsync(new AddChatGroupMemberCommand(admin.Id, group.Id, invitee.Id), CancellationToken.None);
 
@@ -442,7 +442,7 @@ public sealed class GroupMessagingTests
                     GroupRepository, ContactRepository, UserRepository,
                     new NotificationRecorder(new InMemoryNotificationSettingsRepository(), NotificationEntryRepository),
                     new PushNotificationDispatcher(
-                        new InMemoryPushSubscriptionRepository(), PushSender, NullLogger<PushNotificationDispatcher>.Instance))
+                        new InMemoryPushSubscriptionRepository(), [PushSender], NullLogger<PushNotificationDispatcher>.Instance))
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
 
 

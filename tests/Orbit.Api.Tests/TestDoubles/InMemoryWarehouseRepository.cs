@@ -7,8 +7,17 @@ internal sealed class InMemoryWarehouseRepository : IWarehouseRepository
 {
     private readonly List<Warehouse> _warehouses = [];
 
-    public Task<IReadOnlyList<Warehouse>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<Warehouse>>(_warehouses.Where(warehouse => warehouse.UserId == userId).ToList());
+    public Task<IReadOnlyList<Warehouse>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
+    {
+        var matching = _warehouses.Where(warehouse => warehouse.UserId == userId);
+        if (updatedSinceUtc is not null)
+        {
+            matching = matching.Where(warehouse => warehouse.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        return Task.FromResult<IReadOnlyList<Warehouse>>(matching.ToList());
+    }
 
     public Task<Warehouse?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
         => Task.FromResult(_warehouses.FirstOrDefault(warehouse => warehouse.Id == id && warehouse.UserId == userId));

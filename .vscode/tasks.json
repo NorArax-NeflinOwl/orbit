@@ -31,6 +31,179 @@
             ],
             "dependsOn": ["ensure-postgres"],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "ios-simulator: open",
+            // Boots the simulator that was last used and brings the window up. Everything below talks to
+            // "booted", so something has to be running first; opening Simulator.app is the one step that
+            // does not need a device name spelled out here and going stale.
+            "type": "shell",
+            "command": "open",
+            "args": ["-a", "Simulator"],
+            "problemMatcher": []
+        },
+        {
+            "label": "ios-simulator: list iPhones",
+            // What the next task will accept as a name. Worth having as a task rather than a comment,
+            // because the list is whatever the installed Xcode ships and changes with it.
+            "type": "shell",
+            "command": "xcrun simctl list devices available | grep iPhone",
+            "problemMatcher": []
+        },
+        {
+            "label": "ios-simulator: boot a chosen iPhone",
+            // Switches which iPhone everything else targets. "booted" is the only handle simctl offers
+            // once something is running, so choosing the device is a separate step from using it -
+            // running this and then "maui-ios: run on simulator" is how to try another model.
+            // Shuts the current one down first: several booted at once make "booted" ambiguous.
+            "type": "shell",
+            "command": "xcrun simctl shutdown booted 2>/dev/null; xcrun simctl boot '${input:iosSimulatorName}' && open -a Simulator",
+            "problemMatcher": []
+        },
+        {
+            "label": "maui-ios: build",
+            // The simulator build, which needs its runtime identifier named: without it the iOS build
+            // targets a device and produces an app the simulator cannot install. iossimulator-x64 on an
+            // Intel Mac.
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj",
+                "-f", "net10.0-ios",
+                "-p:RuntimeIdentifier=iossimulator-arm64",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "maui-ios: run on simulator",
+            // Build, install, launch - no debugger attached. What to use when the MAUI extension is not
+            // installed, or to see a change quickly without a debug session. Installing over the top
+            // keeps the app's local database, which is usually what you want; to start from an empty
+            // one, use "maui-ios: reinstall clean" instead.
+            "type": "shell",
+            "command": "xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app && xcrun simctl launch booted com.orbitmaui.ios",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": ["ios-simulator: open", "maui-ios: build"],
+            "problemMatcher": []
+        },
+        {
+            "label": "maui-ios: reinstall clean",
+            // Wipes the app's container, and with it the local SQLite database - the way to test a fresh
+            // install or a migration path from nothing. The chat key survives: it lives in the Keychain,
+            // which an uninstall does not clear.
+            "type": "shell",
+            "command": "xcrun simctl uninstall booted com.orbitmaui.ios; xcrun simctl install booted src/Clients/Orbit.Maui/bin/Debug/net10.0-ios/iossimulator-arm64/Orbit.Maui.app && xcrun simctl launch booted com.orbitmaui.ios",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": ["ios-simulator: open", "maui-ios: build"],
+            "problemMatcher": []
+        },
+        {
+            "label": "android-emulator: list AVDs",
+            // What the next task will accept as a name. The emulator lives in the SDK rather than on
+            // PATH, and the SDK is wherever ANDROID_HOME says - falling back to the location the
+            // command-line tools and Android Studio both use by default. Spelled out in shell rather
+            // than as ${env:ANDROID_HOME}, because VS Code substitutes an unset one with nothing and
+            // the task would then look for the emulator at the filesystem root.
+            "type": "shell",
+            "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; \"$SDK/emulator/emulator\" -list-avds",
+            "windows": {
+                // The same two candidates on Windows, where the default the command-line tools and
+                // Android Studio share is %LOCALAPPDATA%\Android\Sdk. Visual Studio's own SDK is not
+                // one of them: it carries no emulator package at all.
+                "command": "$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { \"$env:LOCALAPPDATA\\Android\\Sdk\" }; & \"$sdk\\emulator\\emulator.exe\" -list-avds"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "android-emulator: boot a chosen AVD",
+            // Detached, because the emulator runs for as long as it is being used and a VS Code task
+            // that never returns would block everything that depends on it. The wait afterwards is not
+            // optional: adb answers as soon as the device is listed, which is minutes before Android
+            // has finished booting, and an install into that window fails.
+            "type": "shell",
+            "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; nohup \"$SDK/emulator/emulator\" -avd '${input:androidAvdName}' -no-boot-anim >/dev/null 2>&1 & \"$SDK/platform-tools/adb\" wait-for-device; until [ \"$(\"$SDK/platform-tools/adb\" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done; echo booted",
+            "windows": {
+                // Start-Process is what detaches here, nohup having no Windows counterpart. getprop is
+                // read through "$(...)" rather than called directly because it answers with nothing at
+                // all until the device is up, and .Trim() on that would throw instead of waiting.
+                "command": "$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { \"$env:LOCALAPPDATA\\Android\\Sdk\" }; Start-Process -FilePath \"$sdk\\emulator\\emulator.exe\" -ArgumentList '-avd','${input:androidAvdName}','-no-boot-anim'; & \"$sdk\\platform-tools\\adb.exe\" wait-for-device; while (\"$(& \"$sdk\\platform-tools\\adb.exe\" shell getprop sys.boot_completed)\".Trim() -ne '1') { Start-Sleep -Seconds 2 }; 'booted'"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "maui-android: build",
+            // No runtime identifier, unlike the iOS build: one Android build carries every architecture
+            // it supports, and the emulator picks the one it can run.
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj",
+                "-f", "net10.0-android",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "maui-android: run on emulator",
+            // -t:Run is the Android SDK's own build-install-launch target, so nothing here has to name
+            // the activity - which is generated with a hashed prefix and would go stale. Installs over
+            // the top, keeping the app's local database.
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj",
+                "-f", "net10.0-android",
+                "-t:Run",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "maui-android: reinstall clean",
+            // Wipes the app's data, and with it the local SQLite database - for testing a fresh install
+            // or a migration path from nothing. Unlike iOS, this also takes the chat key: Android's
+            // secure storage is app data, so an uninstall clears it where the Keychain survives one.
+            "type": "shell",
+            "command": "SDK=$ANDROID_HOME; [ -z \"$SDK\" ] && SDK=$HOME/Library/Android/sdk; \"$SDK/platform-tools/adb\" uninstall com.orbitmaui.android; dotnet build \"${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj\" -f net10.0-android -t:Run",
+            "windows": {
+                "command": "$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { \"$env:LOCALAPPDATA\\Android\\Sdk\" }; & \"$sdk\\platform-tools\\adb.exe\" uninstall com.orbitmaui.android; dotnet build \"${workspaceFolder}/src/Clients/Orbit.Maui/Orbit.Maui.csproj\" -f net10.0-android -t:Run"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            // Free text rather than a fixed list: the models are whatever the installed Xcode ships, and
+            // a list written down here would be wrong after the next update. "ios-simulator: list
+            // iPhones" prints what this machine actually has.
+            "id": "iosSimulatorName",
+            "type": "promptString",
+            "description": "Which iPhone to simulate (see the \"ios-simulator: list iPhones\" task)",
+            "default": "iPhone 17 Pro"
+        },
+        {
+            // Free text for the same reason as the iPhone above: the AVDs are whatever this machine has
+            // been given, and "android-emulator: list AVDs" prints them.
+            "id": "androidAvdName",
+            "type": "promptString",
+            "description": "Which Android virtual device to boot (see the \"android-emulator: list AVDs\" task)",
+            "default": "Orbit_Pixel_8_API_36"
         }
     ]
 }

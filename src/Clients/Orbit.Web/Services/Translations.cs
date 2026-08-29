@@ -1,4 +1,5 @@
 using System.Globalization;
+using Orbit.Localization;
 using Microsoft.JSInterop;
 
 namespace Orbit.Web.Services;
@@ -96,11 +97,4 @@ public sealed class Translations
             Changed?.Invoke();
         }
     }
-}
-
-/// <summary>The languages Orbit's own interface is written in.</summary>
-public enum AppLanguage
-{
-    English,
-    Polish
 }

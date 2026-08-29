@@ -16,14 +16,18 @@ internal sealed class InMemoryPushSubscriptionRepository : IPushSubscriptionRepo
 
     public Task AddOrReplaceAsync(PushSubscription subscription, CancellationToken cancellationToken)
     {
-        _subscriptions.RemoveAll(existing => existing.Endpoint == subscription.Endpoint);
+        // Matched the way the real repository matches: on whichever value identifies the destination,
+        // since a device subscription has no endpoint and a browser one has no device token.
+        _subscriptions.RemoveAll(existing =>
+            (subscription.WebPush is { } webPush && existing.WebPush?.Endpoint == webPush.Endpoint)
+            || (subscription.Device is { } device && existing.Device?.Token == device.Token));
         _subscriptions.Add(subscription);
         return Task.CompletedTask;
     }
 
     public Task<bool> RemoveByEndpointAsync(Guid userId, string endpoint, CancellationToken cancellationToken)
         => Task.FromResult(_subscriptions.RemoveAll(
-            subscription => subscription.UserId == userId && subscription.Endpoint == endpoint) > 0);
+            subscription => subscription.UserId == userId && subscription.WebPush?.Endpoint == endpoint) > 0);
 
     public Task RemoveAsync(Guid subscriptionId, CancellationToken cancellationToken)
     {

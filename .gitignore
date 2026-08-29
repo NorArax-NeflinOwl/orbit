@@ -27,6 +27,8 @@ _to_delete/
 *.pem
 *.key
 *.p12
+# APNs auth key, downloadable exactly once - Firebase holds it, but it lands on disk first.
+*.p8
 *.jks
 *.tar.gz
 secrets/
@@ -38,6 +40,17 @@ credentials/
 
 *.DS_Store
 *.Development.json
+
+# Firebase config for the Android app. Not a private key, but it carries an API key and is
+# deployment-specific, so it follows the same rule as GoogleAuth:ClientId - a placeholder is tracked
+# (google-services.json.example) and the real file is not. Fetch it from the Firebase console, or copy
+# it from secrets/ if you keep one there.
+google-services.json
+GoogleService-Info.plist
+
+# The Google Maps key for the Android app, merged into the manifest at build time. Same rule again: a
+# placeholder is tracked (AndroidManifestOverlay.xml.example) and the real file is not.
+AndroidManifestOverlay.xml
 
 # Deployment notes that name real accounts - see notes/permissions.local.md. Kept out of git because
 # which account may do what is a deployment's own business, not the source's.

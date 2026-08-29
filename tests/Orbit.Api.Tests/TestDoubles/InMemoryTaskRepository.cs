@@ -10,8 +10,17 @@ internal sealed class InMemoryTaskRepository : ITaskRepository
 {
     private readonly List<TaskList> _taskLists = [];
 
-    public Task<IReadOnlyList<TaskList>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<TaskList>>(_taskLists.Where(taskList => taskList.UserId == userId).ToList());
+    public Task<IReadOnlyList<TaskList>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
+    {
+        var matching = _taskLists.Where(taskList => taskList.UserId == userId);
+        if (updatedSinceUtc is not null)
+        {
+            matching = matching.Where(taskList => taskList.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        return Task.FromResult<IReadOnlyList<TaskList>>(matching.ToList());
+    }
 
     public Task<TaskList?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
         => Task.FromResult(_taskLists.FirstOrDefault(taskList => taskList.Id == id && taskList.UserId == userId));

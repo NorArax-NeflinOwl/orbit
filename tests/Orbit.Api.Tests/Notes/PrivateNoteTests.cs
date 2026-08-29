@@ -172,6 +172,6 @@ public sealed class PrivateNoteTests
 
         public Task<Note?> ResolveForAsync(Guid callerId, Guid noteId) => Resolver.ResolveAsync(callerId, noteId, CancellationToken.None);
 
-        public Task<IReadOnlyList<Note>> ResolveAllForAsync(Guid callerId) => Resolver.ResolveAllAsync(callerId, CancellationToken.None);
+        public Task<IReadOnlyList<Note>> ResolveAllForAsync(Guid callerId) => Resolver.ResolveAllAsync(callerId, updatedSinceUtc: null, CancellationToken.None);
     }
 }

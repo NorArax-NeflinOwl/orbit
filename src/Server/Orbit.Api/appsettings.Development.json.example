@@ -15,6 +15,9 @@
   },
   "GoogleAuth": {
     "_comment": "OAuth client id for 'sign in with Google' (Google Cloud Console > Credentials > OAuth client ID, type 'Web application', with this app's origin authorized). Only the id - Orbit verifies browser-obtained ID tokens, so there is no client secret. Leave empty to hide the Google button entirely.",
-    "ClientId": ""
+    "ClientId": "",
+    "_mobileComment": "The Orbit.Maui apps' own OAuth client ids (type 'iOS' and 'Android' in the same Google project). A token is accepted only if its audience is one of these three, so an app whose id is missing here cannot sign in. Leave empty until the mobile apps exist.",
+    "IosClientId": "",
+    "AndroidClientId": ""
   }
 }

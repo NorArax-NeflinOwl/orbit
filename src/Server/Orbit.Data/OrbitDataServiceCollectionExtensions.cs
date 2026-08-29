@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Orbit.Core.Calendar;
+using Orbit.Core.Diagnostics;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.Groups;
@@ -15,6 +16,7 @@ using Orbit.Core.Sharing;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.OverdueNotifications;
+using Orbit.Core.Sync;
 using Orbit.Core.Users;
 using Orbit.Data.Repositories;
 
@@ -65,6 +67,8 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IInventoryExpiryNotificationRepository, InventoryExpiryNotificationRepository>();
         services.AddScoped<INotificationSettingsRepository, NotificationSettingsRepository>();
         services.AddScoped<INotificationEntryRepository, NotificationEntryRepository>();
+        services.AddScoped<IDiagnosticLogRepository, DiagnosticLogRepository>();
+        services.AddScoped<ISyncTombstoneRepository, SyncTombstoneRepository>();
         services.AddScoped<IPublicShareLinkRepository, PublicShareLinkRepository>();
 
         return services;

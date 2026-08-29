@@ -29,6 +29,17 @@ internal sealed class InMemoryWarehouseShareRepository : IWarehouseShareReposito
     public Task<IReadOnlyList<WarehouseShare>> GetAcceptedGrantsForRecipientAsync(Guid recipientUserId, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<WarehouseShare>>(
             _shares.Where(share => share.RecipientUserId == recipientUserId && share.IsAccepted).ToList());
+
+    public Task<IReadOnlySet<Guid>> GetSharedOutWarehouseIdsAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlySet<Guid> ids = _shares
+            .Where(share => share.OwnerUserId == ownerUserId && share.IsAccepted)
+            .Select(share => share.SourceWarehouseId)
+            .ToHashSet();
+
+        return Task.FromResult(ids);
+    }
+
     public Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
     {
         _shares.RemoveAll(share =>

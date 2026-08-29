@@ -12,7 +12,7 @@ public sealed class DeleteNoteCommandHandlerTests
     public async Task HandleAsync_deletes_a_note_owned_by_the_requesting_user()
     {
         var repository = new InMemoryNoteRepository();
-        var handler = new DeleteNoteCommandHandler(repository, new InMemoryNoteShareRepository());
+        var handler = new DeleteNoteCommandHandler(repository, new InMemoryNoteShareRepository(), new InMemorySyncTombstoneRepository());
         var userId = Guid.NewGuid();
         var note = Note.Create(userId, "Title", [NoteContentLine.PlainText("Content")]);
         await repository.AddAsync(note, CancellationToken.None);
@@ -27,7 +27,7 @@ public sealed class DeleteNoteCommandHandlerTests
     public async Task HandleAsync_returns_false_and_does_not_delete_a_note_owned_by_a_different_user()
     {
         var repository = new InMemoryNoteRepository();
-        var handler = new DeleteNoteCommandHandler(repository, new InMemoryNoteShareRepository());
+        var handler = new DeleteNoteCommandHandler(repository, new InMemoryNoteShareRepository(), new InMemorySyncTombstoneRepository());
         var ownerId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
         var note = Note.Create(ownerId, "Title", [NoteContentLine.PlainText("Content")]);
@@ -42,7 +42,7 @@ public sealed class DeleteNoteCommandHandlerTests
     [Fact]
     public async Task HandleAsync_returns_false_for_an_unknown_note_id()
     {
-        var handler = new DeleteNoteCommandHandler(new InMemoryNoteRepository(), new InMemoryNoteShareRepository());
+        var handler = new DeleteNoteCommandHandler(new InMemoryNoteRepository(), new InMemoryNoteShareRepository(), new InMemorySyncTombstoneRepository());
 
         var wasDeleted = await handler.HandleAsync(new DeleteNoteCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
@@ -61,7 +61,7 @@ public sealed class DeleteNoteCommandHandlerTests
         share.MarkAccepted();
         await shareRepository.AddAsync(share, CancellationToken.None);
 
-        var handler = new DeleteNoteCommandHandler(noteRepository, shareRepository);
+        var handler = new DeleteNoteCommandHandler(noteRepository, shareRepository, new InMemorySyncTombstoneRepository());
         var removed = await handler.HandleAsync(new DeleteNoteCommand(recipientId, note.Id), CancellationToken.None);
 
         // The recipient pressed Delete and it worked - it used to 404, because the note is not theirs to
@@ -80,7 +80,7 @@ public sealed class DeleteNoteCommandHandlerTests
         var note = Note.Create(ownerId, "Shopping", [NoteContentLine.PlainText("Milk")]);
         await noteRepository.AddAsync(note, CancellationToken.None);
 
-        var handler = new DeleteNoteCommandHandler(noteRepository, new InMemoryNoteShareRepository());
+        var handler = new DeleteNoteCommandHandler(noteRepository, new InMemoryNoteShareRepository(), new InMemorySyncTombstoneRepository());
         var removed = await handler.HandleAsync(new DeleteNoteCommand(Guid.NewGuid(), note.Id), CancellationToken.None);
 
         // Dropping a grant that was never offered would be a way to probe which ids exist.

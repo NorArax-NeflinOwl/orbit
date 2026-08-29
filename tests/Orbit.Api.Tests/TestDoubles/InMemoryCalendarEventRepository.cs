@@ -10,8 +10,17 @@ internal sealed class InMemoryCalendarEventRepository : ICalendarEventRepository
 {
     private readonly List<CalendarEvent> _calendarEvents = [];
 
-    public Task<IReadOnlyList<CalendarEvent>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<CalendarEvent>>(_calendarEvents.Where(calendarEvent => calendarEvent.UserId == userId).ToList());
+    public Task<IReadOnlyList<CalendarEvent>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
+    {
+        var matching = _calendarEvents.Where(calendarEvent => calendarEvent.UserId == userId);
+        if (updatedSinceUtc is not null)
+        {
+            matching = matching.Where(calendarEvent => calendarEvent.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        return Task.FromResult<IReadOnlyList<CalendarEvent>>(matching.ToList());
+    }
 
     public Task<CalendarEvent?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
         => Task.FromResult(_calendarEvents.FirstOrDefault(calendarEvent => calendarEvent.Id == id && calendarEvent.UserId == userId));

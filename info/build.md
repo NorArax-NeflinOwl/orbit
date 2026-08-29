@@ -110,7 +110,50 @@ you load `https://localhost:8443`, and Service Worker registration (needed for p
 needs a step beyond just clicking through that warning - see `info/instructions.md` in this same
 folder for the three ways to resolve that.
 
-## 6. Troubleshooting
+## 6. Running Orbit.Api outside the container
+
+The stack above is self-contained, but debugging the server - and running either mobile head, which
+talks to a server on the host rather than one inside Compose - means starting `Orbit.Api` from the
+IDE against the `orbit-postgres` container. Three things about that come with neither the repository
+nor `.env`, so they have to be redone on every machine.
+
+**`ConnectionStrings:Orbit` lives in user secrets.** `docker-compose.yml` builds it from
+`POSTGRES_PASSWORD`, which covers the container but not a local run: `Orbit.Api` refuses to start
+without it, and its exception spells out what to set. Once per machine, from
+`src/Server/Orbit.Api`:
+
+```
+dotnet user-secrets set "ConnectionStrings:Orbit" "Host=localhost;Port=5432;Database=orbit;Username=orbit;Password=<POSTGRES_PASSWORD from .env>"
+```
+
+**The user-secrets store sits in a different place on each platform, and moving machines means
+merging the two files rather than copying one over the other.** It is
+`~/.microsoft/usersecrets/<UserSecretsId>/secrets.json` on macOS and
+`%APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json` on Windows. Nothing keeps the two
+machines' files holding the same keys - the same secret can sit in user secrets on one and in
+`appsettings.Development.json` on the other - so copying one over the other silently drops whatever
+only the destination had, and a private key dropped that way is gone. Set each key with
+`dotnet user-secrets set`, which merges.
+
+**Launching the built executable directly ignores `launchSettings.json`, and with it the port.**
+`dotnet run` and the IDE read the profile's `applicationUrl` (`http://localhost:5080`); running
+`bin/Debug/net10.0/Orbit.Api.exe` does not, and Kestrel falls back to port 5000. Nothing looks
+wrong - the server starts and serves - but both mobile heads look for 5080 and get a refused
+connection, which reads as a broken app rather than a server on the wrong port. Name the port when
+starting the executable:
+
+```
+ASPNETCORE_URLS=http://localhost:5080
+```
+
+**A request the server cannot even read answers 500 here and 400 in production, and that is ASP.NET
+rather than Orbit.** Minimal APIs rethrow a body they could not bind when the environment is Development
+- deliberately, so a developer sees the exception rather than a bare status - and return 400 for the
+same body anywhere else. So a JSON object missing a required property looks like a server fault locally
+and like the caller's mistake once deployed. Worth knowing before going looking for the fault: check the
+same request against a Production-configured run before believing a 500.
+
+## 7. Troubleshooting
 
 - `docker compose logs orbit-api` / `docker compose logs orbit-web` - see what a container actually
   logged, including any startup exception.

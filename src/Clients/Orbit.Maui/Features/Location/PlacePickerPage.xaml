@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Location.PlacePickerPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+    Title="{controls:Translate 'Pick a place'}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20" RowSpacing="12">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="8">
+            <Label Text="{controls:Translate 'Tap the map to drop a pin.'}" FontSize="13"
+                   LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+            <!-- Knowing the address and not where it sits on a map is the ordinary case, which a map
+                 that can only be pointed at has no answer for. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="SearchBox" Grid.Column="0" ReturnType="Search"
+                       Placeholder="{controls:Translate 'Search for an address'}" Completed="OnSearchRequested" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Search'}" FontSize="13"
+                        Clicked="OnSearchRequested" />
+            </Grid>
+
+            <Label x:Name="SearchStatusLabel" FontSize="12" IsVisible="False" LineBreakMode="WordWrap"
+                   Style="{StaticResource SubtleLabel}" />
+
+            <!-- Every match rather than the best one: street names repeat, and taking the first would
+                 drop a pin in whichever town Nominatim happened to rank first. -->
+            <VerticalStackLayout x:Name="SearchResults" Spacing="2" IsVisible="False" />
+        </VerticalStackLayout>
+
+        <!-- The pin is built in code-behind: the control's pin carries a platform Location, and keeping
+             that out of the view model is what lets the view model be tested at all. -->
+        <maps:Map x:Name="PlaceMap" Grid.Row="1" IsShowingUser="False" MapClicked="OnMapClicked" />
+
+        <VerticalStackLayout Grid.Row="2" Spacing="10">
+            <!-- Nothing is written back until the reader says yes: a stray tap on a map must not
+                 rewrite an address somebody typed. -->
+            <Label x:Name="PlaceLabel" FontSize="14" LineBreakMode="WordWrap" IsVisible="False" />
+
+            <HorizontalStackLayout Spacing="16">
+                <Button x:Name="UseButton" Text="{controls:Translate 'Yes, use it'}" IsEnabled="False"
+                        Clicked="OnUseClicked" />
+                <Button Text="{controls:Translate 'Cancel'}" Style="{StaticResource LinkButton}"
+                        Clicked="OnCancelClicked" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+
+    </Grid>
+
+</ContentPage>
