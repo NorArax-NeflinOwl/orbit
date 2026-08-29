@@ -21,10 +21,13 @@ public sealed record InventoryUnitOption(string Value, string Name, string Short
     public static readonly InventoryUnitOption Default = All[0];
 
     /// <summary>
-    /// An unrecognised value reads as pieces rather than as nothing at all: the dropdown only offers the
-    /// units above, and a row from somewhere else should still show an amount somebody can read.
+    /// An unrecognised value - or none at all - reads as pieces rather than as nothing: the dropdown
+    /// only offers the units above, and a row from somewhere else should still show an amount somebody
+    /// can read. A private warehouse sealed before units existed is exactly the "none at all" case: its
+    /// items carry no unit, and without this the picker showed pieces while the item held nothing, so
+    /// the next save wrote that nothing back.
     /// </summary>
-    public static InventoryUnitOption For(string value)
+    public static InventoryUnitOption For(string? value)
         => All.FirstOrDefault(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase))
             ?? Default;
 }

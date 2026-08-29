@@ -198,6 +198,23 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         Assert.Contains("Litre", _lastSavedJson);
     }
 
+
+    [Fact]
+    public void An_item_carrying_no_unit_at_all_shows_and_saves_pieces()
+    {
+        // A private warehouse sealed before units existed: its rows come back with none. The picker used
+        // to show pieces - the first option - while the row itself held nothing, and that nothing is
+        // what the next save wrote back.
+        RegisterApiClients([Item("Flour", unit: null!)]);
+        var cut = Render();
+
+        Assert.Equal("Piece", cut.Find(".editor-item-unit").GetAttribute("value"));
+
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        Assert.Contains("Piece", _lastSavedJson);
+    }
     private IRenderedComponent<WarehouseEditor> Render()
         => RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
 

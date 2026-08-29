@@ -230,6 +230,7 @@ internal static class PolishTranslations
         ["Type"] = "Typ",
         ["Calendar event"] = "Wydarzenie w kalendarzu",
         ["Back to Calendar"] = "Wróć do kalendarza",
+        ["Couldn't change your availability. Check your connection and try again."] = "Nie udało się zmienić dostępności. Sprawdź połączenie i spróbuj ponownie.",
         ["Show map"] = "Pokaż mapę",
         ["Pick a place"] = "Wskaż miejsce",
         ["Search for an address"] = "Wyszukaj adres",

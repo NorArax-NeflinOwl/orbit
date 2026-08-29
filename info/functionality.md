@@ -749,8 +749,12 @@ server-side so the client never reimplements the comparison), and `createdAtUtc`
 list (`InventoryUnit`): `Piece`, `Kilogram`, `Milligram`, `Litre`, `Millilitre`, `Pack`. Fixed because
 `quantity` and `minimumQuantity` are compared as bare numbers, so both have to mean the same thing —
 "szt." typed three ways would leave a shelf that looks stocked and a restock task nobody understands.
-An item that says nothing is counted in pieces, which is also what every item stocked before units
-existed became. The editor writes the short form beside the amount (`kg`, `ml`, `pcs`) and keeps the
+An item that says nothing is counted in pieces — every item stocked before units existed became one, and
+a save that omits the field is read the same way rather than refused, so a client built before units
+existed can still save a warehouse (`InventoryEndpoints.UnitOf`). A unit that is *named* but not
+recognised is still refused: that is a typo, not a silence. The client applies the same rule when it
+opens a private warehouse sealed before units existed, whose items carry none
+(`InventoryUnitOption.For`). The editor writes the short form beside the amount (`kg`, `ml`, `pcs`) and keeps the
 full name in each option's tooltip, and a restock errand carries it too - "Restock: Flour (5 kg)"
 (`RestockTaskNaming.EntryFor`). Pieces are left off there, since "(5)" of a thing already means five of
 them, and an errand raised from a checklist carries no unit at all: repetition is the quantity on a
