@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -23,7 +24,12 @@ public sealed class TasksTests : OrbitTestContext
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         Services.AddSingleton(new TaskListArrangement(new StubJSRuntime()));
+        // MainLayout owns the polling in the real app; the page only reads this to badge the card a
+        // reminder is about, so an empty feed is the right default here.
+        Services.AddSingleton(_notifications);
     }
+
+    private readonly NotificationFeedState _notifications = new();
 
     /// <summary>Opens the menu the sort orders live behind, and picks one by the words on it.</summary>
     private static void SortBy(IRenderedFragment cut, string label)
@@ -227,6 +233,24 @@ public sealed class TasksTests : OrbitTestContext
 
         Assert.Equal(2, cut.FindAll(".task-preview-row").Count);
     }
+
+    [Fact]
+    public void A_list_something_unread_is_about_says_so_in_front_of_its_name()
+    {
+        var quiet = TaskList("Kitchen", Item("Paint walls"));
+        var reminded = TaskList("Garden", Item("Mow"));
+        RegisterTasksApiClient([quiet, reminded]);
+        _notifications.Set([Notification($"/tasks/{reminded.Id}")]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // A page of cards should answer "which list was that reminder about?" without opening any.
+        var flagged = Assert.Single(cut.FindAll(".task-list-card"), card => card.QuerySelector(".task-card-notification") is not null);
+        Assert.Contains("Garden", flagged.QuerySelector(".card-title")!.TextContent);
+    }
+
+    private static NotificationEntryDto Notification(string url)
+        => new(Guid.NewGuid(), "TaskOverdue", "Overdue task", "Body", url, DateTimeOffset.UtcNow, IsRead: false);
 
     [Fact]
     public void A_row_pointing_at_another_list_shows_what_is_on_it()

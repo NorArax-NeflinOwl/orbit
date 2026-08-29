@@ -1,11 +1,13 @@
 @page "/tasks"
 @attribute [Authorize]
+@implements IDisposable
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject TaskListArrangement Arrangement
+@inject NotificationFeedState NotificationFeedState
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Tasks> Logger
@@ -87,6 +89,20 @@ else
                                     <circle cx="4" cy="4" r="1.3" /><circle cx="8" cy="4" r="1.3" />
                                     <circle cx="4" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" />
                                     <circle cx="4" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" />
+                                </svg>
+                            </span>
+                        }
+                        @* Before the name, so a page of cards answers "which list was that reminder
+                           about?" at a glance rather than by opening them one at a time. Goes out when
+                           the list is opened - see NotificationFeedState.UnreadUrlsSettledBy. *@
+                        @if (UnreadCountFor(taskList) is > 0 and var unread)
+                        {
+                            <span class="task-card-notification" title="@T.Format("{0} new", unread)"
+                                  aria-label="@T.Format("{0} new", unread)">
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" />
+                                    <path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" />
                                 </svg>
                             </span>
                         }
@@ -327,6 +343,13 @@ else
         Logger.LogInformation("Task list filter set to {Filter}", filter);
     }
 
+    /// <summary>
+    /// How many unread notifications are about this list - an overdue item on it, or its daily reminder.
+    /// They all point at the list's own page (see OverdueTaskPushContent), which is what makes them
+    /// countable per card.
+    /// </summary>
+    private int UnreadCountFor(TaskDto taskList) => NotificationFeedState.CountForSection($"/tasks/{taskList.Id}");
+
     private async Task ToggleCollapsedAsync(TaskDto taskList)
     {
         var isCollapsed = !Arrangement.IsCollapsed(taskList.Id);
@@ -453,6 +476,9 @@ else
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Tasks page opened, loading task lists");
+        // MainLayout owns the polling; this only listens, so a reminder arriving while the page is open
+        // lights the card it is about without this page fetching anything of its own.
+        NotificationFeedState.Changed += OnNotificationsChanged;
         await Arrangement.InitializeAsync();
         try
         {
@@ -468,6 +494,10 @@ else
         }
         Logger.LogInformation("Loaded {TaskListCount} task lists", _taskLists.Count);
     }
+
+    private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
 
     private void GoToAddTaskList()
     {

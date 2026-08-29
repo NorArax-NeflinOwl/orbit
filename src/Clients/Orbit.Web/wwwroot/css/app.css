@@ -2982,6 +2982,17 @@ input.note-editor-title {
     flex-direction: column;
 }
 
+/* The bell in front of a task list's name, when something unread is about that list. In the accent
+   colour rather than the text colour: it is the one thing on a page of cards that is asking to be
+   noticed. */
+.task-card-notification {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 5px;
+    color: var(--accent);
+    vertical-align: -2px;
+}
+
 .card-badge {
     margin-left: 6px;
     /* Squeezed by a crowded header a badge breaks its own text across two lines; it moves to the next

@@ -44,6 +44,26 @@ public sealed class NotificationFeedState
         => _unreadEntries.Any(entry => string.Equals(entry.Url, url, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// The unread entries reaching <paramref name="path"/> settles: the ones pointing at exactly this
+    /// page, and the ones pointing at a page this one sits under. Opening a task list's editor is
+    /// reaching that task list, even though the editor's path is longer (see the two editing levels) -
+    /// and a notification about a list you are looking at the innards of is one you have read.
+    ///
+    /// Matched at a path-segment boundary, so "/tasks/{a}" is settled by "/tasks/{a}/edit" and by
+    /// nothing else: "/tasks/{b}" is not a prefix of it, and neither is "/tasks/{a}bc".
+    /// </summary>
+    public IReadOnlyList<string> UnreadUrlsSettledBy(string path)
+        => [.. _unreadEntries
+            .Select(entry => entry.Url)
+            .OfType<string>()
+            .Where(url => Settles(url, path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    private static bool Settles(string notificationUrl, string path)
+        => string.Equals(notificationUrl, path, StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(notificationUrl + "/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Drops the entries pointing at url, matching what the server was just told. Applied locally rather
     /// than by re-fetching, so the badge clears as the page opens instead of on the next poll.
     /// </summary>
