@@ -150,6 +150,23 @@
             <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" />
         </Grid>
 
+        <!-- The chosen day on the clock, under the grid that chose it. Orbit.Web swaps its grid for this
+             because it has a sidebar to pick the next day from; a phone has only the grid, so the two
+             stack. Built in code-behind for the reason MapPage gives about its pins: where a block goes
+             is a layout measurement, and keeping that out of the view model is what leaves the
+             placement testable - see CalendarDayTimeline. -->
+        <VerticalStackLayout Grid.Row="3" Spacing="6" IsVisible="{Binding HasDayTimeline}">
+                <FlexLayout x:Name="AllDayRow" Wrap="Wrap" Direction="Row" />
+                <!-- The hours down the left, the day itself beside them. Blocks are placed with
+                     proportional widths, because how wide a lane is depends on a measurement this page
+                     does not have until it is laid out. As tall as the day needs and no taller - see
+                     CalendarDayTimeline.HoursWorthDrawing. -->
+                <Grid x:Name="DayClock" ColumnDefinitions="42,*">
+                    <Grid x:Name="HourLabels" Grid.Column="0" />
+                    <AbsoluteLayout x:Name="DayBlocks" Grid.Column="1" />
+                </Grid>
+        </VerticalStackLayout>
+
         <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Events}"
                             SelectionMode="Single"

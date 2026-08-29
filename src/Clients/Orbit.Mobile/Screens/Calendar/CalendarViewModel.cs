@@ -64,6 +64,19 @@ public sealed partial class CalendarViewModel : ObservableObject
     /// <summary>The month grid - six weeks of seven days, whatever month it is. See CalendarMonth.</summary>
     public ObservableCollection<CalendarDay> Days { get; } = [];
 
+    /// <summary>
+    /// The chosen day laid out by the hour - see CalendarDayTimeline. Drawn under the month grid rather
+    /// than in place of it: on a phone the grid is how the next day is picked, and Orbit.Web can afford
+    /// to swap the two because it has a sidebar to pick from.
+    /// </summary>
+    public ObservableCollection<DayBlock> DayBlocks { get; } = [];
+
+    /// <summary>What has no hour to be drawn at, in a row of its own above the clock.</summary>
+    public ObservableCollection<DayBlock> AllDayBlocks { get; } = [];
+
+    /// <summary>Nothing on a day is worth an empty clock: the list beneath already says so.</summary>
+    public bool HasDayTimeline => IsShowingOneDay && (DayBlocks.Count > 0 || AllDayBlocks.Count > 0);
+
     /// <summary>The twelve months of the year being shown, for the year overview. See CalendarYear.</summary>
     public ObservableCollection<CalendarYearMonth> Months { get; } = [];
 
@@ -262,9 +275,12 @@ public sealed partial class CalendarViewModel : ObservableObject
             Deadlines.Add(deadline);
         }
 
+        ShowTheChosenDay(stored);
+
         OnPropertyChanged(nameof(PeriodLabel));
         OnPropertyChanged(nameof(IsShowingOneDay));
         OnPropertyChanged(nameof(HasDeadlines));
+        OnPropertyChanged(nameof(HasDayTimeline));
     }
 
     /// <summary>
@@ -278,6 +294,40 @@ public sealed partial class CalendarViewModel : ObservableObject
     {
         var yearStart = new DateTimeOffset(new DateTime(Month.Year, 1, 1), TimeSpan.Zero);
         return CalendarOccurrences.Between(stored, yearStart.AddDays(-7), yearStart.AddYears(1).AddDays(7));
+    }
+
+    /// <summary>
+    /// The chosen day on the clock. Nothing to draw when no day is chosen: the month grid is showing a
+    /// month, and an hour timeline of thirty days would be a wall.
+    /// </summary>
+    private void ShowTheChosenDay(IReadOnlyList<LocalCalendarEvent> events)
+    {
+        DayBlocks.Clear();
+        AllDayBlocks.Clear();
+        if (SelectedDay is not { } day)
+        {
+            return;
+        }
+
+        foreach (var block in CalendarDayTimeline.AllDayOn(day, events, _translations))
+        {
+            AllDayBlocks.Add(block);
+        }
+
+        foreach (var block in CalendarDayTimeline.Build(day, events, _translations))
+        {
+            DayBlocks.Add(block);
+        }
+    }
+
+    /// <summary>Opens the event a block stands for - the same event the list beneath it opens.</summary>
+    [RelayCommand]
+    private void OpenBlock(DayBlock? block)
+    {
+        if (block is not null)
+        {
+            _navigator.ShowCalendarEvent(block.LocalId);
+        }
     }
 
     private bool Covers(DateTime date)
