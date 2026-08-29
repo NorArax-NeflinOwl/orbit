@@ -2084,6 +2084,13 @@ input.note-editor-title {
 }
 
 .accent-option {
+    /* The accent tokens are written out again here, rather than inherited from :root. A custom property
+       holding var(--accent-hue) is substituted where it is *declared*, so what :root passes down is
+       already the chosen colour - the inline hue on this button arrives too late to change it, and every
+       swatch came out in whichever colour was currently picked. Declaring them against this button's own
+       hue is what makes each swatch show the colour it stands for. Keep in step with :root above. */
+    --accent: oklch(56% 0.16 var(--accent-hue));
+    --accent-hover: oklch(50% 0.17 var(--accent-hue));
     width: 34px;
     height: 34px;
     padding: 0;
@@ -2091,6 +2098,11 @@ input.note-editor-title {
     border: 2px solid transparent;
     background: var(--accent);
     cursor: pointer;
+}
+
+:root[data-theme="dark"] .accent-option {
+    --accent: oklch(74% 0.13 var(--accent-hue));
+    --accent-hover: oklch(80% 0.11 var(--accent-hue));
 }
 
 .accent-option:hover {
