@@ -9,8 +9,8 @@
 #
 #   - Once. The guard is run_attempt, so the retry's own failure is final and a broken build still goes
 #     red, a few minutes later than it would have.
-#   - Never over a red suite. A test that failed is a fact about the code, and running it again is how
-#     a flaky test gets to stay flaky. Only a run whose `test` job passed is retried.
+#   - Never over a compiler or a test. Those two failed because of the code, and running them again is
+#     how a flaky test gets to stay flaky. A run whose `test` or `android` job failed is left alone.
 #   - Only the jobs that failed, so a green suite is not paid for twice.
 name: Retry a run that failed on the runner
 
@@ -48,11 +48,12 @@ jobs:
 
           echo "Failed jobs in $RUN_NAME: $(echo "$FAILED" | tr '\n' ' ')"
 
-          # The suite is the one job whose failure is never the runner's fault, and retrying it is how a
-          # flaky test survives. Everything else - a registry that refused a push, an apt mirror, a
+          # The two jobs whose failure is never the runner's fault: the suite, and the compile of the
+          # phone app. Retrying either is how a flaky test survives and how a real break gets a second
+          # chance to look like luck. Everything else - a registry that refused a push, an apt mirror, a
           # browser that lost its connection - is worth one more attempt.
-          if echo "$FAILED" | grep -qx "test"; then
-            echo "::notice::The suite failed, which is a fact about the code rather than a hiccup. Not retrying."
+          if echo "$FAILED" | grep -qxE "test|android"; then
+            echo "::notice::The code is what failed, not the runner. Not retrying."
             exit 0
           fi
 
