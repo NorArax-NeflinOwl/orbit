@@ -248,8 +248,10 @@ public sealed class RestockCompletionTests
     public async Task Finishing_the_list_says_the_list_changed()
     {
         var (_, taskListId, _) = await ALowItemWithItsErrandAsync();
-        var before = (await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None))!
-            .UpdatedAtUtc;
+        // Aged first - see InMemoryTaskRepository.PretendItWasLastChanged. Raising the errand stamped the
+        // list a moment ago, and finishing it below could tie with that stamp rather than beat it.
+        var before = DateTimeOffset.UtcNow.AddMinutes(-1);
+        _context.TaskRepository.PretendItWasLastChanged(taskListId, before);
 
         await new FinishRestockingCommandHandler(_context.TaskRepository, ACompletion())
             .HandleAsync(new FinishRestockingCommand(_userId, taskListId), CancellationToken.None);

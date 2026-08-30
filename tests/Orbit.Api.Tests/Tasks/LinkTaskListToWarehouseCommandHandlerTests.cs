@@ -17,6 +17,12 @@ public sealed class LinkTaskListToWarehouseCommandHandlerTests
     private LinkTaskListToWarehouseCommandHandler AHandler()
         => new(_context.TaskRepository, _context.WarehouseRepository);
 
+    /// <summary>
+    /// Long enough ago that no clock this runs on could read the same value twice - see
+    /// InMemoryTaskRepository.PretendItWasLastChanged for why a test needs one at all.
+    /// </summary>
+    private static DateTimeOffset AMinuteAgo() => DateTimeOffset.UtcNow.AddMinutes(-1);
+
     private TaskList AList()
     {
         var taskList = TaskList.Create(_userId, "Zakupy", [TaskItem.Create("Flour", null, false)], isGroup: true);
@@ -48,8 +54,11 @@ public sealed class LinkTaskListToWarehouseCommandHandlerTests
     {
         var taskList = AList();
         var warehouseId = _context.AddWarehouse(_userId);
-        // Copied out rather than read again afterwards: the store hands back the list itself.
-        var before = taskList.UpdatedAtUtc;
+        // Aged first - see InMemoryTaskRepository.PretendItWasLastChanged. Comparing against the stamp
+        // the list was created with asks whether the clock ticked between two calls made microseconds
+        // apart, which is not what this test is about.
+        var before = AMinuteAgo();
+        _context.TaskRepository.PretendItWasLastChanged(taskList.Id, before);
 
         await AHandler().HandleAsync(
             new LinkTaskListToWarehouseCommand(_userId, taskList.Id, warehouseId), CancellationToken.None);
@@ -86,8 +95,10 @@ public sealed class LinkTaskListToWarehouseCommandHandlerTests
         var handler = AHandler();
         await handler.HandleAsync(
             new LinkTaskListToWarehouseCommand(_userId, taskList.Id, warehouseId), CancellationToken.None);
-        var afterLinking = (await _context.TaskRepository.GetByIdAsync(_userId, taskList.Id, CancellationToken.None))!
-            .UpdatedAtUtc;
+        // Aged for the same reason as the test above: the linking here is setup, and the stamp it leaves
+        // is one the unlinking below could tie with.
+        var afterLinking = AMinuteAgo();
+        _context.TaskRepository.PretendItWasLastChanged(taskList.Id, afterLinking);
 
         await handler.HandleAsync(
             new LinkTaskListToWarehouseCommand(_userId, taskList.Id, null), CancellationToken.None);
