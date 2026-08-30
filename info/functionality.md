@@ -697,7 +697,19 @@ In the deep editor each item carries a drag handle, and dropping one where anoth
 The list is saved in the order its rows are written in - `TaskRepository` numbers them by position - so
 what is arranged here is what the checklist reads back under "in list order". Only the handle is
 draggable, so a row full of text boxes does not start a drag whenever somebody selects what they typed.
-HTML5 dragging is mouse and trackpad; it does not work by touch.
+
+**Beside the handle are a move-up and a move-down button** (`ReorderControls`), which make the same move
+one place at a time. They exist because HTML5 dragging is mouse and trackpad only - a handle you can
+only drag is a handle only a mouse can use, and a keyboard had no way to arrange anything at all. A move
+that would fall off either end greys its button out rather than removing it: a control appearing and
+vanishing as a row travels up a list is harder to follow than one that dims at the top. Both ways end in
+`RowArrangement`, which matches rows by reference, so a list naming the same thing twice still moves the
+row that was asked about rather than the first match.
+
+**Below 680px the whole control is hidden.** Browsers raise no drag events for a finger, so the handle
+sat there doing nothing when pressed - and nothing on screen said whether it was broken or the press had
+missed. Arranging by hand is a wide-screen affordance; an arrangement made there is still read on a
+phone, which is the half that always worked.
 
 ### Can this list be done?
 

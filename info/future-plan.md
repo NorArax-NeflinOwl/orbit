@@ -183,10 +183,13 @@ as not covered by an automated test today, together with why:
 
 ## Smaller identified follow-ups
 
-- **Reordering by hand needs a mouse.** The drag handles in the task and warehouse editors use HTML5
-  drag-and-drop, which browsers do not raise for touch. A phone can read an arranged list but cannot
-  arrange one, which matters before [Orbit.Maui](orbit-maui-plan.md) reaches these screens - either a
-  pointer-event implementation or a pair of move-up/move-down buttons behind the same handle.
+- ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down
+  buttons (`ReorderControls`, `RowArrangement.Move`), which a keyboard can use as well - a handle you can
+  only drag is a handle only a mouse can use. Below the 680px breakpoint the whole control is hidden
+  rather than left there doing nothing when pressed: arranging by hand is a wide-screen affordance, and
+  an arrangement made there is still read on a phone. True dragging by finger (pointer events, with the
+  hit-testing and autoscroll that needs) was weighed against this and not taken - it cannot be covered by
+  any test this project can run, while the buttons are covered end to end.
 - **A group has no "last message" time.** The one conversation list therefore sorts people by recency
   and groups by name, in two blocks. Carrying the newest message's timestamp on `ChatGroupDto` would let
   the whole list sort by when something last happened, which is what somebody scanning it expects.
