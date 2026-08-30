@@ -1050,8 +1050,11 @@ next time that product went low Orbit would look up an entry that no longer exis
 
 `RestockCompletion.ReconcileAsync` does all of it, and is safe to run twice - which is what lets it run
 in two places. It runs **on save**, so ticking an errand settles it, and again **when the list is
-opened** (`POST /api/tasks/{id}/restocking/reconcile`, asked for by `TaskListChecklist.razor`), which is
-what clears errands that were ticked off before Orbit did any of this. An errand whose product has since
+opened** (`POST /api/tasks/{id}/restocking/reconcile`, asked for by `TaskListChecklist.razor` and by the
+phone's `TaskListDetailViewModel`), which is what clears errands that were ticked off before Orbit did
+any of this. Both clients ask, and on opening rather than on ticking: a list that settled itself in a
+browser and quietly did not on a phone would behave differently depending on which client last looked
+at it, with the shelf left un-topped-up in between. An errand whose product has since
 been deleted still leaves the list: there is nothing left to bring back.
 
 **An errand says where it came from and where else it is being asked for.** Under each one the checklist
@@ -1071,7 +1074,13 @@ them, and `RemindDaily` brings the reminder back tomorrow.
 
 The four fields where the same thing gets typed twenty ways - a task list's title, a task item, a
 warehouse's name, a product - offer what the reader already has as they type
-(`GET /api/suggestions/names?kind=…`, `NameSuggestions.razor`). Picking one fills the field. When what is
+(`GET /api/suggestions/names?kind=…`, `NameSuggestions.razor`). Picking one fills the field.
+
+**The phone offers the same thing under two of the four** (`Orbit.Mobile`'s `NameSuggestions`, drawn by
+`NameSuggestionChips`): a product's name and an errand's description, which are the two the feature
+exists for. It offers them under the box a new one is typed into as well as in the editor, because on a
+phone that box is where names are actually written - the editor is mostly for changing one that exists.
+A list's title and a warehouse's name are not offered there yet. When what is
 being typed is close enough to an existing name to be the same thing spelled differently, the control
 says so out loud - "You already have «Mleko 2%»" - because the moment a duplicate is about to be created
 is the only cheap moment to avoid it.

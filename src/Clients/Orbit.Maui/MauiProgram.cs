@@ -15,6 +15,7 @@ using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
@@ -136,6 +137,9 @@ public static class MauiProgram
 		services.AddTransient<SharedItemAcceptance>();
 		services.AddTransient<SharedItemSharing>();
 		services.AddTransient<SharePanel>();
+		// One per editor screen rather than one for the app: it holds what is being typed into the field
+		// that is open, and two screens sharing it would offer each other's names.
+		services.AddTransient<NameSuggestions>();
 		services.AddTransient<StockCheckPanel>();
 		services.AddTransient<GoogleAccountLink>();
 		services.AddTransient<SharedLocations>();
@@ -226,6 +230,8 @@ public static class MauiProgram
 		services.AddHttpClient<CalendarClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<InventoryClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<SuggestionsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 
 		// Talks to Google rather than to Orbit, so it gets no base address and no authorization handler -

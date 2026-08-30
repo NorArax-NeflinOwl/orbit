@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.NameSuggestionChips"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:suggestions="clr-namespace:Orbit.Mobile.Screens.Suggestions;assembly=Orbit.Mobile"
+    x:DataType="suggestions:NameSuggestions"
+    IsVisible="{Binding HasAny}">
+
+    <!-- Names this account already uses, under the field being typed into - the phone's half of
+         Orbit.Web's NameSuggestions component. Two things at once, told apart by how close the match
+         is: a name to tap instead of finishing the word, and a warning that what is being typed is
+         something the reader already has under another spelling. -->
+    <VerticalStackLayout Spacing="6">
+
+        <Label Text="{Binding DuplicateWarning}" IsVisible="{Binding HasDuplicateWarning}"
+               FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+
+        <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Names}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                    <Button Text="{Binding .}" FontSize="12" Padding="12,4" Margin="0,0,8,4"
+                            Style="{StaticResource SecondaryButton}"
+                            SemanticProperties.Description="{controls:Translate 'Use this name'}"
+                            Command="{Binding Source={RelativeSource AncestorType={x:Type controls:NameSuggestionChips}}, Path=BindingContext.ChooseCommand, x:DataType=controls:NameSuggestionChips}"
+                            CommandParameter="{Binding .}" />
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </FlexLayout>
+    </VerticalStackLayout>
+</ContentView>

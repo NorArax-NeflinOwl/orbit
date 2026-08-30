@@ -34,11 +34,16 @@
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
         </VerticalStackLayout>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsShowingList}">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemDescription}"
-                   ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="2" Spacing="6" IsVisible="{Binding IsShowingList}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemDescription}"
+                       ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
+            </Grid>
+
+            <!-- Under the box an errand is written in, which on a phone is where they are actually typed. -->
+            <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+        </VerticalStackLayout>
 
         <CollectionView Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
 
@@ -92,6 +97,8 @@
             <VerticalStackLayout Padding="0,8" Spacing="10" BindingContext="{Binding BeingEdited}"
                                  x:DataType="screens:TaskItemEditor">
                 <Entry Placeholder="{controls:Translate 'Checklist item'}" Text="{Binding Description}" />
+                <!-- Errands this account has already written, offered as this one is typed. -->
+                <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
 
                 <!-- What this entry is. On the entry rather than on the list, because a day's plan holds
                      two errands and an appointment - see TaskItemKind. -->

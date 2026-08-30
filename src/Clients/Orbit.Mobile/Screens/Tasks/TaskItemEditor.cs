@@ -4,6 +4,8 @@ using Orbit.Mobile.Screens;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 
 namespace Orbit.Mobile.Screens.Tasks;
 
@@ -154,15 +156,34 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// What the calendar knows about, which the caller reads: the editor is handed the choices rather
     /// than reaching for a store, the same way it is handed the notification channels.
     /// </param>
+    /// <inheritdoc cref="Inventory.WarehouseItemEditor.Suggestions"/>
+    public NameSuggestions? Suggestions { get; private init; }
+
     public static TaskItemEditor For(
         TaskItemDto item, Translations translations, IReadOnlyList<CalendarEventChoice> events,
-        IReadOnlyList<TaskListChoice> lists)
+        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions = null)
+    {
+        var editor = Build(item, translations, events, lists, suggestions);
+        if (suggestions is not null)
+        {
+            suggestions.Offers(NameSuggestionKind.TaskItemDescription);
+            suggestions.StartsAt(editor.Description);
+            suggestions.Takes = description => editor.Description = description;
+        }
+
+        return editor;
+    }
+
+    private static TaskItemEditor Build(
+        TaskItemDto item, Translations translations, IReadOnlyList<CalendarEventChoice> events,
+        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions)
     {
         var choices = new List<CalendarEventChoice> { CalendarEventChoice.NoEvent(translations) };
         choices.AddRange(events);
 
         return new(item, translations)
         {
+            Suggestions = suggestions,
             Channels = NotificationChannelChoice.All(translations),
             Kinds = TaskItemKindChoice.All(translations),
             CalendarEvents = choices,
@@ -212,7 +233,11 @@ public sealed partial class TaskItemEditor : ObservableObject
             LinkedCalendarEventId = IsCalendarEntry ? ChosenCalendarEvent?.ServerId : null
         };
 
-    partial void OnDescriptionChanged(string value) => OnPropertyChanged(nameof(CanSave));
+    partial void OnDescriptionChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanSave));
+        Suggestions?.ShowFor(value);
+    }
 
     partial void OnKindChanged(string value) => SayWhatTheFormShows();
 

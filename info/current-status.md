@@ -80,7 +80,9 @@ Phases 0-6 of the [plan](orbit-maui-plan.md#10-phasing) are built: the version g
 with an outbox and delta pull, end-to-end-encrypted chat against the same test vectors the browser
 uses, tasks, calendar, inventory, group chat, and location sharing. Private notes, task lists and
 warehouses are read and written here too, sealed under the account's own key and kept sealed in the
-local store as well — see [Functionality](functionality.md#private-notes-and-task-lists). Of phase 7, the in-app feed,
+local store as well — see [Functionality](functionality.md#private-notes-and-task-lists). A restock
+list settles its finished errands when the phone opens it, as a browser does, and the names already in
+the account are offered under a product's name and an errand's description. Of phase 7, the in-app feed,
 notification settings, deep links from a notification, and uploadable diagnostic logs are built; push
 *delivery* is not (below). Phase 8 — widgets, Live Activities, accessibility — has not been started.
 

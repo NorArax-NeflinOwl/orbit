@@ -4,6 +4,8 @@ using Orbit.Mobile.Screens;
 using Orbit.Contracts.Inventory;
 using Orbit.Core.Inventory;
 using Orbit.Core.Notifications;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 
 namespace Orbit.Mobile.Screens.Inventory;
 
@@ -94,9 +96,34 @@ public sealed partial class WarehouseItemEditor : ObservableObject
 
     private WarehouseItemEditor(Guid? id) => _id = id;
 
-    public static WarehouseItemEditor For(WarehouseItemDto item, Translations translations)
+    /// <summary>
+    /// Names already on the shelves, offered while this one is typed - the field the suggestion feature
+    /// exists for, since the same product gets typed twenty ways. Null when the editor was built without
+    /// one, which is what every test that is not about suggestions does.
+    /// </summary>
+    public NameSuggestions? Suggestions { get; private init; }
+
+    public static WarehouseItemEditor For(
+        WarehouseItemDto item, Translations translations, NameSuggestions? suggestions = null)
+    {
+        var editor = Build(item, translations, suggestions);
+        if (suggestions is not null)
+        {
+            suggestions.Offers(NameSuggestionKind.InventoryItemName);
+            // Opened on a name rather than typed into: nothing is offered until the reader changes it,
+            // or an item opened for its expiry date would be warned that it is a duplicate of itself.
+            suggestions.StartsAt(editor.Name);
+            suggestions.Takes = name => editor.Name = name;
+        }
+
+        return editor;
+    }
+
+    private static WarehouseItemEditor Build(
+        WarehouseItemDto item, Translations translations, NameSuggestions? suggestions)
         => new(item.Id)
         {
+            Suggestions = suggestions,
             Channels = NotificationChannelChoice.All(translations),
             Units = InventoryUnitChoice.All(translations),
             Unit = item.Unit,
@@ -146,7 +173,11 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             ? minimum
             : null;
 
-    partial void OnNameChanged(string value) => OnPropertyChanged(nameof(CanSave));
+    partial void OnNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanSave));
+        Suggestions?.ShowFor(value);
+    }
 
     partial void OnQuantityChanged(string value) => OnPropertyChanged(nameof(CanSave));
 }

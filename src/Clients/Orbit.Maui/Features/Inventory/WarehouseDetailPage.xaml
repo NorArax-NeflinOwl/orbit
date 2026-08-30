@@ -46,6 +46,10 @@
                 <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
             </Grid>
 
+            <!-- Under the box a new product is named in, which on a phone is where names are actually
+                 typed - the editor below is mostly for changing one. -->
+            <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+
             <!-- Narrows what is on screen, never what is saved: the whole list still goes back on save,
                  so a filter that reached it would delete the rows it hid. -->
             <VerticalStackLayout Spacing="8" IsVisible="{Binding CanNarrow}">
@@ -133,6 +137,9 @@
             <VerticalStackLayout Padding="0,8" Spacing="10" BindingContext="{Binding BeingEdited}"
                                  x:DataType="screens:WarehouseItemEditor">
                 <Entry Placeholder="{controls:Translate 'Item name'}" Text="{Binding Name}" />
+                <!-- Products this account already has, offered as the name is typed. The field the
+                     suggestions exist for: the same thing gets typed twenty ways onto one shelf. -->
+                <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
                 <Entry Placeholder="{controls:Translate 'Product type'}" Text="{Binding ProductType}" />
                 <Entry Placeholder="{controls:Translate 'Category'}" Text="{Binding Category}" />
 

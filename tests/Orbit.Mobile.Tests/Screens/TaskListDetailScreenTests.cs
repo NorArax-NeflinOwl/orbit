@@ -851,6 +851,9 @@ public sealed class TaskListDetailScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>What this account has already named - see NameSuggestions. Empty unless a test fills it.</summary>
+        public FakeSuggestionsServer SuggestionsServer { get; } = new();
+
         /// <summary>
         /// The one row as it really sits in the database, rather than as a read hands it back opened.
         /// One, because a context makes exactly one list per test.
@@ -882,7 +885,7 @@ public sealed class TaskListDetailScreenTests
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
                 new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
-                StockCheck, CalendarEvents, PlacePicker, _privateContent);
+                StockCheck, CalendarEvents, PlacePicker, _privateContent, Suggestions.Offering(SuggestionsServer));
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;

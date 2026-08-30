@@ -607,6 +607,9 @@ public sealed class WarehouseDetailScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>What this account has already named - see NameSuggestions. Empty unless a test fills it.</summary>
+        public FakeSuggestionsServer SuggestionsServer { get; } = new();
+
         /// <summary>A warehouse is created empty, so its items are put in by the same update a screen makes.</summary>
         public Task<LocalWarehouse> AddWarehouseAsync(string name)
             => _warehouses.CreateAsync(name);
@@ -650,7 +653,8 @@ public sealed class WarehouseDetailScreenTests
                 _warehouses, _synchronizer, new Translations(new InMemoryLanguageStore()),
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
                 Navigator,
-                new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), _privateContent);
+                new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), _privateContent,
+                Suggestions.Offering(SuggestionsServer));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

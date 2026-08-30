@@ -10,6 +10,8 @@ using Orbit.Mobile.Location;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
@@ -35,6 +37,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly TimeProvider _timeProvider;
     private readonly INetworkStatus _networkStatus;
     private readonly PrivateContentSealer _privateContent;
+    private readonly NameSuggestions _nameSuggestions;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -79,7 +82,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
         TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck,
         LocalCalendarEventRepository calendarEvents, IPlacePicker placePicker,
-        PrivateContentSealer privateContent)
+        PrivateContentSealer privateContent, NameSuggestions nameSuggestions)
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
@@ -94,6 +97,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _networkStatus = networkStatus;
         _privateContent = privateContent;
+        _nameSuggestions = nameSuggestions;
+        OfferNamesToTheQuickAddBox();
         StockCheck = stockCheck;
         // Generating a warehouse or pointing at a different one changes the list itself, so the screen
         // re-reads rather than letting the panel and the list drift apart.
@@ -210,7 +215,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = TaskItemEditor.For(row.Item, _translations, _linkableEvents, LinkTargets);
+            BeingEdited = TaskItemEditor.For(row.Item, _translations, _linkableEvents, LinkTargets, _nameSuggestions);
             MoveTarget = null;
             OnPropertyChanged(nameof(CanMoveItem));
         }
@@ -594,6 +599,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private const string RefusalMessage =
         "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
 
+    /// <inheritdoc cref="Inventory.WarehouseDetailViewModel.Suggestions"/>
+    public NameSuggestions Suggestions => _nameSuggestions;
+
+    private void OfferNamesToTheQuickAddBox()
+    {
+        _nameSuggestions.Forget();
+        _nameSuggestions.Offers(NameSuggestionKind.TaskItemDescription);
+        _nameSuggestions.Takes = description => NewItemDescription = description;
+    }
+
     /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
     private bool _isShowingWhatIsStored;
 
@@ -626,6 +641,13 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnBeingEditedChanged(TaskItemEditor? value)
     {
+        // Nothing on offer once the form is gone, and the box above the list takes what is chosen
+        // again - it is the field being typed into whenever no editor is.
+        if (value is null)
+        {
+            OfferNamesToTheQuickAddBox();
+        }
+
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
         OnPropertyChanged(nameof(CanMoveItem));
@@ -646,7 +668,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
-    partial void OnNewItemDescriptionChanged(string value) => AddItemCommand.NotifyCanExecuteChanged();
+    partial void OnNewItemDescriptionChanged(string value)
+    {
+        AddItemCommand.NotifyCanExecuteChanged();
+        Suggestions.ShowFor(value);
+    }
 
     /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
     [ObservableProperty]

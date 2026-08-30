@@ -9,6 +9,8 @@ using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
@@ -27,6 +29,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly PrivateContentSealer _privateContent;
+    private readonly NameSuggestions _nameSuggestions;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -66,7 +69,8 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     public WarehouseDetailViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
-        InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent)
+        InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
+        NameSuggestions nameSuggestions)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
@@ -75,6 +79,8 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         _navigator = navigator;
         _inventoryClient = inventoryClient;
         _privateContent = privateContent;
+        _nameSuggestions = nameSuggestions;
+        OfferNamesToTheQuickAddBox();
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _anyProductType = translations["Any type"];
@@ -215,7 +221,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = WarehouseItemEditor.For(row.Item, _translations);
+            BeingEdited = WarehouseItemEditor.For(row.Item, _translations, _nameSuggestions);
         }
     }
 
@@ -523,15 +529,40 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     partial void OnBeingEditedChanged(WarehouseItemEditor? value)
     {
+        // Nothing on offer once the form is gone, and the box above the list takes what is chosen
+        // again - it is the field being typed into whenever no editor is.
+        if (value is null)
+        {
+            OfferNamesToTheQuickAddBox();
+        }
+
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
+    }
+
+    /// <summary>
+    /// Products already on the shelves, offered under whichever field is being typed into - the box
+    /// above the list, or an item's name once one is open. One at a time, because only one of the two
+    /// is ever on screen.
+    /// </summary>
+    public NameSuggestions Suggestions => _nameSuggestions;
+
+    private void OfferNamesToTheQuickAddBox()
+    {
+        _nameSuggestions.Forget();
+        _nameSuggestions.Offers(NameSuggestionKind.InventoryItemName);
+        _nameSuggestions.Takes = name => NewItemName = name;
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
     partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
-    partial void OnNewItemNameChanged(string value) => AddItemCommand.NotifyCanExecuteChanged();
+    partial void OnNewItemNameChanged(string value)
+    {
+        AddItemCommand.NotifyCanExecuteChanged();
+        Suggestions.ShowFor(value);
+    }
 
     /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
     [ObservableProperty]
