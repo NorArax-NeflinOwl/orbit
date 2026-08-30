@@ -672,7 +672,9 @@ sort order beside it (`TaskListArrangement`):
   Each card's own control reads "Expand" while it is on, because this is the same state as folding them
   all by hand.
 - **Normal**, the default, shows up to five items per card.
-- **Full** prints every item on every card, for a page somebody is working down rather than scanning.
+- **Full** prints every item on every card - **including the work nested under a group list's rows**,
+  which is the case it is really for: a group list stands in for other lists, and cutting the rows
+  underneath it at three leaves the card saying almost nothing about the work.
 
 Minimal deliberately writes nothing into the per-card folded set, so **leaving it puts back exactly the
 cards that were folded before**. And **expanding a card while it is on leaves the view** rather than

@@ -549,7 +549,7 @@ else
 
     /// <summary>The work a linked row actually stands for, as far as the card has room for.</summary>
     private IEnumerable<TaskItemDto> LinkedItems(Guid linkedTaskListId)
-        => LinkedTaskList(linkedTaskListId)?.Items.Take(RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount)) ?? [];
+        => LinkedTaskList(linkedTaskListId)?.Items.Take(RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewLimit)) ?? [];
 
     private int LinkedItemCount(Guid linkedTaskListId) => LinkedTaskList(linkedTaskListId)?.Items.Count ?? 0;
 

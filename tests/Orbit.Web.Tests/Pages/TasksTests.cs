@@ -107,6 +107,26 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     [Fact]
+    public void The_full_view_opens_a_group_lists_nested_work_too()
+    {
+        // The case the full view is really for: a group list stands in for other lists, so cutting the
+        // rows underneath it at three leaves the card saying almost nothing about the work.
+        var member = TaskList("Shopping", [.. Enumerable.Range(1, 6).Select(number => Item($"Buy {number}"))]);
+        var group = TaskList("Saturday", LinkTo(member)) with { IsGroup = true };
+        RegisterTasksApiClient([group, member]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // Counted by their titles: the "and N more" line carries the same class and is not a row of work.
+        Assert.Equal(3, cut.FindAll(".task-preview-row-linked .row-title").Count);
+        Assert.Contains("and 3 more", cut.Markup);
+
+        ChooseTheView(cut, "Full");
+
+        Assert.Equal(6, cut.FindAll(".task-preview-row-linked .row-title").Count);
+        Assert.DoesNotContain("more…", cut.Markup);
+    }
+
+    [Fact]
     public void The_minimal_view_folds_every_card()
     {
         RegisterTasksApiClient([
