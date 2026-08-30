@@ -779,7 +779,9 @@ neither is offered at all where nothing is filed under it. Beside them is a **se
 has no such condition: a name is typed rather than picked, and every item has one, so the box is there
 for any shelf with anything on it. It matches anywhere in the name and ignores case, because a shelf
 holds "Flour, wheat" and "Wholemeal flour" and somebody typing "flour" means both. All three narrow
-together (`ItemFilter.Matches`), so a search inside a category is a search inside that category.
+together (`ItemFilter.Matches`), so a search inside a category is a search inside that category. The
+phone offers the same three on its warehouse screen, matching the same way
+(`WarehouseItemFilter.Matches`).
 
 This is a view and nothing more: `WarehouseFormModel.ToRequest` reads the whole item list, so a save
 made while the shelf is narrowed keeps the rows that were hidden — the editor says so on screen
@@ -804,6 +806,11 @@ are deliberate:
 The whole account's stock is read once, on the first search, and reused while the page stays open: the
 results narrow as the reader types, and fetching every shelf per keystroke would be a request storm.
 Opening `/inventory` without searching costs nothing extra.
+
+The phone's inventory screen answers the same question (`InventoryViewModel.ShowMatchingItems`), and has
+less to do about it: every warehouse's items came down with the warehouse, so there is nothing to fetch
+and nothing to cache. A private warehouse is one this phone cannot open at all, and is named in the same
+summary for the same reason.
 
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
 warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -

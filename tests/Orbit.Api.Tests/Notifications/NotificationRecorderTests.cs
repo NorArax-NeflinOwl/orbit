@@ -18,7 +18,8 @@ public sealed class NotificationRecorderTests
         var userId = Guid.NewGuid();
 
         var result = await recorder.RecordAndFilterAsync(
-            userId, NotificationChannel.Both, NotificationEntryKind.PushReminder, "Title", "Body", "/tasks/1", CancellationToken.None);
+            userId, NotificationChannel.Both, NotificationEntryKind.PushReminder,
+            new PushNotificationPayload("Title", "Body", "/tasks/1"), CancellationToken.None);
 
         Assert.Equal(NotificationChannel.Both, result.AllowedChannel);
         Assert.True(result.EntryRecorded);
@@ -42,7 +43,8 @@ public sealed class NotificationRecorderTests
         await settingsRepository.UpsertAsync(settings, CancellationToken.None);
 
         var result = await recorder.RecordAndFilterAsync(
-            userId, NotificationChannel.Both, NotificationEntryKind.PushReminder, "Title", "Body", null, CancellationToken.None);
+            userId, NotificationChannel.Both, NotificationEntryKind.PushReminder,
+            new PushNotificationPayload("Title", "Body", ""), CancellationToken.None);
 
         Assert.Equal(NotificationChannel.None, result.AllowedChannel);
         Assert.False(result.EntryRecorded);
@@ -61,7 +63,8 @@ public sealed class NotificationRecorderTests
         await settingsRepository.UpsertAsync(settings, CancellationToken.None);
 
         var result = await recorder.RecordAndFilterAsync(
-            userId, NotificationChannel.Both, NotificationEntryKind.PushReminder, "Title", "Body", null, CancellationToken.None);
+            userId, NotificationChannel.Both, NotificationEntryKind.PushReminder,
+            new PushNotificationPayload("Title", "Body", ""), CancellationToken.None);
 
         Assert.Equal(NotificationChannel.None, result.AllowedChannel);
         Assert.True(result.EntryRecorded);

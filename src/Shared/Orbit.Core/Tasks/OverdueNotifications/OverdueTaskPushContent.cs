@@ -11,7 +11,8 @@ public static class OverdueTaskPushContent
 {
     public static PushNotificationPayload Build(OverdueTaskItem overdueTaskItem)
     {
-        var body = $"Task \"{overdueTaskItem.Description}\" from list \"{overdueTaskItem.TaskListTitle}\" is overdue.";
-        return new PushNotificationPayload("Overdue task", body, $"/tasks/{overdueTaskItem.TaskListId}");
+        return new PushNotificationPayload(
+            "Overdue task", "Task \"{0}\" from list \"{1}\" is overdue.",
+            [overdueTaskItem.Description, overdueTaskItem.TaskListTitle], $"/tasks/{overdueTaskItem.TaskListId}");
     }
 }

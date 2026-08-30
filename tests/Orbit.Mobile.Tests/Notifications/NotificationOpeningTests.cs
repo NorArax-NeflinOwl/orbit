@@ -172,7 +172,7 @@ public sealed class NotificationOpeningTests
             var usersClient = new UsersClient(_users.ToHttpClient());
             var sender = new EncryptedChatMessageSender(
                 _repository, chatClient, new ChatDirectoryReader(chatClient, usersClient, sessionStore),
-                encryptionKeyProvider, NullLogger<EncryptedChatMessageSender>.Instance);
+                encryptionKeyProvider, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 _repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
 

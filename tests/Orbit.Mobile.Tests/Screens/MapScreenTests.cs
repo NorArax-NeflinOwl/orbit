@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Api;
@@ -6,6 +7,7 @@ using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Google;
+using Orbit.Localization;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Location;
@@ -56,7 +58,7 @@ public sealed class MapScreenTests
         using var context = new MapContext();
         var screen = context.Open();
 
-        await screen.StartSharingCommand.ExecuteAsync(null);
+        await screen.ShareOnceCommand.ExecuteAsync(null);
 
         Assert.False(screen.IsChoosingWhoToShareWith);
         Assert.Contains("Read your position first", screen.Message);
@@ -106,6 +108,59 @@ public sealed class MapScreenTests
         Assert.Single(screen.SharedWithMe);
         Assert.Empty(screen.Points);
     }
+    /// <summary>
+    /// A shared position says when it was taken on the reader's own clock, not in the UTC it is stored
+    /// in. The map was the second screen handing a raw value to XAML to format, after the two
+    /// conversation pages - see MessageTimestampTests for the same bug and the same fix.
+    /// </summary>
+    [Fact]
+    public async Task A_shared_position_says_when_it_was_taken_on_the_readers_clock()
+    {
+        using var context = new MapContext();
+        await context.SomebodySharesTheirPositionAsync("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var taken = DateTimeOffset.Parse("2026-08-26T09:00:00Z");
+        Assert.Equal(
+            taken.ToLocalTime().ToString("g", CultureInfo.GetCultureInfo("en-US")),
+            Assert.Single(screen.SharedWithMe).RecordedAt);
+    }
+
+    /// <summary>
+    /// And in the reader's language. Asserted by shape so the test says nothing about which timezone it
+    /// runs in: Polish writes the hour on a 24-hour clock, so an AM or PM means the phone's culture won.
+    /// </summary>
+    [Fact]
+    public async Task A_polish_reader_is_told_when_it_was_taken_in_polish()
+    {
+        using var context = new MapContext();
+        await context.SomebodySharesTheirPositionAsync("Bob");
+        var screen = context.Open(AppLanguage.Polish);
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var recordedAt = Assert.Single(screen.SharedWithMe).RecordedAt;
+        Assert.DoesNotContain("AM", recordedAt);
+        Assert.DoesNotContain("PM", recordedAt);
+    }
+
+    /// <summary>
+    /// A position this device cannot open has no reading to stamp, so the line is left off rather than
+    /// standing empty under the sharer's name.
+    /// </summary>
+    [Fact]
+    public async Task A_position_that_cannot_be_opened_is_stamped_with_nothing()
+    {
+        using var context = new MapContext();
+        context.SomebodySharesSomethingUnreadable("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(Assert.Single(screen.SharedWithMe).HasRecordedAt);
+    }
 
     [Fact]
     public async Task A_refusal_is_not_reported_as_being_offline()
@@ -142,7 +197,7 @@ public sealed class MapScreenTests
         var screen = context.Open();
         await screen.ReadMyPositionCommand.ExecuteAsync(null);
 
-        await screen.StartSharingCommand.ExecuteAsync(null);
+        await screen.ShareOnceCommand.ExecuteAsync(null);
         await screen.ShareWithCommand.ExecuteAsync(screen.Candidates.Single(candidate => candidate.UserId == bob));
 
         var sharedWith = Assert.Single(screen.SharingWith);
@@ -152,6 +207,118 @@ public sealed class MapScreenTests
 
         Assert.Empty(screen.SharingWith);
         Assert.Empty(context.LocationServer.Shares);
+    }
+
+    /// <summary>
+    /// Orbit.Web offers "send once" and "keep sharing"; the phone offered only the first, which is the
+    /// wrong half to be missing - a phone is the thing that moves. What the server is told is the only
+    /// difference, and it is the difference between a point and a trail.
+    /// </summary>
+    [Fact]
+    public async Task Sharing_once_and_sharing_live_are_told_apart()
+    {
+        using var context = new MapContext();
+        var bob = await context.AddContactAsync("Bob");
+        var screen = context.Open();
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        await screen.KeepSharingCommand.ExecuteAsync(null);
+        await screen.ShareWithCommand.ExecuteAsync(screen.Candidates.Single(candidate => candidate.UserId == bob));
+
+        Assert.True(Assert.Single(context.LocationServer.Shares).IsContinuous);
+        Assert.True(Assert.Single(screen.SharingWith).IsContinuous);
+    }
+
+    [Fact]
+    public async Task A_one_off_share_says_it_is_one_off()
+    {
+        using var context = new MapContext();
+        var bob = await context.AddContactAsync("Bob");
+        var screen = context.Open();
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        await screen.ShareOnceCommand.ExecuteAsync(null);
+        await screen.ShareWithCommand.ExecuteAsync(screen.Candidates.Single(candidate => candidate.UserId == bob));
+
+        Assert.False(Assert.Single(context.LocationServer.Shares).IsContinuous);
+    }
+
+    /// <summary>
+    /// Whichever button was pressed last is what the next share is, so choosing "keep sharing" and then
+    /// changing your mind does not quietly leave a live share behind.
+    /// </summary>
+    [Fact]
+    public async Task Choosing_the_other_button_changes_what_the_next_share_is()
+    {
+        using var context = new MapContext();
+        var bob = await context.AddContactAsync("Bob");
+        var screen = context.Open();
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        await screen.KeepSharingCommand.ExecuteAsync(null);
+        await screen.ShareOnceCommand.ExecuteAsync(null);
+        await screen.ShareWithCommand.ExecuteAsync(screen.Candidates.Single(candidate => candidate.UserId == bob));
+
+        Assert.False(Assert.Single(context.LocationServer.Shares).IsContinuous);
+    }
+
+    /// <summary>
+    /// A live share is a promise to keep sending, so the screen reads the device again and sends where
+    /// the reader is now - not the point they were at when they pressed the button.
+    /// </summary>
+    [Fact]
+    public async Task A_live_share_sends_where_the_reader_is_now()
+    {
+        using var context = new MapContext();
+        var bob = await context.AddContactAsync("Bob");
+        var screen = context.Open();
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+        await screen.KeepSharingCommand.ExecuteAsync(null);
+        await screen.ShareWithCommand.ExecuteAsync(screen.Candidates.Single(candidate => candidate.UserId == bob));
+
+        context.Device.Reading = new DeviceLocationResult(DeviceLocationOutcome.Found, 51.1079, 17.0385, "Wroclaw");
+        await screen.SendLiveSharesAgainAsync(CancellationToken.None);
+
+        Assert.Equal(51.1079, context.LocationServer.OwnLocation?.Latitude);
+    }
+
+    /// <summary>Nothing is sent for a share that was only ever a point - that is what makes it one-off.</summary>
+    [Fact]
+    public async Task A_one_off_share_is_not_sent_again()
+    {
+        using var context = new MapContext();
+        var bob = await context.AddContactAsync("Bob");
+        var screen = context.Open();
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+        await screen.ShareOnceCommand.ExecuteAsync(null);
+        await screen.ShareWithCommand.ExecuteAsync(screen.Candidates.Single(candidate => candidate.UserId == bob));
+
+        context.Device.Reading = new DeviceLocationResult(DeviceLocationOutcome.Found, 51.1079, 17.0385, "Wroclaw");
+        await screen.SendLiveSharesAgainAsync(CancellationToken.None);
+
+        // Still where they were when they shared it.
+        Assert.Equal(52.2297, context.LocationServer.OwnLocation?.Latitude);
+    }
+
+    /// <summary>
+    /// A reading that fails is a minute skipped, not a share ended: the next tick tries again, and the
+    /// last position anybody was sent is still the last one that was true.
+    /// </summary>
+    [Fact]
+    public async Task A_reading_that_fails_mid_share_leaves_the_share_standing()
+    {
+        using var context = new MapContext();
+        var bob = await context.AddContactAsync("Bob");
+        var screen = context.Open();
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+        await screen.KeepSharingCommand.ExecuteAsync(null);
+        await screen.ShareWithCommand.ExecuteAsync(screen.Candidates.Single(candidate => candidate.UserId == bob));
+
+        context.Device.Reading = new DeviceLocationResult(DeviceLocationOutcome.Unavailable);
+        await screen.SendLiveSharesAgainAsync(CancellationToken.None);
+
+        Assert.True(Assert.Single(context.LocationServer.Shares).IsContinuous);
+        Assert.Equal(52.2297, context.LocationServer.OwnLocation?.Latitude);
     }
 
     /// <summary>
@@ -227,7 +394,7 @@ public sealed class MapScreenTests
             _usersClient = new UsersClient(_users.ToHttpClient());
             var sender = new EncryptedChatMessageSender(
                 _repository, chatClient, new ChatDirectoryReader(chatClient, _usersClient, sessionStore),
-                encryptionKeyProvider, NullLogger<EncryptedChatMessageSender>.Instance);
+                encryptionKeyProvider, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 _repository, chatClient, _usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
             LocationClient = new LocationClient(LocationServer.ToHttpClient());
@@ -277,10 +444,13 @@ public sealed class MapScreenTests
             LocationServer.AddIncomingShare(sharerUserId, "AAAAAAAAAAAAAAAAAAAAAA==", "AAAAAAAAAAAAAAAA");
         }
 
-        public MapViewModel Open()
-            => new(Device, LocationClient, _sharedLocations, _usersClient, _repository, _synchronizer,
-                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), _google,
-                Navigator);
+        public MapViewModel Open(AppLanguage language = AppLanguage.English)
+        {
+            var translations = new Translations(new InMemoryLanguageStore());
+            translations.SetLanguage(language);
+            return new(Device, LocationClient, _sharedLocations, _usersClient, _repository, _synchronizer,
+                translations, UnlockedPermissions.For(_localStore), _google, Navigator);
+        }
 
         public void Dispose()
         {

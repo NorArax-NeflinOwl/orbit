@@ -4,4 +4,6 @@
      dark mode - the same switch AppThemeBinding follows inside the app. Matches SurfaceDark. -->
 <resources>
     <color name="colorPrimaryDark">#1C1C1E</color>
+    <!-- The dark half of the default accent - see values/colors.xml. -->
+    <color name="colorAccent">#A79DF8</color>
 </resources>

@@ -12,8 +12,20 @@ public sealed class NotificationEntry
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
     public NotificationEntryKind Kind { get; private set; }
+    /// <summary>
+    /// The English sentence with {0}-style holes in it, and what goes in them. Kept apart so a client
+    /// can say the same thing in the reader's language - see PushNotificationPayload, which explains
+    /// why the server cannot. An entry with no arguments has a format that is already the sentence,
+    /// which is what every entry written before this looks like and why they still read correctly.
+    /// </summary>
     public string Title { get; private set; }
+
+    public IReadOnlyList<string> TitleArguments { get; private set; } = [];
+
+    /// <inheritdoc cref="Title"/>
     public string Body { get; private set; }
+
+    public IReadOnlyList<string> BodyArguments { get; private set; } = [];
 
     /// <summary>Where clicking this entry should navigate to (e.g. the event, the task list, the conversation) - null if there's nowhere more specific to go.</summary>
     public string? Url { get; private set; }
@@ -33,27 +45,36 @@ public sealed class NotificationEntry
     public bool IsDismissed => DismissedAtUtc is not null;
 
     private NotificationEntry(
-        Guid id, Guid userId, NotificationEntryKind kind, string title, string body, string? url,
+        Guid id, Guid userId, NotificationEntryKind kind, string title, IReadOnlyList<string> titleArguments,
+        string body, IReadOnlyList<string> bodyArguments, string? url,
         DateTimeOffset createdAtUtc, DateTimeOffset? readAtUtc, DateTimeOffset? dismissedAtUtc)
     {
         Id = id;
         UserId = userId;
         Kind = kind;
         Title = title;
+        TitleArguments = titleArguments;
         Body = body;
+        BodyArguments = bodyArguments;
         Url = url;
         CreatedAtUtc = createdAtUtc;
         ReadAtUtc = readAtUtc;
         DismissedAtUtc = dismissedAtUtc;
     }
 
-    public static NotificationEntry Create(Guid userId, NotificationEntryKind kind, string title, string body, string? url)
-        => new(Guid.NewGuid(), userId, kind, title, body, url, DateTimeOffset.UtcNow, readAtUtc: null, dismissedAtUtc: null);
+    /// <summary>What one notification says is decided in one place - see PushNotificationPayload.</summary>
+    public static NotificationEntry Create(Guid userId, NotificationEntryKind kind, PushNotificationPayload says)
+        => new(
+            Guid.NewGuid(), userId, kind, says.TitleFormat, says.TitleArguments, says.BodyFormat,
+            says.BodyArguments, says.Url, DateTimeOffset.UtcNow, readAtUtc: null, dismissedAtUtc: null);
 
     public static NotificationEntry FromPersistence(
-        Guid id, Guid userId, NotificationEntryKind kind, string title, string body, string? url,
+        Guid id, Guid userId, NotificationEntryKind kind, string title, IReadOnlyList<string> titleArguments,
+        string body, IReadOnlyList<string> bodyArguments, string? url,
         DateTimeOffset createdAtUtc, DateTimeOffset? readAtUtc, DateTimeOffset? dismissedAtUtc = null)
-        => new(id, userId, kind, title, body, url, createdAtUtc, readAtUtc, dismissedAtUtc);
+        => new(
+            id, userId, kind, title, titleArguments, body, bodyArguments, url, createdAtUtc, readAtUtc,
+            dismissedAtUtc);
 
     /// <summary>Idempotent, mirroring NoteShare.MarkAccepted - marking an already-read entry read again is a no-op, not a timestamp bump.</summary>
     public void MarkRead(DateTimeOffset nowUtc) => ReadAtUtc ??= nowUtc;

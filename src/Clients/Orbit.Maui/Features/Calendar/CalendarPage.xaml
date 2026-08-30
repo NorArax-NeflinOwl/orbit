@@ -88,7 +88,7 @@
                                     <DataTrigger TargetType="Label" Binding="{Binding IsToday}" Value="True">
                                         <Setter Property="FontAttributes" Value="Bold" />
                                         <Setter Property="TextColor"
-                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                                Value="{DynamicResource Accent}" />
                                     </DataTrigger>
                                     <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
                                         <Setter Property="FontAttributes" Value="Bold" />
@@ -100,7 +100,7 @@
                                  list beneath, and a grid cell this size cannot carry both. -->
                             <Ellipse Grid.Row="1" WidthRequest="5" HeightRequest="5" HorizontalOptions="Center"
                                      IsVisible="{Binding HasEvents}"
-                                     Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                     Fill="{DynamicResource Accent}" />
                         </Grid>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
@@ -124,7 +124,7 @@
                                     <DataTrigger TargetType="Label" Binding="{Binding IsThisMonth}" Value="True">
                                         <Setter Property="FontAttributes" Value="Bold" />
                                         <Setter Property="TextColor"
-                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                                Value="{DynamicResource Accent}" />
                                     </DataTrigger>
                                 </Label.Triggers>
                             </Label>
@@ -146,8 +146,8 @@
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
-            <DatePicker Grid.Column="0" Date="{Binding NewEventDate}" />
-            <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" />
+            <DatePicker Grid.Column="0" Date="{Binding NewEventDate}" Format="{controls:DatePattern}" />
+            <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" Format="{controls:TimePattern}" />
         </Grid>
 
         <!-- The chosen day on the clock, under the grid that chose it. Orbit.Web swaps its grid for this
@@ -183,7 +183,7 @@
                             <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding When}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                   FontSize="12" TextColor="{DynamicResource Accent}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

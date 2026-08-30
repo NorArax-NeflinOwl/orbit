@@ -44,7 +44,7 @@
                         Command="{Binding StartResetCommand}"
                         IsVisible="{Binding CanReset}"
                         BackgroundColor="Transparent"
-                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        TextColor="{DynamicResource Accent}" />
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="12" IsVisible="{Binding IsResetting}">

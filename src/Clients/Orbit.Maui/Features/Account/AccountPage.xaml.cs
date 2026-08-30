@@ -13,10 +13,28 @@ public partial class AccountPage : ContentPage
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
-		_viewModel.ThemeChanged += (_, theme) => App.ApplyTheme(theme);
+		_viewModel.ThemeChanged += (_, theme) =>
+		{
+			App.ApplyTheme(theme);
+
+			// The swatches are painted in the tokens of the theme now showing, so they follow it - and
+			// so does the accent itself, which differs between the two.
+			ShowSwatchesForTheTheme();
+			App.ApplyAccent(_viewModel.Accent);
+		};
+		_viewModel.AccentChanged += (_, accent) => App.ApplyAccent(accent);
 		_viewModel.ExportReady += (_, export) => _ = OfferAsync(export.FileName, export.Json);
 		App.ApplyTheme(_viewModel.Theme);
+		ShowSwatchesForTheTheme();
 	}
+
+	/// <summary>
+	/// Tells the screen which theme is actually on display. It cannot ask: "System" means whatever the
+	/// phone is doing, and Orbit.Mobile has no phone to ask - which is the line every platform call on
+	/// this screen sits behind.
+	/// </summary>
+	private void ShowSwatchesForTheTheme()
+		=> _viewModel.IsDarkOnScreen = Application.Current?.RequestedTheme == AppTheme.Dark;
 
 	/// <summary>
 	/// Writes the export somewhere the share sheet can reach and hands it over. The cache directory

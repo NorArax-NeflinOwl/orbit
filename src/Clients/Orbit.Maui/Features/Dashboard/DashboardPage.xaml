@@ -76,7 +76,7 @@
 
                         <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
                             <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
-                                     Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                     Fill="{DynamicResource Accent}" />
                             <Label Grid.Column="1" Text="{Binding EventsToday}" FontSize="14" FontAttributes="Bold" />
                             <Label Grid.Column="2" Text="{controls:Translate 'events today'}" FontSize="14"
                                    Style="{StaticResource SubtleLabel}" />
@@ -162,7 +162,7 @@
                                                                  Margin="8,0,0,0" VerticalOptions="Center"
                                                                  IsVisible="{Binding HasProgress}"
                                                                  Progress="{Binding Progress}"
-                                                                 ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                                 ProgressColor="{DynamicResource Accent}"
                                                                  BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}" />
                                                     <Label Grid.Row="1" Grid.Column="4" Text="{Binding Detail}" FontSize="12"
                                                            Margin="8,0,0,0"

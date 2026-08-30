@@ -84,7 +84,7 @@
                 <TapGestureRecognizer Command="{Binding ToggleMenuCommand}" />
             </Grid.GestureRecognizers>
 
-            <Border StrokeThickness="0" BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+            <Border StrokeThickness="0" BackgroundColor="{DynamicResource Accent}"
                     HeightRequest="34" WidthRequest="34" HorizontalOptions="Center" VerticalOptions="Center">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="17" />

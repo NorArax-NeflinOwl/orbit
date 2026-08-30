@@ -1,3 +1,4 @@
+using System.Globalization;
 using Orbit.Core.Notifications;
 
 namespace Orbit.Core.Inventory.ExpiryReminders;
@@ -7,7 +8,9 @@ public static class InventoryExpiryPushContent
 {
     public static PushNotificationPayload Build(DueExpiryReminder reminder)
     {
-        var body = $"\"{reminder.Name}\" is nearing its expiry date ({reminder.ExpiryDate.LocalDateTime:dd.MM.yyyy}).";
-        return new PushNotificationPayload("Expiring soon", body, "/inventory");
+        return new PushNotificationPayload(
+            "Expiring soon", "\"{0}\" is nearing its expiry date ({1}).",
+            [reminder.Name, reminder.ExpiryDate.LocalDateTime.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)],
+            "/inventory");
     }
 }

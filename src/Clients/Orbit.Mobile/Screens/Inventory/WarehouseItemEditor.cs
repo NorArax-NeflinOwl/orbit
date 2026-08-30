@@ -120,8 +120,10 @@ public sealed partial class WarehouseItemEditor : ObservableObject
         => new(
             _id,
             Name.Trim(),
-            ProductType.Trim() is { Length: > 0 } type ? type : "General",
-            Category.Trim() is { Length: > 0 } category ? category : "General",
+            // Left as the reader left them. Filling a blank box with "General" put a word nobody typed
+            // into the filters above and onto the row, in English, whatever language the shelf was in.
+            ProductType.Trim(),
+            Category.Trim(),
             ParseQuantity() ?? 0,
             ParseMinimum(),
             Unit,

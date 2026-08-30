@@ -111,5 +111,7 @@ public static class NotificationEndpoints
             settings.RetentionDays);
 
     private static NotificationEntryDto ToDto(NotificationEntry entry)
-        => new(entry.Id, entry.Kind.ToString(), entry.Title, entry.Body, entry.Url, entry.CreatedAtUtc, entry.IsRead, entry.IsDismissed);
+        => new(
+            entry.Id, entry.Kind.ToString(), entry.Title, entry.Body, entry.Url, entry.CreatedAtUtc,
+            entry.IsRead, entry.IsDismissed, entry.TitleArguments, entry.BodyArguments);
 }

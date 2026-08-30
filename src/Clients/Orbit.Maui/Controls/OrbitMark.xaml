@@ -8,10 +8,10 @@
          Orbit.Web's sidebar logo, so the three cannot drift apart. -->
     <Grid>
         <Ellipse x:Name="Ring" Rotation="-28" Fill="Transparent"
-                 Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                 Stroke="{DynamicResource Accent}"
                  HorizontalOptions="Center" VerticalOptions="Center" />
         <Ellipse x:Name="Body"
-                 Fill="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                 Fill="{DynamicResource Accent}"
                  HorizontalOptions="Center" VerticalOptions="Center" />
     </Grid>
 </ContentView>

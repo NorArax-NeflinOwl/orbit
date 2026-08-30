@@ -23,6 +23,12 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public Guid? LastTaskListId { get; private set; }
 
+    /// <summary>
+    /// Which warehouse it was sent to. Kept because the inventory search answers "which warehouse is
+    /// this in" - a double that dropped the id would let it open the wrong one and still pass.
+    /// </summary>
+    public Guid? LastWarehouseId { get; private set; }
+
     public void ShowSignIn() => _destinations.Add(nameof(ShowSignIn));
 
     public void ShowRegister() => _destinations.Add(nameof(ShowRegister));
@@ -96,7 +102,11 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowMap() => _destinations.Add(nameof(ShowMap));
 
-    public void ShowWarehouse(Guid localId) => _destinations.Add(nameof(ShowWarehouse));
+    public void ShowWarehouse(Guid localId)
+    {
+        LastWarehouseId = localId;
+        _destinations.Add(nameof(ShowWarehouse));
+    }
 
     public void ShowNotifications() => _destinations.Add(nameof(ShowNotifications));
 

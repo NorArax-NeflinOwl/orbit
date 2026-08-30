@@ -20,8 +20,13 @@ public sealed class SharedItemNotifierTests
         await context.NotifyAsync(SharedItemKind.Note, "Shopping");
 
         var entry = Assert.Single(await context.RecipientEntriesAsync());
-        Assert.Equal("Anna Kowalska shared a note with you", entry.Title);
-        Assert.Equal("Shopping", entry.Body);
+        // The entry holds the sentence with a hole in it and what goes in the hole, so the client can
+        // say it in the reader's language - see PushNotificationPayload. Read back together, it is the
+        // sentence it always was.
+        Assert.Equal("{0} shared a note with you", entry.Title);
+        Assert.Equal(["Anna Kowalska"], entry.TitleArguments);
+        // The body is the reader's own words for their own thing, so it is all argument and no sentence.
+        Assert.Equal(["Shopping"], entry.BodyArguments);
         Assert.Equal(NotificationEntryKind.SharedWithYou, entry.Kind);
         Assert.False(entry.IsRead);
     }
@@ -91,7 +96,8 @@ public sealed class SharedItemNotifierTests
         var entry = Assert.Single(await context.RecipientEntriesAsync());
         Assert.Equal("/map", entry.Url);
         // With no title of its own, the body repeats the headline rather than being left blank.
-        Assert.Equal("Anna Kowalska shared their location with you", entry.Body);
+        Assert.Equal("{0} shared their location with you", entry.Body);
+        Assert.Equal(["Anna Kowalska"], entry.BodyArguments);
     }
 
     [Fact]
@@ -101,7 +107,9 @@ public sealed class SharedItemNotifierTests
 
         await context.NotifyAsync(SharedItemKind.Note, "Shopping");
 
-        Assert.Equal("Someone shared a note with you", Assert.Single(await context.RecipientEntriesAsync()).Title);
+        var entry = Assert.Single(await context.RecipientEntriesAsync());
+        Assert.Equal("{0} shared a note with you", entry.Title);
+        Assert.Equal(["Someone"], entry.TitleArguments);
     }
 
     private sealed class SharedItemNotifierTestContext

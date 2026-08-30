@@ -29,6 +29,7 @@ public sealed partial class AccountViewModel : ObservableObject
     private readonly UsersClient _usersClient;
     private readonly UserPermissions _permissions;
     private readonly IThemeStore _themes;
+    private readonly IAccentColorStore _accents;
     private readonly TransferClient _transfer;
     private readonly LocalStoreReset _localStore;
     private readonly IScreenNavigator _navigator;
@@ -104,7 +105,8 @@ public sealed partial class AccountViewModel : ObservableObject
     public AccountViewModel(
         AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
-        UserPermissions permissions, IThemeStore themes, TransferClient transfer, LocalStoreReset localStore,
+        UserPermissions permissions, IThemeStore themes, IAccentColorStore accents, TransferClient transfer,
+        LocalStoreReset localStore,
         Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator,
         GoogleAccountLink googleLink)
     {
@@ -116,9 +118,11 @@ public sealed partial class AccountViewModel : ObservableObject
         _usersClient = usersClient;
         _permissions = permissions;
         _themes = themes;
+        _accents = accents;
         _transfer = transfer;
         _localStore = localStore;
         _theme = themes.Read();
+        _accent = accents.Read();
         Notifications = notifications;
         _navigator = navigator;
         GoogleLink = googleLink;
@@ -250,6 +254,34 @@ public sealed partial class AccountViewModel : ObservableObject
     {
         get => Themes.Single(choice => choice.Value == Theme);
         set => Theme = value.Value;
+    }
+
+    /// <summary>The colour Orbit highlights things in - kept on this device, like the theme.</summary>
+    [ObservableProperty]
+    private AccentColor _accent;
+
+    /// <summary>
+    /// Every colour on offer, each with the swatch it paints as. The swatch is worked out here rather
+    /// than left to the markup: the accent tokens differ between the light and dark themes, and a row
+    /// of swatches that ignored that would show the reader colours the app would not actually use.
+    /// </summary>
+    public IReadOnlyList<AccentChoice> Accents
+        => [.. AccentColor.All.Select(accent => new AccentChoice(
+            accent, _translations[accent.Name], AccentPalette.For(accent.Hue, IsDarkOnScreen).Accent,
+            accent == Accent))];
+
+    /// <summary>
+    /// Which theme the swatches are painted for. Set by the app head, which is the only thing that
+    /// knows - "System" means whatever the phone is doing, and this project cannot ask a phone.
+    /// </summary>
+    public bool IsDarkOnScreen
+    {
+        get;
+        set
+        {
+            field = value;
+            OnPropertyChanged(nameof(Accents));
+        }
     }
 
     /// <summary>What this account may use, and what it would take to unlock the rest.</summary>
@@ -522,6 +554,27 @@ public sealed partial class AccountViewModel : ObservableObject
         OnPropertyChanged(nameof(IsShowingAppearance));
         OnPropertyChanged(nameof(IsShowingPermissions));
         OnPropertyChanged(nameof(IsShowingDebug));
+    }
+
+    /// <summary>Written down and applied at once, the way the theme is.</summary>
+    partial void OnAccentChanged(AccentColor value)
+    {
+        _accents.Write(value);
+        OnPropertyChanged(nameof(Accents));
+        AccentChanged?.Invoke(this, value);
+    }
+
+    /// <inheritdoc cref="ThemeChanged"/>
+    public event EventHandler<AccentColor>? AccentChanged;
+
+    /// <summary>Picking one from the row of swatches.</summary>
+    [RelayCommand]
+    private void ChooseAccent(AccentChoice? choice)
+    {
+        if (choice is not null)
+        {
+            Accent = choice.Value;
+        }
     }
 
     /// <summary>Written down and applied at once - a theme that took a restart would read as broken.</summary>

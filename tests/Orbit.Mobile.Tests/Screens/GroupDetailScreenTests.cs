@@ -80,20 +80,65 @@ public sealed class GroupDetailScreenTests
         Assert.Equal("ShowGroups", context.Navigator.LastDestination);
     }
 
+    /// <summary>
+    /// A plain member decides nothing about anybody else - and everything about themselves. This used
+    /// to assert they were offered nothing at all, which is what the screen did and what the server
+    /// says is wrong: see ChatGroup.RemoveMember, whose comment records that requiring admin for both
+    /// "left an ordinary member with no way out of a group at all". It did here.
+    /// </summary>
     [Fact]
-    public async Task A_plain_member_is_offered_nothing_to_change()
+    public async Task A_plain_member_decides_nothing_about_anybody_but_themselves()
     {
         using var context = new GroupContext();
         var celina = context.AddContact("Celina");
         var screen = await context.OpenGroupAsync("Trip", withMembers: [celina], ownRole: "Member");
 
         Assert.False(screen.IsAdmin);
-        Assert.All(screen.Members, member =>
+        Assert.All(screen.Members.Where(member => !member.IsSelf), member =>
         {
             Assert.False(member.CanBeRemoved);
             Assert.False(member.CanBePromoted);
             Assert.False(member.CanBeDemoted);
         });
+
+        var self = screen.Members.Single(member => member.IsSelf);
+        Assert.True(self.CanBeRemoved);
+        Assert.False(self.CanBePromoted);
+        Assert.False(self.CanBeDemoted);
+    }
+
+    /// <summary>
+    /// And can act on it: showing yourself out is anybody's, so the phone leaves the group and goes back
+    /// to the list rather than sitting on a screen about a group the reader is no longer in.
+    /// </summary>
+    [Fact]
+    public async Task A_plain_member_can_show_themselves_out()
+    {
+        using var context = new GroupContext();
+        var celina = context.AddContact("Celina");
+        var screen = await context.OpenGroupAsync("Trip", withMembers: [celina], ownRole: "Member");
+
+        await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
+
+        Assert.Equal("ShowGroups", context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// The button on your own row says what it does. "Remove" is what you do to somebody else, and on
+    /// the one row where the somebody is you it read as removing a person rather than leaving.
+    /// </summary>
+    [Fact]
+    public async Task Your_own_row_offers_to_leave_rather_than_to_remove()
+    {
+        using var context = new GroupContext();
+        var celina = context.AddContact("Celina");
+        var screen = await context.OpenGroupAsync("Trip", withMembers: [celina]);
+
+        var self = screen.Members.Single(member => member.IsSelf);
+        var somebodyElse = screen.Members.Single(member => !member.IsSelf);
+
+        Assert.NotEqual(self.RemovalLabel, somebodyElse.RemovalLabel);
+        Assert.NotEmpty(self.RemovalLabel);
     }
 
     [Fact]
@@ -132,7 +177,7 @@ public sealed class GroupDetailScreenTests
             var usersClient = new UsersClient(_users.ToHttpClient());
             var sender = new EncryptedChatMessageSender(
                 _repository, _chatClient, new ChatDirectoryReader(_chatClient, usersClient, _sessionStore),
-                null!, NullLogger<EncryptedChatMessageSender>.Instance);
+                null!, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 _repository, _chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
         }

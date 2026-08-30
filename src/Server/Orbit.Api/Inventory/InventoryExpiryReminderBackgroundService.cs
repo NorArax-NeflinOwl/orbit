@@ -104,7 +104,7 @@ public sealed class InventoryExpiryReminderBackgroundService : BackgroundService
         var payload = InventoryExpiryPushContent.Build(reminder);
         var recordResult = await notificationRecorder.RecordAndFilterAsync(
             reminder.UserId, reminder.NotificationChannel, NotificationEntryKind.PushReminder,
-            payload.Title, payload.Body, payload.Url, cancellationToken);
+            payload, cancellationToken);
 
         // Sent best-effort per channel, mirroring OverdueTaskNotificationBackgroundService: the claim
         // above guards the whole (item, expiry date) pair, not each channel individually, so once at

@@ -175,7 +175,7 @@ public sealed class TappedNotificationLaunchTests
             var usersClient = new UsersClient(users.ToHttpClient());
             var sender = new EncryptedChatMessageSender(
                 repository, chatClient, new ChatDirectoryReader(chatClient, usersClient, sessionStore),
-                encryptionKeyProvider, NullLogger<EncryptedChatMessageSender>.Instance);
+                encryptionKeyProvider, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             var synchronizer = new ChatSynchronizer(
                 repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
 

@@ -124,6 +124,46 @@ public sealed class UpdateScreenTests
         Assert.Null(link.Opened);
     }
 
+    /// <summary>
+    /// Nothing to fetch, nothing to head. Everything under the platform heading is about fetching a
+    /// build, so with none on offer the heading stood alone over an empty space - which reads as a
+    /// screen still loading rather than one that has answered. Found on a device.
+    /// </summary>
+    [Fact]
+    public async Task With_nothing_to_fetch_the_platform_heading_is_not_drawn_either()
+    {
+        var screen = Open(MobilePlatform.Android);
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(screen.CanUpdate);
+        Assert.False(screen.HasAndroidBuild);
+        // Still an Android phone - it just has nothing to download.
+        Assert.True(screen.IsAndroid);
+    }
+
+    [Fact]
+    public async Task A_build_on_offer_brings_its_platform_heading_with_it()
+    {
+        var screen = Open(MobilePlatform.Android, ANewerOne());
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasAndroidBuild);
+        Assert.False(screen.HasIphoneBuild);
+    }
+
+    [Fact]
+    public async Task An_iphone_build_on_offer_brings_the_other_heading()
+    {
+        var screen = Open(MobilePlatform.Ios, ANewerOne());
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasIphoneBuild);
+        Assert.False(screen.HasAndroidBuild);
+    }
+
     private static CachedVersionVerdict ANewerOne()
         => new(Installed, MobileVersionVerdict.UpdateAvailable, "1.4.0", "https://orbit.example/apk");
 

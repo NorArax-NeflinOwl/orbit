@@ -132,8 +132,16 @@ internal sealed class FakeChatServer : HttpMessageHandler
         return message;
     }
 
+    /// <summary>Set to hold every request open, so a test can make two flushes genuinely overlap.</summary>
+    public TaskCompletionSource? HoldRequestsUntil { get; set; }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        if (HoldRequestsUntil is { } held)
+        {
+            await held.Task;
+        }
+
         if (IsUnreachable)
         {
             throw new HttpRequestException("No such host is known.");
@@ -272,7 +280,14 @@ internal sealed class FakeChatServer : HttpMessageHandler
             return new HttpResponseMessage(HttpStatusCode.NotFound);
         }
 
-        if (group.Members.Single(member => member.UserId == CallerUserId).Role != "Admin")
+        // Showing yourself out is not the same act as removing somebody and does not need the same
+        // standing - see ChatGroup.RemoveMember, which is what this stands in for. Refusing it here as
+        // well left a member with no way out and made the client look right for not offering one.
+        var isLeaving = request.Method == HttpMethod.Delete
+            && Guid.TryParse(segments[5], out var leavingUserId)
+            && leavingUserId == CallerUserId;
+
+        if (!isLeaving && group.Members.Single(member => member.UserId == CallerUserId).Role != "Admin")
         {
             return Refused("Only an admin can change who is in a group.");
         }
@@ -307,7 +322,9 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
         if (request.Method == HttpMethod.Delete)
         {
-            if (subject.Role == "Admin" && adminCount == 1)
+            // While anyone remains. The last person out is let go rather than stranded in a group they
+            // cannot leave - the same line ChatGroup.RemoveMember draws.
+            if (subject.Role == "Admin" && adminCount == 1 && group.Members.Count > 1)
             {
                 return Refused("A group needs at least one admin - promote someone else first.");
             }

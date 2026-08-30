@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
@@ -119,7 +120,16 @@ public sealed class NotificationEntryRepository : INotificationEntryRepository
     private static NotificationEntry ToDomain(NotificationEntryEntity entity)
         => NotificationEntry.FromPersistence(
             entity.Id, entity.UserId, Enum.Parse<NotificationEntryKind>(entity.Kind, ignoreCase: true),
-            entity.Title, entity.Body, entity.Url, entity.CreatedAtUtc, entity.ReadAtUtc, entity.DismissedAtUtc);
+            entity.Title, Read(entity.TitleArguments), entity.Body, Read(entity.BodyArguments), entity.Url,
+            entity.CreatedAtUtc, entity.ReadAtUtc, entity.DismissedAtUtc);
+
+    /// <summary>Nothing stored means nothing to fill in - the format is already the sentence.</summary>
+    private static IReadOnlyList<string> Read(string? arguments)
+        => arguments is null ? [] : JsonSerializer.Deserialize<List<string>>(arguments) ?? [];
+
+    /// <summary>And nothing to fill in is stored as nothing, not as an empty array.</summary>
+    private static string? Write(IReadOnlyList<string> arguments)
+        => arguments.Count == 0 ? null : JsonSerializer.Serialize(arguments);
 
     private static NotificationEntryEntity ToEntity(NotificationEntry entry)
         => new()
@@ -128,7 +138,9 @@ public sealed class NotificationEntryRepository : INotificationEntryRepository
             UserId = entry.UserId,
             Kind = entry.Kind.ToString(),
             Title = entry.Title,
+            TitleArguments = Write(entry.TitleArguments),
             Body = entry.Body,
+            BodyArguments = Write(entry.BodyArguments),
             Url = entry.Url,
             CreatedAtUtc = entry.CreatedAtUtc,
             ReadAtUtc = entry.ReadAtUtc,

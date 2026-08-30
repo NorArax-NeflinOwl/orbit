@@ -48,8 +48,8 @@ public sealed class NotificationHandlerTests
         var repository = new InMemoryNotificationEntryRepository();
         var userId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
-        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, "Mine", "Body", null), CancellationToken.None);
-        await repository.AddAsync(NotificationEntry.Create(otherUserId, NotificationEntryKind.PushReminder, "Not mine", "Body", null), CancellationToken.None);
+        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, new PushNotificationPayload("Mine", "Body", "")), CancellationToken.None);
+        await repository.AddAsync(NotificationEntry.Create(otherUserId, NotificationEntryKind.PushReminder, new PushNotificationPayload("Not mine", "Body", "")), CancellationToken.None);
         var handler = new GetNotificationEntriesQueryHandler(repository);
 
         var entries = await handler.HandleAsync(new GetNotificationEntriesQuery(userId, 30), CancellationToken.None);
@@ -62,11 +62,11 @@ public sealed class NotificationHandlerTests
     {
         var repository = new InMemoryNotificationEntryRepository();
         var userId = Guid.NewGuid();
-        var readEntry = NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, "Read", "Body", null);
+        var readEntry = NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, new PushNotificationPayload("Read", "Body", ""));
         readEntry.MarkRead(DateTimeOffset.UtcNow);
         await repository.AddAsync(readEntry, CancellationToken.None);
         await repository.AddAsync(
-            NotificationEntry.Create(userId, NotificationEntryKind.ChatMessage, "Unread", "Body", "/chat/abc"), CancellationToken.None);
+            NotificationEntry.Create(userId, NotificationEntryKind.ChatMessage, new PushNotificationPayload("Unread", "Body", "/chat/abc")), CancellationToken.None);
         var handler = new GetUnreadNotificationEntriesQueryHandler(repository);
 
         var entries = await handler.HandleAsync(new GetUnreadNotificationEntriesQuery(userId, Take: 30), CancellationToken.None);
@@ -83,8 +83,8 @@ public sealed class NotificationHandlerTests
         var repository = new InMemoryNotificationEntryRepository();
         var userId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
-        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, "Mine", "Body", null), CancellationToken.None);
-        await repository.AddAsync(NotificationEntry.Create(otherUserId, NotificationEntryKind.PushReminder, "Theirs", "Body", null), CancellationToken.None);
+        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, new PushNotificationPayload("Mine", "Body", "")), CancellationToken.None);
+        await repository.AddAsync(NotificationEntry.Create(otherUserId, NotificationEntryKind.PushReminder, new PushNotificationPayload("Theirs", "Body", "")), CancellationToken.None);
         var handler = new ClearNotificationsCommandHandler(repository);
 
         await handler.HandleAsync(new ClearNotificationsCommand(userId), CancellationToken.None);
@@ -98,8 +98,8 @@ public sealed class NotificationHandlerTests
     {
         var repository = new InMemoryNotificationEntryRepository();
         var userId = Guid.NewGuid();
-        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, "One", "Body", null), CancellationToken.None);
-        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.ChatMessage, "Two", "Body", null), CancellationToken.None);
+        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, new PushNotificationPayload("One", "Body", "")), CancellationToken.None);
+        await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.ChatMessage, new PushNotificationPayload("Two", "Body", "")), CancellationToken.None);
         var handler = new MarkAllNotificationsReadCommandHandler(repository);
 
         var result = await handler.HandleAsync(new MarkAllNotificationsReadCommand(userId), CancellationToken.None);

@@ -48,6 +48,28 @@ public sealed class Translations
     /// </summary>
     public CultureInfo DisplayCulture => Language == AppLanguage.Polish ? PolishCulture : EnglishCulture;
 
+    /// <summary>
+    /// How a date is written here - "d.MM.yyyy" for a Polish reader, "M/d/yyyy" for an English one.
+    ///
+    /// Handed to controls that format a value themselves instead of being given a string. MAUI's
+    /// DatePicker and TimePicker render against the phone's own culture rather than this one, so a
+    /// Polish calendar showed "sierpień 2026" above a field reading "8/30/2026".
+    /// </summary>
+    public string DatePattern => DisplayCulture.DateTimeFormat.ShortDatePattern;
+
+    /// <inheritdoc cref="DatePattern"/>
+    public string TimePattern => DisplayCulture.DateTimeFormat.ShortTimePattern;
+
+    /// <summary>
+    /// When something happened, on this reader's clock and in their language.
+    ///
+    /// Named here rather than written out at each call site because getting it wrong is invisible: an
+    /// instant Orbit stores is UTC, and formatting one without converting showed a message sent at 14:41
+    /// in Warsaw as 12:41. Two screens had it wrong that way.
+    /// </summary>
+    public string WhenItHappened(DateTimeOffset instant)
+        => instant.ToLocalTime().ToString("g", DisplayCulture);
+
     public string this[string english]
         => Language == AppLanguage.Polish && PolishTranslations.ByEnglish.TryGetValue(english, out var polish)
             ? polish

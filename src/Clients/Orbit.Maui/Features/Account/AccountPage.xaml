@@ -34,7 +34,7 @@
                                 <Button.Triggers>
                                     <DataTrigger TargetType="Button" Binding="{Binding IsChosen}" Value="True">
                                         <Setter Property="TextColor"
-                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                                Value="{DynamicResource Accent}" />
                                         <Setter Property="FontAttributes" Value="Bold" />
                                     </DataTrigger>
                                 </Button.Triggers>
@@ -53,6 +53,40 @@
                        LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Picker ItemsSource="{Binding Themes}" SelectedItem="{Binding ChosenThemeOption}"
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:ThemeChoice}" />
+
+                <!-- The colour Orbit highlights things in, as swatches rather than a list of names:
+                     what the reader is choosing is how it looks, and eight words would say less than
+                     eight colours do. Orbit.Web offers the same eight the same way. -->
+                <Label Text="{controls:Translate 'Accent colour'}" Style="{StaticResource FieldLabel}"
+                       Margin="0,6,0,0" />
+                <Label Text="{controls:Translate 'The colour Orbit highlights things in. Kept on this device, like the theme.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <FlexLayout Wrap="Wrap" JustifyContent="Start" BindableLayout.ItemsSource="{Binding Accents}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:AccentChoice">
+                            <Border Margin="0,0,10,10" WidthRequest="44" HeightRequest="44"
+                                    BackgroundColor="{Binding Swatch}" StrokeThickness="3"
+                                    StrokeShape="RoundRectangle 22"
+                                    AutomationProperties.Name="{Binding Name}">
+                                <!-- The one in force is ringed rather than ticked: a tick drawn on the
+                                     swatch would be legible on some of the eight and not on others. -->
+                                <Border.Stroke>
+                                    <SolidColorBrush Color="Transparent" />
+                                </Border.Stroke>
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentOn}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseAccentCommand, x:DataType=account:AccountPage}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
 
                 <!-- How Orbit is allowed to interrupt, which Orbit.Web keeps in this same tab. -->
                 <VerticalStackLayout Spacing="14" Margin="0,10,0,0" BindingContext="{Binding Notifications}"
@@ -146,7 +180,7 @@
                             IsVisible="{Binding IsLinked}" Command="{Binding DisconnectCommand}" />
                     <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                            FontSize="12" LineBreakMode="WordWrap"
-                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                           TextColor="{DynamicResource Accent}" />
                 </VerticalStackLayout>
             </VerticalStackLayout>
 
@@ -172,7 +206,7 @@
 
                 <Label Text="{Binding TransferMessage}" IsVisible="{Binding HasTransferMessage}"
                        FontSize="12" LineBreakMode="WordWrap"
-                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                       TextColor="{DynamicResource Accent}" />
             </VerticalStackLayout>
 
             <!-- The one irreversible thing this screen can do, so it is last, filled red rather than the
@@ -213,7 +247,7 @@
 
                 <Label Text="{Binding PermissionMessage}" IsVisible="{Binding HasPermissionMessage}"
                        FontSize="12" LineBreakMode="WordWrap"
-                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                       TextColor="{DynamicResource Accent}" />
 
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Entry Grid.Column="0" Placeholder="{controls:Translate 'Unlock code'}"

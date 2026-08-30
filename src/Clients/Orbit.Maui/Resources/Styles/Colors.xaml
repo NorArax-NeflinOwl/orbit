@@ -13,17 +13,26 @@
 
          Note: for Android please see also Platforms\Android\Resources\values\colors.xml -->
 
-    <!-- accent / accent-hover. Named Primary because that is what MAUI's own styles look for. -->
+    <!-- The four accent colours, and the only ones in this file the reader can change: App.ApplyAccent
+         writes them from the hue they picked, and everything that paints with them asks for them by
+         DynamicResource so the change reaches a screen already on display.
+
+         One key each rather than a light one and a dark one, because they now vary in two directions -
+         theme and hue - and AppThemeBinding only knows about the first. Applying the accent takes the
+         theme into account instead, which is why these values are the light theme's: they are what
+         shows for the moment between the resources loading and App applying the stored choice.
+
+         The values below are Orbit's own purple, and they are also exactly what AccentPalette works out
+         for hue 288 - which AccentColorTests pins down, so a change to either is caught here. -->
+    <!-- accent. Named Primary as well, because that is what MAUI's own control styles look for. -->
+    <Color x:Key="Accent">#7260CB</Color>
     <Color x:Key="Primary">#7260CB</Color>
-    <Color x:Key="PrimaryDark">#A79DF8</Color>
-    <Color x:Key="AccentHoverLight">#624BBC</Color>
-    <Color x:Key="AccentHoverDark">#BAB2FF</Color>
+    <!-- accent-hover: the same, one step further in, for something being pressed. -->
+    <Color x:Key="AccentHover">#624BBC</Color>
     <!-- accent-subtle: a tint of the accent to sit behind it, not beside it. -->
-    <Color x:Key="AccentSubtleLight">#E6E5FF</Color>
-    <Color x:Key="AccentSubtleDark">#312D50</Color>
+    <Color x:Key="AccentSubtle">#E6E5FF</Color>
     <!-- accent-on: what is legible written on the accent. -->
-    <Color x:Key="AccentOnLight">#FBFBFF</Color>
-    <Color x:Key="AccentOnDark">#090811</Color>
+    <Color x:Key="AccentOn">#FBFBFF</Color>
 
     <!-- bg: what the whole page sits on. Warm rather than pure white or pure black, which is most of
          why the web looks like itself. -->
@@ -95,7 +104,7 @@
     <Color x:Key="Magenta">#D600AA</Color>
     <Color x:Key="MidnightBlue">#190649</Color>
 
-    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{DynamicResource Accent}"/>
     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
     <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>
     <SolidColorBrush x:Key="WhiteBrush" Color="{StaticResource White}"/>

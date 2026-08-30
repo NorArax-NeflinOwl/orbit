@@ -9,5 +9,14 @@
          Resources/Styles/Colors.xaml; see values-night for the other half. Only visible up to API 34 -
          from 35 Android draws the app behind the bar instead. -->
     <color name="colorPrimaryDark">#FFFFFF</color>
-    <color name="colorAccent">#2B0B98</color>
+    <!-- What Android tints its own controls with: the line under a focused text field, a checkbox tick,
+         a text selection handle. Orbit's default accent, not the MAUI template's indigo, which was a
+         colour the app used nowhere on the one mark that says "you are typing here".
+
+         It cannot follow a reader who picks a different accent: a theme colour is fixed when the
+         activity inflates, and the obvious lever for changing it afterwards - tinting the widget -
+         paints the field's whole background, because MAUI draws that from the same drawable. Following
+         the choice properly means giving inputs a drawable of their own. See App.ApplyAccent for the
+         colours everything Orbit draws itself does follow. -->
+    <color name="colorAccent">#7260CB</color>
 </resources>

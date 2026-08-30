@@ -23,6 +23,18 @@ public sealed partial class InventoryViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRefreshing;
 
+    /// <summary>
+    /// The warehouses on screen, items and all, kept so the search can read them without going back to
+    /// the database on every keystroke. Refreshed wherever the rows are.
+    /// </summary>
+    private IReadOnlyList<LocalWarehouse> _stored = [];
+
+    /// <summary>
+    /// Warehouses sealed with a key this phone has not got. Named rather than skipped: a search that
+    /// quietly leaves one out answers "it is nowhere" when the truth is "I could not look there".
+    /// </summary>
+    private IReadOnlyList<string> _sealedWarehouseNames = [];
+
     public InventoryViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, INetworkStatus networkStatus,
         SyncState syncState, IScreenNavigator navigator, Translations translations)
@@ -36,6 +48,88 @@ public sealed partial class InventoryViewModel : ObservableObject
     }
 
     public ObservableCollection<WarehouseRow> Warehouses { get; } = [];
+
+
+    /// <summary>
+    /// What the reader is looking for across every warehouse. This page lists shelves and not what is on
+    /// them, so where something is was the one question it could not answer.
+    /// </summary>
+    [ObservableProperty]
+    private string _searchedItemName = string.Empty;
+
+    /// <summary>What was found, and on which shelf - see <see cref="InventoryItemMatch"/>.</summary>
+    public ObservableCollection<InventoryItemMatch> ItemMatches { get; } = [];
+
+    /// <summary>The list of shelves steps aside while a search is on, since the answer replaces it.</summary>
+    public bool IsSearchingItems => SearchedItemName.Trim().Length > 0;
+
+    public bool IsShowingWarehouses => !IsSearchingItems;
+
+    /// <summary>An empty shelf list and a search that found nothing need different words.</summary>
+    public bool FoundNothing => IsSearchingItems && ItemMatches.Count == 0;
+
+    /// <summary>
+    /// What was found, and - when a warehouse is sealed with a key this phone has not got - that the
+    /// answer is short of those. Saying only the count would let "nothing found" stand for "I could not
+    /// look there", which is the one answer a search must never give by accident.
+    /// </summary>
+    public string ItemMatchSummary
+        => _sealedWarehouseNames.Count == 0
+            ? _translations.Format("Found in {0} of {1} warehouses.", WarehousesMatched, _stored.Count)
+            : _translations.Format(
+                "Found in {0} of {1} warehouses. These could not be opened, so nothing in them was searched: {2}",
+                WarehousesMatched, _stored.Count, string.Join(", ", _sealedWarehouseNames));
+
+    private int WarehousesMatched
+        => ItemMatches.Select(match => match.WarehouseLocalId).Distinct().Count();
+
+    [RelayCommand]
+    private void ClearItemSearch() => SearchedItemName = string.Empty;
+
+    [RelayCommand]
+    private void OpenMatch(InventoryItemMatch? match)
+    {
+        if (match is not null)
+        {
+            _navigator.ShowWarehouse(match.WarehouseLocalId);
+        }
+    }
+
+    /// <summary>
+    /// Answers "which warehouse is this in", from what the phone already holds rather than by asking the
+    /// server. Every warehouse's items came down with the warehouse, so there is nothing to fetch and
+    /// nothing to cache - and a private warehouse keeps no item rows on the server at all, so an
+    /// endpoint could not have answered for those anyway.
+    ///
+    /// Matched anywhere in the name and without case, the same as the shelf's own search box: a shelf
+    /// holds "Flour, wheat" and somebody typing "flour" means it.
+    /// </summary>
+    private void ShowMatchingItems()
+    {
+        ItemMatches.Clear();
+        if (SearchedItemName.Trim() is { Length: > 0 } wanted)
+        {
+            var found = _stored
+                .Where(warehouse => !warehouse.IsPrivate)
+                .SelectMany(warehouse => warehouse.Items.Select(item => new InventoryItemMatch(
+                    warehouse.LocalId, warehouse.Name, WarehouseItemRow.From(item, _translations))))
+                .Where(match => match.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
+                .OrderBy(match => match.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(match => match.WarehouseName, StringComparer.CurrentCultureIgnoreCase);
+
+            foreach (var match in found)
+            {
+                ItemMatches.Add(match);
+            }
+        }
+
+        OnPropertyChanged(nameof(IsSearchingItems));
+        OnPropertyChanged(nameof(IsShowingWarehouses));
+        OnPropertyChanged(nameof(FoundNothing));
+        OnPropertyChanged(nameof(ItemMatchSummary));
+    }
+
+    partial void OnSearchedItemNameChanged(string value) => ShowMatchingItems();
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
@@ -67,14 +161,17 @@ public sealed partial class InventoryViewModel : ObservableObject
 
     private async Task ShowStoredWarehousesAsync(CancellationToken cancellationToken)
     {
-        var stored = await _warehouses.GetAllAsync(cancellationToken);
+        _stored = await _warehouses.GetAllAsync(cancellationToken);
         var pending = await _warehouses.GetPendingLocalIdsAsync(cancellationToken);
 
         Warehouses.Clear();
-        foreach (var warehouse in stored)
+        foreach (var warehouse in _stored)
         {
             Warehouses.Add(WarehouseRow.From(warehouse, pending.Contains(warehouse.LocalId), _networkStatus, _translations));
         }
+
+        _sealedWarehouseNames = [.. _stored.Where(warehouse => warehouse.IsPrivate).Select(warehouse => warehouse.Name)];
+        ShowMatchingItems();
     }
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)

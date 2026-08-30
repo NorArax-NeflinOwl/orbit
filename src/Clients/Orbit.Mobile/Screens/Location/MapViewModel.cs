@@ -36,6 +36,18 @@ public sealed partial class MapViewModel : ObservableObject
 
     private SharedPosition? _ownPosition;
 
+    /// <summary>Which of the two share buttons was pressed - see KeepSharingAsync.</summary>
+    private bool _willKeepSharing;
+
+    /// <summary>Refreshes every live share while this screen is open - see StartRefreshing.</summary>
+    private CancellationTokenSource? _refreshing;
+
+    /// <summary>
+    /// How often a live share is sent again. The same minute Orbit.Web uses: a position a minute old is
+    /// still where somebody is, and anything faster costs a phone battery for no one's benefit.
+    /// </summary>
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(1);
+
     [ObservableProperty]
     private string _ownPositionDescription = string.Empty;
 
@@ -203,10 +215,27 @@ public sealed partial class MapViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Shares where the reader is now, once. Whoever they pick sees the point they read a moment ago
+    /// and nothing after it - which is the right answer for "here is where I am, come and find me".
+    /// </summary>
     [RelayCommand]
-    private async Task StartSharingAsync(CancellationToken cancellationToken)
+    private Task ShareOnceAsync(CancellationToken cancellationToken)
+        => StartSharingAsync(isContinuous: false, cancellationToken);
+
+    /// <summary>
+    /// Keeps sharing: the position goes out again every minute for as long as this screen is open.
+    /// Orbit.Web offers both and the phone offered only the first, which is the wrong half to be
+    /// missing - a phone is the thing that moves, and a browser mostly is not.
+    /// </summary>
+    [RelayCommand]
+    private Task KeepSharingAsync(CancellationToken cancellationToken)
+        => StartSharingAsync(isContinuous: true, cancellationToken);
+
+    private async Task StartSharingAsync(bool isContinuous, CancellationToken cancellationToken)
     {
         Message = string.Empty;
+        _willKeepSharing = isContinuous;
         if (_ownPosition is null)
         {
             Message = _translations["Read your position first."];
@@ -250,9 +279,16 @@ public sealed partial class MapViewModel : ObservableObject
         IsChoosingWhoToShareWith = false;
         try
         {
-            Message = await _sharedLocations.ShareAsync(contact.UserId, _ownPosition, isContinuous: false, cancellationToken)
-                ? _translations.Format("Shared with {0}.", contact.DisplayName)
-                : $"{contact.DisplayName} hasn't set up Orbit's encryption yet, so there is nothing to share to.";
+            Message = await _sharedLocations.ShareAsync(
+                    contact.UserId, _ownPosition, _willKeepSharing, cancellationToken)
+                ? _translations.Format(
+                    _willKeepSharing
+                        ? "Sharing with {0}. Your position goes out again every minute while this screen is open."
+                        : "Shared with {0}.",
+                    contact.DisplayName)
+                : _translations.Format(
+                    "{0} hasn't set up Orbit's encryption yet, so there is nothing to share to.",
+                    contact.DisplayName);
 
             await ShowWhoCanSeeMeAsync(cancellationToken);
         }
@@ -283,7 +319,7 @@ public sealed partial class MapViewModel : ObservableObject
         try
         {
             await _locationClient.StopSharingAsync(row.UserId, cancellationToken);
-            Message = $"{row.DisplayName} can no longer see where you are.";
+            Message = _translations.Format("{0} can no longer see where you are.", row.DisplayName);
             await ShowWhoCanSeeMeAsync(cancellationToken);
         }
         catch (HttpRequestException exception)
@@ -306,7 +342,11 @@ public sealed partial class MapViewModel : ObservableObject
         SharedWithMe.Clear();
         foreach (var position in received)
         {
-            SharedWithMe.Add(position);
+            // Stamped here rather than on screen: MapViewModel is where the reader's language is, and a
+            // reading formatted from its stored UTC showed one taken at 14:41 in Warsaw as 12:41.
+            SharedWithMe.Add(position.Position is { } reading
+                ? position with { RecordedAt = _translations.WhenItHappened(reading.RecordedAtUtc) }
+                : position);
         }
 
         ShowPointsOnMap();
@@ -338,6 +378,92 @@ public sealed partial class MapViewModel : ObservableObject
         }
     }
 
+
+    /// <summary>
+    /// Starts sending every live share again, once a minute, while this screen is open. Tied to the
+    /// screen rather than running in the background, exactly as Orbit.Web ties it to the page: sharing
+    /// where you are is something somebody is doing on purpose, and a loop that outlived the screen
+    /// would keep broadcasting after they had put the phone down.
+    ///
+    /// A phone could do better than this with a foreground service, and one day should. What it must
+    /// not do is quietly keep sending after the reader thinks they have stopped looking.
+    /// </summary>
+    public void StartRefreshing()
+    {
+        StopRefreshing();
+        _refreshing = new CancellationTokenSource();
+        _ = RefreshAsync(_refreshing.Token);
+    }
+
+    public void StopRefreshing()
+    {
+        _refreshing?.Cancel();
+        _refreshing?.Dispose();
+        _refreshing = null;
+    }
+
+    private async Task RefreshAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(RefreshInterval);
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await SendLiveSharesAgainAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen was left - the loop is meant to end with it.
+        }
+    }
+
+    /// <summary>
+    /// One round of the loop: read where the phone is now, and send it to everyone with a live share.
+    /// Nothing is said on screen about it - a message appearing by itself every minute would read as
+    /// something having happened, when what happened is what the reader already asked for.
+    /// </summary>
+    internal async Task SendLiveSharesAgainAsync(CancellationToken cancellationToken)
+    {
+        var live = SharingWith.Where(row => row.IsContinuous).ToList();
+        if (live.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var reading = await _deviceLocation.ReadAsync(cancellationToken);
+            if (reading.Outcome is not DeviceLocationOutcome.Found)
+            {
+                // A reading that failed is a minute skipped, not a share ended: the next tick tries
+                // again, and the last position anyone was sent is still the last one that was true.
+                return;
+            }
+
+            var position = new SharedPosition(
+                reading.Latitude, reading.Longitude, reading.Address, DateTimeOffset.UtcNow);
+            _ownPosition = position;
+            OwnPositionDescription = Describe(position);
+            ShowPointsOnMap();
+
+            await _locationClient.SaveOwnAsync(
+                reading.Latitude, reading.Longitude, reading.Address, cancellationToken);
+            foreach (var row in live)
+            {
+                await _sharedLocations.ShareAsync(row.UserId, position, isContinuous: true, cancellationToken);
+            }
+
+            await ShowWhoCanSeeMeAsync(cancellationToken);
+        }
+        catch (Exception exception)
+            when (exception is HttpRequestException or OperationCanceledException or EncryptionKeyLockedException)
+        {
+            // Same as a failed reading: one minute missed. Sending the reader to the key gate from a
+            // timer would take the screen away from under them without their having touched anything.
+        }
+    }
     private async Task ShowWhoCanSeeMeAsync(CancellationToken cancellationToken)
     {
         // The contact cache names most of them; anybody it misses is looked up, because somebody can be

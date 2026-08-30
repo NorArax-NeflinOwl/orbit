@@ -15,7 +15,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
 
 
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Tasks'}">
@@ -43,9 +43,9 @@
                                 <Border.Triggers>
                                     <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
                                         <Setter Property="BackgroundColor"
-                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                                Value="{DynamicResource Accent}" />
                                         <Setter Property="Stroke"
-                                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                                Value="{DynamicResource Accent}" />
                                     </DataTrigger>
                                 </Border.Triggers>
 
@@ -53,7 +53,7 @@
                                     <Label.Triggers>
                                         <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
                                             <Setter Property="TextColor"
-                                                    Value="{AppThemeBinding Light={StaticResource AccentOnLight}, Dark={StaticResource AccentOnDark}}" />
+                                                    Value="{DynamicResource AccentOn}" />
                                         </DataTrigger>
                                     </Label.Triggers>
                                 </Label>
@@ -68,13 +68,19 @@
                     Clicked="OnSortClicked" />
         </Grid>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <!-- The one thing this screen has to say for itself, which today is only about pinning. It was
+             set and never shown, so pinning with no connection did nothing and said nothing - see
+             TasksViewModel.HasMessage. -->
+        <Label Grid.Row="2" Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
+               LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'New list'}" Text="{Binding NewListTitle}"
                    ReturnType="Done" ReturnCommand="{Binding AddListCommand}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddListCommand}" />
         </Grid>
 
-        <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding TaskLists}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenListCommand}"
@@ -87,17 +93,20 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                            <!-- Tight column spacing, and each of the small buttons only as wide as its glyph: six things
+                                 beside a title is what a phone has room for only if none of them takes more
+                                 than it needs. -->
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4">
                                 <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
                                        VerticalOptions="Center" />
                                 <!-- Only where it says something: a badge on every list, most of them
                                      Normal, would mark nothing out - see PriorityChoice.IsWorthSaying. -->
-                                <Border Grid.Column="1" Style="{StaticResource FilterChip}" Padding="8,3"
+                                <Border Grid.Column="1" Style="{StaticResource FilterChip}" Padding="6,3"
                                         IsVisible="{Binding HasPriority}" VerticalOptions="Center">
                                     <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
                                 </Border>
                                 <!-- Where the list stands, in the same words as the chips above it. -->
-                                <Border Grid.Column="2" Style="{StaticResource FilterChip}" Padding="8,3"
+                                <Border Grid.Column="2" Style="{StaticResource FilterChip}" Padding="6,3"
                                         VerticalOptions="Center">
                                     <Label Text="{Binding State}" Style="{StaticResource FilterChipLabel}" />
                                 </Border>
@@ -109,11 +118,11 @@
                                      drags them, which is not a gesture a thumb can aim in a scrolling list. -->
                                 <HorizontalStackLayout Grid.Column="4" Spacing="0" VerticalOptions="Center"
                                                        IsVisible="{Binding CanBeMoved}">
-                                    <Button Text="↑" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                                    <Button Text="↑" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListUpCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
-                                    <Button Text="↓" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                                    <Button Text="↓" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListDownCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
@@ -121,8 +130,8 @@
                                 <!-- Folded down to its heading, not filtered away: a list nobody is working
                                      on this week is still one they want to see is there. Orbit.Web folds
                                      the same card with the same chevron. -->
-                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" FontSize="12" Padding="6,0"
-                                        MinimumWidthRequest="0" VerticalOptions="Center"
+                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" FontSize="12" Padding="2,0"
+                                        MinimumWidthRequest="0" WidthRequest="26" VerticalOptions="Center"
                                         Style="{StaticResource LinkButton}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCollapsedCommand, x:DataType=tasks:TasksPage}"
                                         CommandParameter="{Binding .}" />
@@ -147,7 +156,7 @@
                                        IsVisible="{Binding HasNothingLeftToDo}" Style="{StaticResource SubtleLabel}" />
                                 <!-- Why a list is waiting, or why it cannot be edited right now. -->
                                 <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                       FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                       FontSize="12" TextColor="{DynamicResource Accent}" />
                             </VerticalStackLayout>
                             <BoxView HeightRequest="1" Margin="0,12,0,0"
                                      Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />

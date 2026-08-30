@@ -450,6 +450,33 @@ public static class PolishTranslations
         ["Verified"] = "Potwierdzony",
         ["Not verified"] = "Niepotwierdzony",
         ["Cleared"] = "Wyczyszczone",
+
+        // What a notification says. The server writes these as English sentences with {0}-style holes
+        // rather than finishing them, because it never learns which language the reader has chosen -
+        // see Orbit.Core's PushNotificationPayload. Both clients look them up here.
+        ["New message"] = "Nowa wiadomość",
+        ["New message from {0}"] = "Nowa wiadomość od: {0}",
+        ["Event created"] = "Wydarzenie zapisane",
+        ["The event \"{0}\" has been saved to your calendar."] = "Wydarzenie „{0}” zostało zapisane w Twoim kalendarzu.",
+        ["Upcoming event"] = "Zbliżające się wydarzenie",
+        ["The event \"{0}\" is starting now."] = "Wydarzenie „{0}” właśnie się zaczyna.",
+        ["The event \"{0}\" starts in {1} hr."] = "Wydarzenie „{0}” zaczyna się za {1} godz.",
+        ["The event \"{0}\" starts in {1} min."] = "Wydarzenie „{0}” zaczyna się za {1} min.",
+        ["Expiring soon"] = "Niedługo się przeterminuje",
+        ["\"{0}\" is nearing its expiry date ({1})."] = "„{0}” zbliża się do daty ważności ({1}).",
+        ["Task reminder"] = "Przypomnienie o zadaniu",
+        ["Task \"{0}\" from list \"{1}\" is still waiting to be done."] = "Zadanie „{0}” z listy „{1}” wciąż czeka na wykonanie.",
+        ["Overdue task"] = "Zaległe zadanie",
+        ["Task \"{0}\" from list \"{1}\" is overdue."] = "Zadanie „{0}” z listy „{1}” jest zaległe.",
+        ["Added to a group"] = "Dodano Cię do grupy",
+        ["{0} added you to {1}"] = "{0} dodał(a) Cię do grupy {1}",
+        // One sentence per kind rather than a noun dropped into a shared one: Polish declines what was
+        // shared, so "udostępnił(a) Ci notatkę" and "…listę zadań" cannot come from the same template.
+        ["{0} shared a note with you"] = "{0} udostępnił(a) Ci notatkę",
+        ["{0} shared a task list with you"] = "{0} udostępnił(a) Ci listę zadań",
+        ["{0} shared an event with you"] = "{0} udostępnił(a) Ci wydarzenie",
+        ["{0} shared a warehouse with you"] = "{0} udostępnił(a) Ci magazyn",
+        ["{0} shared their location with you"] = "{0} udostępnił(a) Ci swoje położenie",
         ["All day"] = "Cały dzień",
         ["Shared by"] = "Udostępnił",
         ["Messages"] = "Wiadomości",
@@ -1230,6 +1257,9 @@ public static class PolishTranslations
         ["Nobody to share with yet - start a conversation first."] =
             "Nie masz jeszcze komu udostępnić — zacznij najpierw rozmowę.",
         ["Shared with {0}."] = "Udostępniono: {0}.",
+        ["Sharing with {0}. Your position goes out again every minute while this screen is open."] = "Udostępniasz: {0}. Twoje położenie wysyłane jest co minutę, dopóki ten ekran jest otwarty.",
+        ["{0} hasn't set up Orbit's encryption yet, so there is nothing to share to."] = "{0} nie ma jeszcze skonfigurowanego szyfrowania Orbita, więc nie ma dokąd tego udostępnić.",
+        ["{0} can no longer see where you are."] = "{0} nie widzi już, gdzie jesteś.",
         ["Sharing a position needs a connection."] = "Udostępnienie położenia wymaga połączenia.",
         ["Orbit wouldn't accept that share. Try signing in again."] =
             "Orbit nie przyjął tego udostępnienia. Spróbuj zalogować się ponownie.",

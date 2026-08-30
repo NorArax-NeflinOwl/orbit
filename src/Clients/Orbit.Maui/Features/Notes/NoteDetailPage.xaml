@@ -24,7 +24,7 @@
 
         <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" LineBreakMode="WordWrap"
-               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+               TextColor="{DynamicResource Accent}" />
 
         <VerticalStackLayout Grid.Row="3" Spacing="8" IsVisible="{Binding CanEdit}">
             <!-- How much this note matters. The phone's own dashboard filters by it and there was no
@@ -63,7 +63,7 @@
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" Padding="0,4">
                         <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="36" FontSize="17"
                                 Padding="0" BackgroundColor="Transparent" IsVisible="{Binding IsChecklistItem}"
-                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                TextColor="{DynamicResource Accent}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
                                 CommandParameter="{Binding .}" />
 

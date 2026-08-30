@@ -170,6 +170,152 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
+    /// An item added on the phone arrives with no kind and no category, exactly as one added in a
+    /// browser does. The phone used to write "Piece" and "General" instead - a unit's name in the field
+    /// for a kind of thing, English on a shelf kept in any other language, and two words nobody typed
+    /// showing up in the filters above and on the row itself. Found on a device.
+    /// </summary>
+    [Fact]
+    public async Task An_item_added_here_is_filed_under_nothing_until_somebody_files_it()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync();
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.NewItemName = "Flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        var added = Assert.Single(screen.Items);
+        Assert.Equal(string.Empty, added.Item.ProductType);
+        Assert.Equal(string.Empty, added.Item.Category);
+
+        // And nothing on the row about a kind it does not have.
+        Assert.Equal(string.Empty, added.Detail);
+    }
+
+    /// <summary>
+    /// One item with nothing filled in is nothing to file by, so neither picker is offered. The invented
+    /// defaults made every warehouse look like it had a type and a category worth filtering on.
+    ///
+    /// Searching by name is offered anyway, which is the one condition it does not share: a name is
+    /// typed, and every item has one, including this one.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_of_unfiled_items_offers_only_the_search()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync();
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.NewItemName = "Flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.CanNarrowByProductType);
+        Assert.False(screen.CanNarrowByCategory);
+        Assert.True(screen.CanNarrow);
+    }
+
+    /// <summary>
+    /// A long shelf could be narrowed to a type or a category, but finding one thing on it still meant
+    /// reading it. Matched anywhere in the name and regardless of case, because a shelf holds "Flour,
+    /// wheat" and "Wholemeal flour" and somebody typing "flour" means both.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_can_be_searched_by_name()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Flour, wheat", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(Guid.NewGuid(), "Wholemeal flour", "Bag", "Kitchen", 1, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(Guid.NewGuid(), "Soap", "Bar", "Bathroom", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.SearchedName = "flour";
+
+        Assert.Equal(2, screen.Items.Count);
+        Assert.DoesNotContain(screen.Items, row => row.Name == "Soap");
+        Assert.True(screen.IsNarrowed);
+    }
+
+    /// <summary>
+    /// The three narrow together, so a search inside a category is a search inside that category rather
+    /// than a search that quietly threw the category away.
+    /// </summary>
+    [Fact]
+    public async Task A_search_inside_a_category_stays_inside_it()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Flour", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(Guid.NewGuid(), "Flour paste", "Tube", "Workshop", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.ChosenCategory = "Kitchen";
+        screen.SearchedName = "flour";
+
+        Assert.Equal("Flour", Assert.Single(screen.Items).Name);
+    }
+
+    /// <summary>
+    /// Searching hides rows from the screen and never from the warehouse, the same as the two pickers -
+    /// what stops somebody saving in the belief that the rows they cannot see are gone.
+    /// </summary>
+    [Fact]
+    public async Task Showing_everything_clears_the_search_too()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Flour", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(Guid.NewGuid(), "Soap", "Bar", "Bathroom", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+        screen.SearchedName = "flour";
+
+        screen.ShowEverythingCommand.Execute(null);
+
+        Assert.Equal(string.Empty, screen.SearchedName);
+        Assert.Equal(2, screen.Items.Count);
+        Assert.False(screen.IsNarrowed);
+    }
+
+    /// <summary>
+    /// A new row is named but filed under nothing, so a search left in place would hide it the moment it
+    /// appeared - an Add button that reads as doing nothing, the same failure the pickers had.
+    /// </summary>
+    [Fact]
+    public async Task Adding_an_item_steps_the_search_aside()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Flour", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+        screen.SearchedName = "flour";
+
+        screen.NewItemName = "Tea";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsNarrowed);
+        Assert.Contains(screen.Items, row => row.Name == "Tea");
+    }
+
+    /// <summary>
+    /// Whitespace is not a search. Otherwise a stray space left in the box would announce a narrowed
+    /// shelf that is not narrowed, and offer to show everything that is already shown.
+    /// </summary>
+    [Fact]
+    public async Task A_box_holding_only_spaces_is_not_a_search()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Flour", "Bag", "Kitchen", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.SearchedName = "   ";
+
+        Assert.False(screen.IsNarrowed);
+        Assert.Single(screen.Items);
+    }
+
+    /// <summary>
     /// What a MAUI Picker does that no test did: emptying its ItemsSource clears its selection, and the
     /// binding writes that null back here. Every reload empties both pickers before refilling them, so
     /// the null arrived on the way to redrawing the shelf - and the filter, holding it, dereferenced it.

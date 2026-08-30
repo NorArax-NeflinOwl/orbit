@@ -39,11 +39,11 @@
                         <VerticalStackLayout Padding="0,8" Spacing="2">
                             <!-- Who wrote it, which a one-to-one conversation gets from the title. -->
                             <Label Text="{Binding SenderName}" IsVisible="{Binding HasSenderName}"
-                                   FontSize="12" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                   FontSize="12" FontAttributes="Bold" TextColor="{DynamicResource Accent}" />
                             <!-- What this message is answering - see ConversationPage's own quote. -->
                             <Border IsVisible="{Binding IsReply}" Padding="8,4" Margin="0,0,0,2"
                                     StrokeThickness="0"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource AccentSubtleLight}, Dark={StaticResource AccentSubtleDark}}">
+                                    BackgroundColor="{DynamicResource AccentSubtle}">
                                 <Label Text="{Binding QuotedPreview}" FontSize="12" LineBreakMode="TailTruncation"
                                        MaxLines="2" Style="{StaticResource SubtleLabel}" />
                             </Border>
@@ -54,10 +54,10 @@
                                     <controls:Translate Text="This message can't be opened on this device." />
                                 </Label.Text>
                             </Label>
-                            <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
+                            <Label Text="{Binding SentAt}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
-                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                   FontSize="11" TextColor="{DynamicResource Accent}" />
                             <!-- How far this got. Read means every other member has seen it - one still
                                  behind and it is only delivered, which is the honest reading. -->
                             <Label IsVisible="{Binding HasGroupDelivery}" FontSize="11"
@@ -71,7 +71,7 @@
                                  is worth asking about a message somebody else wrote too. -->
                             <Button Text="⋯" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
                                     HorizontalOptions="Start" IsVisible="{Binding IsInAGroup}"
-                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    TextColor="{DynamicResource Accent}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
                                     CommandParameter="{Binding .}" />
                         </VerticalStackLayout>

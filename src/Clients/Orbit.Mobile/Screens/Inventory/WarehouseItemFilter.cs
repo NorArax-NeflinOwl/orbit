@@ -14,17 +14,32 @@ public sealed class WarehouseItemFilter
 
     public string Category { get; set; } = string.Empty;
 
-    public bool IsActive => ProductType.Length > 0 || Category.Length > 0;
+    /// <summary>
+    /// What the reader is looking for by name. Matched anywhere in the name rather than from the start:
+    /// a shelf holds "Flour, wheat" and "Wholemeal flour", and somebody typing "flour" means both. The
+    /// type and the category are picked from what is there, so they match exactly; this one is typed,
+    /// so it cannot.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    public bool IsActive => ProductType.Length > 0 || Category.Length > 0 || Name.Trim().Length > 0;
 
     public void Clear()
     {
         ProductType = string.Empty;
         Category = string.Empty;
+        Name = string.Empty;
     }
 
     public bool Matches(WarehouseItemDto item)
-        => Matches(ProductType, item.ProductType) && Matches(Category, item.Category);
+        => Matches(ProductType, item.ProductType)
+            && Matches(Category, item.Category)
+            && Contains(Name, item.Name);
 
     private static bool Matches(string chosen, string itemValue)
         => chosen.Length == 0 || string.Equals(chosen, itemValue.Trim(), StringComparison.CurrentCultureIgnoreCase);
+
+    private static bool Contains(string typed, string itemName)
+        => typed.Trim() is not { Length: > 0 } wanted
+            || itemName.Contains(wanted, StringComparison.CurrentCultureIgnoreCase);
 }

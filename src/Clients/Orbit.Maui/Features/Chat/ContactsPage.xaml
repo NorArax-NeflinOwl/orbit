@@ -76,10 +76,10 @@
                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{controls:Translate 'Waiting for them to accept your request'}"
                                    IsVisible="{Binding IsPendingApprovalFromOtherParty}"
-                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                   FontSize="12" TextColor="{DynamicResource Accent}" />
                             <Label Text="{controls:Translate 'Wants to chat with you'}"
                                    IsVisible="{Binding RequiresApprovalFromCurrentUser}"
-                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                   FontSize="12" TextColor="{DynamicResource Accent}" />
                             <!-- The command lives on the page's view model, not on the row, and a
                                  RelativeSource walks the *visual* tree - so this names the page and
                                  goes through its typed ViewModel property. -->

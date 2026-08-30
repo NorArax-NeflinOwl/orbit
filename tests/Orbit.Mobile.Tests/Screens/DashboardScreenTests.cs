@@ -727,7 +727,7 @@ public sealed class DashboardScreenTests
                     _chat, chatClient, usersClient,
                     new EncryptedChatMessageSender(
                         _chat, chatClient, new ChatDirectoryReader(chatClient, usersClient, sessionStore),
-                        encryptionKeys, NullLogger<EncryptedChatMessageSender>.Instance),
+                        encryptionKeys, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance),
                     NullLogger<ChatSynchronizer>.Instance),
                 _permissions);
         }

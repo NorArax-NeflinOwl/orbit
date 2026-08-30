@@ -59,6 +59,22 @@ public sealed partial class UpdateViewModel : ObservableObject
     [ObservableProperty]
     private bool _canUpdate;
 
+    /// <summary>
+    /// Whether to draw this platform's half at all. Everything under the heading is about fetching a
+    /// build, so with nothing to fetch the heading stood alone over an empty space - which reads as a
+    /// screen still loading rather than one that has answered. The summary above it already says where
+    /// the reader stands.
+    /// </summary>
+    public bool HasAndroidBuild => IsAndroid && CanUpdate;
+
+    public bool HasIphoneBuild => IsIphone && CanUpdate;
+
+    partial void OnCanUpdateChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HasAndroidBuild));
+        OnPropertyChanged(nameof(HasIphoneBuild));
+    }
+
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {

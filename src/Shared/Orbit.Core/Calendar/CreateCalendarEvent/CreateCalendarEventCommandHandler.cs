@@ -53,7 +53,7 @@ public sealed class CreateCalendarEventCommandHandler : IRequestHandler<CreateCa
         var payload = EventCreationPushContent.Build(calendarEvent.Details, calendarEvent.Id);
         var recordResult = await _notificationRecorder.RecordAndFilterAsync(
             calendarEvent.UserId, calendarEvent.Details.CreationNotificationChannel, NotificationEntryKind.PushReminder,
-            payload.Title, payload.Body, payload.Url, cancellationToken);
+            payload, cancellationToken);
         var channel = recordResult.AllowedChannel;
 
         if (channel.HasFlag(NotificationChannel.Push))

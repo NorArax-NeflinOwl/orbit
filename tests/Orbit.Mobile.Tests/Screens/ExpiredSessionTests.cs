@@ -98,7 +98,7 @@ public sealed class ExpiredSessionTests
             _usersClient = new UsersClient(_users.ToHttpClient());
             var sender = new EncryptedChatMessageSender(
                 _repository, _chatClient, new ChatDirectoryReader(_chatClient, _usersClient, _sessionStore),
-                _encryptionKeyProvider, NullLogger<EncryptedChatMessageSender>.Instance);
+                _encryptionKeyProvider, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 _repository, _chatClient, _usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
         }

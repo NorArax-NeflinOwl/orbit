@@ -43,6 +43,16 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// </summary>
     private CalendarEventDetailsDto? _loaded;
 
+    /// <summary>
+    /// How much this event matters. Orbit.Web's event editor has had the same three choices all along -
+    /// it is what sorts an event against the others and what the dashboard's filter reads - and the
+    /// phone could neither set one nor keep the one a browser had set.
+    /// </summary>
+    public IReadOnlyList<Tasks.PriorityChoice> Priorities { get; }
+
+    [ObservableProperty]
+    private Tasks.PriorityChoice _chosenPriority;
+
     [ObservableProperty]
     private string _title = string.Empty;
 
@@ -199,6 +209,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _deviceLocation = deviceLocation;
         _contacts = contacts;
         Frequencies = RecurrenceChoice.All(translations);
+        Priorities = Tasks.PriorityChoice.All(translations);
+        _chosenPriority = Tasks.PriorityChoice.For(
+            nameof(Orbit.Core.Abstractions.ItemPriority.Normal), translations);
         ReminderChoices = ReminderChoice.All(translations);
         Channels = NotificationChannelChoice.All(translations);
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
@@ -437,7 +450,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             ReminderNotificationChannel = ReminderChannel?.Value ?? current.ReminderNotificationChannel,
             StartUtc = ChosenStartUtc,
             EndUtc = ChosenEndUtc,
-            IsAllDay = IsAllDay
+            IsAllDay = IsAllDay,
+            Priority = ChosenPriority.Value
         };
 
         if (await _events.UpdateAsync(_localId, details, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline)
@@ -493,6 +507,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         EndDate = calendarEvent.Details.IsAllDay ? end.Date.AddDays(-1) : end.Date;
         EndTime = end.TimeOfDay;
         IsAllDay = calendarEvent.Details.IsAllDay;
+
+        ChosenPriority = Tasks.PriorityChoice.For(calendarEvent.Details.Priority, _translations);
 
         _colour = calendarEvent.Details.Color;
         ShowColours();

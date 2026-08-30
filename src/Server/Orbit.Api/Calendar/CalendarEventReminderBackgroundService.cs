@@ -143,7 +143,7 @@ public sealed class CalendarEventReminderBackgroundService : BackgroundService
         {
             var recordResult = await notificationRecorder.RecordAndFilterAsync(
                 recipient.Id, channel, NotificationEntryKind.PushReminder,
-                pushPayload.Title, pushPayload.Body, pushPayload.Url, cancellationToken);
+                pushPayload, cancellationToken);
             sentToAnyRecipient = sentToAnyRecipient || recordResult.EntryRecorded;
             var recipientChannel = recordResult.AllowedChannel;
 

@@ -32,6 +32,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Server\Orbit.Api\Orbit.Api.csproj" />
+    <!-- The dictionary both clients read, so a test can check the server only writes sentences it
+         knows how to say - see NotificationWordingTests. -->
+    <ProjectReference Include="..\..\src\Shared\Orbit.Localization\Orbit.Localization.csproj" />
   </ItemGroup>
 
 </Project>

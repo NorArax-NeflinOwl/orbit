@@ -11,7 +11,8 @@ public static class EventCreationPushContent
 {
     public static PushNotificationPayload Build(CalendarEventDetails details, Guid calendarEventId)
     {
-        var body = $"The event \"{details.Title}\" has been saved to your calendar.";
-        return new PushNotificationPayload("Event created", body, $"/calendar/{calendarEventId}");
+        return new PushNotificationPayload(
+            "Event created", "The event \"{0}\" has been saved to your calendar.", [details.Title],
+            $"/calendar/{calendarEventId}");
     }
 }

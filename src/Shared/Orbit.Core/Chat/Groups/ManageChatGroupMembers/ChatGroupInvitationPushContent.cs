@@ -10,5 +10,7 @@ namespace Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 public static class ChatGroupInvitationPushContent
 {
     public static PushNotificationPayload Build(Guid groupId, string groupName, string addedByDisplayName)
-        => new("Added to a group", $"{addedByDisplayName} added you to {groupName}", $"/chat/groups/{groupId}");
+        => new(
+            "Added to a group", "{0} added you to {1}", [addedByDisplayName, groupName],
+            $"/chat/groups/{groupId}");
 }

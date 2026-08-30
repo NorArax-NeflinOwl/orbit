@@ -22,13 +22,13 @@ else
                 role="@(entry.Url is null ? null : "link")"
                 @onclick="() => OnEntrySelected.InvokeAsync(entry)">
                 <span class="notifications-panel-item-title">
-                    @entry.Title
+                    @Say(entry.Title, entry.TitleArguments)
                     @if (ShowsDismissed && entry.IsDismissed)
                     {
                         <span class="notifications-panel-item-tag">@T["Cleared"]</span>
                     }
                 </span>
-                <span class="notifications-panel-item-body">@entry.Body</span>
+                <span class="notifications-panel-item-body">@Say(entry.Body, entry.BodyArguments)</span>
                 <span class="notifications-panel-item-time">@FormatEntryTime(entry.CreatedAtUtc)</span>
             </li>
         }
@@ -45,7 +45,18 @@ else
 }
 
 @code {
-
+    /// <summary>
+    /// A notification in the reader's language. The server sends the English sentence and what fills
+    /// its holes rather than a finished one, because it has no idea what language this browser is set
+    /// to - it is a preference the device keeps for itself. See Orbit.Core's PushNotificationPayload.
+    ///
+    /// An entry with no arguments is looked up whole: that is what a phrase like "New message" is, and
+    /// what every entry written before the server split them apart looks like.
+    /// </summary>
+    private string Say(string format, IReadOnlyList<string>? arguments)
+        => arguments is { Count: > 0 }
+            ? T.Format(format, [.. arguments])
+            : T[format];
 
     [Parameter]
     public bool IsLoading { get; set; }

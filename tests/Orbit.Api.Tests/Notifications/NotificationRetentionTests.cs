@@ -145,7 +145,7 @@ public sealed class NotificationRetentionTests
         public async Task RecordAsync(string title, string url, int ageDays = 0)
         {
             var entry = NotificationEntry.FromPersistence(
-                Guid.NewGuid(), _userId, NotificationEntryKind.PushReminder, title, "Body", url,
+                Guid.NewGuid(), _userId, NotificationEntryKind.PushReminder, title, [], "Body", [], url,
                 DateTimeOffset.UtcNow.AddDays(-ageDays), readAtUtc: null, dismissedAtUtc: null);
             await _entryRepository.AddAsync(entry, CancellationToken.None);
         }

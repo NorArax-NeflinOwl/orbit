@@ -55,6 +55,6 @@
                Style="{StaticResource SubtleLabel}" />
 
         <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12" LineBreakMode="WordWrap"
-               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+               TextColor="{DynamicResource Accent}" />
     </VerticalStackLayout>
 </ContentView>

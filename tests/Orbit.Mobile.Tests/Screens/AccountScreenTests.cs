@@ -67,6 +67,74 @@ public sealed class AccountScreenTests
         Assert.Equal(ChosenTheme.Light, context.Open().Theme);
     }
 
+    /// <summary>Announced the moment it is picked, like the theme - a colour that took a restart would read as broken.</summary>
+    [Fact]
+    public void The_chosen_accent_is_written_down_and_announced()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        AccentColor? announced = null;
+        screen.AccentChanged += (_, accent) => announced = accent;
+
+        screen.ChooseAccentCommand.Execute(screen.Accents.Single(choice => choice.Value.Name == "Green"));
+
+        Assert.Equal(150, context.Accents.Read().Hue);
+        Assert.Equal(150, announced?.Hue);
+    }
+
+    /// <summary>It is a preference about this device, so it has to survive the screen being rebuilt.</summary>
+    [Fact]
+    public void The_accent_survives_the_screen_being_opened_again()
+    {
+        using var context = new ScreenContext();
+        var first = context.Open();
+        first.ChooseAccentCommand.Execute(first.Accents.Single(choice => choice.Value.Name == "Red"));
+
+        Assert.Equal("Red", context.Open().Accent.Name);
+    }
+
+    /// <summary>
+    /// One of the eight is marked, and only one: a row of swatches with none marked leaves the reader
+    /// guessing which colour they are already looking at.
+    /// </summary>
+    [Fact]
+    public void One_swatch_is_marked_as_the_one_in_force()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        Assert.Equal(AccentColor.Default, screen.Accents.Single(choice => choice.IsChosen).Value);
+
+        screen.ChooseAccentCommand.Execute(screen.Accents.Single(choice => choice.Value.Name == "Teal"));
+
+        Assert.Equal("Teal", screen.Accents.Single(choice => choice.IsChosen).Value.Name);
+    }
+
+    /// <summary>
+    /// The swatches are painted in the colours the app would actually use, which differ between the
+    /// two themes - so a row shown against a dark screen has to be the dark theme's eight.
+    /// </summary>
+    [Fact]
+    public void The_swatches_follow_the_theme_they_are_shown_against()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        var inLight = screen.Accents.Select(choice => choice.Swatch).ToList();
+
+        screen.IsDarkOnScreen = true;
+
+        Assert.NotEqual(inLight, screen.Accents.Select(choice => choice.Swatch));
+    }
+
+    /// <summary>Every swatch is named, so the row is usable by somebody who cannot tell the eight apart.</summary>
+    [Fact]
+    public void Every_swatch_carries_its_name()
+    {
+        using var context = new ScreenContext();
+
+        Assert.All(context.Open().Accents, choice => Assert.NotEmpty(choice.Name));
+    }
+
     /// <summary>
     /// A file somebody keeps, not a copy the app maintains. Building it is the view model's job; writing
     /// it and handing it somewhere is the page's, which is why this ends in an event rather than a file.
@@ -235,6 +303,8 @@ public sealed class AccountScreenTests
 
         public InMemoryThemeStore Themes { get; } = new();
 
+        public InMemoryAccentColorStore Accents { get; } = new();
+
         /// <summary>The account's whole archive, out and back - see TransferClient.</summary>
         public FakeTransferServer Transfer { get; } = new();
 
@@ -271,6 +341,7 @@ public sealed class AccountScreenTests
                 new UsersClient(_users.ToHttpClient()),
                 UnlockedPermissions.For(_localStore),
                 Themes,
+                Accents,
                 new TransferClient(Transfer.ToHttpClient()),
                 new LocalStoreReset(_localStore),
                 new NotificationSettingsViewModel(

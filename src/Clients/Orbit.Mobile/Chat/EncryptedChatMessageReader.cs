@@ -71,6 +71,7 @@ public sealed class EncryptedChatMessageReader
                 Invitation: opened.Invitation,
                 EditAccessRequest: opened.EditAccessRequest)
             {
+                SentAt = _translations.WhenItHappened(message.SentAtUtc),
                 QuotedMessageId = opened.QuotedMessageId,
                 QuotedPreview = opened.QuotedPreview
             });
@@ -85,6 +86,7 @@ public sealed class EncryptedChatMessageReader
                 Invitation: opened.Invitation,
                 EditAccessRequest: opened.EditAccessRequest)
             {
+                SentAt = _translations.WhenItHappened(message.QueuedAtUtc),
                 QuotedMessageId = opened.QuotedMessageId,
                 QuotedPreview = opened.QuotedPreview
             });
@@ -133,6 +135,7 @@ public sealed class EncryptedChatMessageReader
                 Invitation: opened.Invitation,
                 EditAccessRequest: opened.EditAccessRequest)
             {
+                SentAt = _translations.WhenItHappened(message.SentAtUtc),
                 QuotedMessageId = opened.QuotedMessageId,
                 QuotedPreview = opened.QuotedPreview
             });
@@ -148,6 +151,7 @@ public sealed class EncryptedChatMessageReader
                 Invitation: opened.Invitation,
                 EditAccessRequest: opened.EditAccessRequest)
             {
+                SentAt = _translations.WhenItHappened(message.QueuedAtUtc),
                 QuotedMessageId = opened.QuotedMessageId,
                 QuotedPreview = opened.QuotedPreview
             });

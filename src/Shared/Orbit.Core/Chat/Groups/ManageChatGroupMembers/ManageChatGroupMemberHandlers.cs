@@ -76,7 +76,7 @@ public sealed class AddChatGroupMemberCommandHandler : IRequestHandler<AddChatGr
         var payload = ChatGroupInvitationPushContent.Build(group.Id, group.Name, actor.DisplayName);
         var recordResult = await _notificationRecorder.RecordAndFilterAsync(
             request.UserId, NotificationChannel.Push, NotificationEntryKind.SharedWithYou,
-            payload.Title, payload.Body, payload.Url, cancellationToken);
+            payload, cancellationToken);
 
         if (recordResult.AllowedChannel.HasFlag(NotificationChannel.Push))
         {

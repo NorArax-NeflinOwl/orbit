@@ -23,17 +23,17 @@
 
             <!-- One platform, its own. Orbit.Web offers both because it does not know what the reader
                  is holding; a phone does, and the other half would only be read past. -->
-            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsAndroid}">
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding HasAndroidBuild}">
                 <Label Text="{controls:Translate 'Android'}" Style="{StaticResource FieldLabel}" />
                 <Button Text="{controls:Translate 'Download for Android'}" HorizontalOptions="Start"
-                        IsVisible="{Binding CanUpdate}" Command="{Binding GetItCommand}" />
-                <Label IsVisible="{Binding CanUpdate}" FontSize="12" LineBreakMode="WordWrap"
+                        Command="{Binding GetItCommand}" />
+                <Label FontSize="12" LineBreakMode="WordWrap"
                        Style="{StaticResource SubtleLabel}">
                     <Label.Text>
                         <controls:Translate Text="Open the downloaded file. Android will ask whether this browser may install apps - allow it." />
                     </Label.Text>
                 </Label>
-                <Label IsVisible="{Binding CanUpdate}" FontSize="12" LineBreakMode="WordWrap"
+                <Label FontSize="12" LineBreakMode="WordWrap"
                        Style="{StaticResource SubtleLabel}">
                     <Label.Text>
                         <controls:Translate Text="This build is not from Google Play, so Android checks with you before installing it. That is the prompt about unknown sources, and it is expected here." />
@@ -41,11 +41,11 @@
                 </Label>
             </VerticalStackLayout>
 
-            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsIphone}">
+            <VerticalStackLayout Spacing="10" IsVisible="{Binding HasIphoneBuild}">
                 <Label Text="{controls:Translate 'iPhone'}" Style="{StaticResource FieldLabel}" />
                 <Button Text="{controls:Translate 'Open the TestFlight invitation'}" HorizontalOptions="Start"
-                        IsVisible="{Binding CanUpdate}" Command="{Binding GetItCommand}" />
-                <Label IsVisible="{Binding CanUpdate}" FontSize="12" LineBreakMode="WordWrap"
+                        Command="{Binding GetItCommand}" />
+                <Label FontSize="12" LineBreakMode="WordWrap"
                        Style="{StaticResource SubtleLabel}">
                     <Label.Text>
                         <controls:Translate Text="Install Apple's TestFlight app, then open the invitation on the iPhone itself." />
