@@ -577,8 +577,11 @@ DeviceModel, Level, Timestamp, Message, Exception }`. Two constraints that are e
   added there. Leaving a deleted user's logs behind would quietly break the guarantee that deleting an
   account deletes everything it owns.
 
-**Retention** should be finite and stated: diagnostic logs are the kind of data that accumulates
-forever by default and is only ever read for a week after it arrives.
+**Retention** should be finite, stated, and enforced by something other than the next upload. Thirty
+days is the default (`DiagnosticLogs:RetentionDays`), swept hourly and again on upload. Sweeping only
+on upload - which is what shipped first - reads as retention but is not: entries age whether or not
+anybody sends a new report, so an account that stopped reporting kept its logs indefinitely. The
+number itself is still open (§12).
 
 ## 9. What iPhone 15 Pro actually buys
 
@@ -714,7 +717,14 @@ These change the plan materially and are worth answering before the phase they l
    written, `Orbit.Mobile` is shared with it, and §4.2.1's undetectable-push warning still applies the
    day it resumes. What changes is only that Android is the platform being finished, and that the Mac
    question stops blocking anything.
-6. **Diagnostic log retention** (§8) — how long uploaded logs are kept before deletion.
+6. **Diagnostic log retention** (§8) — how long uploaded logs are kept before deletion. Thirty days is
+   what ships, and it is now enforced hourly rather than only when somebody uploads. What is left to
+   decide is the number, and it is a privacy question more than a housekeeping one: a log line is the
+   one channel that can carry something the client failed to scrub, so retention is the second line of
+   defence behind scrubbing, and it bounds how long a leak survives. Fourteen days would still cover
+   the stated use — a report is read within days of arriving — and halve that exposure. What the number
+   does *not* have to cover is a deleted account: `AccountDeletionRepository` already drops that user's
+   entries outright.
 
 ## 13. What exists so far
 

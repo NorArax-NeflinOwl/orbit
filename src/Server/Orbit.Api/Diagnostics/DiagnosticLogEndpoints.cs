@@ -32,6 +32,8 @@ public static class DiagnosticLogEndpoints
             var receivedAtUtc = DateTimeOffset.UtcNow;
 
             await repository.AddAsync(GetUserId(user), device, entries, receivedAtUtc, cancellationToken);
+            // Swept here as well as hourly, so a report never lands beside entries already past the
+            // window - see DiagnosticLogRetentionBackgroundService for why hourly is the one that counts.
             await repository.DeleteReceivedBeforeAsync(
                 receivedAtUtc - TimeSpan.FromDays(settings.CurrentValue.RetentionDays), cancellationToken);
 

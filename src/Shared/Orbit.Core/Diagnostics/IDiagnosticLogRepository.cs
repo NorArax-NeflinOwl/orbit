@@ -8,10 +8,10 @@ public interface IDiagnosticLogRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Drops entries received before <paramref name="olderThanUtc"/>, and returns how many went. Called on
-    /// upload rather than from a background service: diagnostic logs only arrive when someone sends them,
-    /// so that is exactly when there is something to clean up, and it keeps retention from needing a
-    /// timer of its own.
+    /// Drops entries received before <paramref name="olderThanUtc"/>, and returns how many went. Called
+    /// hourly by DiagnosticLogRetentionBackgroundService and again on each upload. The upload call alone
+    /// used to be the whole of it, on the reasoning that logs only arrive when somebody sends them - but
+    /// they age without anyone sending anything, so an account that stopped reporting kept its logs.
     /// </summary>
     Task<int> DeleteReceivedBeforeAsync(DateTimeOffset olderThanUtc, CancellationToken cancellationToken);
 }
