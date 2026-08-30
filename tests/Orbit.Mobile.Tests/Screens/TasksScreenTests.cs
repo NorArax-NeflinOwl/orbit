@@ -225,6 +225,24 @@ public sealed class TasksScreenTests : IDisposable
         Assert.True(screen.TaskLists.Single(row => row.Title == "Shopping").IsCollapsed);
         Assert.False(screen.TaskLists.Single(row => row.Title == "Move house").IsCollapsed);
     }
+    /// <summary>
+    /// The fold button is a glyph pointing up or down, which says nothing to a screen reader - so the
+    /// row carries the same thing in words, and it names what tapping would do rather than the state
+    /// the card is in. Found by measuring: the app had no accessible name on any control at all.
+    /// </summary>
+    [Fact]
+    public async Task A_folded_card_says_in_words_what_its_glyph_would_do()
+    {
+        await AddAsync("Shopping");
+        var screen = await OpenAsync();
+
+        Assert.Equal("Collapse", screen.TaskLists.Single().FoldDescription);
+
+        screen.ToggleCollapsedCommand.Execute(screen.TaskLists.Single());
+
+        Assert.Equal("Expand", screen.TaskLists.Single().FoldDescription);
+    }
+
 
     /// <summary>
     /// Folding is a standing answer about a card, not a narrowing somebody does for a moment, so unlike

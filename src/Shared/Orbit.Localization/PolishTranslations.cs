@@ -122,6 +122,11 @@ public static class PolishTranslations
         ["Open the calendar"] = "Otwórz kalendarz",
         ["{0} in it"] = "osób: {0}",
         ["Expand"] = "Rozwiń",
+        // Said out loud in place of a glyph, for a reader who cannot see which way it points.
+        ["Collapse"] = "Zwiń",
+        ["Earlier"] = "Wcześniej",
+        ["Later"] = "Później",
+        ["Cancel reply"] = "Anuluj odpowiedź",
         ["Nothing left to do."] = "Nic nie zostało do zrobienia.",
         ["Pick a date"] = "Wybierz datę",
         ["Previous month"] = "Poprzedni miesiąc",
@@ -572,6 +577,8 @@ public static class PolishTranslations
             "Dostaniesz własną kopię tylko do odczytu. Nic, co zrobisz, nie zmieni oryginału.",
         ["Frontend error"] = "Błąd interfejsu",
         ["Account"] = "Konto",
+        // Read aloud in place of the avatar, which is otherwise a pair of initials with no name.
+        ["Account menu"] = "Menu konta",
         ["Your account, appearance, and notification preferences."] = "Twoje konto, wygląd i ustawienia powiadomień.",
         ["Your profile, sign-in address, and password."] = "Twój profil, adres logowania i hasło.",
         ["Save profile"] = "Zapisz profil",

@@ -118,11 +118,11 @@
                                      drags them, which is not a gesture a thumb can aim in a scrolling list. -->
                                 <HorizontalStackLayout Grid.Column="4" Spacing="0" VerticalOptions="Center"
                                                        IsVisible="{Binding CanBeMoved}">
-                                    <Button Text="↑" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
+                                    <Button Text="↑" SemanticProperties.Description="{controls:Translate 'Move up'}" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListUpCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
-                                    <Button Text="↓" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
+                                    <Button Text="↓" SemanticProperties.Description="{controls:Translate 'Move down'}" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListDownCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
@@ -130,7 +130,7 @@
                                 <!-- Folded down to its heading, not filtered away: a list nobody is working
                                      on this week is still one they want to see is there. Orbit.Web folds
                                      the same card with the same chevron. -->
-                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" FontSize="12" Padding="2,0"
+                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" SemanticProperties.Description="{Binding FoldDescription}" FontSize="12" Padding="2,0"
                                         MinimumWidthRequest="0" WidthRequest="26" VerticalOptions="Center"
                                         Style="{StaticResource LinkButton}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCollapsedCommand, x:DataType=tasks:TasksPage}"

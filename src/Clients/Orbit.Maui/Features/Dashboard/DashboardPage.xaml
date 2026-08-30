@@ -25,7 +25,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Grid.Column="0" Text="{controls:Translate 'Everything on your plate, in one place.'}"
                            Style="{StaticResource PageSubtitle}" VerticalOptions="Center" />
-                    <Button Grid.Column="1" Text="⋯" FontSize="20" Padding="12,0" HeightRequest="36"
+                    <Button Grid.Column="1" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="20" Padding="12,0" HeightRequest="36"
                             Style="{StaticResource LinkButton}"
                             Command="{Binding ToggleCardChoicesCommand}" />
                 </Grid>
@@ -116,7 +116,7 @@
                                         <!-- The card's own overflow, as Orbit.Web has it: what this
                                              card is narrowed to. An action sheet rather than a panel,
                                              unlike the page's menu above - one choice, then done. -->
-                                        <Button Grid.Column="3" Text="⋯" FontSize="18" Padding="8,0"
+                                        <Button Grid.Column="3" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="8,0"
                                                 HeightRequest="32" WidthRequest="36"
                                                 IsVisible="{Binding CanBeFiltered}"
                                                 Style="{StaticResource LinkButton}"
