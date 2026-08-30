@@ -21,6 +21,12 @@
          implements the RFC 8291 message encryption and RFC 8292 VAPID authentication a raw HTTP POST
          would otherwise have to hand-roll. -->
     <PackageReference Include="WebPush" Version="1.0.12" />
+    <!-- The assistant's model client (see AssistantChatClient). Microsoft.Extensions.AI is the
+         abstraction - one IChatClient over both Ollama locally and Azure AI Foundry in production -
+         and the .OpenAI package is the transport both of them speak. Semantic Kernel would solve
+         orchestration problems Orbit does not have; see info/ai-assistant-plan.md. -->
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.9.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />

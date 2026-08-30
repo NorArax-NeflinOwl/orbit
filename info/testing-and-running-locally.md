@@ -254,6 +254,29 @@ Leaving this unset is fine too — see
 [Functionality — Push notifications](functionality.md#push-notifications) for what that means at
 runtime.
 
+### Running the assistant's model locally
+
+The `ollama` service in `docker-compose.yml` is the assistant's model on a developer machine — local
+only, never deployed, and not started with the rest of the stack, since nothing else needs it:
+
+```
+docker compose up -d ollama
+docker exec orbit-ollama ollama pull llama3.2:3b
+```
+
+The pulled model lives in the `orbit-ollama-models` volume, so `docker compose down` does not throw
+away the two gigabytes. Point the API at it with `ASSISTANT_ENDPOINT=http://ollama:11434/v1` and
+`ASSISTANT_MODEL=llama3.2:3b` in `.env` (from `dotnet run` outside Docker, use
+`http://localhost:11434/v1` in `appsettings.Development.json` instead). Ollama authenticates nobody, so
+`ASSISTANT_API_KEY` stays empty locally; against a hosted model it is a real secret and goes through
+`dotnet user-secrets`, the way `Smtp:Password` does above.
+
+Leaving all of it unset is fine, and is what a fresh checkout does: `POST /api/assistant/messages` then
+answers 503 saying no model is configured, and nothing else changes.
+
+What a reply actually costs on this hardware, and how badly a 3B model handles Polish, is measured in
+[Local model measurements](ai-assistant-local-model-measurements.md).
+
 ## Keeping the local database honest
 
 One Postgres serves whatever branch is checked out, and a migration applied by one branch stays applied

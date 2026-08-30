@@ -13,6 +13,13 @@
     "PrivateKeyBase64Url": "your-vapid-private-key",
     "Subject": "mailto:you@example.com"
   },
+  "Assistant": {
+    "_comment": "The assistant's model. For the ollama container in docker-compose.yml use Endpoint 'http://localhost:11434/v1' when running Orbit.Api outside Docker (or 'http://ollama:11434/v1' from inside the compose network), a model already pulled with `docker exec orbit-ollama ollama pull llama3.2:3b`, and no ApiKey - Ollama authenticates nobody. For Azure AI Foundry, Endpoint and ApiKey come from the resource and Model is the deployment name. Leave empty to run without an assistant.",
+    "Endpoint": "http://localhost:11434/v1",
+    "ApiKey": "",
+    "Model": "llama3.2:3b",
+    "TimeoutSeconds": 120
+  },
   "GoogleAuth": {
     "_comment": "OAuth client id for 'sign in with Google' (Google Cloud Console > Credentials > OAuth client ID, type 'Web application', with this app's origin authorized). Only the id - Orbit verifies browser-obtained ID tokens, so there is no client secret. Leave empty to hide the Google button entirely.",
     "ClientId": "",
