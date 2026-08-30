@@ -103,8 +103,10 @@ version, so they aren't mistaken for oversights:
   space, and the trade-off is deliberate — there is no group key to distribute or rotate when
   membership changes. The other side of the same choice is that a group message costs one stored row
   per member instead of one. See [Functionality — Group chats](functionality.md#group-chats).
-- **Chat delivery is polling-based** (once a second while a chat window is open), not real-time —
-  no SignalR or WebSockets.
+- **Chat delivery is polling-based** (once a second while a conversation is open), not real-time - no
+  SignalR or WebSockets. The polling itself has since been made to cost what it should: a group
+  conversation polls at all, nothing is polled while the tab is behind others, and the conversation list
+  is read every tenth tick rather than every one. Replacing it with a push transport is still open.
 - ~~**Task list cycle validation is server-side only.**~~ Done: the editor's "link to list" dropdown now
   leaves out every list that links back to the one being edited, however long the chain
   (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays

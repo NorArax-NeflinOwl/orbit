@@ -1152,11 +1152,25 @@ message. There is also no separate identity-verification step (e.g. comparing ke
 band), so the browser trusts whatever public key Orbit.Api currently reports for a user; a malicious or
 compromised server could substitute a different key and intercept new messages (it still can't read
 already-sent ciphertext without the right private key). Only 1:1 chats are supported, not groups.
-Message delivery is polling-based (`Chat.razor` polls `GET /api/chat/messages/{otherUserId}?sinceUtc=`
-every 3 seconds while a chat window is open), not push/real-time (no SignalR or WebSockets), and a
-message sent to a user who has never opened `/chat` (and so has no `PublicKeyBase64` yet) can't be
-encrypted — `Chat.razor` shows an explanatory message and disables sending in that case instead of
-silently failing.
+Message delivery is polling-based (`GET /api/chat/messages/{otherUserId}?sinceUtc=` once a second while
+a conversation is open), not push/real-time (no SignalR or WebSockets), and a message sent to a user who
+has never opened `/chat` (and so has no `PublicKeyBase64` yet) can't be encrypted — `Chat.razor` shows an
+explanatory message and disables sending in that case instead of silently failing.
+
+Three things about that poll are worth knowing:
+
+- **A group conversation polls too** (`GroupConversation`). It did not, which made a group a dead
+  screen: your own messages appeared because you had just sent them, and everybody else's arrived only
+  if you left and came back. It redraws only when the conversation actually changed, so a quiet thread
+  is not re-rendered once a second for nothing.
+- **Nothing is polled while the tab is behind others** (`PageVisibility`, asking the same
+  `presence.js` the heartbeat asks). Nobody is reading there. A tab that cannot be asked counts as
+  visible: a poll that stops because the question failed is a chat that silently goes quiet, and quiet
+  is indistinguishable from nobody writing.
+- **The conversation list is read every tenth tick, not every one.** A message wants the second it
+  takes to arrive; who is on the list changes on the scale of days, and asking for the whole roster and
+  every group once a second was two thirds of the loop's traffic spent on an unchanged answer. Ten
+  seconds matches what `MainLayout` already refreshes its notification feed on.
 
 ### Responsive layout
 

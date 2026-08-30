@@ -109,6 +109,9 @@ builder.Services.AddScoped<AccentColorService>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<DashboardCardPreferences>();
 builder.Services.AddScoped<PresenceService>();
+// Asked by the chat poll before every tick - see PageVisibility for why polling behind thirty other
+// tabs is waste rather than diligence.
+builder.Services.AddScoped<PageVisibility>();
 builder.Services.AddScoped<UserPermissionState>();
 builder.Services.AddScoped<ChecklistViewPreference>();
 builder.Services.AddScoped<TaskListArrangement>();

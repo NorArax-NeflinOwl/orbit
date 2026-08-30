@@ -20,6 +20,7 @@
 @inject TasksApiClient TasksApiClient
 @inject InventoryApiClient InventoryApiClient
 @inject NotificationFeedState NotificationFeedState
+@inject PageVisibility PageVisibility
 @inject PanelPreferences Panels
 @inject NotificationsApiClient NotificationsApiClient
 @inject UsersApiClient UsersApiClient
@@ -545,6 +546,16 @@ else
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
 
+    /// <summary>
+    /// How many message polls pass between reads of the conversation list. Ten seconds at the poll's
+    /// own one-second tick - the same interval MainLayout already refreshes its notification feed on,
+    /// which is the other thing on screen that answers "has anything changed elsewhere".
+    /// </summary>
+    private const int TicksBetweenListReads = 10;
+
+    /// <summary>Starts at the limit so the first tick reads the list rather than waiting ten seconds for it.</summary>
+    private int _ticksSinceTheListWasRead = TicksBetweenListReads;
+
     /// <summary>True when the other party started this conversation and it's still waiting on this user's "Allow" click.</summary>
     private bool RequiresApprovalFromMe
         => _conversationAccess is { IsApproved: false } access && access.InitiatedByUserId != _ownUserId;
@@ -1048,6 +1059,14 @@ else
         {
             while (await _pollTimer!.WaitForNextTickAsync(cancellationToken))
             {
+                // Nothing is read behind thirty other tabs, so nothing is asked for there either - the
+                // same rule the presence heartbeat follows. Five requests a second for a page nobody is
+                // looking at is not diligence.
+                if (!await PageVisibility.IsPageVisibleAsync())
+                {
+                    continue;
+                }
+
                 await PollOnceAsync();
                 StateHasChanged();
             }
@@ -1077,11 +1096,19 @@ else
             await LoadConversationAccessAsync();
             await LoadNewMessagesAsync();
             await SyncReadStateAsync();
-            // Keeps the drawer's contact list current - most relevantly, this is what makes a
+            // Keeps the drawer's conversation list current - most relevantly, this is what makes a
             // conversation started just now (the contact only exists server-side after its first
             // message - see ChatMessageHandler) show up in the drawer without a full page reload.
-            _contacts = await ChatApiClient.GetContactsAsync();
-            _groups = await ChatApiClient.GetGroupsAsync();
+            //
+            // Not every tick, though. A message wants the second it takes to arrive; who is on the list
+            // changes on the scale of days, and asking for the whole roster and every group once a
+            // second was two thirds of this loop's traffic spent on an answer that had not changed.
+            if (++_ticksSinceTheListWasRead >= TicksBetweenListReads)
+            {
+                _ticksSinceTheListWasRead = 0;
+                _contacts = await ChatApiClient.GetContactsAsync();
+                _groups = await ChatApiClient.GetGroupsAsync();
+            }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
