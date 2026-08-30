@@ -9,18 +9,16 @@ picture of what's left.
 
 - **.NET MAUI client (mobile and desktop).** The long-term target architecture is a shared ASP.NET
   Core API backing a .NET MAUI client so every device stays in sync (see the top-level
-  [README](../README.md)). Today the Blazor WebAssembly web client (`src/Clients/Orbit.Web`) is the
-  only client, and MAUI work has not started — `src/Clients/Orbit.Maui` exists as an empty folder that
-  isn't part of `Orbit.sln`, so it builds nothing and is a reservation rather than a stub. See
-  [Architecture — Orbit.Web](architecture.md#orbitweb).
+  [README](../README.md)). **The mobile half is built** — see
+  [Current Status](current-status.md#the-mobile-client) for exactly how far, and
+  [Orbit.Maui — Plan](orbit-maui-plan.md) for the design it was built to. Android is the verified
+  head; iOS has not been run since phase 1, and desktop has not been started at all.
 
-  **This is now planned in detail:** [Orbit.Maui — Plan](orbit-maui-plan.md). One MAUI project builds
-  both apps, referencing `Orbit.Contracts` directly; iPhone 15 Pro is the target device and Android
-  the second platform. Beyond web parity it adds **offline operation** with a local SQLite database
-  and background sync, a **forced-update version gate**, and **uploadable diagnostic logs**. It also
-  names the server work that has to land first: push transports beyond Web Push, a Google audience
-  allowlist, and delta/tombstone support for sync. Remaining decisions are in
-  [§12](orbit-maui-plan.md#12-open-questions).
+  What is left of it: push delivered to a phone (blocked on a Firebase registration for this
+  application id), the iOS head beyond phase 1 (blocked on a Mac), and phase 8 — widgets, Live
+  Activities, accessibility. Remaining design decisions are in
+  [§12](orbit-maui-plan.md#12-open-questions), of which **whether the local database is encrypted** is
+  the one that gets more expensive the longer it waits.
 - **Writing to a real Google Calendar.** `Orbit.GoogleIntegration` (`src/Server`) holds the ID-token
   verification behind Google sign-in (`GoogleIdentityVerifier`, `GoogleAuthSettings`) — that is
   authentication only, and no calendar data is read or written. What ships today is the link-based
