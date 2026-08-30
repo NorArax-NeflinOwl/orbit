@@ -26,6 +26,18 @@
            behind the menu rather than in a control taking up the top of every visit. Stays open while
            they try one order and then another - see OverflowMenu.StaysOpen. *@
         <OverflowMenu StaysOpen="true">
+            @* How much of each list to show. One answer for the whole page, remembered by this browser -
+               the question is "how am I reading this today", not one about any particular list. *@
+            <span class="overflow-menu-heading">@T["Card view"]</span>
+            @foreach (var view in Enum.GetValues<TaskListView>())
+            {
+                <button type="button" class="avatar-dropdown-item @(view == Arrangement.View ? "chosen" : "")"
+                        @onclick="() => SetViewAsync(view)">
+                    <span class="card-filter-mark">@(view == Arrangement.View ? "✓" : "")</span>
+                    @DescribeView(view)
+                </button>
+            }
+
             <span class="overflow-menu-heading">@T["Sort"]</span>
             @foreach (var sortOrder in Enum.GetValues<TaskListSortOrder>())
             {
@@ -176,7 +188,7 @@ else
                 {
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
                    checklist view one click away for working through it. *@
-                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, PreviewItemCount)))
+                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, Arrangement.PreviewItemLimit)))
                 {
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
@@ -202,18 +214,18 @@ else
                                 <span class="row-title">@Written(linkedItem.Description)</span>
                             </div>
                         }
-                        @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))
+                        @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewLimit))
                         {
                             <div class="list-row task-preview-row-linked">
-                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - LinkedPreviewItemCount)</span>
+                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewLimit))</span>
                             </div>
                         }
                     }
                 }
-                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, PreviewItemCount))
+                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, Arrangement.PreviewItemLimit))
                 {
                     <div class="list-row">
-                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - PreviewItemCount)</span>
+                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - RowsToShow(taskList.Items.Count, Arrangement.PreviewItemLimit))</span>
                     </div>
                 }
                 @if (taskList.Items.Count == 0)
@@ -350,6 +362,16 @@ else
 
     private async Task ToggleCollapsedAsync(TaskDto taskList)
     {
+        // Expanding a card while the whole page is folded away is a request to see things again, so it
+        // leaves the minimal view rather than unfolding one card the view says is folded. The page goes
+        // back to whatever it was before it was folded - see TaskListArrangement.LeaveMinimalViewAsync.
+        if (Arrangement.View == TaskListView.Minimal)
+        {
+            Logger.LogInformation("User left the minimal view by expanding a card");
+            await Arrangement.LeaveMinimalViewAsync();
+            return;
+        }
+
         var isCollapsed = !Arrangement.IsCollapsed(taskList.Id);
         Logger.LogInformation(
             "User {Action} the card for task list {TaskListId}", isCollapsed ? "minimised" : "expanded", taskList.Id);
@@ -446,7 +468,7 @@ else
     {
         ItemPriority.Low => T["Low"],
         ItemPriority.High => T["High"],
-        _ => T["Normal"]
+        _ => T["Normal view"]
     };
 
     private string DescribeFilter(TaskListFilter filter) => filter switch
@@ -496,18 +518,34 @@ else
         Group
     }
 
-    /// <summary>How much of a list to show on its card before falling back to "and N more" - a card is for recognising a list, not working through it.</summary>
-    private const int PreviewItemCount = 4;
-
     /// <summary>How much of a linked list to show under the row that points at it - less than the card's own preview, since it is standing in for one line of it.</summary>
     private const int LinkedPreviewItemCount = 3;
 
+    /// <summary>The same, following the view: everything when the reader asked for everything.</summary>
+    private int? LinkedPreviewLimit => Arrangement.PreviewItemLimit is null ? null : LinkedPreviewItemCount;
+
     /// <summary>
-    /// How many rows to actually draw. One over the limit is drawn in full: the line saying "and 1 more…"
-    /// takes exactly the room the row it stands for would have taken, so hiding that row saves nothing
-    /// and costs the reader the one thing it was hiding.
+    /// How many rows to actually draw. A null limit is "all of them", which is what the full view asks
+    /// for. Otherwise one over the limit is drawn in full: the line saying "and 1 more…" takes exactly
+    /// the room the row it stands for would have taken, so hiding that row saves nothing and costs the
+    /// reader the one thing it was hiding.
     /// </summary>
-    private static int RowsToShow(int itemCount, int limit) => itemCount <= limit + 1 ? itemCount : limit;
+    private static int RowsToShow(int itemCount, int? limit)
+        => limit is not { } cap || itemCount <= cap + 1 ? itemCount : cap;
+
+    /// <summary>How much of each list is on show, in the reader's language.</summary>
+    private string DescribeView(TaskListView view) => view switch
+    {
+        TaskListView.Minimal => T["Minimal"],
+        TaskListView.Full => T["Full"],
+        _ => T["Normal"]
+    };
+
+    private async Task SetViewAsync(TaskListView view)
+    {
+        Logger.LogInformation("User switched the tasks page to the {View} view", view);
+        await Arrangement.SetViewAsync(view);
+    }
 
     /// <summary>The work a linked row actually stands for, as far as the card has room for.</summary>
     private IEnumerable<TaskItemDto> LinkedItems(Guid linkedTaskListId)

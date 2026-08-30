@@ -108,6 +108,13 @@ public static class PolishTranslations
         ["\"{0}\" is a calendar entry, so it needs a day to happen on."] = "„{0}” to pozycja kalendarza, więc potrzebuje dnia, w którym się odbywa.",
         ["\"{0}\" ends before it starts."] = "„{0}” kończy się przed rozpoczęciem.",
         ["\"{0}\" couldn't be put in the calendar, so nothing was saved."] = "Nie udało się umieścić „{0}” w kalendarzu, więc nic nie zostało zapisane.",
+        // "View" and "Normal" already mean other things here - "Podejrzyj" on a button that opens
+        // something, "Zwykły" as a priority - so these get English of their own rather than a second
+        // entry under the same key. See PolishTranslationsTests.
+        ["Card view"] = "Widok",
+        ["Minimal"] = "Minimalistyczny",
+        ["Normal view"] = "Normalny",
+        ["Full"] = "Pełny",
         ["Restock list"] = "Lista uzupełnień",
         ["Only what a dated task is waiting on"] = "Tylko to, na co czeka zadanie z terminem",
         ["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."] = "Lista prosi o produkty potrzebne zadaniu z terminem. To, czego brakuje, ale nic na to nie czeka, zostaje pominięte.",

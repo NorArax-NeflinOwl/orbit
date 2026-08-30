@@ -21,6 +21,26 @@ public enum TaskListSortOrder
 }
 
 /// <summary>
+/// How much of each list the Tasks page shows. One answer for the whole page, because the question is
+/// "how am I reading this today" rather than one about any particular list.
+/// </summary>
+public enum TaskListView
+{
+    /// <summary>
+    /// Every card folded to its heading. For a page of lists somebody is scanning rather than working
+    /// from - and it does not touch which cards were folded by hand, so leaving this view puts those
+    /// back exactly as they were.
+    /// </summary>
+    Minimal,
+
+    /// <summary>The default: enough of each list to recognise it, and no more.</summary>
+    Normal,
+
+    /// <summary>Every item on every card, for a page somebody is actually working down.</summary>
+    Full
+}
+
+/// <summary>
 /// How this reader arranges the Tasks page: what to sort the cards by, and - when that answer is "the
 /// way I put them" - the order they dragged them into.
 ///
@@ -36,6 +56,8 @@ public sealed class TaskListArrangement
     private const string SortOrderKey = "orbit-task-list-sort-order";
     private const string ManualOrderKey = "orbit-task-list-manual-order";
     private const string CollapsedKey = "orbit-task-list-collapsed";
+    private const string ViewKey = "orbit-task-list-view";
+    private const string ViewBeforeMinimalKey = "orbit-task-list-view-before-minimal";
 
     private readonly IJSRuntime _jsRuntime;
 
@@ -45,6 +67,17 @@ public sealed class TaskListArrangement
     }
 
     public TaskListSortOrder SortOrder { get; private set; } = TaskListSortOrder.Priority;
+
+    /// <summary>How much of each list is on show. Normal until somebody says otherwise.</summary>
+    public TaskListView View { get; private set; } = TaskListView.Normal;
+
+    /// <summary>
+    /// What the page looked like before it was folded away, so unfolding it goes back to where the
+    /// reader was rather than to a default they may not have chosen in months. Remembered across
+    /// launches for the same reason the view itself is: coming back to a folded page and expanding a
+    /// card should land somewhere familiar.
+    /// </summary>
+    private TaskListView _viewBeforeMinimal = TaskListView.Normal;
 
     /// <summary>
     /// The ids the reader has dragged into place, first to last. Lists that are not on it - anything
@@ -60,7 +93,18 @@ public sealed class TaskListArrangement
     /// </summary>
     private HashSet<Guid> _collapsed = [];
 
-    public bool IsCollapsed(Guid taskListId) => _collapsed.Contains(taskListId);
+    /// <summary>
+    /// Whether this card is folded - by the view, or by hand. The minimal view folds everything without
+    /// writing anything down, which is what lets leaving it restore exactly the cards that were folded
+    /// before.
+    /// </summary>
+    public bool IsCollapsed(Guid taskListId) => View == TaskListView.Minimal || _collapsed.Contains(taskListId);
+
+    /// <summary>How many items a card shows before falling back to "and N more". Every item, in the full view.</summary>
+    public int? PreviewItemLimit => View == TaskListView.Full ? null : NormalPreviewItemCount;
+
+    /// <summary>Five, which is what a card can carry without becoming the list it is standing in for.</summary>
+    private const int NormalPreviewItemCount = 5;
 
     public async Task InitializeAsync()
     {
@@ -69,7 +113,36 @@ public sealed class TaskListArrangement
             : TaskListSortOrder.Priority;
         ManualOrder = Read(await ReadAsync(ManualOrderKey));
         _collapsed = [.. Read(await ReadAsync(CollapsedKey))];
+        View = Enum.TryParse<TaskListView>(await ReadAsync(ViewKey), out var view) ? view : TaskListView.Normal;
+        _viewBeforeMinimal = Enum.TryParse<TaskListView>(await ReadAsync(ViewBeforeMinimalKey), out var before)
+            && before != TaskListView.Minimal
+                ? before
+                : TaskListView.Normal;
     }
+
+    /// <summary>
+    /// Folding the page away remembers what it was, so unfolding it can go back. Choosing the view it is
+    /// already on writes nothing new down - otherwise picking Minimal twice would make "before minimal"
+    /// mean minimal, and unfolding would fold.
+    /// </summary>
+    public async Task SetViewAsync(TaskListView view)
+    {
+        if (view == TaskListView.Minimal && View != TaskListView.Minimal)
+        {
+            _viewBeforeMinimal = View;
+            await WriteAsync(ViewBeforeMinimalKey, View.ToString());
+        }
+
+        View = view;
+        await WriteAsync(ViewKey, view.ToString());
+    }
+
+    /// <summary>
+    /// What expanding a card does while the whole page is folded away: it is a request to see things
+    /// again, and answering it by unfolding one card would leave the page in a state the view says it is
+    /// not in.
+    /// </summary>
+    public Task LeaveMinimalViewAsync() => SetViewAsync(_viewBeforeMinimal);
 
     public Task SetCollapsedAsync(Guid taskListId, bool isCollapsed)
     {

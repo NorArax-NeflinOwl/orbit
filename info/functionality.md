@@ -663,6 +663,22 @@ the id doesn't exist or isn't owned by the caller. Deleting a list that another 
 failing, so this is safe, just something to be aware of if a list you expect to still be linkable is
 gone. The Blazor client's task list page asks for confirmation before calling this endpoint.
 
+### How much of each list the page shows
+
+The tasks page's menu carries a **Card view** with three answers, remembered by the browser like the
+sort order beside it (`TaskListArrangement`):
+
+- **Minimal** folds every card to its heading and the one line worth having - what is still to be done.
+  Each card's own control reads "Expand" while it is on, because this is the same state as folding them
+  all by hand.
+- **Normal**, the default, shows up to five items per card.
+- **Full** prints every item on every card, for a page somebody is working down rather than scanning.
+
+Minimal deliberately writes nothing into the per-card folded set, so **leaving it puts back exactly the
+cards that were folded before**. And **expanding a card while it is on leaves the view** rather than
+unfolding one card the view says is folded - it goes back to whatever the page was before it was folded
+away, not to the default, which may be a choice nobody made in months.
+
 ### The page of lists
 
 `/tasks` is one card per list, showing enough to recognise it: its badges, how far through it is, and a

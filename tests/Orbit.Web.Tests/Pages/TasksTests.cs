@@ -86,10 +86,75 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        // The card is for recognising a list; the checklist view is where you work through it.
-        Assert.Equal(4, cut.FindAll(".task-preview-row").Count);
-        Assert.Contains("and 5 more", cut.Markup);
+        // The card is for recognising a list; the checklist view is where you work through it. Five is
+        // what the normal view shows, which is what the page opens on - see TaskListView.
+        Assert.Equal(5, cut.FindAll(".task-preview-row").Count);
+        Assert.Contains("and 4 more", cut.Markup);
         Assert.DoesNotContain("Item 9", cut.Markup);
+    }
+
+    [Fact]
+    public void The_full_view_prints_the_whole_list()
+    {
+        var items = Enumerable.Range(1, 9).Select(number => Item($"Item {number}")).ToArray();
+        RegisterTasksApiClient([TaskList("Long one", items)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        ChooseTheView(cut, "Full");
+
+        Assert.Equal(9, cut.FindAll(".task-preview-row").Count);
+        Assert.DoesNotContain("more…", cut.Markup);
+    }
+
+    [Fact]
+    public void The_minimal_view_folds_every_card()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", Item("Paint walls")),
+            TaskList("Garden", Item("Mow the lawn"))
+        ]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        ChooseTheView(cut, "Minimal");
+
+        // Every card's own control now says "Expand", which is the tick the brief asked for: the minimal
+        // view is the same state as folding each card by hand, so each card shows it as folded.
+        var toggles = cut.FindAll("button").Where(button => button.GetAttribute("aria-label") is "Expand" or "Minimise").ToList();
+        Assert.Equal(2, toggles.Count);
+        Assert.All(toggles, toggle => Assert.Equal("Expand", toggle.GetAttribute("aria-label")));
+
+        // A folded card keeps one line - what is still to be done - so two cards leave two rows.
+        Assert.Equal(2, cut.FindAll(".task-preview-row").Count);
+    }
+
+    [Fact]
+    public void Expanding_a_card_leaves_the_minimal_view_rather_than_unfolding_one_card()
+    {
+        var items = Enumerable.Range(1, 9).Select(number => Item($"Item {number}")).ToArray();
+        RegisterTasksApiClient([TaskList("Long one", items)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        ChooseTheView(cut, "Full");
+        ChooseTheView(cut, "Minimal");
+
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Expand").Click();
+
+        // Back to what the page was before it was folded away, not to the default - see
+        // TaskListArrangement.LeaveMinimalViewAsync.
+        Assert.Equal(9, cut.FindAll(".task-preview-row").Count);
+    }
+
+    /// <summary>
+    /// Opens the menu if it is shut and picks a view. It stays open between choices (see
+    /// OverflowMenu.StaysOpen), so pressing the trigger again would close it rather than open it.
+    /// </summary>
+    private static void ChooseTheView(IRenderedFragment cut, string view)
+    {
+        if (cut.FindAll(".avatar-dropdown-item").Count == 0)
+        {
+            cut.Find(".overflow-menu-trigger").Click();
+        }
+
+        cut.FindAll(".avatar-dropdown-item").First(option => option.TextContent.Contains(view)).Click();
     }
 
     [Fact]
