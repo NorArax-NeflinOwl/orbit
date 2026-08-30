@@ -59,7 +59,7 @@ internal sealed class ChatContext : IDisposable
         var directoryReader = new ChatDirectoryReader(ChatClient, usersClient, sessionStore);
         Sender = new EncryptedChatMessageSender(
             Repository, ChatClient, directoryReader, encryptionKeyProvider,
-            NullLogger<EncryptedChatMessageSender>.Instance);
+            new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
         Editor = new EncryptedChatMessageEditor(
             Repository, ChatClient, directoryReader, encryptionKeyProvider,
             NullLogger<EncryptedChatMessageEditor>.Instance);
@@ -110,6 +110,10 @@ internal sealed class ChatContext : IDisposable
     /// <inheritdoc cref="OpenAsTheOtherParty"/>
     public string? OpenAsTheThirdParty(Orbit.Contracts.Chat.ChatMessageDto message)
         => ThirdIdentity.Decrypt(OwnPublicKeyBase64, new EncryptedText(message.CiphertextBase64, message.NonceBase64));
+
+    /// <summary>What is still waiting to go out, which after a successful flush should be nothing.</summary>
+    public Task<IReadOnlyList<OutgoingChatMessage>> ReadQueuedAsync()
+        => Repository.GetQueuedAsync(CancellationToken.None);
 
     public Task<IReadOnlyList<ReadableChatMessage>> ReadConversationAsync(DateTimeOffset? theyReadUpToUtc = null)
         => Reader.ReadAsync(OtherUserId, OtherPublicKeyBase64, theyReadUpToUtc, CancellationToken.None);

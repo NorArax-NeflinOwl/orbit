@@ -3,6 +3,7 @@ using Orbit.Contracts.Chat;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Chat;
 
@@ -51,20 +52,30 @@ public sealed class EncryptedChatMessageSender
     /// <summary>After this many failures a message is dropped rather than blocking everything behind it.</summary>
     private const int MaximumFailedAttempts = 5;
 
+    /// <summary>
+    /// What the gate is keyed on. Chat is the only entity type whose queue is flushed from two places -
+    /// sending, and the conversation screen's poll - so it is the one that needed it most and was the
+    /// one without it.
+    /// </summary>
+    private const string EntityType = "Chat";
+
     private readonly ChatRepository _chatRepository;
     private readonly ChatClient _chatClient;
     private readonly ChatDirectoryReader _directoryReader;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
+    private readonly SyncGate _syncGate;
     private readonly ILogger<EncryptedChatMessageSender> _logger;
 
     public EncryptedChatMessageSender(
         ChatRepository chatRepository, ChatClient chatClient, ChatDirectoryReader directoryReader,
-        OwnEncryptionKeyProvider encryptionKeyProvider, ILogger<EncryptedChatMessageSender> logger)
+        OwnEncryptionKeyProvider encryptionKeyProvider, SyncGate syncGate,
+        ILogger<EncryptedChatMessageSender> logger)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _directoryReader = directoryReader;
         _encryptionKeyProvider = encryptionKeyProvider;
+        _syncGate = syncGate;
         _logger = logger;
     }
 
@@ -89,9 +100,20 @@ public sealed class EncryptedChatMessageSender
 
     /// <summary>
     /// Sends everything queued, in order, stopping at the first failure that trying again could fix -
-    /// reordering messages would be worse than delaying them.
+    /// reordering messages would be worse than delaying them. One flush at a time.
+    ///
+    /// Serialised for exactly the reason SyncGate exists:
+    /// two at once both read the same queued row, both encrypt it and both post it, and the recipient
+    /// gets the message twice. Chat reached that state by being flushed from two places - here, when
+    /// somebody presses Send, and from the conversation screen's poll every few seconds - so a message
+    /// sent on the same tick as a poll went out twice. Seen on a device: two copies, 88ms apart.
+    ///
+    /// Nothing inside this may flush again: the gate is a semaphore and does not re-enter.
     /// </summary>
-    public async Task<ChatSendResult> FlushAsync(CancellationToken cancellationToken = default)
+    public Task<ChatSendResult> FlushAsync(CancellationToken cancellationToken = default)
+        => _syncGate.RunAsync(EntityType, () => FlushOnceAsync(cancellationToken), cancellationToken);
+
+    private async Task<ChatSendResult> FlushOnceAsync(CancellationToken cancellationToken)
     {
         var queued = await _chatRepository.GetQueuedAsync(cancellationToken);
         if (queued.Count == 0)

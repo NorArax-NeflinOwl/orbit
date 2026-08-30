@@ -132,8 +132,16 @@ internal sealed class FakeChatServer : HttpMessageHandler
         return message;
     }
 
+    /// <summary>Set to hold every request open, so a test can make two flushes genuinely overlap.</summary>
+    public TaskCompletionSource? HoldRequestsUntil { get; set; }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        if (HoldRequestsUntil is { } held)
+        {
+            await held.Task;
+        }
+
         if (IsUnreachable)
         {
             throw new HttpRequestException("No such host is known.");

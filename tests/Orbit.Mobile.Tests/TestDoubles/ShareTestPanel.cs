@@ -51,6 +51,7 @@ internal static class ShareTestPanel
                 new InMemoryChatKeyStorage(),
                 new EncryptionKeyClient(new FakeEncryptionKeyServer().ToHttpClient()), sessionStore,
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<Orbit.Mobile.Crypto.OwnEncryptionKeyProvider>.Instance),
+            new Orbit.Mobile.Sync.SyncGate(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<EncryptedChatMessageSender>.Instance);
     }
 }

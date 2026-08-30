@@ -211,7 +211,7 @@ public sealed class ContactsScreenTests
             var directoryReader = new ChatDirectoryReader(_chatClient, UsersClient, sessionStore);
             var sender = new EncryptedChatMessageSender(
                 Repository, _chatClient, directoryReader, _encryptionKeyProvider,
-                NullLogger<EncryptedChatMessageSender>.Instance);
+                new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 Repository, _chatClient, UsersClient, sender, NullLogger<ChatSynchronizer>.Instance);
         }
@@ -239,7 +239,7 @@ public sealed class ContactsScreenTests
             var directoryReader = new ChatDirectoryReader(_chatClient, UsersClient, _sessionStore);
             var sender = new EncryptedChatMessageSender(
                 Repository, _chatClient, directoryReader, _encryptionKeyProvider,
-                NullLogger<EncryptedChatMessageSender>.Instance);
+                new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             var screen = new ConversationViewModel(
                 reader, sender,
                 new EncryptedChatMessageEditor(

@@ -177,7 +177,7 @@ public sealed class GroupDetailScreenTests
             var usersClient = new UsersClient(_users.ToHttpClient());
             var sender = new EncryptedChatMessageSender(
                 _repository, _chatClient, new ChatDirectoryReader(_chatClient, usersClient, _sessionStore),
-                null!, NullLogger<EncryptedChatMessageSender>.Instance);
+                null!, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 _repository, _chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
         }

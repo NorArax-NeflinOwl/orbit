@@ -339,7 +339,7 @@ public sealed class MapScreenTests
             _usersClient = new UsersClient(_users.ToHttpClient());
             var sender = new EncryptedChatMessageSender(
                 _repository, chatClient, new ChatDirectoryReader(chatClient, _usersClient, sessionStore),
-                encryptionKeyProvider, NullLogger<EncryptedChatMessageSender>.Instance);
+                encryptionKeyProvider, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 _repository, chatClient, _usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
             LocationClient = new LocationClient(LocationServer.ToHttpClient());

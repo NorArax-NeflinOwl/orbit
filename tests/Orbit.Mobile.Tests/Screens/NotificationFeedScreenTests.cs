@@ -184,7 +184,7 @@ public sealed class NotificationFeedScreenTests
             var usersClient = new UsersClient(_users.ToHttpClient());
             var sender = new EncryptedChatMessageSender(
                 repository, chatClient, new ChatDirectoryReader(chatClient, usersClient, sessionStore),
-                encryptionKeyProvider, NullLogger<EncryptedChatMessageSender>.Instance);
+                encryptionKeyProvider, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
             _opener = new NotificationOpener(repository, _synchronizer, usersClient, new PendingNotificationTap(), Navigator);
