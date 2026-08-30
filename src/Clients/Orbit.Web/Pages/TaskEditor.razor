@@ -329,6 +329,10 @@ else
                             <span class="field-break"></span>
                             <p class="error">@_moveErrorMessage</p>
                         }
+                        @* Last, and behind the toggle with everything else: taking an entry off the list
+                           is not something to have one click away from the box somebody is typing in. *@
+                        <span class="field-break"></span>
+                        <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">@T["Remove"]</button>
                     </div>
                 }
             </div>
@@ -596,7 +600,15 @@ else
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
                                 RemindDaily = item.RemindDaily,
                                 DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
-                                DailyReminderTimeOfDay = item.DailyReminderTimeOfDay
+                                // Midnight reads as "never set". The wire carries a plain TimeOnly and so
+                                // cannot say "none"; an entry reminded daily at exactly 00:00 is far more
+                                // likely to be one nobody chose an hour for than one somebody wanted at
+                                // midnight - and being asked is a smaller cost than a reminder arriving
+                                // while everybody is asleep. See WhatIsWrongWithTheItems.
+                                DailyReminderTimeOfDay =
+                                    item.RemindDaily && item.DailyReminderTimeOfDay == default
+                                        ? null
+                                        : item.DailyReminderTimeOfDay
                             })
                             .ToList()
                     };
