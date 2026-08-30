@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using Orbit.Contracts.Diagnostics;
@@ -8,6 +9,19 @@ namespace Orbit.Api.Diagnostics;
 
 public static class DiagnosticLogEndpoints
 {
+    /// <summary>
+    /// The largest upload the endpoint will read. Derived from what the app can legitimately send rather
+    /// than picked round: DiagnosticLogFile keeps two files of 256 KB each and ReadAll concatenates
+    /// both, so half a megabyte of log text is the honest ceiling, and JSON escaping a line-oriented
+    /// file adds a little on top of that.
+    ///
+    /// The rest is headroom, because this is a backstop against a caller that is not the app - the
+    /// endpoint is authenticated and rate-limited, but it still takes a large body of arbitrary text,
+    /// and without a cap that body is bounded only by ASP.NET's own default of about 30 MB. Four times
+    /// the real ceiling leaves room for the file cap to grow without anyone remembering this number.
+    /// </summary>
+    private const long MaximumUploadBytes = 2 * 1024 * 1024;
+
     public static void MapDiagnosticLogEndpoints(this WebApplication app)
     {
         // Authenticated: an entry is stored against the account that sent it, and an anonymous write
@@ -38,7 +52,9 @@ public static class DiagnosticLogEndpoints
                 receivedAtUtc - TimeSpan.FromDays(settings.CurrentValue.RetentionDays), cancellationToken);
 
             return Results.Ok(new UploadDiagnosticLogResponse(entries.Count));
-        }).RequireRateLimiting(RateLimiterPolicyNames.Auth);
+        })
+        .RequireRateLimiting(RateLimiterPolicyNames.Auth)
+        .WithMetadata(new RequestSizeLimitAttribute(MaximumUploadBytes));
     }
 
     /// <summary>Mirrors UserEndpoints.GetUserId - the group requires authorization, so the claim is present.</summary>

@@ -562,8 +562,9 @@ mobile version is the same idea with a file and an upload instead of a clipboard
 locale, and whether the failure happened offline. That last one matters more here than in most apps,
 because §5 means "it broke" and "it broke while offline" are genuinely different bugs.
 
-**Server side:** a new endpoint (`POST /api/diagnostics/logs`, authenticated, rate-limited, with a
-request-size cap), parsing into a table of `{ UserId, ReceivedAtUtc, AppVersion, Platform, OsVersion,
+**Server side:** a new endpoint (`POST /api/diagnostics/logs`, authenticated, rate-limited, and
+capped at 2 MB — four times what the app can legitimately send, since DiagnosticLogFile keeps two
+files of 256 KB and sends both), parsing into a table of `{ UserId, ReceivedAtUtc, AppVersion, Platform, OsVersion,
 DeviceModel, Level, Timestamp, Message, Exception }`. Two constraints that are easy to miss:
 
 - **Nothing decryptable may reach the log.** This is an end-to-end-encrypted app whose entire promise
@@ -581,7 +582,7 @@ DeviceModel, Level, Timestamp, Message, Exception }`. Two constraints that are e
 days is the default (`DiagnosticLogs:RetentionDays`), swept hourly and again on upload. Sweeping only
 on upload - which is what shipped first - reads as retention but is not: entries age whether or not
 anybody sends a new report, so an account that stopped reporting kept its logs indefinitely. The
-number itself is still open (§12).
+Thirty days is settled (§12).
 
 ## 9. What iPhone 15 Pro actually buys
 
@@ -717,14 +718,11 @@ These change the plan materially and are worth answering before the phase they l
    written, `Orbit.Mobile` is shared with it, and §4.2.1's undetectable-push warning still applies the
    day it resumes. What changes is only that Android is the platform being finished, and that the Mac
    question stops blocking anything.
-6. **Diagnostic log retention** (§8) — how long uploaded logs are kept before deletion. Thirty days is
-   what ships, and it is now enforced hourly rather than only when somebody uploads. What is left to
-   decide is the number, and it is a privacy question more than a housekeeping one: a log line is the
-   one channel that can carry something the client failed to scrub, so retention is the second line of
-   defence behind scrubbing, and it bounds how long a leak survives. Fourteen days would still cover
-   the stated use — a report is read within days of arriving — and halve that exposure. What the number
-   does *not* have to cover is a deleted account: `AccountDeletionRepository` already drops that user's
-   entries outright.
+6. ~~**Diagnostic log retention** (§8)~~ — **settled: 30 days**, and enforced hourly rather than only
+   when somebody uploads. It is a privacy question more than a housekeeping one: a log line is the one
+   channel that can carry something the client failed to scrub, so retention is the second line of
+   defence behind scrubbing and bounds how long a leak survives. A deleted account does not depend on
+   it — `AccountDeletionRepository` drops that user's entries outright.
 
 ## 13. What exists so far
 
