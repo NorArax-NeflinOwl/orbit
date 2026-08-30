@@ -233,11 +233,30 @@ else
             {
                 @foreach (var item in ItemsToShow(section.TaskList))
                 {
-                    <label class="check-row @(item.IsCompleted ? "completed" : "")">
+                    <label class="check-row @(item.IsCompleted ? "completed" : "") @(Highlight == item.Id ? "highlighted" : "")">
                         <input type="checkbox" checked="@item.IsCompleted"
                                disabled="@IsItemLocked(section, item)"
                                @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
                         <span class="check-row-text">@Written(item.Description)</span>
+                        @* An inventory errand says which shelf it is about, and - when a second list is
+                           asking for the same product - where else it is being asked for. Both are links
+                           rather than labels: the reason to show them is to be able to go and look. *@
+                        @if (ReferenceFor(item) is { } reference)
+                        {
+                            <span class="check-row-references" @onclick:stopPropagation="true">
+                                <a class="reference-chip" href="@InventoryHref(reference)"
+                                   @onclick="() => GoTo(InventoryHref(reference))" @onclick:preventDefault="true">
+                                    @T.Format("in {0}", reference.WarehouseName)
+                                </a>
+                                @foreach (var elsewhere in reference.AlsoAskedForBy)
+                                {
+                                    <a class="reference-chip" href="@TaskListHref(elsewhere)"
+                                       @onclick="() => GoTo(TaskListHref(elsewhere))" @onclick:preventDefault="true">
+                                        @T.Format("also on {0}", Written(elsewhere.TaskListTitle))
+                                    </a>
+                                }
+                            </span>
+                        }
                         @if (item.LinkedTaskListId is { } linkedTaskListId)
                         {
                             <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitle(linkedTaskListId))</span>
@@ -265,8 +284,19 @@ else
     [Parameter]
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// One entry to draw attention to, when this page was opened by following a reference to it. From
+    /// the query string rather than the route: it is a hint about what to look at, not part of what
+    /// this page is, and a link shared without it still opens the same list.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = "highlight")]
+    public Guid? Highlight { get; set; }
+
     private bool _isLoading = true;
     private string? _errorMessage;
+
+    /// <summary>What each inventory errand on this list is about - see TasksApiClient.GetInventoryReferencesAsync.</summary>
+    private IReadOnlyList<InventoryReferenceDto> _inventoryReferences = [];
 
     /// <summary>
     /// The list being viewed first, then - when it's a group list - every list its items link to. Kept
@@ -344,6 +374,8 @@ else
 
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         _sections = BuildSections();
+        await SettleFinishedErrandsAsync();
+        await LoadInventoryReferencesAsync();
         await LoadStockCheckAsync();
         // Only asked for once the sections are built, since whether the saved view still applies
         // depends on what this list turned out to hold.
@@ -414,6 +446,72 @@ else
         => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId) is { } linked
             ? Written(linked.Title)
             : T["another list"];
+
+    /// <summary>
+    /// Settles anything already crossed off on a restock list: each finished errand fills its shelf item
+    /// and leaves the list. Asked for on opening rather than only on saving, so a list that accumulated
+    /// crossed-off errands before Orbit did this clears itself the first time somebody looks at it - and
+    /// the list is re-read afterwards, since it is the thing that changed.
+    ///
+    /// Best effort: a settle that fails leaves the list exactly as it was, which is readable, so it is
+    /// not worth an error bar over the checklist somebody came here to use.
+    /// </summary>
+    private async Task SettleFinishedErrandsAsync()
+    {
+        if (_sections.Count == 0 || !RestockTaskNaming.IsManagedTitle(_sections[0].TaskList.Title))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await TasksApiClient.ReconcileRestockingAsync(Id) == 0)
+            {
+                return;
+            }
+
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't settle the finished errands on task list {TaskListId}", Id);
+        }
+    }
+
+    private async Task LoadInventoryReferencesAsync()
+    {
+        try
+        {
+            _inventoryReferences = await TasksApiClient.GetInventoryReferencesAsync(Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            // The entries still read as what they say; they just have nothing to follow.
+            Logger.LogWarning(exception, "Couldn't load the inventory references for task list {TaskListId}", Id);
+            _inventoryReferences = [];
+        }
+    }
+
+    private InventoryReferenceDto? ReferenceFor(TaskItemDto item)
+        => _inventoryReferences.FirstOrDefault(reference => reference.TaskItemId == item.Id);
+
+    /// <summary>
+    /// The warehouse this errand's product sits in, with the product itself named so the page that opens
+    /// can draw attention to it rather than leaving somebody to find one row among fifty.
+    /// </summary>
+    private static string InventoryHref(InventoryReferenceDto reference)
+        => $"/inventory/{reference.WarehouseId}?highlight={reference.InventoryItemId}";
+
+    private static string TaskListHref(InventoryReferenceElsewhereDto elsewhere)
+        => $"/tasks/{elsewhere.TaskListId}?highlight={elsewhere.TaskItemId}";
+
+    /// <summary>
+    /// Follows a reference. Handled here rather than left to the browser so that going from one task
+    /// list to another is a parameter change Blazor can make in place - an ordinary href would reload
+    /// the whole application to arrive at the same page.
+    /// </summary>
+    private void GoTo(string href) => NavigationManager.NavigateTo(href);
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
     private string Written(string name) => OrbitWrittenNames.Translate(T, name);

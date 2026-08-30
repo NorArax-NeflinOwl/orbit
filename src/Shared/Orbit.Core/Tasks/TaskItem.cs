@@ -38,6 +38,16 @@ public sealed class TaskItem
     public Guid? LinkedCalendarEventId { get; private set; }
 
     /// <summary>
+    /// The shelf item this entry is an errand about, when it is one - see
+    /// <see cref="TaskItemKind.Inventory"/>. Null for every other kind.
+    ///
+    /// Not validated, for the same reason <see cref="LinkedCalendarEventId"/> is not: an item deleted
+    /// afterwards leaves this pointing at nothing, and a reader treats that as "no shelf item" rather
+    /// than as a failure.
+    /// </summary>
+    public Guid? LinkedInventoryItemId { get; private set; }
+
+    /// <summary>
     /// Which channel(s), if any, notify the owner once this item becomes overdue - see
     /// <see cref="Orbit.Core.Tasks.OverdueNotifications.OverdueTaskNotificationScheduler"/>.
     /// </summary>
@@ -60,7 +70,8 @@ public sealed class TaskItem
     private TaskItem(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId,
         NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
-        TimeOnly dailyReminderTimeOfDay, TaskItemKind kind, string location, Guid? linkedCalendarEventId)
+        TimeOnly dailyReminderTimeOfDay, TaskItemKind kind, string location, Guid? linkedCalendarEventId,
+        Guid? linkedInventoryItemId)
     {
         Id = id;
         Description = description;
@@ -73,6 +84,7 @@ public sealed class TaskItem
         DailyReminderTimeOfDay = dailyReminderTimeOfDay;
         Kind = kind;
         LinkedCalendarEventId = kind == TaskItemKind.Calendar ? linkedCalendarEventId : null;
+        LinkedInventoryItemId = kind == TaskItemKind.Inventory ? linkedInventoryItemId : null;
         Location = WhereItHappens(kind, location, LinkedCalendarEventId);
     }
 
@@ -124,11 +136,12 @@ public sealed class TaskItem
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId = null,
         NotificationChannel overdueNotificationChannel = NotificationChannel.Push, bool remindDaily = false,
         NotificationChannel dailyReminderNotificationChannel = NotificationChannel.Push, TimeOnly dailyReminderTimeOfDay = default,
-        TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null)
+        TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null,
+        Guid? linkedInventoryItemId = null)
         => new(
             Guid.NewGuid(), description, dueDateUtc, linkedTaskListId is null && isCompleted, linkedTaskListId,
             overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
-            kind, location, linkedCalendarEventId);
+            kind, location, linkedCalendarEventId, linkedInventoryItemId);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -139,9 +152,9 @@ public sealed class TaskItem
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId,
         NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
         TimeOnly dailyReminderTimeOfDay, TaskItemKind kind = TaskItemKind.Checklist, string location = "",
-        Guid? linkedCalendarEventId = null)
+        Guid? linkedCalendarEventId = null, Guid? linkedInventoryItemId = null)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListId,
             overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
-            kind, location, linkedCalendarEventId);
+            kind, location, linkedCalendarEventId, linkedInventoryItemId);
 }

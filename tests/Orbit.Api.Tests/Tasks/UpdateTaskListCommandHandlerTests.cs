@@ -15,7 +15,9 @@ public sealed class UpdateTaskListCommandHandlerTests
             taskRepository,
             new TaskListLinkValidator(taskRepository),
             // No warehouse tracks these lists, so finishing an entry on one means nothing to a shelf.
-            new RestockCompletion(new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository()));
+            new RestockCompletion(
+                new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository(),
+                new InMemoryWarehouseRepository(), new InMemoryTaskRepository()));
 
     [Fact]
     public async Task HandleAsync_updates_a_task_list_owned_by_the_requesting_user()

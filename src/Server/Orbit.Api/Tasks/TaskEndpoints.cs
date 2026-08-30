@@ -20,6 +20,8 @@ using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
 using Orbit.Core.Inventory.FinishRestocking;
+using Orbit.Core.Inventory.ReconcileRestockList;
+using Orbit.Core.Tasks.GetInventoryReferences;
 using Orbit.Core.Tasks.ReconcileTaskListWithStock;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
@@ -141,6 +143,28 @@ public static class TaskEndpoints
             return Results.Ok(new FinishRestockingResultDto(toppedUp));
         });
 
+        // Settles the finished errands on a restock list: each one fills its shelf item and then leaves
+        // the list. Asked for when the checklist screen opens one, which is what clears errands ticked
+        // off before this existed - see ReconcileRestockListCommand.
+        tasks.MapPost("/{id:guid}/restocking/reconcile", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new ReconcileRestockListCommand(GetUserId(user), id), cancellationToken);
+            return Results.Ok(new RestockReconciliationResultDto(outcome.ToppedUp, outcome.Removed));
+        });
+
+        // What each inventory errand on this list is about: the shelf item, and any other list asking for
+        // the same thing. Its own route rather than fields on the list, because neither belongs to the
+        // list - see GetInventoryReferencesQuery.
+        tasks.MapGet("/{id:guid}/inventory-references", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var references = await dispatcher.SendAsync(
+                new GetInventoryReferencesQuery(GetUserId(user), id), cancellationToken);
+            return Results.Ok(references.Select(ToDto));
+        });
+
         // Whether this list's work - and everything linked below it - can be done out of that warehouse.
         // 404 rather than an empty answer when no warehouse has been chosen: there is no question yet.
         tasks.MapGet("/{id:guid}/stock-check", async (
@@ -251,7 +275,7 @@ public static class TaskEndpoints
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
                 overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-                kind, item.Location, item.LinkedCalendarEventId);
+                kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -260,7 +284,7 @@ public static class TaskEndpoints
             existingId, item.Description, item.DueDateUtc,
             item.LinkedTaskListId is null && item.IsCompleted, item.LinkedTaskListId,
             overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-            kind, item.Location, item.LinkedCalendarEventId);
+            kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
     }
 
 
@@ -270,6 +294,13 @@ public static class TaskEndpoints
 
     private static EncryptedContentDto? ToDto(EncryptedPayload? encryptedContent)
         => encryptedContent is null ? null : new EncryptedContentDto(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
+    private static InventoryReferenceDto ToDto(InventoryReference reference)
+        => new(
+            reference.TaskItemId, reference.InventoryItemId, reference.InventoryItemName, reference.WarehouseId,
+            reference.WarehouseName,
+            [.. reference.AlsoAskedForBy.Select(elsewhere => new InventoryReferenceElsewhereDto(
+                elsewhere.TaskListId, elsewhere.TaskListTitle, elsewhere.TaskItemId))]);
 
     private static TaskListStockCheckDto ToDto(Orbit.Core.Tasks.StockCheck.TaskListStockCheck check)
         => new(check.IsAchievable,
@@ -293,7 +324,8 @@ public static class TaskEndpoints
                     item.DailyReminderTimeOfDay,
                     item.Kind.ToString(),
                     item.Location,
-                    item.LinkedCalendarEventId))
+                    item.LinkedCalendarEventId,
+                    item.LinkedInventoryItemId))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

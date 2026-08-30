@@ -146,7 +146,9 @@ public sealed class PrivateTaskListTests
             Guid taskListId, string title, IReadOnlyList<TaskItem> items, bool isPrivate, EncryptedPayload? encryptedContent)
             => new UpdateTaskListCommandHandler(
                     Resolver, TaskRepository, new TaskListLinkValidator(TaskRepository),
-                    new RestockCompletion(new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository()))
+                    new RestockCompletion(
+                new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository(),
+                new InMemoryWarehouseRepository(), new InMemoryTaskRepository()))
                 .HandleAsync(
                     new UpdateTaskListCommand(OwnerId, taskListId, title, items, IsGroup: false, isPrivate, encryptedContent),
                     CancellationToken.None);

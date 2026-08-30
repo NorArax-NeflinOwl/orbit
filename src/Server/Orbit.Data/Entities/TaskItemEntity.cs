@@ -34,6 +34,9 @@ public sealed class TaskItemEntity
     /// <summary>The calendar event this entry is the same appointment as, if any - see Orbit.Core.Tasks.TaskItem.LinkedCalendarEventId.</summary>
     public Guid? LinkedCalendarEventId { get; set; }
 
+    /// <summary>The shelf item this entry is an errand about, if any - see Orbit.Core.Tasks.TaskItem.LinkedInventoryItemId.</summary>
+    public Guid? LinkedInventoryItemId { get; set; }
+
     /// <summary>Serialized <see cref="Orbit.Core.Notifications.NotificationChannel"/> - "None"/"Email"/"Push"/"Both".</summary>
     public string OverdueNotificationChannel { get; set; } = "Push";
 

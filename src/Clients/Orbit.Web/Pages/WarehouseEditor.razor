@@ -4,6 +4,7 @@
 @using Orbit.Contracts.Inventory
 @using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject InventoryApiClient InventoryApiClient
 @inject NotificationsApiClient NotificationsApiClient
@@ -45,7 +46,12 @@ else
         <fieldset disabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)">
             <div class="field">
                 <label>@T["Name"]</label>
-                <InputText id="warehouseNameInput" @bind-Value="_formModel.Name" />
+                @* oninput as well as the default onchange: the suggestions below have to see the name
+                   as it is being typed, not only once the field is left. *@
+                <InputText id="warehouseNameInput" @bind-Value="_formModel.Name"
+                           @oninput="args => _formModel.Name = args.Value?.ToString() ?? string.Empty" />
+                <NameSuggestions Kind="NameSuggestionKind.WarehouseName" Value="_formModel.Name"
+                                 OnChosen="chosen => _formModel.Name = chosen" />
             </div>
 
             @* Only the owner may turn this on: a warehouse reached through a share belongs to someone
@@ -128,7 +134,7 @@ else
                 }
                 @foreach (var item in VisibleItems)
                 {
-                    <div class="editor-item @(_itemOrder.IsDragging(item) ? "dragging" : "")" @key="item"
+                    <div class="editor-item @(_itemOrder.IsDragging(item) ? "dragging" : "") @(Highlight is { } highlighted && item.Id == highlighted ? "highlighted" : "")" @key="item"
                          @ondragover:preventDefault="true" @ondrop="() => DropItemOn(item)">
                         @* Name and the two numbers that decide whether it needs restocking stay on the
                            row; everything else waits behind the toggle so a full warehouse is readable. *@
@@ -141,7 +147,10 @@ else
                             @* Reassigned on every row, so it holds the last one by the time the loop
                                ends - which is the row Add item just appended. *@
                             <InputText class="editor-item-main" @ref="_lastItemName"
-                                       placeholder="@(T["Item name"])" @bind-Value="item.Name" />
+                                       placeholder="@(T["Item name"])" @bind-Value="item.Name"
+                                       @oninput="args => item.Name = args.Value?.ToString() ?? string.Empty" />
+                            <NameSuggestions Kind="NameSuggestionKind.InventoryItemName" Value="item.Name"
+                                             OnChosen="chosen => item.Name = chosen" />
                             <span class="editor-item-aside">
                                 @if (NeedsRestocking(item))
                                 {
@@ -231,6 +240,14 @@ else
 @code {
     [Parameter]
     public Guid WarehouseId { get; set; }
+
+    /// <summary>
+    /// One item to draw attention to, when this page was opened by following a reference to it - see
+    /// TaskListChecklist's inventory references. A hint about what to look at rather than part of what
+    /// this page is, which is why it rides in the query string.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = "highlight")]
+    public Guid? Highlight { get; set; }
 
     private bool _isLoading = true;
 
