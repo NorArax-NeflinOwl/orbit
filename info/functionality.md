@@ -1094,7 +1094,25 @@ that depend on the type:
 | --- | --- |
 | Checklist | Link to list, overdue notification, remind daily and its channel and hour |
 | Inventory | The shelf item itself - see above |
-| Calendar | The event it is the same appointment as, and where it happens |
+| Calendar | The event's own form - see below |
+
+**A Calendar entry is the appointment, not a pointer at one.** It carries the event's own fields -
+description, start and end, all-day, repeats, a reminder, a colour - and **saving the list makes the
+event**; nothing has to be linked by hand. The events are written before the list itself, so an entry
+carries its event's id when the list is saved rather than in a second write, and a failure there stops
+the save instead of leaving entries pointing at appointments that were never made. Opening a list reads
+each linked event back into its entry, so saving again keeps them in step rather than overwriting them
+with an empty form.
+
+**An entry that already has an event cannot quietly stop being one.** Changing its type is refused, with
+the entry named. Orbit cannot settle that on its own: deleting the event would throw away something that
+may since have been edited in the calendar, and keeping it leaves an appointment nothing points at. So
+the save stops and hands the choice back - **Detach from the event** stops the entry being that event
+without destroying it, and the type is free to change afterwards.
+
+The place named on a calendar entry stays on the entry. The calendar's own location is coordinates first
+(`EventLocationRequest`) and the map overlay deliberately hands back an address rather than a pin, so
+there is nothing to build one from here; the screen says so rather than dropping it quietly.
 
 **A daily reminder needs an hour.** Saving refuses without one rather than sending it at midnight - an
 hour nobody chose is worse than being asked for one. An entry loaded at exactly 00:00 reads as one with

@@ -204,36 +204,62 @@ else
                                 </select>
                             </label>
                         }
+                        @* A Calendar entry is an appointment rather than a pointer at one. Its fields are
+                           the event's own, and saving the list is what makes the event - nothing has to
+                           be linked by hand. See SaveTheCalendarAsync. *@
                         @if (item.Kind == nameof(TaskItemKind.Calendar))
                         {
-                            <label>@T["Calendar event"]<select @bind="item.LinkedCalendarEventId">
-                                    <option value="">@T["None"]</option>
-                                    @foreach (var linkableEvent in _linkableEvents)
-                                    {
-                                        <option value="@linkableEvent.Id">@linkableEvent.Details.Title</option>
-                                    }
+                            <label>@T["Description"]<InputText @bind-Value="item.EventDescription"
+                                                               placeholder="@(T["What this is about"])" />
+                            </label>
+                            <label>@T["Starts"]<DateField @bind-Value="item.EventStartDate" AriaLabel="@(T["Starts"])" />
+                            </label>
+                            @if (!item.EventIsAllDay)
+                            {
+                                <label>@T["Start time"]<TimeField @bind-Value="item.EventStartTime" AriaLabel="@(T["Start time"])" />
+                                </label>
+                            }
+                            <label>@T["Ends"]<DateField @bind-Value="item.EventEndDate" AriaLabel="@(T["Ends"])" />
+                            </label>
+                            @if (!item.EventIsAllDay)
+                            {
+                                <label>@T["End time"]<TimeField @bind-Value="item.EventEndTime" AriaLabel="@(T["End time"])" />
+                                </label>
+                            }
+                            <label>
+                                <InputCheckbox @bind-Value="item.EventIsAllDay" />@T["All-day event"]</label>
+                            <label>@T["Repeats"]<select @bind="item.EventRecurrence">
+                                    <option value="None">@T["Does not repeat"]</option>
+                                    <option value="Daily">@T["Daily"]</option>
+                                    <option value="Weekly">@T["Weekly"]</option>
+                                    <option value="Monthly">@T["Monthly"]</option>
                                 </select>
                             </label>
-                            @* One place, not two. Tied to an event, the event holds it - so the box is
-                               replaced by what the event says rather than offering a second answer that
-                               could drift from the first. *@
-                            @if (string.IsNullOrEmpty(item.LinkedCalendarEventId))
+                            <label>@T["Remind before"]<InputText @bind-Value="item.EventReminderMinutes"
+                                                                 placeholder="@(T["minutes"])" />
+                            </label>
+                            <label>@T["Color"]<input type="color" @bind="item.EventColor" /></label>
+                            <label>@T["Location"]<InputText @bind-Value="item.Location"
+                                                            placeholder="@(T["Where this happens"])" />
+                            </label>
+                            @* The name is the reader's to write. Confirming a pin fills an empty box
+                               and leaves a name they chose alone - see UseThePickedPlace. *@
+                            <span class="field-break"></span>
+                            <small>@T["The name is yours to write - the pin below keeps its exact position either way."]</small>
+                            @* Typing an address is one way; pointing at it is the other, and the
+                               one that works when nobody knows what the street is called. *@
+                            <button type="button" class="btn-secondary" @onclick="() => OpenTheMapFor(item)">@T["Show map"]</button>
+                            <span class="field-break"></span>
+                            <small>@T["The place stays on this entry. To put it on the map in the calendar, open the event there."]</small>
+
+                            @if (!string.IsNullOrEmpty(item.LinkedCalendarEventId))
                             {
-                                <label>@T["Location"]<InputText @bind-Value="item.Location"
-                                                                placeholder="@(T["Where this happens"])" />
-                                </label>
-                                @* The name is the reader's to write. Confirming a pin fills an empty box
-                                   and leaves a name they chose alone - see UseThePickedPlace. *@
                                 <span class="field-break"></span>
-                                <small>@T["The name is yours to write - the pin below keeps its exact position either way."]</small>
-                                @* Typing an address is one way; pointing at it is the other, and the
-                                   one that works when nobody knows what the street is called. *@
-                                <button type="button" class="btn-secondary" @onclick="() => OpenTheMapFor(item)">@T["Show map"]</button>
-                            }
-                            else
-                            {
-                                <span class="field-break"></span>
-                                <small>@T.Format("Happens at {0}, which the event decides.", LinkedEventLocation(item))</small>
+                                <small>@T["This entry has an event in the calendar. Saving keeps the two in step."]</small>
+                                @* The way out of the refusal below: an entry can stop being an event
+                                   without the event being destroyed. Whoever made it decides what
+                                   happens to it, in the calendar, where they can see it. *@
+                                <button type="button" class="btn-secondary" @onclick="() => DetachFromTheEvent(item)">@T["Detach from the event"]</button>
                             }
                         }
                         @* A restock errand edits the shelf it is about, right here. That is the point of
@@ -600,6 +626,8 @@ else
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
                                 RemindDaily = item.RemindDaily,
                                 DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
+                                EventDescription = string.Empty,
+                                EventRecurrence = "None",
                                 // Midnight reads as "never set". The wire carries a plain TimeOnly and so
                                 // cannot say "none"; an entry reminded daily at exactly 00:00 is far more
                                 // likely to be one nobody chose an hour for than one somebody wanted at
@@ -648,6 +676,7 @@ else
         }
 
         await LoadInventoryFieldsAsync();
+        ReadTheEventsBack();
         _isLoading = false;
     }
 
@@ -700,6 +729,125 @@ else
             // something unreadable - is worse than one whose inventory fields are missing.
             Logger.LogWarning(exception, "Couldn't load the shelf items behind task list {TaskListId}", taskListId);
         }
+    }
+
+    /// <summary>
+    /// Fills each calendar entry's fields from the event it already has. Without this, opening a list
+    /// and saving it again would rewrite every appointment to whatever the empty form said - which is
+    /// the one way this feature could quietly destroy something.
+    ///
+    /// Read from the events already loaded for this account, so it costs no extra request. An entry
+    /// pointing at an event that is gone keeps its empty fields and is treated as a new one.
+    /// </summary>
+    private void ReadTheEventsBack()
+    {
+        foreach (var item in _formModel.Items.Where(candidate => candidate.Kind == nameof(TaskItemKind.Calendar)))
+        {
+            if (!Guid.TryParse(item.LinkedCalendarEventId, out var eventId)
+                || _linkableEvents.FirstOrDefault(candidate => candidate.Id == eventId) is not { } linked)
+            {
+                continue;
+            }
+
+            var details = linked.Details;
+            var startsAt = details.StartUtc.ToLocalTime();
+            var endsAt = details.EndUtc.ToLocalTime();
+
+            item.EventDescription = details.Description ?? string.Empty;
+            item.EventStartDate = DateOnly.FromDateTime(startsAt.DateTime);
+            item.EventStartTime = TimeOnly.FromDateTime(startsAt.DateTime);
+            item.EventEndDate = DateOnly.FromDateTime(endsAt.DateTime);
+            item.EventEndTime = TimeOnly.FromDateTime(endsAt.DateTime);
+            item.EventIsAllDay = details.IsAllDay;
+            item.EventColor = details.Color ?? item.EventColor;
+            item.EventRecurrence = details.Recurrence?.Frequency ?? "None";
+            item.EventReminderMinutes = details.ReminderMinutesBeforeStart.Count > 0
+                ? details.ReminderMinutesBeforeStart[0].ToString()
+                : string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Brings each calendar entry's event into being, or into step, before the list itself is saved.
+    /// Before, not after, because the entry has to carry the event's id when the list is written - one
+    /// save rather than two, and no window where the entry exists and the appointment does not.
+    ///
+    /// Returns false when something could not be written, so the caller can stop rather than save a list
+    /// whose entries point at events that were never made.
+    /// </summary>
+    private async Task<bool> SaveTheCalendarAsync()
+    {
+        foreach (var item in _formModel.Items.Where(candidate => candidate.Kind == nameof(TaskItemKind.Calendar)))
+        {
+            try
+            {
+                var details = EventDetailsFor(item);
+                if (Guid.TryParse(item.LinkedCalendarEventId, out var eventId))
+                {
+                    await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
+                    continue;
+                }
+
+                var created = await CalendarApiClient.CreateCalendarEventAsync(new CreateCalendarEventRequest(details));
+                item.LinkedCalendarEventId = created.ToString();
+                Logger.LogInformation("A task entry created calendar event {EventId}", created);
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogError(exception, "Couldn't put a task entry's appointment in the calendar");
+                _saveErrorMessage = T.Format("\"{0}\" couldn't be put in the calendar, so nothing was saved.", item.Description);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The entry, said in the shape the calendar takes. Its own words are the event's title.</summary>
+    private static CalendarEventDetailsRequest EventDetailsFor(TaskItemFormModel item)
+        => new(
+            item.Description,
+            string.IsNullOrWhiteSpace(item.EventDescription) ? null : item.EventDescription,
+            // No place on the event itself: the calendar's location is coordinates first (see
+            // EventLocationRequest), and a task entry carries only a name - the map overlay hands back
+            // an address and deliberately not a pin. The name stays on the entry, and the screen says so
+            // rather than dropping it quietly.
+            Location: null,
+            item.EventColor,
+            EventStartUtc(item) ?? DateTimeOffset.UtcNow,
+            EventEndUtc(item) ?? EventStartUtc(item) ?? DateTimeOffset.UtcNow,
+            item.EventIsAllDay,
+            RecurrenceFor(item),
+            Guests: [],
+            RemindersFor(item),
+            CreationNotificationChannel: "None",
+            ReminderNotificationChannel: "Push");
+
+    private static RecurrenceRequest? RecurrenceFor(TaskItemFormModel item)
+        => item.EventRecurrence is "None" or "" ? null : new RecurrenceRequest(item.EventRecurrence, 1, UntilUtc: null);
+
+    private static IReadOnlyList<int> RemindersFor(TaskItemFormModel item)
+        => int.TryParse(item.EventReminderMinutes, out var minutes) && minutes > 0 ? [minutes] : [];
+
+    /// <summary>
+    /// Midnight local when no time was given, which is what an all-day event means and what a date on
+    /// its own reads as.
+    /// </summary>
+    private static DateTimeOffset? EventStartUtc(TaskItemFormModel item)
+        => ToUtc(item.EventStartDate, item.EventIsAllDay ? null : item.EventStartTime);
+
+    private static DateTimeOffset? EventEndUtc(TaskItemFormModel item)
+        => ToUtc(item.EventEndDate ?? item.EventStartDate, item.EventIsAllDay ? null : item.EventEndTime);
+
+    private static DateTimeOffset? ToUtc(DateOnly? date, TimeOnly? time)
+    {
+        if (date is not { } day)
+        {
+            return null;
+        }
+
+        var local = day.ToDateTime(time ?? TimeOnly.MinValue, DateTimeKind.Local);
+        return new DateTimeOffset(local).ToUniversalTime();
     }
 
     /// <summary>
@@ -793,10 +941,53 @@ else
     {
         var withoutAnHour = _formModel.Items.FirstOrDefault(item =>
             item.Kind == nameof(TaskItemKind.Checklist) && item.RemindDaily && item.DailyReminderTimeOfDay is null);
+        if (withoutAnHour is not null)
+        {
+            return T.Format("\"{0}\" is reminded daily, so it needs a time to be reminded at.", withoutAnHour.Description);
+        }
 
-        return withoutAnHour is null
+        // An entry that made an event and is no longer a calendar entry is a conflict Orbit cannot
+        // settle on its own: deleting the event would throw away something that may since have been
+        // edited in the calendar, and keeping it silently leaves an appointment nothing points at. The
+        // save stops and hands the choice back - "Detach from the event" is the way through.
+        var changedAwayFromItsEvent = _formModel.Items.FirstOrDefault(item =>
+            item.Kind != nameof(TaskItemKind.Calendar) && !string.IsNullOrEmpty(item.LinkedCalendarEventId));
+        if (changedAwayFromItsEvent is not null)
+        {
+            return T.Format(
+                "\"{0}\" already has an event in the calendar, so its type can't be changed. Detach it from the event first, then decide what to do with the event itself.",
+                changedAwayFromItsEvent.Description);
+        }
+
+        var withoutWhenItHappens = _formModel.Items.FirstOrDefault(item =>
+            item.Kind == nameof(TaskItemKind.Calendar) && item.EventStartDate is null);
+        if (withoutWhenItHappens is not null)
+        {
+            return T.Format("\"{0}\" is a calendar entry, so it needs a day to happen on.", withoutWhenItHappens.Description);
+        }
+
+        var endingBeforeItStarts = _formModel.Items.FirstOrDefault(item =>
+            item.Kind == nameof(TaskItemKind.Calendar) && EventEndsBeforeItStarts(item));
+        return endingBeforeItStarts is null
             ? null
-            : T.Format("\"{0}\" is reminded daily, so it needs a time to be reminded at.", withoutAnHour.Description);
+            : T.Format("\"{0}\" ends before it starts.", endingBeforeItStarts.Description);
+    }
+
+    /// <summary>
+    /// Checked here as well as on the server, which refuses it too - an inline answer beats a request
+    /// that is bound to fail, and the calendar's own editor does the same.
+    /// </summary>
+    private static bool EventEndsBeforeItStarts(TaskItemFormModel item)
+        => EventStartUtc(item) is { } startsAt && EventEndUtc(item) is { } endsAt && endsAt < startsAt;
+
+    /// <summary>
+    /// Stops an entry being this event's, without touching the event. Whoever made it decides what
+    /// happens to it, in the calendar, where they can see what they are deleting.
+    /// </summary>
+    private void DetachFromTheEvent(TaskItemFormModel item)
+    {
+        Logger.LogInformation("User detached a task entry from its calendar event");
+        item.LinkedCalendarEventId = string.Empty;
     }
 
     /// <summary>
@@ -1008,6 +1199,12 @@ else
         if (WhatIsWrongWithTheItems() is { } complaint)
         {
             _saveErrorMessage = complaint;
+            return;
+        }
+
+        // The appointments first, so an entry that is an event carries its id when the list is written.
+        if (!await SaveTheCalendarAsync())
+        {
             return;
         }
 
@@ -1280,5 +1477,31 @@ else
         public string DailyReminderNotificationChannel { get; set; } = "Push";
         /// <summary>Optional here, though the request is not: an empty box is midnight, which is what an unanswered "what time?" has always meant on this form.</summary>
         public TimeOnly? DailyReminderTimeOfDay { get; set; }
+
+        /// <summary>
+        /// The event this entry is, while somebody is writing it. A Calendar entry no longer points at
+        /// an event somebody made elsewhere - it is the event, and saving the list is what brings it
+        /// into being. These fields are the event form's, kept here so switching kinds back and forth in
+        /// one sitting does not lose what was typed.
+        /// </summary>
+        public string EventDescription { get; set; } = string.Empty;
+
+        public DateOnly? EventStartDate { get; set; }
+
+        public TimeOnly? EventStartTime { get; set; }
+
+        public DateOnly? EventEndDate { get; set; }
+
+        public TimeOnly? EventEndTime { get; set; }
+
+        public bool EventIsAllDay { get; set; }
+
+        public string EventColor { get; set; } = "#7c6cf0";
+
+        /// <summary>How long before it starts to say so, in minutes. Empty for no reminder.</summary>
+        public string EventReminderMinutes { get; set; } = string.Empty;
+
+        /// <summary>"None", "Daily", "Weekly" or "Monthly" - see RecurrenceFrequency.</summary>
+        public string EventRecurrence { get; set; } = "None";
     }
 }
