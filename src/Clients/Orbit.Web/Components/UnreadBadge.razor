@@ -1,0 +1,20 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* How many messages are waiting from somebody, on the avatar that stands for them. One component
+   because it belongs everywhere that person appears - the conversation list, the contact list, the
+   dashboard - and a count that is drawn on one screen and not another reads as "nothing waiting" on
+   the others.
+
+   Nothing at all when nothing is waiting: an empty badge is a mark, and a mark means something. *@
+@if (Count > 0)
+{
+    <span class="notif-badge" title="@T.Format("{0} new", Count)" aria-label="@T.Format("{0} new", Count)">@Label</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public int Count { get; set; }
+
+    /// <summary>Stops a long wait from stretching the avatar it sits on - 1 to 9 as they are, "9+" above.</summary>
+    private string Label => Count > 9 ? "9+" : Count.ToString();
+}

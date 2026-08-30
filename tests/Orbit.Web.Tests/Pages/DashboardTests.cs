@@ -415,10 +415,35 @@ public sealed class DashboardTests : OrbitTestContext
     private static IReadOnlyList<IElement> MenuEntries(IRenderedComponent<Dashboard> cut)
         => [.. cut.FindAll(".overflow-menu-dropdown label")];
 
-    private static ContactDto Contact(string displayName)
+
+    [Fact]
+    public void A_contact_with_a_message_waiting_is_marked_on_the_recent_chats_card()
+    {
+        // The first thing a visit looks at. A card that knows a message is waiting and does not say so
+        // reads as nobody waiting.
+        RegisterChatApiClient([Contact("Anna Kowalska", unread: 2), Contact("Bartek Nowak")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var chats = FindColumn(cut, "Recent chats");
+        Assert.Equal("2", chats.QuerySelector(".notif-badge")!.TextContent);
+        Assert.Single(chats.QuerySelectorAll(".notif-badge"));
+    }
+
+    [Fact]
+    public void Nobody_waiting_leaves_the_recent_chats_card_unmarked()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska"), Contact("Bartek Nowak")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Empty(FindColumn(cut, "Recent chats").QuerySelectorAll(".notif-badge"));
+    }
+    private static ContactDto Contact(string displayName, int unread = 0)
         => new(
             Guid.NewGuid(), displayName.ToLowerInvariant(), displayName, $"{displayName}@example.com", "public-key",
-            DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false);
+            DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false,
+            unread);
 
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
         => cut.FindAll("div.card").Single(column => column.QuerySelector(".card-title")!.TextContent == heading);

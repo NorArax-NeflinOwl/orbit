@@ -116,8 +116,12 @@ else
             @foreach (var contact in _establishedChats)
             {
                 <div class="contact-row">
-                    <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
+                    @* Marked as unread the same way the chat page's own list marks it: this is the other
+                       place somebody looks for "who is waiting on me", and a page that knows and does
+                       not say reads as nobody waiting. *@
+                    <button type="button" class="chat-list-item @(contact.UnreadCount > 0 ? "unread" : "")"
+                            @onclick="() => OpenChat(contact.UserId)">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<UnreadBadge Count="contact.UnreadCount" /><PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
                         <span class="chat-list-meta">
                             <span class="chat-list-name">@contact.DisplayName</span>
                             <span class="chat-list-preview">@contact.UserName</span>

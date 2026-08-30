@@ -1,0 +1,50 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* Putting a row where somebody wants it, in the three places a list can be arranged by hand - the task
+   cards, a task list's items, a warehouse's shelf.
+
+   Two ways to the same move. Dragging is the quick one and needs a mouse: browsers raise no drag events
+   for a finger, so on a narrow screen this whole control is hidden (see .row-reorder in app.css) rather
+   than left there doing nothing when pressed. The two buttons are the other way, and they are what a
+   keyboard has always lacked - a handle you can only drag is a handle only a mouse can use.
+
+   A move that would fall off either end is disabled rather than absent: a row appearing and vanishing
+   as it travels up a list is harder to follow than one whose button greys out at the top. *@
+<span class="row-reorder">
+    <span class="drag-handle" draggable="true" title="@(T["Drag to reorder"])" aria-label="@(T["Drag to reorder"])"
+          @ondragstart="OnDragStart" @ondragend="OnDragEnd">
+        <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">
+            <circle cx="4" cy="4" r="1.3" /><circle cx="8" cy="4" r="1.3" />
+            <circle cx="4" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" />
+            <circle cx="4" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" />
+        </svg>
+    </span>
+    <span class="row-reorder-buttons">
+        <button type="button" class="icon-btn row-reorder-button" title="@(T["Move up"])" aria-label="@(T["Move up"])"
+                disabled="@(!CanMoveUp)" @onclick="OnMoveUp" @onclick:stopPropagation="true">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5 10 7l5.5 5.5" /></svg>
+        </button>
+        <button type="button" class="icon-btn row-reorder-button" title="@(T["Move down"])" aria-label="@(T["Move down"])"
+                disabled="@(!CanMoveDown)" @onclick="OnMoveDown" @onclick:stopPropagation="true">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7.5 10 13l5.5-5.5" /></svg>
+        </button>
+    </span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public EventCallback OnDragStart { get; set; }
+
+    [Parameter, EditorRequired] public EventCallback OnDragEnd { get; set; }
+
+    [Parameter, EditorRequired] public EventCallback OnMoveUp { get; set; }
+
+    [Parameter, EditorRequired] public EventCallback OnMoveDown { get; set; }
+
+    /// <summary>False for the row already at the top - see the class comment on why it greys out rather than goes.</summary>
+    [Parameter] public bool CanMoveUp { get; set; } = true;
+
+    [Parameter] public bool CanMoveDown { get; set; } = true;
+}

@@ -82,15 +82,10 @@ else
                            arranged by an answer, and moving one by hand would not survive a redraw. *@
                         @if (Arrangement.SortOrder == TaskListSortOrder.Manual)
                         {
-                            <span class="drag-handle" draggable="true" title="@(T["Drag to reorder"])"
-                                  aria-label="@(T["Drag to reorder"])"
-                                  @ondragstart="() => _cardOrder.Start(taskList)" @ondragend="_cardOrder.Finish">
-                                <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">
-                                    <circle cx="4" cy="4" r="1.3" /><circle cx="8" cy="4" r="1.3" />
-                                    <circle cx="4" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" />
-                                    <circle cx="4" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" />
-                                </svg>
-                            </span>
+                            <ReorderControls OnDragStart="() => _cardOrder.Start(taskList)" OnDragEnd="_cardOrder.Finish"
+                                             OnMoveUp="() => MoveCardAsync(taskList, -1)"
+                                             OnMoveDown="() => MoveCardAsync(taskList, 1)"
+                                             CanMoveUp="CanMoveCard(taskList, -1)" CanMoveDown="CanMoveCard(taskList, 1)" />
                         }
                         @* Before the name, so a page of cards answers "which list was that reminder
                            about?" at a glance rather than by opening them one at a time. Goes out when
@@ -245,8 +240,8 @@ else
 
     private TaskListFilter _filter = TaskListFilter.All;
 
-    /// <summary>The card being dragged to a new place, while one is - see DragReordering.</summary>
-    private readonly DragReordering<TaskDto> _cardOrder = new();
+    /// <summary>The card being dragged to a new place, while one is - see RowArrangement.</summary>
+    private readonly RowArrangement<TaskDto> _cardOrder = new();
 
     /// <summary>
     /// Filtering and sorting happen here rather than on the server: the page already has every list it
@@ -415,6 +410,25 @@ else
         await Arrangement.SetManualOrderAsync([.. arranged.Select(taskList => taskList.Id)]);
         Logger.LogInformation("User dragged task list {TaskListId} to a new place", target.Id);
     }
+
+    /// <summary>
+    /// The same move a drag makes, one card at a time - what a keyboard can ask for, and a finger,
+    /// which raises no drag events at all. Saved exactly as the drop above saves it.
+    /// </summary>
+    private async Task MoveCardAsync(TaskDto taskList, int offset)
+    {
+        var arranged = VisibleTaskLists.ToList();
+        if (!RowArrangement<TaskDto>.Move(arranged, taskList, offset))
+        {
+            return;
+        }
+
+        await Arrangement.SetManualOrderAsync([.. arranged.Select(card => card.Id)]);
+        Logger.LogInformation("User moved task list {TaskListId} by {Offset}", taskList.Id, offset);
+    }
+
+    private bool CanMoveCard(TaskDto taskList, int offset)
+        => RowArrangement<TaskDto>.CanMove(VisibleTaskLists.ToList(), taskList, offset);
 
     /// <summary>An unrecognised status reads as New - a status this client doesn't know yet is not one it should invent a meaning for.</summary>
     private static TaskListStatus ParseStatus(TaskDto taskList)

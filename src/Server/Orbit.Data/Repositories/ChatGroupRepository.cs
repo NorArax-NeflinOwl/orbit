@@ -75,7 +75,7 @@ public sealed class ChatGroupRepository : IChatGroupRepository
 
     private static ChatGroup ToDomain(ChatGroupEntity entity)
         => ChatGroup.FromPersistence(
-            entity.Id, entity.Name, entity.CreatedByUserId, entity.CreatedAtUtc,
+            entity.Id, entity.Name, entity.CreatedByUserId, entity.CreatedAtUtc, entity.LastMessageAtUtc,
             entity.Members
                 .Select(member => new ChatGroupMembership(
                     member.GroupId, member.UserId, Enum.Parse<ChatGroupRole>(member.Role, ignoreCase: true), member.JoinedAtUtc))
@@ -88,6 +88,7 @@ public sealed class ChatGroupRepository : IChatGroupRepository
             Name = group.Name,
             CreatedByUserId = group.CreatedByUserId,
             CreatedAtUtc = group.CreatedAtUtc,
+            LastMessageAtUtc = group.LastMessageAtUtc,
             Members = group.Members.Select(ToMemberEntity).ToList()
         };
 

@@ -258,11 +258,19 @@ those two sections are already independent for access-level purposes.
 ## Group chats
 
 Groups are not a place of their own: the chat page shows **one conversation list**
-(`ConversationList`) holding people and groups together - people first, most recently spoken to first,
-then groups by name, since a group has no last-message time of its own to sort by. A row says which kind
-it is with a small mark, one search box filters both, and "New group" sits under the list rather than in
-a page header. Looking for "who have I been talking to" is one place, and moving between a group and a
-person does not change screens.
+(`ConversationList`) holding people and groups together, **sorted by when something last happened** -
+people and groups against each other, which is the order somebody scanning for a conversation looks in.
+A row says which kind it is with a small mark, one search box filters both, and "New group" sits under
+the list rather than in a page header. Looking for "who have I been talking to" is one place, and moving
+between a group and a person does not change screens.
+
+That single order needs both kinds to answer the same question, so a group carries
+`LastMessageAtUtc` of its own (`ChatGroup`), stamped where the fan-out is written -
+the same thing sending to one person does to that contact's row. It is never null:
+a group with nothing in it yet answers with the day it was made, so the list is
+totally ordered from the moment a group exists rather than needing a second rule for
+the quiet ones. Groups used to follow the people in a block of their own, sorted by
+name, because there was no such time to sort them by.
 
 The list folds to a strip of initials, and **the folding is done by the stylesheet alone** — the names,
 the search box and "New group" always reach the page. That matters because on a narrow screen the list
@@ -537,10 +545,16 @@ task list that exists and is owned by the same user, an item can't link to the l
 a link can't close a cycle between task lists (directly, or transitively through a chain of other
 links) — either of the last two would make completion resolution loop forever without this check. A
 validation failure throws `InvalidRequestException` and comes back as a **400 carrying the reason** —
-see [Refusing a request](#refusing-a-request). The Blazor client's task editor only excludes linking a list to itself from its dropdown of
-linkable lists; it does not check for longer cycles client-side, so building one still relies on the
-API's validation and surfaces as a failed save rather than a client-side error message — a known rough
-edge, not a silent gap (see [Future Plan](future-plan.md#known-scope-cuts-and-rough-edges)).
+see [Refusing a request](#refusing-a-request).
+
+**The editor asks the same question before it offers the link.** Its "link to list" dropdown leaves out
+every list that links back to the one being edited, however long the chain (`TaskListLinkCycle`, which
+walks the saved lists exactly as the server does) - so a link that would be refused is never offered in
+the first place, which is how every other rule the server enforces is handled on this side. What it
+replaced was a failed save naming a rule nothing on screen had mentioned, and the deeper the chain the
+less obvious what had gone wrong: A links to B, B to C, and the row offering C a link back to A looked
+like any other. The "move to list" dropdown is not narrowed this way - moving a row is not linking, and
+carries none of linking's rules.
 
 Each **item** also says what it is: `kind` is `Checklist` (the default) or `Calendar`. A calendar entry
 is somewhere to be rather than something to fetch, so it also carries a `location`, and can name the
@@ -708,7 +722,19 @@ In the deep editor each item carries a drag handle, and dropping one where anoth
 The list is saved in the order its rows are written in - `TaskRepository` numbers them by position - so
 what is arranged here is what the checklist reads back under "in list order". Only the handle is
 draggable, so a row full of text boxes does not start a drag whenever somebody selects what they typed.
-HTML5 dragging is mouse and trackpad; it does not work by touch.
+
+**Beside the handle are a move-up and a move-down button** (`ReorderControls`), which make the same move
+one place at a time. They exist because HTML5 dragging is mouse and trackpad only - a handle you can
+only drag is a handle only a mouse can use, and a keyboard had no way to arrange anything at all. A move
+that would fall off either end greys its button out rather than removing it: a control appearing and
+vanishing as a row travels up a list is harder to follow than one that dims at the top. Both ways end in
+`RowArrangement`, which matches rows by reference, so a list naming the same thing twice still moves the
+row that was asked about rather than the first match.
+
+**Below 680px the whole control is hidden.** Browsers raise no drag events for a finger, so the handle
+sat there doing nothing when pressed - and nothing on screen said whether it was broken or the press had
+missed. Arranging by hand is a wide-screen affordance; an arrangement made there is still read on a
+phone, which is the half that always worked.
 
 ### Can this list be done?
 
@@ -1137,11 +1163,25 @@ message. There is also no separate identity-verification step (e.g. comparing ke
 band), so the browser trusts whatever public key Orbit.Api currently reports for a user; a malicious or
 compromised server could substitute a different key and intercept new messages (it still can't read
 already-sent ciphertext without the right private key). Only 1:1 chats are supported, not groups.
-Message delivery is polling-based (`Chat.razor` polls `GET /api/chat/messages/{otherUserId}?sinceUtc=`
-every 3 seconds while a chat window is open), not push/real-time (no SignalR or WebSockets), and a
-message sent to a user who has never opened `/chat` (and so has no `PublicKeyBase64` yet) can't be
-encrypted — `Chat.razor` shows an explanatory message and disables sending in that case instead of
-silently failing.
+Message delivery is polling-based (`GET /api/chat/messages/{otherUserId}?sinceUtc=` once a second while
+a conversation is open), not push/real-time (no SignalR or WebSockets), and a message sent to a user who
+has never opened `/chat` (and so has no `PublicKeyBase64` yet) can't be encrypted — `Chat.razor` shows an
+explanatory message and disables sending in that case instead of silently failing.
+
+Three things about that poll are worth knowing:
+
+- **A group conversation polls too** (`GroupConversation`). It did not, which made a group a dead
+  screen: your own messages appeared because you had just sent them, and everybody else's arrived only
+  if you left and came back. It redraws only when the conversation actually changed, so a quiet thread
+  is not re-rendered once a second for nothing.
+- **Nothing is polled while the tab is behind others** (`PageVisibility`, asking the same
+  `presence.js` the heartbeat asks). Nobody is reading there. A tab that cannot be asked counts as
+  visible: a poll that stops because the question failed is a chat that silently goes quiet, and quiet
+  is indistinguishable from nobody writing.
+- **The conversation list is read every tenth tick, not every one.** A message wants the second it
+  takes to arrive; who is on the list changes on the scale of days, and asking for the whole roster and
+  every group once a second was two thirds of the loop's traffic spent on an unchanged answer. Ten
+  seconds matches what `MainLayout` already refreshes its notification feed on.
 
 ### Responsive layout
 
@@ -1317,6 +1357,15 @@ its prefix (`/tasks`, `/calendar`, `/inventory`, `/chat`), so a reminder shows u
 about. Chat subscribes to the same state instead of polling again. The poll also refreshes settings, so a
 change made on Options takes effect within one interval; when the unread count has just gone up and
 `AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport.
+
+**A person with a message waiting is marked wherever that person appears** — the chat page's own
+conversation list, the contact list, and the dashboard's "Recent chats" card — all through one
+`UnreadBadge` on the avatar, with the row's name in bold behind it. That count comes from the
+conversation itself (`ContactDto.UnreadCount`), not from the notification panel, so clearing the panel
+does not clear it: tidying is not reading. It was on the chat page alone, which made every other screen
+say "nobody waiting" while one of them said otherwise — and the dashboard, the first thing a visit looks
+at, was among the silent ones. Nothing at all is drawn when nothing is waiting: an empty badge is a
+mark, and a mark means something.
 
 How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
 (`BannerTiming`, defaulting to 5 seconds each) editable from Options — the poll interval only bounds how
