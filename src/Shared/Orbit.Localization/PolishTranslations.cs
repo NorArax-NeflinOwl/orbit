@@ -255,6 +255,7 @@ public static class PolishTranslations
         ["What this is counted in"] = "W czym to jest liczone",
         ["Any type"] = "Dowolny typ",
         ["Any category"] = "Dowolna kategoria",
+        ["Search items by name"] = "Szukaj pozycji po nazwie",
         ["Move up"] = "Przenieś w górę",
         ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",
