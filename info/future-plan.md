@@ -283,6 +283,25 @@ Deliberately not there: a language switch (it is in the avatar menu, where the r
 settings are), and anything that has to be fetched. A footer that waits on a request is a footer that
 sometimes is not there.
 
+## What is left of the task editor's rework
+
+The entry form now depends on what the entry is (see
+[Functionality](functionality.md#what-an-entrys-form-offers)). Two kinds are finished; the third is not.
+
+- **A Calendar entry still links to an event rather than being one.** What it offers today is a picker
+  of existing events plus a place, which is what it offered before. What was asked for is the event
+  form itself - title, description, start and end, all-day, recurrence, guests, reminder - with saving
+  the entry **creating** the calendar event and tying the two together, so nothing has to be linked by
+  hand.
+
+  It is the largest of the three because it is the only one that creates something in another feature
+  rather than editing something that already exists. The pieces are all there - `CreateCalendarEventCommand`
+  takes exactly those fields, and `TaskItem.LinkedCalendarEventId` is already the tie - but the order
+  matters and has an edge case with no obvious answer: an entry saved as a Calendar entry creates an
+  event, and an entry *changed away* from Calendar afterwards leaves one behind. Deleting it would throw
+  away something that may since have been edited in the calendar; keeping it leaves an orphan. That
+  choice should be made deliberately rather than discovered.
+
 ## Smaller identified follow-ups
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

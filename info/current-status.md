@@ -36,6 +36,8 @@ stated scope.
 | Push delivery to a phone | Not working on Android yet — see below | [Orbit.Maui — Plan](orbit-maui-plan.md#42-push-notifications-web-push-apns-and-fcm-are-three-different-things) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Name suggestions and duplicate warnings while typing | Implemented | [Functionality](functionality.md#names-you-have-already-used) |
+| Choosing what a warehouse's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |
+| Editing a shelf item from the restock list | Implemented | [Functionality](functionality.md#editing-the-shelf-from-the-list) |
 | AI assistant for inventories and task lists | Step 1 built, the model half not started | [Orbit Assistant — Plan](ai-assistant-plan.md) |
 
 `Orbit.GoogleIntegration` (`src/Server`) is no longer the empty placeholder it was: it holds the
