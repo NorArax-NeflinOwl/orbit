@@ -206,7 +206,7 @@ public sealed class StockCheckPanelTests
         public PanelContext()
         {
             Server = new FakeTasksServer(_clock);
-            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
         }
 
         public FakeTasksServer Server { get; }

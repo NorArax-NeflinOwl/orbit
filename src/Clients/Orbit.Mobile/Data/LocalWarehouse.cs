@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using Orbit.Contracts;
 using Orbit.Contracts.Inventory;
 using Orbit.Mobile.Sync;
 
@@ -24,10 +26,21 @@ public sealed class LocalWarehouse : ISharedState
 
     public bool IsPrivate { get; set; }
 
-    /// <summary>The sealed name and items of a private warehouse - carried through untouched.</summary>
+    /// <inheritdoc cref="LocalNote.EncryptedCiphertext"/>
     public string? EncryptedCiphertext { get; set; }
 
     public string? EncryptedNonce { get; set; }
+
+    /// <inheritdoc cref="LocalNote.EncryptedContent"/>
+    [NotMapped]
+    public EncryptedContentDto? EncryptedContent
+        => EncryptedCiphertext is { } ciphertext && EncryptedNonce is { } nonce
+            ? new EncryptedContentDto(ciphertext, nonce)
+            : null;
+
+    /// <inheritdoc cref="LocalNote.IsSealed"/>
+    [NotMapped]
+    public bool IsSealed { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
 

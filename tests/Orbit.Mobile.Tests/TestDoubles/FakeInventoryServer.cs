@@ -92,9 +92,12 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = await ReadAsync<SaveWarehouseRequest>(request, cancellationToken);
-        // Carries IsPrivate back: the phone reads what it is told, so a fake that dropped it would
-        // un-seal a private warehouse on the next sync - and read as the phone having lost it.
-        return Json(AddWarehouse(body!.Name, isPrivate: body.IsPrivate).Id, HttpStatusCode.Created);
+        // Carries IsPrivate and the sealed payload back: the phone reads what it is told, so a fake that
+        // dropped either would un-seal a private warehouse on the next sync - and read as the phone
+        // having lost it. A private warehouse's name is only in that payload.
+        var created = AddWarehouse(body!.Name, isPrivate: body.IsPrivate);
+        _warehouses[created.Id] = created with { EncryptedContent = body.EncryptedContent };
+        return Json(created.Id, HttpStatusCode.Created);
     }
 
     private async Task<HttpResponseMessage> SaveAsync(HttpRequestMessage request, string path, CancellationToken cancellationToken)
@@ -107,7 +110,11 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
 
         var body = await ReadAsync<SaveWarehouseRequest>(request, cancellationToken);
         var now = _timeProvider.GetUtcNow();
-        _warehouses[id] = existing with { Name = body!.Name, UpdatedAtUtc = now, IsPrivate = body.IsPrivate };
+        _warehouses[id] = existing with
+        {
+            Name = body!.Name, UpdatedAtUtc = now, IsPrivate = body.IsPrivate,
+            EncryptedContent = body.EncryptedContent
+        };
 
         // A save carries the whole intended list: anything missing from it is gone, and an item that
         // came back with its id keeps that id.

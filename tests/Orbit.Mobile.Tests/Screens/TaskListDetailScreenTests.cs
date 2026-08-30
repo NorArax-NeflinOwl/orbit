@@ -779,7 +779,7 @@ public sealed class TaskListDetailScreenTests
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             StockCheck = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()),
-                new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online),
+                new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey()),
                 new Translations(new InMemoryLanguageStore()));
             CalendarEvents = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
             Synchronizer = new TaskListSynchronizer(

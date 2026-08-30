@@ -265,8 +265,8 @@ public static class PolishTranslations
         ["Looking through your warehouses…"] = "Przeszukuję magazyny…",
         ["Nothing on any shelf matches that."] = "Nic na żadnej półce nie pasuje.",
         ["Found in {0} of {1} warehouses."] = "Znaleziono w {0} z {1} magazynów.",
-        ["Found in {0} of {1} warehouses. These could not be opened, so nothing in them was searched: {2}"] =
-            "Znaleziono w {0} z {1} magazynów. Tych nie udało się otworzyć, więc nic w nich nie zostało przeszukane: {2}",
+        ["Found in {0} of {1} warehouses. {2} could not be opened, so nothing in them was searched."] =
+            "Znaleziono w {0} z {1} magazynów. {2} nie udało się otworzyć, więc nic w nich nie zostało przeszukane.",
         ["Move up"] = "Przenieś w górę",
         ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",
@@ -1264,6 +1264,10 @@ public static class PolishTranslations
             "Ta lista została zapieczętowana kluczem szyfrowania, którego to konto już nie ma.",
         ["This warehouse is private, and its contents are sealed with a key this phone doesn't have."] =
             "Ten magazyn jest prywatny, a jego zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["This warehouse is private. Unlock this device's encryption key to read it."] =
+            "Ten magazyn jest prywatny. Odblokuj klucz szyfrowania na tym urządzeniu, żeby go otworzyć.",
+        ["This warehouse was sealed with an encryption key this account no longer has."] =
+            "Ten magazyn został zapieczętowany kluczem szyfrowania, którego to konto już nie ma.",
 
         // One group message's own info view: who it reached, and who has opened it.
         ["{0} - read {1}"] = "{0} — przeczytano {1}",

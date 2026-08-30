@@ -3,6 +3,7 @@ using Microsoft.Extensions.Time.Testing;
 using Orbit.Core.Inventory;
 using Orbit.Contracts.Inventory;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Inventory;
@@ -410,11 +411,11 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
-    /// A private shelf arrives sealed and this phone has no key for it. Saving one sends a private
-    /// warehouse with no ciphertext, which the server refuses - see the same guard on the task list.
+    /// A private shelf this device cannot open. Saving it would replace the sealed warehouse with the
+    /// empty one on screen - see the same guard on the task list.
     /// </summary>
     [Fact]
-    public async Task A_private_warehouse_is_read_only_here()
+    public async Task A_private_warehouse_this_device_cannot_open_is_read_only_here()
     {
         using var context = new ScreenContext();
 
@@ -424,6 +425,58 @@ public sealed class WarehouseDetailScreenTests
         Assert.False(screen.CanEdit);
         Assert.NotEmpty(screen.ReadOnlyReason);
     }
+
+    [Fact]
+    public async Task Making_a_warehouse_private_seals_it_and_leaves_the_readable_columns_empty()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var warehouse = await context.AddWarehouseAsync(Product("Coffee"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.IsPrivate = true;
+        await screen.RenameCommand.ExecuteAsync(null);
+
+        var stored = context.Stored();
+        Assert.True(stored.IsPrivate);
+        Assert.Equal(string.Empty, stored.Name);
+        Assert.Empty(stored.Items);
+        Assert.NotNull(stored.EncryptedContent);
+    }
+
+    [Fact]
+    public async Task A_warehouse_this_device_sealed_opens_again_with_its_shelf_back()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var warehouse = await context.AddWarehouseAsync(Product("Coffee"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+        screen.IsPrivate = true;
+        await screen.RenameCommand.ExecuteAsync(null);
+
+        var reopened = await context.OpenAsync(warehouse.LocalId);
+
+        Assert.False(reopened.IsReadOnly);
+        Assert.True(reopened.IsPrivate);
+        Assert.Equal(["Coffee"], reopened.Items.Select(row => row.Name));
+        Assert.False(reopened.CanBeShared);
+    }
+
+    /// <inheritdoc cref="NoteDetailScreenTests"/>
+    [Fact]
+    public async Task Making_a_warehouse_private_without_a_key_asks_for_it_rather_than_saving()
+    {
+        using var context = new ScreenContext(PrivateContent.SignedInWithoutAKey(Owner));
+        var warehouse = await context.AddWarehouseAsync(Product("Coffee"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.IsPrivate = true;
+        await screen.RenameCommand.ExecuteAsync(null);
+
+        Assert.Contains(nameof(IScreenNavigator.ShowChatKeyGate), context.Navigator.Destinations);
+        Assert.False(context.Stored().IsPrivate);
+    }
+
+    /// <summary>Whoever is signed in - only its identity matters, as the key is kept per account.</summary>
+    private static readonly Guid Owner = Guid.Parse("11111111-0000-4000-8000-000000000001");
 
     private static WarehouseItemDto Product(string name, string category = "General")
         => new(Guid.NewGuid(), name, "Bag", category, 1, null, nameof(InventoryUnit.Piece), null, "None");
@@ -538,11 +591,13 @@ public sealed class WarehouseDetailScreenTests
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-27T10:00:00Z"));
         private readonly LocalWarehouseRepository _warehouses;
         private readonly WarehouseSynchronizer _synchronizer;
+        private readonly PrivateContentSealer _privateContent;
 
-        public ScreenContext()
+        public ScreenContext(PrivateContentSealer? privateContent = null)
         {
+            _privateContent = privateContent ?? PrivateContent.WithoutAKey();
             Server = new FakeInventoryServer(_clock);
-            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             _synchronizer = new WarehouseSynchronizer(
                 _localStore, new InventoryClient(Server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<WarehouseSynchronizer>.Instance);
@@ -555,6 +610,15 @@ public sealed class WarehouseDetailScreenTests
         /// <summary>A warehouse is created empty, so its items are put in by the same update a screen makes.</summary>
         public Task<LocalWarehouse> AddWarehouseAsync(string name)
             => _warehouses.CreateAsync(name);
+
+        /// <summary>
+        /// The one row as it really sits in the database, rather than as a read hands it back opened.
+        /// </summary>
+        public LocalWarehouse Stored()
+        {
+            using var dbContext = _localStore.CreateDbContext();
+            return dbContext.Warehouses.Single();
+        }
 
         /// <summary>What the local store holds now - for the one test that expects it to hold nothing.</summary>
         public async Task<IReadOnlyList<LocalWarehouse>> StoredWarehousesAsync()
@@ -576,7 +640,7 @@ public sealed class WarehouseDetailScreenTests
         public async Task<LocalWarehouse> AddWarehouseAsync(params WarehouseItemDto[] items)
         {
             var warehouse = await _warehouses.CreateAsync("Kitchen");
-            await _warehouses.UpdateAsync(warehouse.LocalId, warehouse.Name, items);
+            await _warehouses.UpdateAsync(warehouse.LocalId, new WarehouseContent(warehouse.Name, items));
             return warehouse;
         }
 
@@ -586,7 +650,7 @@ public sealed class WarehouseDetailScreenTests
                 _warehouses, _synchronizer, new Translations(new InMemoryLanguageStore()),
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
                 Navigator,
-                new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock));
+                new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), _privateContent);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

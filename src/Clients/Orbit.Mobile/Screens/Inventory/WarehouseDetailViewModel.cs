@@ -7,6 +7,7 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
@@ -25,6 +26,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private readonly InventoryClient _inventoryClient;
     private readonly EditLock _editLock;
     private readonly Translations _translations;
+    private readonly PrivateContentSealer _privateContent;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -53,10 +55,18 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReadOnly;
 
+    /// <summary>
+    /// Only its owner may ever read this warehouse, and the server never can. Orbit.Web's warehouse
+    /// editor has had the checkbox all along; the phone carried the flag without being able to set one -
+    /// see PrivateContentSealer.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPrivate;
+
     public WarehouseDetailViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
-        InventoryClient inventoryClient, EditLock editLock)
+        InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
@@ -64,6 +74,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Share = share;
         _navigator = navigator;
         _inventoryClient = inventoryClient;
+        _privateContent = privateContent;
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _anyProductType = translations["Any type"];
@@ -73,6 +84,24 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     }
 
     public ObservableCollection<WarehouseItemRow> Items { get; } = [];
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CanBeShared"/>
+    public bool CanBeShared => _serverId is not null && !IsPrivate;
+
+    private Guid? _serverId;
+
+    /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
+    private bool _isShowingWhatIsStored;
+
+    /// <summary>Saved as soon as it is switched, the way ticking an entry on a list is.</summary>
+    partial void OnIsPrivateChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanBeShared));
+        if (!_isShowingWhatIsStored && !IsReadOnly)
+        {
+            RenameCommand.Execute(null);
+        }
+    }
 
     /// <summary>
     /// The types and categories actually on this shelf, each behind an "any" that stands for no choice -
@@ -321,7 +350,20 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     private async Task SaveAsync(IReadOnlyList<WarehouseItemDto> items, CancellationToken cancellationToken)
     {
-        var outcome = await _warehouses.UpdateAsync(_localId, Name, items, cancellationToken);
+        LocalWriteOutcome outcome;
+        try
+        {
+            outcome = await _warehouses.UpdateAsync(
+                _localId, new WarehouseContent(Name, items, IsPrivate), cancellationToken);
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            // Sealing needs the account's own key, and this device has not got it - see
+            // NoteDetailViewModel, which sends the reader to the same gate for the same reason.
+            _navigator.ShowChatKeyGate();
+            return;
+        }
+
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
             Status = _translations[
@@ -343,7 +385,15 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
 
         Name = warehouse.Name;
-        if (warehouse.ServerId is { } serverId)
+        _serverId = warehouse.ServerId;
+        _isShowingWhatIsStored = true;
+        IsPrivate = warehouse.IsPrivate;
+        _isShowingWhatIsStored = false;
+        OnPropertyChanged(nameof(CanBeShared));
+
+        // A private warehouse is offered to nobody: the server holds no readable copy to hand over,
+        // which is what makes it private - the same line Orbit.Web's editor draws.
+        if (warehouse is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(
                 SharedItemKind.Warehouse, serverId, warehouse.Name,
@@ -352,13 +402,14 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
         _items = warehouse.Items;
 
-        // Sealed with a key this phone has not got - see TaskListDetailViewModel for the same guard and
-        // why saving one anyway is worse than not offering to.
-        if (warehouse.IsPrivate)
+        // Sealed with a key this device cannot open - see TaskListDetailViewModel for the same guard
+        // and why saving one anyway is worse than not offering to.
+        if (warehouse.IsSealed)
         {
             IsReadOnly = true;
-            ReadOnlyReason = _translations[
-                "This warehouse is private, and its contents are sealed with a key this phone doesn't have."];
+            ReadOnlyReason = await _privateContent.HasKeyAsync(cancellationToken)
+                ? _translations["This warehouse was sealed with an encryption key this account no longer has."]
+                : _translations["This warehouse is private. Unlock this device's encryption key to read it."];
         }
         else
         {

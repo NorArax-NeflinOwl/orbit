@@ -93,9 +93,12 @@ public sealed class WarehouseSynchronizer
             return SendResult.Abandoned;
         }
 
-        // Creating takes the name only; the items go up with the save that follows.
+        // Creating takes the name only; the items go up with the save that follows. A private
+        // warehouse's name is in EncryptedContent and its readable fields are empty, which is how the
+        // row is already stored - see LocalWarehouseRepository.
         warehouse.ServerId = await _inventoryClient.CreateAsync(
-            new SaveWarehouseRequest(warehouse.Name, [], warehouse.IsPrivate), cancellationToken);
+            new SaveWarehouseRequest(warehouse.Name, [], warehouse.IsPrivate, warehouse.EncryptedContent),
+            cancellationToken);
         warehouse.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
     }
@@ -109,7 +112,9 @@ public sealed class WarehouseSynchronizer
         }
 
         var outcome = await _inventoryClient.UpdateAsync(
-            serverId, new SaveWarehouseRequest(warehouse.Name, warehouse.Items, warehouse.IsPrivate), cancellationToken);
+            serverId,
+            new SaveWarehouseRequest(warehouse.Name, warehouse.Items, warehouse.IsPrivate, warehouse.EncryptedContent),
+            cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
         {
