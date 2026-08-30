@@ -6,9 +6,10 @@ cut, or an identified follow-up. It is not a committed roadmap with dates — it
 picture of what's left.
 
 **Last checked against the code on 2026-08-30.** A plan is only worth reading if it describes the
-present, and this one had drifted: it named browser-driven test infrastructure as missing while CI had
-been running Playwright, and listed two gaps that tests had since closed. Anything below that says
-"not started" or "no coverage" was checked against the repository on that date rather than carried
+present. This pass closed four testing gaps rather than only re-reading them - the browser-side
+encryption, both notification senders, and the auth rate limiter all have tests now - and added the two
+planned features `current-status.md` had been linking here for and not finding. Anything below that
+says "not started" or "no coverage" was checked against the repository on that date rather than carried
 forward on trust.
 
 ## Planned features
@@ -41,12 +42,30 @@ forward on trust.
   distributed lock or message queue once it's needed — see
   [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders). No second
   instance runs today; this is forward-looking groundwork already in place.
-- **A local AI model on the server, as groundwork for a future chat bot.** No work started; explicitly
-  scoped on the backlog as infrastructure to land before the chat bot feature itself. **Proposed
-  approach:** self-hosting something like Ollama alongside `orbit-api` in `docker-compose.yml` (a new
-  service, similar in shape to the existing `aspire-dashboard` one) keeps this from depending on a
-  paid third-party LLM API, at the cost of needing real CPU/GPU/RAM sized for whatever model is chosen
-  - worth prototyping with a small model before committing to it as the target architecture.
+- **Google Contacts sync.** Not started, and named here because
+  [Current Status](current-status.md#implemented-vs-planned) lists it and links to this section. Like
+  calendar sync it needs an authorization-code flow and a sensitive scope
+  (`https://www.googleapis.com/auth/contacts.readonly`) through Google's verification - see
+  [What real Google Calendar sync would take](#what-real-google-calendar-sync-would-take), which is the
+  same shape of work and should be done once for both rather than twice. It also needs a decision this
+  document cannot make for it: Orbit's own contacts are people who hold an Orbit account and have agreed
+  to a conversation, and a Google contact is a name and an email address. Whether an imported contact is
+  a third kind of row, or only a way to find somebody already on Orbit, changes the feature entirely.
+- **An AI assistant for inventories and task lists.** No work started. It suggests and corrects what the
+  user is typing, finds duplicate items, explains what Orbit can do, and proposes calendar events linked
+  to the right task lists. It is deliberately shut out of private items and out of chat entirely - it is
+  not a party to any conversation, and the messages are sealed so there would be nothing to give it.
+  The whole design, the model and hosting decision, and the order to build it in are in
+  [Orbit Assistant — Plan](ai-assistant-plan.md).
+
+  Two things there are worth knowing without opening it. **Half of what was asked for is not a language
+  model's job**: typeahead and duplicate detection are trigram similarity searches over the user's own
+  data, which PostgreSQL answers in milliseconds for nothing and more correctly than a model could. And
+  **the model should not be self-hosted**: an earlier version of this entry proposed running Ollama
+  beside `orbit-api`, and measuring that is what killed it - a model small enough to serve on the CPU
+  Orbit deploys on is too weak for Polish, and one good enough at Polish is too slow to sit behind a chat
+  window. A small hosted model in Azure AI Foundry costs cents a month at this size. Ollama stays, for
+  local development only.
 
 ## What real Google Calendar sync would take
 
@@ -101,12 +120,20 @@ version, so they aren't mistaken for oversights:
   fingerprints) to confirm a public key really belongs to the person it claims to; the browser
   trusts whatever key Orbit.Api currently reports for a user. A compromised server could substitute
   a key and intercept new messages, though it still couldn't decrypt already-sent ciphertext.
-- **A new group member can't read anything sent before they joined.** Group messages are encrypted
-  once per member under the existing pairwise keys rather than under a group key, so no copy exists
-  for someone who wasn't a member at the time. The group view says so rather than showing empty
-  space, and the trade-off is deliberate — there is no group key to distribute or rotate when
-  membership changes. The other side of the same choice is that a group message costs one stored row
-  per member instead of one. See [Functionality — Group chats](functionality.md#group-chats).
+- ~~**A new group member can't read anything sent before they joined.**~~ Answered without giving up the
+  design: there is still no group key, and the server still holds no key to anything. What changed is
+  that the admin adding somebody can tick a box to hand over what was said before, and their browser does
+  the work - decrypting what it can already read and sealing each message again under the pairwise key it
+  shares with the newcomer. The conversation gains a line saying both halves of what happened. What the
+  server will accept is narrow, because it cannot read what it is being handed: an admin only, into a
+  membership only, only postings the sharer demonstrably holds, and never twice. A backfilled copy is
+  marked so it stays out of the original's delivery receipts. See
+  [Functionality — Letting a new member read the history](functionality.md#letting-a-new-member-read-the-history).
+
+  Still true, and now the deliberate part rather than the whole story: a group message costs one stored
+  row per member, and sharing history adds one more row per message per newcomer. Nobody who was never
+  given the history can read it, which is the point - this is a member's decision to make, not something
+  joining a group grants.
 - **Chat delivery is polling-based** (once a second while a conversation is open), not real-time - no
   SignalR or WebSockets. The polling itself has since been made to cost what it should: a group
   conversation polls at all, nothing is polled while the tab is behind others, and the conversation list
@@ -122,40 +149,51 @@ version, so they aren't mistaken for oversights:
   leaves out every list that links back to the one being edited, however long the chain
   (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays
   the authority — this only stops the editor asking for something it already knows the answer to.
-- **Half of Orbit.Web is still on the pre-redesign markup.** Sixteen of the twenty-three pages have been
-  moved onto the shared design system; seven have not, and each still carries a `TODO(Orbit.Web.UI)`
-  marker naming itself: **Calendar**, **CalendarEventEditor**, **Login**, **NoteEditor**, **Notes**,
-  **Register** and **TaskEditor**. This is a visible inconsistency rather than a hidden one - it is the
-  difference somebody sees moving from the task list to the task editor - and the two sign-in pages are
-  the first thing a new account ever sees. The markers are the backlog; nothing else in `info/` records
-  this, which is why it is written down here.
 
 ## Testing gaps
 
 Documented in [Testing and Running Locally](testing-and-running-locally.md#what-is-not-covered-by-an-automated-test-today)
-as not covered by an automated test today, together with why:
+as not covered by an automated test today, together with why. Most of what used to be listed here has
+since been closed; what is left is recorded below with the same honesty about why.
 
-- The `/api/auth/*` rate limiter's exact 429 behavior, which would need HTTP-integration test
-  infrastructure (e.g. `WebApplicationFactory` on the API side) that this project doesn't have yet.
-  The client half of this entry is closed: `SignInThroughTheRealPipelineTests` drives sign-in through
-  the same `AuthorizationMessageHandler` the app composes, which is what a unit test that built the API
-  client bare had missed — it let a wrong password be reported as an expired session.
-- Actually sending an email through `SmtpEmailSender` or a push notification through
-  `VapidPushNotificationSender` — both need a real or fake server to connect to.
-- The chat **thread**, `PushNotificationManager`, and the browser-side JavaScript (`e2eeChat.js`,
-  `pushNotifications.js`, `service-worker.js`) — the encryption/decryption round trip, IndexedDB key
-  persistence, browser notification permission handling, and the push subscription/service worker
-  lifecycle have no automated coverage. bUnit doesn't execute real browser crypto, IndexedDB, Push or
-  Notification APIs.
-
-  What has changed is that the missing piece is no longer the tooling. CI already runs Playwright:
-  `ci/verify-app-boots.mjs` drives headless Chromium to prove the WebAssembly app boots without a
-  console error, and `main_orbit.yml` installs the browser for it. Nothing yet points that harness at
-  these paths, which is a smaller and far better-defined job than standing one up from nothing.
-
-  The `Contacts` half of this entry is closed: `ContactsGateTests` covers the permission gate and
-  `ContactInfoTests` the contact card, including the case Orbit's own findability policy turns on -
-  an account that has gone unfindable is answered exactly as a stranger's id is.
+- ~~**The `/api/auth/*` rate limiter's exact 429 behavior.**~~ Done. It needed no
+  `WebApplicationFactory` in the end - what stood in the way was that the policies were written inline
+  in `Program.cs`, reachable only by running the whole application. They now live in
+  `RateLimiterPolicies.AddOrbitPolicies`, which `Program.cs` calls and `AuthRateLimiterTests` calls too,
+  so the test cannot pass against a copy that has drifted. It covers the sixth attempt in a window being
+  refused rather than queued, and the partitioning that matters most: one signed-in caller running out
+  of attempts does not lock anybody else out, which is the whole reason the partition key is the user id
+  rather than an address every request shares behind an ingress proxy.
+- ~~**Actually sending an email or a push notification.**~~ Done, both against a stand-in rather than a
+  real service. `SmtpEmailSenderTests` drives MailKit against `FakeSmtpServer`, a loopback listener
+  speaking just enough of RFC 5321 - the only seam available, since `SmtpEmailSender` constructs its own
+  client. `VapidPushNotificationSenderTests` hands `WebPushClient` a stub transport instead. Neither
+  test is about the protocol libraries; both are about Orbit's own decisions around them: that an
+  unconfigured deployment stays quiet and says so, that half-configured credentials count as no
+  configuration rather than as something to try, and that a 404/410 from a push service comes back as
+  `PushSubscriptionExpiredException` while a 503 does not - pruning on the latter would throw away a
+  working subscription because the push service was briefly down.
+- ~~**The browser-side encryption (`e2eeChat.js`).**~~ Done, and it is the gap that mattered most: every
+  line of that file is Web Crypto and IndexedDB, bUnit executes neither, and the entire chat's
+  confidentiality rests on it. `ci/verify-browser-crypto.mjs` runs the module itself in headless
+  Chromium - serving `wwwroot` directly rather than booting Blazor, since the module has no dependency
+  on it and `127.0.0.1` is a secure context. Fourteen checks: the round trip, a per-message nonce, a
+  tampered message refusing to open, a stranger's key not opening it, two accounts in one browser not
+  sharing a key, the password-wrapped backup and its restore, and the key surviving a reload. It runs in
+  the `test` job on every pull request, not only on a deploy - a change that quietly weakens the
+  encryption is not something to find out about afterwards.
+- **The chat thread, `PushNotificationManager`, `pushNotifications.js` and `service-worker.js` still
+  have no coverage.** These are the parts of the same entry that the browser harness does not reach:
+  notification permission prompts, the push subscription lifecycle and the service worker's own
+  activation are all things a headless browser can be made to do, but each needs a permission grant and
+  a registered worker rather than a module import, which is a different and larger harness than the one
+  now in place. The chat thread itself is a polling component whose interesting behaviour is timing.
+- **Nothing runs on a pull request.** `main_orbit.yml` is triggered by a push to `main`, deliberately -
+  its own header weighs billed runner minutes against a branch going unchecked until it lands, and
+  production stays covered because the deploy job needs the test job. It is still worth naming here: a
+  branch is tested by whoever remembers to run `dotnet test` on it. If the minutes ever stop being the
+  binding constraint, a `pull_request` trigger on the `test` job alone is the cheapest thing to add
+  back.
 - **What Google actually does with an "Add to Google Calendar" link.** The URL is built and pinned by
   `GoogleLinkTests` - the shape of the dates, the RRULE, what is escaped - but whether Google renders
   a pre-filled event form from it has only ever been checked by reading its documentation. Opening
@@ -210,6 +248,40 @@ as not covered by an automated test today, together with why:
   `ci/deploy-safety-gates`, since those two mean a bad deploy self-heals automatically - a manual
   approval gate is then about *deliberateness* (did a human mean to ship this now) rather than being
   the only thing standing between a bug and production.
+
+## What the footer could grow into
+
+The footer at the bottom of every page - and the phone's About row, which says the same three things -
+currently carries the copyright year, the version, and a link to the licence
+(`OrbitRelease`, one constant both clients read so the number somebody sees cannot disagree between
+them). That is the smallest honest version of it. What it is missing, roughly in the order it would be
+worth adding:
+
+- **The build, not just the version.** `0.1.0` names a release; it does not say which build of it is
+  running. A short commit SHA stamped in at build time - `0.1.0+a1b2c3d` - is what turns "it does this
+  on my machine" into a specific thing to check out. It costs one `<SourceRevisionId>` in the pipeline,
+  and it is the single most useful addition here.
+- **When it was deployed.** The year is a constant maintained by hand, which is honest but coarse: it
+  answers "roughly when was this written", not "is what I am looking at the thing that was merged this
+  morning". A build timestamp answers the second, and the second is the question people actually ask.
+- **A link to what changed.** The version means nothing to somebody who has not been reading the
+  commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
+  number worth showing at all.
+- **A health or status link.** Orbit already exposes `/health`, `/health/ready` and `/health/live`
+  (see [Architecture](architecture.md)). A footer is where people look when something is wrong, and a
+  link that answers "is it me or is it the server" belongs there rather than in a document.
+- **Privacy and data handling.** Not yet written, and it is the one entry here with a deadline attached
+  to it: an application that ends up in a store needs one, and the store is the place that will ask.
+  What it would have to describe is unusual and worth saying plainly - most of Orbit's content is sealed
+  client-side, so a large part of the answer is "the server cannot read it".
+- **Making it reachable rather than only visible.** The footer sits at the end of the scrolling content,
+  which is right for something read once. If it grows past three items it stops being a footer and
+  becomes an About page, and the honest move at that point is to give it one and leave a single link
+  behind - the phone has already made that choice, since it has no footer to put anything in.
+
+Deliberately not there: a language switch (it is in the avatar menu, where the rest of the account's
+settings are), and anything that has to be fetched. A footer that waits on a request is a footer that
+sometimes is not there.
 
 ## Smaller identified follow-ups
 
