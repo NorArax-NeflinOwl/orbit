@@ -33,7 +33,7 @@ public sealed class ChatGroupDeletedAccountTests
         var newer = Guid.NewGuid();
         var oldest = Guid.NewGuid();
         var group = ChatGroup.FromPersistence(
-            Guid.NewGuid(), "Team", admin, DateTimeOffset.UtcNow,
+            Guid.NewGuid(), "Team", admin, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             [
                 Membership(admin, ChatGroupRole.Admin, joinedDaysAgo: 10),
                 Membership(newer, ChatGroupRole.Member, joinedDaysAgo: 1),
@@ -100,7 +100,7 @@ public sealed class ChatGroupDeletedAccountTests
         foreach (var ordering in new[] { new[] { first, second }, new[] { second, first } })
         {
             var group = ChatGroup.FromPersistence(
-                Guid.NewGuid(), "Team", admin, DateTimeOffset.UtcNow,
+                Guid.NewGuid(), "Team", admin, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
                 [
                     new ChatGroupMembership(Guid.Empty, admin, ChatGroupRole.Admin, joinedAt),
                     new ChatGroupMembership(Guid.Empty, ordering[0], ChatGroupRole.Member, joinedAt),
@@ -132,7 +132,8 @@ public sealed class ChatGroupDeletedAccountTests
     {
         var members = new List<ChatGroupMembership> { Membership(adminUserId, ChatGroupRole.Admin, joinedDaysAgo: 10) };
         members.AddRange(others.Select(other => Membership(other.UserId, other.Role, joinedDaysAgo: 1)));
-        return ChatGroup.FromPersistence(Guid.NewGuid(), "Team", adminUserId, DateTimeOffset.UtcNow, members);
+        return ChatGroup.FromPersistence(
+            Guid.NewGuid(), "Team", adminUserId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, members);
     }
 
     private static ChatGroupMembership Membership(Guid userId, ChatGroupRole role, int joinedDaysAgo)

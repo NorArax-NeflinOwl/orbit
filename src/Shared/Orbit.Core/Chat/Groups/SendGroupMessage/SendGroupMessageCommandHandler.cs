@@ -49,6 +49,12 @@ public sealed class SendGroupMessageCommandHandler : IRequestHandler<SendGroupMe
                 cancellationToken);
         }
 
+        // Stamped here, where the fan-out is written, so what the conversation list sorts on and the
+        // messages it stands for land together - the same thing sending to one person does to that
+        // contact's row. Without it a group only ever sorted by the day it was made.
+        group.MarkMessagePosted();
+        await _chatGroupRepository.UpdateAsync(group, cancellationToken);
+
         return true;
     }
 }

@@ -103,12 +103,14 @@ version, so they aren't mistaken for oversights:
   space, and the trade-off is deliberate — there is no group key to distribute or rotate when
   membership changes. The other side of the same choice is that a group message costs one stored row
   per member instead of one. See [Functionality — Group chats](functionality.md#group-chats).
-- **Chat delivery is polling-based** (once a second while a chat window is open), not real-time —
-  no SignalR or WebSockets.
-- **Task list cycle validation is server-side only.** The Blazor task editor only prevents linking a
-  list to itself in its dropdown; it does not detect longer cycles client-side. Building one still
-  relies on the API's validation (`TaskListLinkValidator`) and surfaces as a failed save rather than
-  an inline client-side error — see [Functionality — Tasks](functionality.md#tasks).
+- **Chat delivery is polling-based** (once a second while a conversation is open), not real-time - no
+  SignalR or WebSockets. The polling itself has since been made to cost what it should: a group
+  conversation polls at all, nothing is polled while the tab is behind others, and the conversation list
+  is read every tenth tick rather than every one. Replacing it with a push transport is still open.
+- ~~**Task list cycle validation is server-side only.**~~ Done: the editor's "link to list" dropdown now
+  leaves out every list that links back to the one being edited, however long the chain
+  (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays
+  the authority — this only stops the editor asking for something it already knows the answer to.
 
 ## Testing gaps
 
@@ -183,13 +185,17 @@ as not covered by an automated test today, together with why:
 
 ## Smaller identified follow-ups
 
-- **Reordering by hand needs a mouse.** The drag handles in the task and warehouse editors use HTML5
-  drag-and-drop, which browsers do not raise for touch. A phone can read an arranged list but cannot
-  arrange one, which matters before [Orbit.Maui](orbit-maui-plan.md) reaches these screens - either a
-  pointer-event implementation or a pair of move-up/move-down buttons behind the same handle.
-- **A group has no "last message" time.** The one conversation list therefore sorts people by recency
-  and groups by name, in two blocks. Carrying the newest message's timestamp on `ChatGroupDto` would let
-  the whole list sort by when something last happened, which is what somebody scanning it expects.
+- ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down
+  buttons (`ReorderControls`, `RowArrangement.Move`), which a keyboard can use as well - a handle you can
+  only drag is a handle only a mouse can use. Below the 680px breakpoint the whole control is hidden
+  rather than left there doing nothing when pressed: arranging by hand is a wide-screen affordance, and
+  an arrangement made there is still read on a phone. True dragging by finger (pointer events, with the
+  hit-testing and autoscroll that needs) was weighed against this and not taken - it cannot be covered by
+  any test this project can run, while the buttons are covered end to end.
+- ~~**A group has no "last message" time.**~~ Done: `ChatGroup` carries `LastMessageAtUtc`, stamped where
+  the message fan-out is written, so the one conversation list sorts people and groups against each other
+  by when something last happened. A group nobody has written in yet answers with the day it was made,
+  which keeps the order total without a second rule.
 - **An established contact can disappear.** `Contacts` gates being findable at all, so an account that
   has not unlocked it is a 404 even to somebody who already has a conversation with them - the chat
   exists, the profile behind it does not resolve. Either the gate should not apply to an account you are

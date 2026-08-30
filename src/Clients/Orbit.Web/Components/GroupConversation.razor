@@ -1,3 +1,4 @@
+@implements IDisposable
 @using System.Net
 @using System.Text.Json
 @using Orbit.Contracts.Chat
@@ -5,6 +6,7 @@
 @inject ChatApiClient ChatApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject EncryptedChatMessageReader EncryptedChatMessageReader
+@inject PageVisibility PageVisibility
 @inject NavigationManager NavigationManager
 @inject ILogger<GroupConversation> Logger
 @inject Translations T
@@ -176,6 +178,12 @@
     private Guid? _infoMessageId;
     private IReadOnlyList<GroupMessageReceiptDto> _infoReceipts = [];
 
+    /// <summary>How often the thread looks for what other people have written - the one-to-one thread's own interval.</summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+
+    private PeriodicTimer? _pollTimer;
+    private CancellationTokenSource? _pollCancellation;
+
     private bool IsOwnAdmin => Group.OwnRole == AdminRole;
 
     protected override async Task OnParametersSetAsync()
@@ -193,6 +201,71 @@
         CancelEditing();
         CancelForwarding();
         await LoadAsync();
+        StartPolling();
+    }
+
+    /// <summary>
+    /// Watches for what other people write, the same way the one-to-one thread does. Without it a group
+    /// was a dead screen: your own messages appeared because you had just sent them, and everybody
+    /// else's arrived only if you left the conversation and came back.
+    /// </summary>
+    private void StartPolling()
+    {
+        StopPolling();
+        _pollCancellation = new CancellationTokenSource();
+        _pollTimer = new PeriodicTimer(PollInterval);
+        _ = PollAsync(_pollCancellation.Token);
+    }
+
+    private void StopPolling()
+    {
+        _pollCancellation?.Cancel();
+        _pollCancellation?.Dispose();
+        _pollCancellation = null;
+        _pollTimer?.Dispose();
+        _pollTimer = null;
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _pollTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                // Nothing is read behind another tab, so nothing is asked for there - see PageVisibility.
+                if (!await PageVisibility.IsPageVisibleAsync())
+                {
+                    continue;
+                }
+
+                await ReadAnythingNewAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected: the group changed, or this component is going away.
+        }
+        catch (ObjectDisposedException)
+        {
+            // The timer was disposed between a tick starting and this loop checking again.
+        }
+    }
+
+    /// <summary>
+    /// One tick's work. Redraws only when the conversation actually changed - replacing the list on
+    /// every tick would re-render the whole thread once a second for nothing.
+    /// </summary>
+    private async Task ReadAnythingNewAsync()
+    {
+        var before = _messages.Count;
+        var newestBefore = _messages.Count > 0 ? _messages[^1].Id : (Guid?)null;
+
+        await LoadAsync();
+
+        if (_messages.Count != before || (_messages.Count > 0 ? _messages[^1].Id : null) != newestBefore)
+        {
+            StateHasChanged();
+        }
     }
 
     private async Task LoadAsync()
@@ -398,4 +471,6 @@
             _isBusy = false;
         }
     }
+
+    public void Dispose() => StopPolling();
 }

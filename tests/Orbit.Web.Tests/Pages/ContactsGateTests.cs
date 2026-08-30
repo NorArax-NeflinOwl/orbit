@@ -35,6 +35,68 @@ public sealed class ContactsGateTests : OrbitTestContext
         Assert.Equal(expectedLocked, cut.FindAll(".feature-locked").Count == 1);
     }
 
+
+    [Fact]
+    public void Somebody_with_a_message_waiting_is_marked_on_the_contact_list()
+    {
+        // The other place a reader looks for "who is waiting on me". A page that knows and does not say
+        // reads as nobody waiting.
+        RegisterPermissions([nameof(ApplicationPermission.Contacts), nameof(ApplicationPermission.Chat)]);
+        RegisterContacts(Contact("Anna", unread: 3));
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.Equal("3", cut.Find(".notif-badge").TextContent);
+        Assert.Contains("unread", cut.Find(".chat-list-item").ClassName);
+    }
+
+    [Fact]
+    public void Nobody_waiting_is_marked_with_nothing_at_all()
+    {
+        // An empty badge is a mark, and a mark means something.
+        RegisterPermissions([nameof(ApplicationPermission.Contacts), nameof(ApplicationPermission.Chat)]);
+        RegisterContacts(Contact("Anna", unread: 0));
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.Empty(cut.FindAll(".notif-badge"));
+        Assert.DoesNotContain("unread", cut.Find(".chat-list-item").ClassName);
+    }
+
+    [Fact]
+    public void A_long_wait_does_not_stretch_the_avatar()
+    {
+        RegisterPermissions([nameof(ApplicationPermission.Contacts), nameof(ApplicationPermission.Chat)]);
+        RegisterContacts(Contact("Anna", unread: 42));
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+
+        Assert.Equal("9+", cut.Find(".notif-badge").TextContent);
+    }
+
+    private static string Contact(string displayName, int unread)
+        => $$"""
+        [{"userId":"{{Guid.NewGuid()}}","userName":"anna","displayName":"{{displayName}}","email":"anna@example.com",
+          "publicKeyBase64":"key","lastMessageAtUtc":"2026-08-01T10:00:00+00:00",
+          "requiresApprovalFromCurrentUser":false,"isPendingApprovalFromOtherParty":false,
+          "unreadCount":{{unread}},"presenceStatus":"Offline"}]
+        """;
+
+    /// <summary>Contacts as given, and no groups - what these are about is one row's own mark.</summary>
+    private void RegisterContacts(string contactsJson)
+    {
+        var handler = new StubHttpMessageHandler(request =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    request.RequestUri!.AbsolutePath.Contains("/groups", StringComparison.Ordinal) ? "[]" : contactsJson,
+                    Encoding.UTF8,
+                    "application/json")
+            });
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        Services.AddSingleton(new ChatApiClient(httpClient));
+        Services.AddSingleton(new UsersApiClient(httpClient));
+    }
     private void RegisterPermissions(string[] granted)
     {
         var names = string.Join(",", granted.Select(name => $"\"{name}\""));

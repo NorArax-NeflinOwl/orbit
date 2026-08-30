@@ -20,14 +20,28 @@ public sealed class ChatGroup
     public Guid CreatedByUserId { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
+    /// <summary>
+    /// When something last happened here - a message posted, or the group being made if none has been.
+    /// Kept on the group and stamped as messages are sent, the same way a contact row carries the time
+    /// of the last message with that person (see IContactRepository): the conversation list sorts people
+    /// and groups against each other, and it can only do that if both answer the same question.
+    ///
+    /// Never null, so that list is totally ordered from the moment a group exists rather than needing a
+    /// second rule for the ones nobody has written in yet.
+    /// </summary>
+    public DateTimeOffset LastMessageAtUtc { get; private set; }
+
     public IReadOnlyList<ChatGroupMembership> Members => _members;
 
-    private ChatGroup(Guid id, string name, Guid createdByUserId, DateTimeOffset createdAtUtc, List<ChatGroupMembership> members)
+    private ChatGroup(
+        Guid id, string name, Guid createdByUserId, DateTimeOffset createdAtUtc, DateTimeOffset lastMessageAtUtc,
+        List<ChatGroupMembership> members)
     {
         Id = id;
         Name = name;
         CreatedByUserId = createdByUserId;
         CreatedAtUtc = createdAtUtc;
+        LastMessageAtUtc = lastMessageAtUtc;
         _members = members;
     }
 
@@ -43,14 +57,22 @@ public sealed class ChatGroup
         var now = DateTimeOffset.UtcNow;
         var id = Guid.NewGuid();
         return new ChatGroup(
-            id, trimmedName, createdByUserId, now,
+            id, trimmedName, createdByUserId, now, now,
             [new ChatGroupMembership(id, createdByUserId, ChatGroupRole.Admin, now)]);
     }
 
     /// <summary>Rebuilds a group from already-persisted values, bypassing every rule below.</summary>
     public static ChatGroup FromPersistence(
-        Guid id, string name, Guid createdByUserId, DateTimeOffset createdAtUtc, IReadOnlyList<ChatGroupMembership> members)
-        => new(id, name, createdByUserId, createdAtUtc, [.. members]);
+        Guid id, string name, Guid createdByUserId, DateTimeOffset createdAtUtc, DateTimeOffset lastMessageAtUtc,
+        IReadOnlyList<ChatGroupMembership> members)
+        => new(id, name, createdByUserId, createdAtUtc, lastMessageAtUtc, [.. members]);
+
+    /// <summary>
+    /// Says a message has just been posted here, which is what the conversation list sorts on - see
+    /// <see cref="LastMessageAtUtc"/>. Called where the fan-out is written, so the stamp and the
+    /// messages it stands for land in the same operation.
+    /// </summary>
+    public void MarkMessagePosted() => LastMessageAtUtc = DateTimeOffset.UtcNow;
 
     public ChatGroupMembership? FindMember(Guid userId) => _members.FirstOrDefault(member => member.UserId == userId);
 

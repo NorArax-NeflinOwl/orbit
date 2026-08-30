@@ -333,6 +333,65 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
 
     private static void SearchFor(IRenderedComponent<WarehouseEditor> cut, string name)
         => cut.Find(".inventory-filters-search input").Input(name);
+
+    [Fact]
+    public void A_row_can_be_moved_without_a_mouse()
+    {
+        // Dragging needs one, and a finger raises no drag events at all - so the same move is a button.
+        RegisterApiClients([Item("Flour"), Item("Sugar"), Item("Salt")]);
+        var cut = Render();
+
+        MoveRow(cut, row: 2, "Move up");
+
+        Assert.Equal(["Flour", "Salt", "Sugar"], ItemNamesIn(cut));
+    }
+
+    [Fact]
+    public void A_row_can_be_moved_down_as_well()
+    {
+        RegisterApiClients([Item("Flour"), Item("Sugar")]);
+        var cut = Render();
+
+        MoveRow(cut, row: 0, "Move down");
+
+        Assert.Equal(["Sugar", "Flour"], ItemNamesIn(cut));
+    }
+
+    [Fact]
+    public void The_move_that_would_fall_off_the_end_is_offered_but_greyed_out()
+    {
+        // Rather than absent: a button appearing and vanishing as a row travels is harder to follow.
+        RegisterApiClients([Item("Flour"), Item("Sugar")]);
+        var cut = Render();
+
+        Assert.True(ButtonOn(cut, row: 0, "Move up").HasAttribute("disabled"));
+        Assert.False(ButtonOn(cut, row: 0, "Move down").HasAttribute("disabled"));
+        Assert.True(ButtonOn(cut, row: 1, "Move down").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void A_moved_row_is_what_gets_saved()
+    {
+        RegisterApiClients([Item("Flour"), Item("Sugar")]);
+        var cut = Render();
+
+        MoveRow(cut, row: 0, "Move down");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        Assert.True(
+            _lastSavedJson.IndexOf("Sugar", StringComparison.Ordinal)
+                < _lastSavedJson.IndexOf("Flour", StringComparison.Ordinal),
+            "The saved order should be the arranged one.");
+    }
+
+    private static void MoveRow(IRenderedComponent<WarehouseEditor> cut, int row, string which)
+        => ButtonOn(cut, row, which).Click();
+
+    private static AngleSharp.Dom.IElement ButtonOn(IRenderedComponent<WarehouseEditor> cut, int row, string which)
+        // Skip-then-First rather than an indexer: bUnit's refreshable collection has no working one.
+        => cut.FindAll(".editor-item").Skip(row).First().QuerySelectorAll("button")
+            .First(button => button.GetAttribute("title") == which);
     private IRenderedComponent<WarehouseEditor> Render()
         => RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
 

@@ -133,15 +133,9 @@ else
                 <div class="editor-item-summary">
                 @* Only the handle is draggable: a row full of text boxes would otherwise start a drag
                    whenever somebody selected what they had typed. *@
-                <span class="drag-handle" draggable="true" title="@(T["Drag to reorder"])"
-                      aria-label="@(T["Drag to reorder"])"
-                      @ondragstart="() => _itemOrder.Start(item)" @ondragend="_itemOrder.Finish">
-                    <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">
-                        <circle cx="4" cy="4" r="1.3" /><circle cx="8" cy="4" r="1.3" />
-                        <circle cx="4" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" />
-                        <circle cx="4" cy="12" r="1.3" /><circle cx="8" cy="12" r="1.3" />
-                    </svg>
-                </span>
+                <ReorderControls OnDragStart="() => _itemOrder.Start(item)" OnDragEnd="_itemOrder.Finish"
+                                 OnMoveUp="() => MoveItem(item, -1)" OnMoveDown="() => MoveItem(item, 1)"
+                                 CanMoveUp="CanMoveItem(item, -1)" CanMoveDown="CanMoveItem(item, 1)" />
                     @if (string.IsNullOrEmpty(item.LinkedTaskListId))
                     {
                         <InputCheckbox @bind-Value="item.IsCompleted" title="@(T["Completed"])" />
@@ -223,11 +217,11 @@ else
                                 }
                             </select>
                         </label>
-                        @if (item.Id is { } persistedItemId && _linkableTaskLists.Count > 0)
+                        @if (item.Id is { } persistedItemId && _moveTargetTaskLists.Count > 0)
                         {
                             <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
                                     <option value="">@T["Move to…"]</option>
-                                    @foreach (var targetTaskList in _linkableTaskLists)
+                                    @foreach (var targetTaskList in _moveTargetTaskLists)
                                     {
                                         <option value="@targetTaskList.Id">@Written(targetTaskList.Title)</option>
                                     }
@@ -413,15 +407,19 @@ else
     private Guid? _moveErrorMessageForItemId;
     private TaskListFormModel _formModel = new();
 
-    /// <summary>The row being dragged to a new place, while one is - see DragReordering.</summary>
-    private readonly DragReordering<TaskItemFormModel> _itemOrder = new();
+    /// <summary>The row being dragged to a new place, while one is - see RowArrangement.</summary>
+    private readonly RowArrangement<TaskItemFormModel> _itemOrder = new();
 
     /// <summary>
     /// Which item currently has its extra settings open, if any. One at a time on purpose: the point of
     /// folding them away is that the list stays readable, which a page full of open items would undo.
     /// </summary>
     private TaskItemFormModel? _expandedItem;
+    /// <summary>The lists an item may link to - see TaskListLinkCycle for what is left out and why.</summary>
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
+
+    /// <summary>The lists a row may be moved to, which is any but this one.</summary>
+    private IReadOnlyList<TaskDto> _moveTargetTaskLists = [];
     private bool _isShared;
     private bool _isSharedReadOnly;
     private bool _canShare;
@@ -486,8 +484,18 @@ else
             {
                 Logger.LogWarning(exception, "Failed to load the events a task entry could be tied to");
             }
+            // Somewhere to move a row to is any list but this one - moving is not linking, and carries
+            // none of linking's rules.
+            _moveTargetTaskLists = Id is { } movingFromId
+                ? [.. allTaskLists.Where(taskList => taskList.Id != movingFromId)]
+                : allTaskLists;
+
+            // Linking is narrower: a list that links back here, however long the chain, would close a
+            // loop and the save would refuse it - see TaskListLinkCycle. Left out of the dropdown rather
+            // than offered and then rejected, which is how every other rule the server enforces is
+            // handled on this side.
             _linkableTaskLists = Id is { } currentTaskListId
-                ? allTaskLists.Where(taskList => taskList.Id != currentTaskListId).ToList()
+                ? [.. allTaskLists.Where(taskList => !TaskListLinkCycle.WouldClose(allTaskLists, currentTaskListId, taskList.Id))]
                 : allTaskLists;
 
             if (Id is { } taskListId)
@@ -654,6 +662,16 @@ else
     /// so arranging it here is what the checklist reads back - see TaskRepository, which numbers the
     /// items by their place in this collection.
     /// </summary>
+
+    /// <summary>
+    /// The same move a drag makes, one row at a time - what a keyboard can ask for, and a finger, which
+    /// raises no drag events at all. The list itself is what gets saved, so nothing else has to happen.
+    /// </summary>
+    private void MoveItem(TaskItemFormModel item, int offset)
+        => RowArrangement<TaskItemFormModel>.Move(_formModel.Items, item, offset);
+
+    private bool CanMoveItem(TaskItemFormModel item, int offset)
+        => RowArrangement<TaskItemFormModel>.CanMove(_formModel.Items, item, offset);
     private void DropItemOn(TaskItemFormModel target)
     {
         _itemOrder.DropOn(_formModel.Items, target);

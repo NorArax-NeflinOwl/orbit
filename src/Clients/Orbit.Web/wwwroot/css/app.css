@@ -4105,3 +4105,46 @@ input.note-editor-title {
     margin-left: auto;
     color: var(--text-primary);
 }
+
+/* Arranging a list by hand - see ReorderControls. The handle and the two buttons travel together, so
+   the row's own layout sees one thing where it used to see one handle. */
+.row-reorder {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.row-reorder-buttons {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.row-reorder-button {
+    padding: 1px 3px;
+    line-height: 0;
+    color: var(--text-tertiary);
+}
+
+.row-reorder-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+/* Below the breakpoint every other surface uses, arranging by hand is not offered at all. Dragging is
+   the only thing the handle can do and browsers raise no drag events for a finger, so it sat there
+   doing nothing when pressed - a control that cannot work is worse than no control, because nothing
+   on screen says which of the two it is. An arrangement made elsewhere is still read here. */
+@media (max-width: 680px) {
+    .row-reorder {
+        display: none;
+    }
+}
+
+/* A dashboard row for somebody with a message waiting - the same weight the chat list gives such a
+   row, so "waiting on me" looks the same wherever it is read. */
+.list-row-button.unread .row-title {
+    font-weight: 700;
+    color: var(--text-primary);
+}

@@ -179,10 +179,14 @@ else
         {
             <div class="card @(DashboardPins.IsPinned("chats") ? "card-pinned" : "")">
                 <div class="card-header"><span class="card-title">@T["Recent chats"]</span><span class="card-header-end"><PinButton IsPinned='DashboardPins.IsPinned("chats")' OnPinnedChanged='pinned => SetCardPinnedAsync("chats", pinned)' /></span></div>
+                @* Who is waiting on you, said here as well as on the chat page - this card is the first
+                   thing a visit looks at, and one that knows a message is waiting and does not say so
+                   reads as nobody waiting. *@
                 @foreach (var contact in _recentContacts.Take(6))
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
+                    <button type="button" class="list-row list-row-button @(contact.UnreadCount > 0 ? "unread" : "")"
+                            @onclick="() => GoToChat(contact.UserId)">
+                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<UnreadBadge Count="contact.UnreadCount" /><PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
                         <span class="row-title">@contact.DisplayName</span>
                         <span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span>
                     </button>
