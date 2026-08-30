@@ -80,6 +80,37 @@ public sealed class EncryptedChatMessageSender
         return await _chatApiClient.EditGroupMessageAsync(groupId, groupMessageId, copies, cancellationToken);
     }
 
+    /// <summary>
+    /// Seals a run of already-decrypted group messages for one recipient - what sharing a group's past
+    /// with somebody who joined later comes down to. The mirror image of
+    /// <see cref="SealForEachMemberAsync"/>: many messages for one person rather than one message for
+    /// many, and the same reason it has to happen here rather than on the server.
+    /// </summary>
+    public async Task<IReadOnlyList<SharedHistoryCopyDto>> SealHistoryForAsync(
+        Guid ownUserId, Guid recipientUserId, IReadOnlyList<HistoryMessageToShare> messages,
+        CancellationToken cancellationToken = default)
+    {
+        var recipient = await _usersApiClient.GetUserAsync(recipientUserId, cancellationToken);
+        if (recipient?.PublicKeyBase64 is null)
+        {
+            throw new InvalidOperationException(
+                $"User {recipientUserId} has no public key on file yet - they must log in at least once before a group's history can be shared with them.");
+        }
+
+        await _ownEncryptionKeyProvider.EnsurePublicKeyAsync();
+        await using var cryptoModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
+
+        var copies = new List<SharedHistoryCopyDto>(messages.Count);
+        foreach (var message in messages)
+        {
+            var payload = await cryptoModule.InvokeAsync<EncryptedPayload>(
+                "encryptMessage", cancellationToken, ownUserId, recipient.PublicKeyBase64, message.PlainText);
+            copies.Add(new SharedHistoryCopyDto(message.GroupMessageId, payload.CiphertextBase64, payload.NonceBase64));
+        }
+
+        return copies;
+    }
+
     private async Task<IReadOnlyList<GroupMessageCopyDto>> SealForEachMemberAsync(
         Guid ownUserId, IReadOnlyList<Guid> otherMemberUserIds, string plainTextContent, CancellationToken cancellationToken)
     {
@@ -107,3 +138,6 @@ public sealed class EncryptedChatMessageSender
     /// <summary>Shape returned by e2eeChat.js's encryptMessage - matched by camelCase property name.</summary>
     private sealed record EncryptedPayload(string CiphertextBase64, string NonceBase64);
 }
+
+/// <summary>One past group message, opened on the sharer's device and ready to be sealed again for somebody else.</summary>
+public sealed record HistoryMessageToShare(Guid GroupMessageId, string PlainText);

@@ -21,120 +21,130 @@
 }
 
 <div class="chat-messages" @onclick="CloseMessageMenu">
-    @if (_messages.Count == 0)
+    @if (_messages.Count == 0 && _announcements.Count == 0)
     {
-        <p class="empty-hint">@T["Nothing here yet. Anything sent before you joined stays unreadable - no copy of it was ever encrypted for you."]</p>
+        <p class="empty-hint">@T["Nothing here yet. Anything sent before you joined is only readable if somebody passed it on to you."]</p>
     }
-    @foreach (var message in _messages)
+    @foreach (var line in Lines)
     {
-        var isOwn = message.SenderUserId == OwnUserId;
-
-        <div class="chat-bubble-row @(isOwn ? "own" : "theirs")">
-            @if (_editingMessageId == message.Id)
-            {
-                <div class="chat-bubble-edit" @onclick:stopPropagation="true">
-                    <input class="chat-input" @bind="_editDraft" @bind:event="oninput" aria-label="@(T["Edit"])" />
-                    <div class="chat-bubble-edit-actions">
-                        <button type="button" class="btn-secondary" @onclick="CancelEditing">@T["Cancel"]</button>
-                        <button type="button" class="btn-primary" disabled="@(_isBusy || _editDraft.Trim().Length == 0)"
-                                @onclick="() => SaveEditAsync(message)">@T["Save"]</button>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="chat-bubble-wrap">
-                    <p class="chat-bubble">
-                        @* Who wrote it, on everyone else's messages - the one thing a group thread needs
-                           that a two-person one does not. *@
-                        @if (!isOwn)
-                        {
-                            <span class="chat-bubble-sender">@DisplayNameFor(message.SenderUserId)</span>
-                        }
-                        @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
-                    </p>
-                    <div class="chat-bubble-menu">
-                        <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
-                                disabled="@_isBusy" @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
-                        </button>
-                        @* Editing is the sender's alone; deleting an admin can also do, but putting
-                           different words in somebody's mouth is not something moderation should reach. *@
-                        @if (_openMessageMenuId == message.Id)
-                        {
-                            <div class="chat-bubble-menu-dropdown" @onclick:stopPropagation="true">
-                                @if (CanEdit(message))
-                                {
-                                    <button type="button" class="avatar-dropdown-item" @onclick="() => StartEditing(message)">@T["Edit"]</button>
-                                }
-                                @if (message.GroupMessageId is not null)
-                                {
-                                    <button type="button" class="avatar-dropdown-item" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
-                                }
-                                <button type="button" class="avatar-dropdown-item" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
-                                @if (CanDelete(message))
-                                {
-                                    <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
-                                }
-                            </div>
-                        }
-                        @if (_forwardingMessageId == message.Id)
-                        {
-                            <div class="chat-bubble-menu-dropdown chat-forward-picker" @onclick:stopPropagation="true">
-                                <div class="chat-forward-picker-title">@T["Forward to…"]</div>
-                                @* Into a one-to-one conversation only: everybody in this group already has it. *@
-                                @foreach (var contact in Contacts)
-                                {
-                                    <button type="button" class="avatar-dropdown-item" disabled="@_isBusy"
-                                            @onclick="() => ForwardAsync(message, contact)">@contact.DisplayName</button>
-                                }
-                                @if (Contacts.Count == 0)
-                                {
-                                    <span class="chat-forward-picker-empty">@T["No other chats yet."]</span>
-                                }
-                                <button type="button" class="avatar-dropdown-item" @onclick="CancelForwarding">@T["Cancel"]</button>
-                            </div>
-                        }
-                    </div>
-                </div>
-                <span class="chat-bubble-meta">
-                    @message.SentAtUtc.ToLocalTime().ToString("HH:mm")
-                    @if (message.IsEdited)
-                    {
-                        <text>@T["· Edited"]</text>
-                    }
-                    @* Read only once every other member has read it - one member still behind and the
-                       sender should not be told the message landed. *@
-                    @if (isOwn && message.ReadByEveryone is { } readByEveryone)
-                    {
-                        @(readByEveryone ? T[" · Read"] : T[" · Sent"])
-                    }
-                </span>
-            }
-        </div>
-
-        @if (_infoMessageId == message.Id)
+        @* Something that happened to the group rather than something somebody wrote, drawn where it
+           happened rather than pinned anywhere - see ChatGroupAnnouncement. *@
+        if (line.Announcement is { } announcement)
         {
-            <div class="card group-message-info">
-                <div class="card-header">
-                    <span class="card-title">@T["Who has read this"]</span>
-                    <button type="button" class="btn-secondary" @onclick="CloseInfo">@T["Close"]</button>
-                </div>
-                @* Every member the message actually reached. Somebody who joined afterwards is absent
-                   rather than shown as not having read it: nothing was addressed to them, which is the
-                   same reason they cannot open it. *@
-                @foreach (var receipt in _infoReceipts)
+            <p class="chat-announcement">@AnnouncementText(announcement)</p>
+        }
+        else if (line.Message is { } message)
+        {
+            var isOwn = message.SenderUserId == OwnUserId;
+
+            <div class="chat-bubble-row @(isOwn ? "own" : "theirs")">
+                @if (_editingMessageId == message.Id)
                 {
-                    <div class="list-row">
-                        <span class="row-title">@DisplayNameFor(receipt.RecipientUserId)</span>
-                        <span class="row-meta">
-                            @(receipt.ReadAtUtc is { } readAt
-                                ? T.Format("Read {0}", readAt.LocalDateTime.ToString("dd.MM HH:mm"))
-                                : T["Delivered"])
-                        </span>
+                    <div class="chat-bubble-edit" @onclick:stopPropagation="true">
+                        <input class="chat-input" @bind="_editDraft" @bind:event="oninput" aria-label="@(T["Edit"])" />
+                        <div class="chat-bubble-edit-actions">
+                            <button type="button" class="btn-secondary" @onclick="CancelEditing">@T["Cancel"]</button>
+                            <button type="button" class="btn-primary" disabled="@(_isBusy || _editDraft.Trim().Length == 0)"
+                                    @onclick="() => SaveEditAsync(message)">@T["Save"]</button>
+                        </div>
                     </div>
                 }
+                else
+                {
+                    <div class="chat-bubble-wrap">
+                        <p class="chat-bubble">
+                            @* Who wrote it, on everyone else's messages - the one thing a group thread needs
+                               that a two-person one does not. *@
+                            @if (!isOwn)
+                            {
+                                <span class="chat-bubble-sender">@DisplayNameFor(message.SenderUserId)</span>
+                            }
+                            @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
+                        </p>
+                        <div class="chat-bubble-menu">
+                            <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
+                                    disabled="@_isBusy" @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
+                            </button>
+                            @* Editing is the sender's alone; deleting an admin can also do, but putting
+                               different words in somebody's mouth is not something moderation should reach. *@
+                            @if (_openMessageMenuId == message.Id)
+                            {
+                                <div class="chat-bubble-menu-dropdown" @onclick:stopPropagation="true">
+                                    @if (CanEdit(message))
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartEditing(message)">@T["Edit"]</button>
+                                    }
+                                    @if (message.GroupMessageId is not null)
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
+                                    }
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
+                                    @if (CanDelete(message))
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
+                                    }
+                                </div>
+                            }
+                            @if (_forwardingMessageId == message.Id)
+                            {
+                                <div class="chat-bubble-menu-dropdown chat-forward-picker" @onclick:stopPropagation="true">
+                                    <div class="chat-forward-picker-title">@T["Forward to…"]</div>
+                                    @* Into a one-to-one conversation only: everybody in this group already has it. *@
+                                    @foreach (var contact in Contacts)
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" disabled="@_isBusy"
+                                                @onclick="() => ForwardAsync(message, contact)">@contact.DisplayName</button>
+                                    }
+                                    @if (Contacts.Count == 0)
+                                    {
+                                        <span class="chat-forward-picker-empty">@T["No other chats yet."]</span>
+                                    }
+                                    <button type="button" class="avatar-dropdown-item" @onclick="CancelForwarding">@T["Cancel"]</button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <span class="chat-bubble-meta">
+                        @message.SentAtUtc.ToLocalTime().ToString("HH:mm")
+                        @if (message.IsEdited)
+                        {
+                            <text>@T["· Edited"]</text>
+                        }
+                        @* Read only once every other member has read it - one member still behind and the
+                           sender should not be told the message landed. *@
+                        @if (isOwn && message.ReadByEveryone is { } readByEveryone)
+                        {
+                            @(readByEveryone ? T[" · Read"] : T[" · Sent"])
+                        }
+                    </span>
+                }
             </div>
+
+            @if (_infoMessageId == message.Id)
+            {
+                <div class="card group-message-info">
+                    <div class="card-header">
+                        <span class="card-title">@T["Who has read this"]</span>
+                        <button type="button" class="btn-secondary" @onclick="CloseInfo">@T["Close"]</button>
+                    </div>
+                    @* Every member the message actually reached. Somebody who joined afterwards is absent
+                       rather than shown as not having read it - nothing was addressed to them at the time.
+                       That stays true even once they have been given the history: the copy made for them
+                       then was not one of this message's deliveries. *@
+                    @foreach (var receipt in _infoReceipts)
+                    {
+                        <div class="list-row">
+                            <span class="row-title">@DisplayNameFor(receipt.RecipientUserId)</span>
+                            <span class="row-meta">
+                                @(receipt.ReadAtUtc is { } readAt
+                                    ? T.Format("Read {0}", readAt.LocalDateTime.ToString("dd.MM HH:mm"))
+                                    : T["Delivered"])
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
         }
     }
 </div>
@@ -158,6 +168,9 @@
     private const string AdminRole = "Admin";
 
     private IReadOnlyList<ChatMessageDto> _messages = [];
+
+    /// <summary>The "somebody joined" lines, read separately from the messages - see ChatApiClient.GetGroupAnnouncementsAsync.</summary>
+    private IReadOnlyList<ChatGroupAnnouncementDto> _announcements = [];
 
     /// <summary>Decrypted message bodies, keyed by message id - the ciphertext itself is never rendered.</summary>
     private readonly Dictionary<Guid, string> _plainTextByMessageId = [];
@@ -186,6 +199,46 @@
 
     private bool IsOwnAdmin => Group.OwnRole == AdminRole;
 
+    /// <summary>
+    /// The thread as it is drawn: what people wrote and what happened to the group, in one time order.
+    /// Merged here rather than server-side so the messages endpoint keeps answering exactly what every
+    /// already-installed client expects of it.
+    /// </summary>
+    private IEnumerable<ConversationLine> Lines
+        => _messages.Select(ConversationLine.For)
+            .Concat(_announcements.Select(ConversationLine.For))
+            .OrderBy(line => line.AtUtc);
+
+    /// <summary>
+    /// One line of the thread: either something somebody wrote, or something that happened to the group.
+    /// Two nullable halves rather than a shared base type, because there is nothing the two kinds have in
+    /// common beyond when they happened, which is the only thing the ordering asks of them.
+    /// </summary>
+    private sealed record ConversationLine(DateTimeOffset AtUtc, ChatMessageDto? Message, ChatGroupAnnouncementDto? Announcement)
+    {
+        public static ConversationLine For(ChatMessageDto message) => new(message.SentAtUtc, message, null);
+
+        public static ConversationLine For(ChatGroupAnnouncementDto announcement)
+            => new(announcement.AnnouncedAtUtc, null, announcement);
+    }
+
+    /// <summary>
+    /// What a join reads as. The history half is only said when history actually arrived: an admin who
+    /// asked for it and whose browser could not open anything has shared nothing, and saying otherwise
+    /// would promise the group messages nobody can read.
+    /// </summary>
+    private string AnnouncementText(ChatGroupAnnouncementDto announcement)
+    {
+        var joined = T.Format("{0} joined {1}", DisplayNameFor(announcement.JoinedUserId), Group.Name);
+        if (!announcement.HistoryShared)
+        {
+            return joined;
+        }
+
+        var shared = T.Format("{0} shared the conversation so far", DisplayNameFor(announcement.AddedByUserId));
+        return joined + " · " + shared;
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (Group.Id == _loadedGroupId)
@@ -196,6 +249,7 @@
         _loadedGroupId = Group.Id;
         _plainTextByMessageId.Clear();
         _messages = [];
+        _announcements = [];
         _draft = string.Empty;
         CloseInfo();
         CancelEditing();
@@ -258,21 +312,32 @@
     private async Task ReadAnythingNewAsync()
     {
         var before = _messages.Count;
+        var announcementsBefore = AnnouncementSummary();
         var newestBefore = _messages.Count > 0 ? _messages[^1].Id : (Guid?)null;
 
         await LoadAsync();
 
-        if (_messages.Count != before || (_messages.Count > 0 ? _messages[^1].Id : null) != newestBefore)
+        if (_messages.Count != before || AnnouncementSummary() != announcementsBefore
+            || (_messages.Count > 0 ? _messages[^1].Id : null) != newestBefore)
         {
             StateHasChanged();
         }
     }
+
+    /// <summary>
+    /// What the announcement lines currently say, cheaply enough to compare on every tick. How many
+    /// there are is not enough on its own: being handed the history changes an existing line rather than
+    /// adding one, and for everybody except the newcomer that is the only thing that changes.
+    /// </summary>
+    private (int Count, int WithHistory) AnnouncementSummary()
+        => (_announcements.Count, _announcements.Count(announcement => announcement.HistoryShared));
 
     private async Task LoadAsync()
     {
         try
         {
             _messages = await ChatApiClient.GetGroupConversationAsync(Group.Id);
+            _announcements = await ChatApiClient.GetGroupAnnouncementsAsync(Group.Id);
             await DecryptMessagesAsync();
             // Having the group open is what counts as reading it - the same coarse stand-in the
             // one-to-one conversation uses, and what the senders' ticks are drawn from.

@@ -204,7 +204,7 @@ public sealed class GroupMessagingTests
         await groupRepository.AddAsync(group, CancellationToken.None);
 
         var added = await new AddChatGroupMemberCommandHandler(
-                groupRepository, contactRepository, userRepository,
+                groupRepository, new InMemoryChatGroupAnnouncementRepository(), contactRepository, userRepository,
                 new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository),
                 new PushNotificationDispatcher(
                     new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
@@ -405,6 +405,7 @@ public sealed class GroupMessagingTests
     {
         public InMemoryChatMessageRepository MessageRepository { get; } = new();
         public InMemoryChatGroupRepository GroupRepository { get; } = new();
+        public InMemoryChatGroupAnnouncementRepository AnnouncementRepository { get; } = new();
         public InMemoryUserRepository UserRepository { get; } = new();
         public InMemoryContactRepository ContactRepository { get; } = new();
         public InMemoryNotificationEntryRepository NotificationEntryRepository { get; } = new();
@@ -441,7 +442,7 @@ public sealed class GroupMessagingTests
 
         public Task<bool> AddMemberAsync(Guid actorId, Guid userId)
             => new AddChatGroupMemberCommandHandler(
-                    GroupRepository, ContactRepository, UserRepository,
+                    GroupRepository, AnnouncementRepository, ContactRepository, UserRepository,
                     new NotificationRecorder(new InMemoryNotificationSettingsRepository(), NotificationEntryRepository),
                     new PushNotificationDispatcher(
                         new InMemoryPushSubscriptionRepository(), [PushSender], NullLogger<PushNotificationDispatcher>.Instance))

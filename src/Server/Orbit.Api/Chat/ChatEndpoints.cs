@@ -7,8 +7,10 @@ using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.EditMessage;
 using Orbit.Core.Chat.Groups.SendGroupMessage;
+using Orbit.Core.Chat.Groups.ShareGroupHistory;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.Groups.EditGroupMessage;
+using Orbit.Core.Chat.Groups.GetGroupAnnouncements;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
 using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
 using Orbit.Core.Chat.Groups.GetGroupMessageReceipts;
@@ -210,6 +212,34 @@ public static class ChatEndpoints
             return sent ? Results.NoContent() : Results.NotFound();
         });
 
+        // The conversation's own "somebody joined" lines. A route of their own rather than folded into
+        // the messages: they are a different shape, and every client already installed reads that
+        // response as a plain list of messages.
+        groups.MapGet("/{groupId:guid}/announcements", async (
+            Guid groupId, DateTimeOffset? sinceUtc, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var announcements = await dispatcher.SendAsync(
+                new GetGroupAnnouncementsQuery(GetUserId(user), groupId, sinceUtc), cancellationToken);
+            return Results.Ok(announcements.Select(ToDto));
+        });
+
+        // The past, re-encrypted for somebody who joined after it happened - the server holds no key to
+        // any of it, so the copies arrive already sealed by whoever is sharing. Answers with how many
+        // were actually stored: a message the sharer cannot read is not theirs to pass on, and one the
+        // recipient already has is not stored twice.
+        groups.MapPost("/{groupId:guid}/history", async (
+            Guid groupId, ShareGroupHistoryRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var copies = request.Copies
+                .Select(copy => new SharedHistoryCopy(copy.GroupMessageId, copy.CiphertextBase64, copy.NonceBase64))
+                .ToList();
+            var shared = await dispatcher.SendAsync(
+                new ShareGroupHistoryCommand(GetUserId(user), groupId, request.RecipientUserId, copies), cancellationToken);
+            return Results.Ok(shared);
+        });
+
         groups.MapPut("/{groupId:guid}/messages/{groupMessageId:guid}", async (
             Guid groupId, Guid groupMessageId, SendGroupMessageRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
@@ -250,6 +280,11 @@ public static class ChatEndpoints
     /// valid: the group requires authorization, and Orbit.Api only ever issues tokens with this claim
     /// (see TokenService).
     /// </summary>
+
+    private static ChatGroupAnnouncementDto ToDto(ChatGroupAnnouncement announcement)
+        => new(
+            announcement.Id, announcement.JoinedUserId, announcement.AddedByUserId, announcement.HistoryShared,
+            announcement.AnnouncedAtUtc);
 
     private static ChatGroupDto ToDto(ChatGroup group, Guid callerUserId)
         => new(

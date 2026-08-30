@@ -70,6 +70,11 @@ public interface IChatMessageRepository
     /// Who each of these group messages reached and which of them have read it, keyed by GroupMessageId.
     /// Asked for a whole page of messages at once, because the conversation needs it for every message
     /// it draws.
+    ///
+    /// Copies re-encrypted after the fact for a later joiner (ChatMessage.IsSharedHistory) are left out
+    /// by every implementation: a receipt says whether a message reached the people it was posted to,
+    /// and a copy made afterwards was not one of those deliveries. Counting them would take a sender's
+    /// ticks away for a delivery that had already happened.
     /// </summary>
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>>> GetGroupReceiptsAsync(
         IReadOnlyCollection<Guid> groupMessageIds, CancellationToken cancellationToken);
