@@ -1167,7 +1167,9 @@ else
 
     /// <summary>
     /// Treats "this chat window is open and actively polling" as "read" - a coarse stand-in for the
-    /// other party's messages actually being seen (it fires even with the browser tab backgrounded).
+    /// other party's messages actually being seen. Skipping polls behind other tabs made it less coarse
+    /// than it was, but a thread open in a visible window nobody is sitting at still reports everything
+    /// as read.
     /// TODO: replace with real on-screen visibility tracking (tab focus / scroll position) once the
     /// chat has a way to push that signal to the server instead of relying on this poll loop.
     /// </summary>

@@ -76,6 +76,15 @@ Separately, a value referring to a placeholder its English does not supply throw
 written, and every entry is formatted once to prove it cannot. Fewer placeholders than the English is
 allowed and deliberate: Polish plurals do not map onto an English "list"/"lists".
 
+### `tests/Orbit.Mobile.Tests`
+
+Covers the mobile client's platform-independent half (`src/Clients/Orbit.Mobile`): the API clients and
+the authorization handler, the local SQLite store, the sync spine (delta pull, the outbox, conflict
+policy), the crypto against the same vectors the web client is held to, the version gate, and the view
+models behind each screen. What it cannot cover is `Orbit.Maui` itself — a MAUI head cannot be
+referenced by an ordinary test project, which is why behaviour lives on this side of the split (see
+[Architecture — Orbit.Mobile and Orbit.Maui](architecture.md#orbitmobile-and-orbitmaui)).
+
 ### What the deploy pipeline checks
 
 `.github/workflows/main_orbit.yml` gates every push to `main`, in this order, so a failure costs as
@@ -106,18 +115,17 @@ See [Future Plan — Testing gaps](future-plan.md#testing-gaps) for the reasonin
 and what closing them would take:
 
 - The `/api/auth/*` rate limiter and the exact 429 behavior.
-- The client-side retry-after-refresh path end-to-end through a real `HttpClientHandler` pipeline.
 - Actually sending an email through `SmtpEmailSender` or a push notification through
   `VapidPushNotificationSender`.
 - The `Chat` page saying why a conversation cannot be opened (an account the API will not resolve),
   which is checked by hand in a browser: the message on screen and the `Warning` it writes to this
   browser's own log. Rendering that page under bUnit means standing up seventeen injected services and
   the browser crypto behind them, which is the same reason the rest of this bullet exists.
-- The `Contacts`/`Chat` pages, `PushNotificationManager`, and
+- The chat thread, `PushNotificationManager`, and
   `wwwroot/js/e2eeChat.js`/`wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — the
-  encryption/decryption round trip, key generation and persistence in IndexedDB, the polling UI,
-  browser notification permission handling, and the push subscription/service worker lifecycle have no
-  automated coverage at all.
+  encryption/decryption round trip, key generation and persistence in IndexedDB, browser notification
+  permission handling, and the push subscription/service worker lifecycle have no automated coverage.
+  `Contacts` itself is covered: see `ContactsGateTests` and `ContactInfoTests`.
 
 ## Running locally
 

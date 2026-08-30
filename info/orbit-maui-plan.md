@@ -5,7 +5,8 @@ feature the Blazor web client (`src/Clients/Orbit.Web`) has today, **plus offlin
 mechanisms the web client has no need for (§7, §8). **iPhone 15 Pro is the target device**; Android is
 the second platform.
 
-This document is the plan, not the work: nothing has been built yet.
+This document is the plan **and** the running record of the work: §10 marks each phase as it lands, and
+§13 says what exists today. It is not a description of something unbuilt.
 
 It is written against the state of the project at the time of writing — 107 API endpoints across
 twelve route groups, all of which the mobile client is expected to consume. See
@@ -581,8 +582,8 @@ DeviceModel, Level, Timestamp, Message, Exception }`. Two constraints that are e
 **Retention** should be finite, stated, and enforced by something other than the next upload. Thirty
 days is the default (`DiagnosticLogs:RetentionDays`), swept hourly and again on upload. Sweeping only
 on upload - which is what shipped first - reads as retention but is not: entries age whether or not
-anybody sends a new report, so an account that stopped reporting kept its logs indefinitely. The
-Thirty days is settled (§12).
+anybody sends a new report, so an account that stopped reporting kept its logs indefinitely. Thirty
+days is settled (§12).
 
 ## 9. What iPhone 15 Pro actually buys
 

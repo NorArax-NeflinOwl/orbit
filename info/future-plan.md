@@ -5,6 +5,12 @@ rest of the documentation already flags as "not implemented yet," a deliberate f
 cut, or an identified follow-up. It is not a committed roadmap with dates — it is the current honest
 picture of what's left.
 
+**Last checked against the code on 2026-08-30.** A plan is only worth reading if it describes the
+present, and this one had drifted: it named browser-driven test infrastructure as missing while CI had
+been running Playwright, and listed two gaps that tests had since closed. Anything below that says
+"not started" or "no coverage" was checked against the repository on that date rather than carried
+forward on trust.
+
 ## Planned features
 
 - **.NET MAUI client (mobile and desktop).** The long-term target architecture is a shared ASP.NET
@@ -105,27 +111,51 @@ version, so they aren't mistaken for oversights:
   SignalR or WebSockets. The polling itself has since been made to cost what it should: a group
   conversation polls at all, nothing is polled while the tab is behind others, and the conversation list
   is read every tenth tick rather than every one. Replacing it with a push transport is still open.
+- **"Read" means "the chat was open", not "somebody looked at it".** A message is marked read by the
+  thread that is polling for it (`Chat.razor`), which is a stand-in for the other party actually seeing
+  it. Narrowing the poll so it stops while the tab is behind others made the stand-in closer to the
+  truth than it was, but not equal to it: a thread open in a visible window nobody is sitting at still
+  reports everything as read. A real signal - tab focus and scroll position, pushed to the server rather
+  than inferred from a poll - is still open, and is worth having before read receipts are shown to the
+  *sender* as a promise rather than kept as an unread count for the reader.
 - ~~**Task list cycle validation is server-side only.**~~ Done: the editor's "link to list" dropdown now
   leaves out every list that links back to the one being edited, however long the chain
   (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays
   the authority — this only stops the editor asking for something it already knows the answer to.
+- **Half of Orbit.Web is still on the pre-redesign markup.** Sixteen of the twenty-three pages have been
+  moved onto the shared design system; seven have not, and each still carries a `TODO(Orbit.Web.UI)`
+  marker naming itself: **Calendar**, **CalendarEventEditor**, **Login**, **NoteEditor**, **Notes**,
+  **Register** and **TaskEditor**. This is a visible inconsistency rather than a hidden one - it is the
+  difference somebody sees moving from the task list to the task editor - and the two sign-in pages are
+  the first thing a new account ever sees. The markers are the backlog; nothing else in `info/` records
+  this, which is why it is written down here.
 
 ## Testing gaps
 
 Documented in [Testing and Running Locally](testing-and-running-locally.md#what-is-not-covered-by-an-automated-test-today)
 as not covered by an automated test today, together with why:
 
-- The `/api/auth/*` rate limiter's exact 429 behavior, and the client's retry-after-refresh path
-  end-to-end through a real `HttpClientHandler` pipeline — both would need HTTP-integration test
+- The `/api/auth/*` rate limiter's exact 429 behavior, which would need HTTP-integration test
   infrastructure (e.g. `WebApplicationFactory` on the API side) that this project doesn't have yet.
+  The client half of this entry is closed: `SignInThroughTheRealPipelineTests` drives sign-in through
+  the same `AuthorizationMessageHandler` the app composes, which is what a unit test that built the API
+  client bare had missed — it let a wrong password be reported as an expired session.
 - Actually sending an email through `SmtpEmailSender` or a push notification through
   `VapidPushNotificationSender` — both need a real or fake server to connect to.
-- The `Contacts`/`Chat` pages, `PushNotificationManager`, and the browser-side JavaScript
-  (`e2eeChat.js`, `pushNotifications.js`, `service-worker.js`) — the encryption/decryption round
-  trip, IndexedDB key persistence, the polling UI, browser notification permission handling, and the
-  push subscription/service worker lifecycle have no automated coverage at all. bUnit doesn't
-  execute real browser crypto/IndexedDB/Push/Notification APIs, and this project has no
-  browser-driven test infrastructure (e.g. Playwright) yet.
+- The chat **thread**, `PushNotificationManager`, and the browser-side JavaScript (`e2eeChat.js`,
+  `pushNotifications.js`, `service-worker.js`) — the encryption/decryption round trip, IndexedDB key
+  persistence, browser notification permission handling, and the push subscription/service worker
+  lifecycle have no automated coverage. bUnit doesn't execute real browser crypto, IndexedDB, Push or
+  Notification APIs.
+
+  What has changed is that the missing piece is no longer the tooling. CI already runs Playwright:
+  `ci/verify-app-boots.mjs` drives headless Chromium to prove the WebAssembly app boots without a
+  console error, and `main_orbit.yml` installs the browser for it. Nothing yet points that harness at
+  these paths, which is a smaller and far better-defined job than standing one up from nothing.
+
+  The `Contacts` half of this entry is closed: `ContactsGateTests` covers the permission gate and
+  `ContactInfoTests` the contact card, including the case Orbit's own findability policy turns on -
+  an account that has gone unfindable is answered exactly as a stranger's id is.
 - **What Google actually does with an "Add to Google Calendar" link.** The URL is built and pinned by
   `GoogleLinkTests` - the shape of the dates, the RRULE, what is escaped - but whether Google renders
   a pre-filled event form from it has only ever been checked by reading its documentation. Opening
