@@ -807,6 +807,11 @@ The whole account's stock is read once, on the first search, and reused while th
 results narrow as the reader types, and fetching every shelf per keystroke would be a request storm.
 Opening `/inventory` without searching costs nothing extra.
 
+The phone's inventory screen answers the same question (`InventoryViewModel.ShowMatchingItems`), and has
+less to do about it: every warehouse's items came down with the warehouse, so there is nothing to fetch
+and nothing to cache. A private warehouse is one this phone cannot open at all, and is named in the same
+summary for the same reason.
+
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
 warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -
 which is the whole order for a warehouse nobody has arranged, since everything in one sits at position
