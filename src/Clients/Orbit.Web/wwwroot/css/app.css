@@ -1792,6 +1792,25 @@ input.note-editor-title {
     color: var(--accent);
 }
 
+/* How long something keeps: a number, a unit, and the date the two work out to. One line, because it
+   is one answer. */
+.expires-in-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.expires-in-amount {
+    width: 64px;
+}
+
+.expires-in-date {
+    color: var(--text-tertiary);
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+
 /* The unit, read-only on the row it qualifies - it is set behind the toggle with the rest of the
    fields, and here it only has to say what the number beside it counts. */
 .editor-item-unit-label {

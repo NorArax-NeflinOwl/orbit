@@ -7,6 +7,7 @@
 @using System.Text.Json
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Inventory
 @using Orbit.Contracts.Notifications
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
@@ -14,6 +15,7 @@
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject InventoryApiClient InventoryApiClient
 @inject ChatApiClient ChatApiClient
 @inject CalendarApiClient CalendarApiClient
 @inject NotificationsApiClient NotificationsApiClient
@@ -155,37 +157,53 @@ else
                     <NameSuggestions Kind="NameSuggestionKind.TaskItemDescription" Value="item.Description"
                                      OnChosen="chosen => item.Description = chosen" />
                     <span class="editor-item-aside">
-                        @* Labelled rather than left to be guessed from their shape: side by side on a
-                           wide screen the pair reads as a due date, but stacked on a narrow one they
-                           are two bare boxes with nothing saying what either is for. *@
-                        <span class="editor-item-field">
-                            <span class="editor-item-field-label">@T["Due date"]</span>
-                            <DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
-                        </span>
-                        <span class="editor-item-field">
-                            <span class="editor-item-field-label">@T["Due time"]</span>
-                            <TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
-                        </span>
+                        @* What the row reports rather than what it sets: when this is due, if anything,
+                           and what kind of entry it is. Everything editable now waits behind the toggle,
+                           so a list of thirty items is thirty readable lines instead of a wall of boxes. *@
+                        @if (WhenItIsDue(item) is { } due)
+                        {
+                            <span class="row-meta">@due</span>
+                        }
+                        @if (item.Kind != nameof(TaskItemKind.Checklist))
+                        {
+                            <span class="card-badge">@DescribeKind(item.Kind)</span>
+                        }
                         <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
                                 title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
                                 aria-expanded="@(IsExpanded(item) ? "true" : "false")"
                                 @onclick="() => ToggleExpanded(item)">
                             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
                         </button>
-                        <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">@T["Remove"]</button>
                     </span>
                 </div>
 
                 @if (IsExpanded(item))
                 {
                     <div class="editor-item-details">
-                        @* What this entry is. On the entry rather than on the list, because a day's plan
-                           holds two errands and an appointment - see TaskItemKind. *@
+                        @* Four fields every entry has, whatever it is: what it is, when it is due, where
+                           it could go instead, and the way to take it off the list. Everything after them
+                           depends on the type - see TaskItemKind. *@
                         <label>@T["Type"]<select @bind="item.Kind">
                                 <option value="@nameof(TaskItemKind.Checklist)">@T["Checklist"]</option>
                                 <option value="@nameof(TaskItemKind.Calendar)">@T["Calendar"]</option>
+                                <option value="@nameof(TaskItemKind.Inventory)">@T["Inventory"]</option>
                             </select>
                         </label>
+                        <label>@T["Due date"]<DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
+                        </label>
+                        <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
+                        </label>
+                        @if (item.Id is { } persistedItemId && _moveTargetTaskLists.Count > 0)
+                        {
+                            <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
+                                    <option value="">@T["Move to…"]</option>
+                                    @foreach (var targetTaskList in _moveTargetTaskLists)
+                                    {
+                                        <option value="@targetTaskList.Id">@Written(targetTaskList.Title)</option>
+                                    }
+                                </select>
+                            </label>
+                        }
                         @if (item.Kind == nameof(TaskItemKind.Calendar))
                         {
                             <label>@T["Calendar event"]<select @bind="item.LinkedCalendarEventId">
@@ -214,50 +232,93 @@ else
                                 <small>@T.Format("Happens at {0}, which the event decides.", LinkedEventLocation(item))</small>
                             }
                         }
-                        <label>@T["Link to list"]<select @bind="item.LinkedTaskListId">
-                                <option value="">@T["None"]</option>
-                                @foreach (var linkableTaskList in _linkableTaskLists)
-                                {
-                                    <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
-                                }
-                            </select>
-                        </label>
-                        @if (item.Id is { } persistedItemId && _moveTargetTaskLists.Count > 0)
+                        @* A restock errand edits the shelf it is about, right here. That is the point of
+                           giving these entries a kind and a link: the row already knows which product it
+                           means, so correcting the amount should not mean opening the warehouse in
+                           another tab and finding it again. Saved back with the list - see SaveAsync. *@
+                        @if (item.Kind == nameof(TaskItemKind.Inventory))
                         {
-                            <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
-                                    <option value="">@T["Move to…"]</option>
-                                    @foreach (var targetTaskList in _moveTargetTaskLists)
+                            @if (InventoryFieldsFor(item) is { } product)
+                            {
+                                <label>@T["Item name"]<InputText @bind-Value="product.Name" placeholder="@(T["Item name"])" />
+                                </label>
+                                <label title="@(T["How much of it there is"])">@T["Amount"]
+                                    <InputNumber TValue="decimal" @bind-Value="product.Quantity" step="0.01" />
+                                </label>
+                                <label title="@(T["Restock once the amount drops below this"])">@T["Min"]
+                                    <InputNumber TValue="decimal?" @bind-Value="product.MinimumQuantity" step="0.01" />
+                                </label>
+                                <label title="@(T["What this is counted in"])">@T["Unit"]
+                                    <select @bind="product.Unit" aria-label="@(T["Unit"])">
+                                        @foreach (var option in InventoryUnitOption.All)
+                                        {
+                                            <option value="@option.Value" title="@T[option.Name]">@T[option.ShortName]</option>
+                                        }
+                                    </select>
+                                </label>
+                                <label>@T["Product type"]<InputText @bind-Value="product.ProductType" placeholder="@(T["Product type"])" />
+                                </label>
+                                <label>@T["Category"]<InputText @bind-Value="product.Category" placeholder="@(T["Category"])" />
+                                </label>
+                                <label>@T["Expires in"]<ExpiresInField Value="product.ExpiryDate"
+                                                                      ValueChanged="expiresOn => product.ExpiryDate = expiresOn" />
+                                </label>
+                                <label>@T["Expiry notification"]<select @bind="product.ExpiryNotificationChannel">
+                                        @foreach (var option in NotificationChannelOption.All)
+                                        {
+                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                                        }
+                                    </select>
+                                </label>
+                                <span class="field-break"></span>
+                                <small>@T.Format("On the shelf in {0}. Saving this list saves the change there too.", product.WarehouseName)</small>
+                            }
+                            else
+                            {
+                                <span class="field-break"></span>
+                                <small>@T["This entry isn't tied to a product yet, so there is nothing to edit here."]</small>
+                            }
+                        }
+                        else if (item.Kind == nameof(TaskItemKind.Checklist))
+                        {
+                            <label>@T["Link to list"]<select @bind="item.LinkedTaskListId">
+                                    <option value="">@T["None"]</option>
+                                    @foreach (var linkableTaskList in _linkableTaskLists)
                                     {
-                                        <option value="@targetTaskList.Id">@Written(targetTaskList.Title)</option>
+                                        <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
                                     }
                                 </select>
                             </label>
-                        }
-                        <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
-                                @foreach (var option in NotificationChannelOption.All)
-                                {
-                                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                                }
-                            </select>
-                        </label>
-                        <label>
-                            <InputCheckbox @bind-Value="item.RemindDaily" />@T["Remind daily"]</label>
-                        @if (item.RemindDaily)
-                        {
-                            <label>@T["Daily reminder channel"]<select @bind="item.DailyReminderNotificationChannel">
+                            <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
                                     @foreach (var option in NotificationChannelOption.All)
                                     {
                                         <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
                                     }
                                 </select>
                             </label>
-                            <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
-                            </label>
-                        }
-                        @if (!string.IsNullOrEmpty(item.LinkedTaskListId))
-                        {
-                            <span class="field-break"></span>
-                            <small>@T["Completion follows the linked list, so it can't be ticked by hand."]</small>
+                            <label>
+                                <InputCheckbox @bind-Value="item.RemindDaily" />@T["Remind daily"]</label>
+                            @if (item.RemindDaily)
+                            {
+                                <label>@T["Daily reminder channel"]<select @bind="item.DailyReminderNotificationChannel">
+                                        @foreach (var option in NotificationChannelOption.All)
+                                        {
+                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                                        }
+                                    </select>
+                                </label>
+                                @* Required, not optional: a daily reminder with no hour has nothing to
+                                   arrive at, and the scheduler would send it at midnight - see
+                                   ValidateItems, which refuses the save rather than picking an hour
+                                   nobody asked for. *@
+                                <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
+                                </label>
+                            }
+                            @if (!string.IsNullOrEmpty(item.LinkedTaskListId))
+                            {
+                                <span class="field-break"></span>
+                                <small>@T["Completion follows the linked list, so it can't be ticked by hand."]</small>
+                            }
                         }
                         @if (_moveErrorMessage is not null && item.Id is { } movedItemId && _moveErrorMessageForItemId == movedItemId)
                         {
@@ -570,12 +631,182 @@ else
             return;
         }
 
+        await LoadInventoryFieldsAsync();
         _isLoading = false;
     }
 
     private bool IsExpanded(TaskItemFormModel item) => ReferenceEquals(_expandedItem, item);
 
     private void ToggleExpanded(TaskItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
+
+    /// <summary>
+    /// <summary>
+    /// The shelf item behind each inventory errand on this list, keyed by the entry's id, while somebody
+    /// is editing it. Loaded once when the editor opens: an entry names its product, and the point of
+    /// naming it is being able to correct it from here.
+    /// </summary>
+    private readonly Dictionary<Guid, InventoryFieldsFormModel> _inventoryFieldsByTaskItemId = [];
+
+    private InventoryFieldsFormModel? InventoryFieldsFor(TaskItemFormModel item)
+        => item.Id is { } itemId ? _inventoryFieldsByTaskItemId.GetValueOrDefault(itemId) : null;
+
+    /// <summary>
+    /// Reads the shelf items this list's errands are about. Best effort: an editor that would not open
+    /// because a warehouse could not be reached is worse than one whose inventory fields are missing.
+    /// </summary>
+    private async Task LoadInventoryFieldsAsync()
+    {
+        _inventoryFieldsByTaskItemId.Clear();
+        if (Id is not { } taskListId)
+        {
+            return;
+        }
+
+        try
+        {
+            var references = await TasksApiClient.GetInventoryReferencesAsync(taskListId);
+            foreach (var byWarehouse in references.GroupBy(reference => reference.WarehouseId))
+            {
+                var shelf = await InventoryApiClient.GetInventoryItemsAsync(byWarehouse.Key) ?? [];
+                foreach (var reference in byWarehouse)
+                {
+                    if (shelf.FirstOrDefault(product => product.Id == reference.InventoryItemId) is { } product)
+                    {
+                        _inventoryFieldsByTaskItemId[reference.TaskItemId] =
+                            InventoryFieldsFormModel.From(product, byWarehouse.Key, reference.WarehouseName);
+                    }
+                }
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            // An editor that would not open because a warehouse could not be read - or answered
+            // something unreadable - is worse than one whose inventory fields are missing.
+            Logger.LogWarning(exception, "Couldn't load the shelf items behind task list {TaskListId}", taskListId);
+        }
+    }
+
+    /// <summary>
+    /// Writes back whatever was changed on the shelf, one warehouse at a time, and then rebuilds each
+    /// warehouse's restock list - a corrected amount can settle an errand or raise one, and leaving the
+    /// list saying the old thing would make the edit look like it did not take.
+    ///
+    /// Runs after the list itself is saved. If it fails, the list is still saved: the shelf is a second
+    /// thing this screen touches, not the thing it is for.
+    /// </summary>
+    private async Task SaveTheShelfAsync()
+    {
+        if (_inventoryFieldsByTaskItemId.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var byWarehouse in _inventoryFieldsByTaskItemId.Values.GroupBy(product => product.WarehouseId))
+        {
+            try
+            {
+                var warehouse = await InventoryApiClient.GetWarehouseByIdAsync(byWarehouse.Key);
+                var shelf = await InventoryApiClient.GetInventoryItemsAsync(byWarehouse.Key);
+                if (warehouse is null || shelf is null)
+                {
+                    continue;
+                }
+
+                var edited = byWarehouse.ToDictionary(product => product.Id);
+                var items = shelf
+                    .Select(product => edited.TryGetValue(product.Id, out var changed)
+                        ? changed.ToDto()
+                        : new WarehouseItemDto(
+                            product.Id, product.Name, product.ProductType, product.Category, product.Quantity,
+                            product.MinimumQuantity, product.Unit, product.ExpiryDate, product.ExpiryNotificationChannel))
+                    .ToList();
+
+                await InventoryApiClient.UpdateWarehouseAsync(
+                    byWarehouse.Key, new SaveWarehouseRequest(warehouse.Name, items, warehouse.IsPrivate));
+                await InventoryApiClient.RefreshRestockListAsync(byWarehouse.Key);
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogError(exception, "Couldn't save the shelf behind warehouse {WarehouseId}", byWarehouse.Key);
+                _saveErrorMessage = T["The list was saved, but the shelf couldn't be updated. Open the warehouse and check it."];
+            }
+        }
+    }
+
+    /// <summary>One shelf item while it is being edited from a task list, plus where it lives.</summary>
+    private sealed class InventoryFieldsFormModel
+    {
+        public Guid Id { get; init; }
+        public Guid WarehouseId { get; init; }
+        public string WarehouseName { get; init; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string ProductType { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public decimal Quantity { get; set; }
+        public decimal? MinimumQuantity { get; set; }
+        public string Unit { get; set; } = InventoryUnitOption.Default.Value;
+        public DateTimeOffset? ExpiryDate { get; set; }
+        public string ExpiryNotificationChannel { get; set; } = NotificationChannelOption.All[0].Value;
+
+        public static InventoryFieldsFormModel From(InventoryItemDto product, Guid warehouseId, string warehouseName)
+            => new()
+            {
+                Id = product.Id,
+                WarehouseId = warehouseId,
+                WarehouseName = warehouseName,
+                Name = product.Name,
+                ProductType = product.ProductType,
+                Category = product.Category,
+                Quantity = product.Quantity,
+                MinimumQuantity = product.MinimumQuantity,
+                Unit = InventoryUnitOption.For(product.Unit).Value,
+                ExpiryDate = product.ExpiryDate,
+                ExpiryNotificationChannel = product.ExpiryNotificationChannel
+            };
+
+        public WarehouseItemDto ToDto()
+            => new(Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit, ExpiryDate, ExpiryNotificationChannel);
+    }
+
+    /// <summary>
+    /// What stops this list being saved, or null when nothing does. Refused here rather than quietly
+    /// corrected: a daily reminder with no hour would be sent at midnight, and an hour nobody chose is
+    /// worse than being asked for one.
+    /// </summary>
+    private string? WhatIsWrongWithTheItems()
+    {
+        var withoutAnHour = _formModel.Items.FirstOrDefault(item =>
+            item.Kind == nameof(TaskItemKind.Checklist) && item.RemindDaily && item.DailyReminderTimeOfDay is null);
+
+        return withoutAnHour is null
+            ? null
+            : T.Format("\"{0}\" is reminded daily, so it needs a time to be reminded at.", withoutAnHour.Description);
+    }
+
+    /// <summary>
+    /// When this entry is due, in one short phrase, or null when nothing is set. Read on the row now
+    /// that the two boxes that set it live behind the toggle - a row that showed neither would leave
+    /// somebody opening every item to find the one with a date on it.
+    /// </summary>
+    private string? WhenItIsDue(TaskItemFormModel item)
+    {
+        if (item.DueDate is not { } dueDate)
+        {
+            return null;
+        }
+
+        return item.DueTime is { } dueTime
+            ? T.Format("due {0}", dueDate.ToDateTime(dueTime).ToString("dd.MM.yyyy HH:mm"))
+            : T.Format("due {0}", dueDate.ToString("dd.MM.yyyy"));
+    }
+
+    /// <summary>What kind of entry this is, said on the row for anything that is not the ordinary one.</summary>
+    private string DescribeKind(string kind) => kind switch
+    {
+        nameof(TaskItemKind.Calendar) => T["Calendar"],
+        nameof(TaskItemKind.Inventory) => T["Inventory"],
+        _ => T["Checklist"]
+    };
 
     /// <summary>
     /// A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames. Used where another
@@ -750,6 +981,12 @@ else
             "User clicked 'Save' ({Mode}, TaskListId={TaskListId})", IsNewTaskList ? "create" : "update", Id);
         _saveErrorMessage = null;
 
+        if (WhatIsWrongWithTheItems() is { } complaint)
+        {
+            _saveErrorMessage = complaint;
+            return;
+        }
+
         var items = _formModel.Items
             .Select(item => new TaskItemRequest(
                 item.Description,
@@ -806,6 +1043,11 @@ else
                 }
 
                 Logger.LogInformation("Task list {TaskListId} updated", Id);
+
+                // The shelf second, and the list's own rebuild with it: editing a product from here is
+                // only useful if the change reaches the warehouse, and a corrected amount can settle an
+                // errand or raise one. See SaveTheShelfAsync.
+                await SaveTheShelfAsync();
                 await ReleaseLockAsync(Id.Value);
             }
         }

@@ -203,7 +203,11 @@ else
                                 </label>
                                 <label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="item.Category" />
                                 </label>
-                                <label>@T["Expires"]<DateField @bind-Value="item.ExpiryDate" AriaLabel="@(T["Expires"])" />
+                                @* How long it keeps rather than the day it stops keeping - see
+                                   ExpiresInField. A date is still what gets stored; nobody stocking a
+                                   shelf knows the 14th, they know "a fortnight". *@
+                                <label>@T["Expires in"]<ExpiresInField Value="ToExpiryOffset(item.ExpiryDate)"
+                                                                      ValueChanged="expiresOn => item.ExpiryDate = ToExpiryDate(expiresOn)" />
                                 </label>
                                 <label>@T["Expiry notification"]<select @bind="item.ExpiryNotificationChannel">
                                         @foreach (var option in NotificationChannelOption.All)
@@ -439,6 +443,18 @@ else
             _isWorkingOnRestockList = false;
         }
     }
+
+    /// <summary>
+    /// The form model keeps a DateOnly? because that is what a date box binds to; ExpiresInField speaks
+    /// in DateTimeOffset? because that is what the item carries. These two are the join.
+    /// </summary>
+    private static DateTimeOffset? ToExpiryOffset(DateOnly? expiryDate)
+        => expiryDate is not { } date
+            ? null
+            : new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeZoneInfo.Local.GetUtcOffset(date.ToDateTime(TimeOnly.MinValue)));
+
+    private static DateOnly? ToExpiryDate(DateTimeOffset? expiresOn)
+        => expiresOn is { } value ? DateOnly.FromDateTime(value.LocalDateTime) : null;
 
     /// <summary>The two restock-list settings while somebody is editing them - see RestockListSettings.</summary>
     private sealed class RestockSettingsFormModel

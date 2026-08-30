@@ -177,6 +177,14 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
+            // The editor asks what shelf items this list's errands are about. None of these lists carry
+            // one, so the answer is empty - without this the fallback below hands back a task list,
+            // which is not what that route returns.
+            if (path.EndsWith("/inventory-references", StringComparison.Ordinal))
+            {
+                return Ok(Array.Empty<object>());
+            }
+
             // The editor takes the edit lock as it opens; nobody else holds it here.
             if (path.EndsWith("/lock", StringComparison.Ordinal))
             {
@@ -198,6 +206,9 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         Services.AddSingleton(new CalendarApiClient(httpClient));
         Services.AddSingleton(new NotificationsApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
+        // The editor reads the shelf behind any inventory errand on the list - see
+        // TaskEditor.LoadInventoryFieldsAsync. These lists carry none, so it is asked and answers nothing.
+        Services.AddSingleton(new InventoryApiClient(httpClient));
         RegisterGeocoding();
     }
 

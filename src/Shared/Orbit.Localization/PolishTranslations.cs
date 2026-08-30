@@ -86,6 +86,14 @@ public static class PolishTranslations
 
         // ---- The names Orbit writes for itself, which the server stores in English - see OrbitWrittenNames. ----
         ["You already have \"{0}\"."] = "Masz już „{0}”.",
+        ["Expires in"] = "Traci ważność za",
+        ["No date"] = "Bez daty",
+        ["months"] = "miesięcy",
+        ["years"] = "lat",
+        ["\"{0}\" is reminded daily, so it needs a time to be reminded at."] = "„{0}” ma przypomnienie dzienne, więc potrzebuje godziny.",
+        ["On the shelf in {0}. Saving this list saves the change there too."] = "Na półce w: {0}. Zapis tej listy zapisuje też tę zmianę.",
+        ["This entry isn't tied to a product yet, so there is nothing to edit here."] = "Ta pozycja nie jest jeszcze powiązana z produktem, więc nie ma tu czego edytować.",
+        ["The list was saved, but the shelf couldn't be updated. Open the warehouse and check it."] = "Lista została zapisana, ale nie udało się zaktualizować magazynu. Otwórz magazyn i sprawdź.",
         ["Restock list"] = "Lista uzupełnień",
         ["Only what a dated task is waiting on"] = "Tylko to, na co czeka zadanie z terminem",
         ["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."] = "Lista prosi o produkty potrzebne zadaniu z terminem. To, czego brakuje, ale nic na to nie czeka, zostaje pominięte.",
