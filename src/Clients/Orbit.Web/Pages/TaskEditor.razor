@@ -222,6 +222,10 @@ else
                                 <label>@T["Location"]<InputText @bind-Value="item.Location"
                                                                 placeholder="@(T["Where this happens"])" />
                                 </label>
+                                @* The name is the reader's to write. Confirming a pin fills an empty box
+                                   and leaves a name they chose alone - see UseThePickedPlace. *@
+                                <span class="field-break"></span>
+                                <small>@T["The name is yours to write - the pin below keeps its exact position either way."]</small>
                                 @* Typing an address is one way; pointing at it is the other, and the
                                    one that works when nobody knows what the street is called. *@
                                 <button type="button" class="btn-secondary" @onclick="() => OpenTheMapFor(item)">@T["Show map"]</button>
@@ -825,13 +829,21 @@ else
 
     private void OpenTheMapFor(TaskItemFormModel item) => _itemBeingPlacedOnTheMap = item;
 
-    /// <summary>The pin was confirmed, so its address replaces whatever the box held.</summary>
+    /// <summary>
+    /// The pin was confirmed. Its address fills the box when the box is empty, and is left out when
+    /// somebody has written a name of their own there - "the back entrance" is the whole reason that
+    /// box is typed into, and replacing it with a street every time a pin is confirmed is what made
+    /// correcting it feel impossible. The place itself is set either way.
+    /// </summary>
     private void UseThePickedPlace(string address)
     {
         if (_itemBeingPlacedOnTheMap is { } item)
         {
             Logger.LogInformation("User set an entry's location from the map");
-            item.Location = address;
+            if (item.Location.Trim().Length == 0)
+            {
+                item.Location = address;
+            }
         }
 
         _itemBeingPlacedOnTheMap = null;

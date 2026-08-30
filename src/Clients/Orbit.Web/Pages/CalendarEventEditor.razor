@@ -66,9 +66,18 @@ else
         </div>
         <div class="field">
             <label>@T["Location"]</label>
-            <InputText @bind-Value="_formModel.LocationAddress" placeholder="@(T["Pick a point on the map to set an address"])" />
+            <InputText @bind-Value="_formModel.LocationAddress" placeholder="@(T["Pick a point on the map, or type what to call this place"])" />
+            @* Said out loud, because the box used to read as something the map filled in. What is typed
+               here is only the name: the pin and its coordinates are what the map holds, and they are
+               untouched by anything written above. *@
+            <small>@T["The name is yours to write - the pin below keeps its exact position either way."]</small>
             <div class="field-row">
                 <button type="button" class="btn-secondary" @onclick="ToggleMapAsync">@(_isMapVisible ? T["Hide map"] : T["Pick on map"])</button>
+                @if (IsTheAddressTheirOwn && _addressAsGeocoded.Length > 0)
+                {
+                    <button type="button" class="btn-secondary" @onclick="UseTheAddressFromTheMap"
+                            title="@(_addressAsGeocoded)">@T["Use the address from the map"]</button>
+                }
                 @if (_formModel.LocationLatitude is { } latitude && _formModel.LocationLongitude is { } longitude)
                 {
                     <span>@T.Format("Coordinates: {0}, {1}", latitude.ToString("F5"), longitude.ToString("F5"))</span>
@@ -616,19 +625,51 @@ else
         }
     }
 
-    /// <summary>Called from mapPicker.js when the user clicks a point on the map.</summary>
+    /// <summary>
+    /// The address as reverse geocoding last wrote it, so a name somebody typed themselves can be told
+    /// from one Orbit guessed - see OnMapLocationPicked.
+    /// </summary>
+    private string _addressAsGeocoded = string.Empty;
+
+    /// <summary>Whether the name in the box is the reader's own words rather than the map's.</summary>
+    private bool IsTheAddressTheirOwn
+        => _formModel.LocationAddress.Length > 0 && _formModel.LocationAddress != _addressAsGeocoded;
+
+    /// <summary>
+    /// Called from mapPicker.js when the user clicks a point on the map.
+    ///
+    /// The pin always moves. The name only follows it when it is still the one the map gave: a place
+    /// somebody named themselves - "the back entrance", "Mum's" - is the whole reason the box is
+    /// editable, and overwriting it with a street address every time the pin is nudged is what made
+    /// correcting it feel impossible.
+    /// </summary>
     [JSInvokable]
     public async Task OnMapLocationPicked(double latitude, double longitude)
     {
+        var theirOwnName = IsTheAddressTheirOwn;
         _formModel.LocationLatitude = latitude;
         _formModel.LocationLongitude = longitude;
-        _formModel.LocationAddress = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude) ?? _formModel.LocationAddress;
+
+        var geocoded = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude);
+        _addressAsGeocoded = geocoded ?? string.Empty;
+        if (!theirOwnName)
+        {
+            _formModel.LocationAddress = geocoded ?? _formModel.LocationAddress;
+        }
+
         StateHasChanged();
     }
+
+    /// <summary>
+    /// Puts the map's own name back, for somebody who renamed a place and then wanted the street after
+    /// all. Only offered while the two differ, so it is never a button that does nothing.
+    /// </summary>
+    private void UseTheAddressFromTheMap() => _formModel.LocationAddress = _addressAsGeocoded;
 
     private void ClearLocation()
     {
         _formModel.LocationAddress = string.Empty;
+        _addressAsGeocoded = string.Empty;
         _formModel.LocationLatitude = null;
         _formModel.LocationLongitude = null;
     }
