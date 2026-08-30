@@ -314,6 +314,54 @@ To avoid the drift in the first place, run a branch that carries its own migrati
 rather than this one - `docker compose` names its volumes after the project, so a checkout in its own
 directory with its own project name gets its own database.
 
+## Keeping Docker from eating the disk
+
+Building this project's images is what fills a laptop. Every `docker compose build` leaves another layer
+cache behind and orphans the image it replaced; on the machine this was written for that reached **27 GB
+of build cache and 54 orphaned images**, with Docker's disk image at 40 GB.
+
+`scripts/prune-docker-caches.sh` frees it, but only once there is something worth freeing:
+
+```bash
+scripts/prune-docker-caches.sh --dry-run        # what it would do, changing nothing
+scripts/prune-docker-caches.sh                  # prune if over 25 GB
+scripts/prune-docker-caches.sh --threshold-gigabytes 10
+scripts/prune-docker-caches.sh --force          # prune whatever the size
+```
+
+It measures images, containers and build cache - what pruning can actually reclaim - and prunes in
+order, stopping as soon as it is under: the build cache first, then orphaned layers, and only then
+images no container is running, which is the one step that costs a re-pull. Stopped containers are left
+alone: they are worth kilobytes, and removing them makes `docker compose ps` look like the stack was
+never there.
+
+**Named volumes are never touched.** That is where Postgres keeps the local database. `docker volume
+prune` and `docker system prune --volumes` do not appear in the script at all, and volumes are left out
+of the total it compares against - counting data it refuses to delete would have it clean up over and
+over without ever getting under the threshold.
+
+`scripts/test-prune-docker-caches.sh` drives all of that against a docker that only pretends, so the
+rungs of the ladder - including the one that removes images - are exercised without removing anything.
+
+### Running it by itself
+
+```bash
+sed "s|__REPOSITORY_PATH__|$PWD|g; s|__HOME__|$HOME|g" scripts/com.orbit.prune-docker-caches.plist \
+  > ~/Library/LaunchAgents/com.orbit.prune-docker-caches.plist
+launchctl load ~/Library/LaunchAgents/com.orbit.prune-docker-caches.plist
+```
+
+Hourly, and it writes to `~/Library/Logs/orbit-prune-docker-caches.log`. Under the threshold it exits in
+well under a second without touching Docker, so the frequency costs nothing. To stop it:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.orbit.prune-docker-caches.plist
+```
+
+macOS returns the freed space as Docker Desktop trims its own disk image, which can lag by a few
+minutes - `du -sh ~/Library/Containers/com.docker.docker` is the number to watch, not the 228 GB
+apparent size of `Docker.raw`, which is a sparse file.
+
 ## Further guides in this folder
 
 - [`build.md`](build.md) — full machine setup and first build, from a fresh Windows or macOS

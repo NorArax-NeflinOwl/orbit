@@ -25,13 +25,6 @@ public sealed class InventoryTaskListCoordinator
     /// </summary>
     public const string UpdateStockReminderDescription = RestockTaskNaming.UpdateStockReminderDescription;
 
-    /// <summary>
-    /// When the standing reminder comes back and says so. Morning rather than the midnight a bare
-    /// TimeOnly would default to - a stock reminder arriving while everyone is asleep is one nobody
-    /// acts on. The reader can move it: it is an ordinary daily-reminder time on an ordinary task.
-    /// </summary>
-    private static readonly TimeOnly UpdateStockReminderTimeOfDay = new(9, 0);
-
     private readonly ITaskRepository _taskRepository;
     private readonly IInventoryManagedTaskListRepository _managedTaskListRepository;
     private readonly IWarehouseRepository _warehouseRepository;
@@ -77,10 +70,14 @@ public sealed class InventoryTaskListCoordinator
             }
         }
 
+        // The hour the warehouse asked for, not a constant: nine in the morning is only the default (see
+        // RestockListSettings), and a list created after somebody changed it should come round when they
+        // said rather than when Orbit first guessed.
+        var settings = await _managedTaskListRepository.GetSettingsAsync(warehouseId, cancellationToken);
         var reminderItem = TaskItem.Create(
             UpdateStockReminderDescription, dueDateUtc: null, isCompleted: false,
             remindDaily: true, dailyReminderNotificationChannel: NotificationChannel.Push,
-            dailyReminderTimeOfDay: UpdateStockReminderTimeOfDay);
+            dailyReminderTimeOfDay: settings.RefreshTimeOfDay);
         // Pinned from the moment it exists: this is the one list Orbit maintains rather than the reader,
         // and it is only useful if it is where they will see it.
         var taskList = TaskList.Create(ownerUserId, title, [reminderItem], isPinned: true);
@@ -103,6 +100,15 @@ public sealed class InventoryTaskListCoordinator
     {
         item = await _pendingRestockTaskResolver.ResolveAsync(item, cancellationToken);
         if (!item.IsBelowMinimum)
+        {
+            return item;
+        }
+
+        // A list that follows the plan does not answer "what is running out", so a product dropping below
+        // its minimum is not by itself a reason to put it there - see RestockListSettings. What that list
+        // asks for is worked out across every task at once, which is RestockListRefresh's job.
+        var settings = await _managedTaskListRepository.GetSettingsAsync(item.WarehouseId, cancellationToken);
+        if (settings.OnlyLinkedWithDueDate)
         {
             return item;
         }

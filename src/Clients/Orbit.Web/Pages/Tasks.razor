@@ -26,6 +26,18 @@
            behind the menu rather than in a control taking up the top of every visit. Stays open while
            they try one order and then another - see OverflowMenu.StaysOpen. *@
         <OverflowMenu StaysOpen="true">
+            @* How much of each list to show. One answer for the whole page, remembered by this browser -
+               the question is "how am I reading this today", not one about any particular list. *@
+            <span class="overflow-menu-heading">@T["Card view"]</span>
+            @foreach (var view in Enum.GetValues<TaskListView>())
+            {
+                <button type="button" class="avatar-dropdown-item @(view == Arrangement.View ? "chosen" : "")"
+                        @onclick="() => SetViewAsync(view)">
+                    <span class="card-filter-mark">@(view == Arrangement.View ? "✓" : "")</span>
+                    @DescribeView(view)
+                </button>
+            }
+
             <span class="overflow-menu-heading">@T["Sort"]</span>
             @foreach (var sortOrder in Enum.GetValues<TaskListSortOrder>())
             {
@@ -101,7 +113,11 @@ else
                                 </svg>
                             </span>
                         }
-                        @Written(taskList.Title)
+                        @* The name is the way into the list, the same way a dashboard card's heading is
+                           the way to its page. It opens the checklist rather than the deep editor:
+                           reading and ticking is what somebody clicking a list's name is after. *@
+                        <button type="button" class="card-title-button" title="@(T["Open checklist"])"
+                                @onclick="() => GoToChecklist(taskList.Id)">@Written(taskList.Title)</button>
                         @if (taskList.IsGroup)
                         {
                             <span class="card-badge">@T["Group"]</span>
@@ -172,7 +188,7 @@ else
                 {
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
                    checklist view one click away for working through it. *@
-                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, PreviewItemCount)))
+                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList))))
                 {
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
@@ -201,15 +217,15 @@ else
                         @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))
                         {
                             <div class="list-row task-preview-row-linked">
-                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - LinkedPreviewItemCount)</span>
+                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))</span>
                             </div>
                         }
                     }
                 }
-                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, PreviewItemCount))
+                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList)))
                 {
                     <div class="list-row">
-                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - PreviewItemCount)</span>
+                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList)))</span>
                     </div>
                 }
                 @if (taskList.Items.Count == 0)
@@ -346,6 +362,16 @@ else
 
     private async Task ToggleCollapsedAsync(TaskDto taskList)
     {
+        // Expanding a card while the whole page is folded away is a request to see things again, so it
+        // leaves the minimal view rather than unfolding one card the view says is folded. The page goes
+        // back to whatever it was before it was folded - see TaskListArrangement.LeaveMinimalViewAsync.
+        if (Arrangement.View == TaskListView.Minimal)
+        {
+            Logger.LogInformation("User left the minimal view by expanding a card");
+            await Arrangement.LeaveMinimalViewAsync();
+            return;
+        }
+
         var isCollapsed = !Arrangement.IsCollapsed(taskList.Id);
         Logger.LogInformation(
             "User {Action} the card for task list {TaskListId}", isCollapsed ? "minimised" : "expanded", taskList.Id);
@@ -442,7 +468,7 @@ else
     {
         ItemPriority.Low => T["Low"],
         ItemPriority.High => T["High"],
-        _ => T["Normal"]
+        _ => T["Normal view"]
     };
 
     private string DescribeFilter(TaskListFilter filter) => filter switch
@@ -492,11 +518,35 @@ else
         Group
     }
 
-    /// <summary>How much of a list to show on its card before falling back to "and N more" - a card is for recognising a list, not working through it.</summary>
-    private const int PreviewItemCount = 4;
-
-    /// <summary>How much of a linked list to show under the row that points at it - less than the card's own preview, since it is standing in for one line of it.</summary>
+    /// <summary>
+    /// How much of a linked list to show under the row that points at it. Three whatever the view, which
+    /// is what makes a group list's card readable: the row naming the member list, three of its items,
+    /// and a fifth line that is either "and N more…" or - when there are exactly four - the fourth item
+    /// itself. Five lines per member is what lets four of them sit on one card.
+    /// </summary>
     private const int LinkedPreviewItemCount = 3;
+
+    /// <summary>Five, which is what a card can carry without becoming the list it stands in for.</summary>
+    private const int NormalPreviewItemCount = 5;
+
+    /// <summary>As much as a card can carry before it stops being a card. The full view's answer for an ordinary list.</summary>
+    private const int FullPreviewItemCount = 20;
+
+    /// <summary>
+    /// The full view's answer for a group list, counted in member lists rather than in rows: each one
+    /// brings five lines with it (see <see cref="LinkedPreviewItemCount"/>), so four of them is already
+    /// twenty lines - the same height an ordinary list gets.
+    /// </summary>
+    private const int FullGroupPreviewCount = 4;
+
+    /// <summary>
+    /// How many of a card's own rows to draw. It depends on the view and on what the list is: a group
+    /// list's rows are not items but other lists, and each one costs five lines rather than one.
+    /// </summary>
+    private int PreviewLimitFor(TaskDto taskList)
+        => Arrangement.View == TaskListView.Full
+            ? taskList.IsGroup ? FullGroupPreviewCount : FullPreviewItemCount
+            : NormalPreviewItemCount;
 
     /// <summary>
     /// How many rows to actually draw. One over the limit is drawn in full: the line saying "and 1 more…"
@@ -504,6 +554,20 @@ else
     /// and costs the reader the one thing it was hiding.
     /// </summary>
     private static int RowsToShow(int itemCount, int limit) => itemCount <= limit + 1 ? itemCount : limit;
+
+    /// <summary>How much of each list is on show, in the reader's language.</summary>
+    private string DescribeView(TaskListView view) => view switch
+    {
+        TaskListView.Minimal => T["Minimal"],
+        TaskListView.Full => T["Full"],
+        _ => T["Normal"]
+    };
+
+    private async Task SetViewAsync(TaskListView view)
+    {
+        Logger.LogInformation("User switched the tasks page to the {View} view", view);
+        await Arrangement.SetViewAsync(view);
+    }
 
     /// <summary>The work a linked row actually stands for, as far as the card has room for.</summary>
     private IEnumerable<TaskItemDto> LinkedItems(Guid linkedTaskListId)

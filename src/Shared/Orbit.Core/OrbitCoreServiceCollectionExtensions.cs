@@ -37,6 +37,7 @@ using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Inventory;
 using Orbit.Core.Inventory.FinishRestocking;
 using Orbit.Core.Inventory.ReconcileRestockList;
+using Orbit.Core.Inventory.RestockListSettingsAccess;
 using Orbit.Core.Inventory.ExpiryReminders;
 using Orbit.Core.Inventory.GetInventoryItems;
 using Orbit.Core.Inventory.AcceptWarehouseShare;
@@ -312,6 +313,12 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<PendingRestockTaskResolver>();
         services.AddScoped<InventoryTaskListCoordinator>();
         services.AddScoped<RestockCompletion>();
+        services.AddScoped<RestockListRefresh>();
+
+        // How a warehouse's restock list is built and when it comes round, plus the manual rebuild.
+        services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();
+        services.AddScoped<IRequestHandler<SaveRestockListSettingsCommand, RestockRefreshOutcome>, SaveRestockListSettingsCommandHandler>();
+        services.AddScoped<IRequestHandler<RefreshRestockListCommand, RestockRefreshOutcome>, RefreshRestockListCommandHandler>();
         services.AddScoped<IRequestHandler<ReconcileRestockListCommand, RestockOutcome>, ReconcileRestockListCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryReferencesQuery, IReadOnlyList<InventoryReference>>, GetInventoryReferencesQueryHandler>();
 

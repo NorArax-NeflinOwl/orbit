@@ -18,4 +18,13 @@ public interface IInventoryManagedTaskListRepository
 
     /// <summary>Inserts or replaces the tracked TaskListId for warehouseId - replacing matters when a previously tracked list was deleted and a fresh one had to be created.</summary>
     Task SetTaskListIdAsync(Guid warehouseId, Guid taskListId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How this warehouse's restock list is built and when it comes round - see
+    /// <see cref="RestockListSettings"/>. Answers the default for a warehouse that has never had a list,
+    /// so callers never have to tell "not set" from "set to the default".
+    /// </summary>
+    Task<RestockListSettings> GetSettingsAsync(Guid warehouseId, CancellationToken cancellationToken);
+
+    Task SetSettingsAsync(Guid warehouseId, RestockListSettings settings, CancellationToken cancellationToken);
 }

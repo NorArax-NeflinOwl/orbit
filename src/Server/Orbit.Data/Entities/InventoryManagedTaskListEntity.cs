@@ -10,4 +10,14 @@ public sealed class InventoryManagedTaskListEntity
     public Guid Id { get; set; }
     public Guid WarehouseId { get; set; }
     public Guid TaskListId { get; set; }
+
+    /// <summary>Which products the list asks for - see Orbit.Core.Inventory.RestockListSettings.</summary>
+    public bool OnlyLinkedWithDueDate { get; set; }
+
+    /// <summary>
+    /// When the standing reminder comes round, as minutes past midnight - the same shape
+    /// TaskItemEntity.DailyReminderTimeOfDayMinutes uses, and for the same reason: a TimeOnly has no
+    /// column type every provider agrees on.
+    /// </summary>
+    public int RefreshTimeOfDayMinutes { get; set; } = 9 * 60;
 }
