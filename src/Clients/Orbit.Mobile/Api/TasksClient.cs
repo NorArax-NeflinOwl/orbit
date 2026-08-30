@@ -183,6 +183,29 @@ public sealed class TasksClient : ILockableItems
         return result?.ToppedUpCount ?? 0;
     }
 
+    /// <summary>
+    /// Settles the errands already crossed off on a restock list: each one fills its shelf item and then
+    /// leaves the list. Answers how many were settled, and does nothing at all for an ordinary list, so
+    /// the screen can ask on opening any of them.
+    ///
+    /// The counterpart of Orbit.Web's call of the same name, and asked at the same moment - on opening
+    /// rather than on ticking - so a list that gathered crossed-off errands before either client did
+    /// this clears itself the first time somebody looks at it, on whichever client they look with.
+    /// </summary>
+    public async Task<int> ReconcileRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/tasks/{taskListId}/restocking/reconcile", content: null, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return 0;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<RestockReconciliationResultDto>(cancellationToken);
+        return result?.SettledCount ?? 0;
+    }
+
     /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>
     public async Task<int> RaiseStockShortfallsAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {

@@ -48,6 +48,14 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// <summary>How many times the shelf was asked to be topped up in one go.</summary>
     public int RestockingsFinished { get; private set; }
 
+    /// <summary>How often the screen asked for the finished errands to be settled - see ReconcileRestockingAsync.</summary>
+    public int RestockingsSettled { get; private set; }
+
+    /// <summary>What the settle answers with. Nothing settled unless a test says otherwise.</summary>
+    public int SettledCount { get; set; }
+
+    public int SettledToppedUpCount { get; set; }
+
     /// <summary>The warehouse a list was last pointed at.</summary>
     public Guid? LinkedWarehouseId { get; private set; }
 
@@ -130,6 +138,12 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         {
             RestockingsFinished++;
             return Json(new FinishRestockingResultDto(ToppedUpCount));
+        }
+
+        if (path.EndsWith("/restocking/reconcile", StringComparison.Ordinal))
+        {
+            RestockingsSettled++;
+            return Json(new RestockReconciliationResultDto(SettledToppedUpCount, SettledCount));
         }
 
         if (path.EndsWith("/inventory", StringComparison.Ordinal))

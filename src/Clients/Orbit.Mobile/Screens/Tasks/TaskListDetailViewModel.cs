@@ -151,7 +151,45 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public void Open(Guid localId) => _localId = localId;
 
     [RelayCommand]
-    private Task LoadAsync(CancellationToken cancellationToken) => ShowStoredListAsync(cancellationToken);
+    private async Task LoadAsync(CancellationToken cancellationToken)
+    {
+        await ShowStoredListAsync(cancellationToken);
+        await SettleFinishedErrandsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Settles anything already crossed off on a restock list: each finished errand fills its shelf item
+    /// and leaves the list. Asked on opening rather than on ticking, which is where Orbit.Web asks it -
+    /// and it has to be asked here too, or the same list settles itself in a browser and quietly does
+    /// not on a phone, which is the one thing two clients on one account must never do.
+    ///
+    /// Best effort. A settle that could not be asked for leaves the list exactly as it was, which is
+    /// readable and correct-looking; saying so over a checklist somebody came here to use would be
+    /// noise about something they did not ask for.
+    /// </summary>
+    private async Task SettleFinishedErrandsAsync(CancellationToken cancellationToken)
+    {
+        if (_serverId is not { } serverId || !RestockTaskNaming.IsManagedTitle(Title))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _tasksClient.ReconcileRestockingAsync(serverId, cancellationToken) == 0)
+            {
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            return;
+        }
+
+        // The server moved the errands, so the list is pulled back rather than rewritten from here.
+        await SynchroniseAsync(cancellationToken);
+        await ShowStoredListAsync(cancellationToken);
+    }
 
     [RelayCommand(CanExecute = nameof(CanAddItem))]
     private Task AddItemAsync(CancellationToken cancellationToken)

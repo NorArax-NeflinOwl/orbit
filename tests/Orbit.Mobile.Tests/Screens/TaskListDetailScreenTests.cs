@@ -466,6 +466,55 @@ public sealed class TaskListDetailScreenTests
 
 
     /// <summary>
+    /// Opening a warehouse's restock list settles what is already crossed off on it - each finished
+    /// errand fills its shelf item and leaves. Orbit.Web asks for this on opening; a phone that did not
+    /// would leave the same list behaving differently depending on which client last looked at it, and
+    /// the shelf never topped up.
+    /// </summary>
+    [Fact]
+    public async Task Opening_a_restock_list_settles_the_errands_already_crossed_off()
+    {
+        using var context = new ScreenContext();
+
+        await context.OpenManagedRestockListAsync();
+
+        Assert.Equal(1, context.Server.RestockingsSettled);
+    }
+
+    /// <summary>
+    /// Nothing to settle on a list no warehouse tracks, so nothing is asked - the title is the only way
+    /// to tell, and it is the same test Orbit.Web applies before making the call.
+    /// </summary>
+    [Fact]
+    public async Task Opening_an_ordinary_list_asks_for_no_settlement()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        screen.NewItemDescription = "Buy flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.Server.RestockingsSettled);
+    }
+
+    /// <summary>
+    /// A settle moves entries off the list on the server, so what is on screen afterwards has to come
+    /// back from there rather than from what was drawn before the call.
+    /// </summary>
+    [Fact]
+    public async Task A_settle_that_moved_something_reads_the_list_back()
+    {
+        using var context = new ScreenContext();
+        context.Server.SettledCount = 2;
+
+        var screen = await context.OpenManagedRestockListAsync();
+
+        Assert.Equal(1, context.Server.RestockingsSettled);
+        Assert.Equal(["Buy flour"], screen.Items.Select(row => row.Description));
+    }
+
+    /// <summary>
     /// Crossing off "Update stock levels" while errands are still open is either the end of a round of
     /// restocking or a tick on the standing reminder, and only the reader knows which. Orbit.Web asks in
     /// the browser's confirm box; the phone asks in place, having nowhere to put a dialog.
@@ -891,6 +940,22 @@ public sealed class TaskListDetailScreenTests
                 await screen.AddItemCommand.ExecuteAsync(null);
             }
 
+            return screen;
+        }
+
+        /// <summary>
+        /// A warehouse's own restock list, as the server holds one: the title Orbit names it with, and a
+        /// server id, which is what a settle needs to ask about anything. Opened a second time on
+        /// purpose - the first open happens before the create has been accepted, which is the one moment
+        /// a real list has no id either.
+        /// </summary>
+        public async Task<TaskListDetailViewModel> OpenManagedRestockListAsync()
+        {
+            var screen = OpenTaskList(RestockTaskNaming.TitleFor("Pantry"));
+            screen.NewItemDescription = "Buy flour";
+            await screen.AddItemCommand.ExecuteAsync(null);
+
+            await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }
 
