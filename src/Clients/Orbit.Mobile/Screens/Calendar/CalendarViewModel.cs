@@ -240,6 +240,17 @@ public sealed partial class CalendarViewModel : ObservableObject
         _navigator.ShowTaskList(deadline.TaskListLocalId);
     }
 
+
+    /// <summary>
+    /// What a day cell says to somebody who cannot see it. The cell itself is a number and a dot, which
+    /// carries the month, the weekday and the count only to a reader who can take in the grid around it.
+    /// </summary>
+    private string DescribeDay(CalendarDay day)
+    {
+        var date = day.Date.ToString("D", _translations.DisplayCulture);
+        return day.HasEvents ? _translations.Format("{0}, {1} entries", date, day.EventCount) : date;
+    }
+
     private async Task ShowStoredEventsAsync(CancellationToken cancellationToken)
     {
         var pending = await _events.GetPendingLocalIdsAsync(cancellationToken);
@@ -251,7 +262,7 @@ public sealed partial class CalendarViewModel : ObservableObject
         Days.Clear();
         foreach (var day in CalendarMonth.Build(Month, SelectedDay, today, stored, deadlines))
         {
-            Days.Add(day);
+            Days.Add(day with { Description = DescribeDay(day) });
         }
 
         Months.Clear();

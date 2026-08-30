@@ -16,6 +16,13 @@ public sealed record CalendarDay(
 {
     public string DayNumber => Date.Day.ToString();
 
+    /// <summary>
+    /// The whole date said out loud, and how much is on it. A cell shows a number and a dot, which is
+    /// enough to see and nothing to hear: "5" alone says neither which month it is in nor that anything
+    /// is happening. Set by CalendarViewModel, which has the language.
+    /// </summary>
+    public string Description { get; init; } = string.Empty;
+
     public bool HasEvents => EventCount > 0;
 }
 

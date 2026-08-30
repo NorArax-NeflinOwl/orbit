@@ -58,23 +58,24 @@
                                 CommandParameter="{Binding .}" />
                         <!-- Tapping the line opens the rest of the entry: when it is due, what it
                              says when it is late, whether it repeats daily. -->
-                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                            <VerticalStackLayout.GestureRecognizers>
-                                <TapGestureRecognizer
+                        <Grid Grid.Column="1" VerticalOptions="Center">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding Description}" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="11"
+                                       LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsOverdue}" Value="True">
+                                            <Setter Property="TextColor"
+                                                    Value="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </VerticalStackLayout>
+                            <Button BackgroundColor="Transparent"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EditItemCommand, x:DataType=tasks:TaskListDetailPage}"
-                                    CommandParameter="{Binding .}" />
-                            </VerticalStackLayout.GestureRecognizers>
-                            <Label Text="{Binding Description}" LineBreakMode="WordWrap" />
-                            <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="11"
-                                   LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}">
-                                <Label.Triggers>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsOverdue}" Value="True">
-                                        <Setter Property="TextColor"
-                                                Value="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
-                        </VerticalStackLayout>
+                                    CommandParameter="{Binding .}"
+                                    SemanticProperties.Description="{Binding Description}" />
+                        </Grid>
                         <Button Grid.Column="2" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" WidthRequest="44" Padding="0"
                                 BackgroundColor="Transparent"
                                 TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"

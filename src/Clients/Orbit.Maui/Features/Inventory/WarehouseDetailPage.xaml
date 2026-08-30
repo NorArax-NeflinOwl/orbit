@@ -73,18 +73,19 @@
                     <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6" Padding="0,10">
                         <!-- Tapping the name opens what the shelf actually says about it: kind,
                              minimum, expiry - none of which the phone could show before. -->
-                        <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
-                            <VerticalStackLayout.GestureRecognizers>
-                                <TapGestureRecognizer
+                        <Grid Grid.Column="0" VerticalOptions="Center">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding Name}" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding Detail}" FontSize="11" LineBreakMode="WordWrap"
+                                       Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{Binding Expiry}" IsVisible="{Binding HasExpiry}" FontSize="11"
+                                       Style="{StaticResource SubtleLabel}" />
+                            </VerticalStackLayout>
+                            <Button BackgroundColor="Transparent"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EditItemCommand, x:DataType=inventory:WarehouseDetailPage}"
-                                    CommandParameter="{Binding .}" />
-                            </VerticalStackLayout.GestureRecognizers>
-                            <Label Text="{Binding Name}" LineBreakMode="WordWrap" />
-                            <Label Text="{Binding Detail}" FontSize="11" LineBreakMode="WordWrap"
-                                   Style="{StaticResource SubtleLabel}" />
-                            <Label Text="{Binding Expiry}" IsVisible="{Binding HasExpiry}" FontSize="11"
-                                   Style="{StaticResource SubtleLabel}" />
-                        </VerticalStackLayout>
+                                    CommandParameter="{Binding .}"
+                                    SemanticProperties.Description="{Binding Name}" />
+                        </Grid>
                         <!-- Below its own minimum, which is the whole reason to set one. -->
                         <Label Grid.Column="1" Text="{Binding Amount}" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">

@@ -773,6 +773,8 @@ public static class PolishTranslations
         ["first, then come back here."] = "najpierw tam, a potem wróć tutaj.",
         ["tasks due today"] = "zadań na dziś",
         ["events today"] = "wydarzeń dziś",
+        // Read out for a day in the month grid, where the count is otherwise a dot nobody can hear.
+        ["{0}, {1} entries"] = "{0}, wpisów: {1}",
         ["new chat requests"] = "nowych próśb o rozmowę",
         ["-- select a contact --"] = "— wybierz kontakt —",
         ["Pick a contact…"] = "Wybierz kontakt…",

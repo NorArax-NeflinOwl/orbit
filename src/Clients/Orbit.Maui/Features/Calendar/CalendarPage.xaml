@@ -69,12 +69,7 @@
                         IsVisible="{Binding IsShowingMonth}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarDay">
-                        <Grid WidthRequest="46" HeightRequest="40" RowDefinitions="*,Auto">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseDayCommand, x:DataType=calendar:CalendarPage}"
-                                    CommandParameter="{Binding .}" />
-                            </Grid.GestureRecognizers>
+                        <Grid WidthRequest="46" HeightRequest="44" RowDefinitions="*,Auto">
 
                             <Label Grid.Row="0" Text="{Binding DayNumber}" FontSize="13" HorizontalTextAlignment="Center"
                                    VerticalOptions="Center">
@@ -101,6 +96,14 @@
                             <Ellipse Grid.Row="1" WidthRequest="5" HeightRequest="5" HorizontalOptions="Center"
                                      IsVisible="{Binding HasEvents}"
                                      Fill="{DynamicResource Accent}" />
+
+                            <!-- The tap is a Button over the cell rather than a gesture on it: a Grid
+                                 carrying a gesture is not a clickable node to Android, so the grid could
+                                 be neither reached nor used by a screen reader. -->
+                            <Button Grid.Row="0" Grid.RowSpan="2" BackgroundColor="Transparent"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseDayCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}"
+                                    SemanticProperties.Description="{Binding Description}" />
                         </Grid>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
@@ -112,11 +115,6 @@
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarYearMonth">
                         <Grid WidthRequest="104" HeightRequest="58" Margin="2" RowDefinitions="Auto,Auto">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseMonthCommand, x:DataType=calendar:CalendarPage}"
-                                    CommandParameter="{Binding .}" />
-                            </Grid.GestureRecognizers>
 
                             <Label Grid.Row="0" Text="{Binding Name}" FontSize="14" HorizontalTextAlignment="Center"
                                    VerticalOptions="End">
@@ -133,6 +131,11 @@
                                  and "how busy" is what a year is read for. -->
                             <Label Grid.Row="1" Text="{Binding EventCount}" FontSize="11" IsVisible="{Binding HasEvents}"
                                    HorizontalTextAlignment="Center" Style="{StaticResource SubtleLabel}" />
+
+                            <Button Grid.Row="0" Grid.RowSpan="2" BackgroundColor="Transparent"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseMonthCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}"
+                                    SemanticProperties.Description="{Binding Name}" />
                         </Grid>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
@@ -200,11 +203,6 @@
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarDeadline">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,6">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenDeadlineCommand, x:DataType=calendar:CalendarPage}"
-                                    CommandParameter="{Binding .}" />
-                            </Grid.GestureRecognizers>
                             <Label Grid.Column="0" Text="{Binding Label}" FontSize="13" LineBreakMode="TailTruncation"
                                    VerticalOptions="Center">
                                 <Label.Triggers>
@@ -219,6 +217,11 @@
                             </Label>
                             <Label Grid.Column="1" Text="{Binding When}" FontSize="11" VerticalOptions="Center"
                                    Style="{StaticResource SubtleLabel}" />
+
+                            <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenDeadlineCommand, x:DataType=calendar:CalendarPage}"
+                                    CommandParameter="{Binding .}"
+                                    SemanticProperties.Description="{Binding Label}" />
                         </Grid>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
