@@ -77,15 +77,16 @@ public sealed class WarehouseDetailScreenTests
         screen.BeingEdited!.ProductType = "Bag";
         screen.BeingEdited.Category = "Kitchen";
         screen.BeingEdited.MinimumQuantity = "5";
-        screen.BeingEdited.Expires = true;
-        screen.BeingEdited.ExpiryDate = new DateTime(2027, 3, 1);
+        // Asked as how long it keeps rather than the day it stops - see ExpiryPeriod.
+        screen.BeingEdited.ChosenExpiryUnit = ExpiryUnitChoice.For(screen.BeingEdited.ExpiryUnits, ExpiryUnit.Weeks);
+        screen.BeingEdited.ExpiresIn = "2";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         var row = Assert.Single(screen.Items);
         Assert.Equal("Bag", row.Item.ProductType);
         Assert.Equal("Kitchen", row.Item.Category);
         Assert.Equal(5, row.Item.MinimumQuantity);
-        Assert.Equal(new DateTime(2027, 3, 1), row.Item.ExpiryDate!.Value.LocalDateTime.Date);
+        Assert.Equal(DateTime.Today.AddDays(14), row.Item.ExpiryDate!.Value.LocalDateTime.Date);
     }
 
     /// <summary>
@@ -531,7 +532,7 @@ public sealed class WarehouseDetailScreenTests
         var screen = await context.OpenAsync(warehouse.LocalId);
 
         screen.EditItemCommand.Execute(screen.Items[0]);
-        screen.BeingEdited!.Expires = false;
+        screen.BeingEdited!.ChosenExpiryUnit = ExpiryUnitChoice.For(screen.BeingEdited.ExpiryUnits, ExpiryUnit.None);
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         Assert.Null(Assert.Single(screen.Items).Item.ExpiryDate);
