@@ -36,7 +36,11 @@ public enum TaskListView
     /// <summary>The default: enough of each list to recognise it, and no more.</summary>
     Normal,
 
-    /// <summary>Every item on every card, for a page somebody is actually working down.</summary>
+    /// <summary>
+    /// As much of each list as a card can carry, for a page somebody is working down rather than
+    /// scanning. Still bounded - see Tasks.razor's PreviewLimitFor, which is where the numbers live,
+    /// because how much fits on a card is a question about the card rather than about the reader.
+    /// </summary>
     Full
 }
 
@@ -99,12 +103,6 @@ public sealed class TaskListArrangement
     /// before.
     /// </summary>
     public bool IsCollapsed(Guid taskListId) => View == TaskListView.Minimal || _collapsed.Contains(taskListId);
-
-    /// <summary>How many items a card shows before falling back to "and N more". Every item, in the full view.</summary>
-    public int? PreviewItemLimit => View == TaskListView.Full ? null : NormalPreviewItemCount;
-
-    /// <summary>Five, which is what a card can carry without becoming the list it is standing in for.</summary>
-    private const int NormalPreviewItemCount = 5;
 
     public async Task InitializeAsync()
     {

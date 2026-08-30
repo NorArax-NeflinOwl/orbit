@@ -188,7 +188,7 @@ else
                 {
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
                    checklist view one click away for working through it. *@
-                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, Arrangement.PreviewItemLimit)))
+                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList))))
                 {
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
@@ -214,18 +214,18 @@ else
                                 <span class="row-title">@Written(linkedItem.Description)</span>
                             </div>
                         }
-                        @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewLimit))
+                        @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))
                         {
                             <div class="list-row task-preview-row-linked">
-                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewLimit))</span>
+                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))</span>
                             </div>
                         }
                     }
                 }
-                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, Arrangement.PreviewItemLimit))
+                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList)))
                 {
                     <div class="list-row">
-                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - RowsToShow(taskList.Items.Count, Arrangement.PreviewItemLimit))</span>
+                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList)))</span>
                     </div>
                 }
                 @if (taskList.Items.Count == 0)
@@ -518,20 +518,42 @@ else
         Group
     }
 
-    /// <summary>How much of a linked list to show under the row that points at it - less than the card's own preview, since it is standing in for one line of it.</summary>
+    /// <summary>
+    /// How much of a linked list to show under the row that points at it. Three whatever the view, which
+    /// is what makes a group list's card readable: the row naming the member list, three of its items,
+    /// and a fifth line that is either "and N more…" or - when there are exactly four - the fourth item
+    /// itself. Five lines per member is what lets four of them sit on one card.
+    /// </summary>
     private const int LinkedPreviewItemCount = 3;
 
-    /// <summary>The same, following the view: everything when the reader asked for everything.</summary>
-    private int? LinkedPreviewLimit => Arrangement.PreviewItemLimit is null ? null : LinkedPreviewItemCount;
+    /// <summary>Five, which is what a card can carry without becoming the list it stands in for.</summary>
+    private const int NormalPreviewItemCount = 5;
+
+    /// <summary>As much as a card can carry before it stops being a card. The full view's answer for an ordinary list.</summary>
+    private const int FullPreviewItemCount = 20;
 
     /// <summary>
-    /// How many rows to actually draw. A null limit is "all of them", which is what the full view asks
-    /// for. Otherwise one over the limit is drawn in full: the line saying "and 1 more…" takes exactly
-    /// the room the row it stands for would have taken, so hiding that row saves nothing and costs the
-    /// reader the one thing it was hiding.
+    /// The full view's answer for a group list, counted in member lists rather than in rows: each one
+    /// brings five lines with it (see <see cref="LinkedPreviewItemCount"/>), so four of them is already
+    /// twenty lines - the same height an ordinary list gets.
     /// </summary>
-    private static int RowsToShow(int itemCount, int? limit)
-        => limit is not { } cap || itemCount <= cap + 1 ? itemCount : cap;
+    private const int FullGroupPreviewCount = 4;
+
+    /// <summary>
+    /// How many of a card's own rows to draw. It depends on the view and on what the list is: a group
+    /// list's rows are not items but other lists, and each one costs five lines rather than one.
+    /// </summary>
+    private int PreviewLimitFor(TaskDto taskList)
+        => Arrangement.View == TaskListView.Full
+            ? taskList.IsGroup ? FullGroupPreviewCount : FullPreviewItemCount
+            : NormalPreviewItemCount;
+
+    /// <summary>
+    /// How many rows to actually draw. One over the limit is drawn in full: the line saying "and 1 more…"
+    /// takes exactly the room the row it stands for would have taken, so hiding that row saves nothing
+    /// and costs the reader the one thing it was hiding.
+    /// </summary>
+    private static int RowsToShow(int itemCount, int limit) => itemCount <= limit + 1 ? itemCount : limit;
 
     /// <summary>How much of each list is on show, in the reader's language.</summary>
     private string DescribeView(TaskListView view) => view switch
@@ -549,7 +571,7 @@ else
 
     /// <summary>The work a linked row actually stands for, as far as the card has room for.</summary>
     private IEnumerable<TaskItemDto> LinkedItems(Guid linkedTaskListId)
-        => LinkedTaskList(linkedTaskListId)?.Items.Take(RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewLimit)) ?? [];
+        => LinkedTaskList(linkedTaskListId)?.Items.Take(RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount)) ?? [];
 
     private int LinkedItemCount(Guid linkedTaskListId) => LinkedTaskList(linkedTaskListId)?.Items.Count ?? 0;
 

@@ -94,36 +94,54 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     [Fact]
-    public void The_full_view_prints_the_whole_list()
+    public void The_full_view_carries_twenty_of_an_ordinary_lists_items()
     {
-        var items = Enumerable.Range(1, 9).Select(number => Item($"Item {number}")).ToArray();
+        var items = Enumerable.Range(1, 30).Select(number => Item($"Item {number}")).ToArray();
         RegisterTasksApiClient([TaskList("Long one", items)]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         ChooseTheView(cut, "Full");
 
-        Assert.Equal(9, cut.FindAll(".task-preview-row").Count);
-        Assert.DoesNotContain("more…", cut.Markup);
+        // As much as a card can carry before it stops being a card.
+        Assert.Equal(20, cut.FindAll(".task-preview-row").Count);
+        Assert.Contains("and 10 more", cut.Markup);
     }
 
     [Fact]
-    public void The_full_view_opens_a_group_lists_nested_work_too()
+    public void The_full_view_counts_a_group_list_in_member_lists_rather_than_rows()
     {
-        // The case the full view is really for: a group list stands in for other lists, so cutting the
-        // rows underneath it at three leaves the card saying almost nothing about the work.
-        var member = TaskList("Shopping", [.. Enumerable.Range(1, 6).Select(number => Item($"Buy {number}"))]);
-        var group = TaskList("Saturday", LinkTo(member)) with { IsGroup = true };
-        RegisterTasksApiClient([group, member]);
+        // Each member costs five lines - its name, three of its items, and either "and N more…" or the
+        // fourth item - so four members is already the twenty lines an ordinary list gets.
+        var members = Enumerable.Range(1, 6)
+            .Select(number => TaskList(
+                $"Member {number}", [.. Enumerable.Range(1, 6).Select(item => Item($"Buy {number}.{item}"))]))
+            .ToArray();
+        var group = TaskList("Saturday", [.. members.Select(LinkTo)]) with { IsGroup = true };
+        RegisterTasksApiClient([group, .. members]);
         var cut = RenderComponent<Web.Pages.Tasks>();
-
-        // Counted by their titles: the "and N more" line carries the same class and is not a row of work.
-        Assert.Equal(3, cut.FindAll(".task-preview-row-linked .row-title").Count);
-        Assert.Contains("and 3 more", cut.Markup);
 
         ChooseTheView(cut, "Full");
 
-        Assert.Equal(6, cut.FindAll(".task-preview-row-linked .row-title").Count);
-        Assert.DoesNotContain("more…", cut.Markup);
+        // Four member lists, three items under each. The link rows are the ones naming a member, and the
+        // nested rows only exist on the group's card - the members' own cards link to nothing.
+        var namedMembers = cut.FindAll(".task-preview-row .row-title")
+            .Count(row => row.TextContent.StartsWith("Member ", StringComparison.Ordinal));
+        Assert.Equal(4, namedMembers);
+        Assert.Equal(12, cut.FindAll(".task-preview-row-linked .row-title").Count);
+    }
+
+    [Fact]
+    public void A_member_list_of_exactly_four_shows_its_fourth_item_rather_than_a_line_saying_one_is_missing()
+    {
+        // "and 1 more…" takes exactly the room the row it stands for would have taken.
+        var member = TaskList("Shopping", [.. Enumerable.Range(1, 4).Select(number => Item($"Buy {number}"))]);
+        var group = TaskList("Saturday", LinkTo(member)) with { IsGroup = true };
+        RegisterTasksApiClient([group, member]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Equal(4, cut.FindAll(".task-preview-row-linked .row-title").Count);
+        Assert.DoesNotContain("and 1 more", cut.Markup);
     }
 
     [Fact]
