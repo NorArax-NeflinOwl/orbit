@@ -84,7 +84,7 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
         var payload = ChatMessagePushContent.Build(sender.Id, sender.DisplayName);
         var recordResult = await _notificationRecorder.RecordAndFilterAsync(
             request.RecipientUserId, NotificationChannel.Push, NotificationEntryKind.ChatMessage,
-            payload.Title, payload.Body, payload.Url, cancellationToken);
+            payload, cancellationToken);
 
         if (recordResult.AllowedChannel.HasFlag(NotificationChannel.Push))
         {

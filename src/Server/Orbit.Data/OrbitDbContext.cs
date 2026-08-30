@@ -430,6 +430,9 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(entry => entry.Kind).IsRequired().HasMaxLength(20);
             entity.Property(entry => entry.Title).IsRequired().HasMaxLength(200);
             entity.Property(entry => entry.Body).IsRequired().HasMaxLength(1000);
+            // JSON, and nullable: an entry whose sentence has nothing in it stores nothing here.
+            entity.Property(entry => entry.TitleArguments).HasMaxLength(1000);
+            entity.Property(entry => entry.BodyArguments).HasMaxLength(2000);
             // The feed/unread-count queries are always scoped to one user, most-recent-first - this
             // index covers both without a separate sort step.
             entity.HasIndex(entry => new { entry.UserId, entry.CreatedAtUtc });

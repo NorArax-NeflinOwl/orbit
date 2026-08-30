@@ -215,8 +215,10 @@ public sealed class GroupMessagingTests
         // without an entry it happened silently - the group just turned up in the list.
         Assert.True(added);
         var entry = Assert.Single(await entryRepository.GetRecentAsync(invitee.Id, 10, CancellationToken.None));
-        Assert.Contains("Weekend trip", entry.Body);
-        Assert.Contains("Admin", entry.Body);
+        // The sentence and what fills it are kept apart so the client can say it in the reader's
+        // language - see PushNotificationPayload.
+        Assert.Contains("Weekend trip", entry.BodyArguments);
+        Assert.Contains(entry.BodyArguments, argument => argument.Contains("Admin"));
         Assert.Equal($"/chat/groups/{group.Id}", entry.Url);
     }
 

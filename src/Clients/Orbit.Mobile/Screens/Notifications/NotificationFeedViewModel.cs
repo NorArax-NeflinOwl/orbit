@@ -164,7 +164,7 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
             Rows.Clear();
             foreach (var entry in entries)
             {
-                Rows.Add(new NotificationRow(entry));
+                Rows.Add(new NotificationRow(entry, _translations));
             }
 
             Message = string.Empty;

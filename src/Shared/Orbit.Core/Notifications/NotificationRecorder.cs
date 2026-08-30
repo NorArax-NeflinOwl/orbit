@@ -19,13 +19,13 @@ public sealed class NotificationRecorder
     }
 
     public async Task<NotificationRecordResult> RecordAndFilterAsync(
-        Guid userId, NotificationChannel requestedChannel, NotificationEntryKind kind, string title, string body, string? url,
-        CancellationToken cancellationToken)
+        Guid userId, NotificationChannel requestedChannel, NotificationEntryKind kind,
+        PushNotificationPayload says, CancellationToken cancellationToken)
     {
         var settings = await _notificationSettingsRepository.GetAsync(userId, cancellationToken);
         if (settings.AllowNotifications)
         {
-            await _notificationEntryRepository.AddAsync(NotificationEntry.Create(userId, kind, title, body, url), cancellationToken);
+            await _notificationEntryRepository.AddAsync(NotificationEntry.Create(userId, kind, says), cancellationToken);
         }
 
         return new NotificationRecordResult(settings.FilterChannel(requestedChannel), EntryRecorded: settings.AllowNotifications);

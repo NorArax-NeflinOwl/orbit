@@ -48,27 +48,34 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
         var sharerName = sharer?.DisplayName ?? "Someone";
         var settings = await _notificationSettingsRepository.GetAsync(recipientUserId, cancellationToken);
 
-        var title = $"{sharerName} shared {Describe(kind)} with you";
-        var body = string.IsNullOrWhiteSpace(itemTitle) ? title : itemTitle;
+        // One sentence per kind rather than "{0} shared {1} with you" with "a note" dropped in: a
+        // language that declines its nouns cannot have the middle of a sentence handed to it as a
+        // word, and a translator given five whole sentences can write five that read properly.
+        var payload = new PushNotificationPayload(
+            TitleFor(kind), [sharerName],
+            // The body is what was shared, which is the reader's own words - or, when the thing has no
+            // name yet, the heading again rather than a blank line.
+            string.IsNullOrWhiteSpace(itemTitle) ? TitleFor(kind) : "{0}",
+            [string.IsNullOrWhiteSpace(itemTitle) ? sharerName : itemTitle],
+            UrlFor(kind, sharerUserId));
 
         var result = await _notificationRecorder.RecordAndFilterAsync(
             recipientUserId, settings.ChannelForShares(), NotificationEntryKind.SharedWithYou,
-            title, body, UrlFor(kind, sharerUserId), cancellationToken);
+            payload, cancellationToken);
 
         if (result.AllowedChannel.HasFlag(NotificationChannel.Push))
         {
-            await _pushNotificationDispatcher.NotifyUserAsync(
-                recipientUserId, new PushNotificationPayload(title, body, UrlFor(kind, sharerUserId)), cancellationToken);
+            await _pushNotificationDispatcher.NotifyUserAsync(recipientUserId, payload, cancellationToken);
         }
     }
 
-    private static string Describe(SharedItemKind kind) => kind switch
+    private static string TitleFor(SharedItemKind kind) => kind switch
     {
-        SharedItemKind.Note => "a note",
-        SharedItemKind.TaskList => "a task list",
-        SharedItemKind.CalendarEvent => "an event",
-        SharedItemKind.Warehouse => "a warehouse",
-        _ => "their location"
+        SharedItemKind.Note => "{0} shared a note with you",
+        SharedItemKind.TaskList => "{0} shared a task list with you",
+        SharedItemKind.CalendarEvent => "{0} shared an event with you",
+        SharedItemKind.Warehouse => "{0} shared a warehouse with you",
+        _ => "{0} shared their location with you"
     };
 
     /// <summary>

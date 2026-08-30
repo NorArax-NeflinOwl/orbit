@@ -116,7 +116,7 @@ public sealed class DailyTaskReminderBackgroundService : BackgroundService
         var payload = DailyTaskReminderPushContent.Build(dueReminder);
         var recordResult = await notificationRecorder.RecordAndFilterAsync(
             dueReminder.UserId, dueReminder.NotificationChannel, NotificationEntryKind.PushReminder,
-            payload.Title, payload.Body, payload.Url, cancellationToken);
+            payload, cancellationToken);
 
         // Sent best-effort per channel, mirroring CalendarEventReminderBackgroundService: the claim above
         // guards the whole (task item, date) pair, not each channel individually, so once at least one

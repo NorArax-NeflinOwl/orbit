@@ -103,7 +103,7 @@ public sealed class OverdueTaskNotificationBackgroundService : BackgroundService
         var payload = OverdueTaskPushContent.Build(overdueTaskItem);
         var recordResult = await notificationRecorder.RecordAndFilterAsync(
             overdueTaskItem.UserId, overdueTaskItem.NotificationChannel, NotificationEntryKind.PushReminder,
-            payload.Title, payload.Body, payload.Url, cancellationToken);
+            payload, cancellationToken);
 
         // Sent best-effort per channel, mirroring CalendarEventReminderBackgroundService: the claim above
         // guards the whole item, not each channel individually, so once at least one notification has
