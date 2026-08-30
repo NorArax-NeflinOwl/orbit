@@ -196,10 +196,15 @@ as not covered by an automated test today, together with why:
   the message fan-out is written, so the one conversation list sorts people and groups against each other
   by when something last happened. A group nobody has written in yet answers with the day it was made,
   which keeps the order total without a second rule.
-- **An established contact can disappear.** `Contacts` gates being findable at all, so an account that
-  has not unlocked it is a 404 even to somebody who already has a conversation with them - the chat
-  exists, the profile behind it does not resolve. Either the gate should not apply to an account you are
-  already a contact of, or the chat should say plainly why the other side has gone quiet.
+- ~~**An established contact can disappear.**~~ Settled the second way: the gate stays as it is - an
+  account that has not unlocked `Contacts` is unfindable, and a lookup for it answers exactly as a lookup
+  for nobody does, because "found, but hidden" would be finding them. What changed is that `ContactInfo`
+  now says so. It reads the contact entry whether or not the profile resolves, which is what lets it tell
+  somebody you talk to from an id that means nothing: for the former it names them from the conversation,
+  says the two possible reasons and that Orbit cannot tell them apart from here, and states plainly that
+  the messages are unaffected; for the latter it says there is nothing to show and why it cannot be more
+  specific. It used to say "Orbit can't reach that account right now" to both, which read as a fault
+  Orbit was having.
 
 - **A permanent, bind-mounted TLS certificate setup for local development.** The mkcert-based option
   in [`info/instructions.md`](instructions.md) currently requires copying certificate files into the

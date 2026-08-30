@@ -293,7 +293,12 @@ public static class PolishTranslations
         ["They asked to chat with you. Open the conversation to allow it."] = "Ta osoba prosi o rozmowę. Otwórz konwersację, aby na nią pozwolić.",
         ["Waiting for them to allow this conversation."] = "Czekamy, aż ta osoba zgodzi się na rozmowę.",
         ["No conversation with them yet."] = "Nie ma jeszcze rozmowy z tą osobą.",
-        ["Orbit can't reach that account right now."] = "Orbit nie może teraz połączyć się z tym kontem.",
+        ["There is nothing to show for this account. Either it does not exist, or the person has made themselves unfindable - Orbit answers both the same way, on purpose."] =
+            "Nie ma czego pokazać dla tego konta. Albo nie istnieje, albo ta osoba ukryła się przed wyszukiwaniem - Orbit celowo odpowiada tak samo w obu przypadkach.",
+        ["This person has made themselves unfindable in Orbit, or the account is gone. Orbit answers both the same way, so there is no telling which from here."] =
+            "Ta osoba ukryła się przed wyszukiwaniem w Orbicie albo jej konto zniknęło. Orbit odpowiada tak samo w obu przypadkach, więc stąd nie da się tego rozstrzygnąć.",
+        ["Your conversation with them is not affected - everything in it is still there, and still readable."] =
+            "Wasza rozmowa jest nienaruszona - wszystko w niej nadal jest i nadal da się to przeczytać.",
         ["Couldn't load this contact. Check your connection and try again."] = "Nie udało się wczytać tego kontaktu. Sprawdź połączenie i spróbuj ponownie.",
         ["Conversation options"] = "Opcje rozmowy",
         ["Pick a conversation from the list, or start a new group."] = "Wybierz rozmowę z listy albo załóż nową grupę.",

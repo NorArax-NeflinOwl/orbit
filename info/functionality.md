@@ -298,6 +298,17 @@ size, when it started, and this reader's own role). The roster is a page rather 
 the thread: one row per person with two buttons each for an admin, above the messages, left the
 conversation itself below the fold on every visit.
 
+**A card for somebody who has gone unfindable says so, and says what it cannot know.** An account that
+has not unlocked `Contacts` is invisible in both directions, and a lookup for it answers exactly as a
+lookup for nobody does — "found, but hidden" would be finding them (`UserVisibility`). So the card
+genuinely cannot tell "they closed their door" from "no such id", and it says that rather than picking
+one. It can tell whether there is a conversation, though: the contact entry is read whether or not the
+profile resolves, because a conversation's names are resolved without that visibility check
+(`GetUsersByIdsQueryHandler`), which is what keeps an existing chat readable. So somebody you talk to is
+named from the conversation, told the two possible reasons, and told plainly that the messages are
+unaffected — while an id that means nothing gets "there is nothing to show" and no offer to open a chat
+that does not exist.
+
 A chat with more than one other person, under the same end-to-end encryption one-to-one chats already
 have. There is no group key: the sender's browser encrypts the same text **once per other member**,
 under the pairwise key it already shares with each of them, and posts the copies together

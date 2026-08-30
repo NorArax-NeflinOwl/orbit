@@ -24,7 +24,9 @@
     </div>
     <div class="page-header-actions">
         <button type="button" class="btn-secondary" @onclick="GoToContacts">@T["Back to Contacts"]</button>
-        @if (Permissions.Has(ApplicationPermission.Chat))
+        @* Offered while there is a conversation to open - which there still is when the profile behind
+           it cannot be read, and is not when this is a stranger's id that resolves to nothing. *@
+        @if (Permissions.Has(ApplicationPermission.Chat) && (_contact is not null || _errorMessage is null))
         {
             <button type="button" class="btn-primary" @onclick="GoToChat">@T["Open chat"]</button>
         }
@@ -34,6 +36,17 @@
 @if (_errorMessage is not null)
 {
     <p class="error">@_errorMessage</p>
+    @* An account that has not unlocked Contacts is unfindable on purpose, and Orbit answers a search
+       for it exactly as it answers a search for nobody - saying "found, but hidden" would be finding
+       them. So this page genuinely cannot tell the two apart, and says so rather than picking one.
+
+       It can tell whether there is a conversation, though, and that is the part worth knowing: the
+       messages are not going anywhere. Without this the page said only "can't reach that account right
+       now", which reads as a fault Orbit is having rather than as somebody having closed a door. *@
+    @if (_contact is not null)
+    {
+        <p>@T["Your conversation with them is not affected - everything in it is still there, and still readable."]</p>
+    }
 }
 else if (_isLoading)
 {
@@ -112,21 +125,30 @@ else
 
         try
         {
-            // The account itself is what this page is about; the contact entry adds what this reader's
-            // own conversation with them says, which only exists once there has been one.
+            // The contact entry is read first, and whether or not the account itself resolves. It is
+            // what says there is a conversation here - and a conversation outlives the profile behind
+            // it, because the names in one are resolved without the visibility check a lookup applies
+            // (see GetUsersByIdsQueryHandler). Reading it only on success left the page unable to tell
+            // "somebody you talk to has closed their door" from "no such id".
+            _contact = Permissions.Has(ApplicationPermission.Chat)
+                ? (await ChatApiClient.GetContactsAsync()).FirstOrDefault(candidate => candidate.UserId == UserId)
+                : null;
+
+            // The account itself is what this page is about.
             var user = await UsersApiClient.GetUserAsync(UserId);
             if (user is null)
             {
-                _errorMessage = T["Orbit can't reach that account right now."];
+                _displayName = _contact?.DisplayName ?? string.Empty;
+                _userName = _contact?.UserName ?? string.Empty;
+                _errorMessage = _contact is null
+                    ? T["There is nothing to show for this account. Either it does not exist, or the person has made themselves unfindable - Orbit answers both the same way, on purpose."]
+                    : T["This person has made themselves unfindable in Orbit, or the account is gone. Orbit answers both the same way, so there is no telling which from here."];
                 return;
             }
 
             _displayName = user.DisplayName;
             _userName = user.UserName;
             _hasEncryptionKey = user.PublicKeyBase64 is not null;
-            _contact = Permissions.Has(ApplicationPermission.Chat)
-                ? (await ChatApiClient.GetContactsAsync()).FirstOrDefault(candidate => candidate.UserId == UserId)
-                : null;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
