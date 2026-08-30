@@ -73,6 +73,22 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// </summary>
     public IReadOnlyList<CalendarEventChoice> CalendarEvents { get; private init; } = [];
 
+    /// <summary>
+    /// Lists this entry can be made to stand for, the first of them being "none" - see
+    /// TaskListChoice.NoList. A group list gathers other lists through entries that point at them.
+    /// </summary>
+    public IReadOnlyList<TaskListChoice> LinkableTaskLists { get; private init; } = [];
+
+    /// <summary>
+    /// The list this entry stands for, or the "none" choice. An entry that points somewhere is ticked
+    /// by that list rather than by hand, which is why the tick is left to the list it names.
+    /// </summary>
+    [ObservableProperty]
+    private TaskListChoice? _chosenLinkedTaskList;
+
+    /// <summary>Nothing to point at is nothing to offer - a phone with one list needs no picker.</summary>
+    public bool CanBeLinked => LinkableTaskLists.Count > 1;
+
     private readonly TaskItemDto _item;
 
     /// <summary>
@@ -139,7 +155,8 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// than reaching for a store, the same way it is handed the notification channels.
     /// </param>
     public static TaskItemEditor For(
-        TaskItemDto item, Translations translations, IReadOnlyList<CalendarEventChoice> events)
+        TaskItemDto item, Translations translations, IReadOnlyList<CalendarEventChoice> events,
+        IReadOnlyList<TaskListChoice> lists)
     {
         var choices = new List<CalendarEventChoice> { CalendarEventChoice.NoEvent(translations) };
         choices.AddRange(events);
@@ -149,6 +166,9 @@ public sealed partial class TaskItemEditor : ObservableObject
             Channels = NotificationChannelChoice.All(translations),
             Kinds = TaskItemKindChoice.All(translations),
             CalendarEvents = choices,
+            LinkableTaskLists = lists,
+            ChosenLinkedTaskList = lists.FirstOrDefault(choice => choice.ServerId == item.LinkedTaskListId)
+                ?? lists.FirstOrDefault(),
             Kind = item.Kind,
             Location = item.Location,
             ChosenCalendarEvent = choices.FirstOrDefault(choice => choice.ServerId == item.LinkedCalendarEventId)
@@ -166,13 +186,13 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool CanSave => Description.Trim().Length > 0;
 
     /// <summary>
-    /// Everything this screen does not show - the id, whether it is done, which list it points at -
-    /// travels through untouched. An entry linked to an inventory item's restock task must come back
-    /// linked.
+    /// Everything this screen does not show - the id, whether it is done - travels through untouched.
+    /// An entry linked to an inventory item's restock task must come back linked.
     /// </summary>
     public TaskItemDto ToDto()
         => _item with
         {
+            LinkedTaskListId = ChosenLinkedTaskList?.ServerId,
             Description = Description.Trim(),
             // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
             // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,

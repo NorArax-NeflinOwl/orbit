@@ -347,7 +347,84 @@ public sealed class TaskListDetailScreenTests
         Assert.Contains("Later", screen.Status);
         Assert.Contains(
             "Call the plumber",
-            context.Server.ItemsIn(later.ServerId).Select(item => item.Description));
+            context.Server.ItemsIn(later.ServerId!.Value).Select(item => item.Description));
+    }
+
+    /// <summary>
+    /// A group list gathers other lists, and it gathers them through its entries pointing at them.
+    /// The phone could turn "group list" on and point nothing anywhere, so a group made here gathered
+    /// nothing at all - half a feature, which is worse than none. Orbit.Web has offered the picker all
+    /// along.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_made_to_stand_for_another_list()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.ChosenLinkedTaskList =
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        var shopping = context.Server.TaskLists.Single(list => list.Title == "Shopping");
+        var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
+        Assert.Equal(shopping.Id, Assert.Single(thisWeek.Items).LinkedTaskListId);
+    }
+
+    /// <summary>
+    /// And can stop standing for it. Pointing at nothing is what most entries do, so the picker offers
+    /// it rather than making "linked" a one-way door.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_stop_standing_for_a_list()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.ChosenLinkedTaskList =
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        Assert.Equal("Shopping", screen.BeingEdited!.ChosenLinkedTaskList?.Name);
+
+        screen.BeingEdited.ChosenLinkedTaskList =
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.ServerId is null);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
+        Assert.Null(Assert.Single(thisWeek.Items).LinkedTaskListId);
+    }
+
+    /// <summary>One list is nothing to point at, so the picker is not offered at all.</summary>
+    [Fact]
+    public async Task With_no_other_list_there_is_nothing_to_point_at()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+
+        Assert.False(screen.BeingEdited!.CanBeLinked);
     }
 
     /// <summary>The list being looked at is not somewhere its own entries can go.</summary>

@@ -146,6 +146,16 @@
 
         <VerticalStackLayout Grid.Row="4" Spacing="10" IsVisible="{Binding IsEditingItem}">
 
+            <!-- What this entry stands for. A group list gathers other lists through entries pointing
+                 at them, so without this a group made on the phone gathered nothing. Inside the form,
+                 unlike moving: it is a fact about the entry, and it is saved with it. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanBeLinked}">
+                <Label Text="{controls:Translate 'Link to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                <Picker ItemsSource="{Binding BeingEdited.LinkableTaskLists}"
+                        SelectedItem="{Binding BeingEdited.ChosenLinkedTaskList}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}" />
+            </VerticalStackLayout>
+
             <!-- Outside the entry's own form, because moving is a change to two lists rather than to
                  the entry: choosing a list does it there and then, and this form's Save is not involved. -->
             <VerticalStackLayout Spacing="4" IsVisible="{Binding CanMoveItem}">

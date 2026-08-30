@@ -30,7 +30,7 @@ public sealed class WhatTheWireCarriesTests
             new TaskItemDto(
                 Guid.NewGuid(), "Collect the parcel", null, false, null, "None", false, "None",
                 new TimeOnly(9, 0), "Checklist", "", null),
-            new Translations(new InMemoryLanguageStore()), []);
+            new Translations(new InMemoryLanguageStore()), [], []);
 
         editor.HasDueDate = true;
         editor.DueDate = new DateTime(2026, 8, 30);

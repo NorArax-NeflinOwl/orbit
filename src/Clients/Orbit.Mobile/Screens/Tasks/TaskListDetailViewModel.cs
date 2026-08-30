@@ -160,7 +160,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = TaskItemEditor.For(row.Item, _translations, _linkableEvents);
+            BeingEdited = TaskItemEditor.For(row.Item, _translations, _linkableEvents, LinkTargets);
             MoveTarget = null;
             OnPropertyChanged(nameof(CanMoveItem));
         }
@@ -168,6 +168,13 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     /// <summary>The other lists this entry could go to - see <see cref="TaskListChoice"/>.</summary>
     public ObservableCollection<TaskListChoice> MoveTargets { get; } = [];
+
+    /// <summary>
+    /// Lists an entry can be made to stand for. A group list gathers other lists, and it gathers them
+    /// through its entries pointing at them - so a phone that could turn "group list" on and not point
+    /// an entry anywhere could make a group that gathered nothing. Orbit.Web offers the same picker.
+    /// </summary>
+    public ObservableCollection<TaskListChoice> LinkTargets { get; } = [];
 
     /// <summary>
     /// Choosing one moves the entry there and then, rather than waiting for this form's Save. The move
@@ -189,7 +196,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [RelayCommand]
     private async Task MoveItemAsync(TaskListChoice? target, CancellationToken cancellationToken)
     {
-        if (target is null
+        if (target?.ServerId is not { } targetServerId
             || BeingEdited?.ToDto().Id is not { } itemId
             || await _taskLists.FindAsync(_localId, cancellationToken) is not { ServerId: { } sourceServerId })
         {
@@ -201,7 +208,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // Anything queued goes first: the server is about to be asked to rearrange these two lists, and
         // it should be rearranging what the phone last said, not a version behind.
         await SynchroniseAsync(cancellationToken);
-        var outcome = await _tasksClient.MoveItemAsync(sourceServerId, itemId, target.ServerId, cancellationToken);
+        var outcome = await _tasksClient.MoveItemAsync(sourceServerId, itemId, targetServerId, cancellationToken);
 
         // Then again, to bring both lists back as the server now has them - said after the sync, which
         // clears the status of its own.
@@ -218,9 +225,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var others = await _taskLists.GetAllAsync(cancellationToken);
 
         MoveTargets.Clear();
+
+        // The same lists offered for a different act: moving an entry sends it away, pointing at one
+        // leaves it here and makes it stand for that list - which is what a group list is made of.
+        LinkTargets.Clear();
+        LinkTargets.Add(TaskListChoice.NoList(_translations));
+
         foreach (var other in others.Where(list => list.LocalId != _localId && list.ServerId is not null))
         {
             MoveTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
+            LinkTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
         }
     }
 
