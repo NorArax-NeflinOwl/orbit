@@ -71,7 +71,7 @@ public sealed class EncryptedChatMessageReader
                 Invitation: opened.Invitation,
                 EditAccessRequest: opened.EditAccessRequest)
             {
-                SentAt = WhenItHappened(message.SentAtUtc),
+                SentAt = _translations.WhenItHappened(message.SentAtUtc),
                 QuotedMessageId = opened.QuotedMessageId,
                 QuotedPreview = opened.QuotedPreview
             });
@@ -86,7 +86,7 @@ public sealed class EncryptedChatMessageReader
                 Invitation: opened.Invitation,
                 EditAccessRequest: opened.EditAccessRequest)
             {
-                SentAt = WhenItHappened(message.QueuedAtUtc),
+                SentAt = _translations.WhenItHappened(message.QueuedAtUtc),
                 QuotedMessageId = opened.QuotedMessageId,
                 QuotedPreview = opened.QuotedPreview
             });
@@ -135,7 +135,7 @@ public sealed class EncryptedChatMessageReader
                 Invitation: opened.Invitation,
                 EditAccessRequest: opened.EditAccessRequest)
             {
-                SentAt = WhenItHappened(message.SentAtUtc),
+                SentAt = _translations.WhenItHappened(message.SentAtUtc),
                 QuotedMessageId = opened.QuotedMessageId,
                 QuotedPreview = opened.QuotedPreview
             });
@@ -151,7 +151,7 @@ public sealed class EncryptedChatMessageReader
                 Invitation: opened.Invitation,
                 EditAccessRequest: opened.EditAccessRequest)
             {
-                SentAt = WhenItHappened(message.QueuedAtUtc),
+                SentAt = _translations.WhenItHappened(message.QueuedAtUtc),
                 QuotedMessageId = opened.QuotedMessageId,
                 QuotedPreview = opened.QuotedPreview
             });
@@ -159,14 +159,6 @@ public sealed class EncryptedChatMessageReader
 
         return conversation;
     }
-
-    /// <summary>
-    /// When something happened, on this reader's clock and in their language. Every other screen in the
-    /// app converts and formats this way; the two conversation pages were the ones handing a raw UTC
-    /// value to XAML instead.
-    /// </summary>
-    private string WhenItHappened(DateTimeOffset instant)
-        => instant.ToLocalTime().ToString("g", _translations.DisplayCulture);
 
     /// <summary>
     /// One opened message: its words, and who wrote them first if it got here by being passed on.

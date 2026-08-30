@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Api;
@@ -6,6 +7,7 @@ using Orbit.Mobile.Chat;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Google;
+using Orbit.Localization;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Location;
@@ -105,6 +107,59 @@ public sealed class MapScreenTests
 
         Assert.Single(screen.SharedWithMe);
         Assert.Empty(screen.Points);
+    }
+    /// <summary>
+    /// A shared position says when it was taken on the reader's own clock, not in the UTC it is stored
+    /// in. The map was the second screen handing a raw value to XAML to format, after the two
+    /// conversation pages - see MessageTimestampTests for the same bug and the same fix.
+    /// </summary>
+    [Fact]
+    public async Task A_shared_position_says_when_it_was_taken_on_the_readers_clock()
+    {
+        using var context = new MapContext();
+        await context.SomebodySharesTheirPositionAsync("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var taken = DateTimeOffset.Parse("2026-08-26T09:00:00Z");
+        Assert.Equal(
+            taken.ToLocalTime().ToString("g", CultureInfo.GetCultureInfo("en-US")),
+            Assert.Single(screen.SharedWithMe).RecordedAt);
+    }
+
+    /// <summary>
+    /// And in the reader's language. Asserted by shape so the test says nothing about which timezone it
+    /// runs in: Polish writes the hour on a 24-hour clock, so an AM or PM means the phone's culture won.
+    /// </summary>
+    [Fact]
+    public async Task A_polish_reader_is_told_when_it_was_taken_in_polish()
+    {
+        using var context = new MapContext();
+        await context.SomebodySharesTheirPositionAsync("Bob");
+        var screen = context.Open(AppLanguage.Polish);
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var recordedAt = Assert.Single(screen.SharedWithMe).RecordedAt;
+        Assert.DoesNotContain("AM", recordedAt);
+        Assert.DoesNotContain("PM", recordedAt);
+    }
+
+    /// <summary>
+    /// A position this device cannot open has no reading to stamp, so the line is left off rather than
+    /// standing empty under the sharer's name.
+    /// </summary>
+    [Fact]
+    public async Task A_position_that_cannot_be_opened_is_stamped_with_nothing()
+    {
+        using var context = new MapContext();
+        context.SomebodySharesSomethingUnreadable("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(Assert.Single(screen.SharedWithMe).HasRecordedAt);
     }
 
     [Fact]
@@ -389,10 +444,13 @@ public sealed class MapScreenTests
             LocationServer.AddIncomingShare(sharerUserId, "AAAAAAAAAAAAAAAAAAAAAA==", "AAAAAAAAAAAAAAAA");
         }
 
-        public MapViewModel Open()
-            => new(Device, LocationClient, _sharedLocations, _usersClient, _repository, _synchronizer,
-                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), _google,
-                Navigator);
+        public MapViewModel Open(AppLanguage language = AppLanguage.English)
+        {
+            var translations = new Translations(new InMemoryLanguageStore());
+            translations.SetLanguage(language);
+            return new(Device, LocationClient, _sharedLocations, _usersClient, _repository, _synchronizer,
+                translations, UnlockedPermissions.For(_localStore), _google, Navigator);
+        }
 
         public void Dispose()
         {

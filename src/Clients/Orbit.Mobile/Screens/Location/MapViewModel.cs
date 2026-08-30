@@ -342,7 +342,11 @@ public sealed partial class MapViewModel : ObservableObject
         SharedWithMe.Clear();
         foreach (var position in received)
         {
-            SharedWithMe.Add(position);
+            // Stamped here rather than on screen: MapViewModel is where the reader's language is, and a
+            // reading formatted from its stored UTC showed one taken at 14:41 in Warsaw as 12:41.
+            SharedWithMe.Add(position.Position is { } reading
+                ? position with { RecordedAt = _translations.WhenItHappened(reading.RecordedAtUtc) }
+                : position);
         }
 
         ShowPointsOnMap();

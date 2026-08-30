@@ -122,7 +122,7 @@
                         <VerticalStackLayout Padding="0,10" Spacing="2">
                             <Label Text="{Binding SharerDisplayName}" FontSize="16" FontAttributes="Bold" />
                             <Label Text="{Binding Position.Address}" LineBreakMode="WordWrap" />
-                            <Label Text="{Binding Position.RecordedAtUtc, StringFormat='{0:g}'}"
+                            <Label Text="{Binding RecordedAt}" IsVisible="{Binding HasRecordedAt}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <!-- Listed rather than dropped: that somebody is sharing and it cannot be
                                  opened is worth seeing. -->

@@ -60,6 +60,16 @@ public sealed class Translations
     /// <inheritdoc cref="DatePattern"/>
     public string TimePattern => DisplayCulture.DateTimeFormat.ShortTimePattern;
 
+    /// <summary>
+    /// When something happened, on this reader's clock and in their language.
+    ///
+    /// Named here rather than written out at each call site because getting it wrong is invisible: an
+    /// instant Orbit stores is UTC, and formatting one without converting showed a message sent at 14:41
+    /// in Warsaw as 12:41. Two screens had it wrong that way.
+    /// </summary>
+    public string WhenItHappened(DateTimeOffset instant)
+        => instant.ToLocalTime().ToString("g", DisplayCulture);
+
     public string this[string english]
         => Language == AppLanguage.Polish && PolishTranslations.ByEnglish.TryGetValue(english, out var polish)
             ? polish

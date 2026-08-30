@@ -10,6 +10,15 @@ namespace Orbit.Mobile.Location;
 public sealed record ReceivedPosition(Guid SharerUserId, string SharerDisplayName, bool IsContinuous, SharedPosition? Position)
 {
     public bool CannotBeOpened => Position is null;
+
+    /// <summary>
+    /// When this reading was taken, on the reader's own clock and in their language - see
+    /// Translations.WhenItHappened. Set by MapViewModel, which has the language; empty for a position
+    /// this device cannot open, which has no reading to show.
+    /// </summary>
+    public string RecordedAt { get; init; } = string.Empty;
+
+    public bool HasRecordedAt => RecordedAt.Length > 0;
 }
 
 /// <summary>
