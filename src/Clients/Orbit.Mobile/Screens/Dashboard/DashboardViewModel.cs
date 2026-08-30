@@ -492,7 +492,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             .OrderByDescending(note => note.UpdatedAtUtc)
             .Take(RowsPerCard)
             .Select(note => new DashboardRow(
-                note.LocalId, TitleOrPlaceholder(note.Title, _translations["Untitled"]), Ago(note.UpdatedAtUtc))
+                note.LocalId, NameOf(note.IsSealed, note.Title, _translations["Untitled"]), Ago(note.UpdatedAtUtc))
             {
                 // Badged like a task list, and like the same row on Orbit.Web - only where it says
                 // something, which is never for the Normal most notes are.
@@ -510,7 +510,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Take(RowsPerCard)
             .Select(list => new DashboardRow(
                 list.LocalId,
-                TitleOrPlaceholder(list.Title, _translations["Untitled list"]),
+                NameOf(list.IsSealed, list.Title, _translations["Untitled list"]),
                 DescribeProgress(list))
             {
                 HasProgress = list.Items.Count > 0,
@@ -644,4 +644,12 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private string TitleOrPlaceholder(string title, string placeholder)
         => title.Trim() is { Length: > 0 } trimmed ? trimmed : placeholder;
+
+    /// <summary>
+    /// What to call something the reader may not be able to read. A sealed item has no title to show -
+    /// it is sealed with the rest of it - and calling it "Untitled" would claim it has none, which is a
+    /// different thing entirely.
+    /// </summary>
+    private string NameOf(bool isSealed, string title, string placeholder)
+        => isSealed ? _translations["Private"] : TitleOrPlaceholder(title, placeholder);
 }
