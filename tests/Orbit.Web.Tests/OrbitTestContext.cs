@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Orbit.Web.Services;
@@ -18,5 +20,21 @@ public abstract class OrbitTestContext : TestContext
     protected OrbitTestContext()
     {
         Services.AddSingleton(new Translations(new StubJSRuntime()));
+        Services.AddSingleton(SuggestingNothing());
     }
+
+    /// <summary>
+    /// Name suggestions that never suggest anything. Every editor now carries the control that asks for
+    /// them, so leaving this out fails an editor test for a reason that has nothing to do with what the
+    /// test is about - the same reason Translations is here. A test that is actually about suggestions
+    /// registers its own client over this one.
+    /// </summary>
+    private static NameSuggestionsApiClient SuggestingNothing()
+        => new(new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("[]", Encoding.UTF8, "application/json")
+        }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        });
 }
