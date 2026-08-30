@@ -1757,6 +1757,106 @@ input.note-editor-title {
     padding: 0 3px;
 }
 
+/* Where a reference points. Drawn on the row somebody was sent to, so arriving on a page of fifty rows
+   lands on the one that was linked rather than on the top of the list. Deliberately a background and a
+   rule rather than a flash: the reader may take a moment to look up at the screen, and an animation that
+   has already finished has told them nothing. */
+.highlighted {
+    background: var(--accent-subtle);
+    box-shadow: inset 3px 0 0 var(--accent);
+    border-radius: 8px;
+}
+
+/* The links on an inventory errand: which shelf it is about, and where else it is being asked for.
+   Small and quiet - they sit beside the thing somebody came to tick off, not in front of it. */
+.check-row-references {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-left: 8px;
+}
+
+.reference-chip {
+    padding: 1px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.reference-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Which build this is, when it was made, and under what licence. Quiet on purpose: it is a thing to
+   look up once, not a thing to read, so it sits at the very end of the content in the smallest type the
+   palette still keeps legible. */
+.app-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 40px;
+    padding: 16px 0 8px;
+    border-top: 1px solid var(--border);
+    color: var(--text-tertiary);
+    font-size: 11.5px;
+}
+
+.app-footer a {
+    color: var(--text-tertiary);
+    text-decoration: underline;
+}
+
+.app-footer a:hover {
+    color: var(--accent);
+}
+
+.app-footer-separator {
+    opacity: 0.5;
+}
+
+/* Names the reader already has, under the field they are typing into. Sits close under the input so it
+   reads as belonging to it, and wraps rather than scrolling - five short names, not a menu. */
+.name-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.name-suggestions .reference-chip {
+    cursor: pointer;
+}
+
+/* Said out loud when what is being typed is a name that already exists - the moment a duplicate is
+   about to be created is the only moment anybody can cheaply avoid it. */
+.name-suggestion-warning {
+    color: var(--task);
+    font-size: 11.5px;
+}
+
+/* A line in a group thread that nobody wrote - somebody joined, and possibly arrived holding the
+   history (see GroupConversation.razor). Centred and unbubbled so it reads as the conversation telling
+   you something rather than as a message from a person. */
+.chat-announcement {
+    align-self: center;
+    max-width: 80%;
+    margin: 6px 0;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: var(--bg-subtle);
+    color: var(--text-tertiary);
+    font-size: 11.5px;
+    text-align: center;
+}
+
 /* Wraps a bubble together with its "..." trigger (shown for an editable and/or forwardable message -
    see Chat.razor's canEdit/canForward checks), the trigger sitting just outside the bubble rather than
    overlapping its text. */

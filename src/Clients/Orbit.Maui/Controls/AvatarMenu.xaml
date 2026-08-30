@@ -125,6 +125,28 @@
                             SemanticProperties.Description="{controls:Translate 'Settings'}" />
                 </Grid>
 
+                <!-- What Orbit.Web says in its footer, said here instead: a phone has no footer, and
+                     this is the menu everything about the account already hangs off. Folded by
+                     default, like Status and Language above. -->
+                <Grid>
+                    <Label Text="{controls:Translate 'About'}" />
+                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutCommand}"
+                            SemanticProperties.Description="{controls:Translate 'About'}" />
+                </Grid>
+
+                <VerticalStackLayout Spacing="2" IsVisible="{Binding IsAboutExpanded}">
+                    <Label Text="{Binding AboutCopyright}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <Label Text="{Binding AboutVersion}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <!-- Tapped rather than shown as a URL: the licence is a document to read, and the
+                         address of it is not the information anybody came for. -->
+                    <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"
+                           TextDecorations="Underline" Style="{StaticResource SubtleLabel}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnLicenseTapped" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </VerticalStackLayout>
+
                 <Grid>
                     <Label Text="{controls:Translate 'Sign out'}"
                            TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
