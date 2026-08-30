@@ -51,8 +51,13 @@ public sealed class MessageTimestampTests
 
     /// <summary>
     /// A message still waiting to go out says when it was written, by the same clock and in the same
-    /// language - it is on screen among the sent ones, and a timestamp that jumped when it went out
-    /// would read as the message having been rewritten.
+    /// language - it sits on screen among the sent ones, so a queued copy showing a raw UTC value would
+    /// stand out as two hours adrift from its neighbours.
+    ///
+    /// The time it shows does change once it goes out: what replaces it is the server's SentAtUtc, which
+    /// is when the message actually reached anybody. Watched on a device - one queued at 14:41 read
+    /// 16:56 after it sent - and that is the design rather than a slip, since ordering a conversation by
+    /// when each side typed would let a phone that was offline for hours rewrite the middle of it.
     /// </summary>
     [Fact]
     public async Task A_message_waiting_to_go_out_is_stamped_the_same_way()

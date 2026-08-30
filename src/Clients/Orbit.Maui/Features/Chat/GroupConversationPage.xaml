@@ -20,9 +20,13 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
         <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
-        <!-- The member list doubles as the way into managing it, the way the web's header does. -->
+        <!-- The member list is also the way into managing it. Drawn as a link rather than as the caption
+             it replaced: Orbit.Web offers a button labelled "Members", and a tappable line of names in
+             subtitle grey looks like neither. The names stay because they are worth seeing at a glance;
+             what it does is said to a screen reader, which otherwise heard only the names. -->
         <Button Grid.Row="1" Text="{Binding Members}" Command="{Binding OpenMembersCommand}"
-                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" BackgroundColor="Transparent"
+                SemanticProperties.Description="{controls:Translate 'Members'}"
+                FontSize="12" Style="{StaticResource LinkButton}" BackgroundColor="Transparent"
                 Padding="0" HorizontalOptions="Start" LineBreakMode="TailTruncation" />
         <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
