@@ -405,6 +405,42 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// The messages with the joins woven in, in the order everything happened - what Orbit.Web's thread
+    /// shows and what the phone showed none of, so a newcomer watching a group's past appear had nothing
+    /// telling them where it came from.
+    ///
+    /// Best effort: a thread that could not fetch the announcements is still the conversation, and
+    /// refusing to draw it because a decoration failed would be the wrong trade.
+    /// </summary>
+    private async Task<IReadOnlyList<ReadableChatMessage>> WithAnnouncementsAsync(
+        IReadOnlyList<ReadableChatMessage> conversation, CancellationToken cancellationToken)
+    {
+        if (_group is null)
+        {
+            return conversation;
+        }
+
+        IReadOnlyList<ChatGroupAnnouncementDto> announcements;
+        try
+        {
+            announcements = await _chatClient.GetGroupAnnouncementsAsync(_group.Id, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            return conversation;
+        }
+
+        if (announcements.Count == 0)
+        {
+            return conversation;
+        }
+
+        return [.. conversation
+            .Concat(announcements.Select(announcement => GroupAnnouncementLine.For(announcement, _group, _translations)))
+            .OrderBy(line => line.SentAtUtc)];
+    }
+
     private async Task ShowStoredConversationAsync(CancellationToken cancellationToken)
     {
         if (_group is null)
@@ -416,9 +452,9 @@ public sealed partial class GroupConversationViewModel : ObservableObject
         {
             var conversation = await _reader.ReadGroupAsync(_group.Id, cancellationToken);
             Messages.Clear();
-            foreach (var message in conversation)
+            foreach (var line in await WithAnnouncementsAsync(conversation, cancellationToken))
             {
-                Messages.Add(message);
+                Messages.Add(line);
             }
         }
         catch (EncryptionKeyLockedException)

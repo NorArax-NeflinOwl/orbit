@@ -1264,6 +1264,9 @@ public static class PolishTranslations
             "Są już w grupie, ale przekazanie wcześniejszych wiadomości się nie udało.",
         ["They're in the group, but the earlier messages couldn't be passed on until they've signed in once."] =
             "Są już w grupie, ale wcześniejszych wiadomości nie da się przekazać, dopóki choć raz się nie zalogują.",
+        ["{0} joined {1}"] = "{0} dołączył(a) do grupy {1}",
+        ["{0} shared the conversation so far"] = "{0} udostępnił(a) dotychczasową rozmowę",
+        ["Somebody"] = "Ktoś",
         ["Share the conversation so far"] = "Udostępnij dotychczasową rozmowę",
         ["They will be able to read what was said before they joined."] = "Będą mogli przeczytać to, co napisano przed ich dołączeniem.",
         ["They're in the group, but this device has no key to open the earlier messages with."] = "Są już w grupie, ale to urządzenie nie ma klucza, którym można otworzyć wcześniejsze wiadomości.",

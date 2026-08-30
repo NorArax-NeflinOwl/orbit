@@ -377,7 +377,8 @@ has nothing else — is given the new one.
 Being added to a group used to be visible only to the person it happened to: the group turned up in
 their list, and everybody else saw a roster that had quietly changed. Now the conversation itself carries
 a line for it — *"Anna joined Weekend trip"* — drawn where it happened rather than pinned anywhere
-(`ChatGroupAnnouncement`, rendered by `GroupConversation.razor`).
+(`ChatGroupAnnouncement`, rendered by `GroupConversation.razor` and, on the phone, by
+`GroupAnnouncementLine` in the same thread and the same words).
 
 When the history was shared, the same line says so too: *"Anna joined Weekend trip · Piotr shared the
 conversation so far"*. The two halves are recorded separately on purpose. The join is known the moment it

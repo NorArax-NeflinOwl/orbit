@@ -222,6 +222,16 @@ public sealed class ChatClient
             $"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
 
     /// <summary>
+    /// The lines in a group's conversation that nobody wrote - who joined, and whether whoever added
+    /// them also handed over what was said before. Read separately from the messages because the server
+    /// keeps them separately: they are facts about the membership rather than anything encrypted.
+    /// </summary>
+    public async Task<IReadOnlyList<ChatGroupAnnouncementDto>> GetGroupAnnouncementsAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatGroupAnnouncementDto>>(
+            $"api/chat/groups/{groupId}/announcements", cancellationToken) ?? [];
+
+    /// <summary>
     /// Hands the group's past to a member who joined after it happened, already re-encrypted for them -
     /// the server holds no key to any of it. Answers with how many copies were stored, which can be
     /// fewer than were offered: one the recipient already has is not stored twice.
