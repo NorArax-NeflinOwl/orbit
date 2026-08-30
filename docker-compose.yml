@@ -14,6 +14,21 @@ services:
       # Never set this in a non-local environment.
       DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
 
+  # Local development only - never deployed. Production points orbit-api at a hosted model in Azure AI
+  # Foundry instead; both speak the same OpenAI-compatible API, so only configuration differs. See
+  # info/ai-assistant-plan.md ("Where Ollama is still useful: your laptop"). Started on demand
+  # (`docker compose up -d ollama`), not part of the stack orbit-api depends on - the assistant stays
+  # optional, exactly as SMTP and VAPID are.
+  # Pull a model once after first start: `docker exec orbit-ollama ollama pull llama3.2:3b`.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: orbit-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      # Named volume, so `docker compose down` keeps the several gigabytes already pulled.
+      - orbit-ollama-models:/root/.ollama
+
   # Real Postgres instead of SQLite: a single shared file is what caused a production incident (SQLite's
   # WAL journal mode hanging over a network-mounted volume - see info/azure-setup.md), and running the
   # same engine locally as in production catches provider-specific issues before they ship.
@@ -82,6 +97,13 @@ services:
       # Optional - see .env.example. Read directly (not under a "Smtp__"-style prefix) since it's
       # picked up by Azure Monitor's exporter by its own conventional env var name, not app config.
       APPLICATIONINSIGHTS_CONNECTION_STRING: "${APPLICATIONINSIGHTS_CONNECTION_STRING:-}"
+      # Optional - the assistant's language model (see info/ai-assistant-plan.md). Left unset, the
+      # assistant endpoint answers "not configured" and nothing else changes. Point it at the ollama
+      # service above with ASSISTANT_ENDPOINT=http://ollama:11434/v1 in .env; ASSISTANT_API_KEY stays
+      # empty for Ollama and is a real secret for a hosted model.
+      Assistant__Endpoint: "${ASSISTANT_ENDPOINT:-}"
+      Assistant__ApiKey: "${ASSISTANT_API_KEY:-}"
+      Assistant__Model: "${ASSISTANT_MODEL:-}"
       # Optional - push notifications (see README.md's "Push notifications" section). Left unset,
       # VapidPushNotificationSender just logs a warning and skips sending.
       Vapid__PublicKeyBase64Url: "${VAPID_PUBLIC_KEY:-}"
@@ -125,3 +147,4 @@ volumes:
   orbit-postgres-data:
   orbit-api-logs:
   orbit-web-certs:
+  orbit-ollama-models:
