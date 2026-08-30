@@ -94,8 +94,25 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     [ObservableProperty]
     private string? _chosenCategory;
 
-    /// <summary>Hidden while there is nothing to narrow - an empty shelf, or one filed under nothing.</summary>
-    public bool CanNarrow => ProductTypes.Count > 1 || Categories.Count > 1;
+    /// <summary>
+    /// What the reader has typed to find something by name. Narrows as it is typed rather than on Done:
+    /// the rows are already on screen, so there is nothing to wait for.
+    /// </summary>
+    [ObservableProperty]
+    private string _searchedName = string.Empty;
+
+    /// <summary>
+    /// The two pickers are offered one by one, each only where something on the shelf is filed under it -
+    /// a filter whose one answer is "any" is a dead end. Searching by name has no such condition and is
+    /// always offered: a name is typed, and every item has one.
+    /// </summary>
+    public bool CanNarrowByProductType => ProductTypes.Count > 1;
+
+    /// <inheritdoc cref="CanNarrowByProductType"/>
+    public bool CanNarrowByCategory => Categories.Count > 1;
+
+    /// <summary>Hidden along with the rows themselves while the shelf is empty - there is nothing to search.</summary>
+    public bool CanNarrow => _items.Count > 0;
 
     public bool IsNarrowed => _filter.IsActive;
 
@@ -188,6 +205,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     {
         ChosenProductType = _anyProductType;
         ChosenCategory = _anyCategory;
+        SearchedName = string.Empty;
     }
 
     [RelayCommand]
@@ -380,6 +398,8 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
         ShowMatchingRows();
         OnPropertyChanged(nameof(CanNarrow));
+        OnPropertyChanged(nameof(CanNarrowByProductType));
+        OnPropertyChanged(nameof(CanNarrowByCategory));
     }
 
     private void Offer(ObservableCollection<string> options, string forAny, Func<WarehouseItemDto, string> of)
@@ -420,6 +440,12 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     partial void OnChosenCategoryChanged(string? value)
     {
         _filter.Category = Narrowing(value, _anyCategory);
+        ShowMatchingRows();
+    }
+
+    partial void OnSearchedNameChanged(string value)
+    {
+        _filter.Name = value;
         ShowMatchingRows();
     }
 

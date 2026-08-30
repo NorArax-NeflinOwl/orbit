@@ -36,12 +36,17 @@
 
             <!-- Narrows what is on screen, never what is saved: the whole list still goes back on save,
                  so a filter that reached it would delete the rows it hid. -->
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding CanNarrow}">
-                <Picker Grid.Column="0" Title="{controls:Translate 'Product type'}"
+            <VerticalStackLayout Spacing="8" IsVisible="{Binding CanNarrow}">
+                <!-- Each picker appears only where something on the shelf is filed under it - one whose
+                     only answer is "any" leads nowhere. Searching by name is always offered: a name is
+                     typed, and every item has one. -->
+                <Picker Title="{controls:Translate 'Product type'}" IsVisible="{Binding CanNarrowByProductType}"
                         ItemsSource="{Binding ProductTypes}" SelectedItem="{Binding ChosenProductType}" />
-                <Picker Grid.Column="1" Title="{controls:Translate 'Category'}"
+                <Picker Title="{controls:Translate 'Category'}" IsVisible="{Binding CanNarrowByCategory}"
                         ItemsSource="{Binding Categories}" SelectedItem="{Binding ChosenCategory}" />
-            </Grid>
+                <Entry Placeholder="{controls:Translate 'Item name'}" Text="{Binding SearchedName}"
+                       ClearButtonVisibility="WhileEditing" ReturnType="Search" />
+            </VerticalStackLayout>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsNarrowed}">
                 <Label Grid.Column="0" Text="{Binding FilterNote}" FontSize="11" VerticalOptions="Center"
