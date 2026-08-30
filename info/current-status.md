@@ -2,11 +2,13 @@
 
 Orbit is a working prototype. Accounts (including Google sign-in and full self-service account
 management), notes, tasks, calendar, an inventory planner, and end-to-end-encrypted chat — one-to-one
-and group — are implemented end to end, including the Blazor WebAssembly web client, still the only
-client. Locations can now be recorded, seen on a map, and shared with a contact under the same
-encryption chat uses. A mobile client (`Orbit.Maui`, planned in detail but not started) and a real
-two-way Google Calendar sync, as opposed to the hand-off links Orbit builds today, are what remain
-unbuilt of the product's stated scope.
+and group — are implemented end to end in the Blazor WebAssembly web client. Locations can now be
+recorded, seen on a map, and shared with a contact under the same encryption chat uses. The mobile
+client is no longer a plan: `Orbit.Mobile` and `Orbit.Maui` build an Android app that CI signs on
+every change to it and that `/download` links to, with the phasing in
+[Orbit.Maui — Plan](orbit-maui-plan.md#10-phasing) marking phases 0 through 6 built. A real two-way
+Google Calendar sync, as opposed to the hand-off links Orbit builds today, is what remains unbuilt of
+the product's stated scope.
 
 ## Implemented vs. planned
 
@@ -26,12 +28,12 @@ unbuilt of the product's stated scope.
 | Priorities on notes, task lists and events, and the dashboard filters that read them | Implemented | [Functionality — Priorities](functionality.md#priorities) |
 | Push notifications | Implemented | [Functionality — Push notifications](functionality.md#push-notifications) |
 | In-app notification feed, badge, and banner | Implemented | [Functionality — In-app notifications](functionality.md#in-app-notifications) |
-| Blazor WebAssembly web client | Implemented (only client so far) | [Architecture](architecture.md#orbitweb) |
+| Blazor WebAssembly web client | Implemented | [Architecture](architecture.md#orbitweb) |
 | Recording your own location and seeing it on a map | Implemented | [Functionality](functionality.md#the-map-and-the-location-behind-it) |
 | Sharing a location with another user | Implemented | [Functionality](functionality.md#sharing-a-position-with-a-contact) |
 | Google Calendar and Maps links (verified/Google accounts) | Implemented | [Functionality](functionality.md#handing-something-off-to-google) |
 | Two-way Google Calendar sync | Not started | [Future Plan](future-plan.md#what-real-google-calendar-sync-would-take) |
-| Mobile client (`Orbit.Maui`, iOS + Android) | Not started, planned in detail | [Orbit.Maui — Plan](orbit-maui-plan.md) |
+| Mobile client (`Orbit.Mobile` + `Orbit.Maui`) | Android released; iOS head unreleased (needs a Mac) | [Orbit.Maui — Plan](orbit-maui-plan.md) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Password manager and password generator | Not started | [Future Plan](future-plan.md#planned-features) |
 
@@ -65,11 +67,10 @@ the push half needs the user to approve browser notifications first — see
 
 ## Not yet implemented
 
-- **A mobile client.** The Blazor WebAssembly web client is still the only one.
-  [Orbit.Maui — Plan](orbit-maui-plan.md) covers one .NET MAUI project building both the iOS and
-  Android apps, with iPhone 15 Pro as the target device, full parity with the web client, offline
-  operation, a forced-update gate, and uploadable diagnostic logs. Nothing has been built yet —
-  `src/Clients/Orbit.Maui` is still an empty folder outside the solution.
+- **The iOS half of the mobile client.** `Orbit.Maui` targets `net10.0-ios` as well as
+  `net10.0-android`, but nothing builds or releases it: Apple's toolchain is macOS-only and every
+  runner here is Linux or Windows, so the iOS head has never run on a device. What ships today is the
+  Android app. See [Orbit.Maui — Plan §1.1](orbit-maui-plan.md#11-can-this-be-developed-from-windows).
 - **Two-way Google Calendar sync** — writing an event onto a recipient's real Google Calendar. What
   ships today is link-based hand-off, which needs no Google API at all — see
   [Functionality](functionality.md#these-are-links-not-an-api-integration).

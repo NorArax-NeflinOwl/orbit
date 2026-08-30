@@ -1,8 +1,8 @@
 # Orbit
 
 Orbit is an all-in-one productivity app: notes, tasks, calendar, encrypted messaging, and location
-sharing in a single account. The long-term target is a .NET MAUI client (mobile and desktop) backed
-by a shared ASP.NET Core API, so every device stays in sync.
+sharing in a single account. A Blazor WebAssembly web client and a .NET MAUI phone app (Android today,
+iOS pending) are backed by a shared ASP.NET Core API, so every device stays in sync.
 
 ## Documentation
 

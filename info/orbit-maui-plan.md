@@ -5,7 +5,8 @@ feature the Blazor web client (`src/Clients/Orbit.Web`) has today, **plus offlin
 mechanisms the web client has no need for (§7, §8). **iPhone 15 Pro is the target device**; Android is
 the second platform.
 
-This document is the plan, not the work: nothing has been built yet.
+This document is the plan **and** the running record of the work: §10 marks each phase as it lands, and
+§13 says what exists today. It is not a description of something unbuilt.
 
 It is written against the state of the project at the time of writing — 107 API endpoints across
 twelve route groups, all of which the mobile client is expected to consume. See
@@ -715,19 +716,24 @@ These change the plan materially and are worth answering before the phase they l
 
 ## 13. What exists so far
 
-Phases 0 and 1 are built. `src/Clients/` now holds two mobile projects rather than one:
+The phase table in §10 is the authority on this and is marked as work lands; read it rather than a
+prose summary here, which is what went stale first — this section said "phases 0 and 1" long after the
+table said 0 through 6. What follows is only the part the table has no room for.
 
-- **`Orbit.Mobile`** (`net10.0`) — everything decided without a device: the version gate, the session
-  store, single-flight refresh, the authorization handler. In `Orbit.sln`, so `dotnet test` covers it.
-- **`Orbit.Maui`** (`net10.0-ios`, `net10.0-android`) — the two app heads. Deliberately *not* in
-  `Orbit.sln`: CI runs on `ubuntu-latest`, which can build neither head.
+`src/Clients/` holds two mobile projects rather than one:
+
+- **`Orbit.Mobile`** (`net10.0`) — everything decidable without a device: the API clients, the local
+  store and sync, the crypto, and the screens' view models. In `Orbit.sln`, so `dotnet test` covers it.
+- **`Orbit.Maui`** (`net10.0-ios`, `net10.0-android`) — the two app heads: XAML, platform services, and
+  the navigation those need. Deliberately *not* in `Orbit.sln`: CI runs on `ubuntu-latest`, which can
+  build neither head.
 
 That split was not in the architecture sketch in §6, and is worth stating plainly: a MAUI head cannot
 be referenced by an ordinary test project, so anything left inside it can only be checked by running
 the app. With the sync spine named as the largest risk in the plan (§11), it needs to be somewhere a
-test can reach it. The view models are the part still on the wrong side of that line — they hold real
-behaviour and currently depend on MAUI's `Launcher` and page navigation. Worth moving before phase 4
-adds five features' worth of them.
+test can reach it. The view models were the part on the wrong side of that line, and have since moved
+across — page navigation reaches them through `IScreenNavigator` rather than MAUI's own — which is what
+lets the mobile half be tested at all.
 
 **Verified on a simulator, not merely compiled:** an account signs in, the session survives relaunch
 from the Keychain, notes load through the token handler, and an out-of-date build stops on the splash
