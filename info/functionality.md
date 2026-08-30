@@ -1325,6 +1325,15 @@ about. Chat subscribes to the same state instead of polling again. The poll also
 change made on Options takes effect within one interval; when the unread count has just gone up and
 `AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport.
 
+**A person with a message waiting is marked wherever that person appears** — the chat page's own
+conversation list, the contact list, and the dashboard's "Recent chats" card — all through one
+`UnreadBadge` on the avatar, with the row's name in bold behind it. That count comes from the
+conversation itself (`ContactDto.UnreadCount`), not from the notification panel, so clearing the panel
+does not clear it: tidying is not reading. It was on the chat page alone, which made every other screen
+say "nobody waiting" while one of them said otherwise — and the dashboard, the first thing a visit looks
+at, was among the silent ones. Nothing at all is drawn when nothing is waiting: an empty badge is a
+mark, and a mark means something.
+
 How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
 (`BannerTiming`, defaulting to 5 seconds each) editable from Options — the poll interval only bounds how
 quickly a new entry is *noticed*, not banner pacing. `BannerTiming` clamps rather than rejects

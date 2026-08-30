@@ -4141,3 +4141,10 @@ input.note-editor-title {
         display: none;
     }
 }
+
+/* A dashboard row for somebody with a message waiting - the same weight the chat list gives such a
+   row, so "waiting on me" looks the same wherever it is read. */
+.list-row-button.unread .row-title {
+    font-weight: 700;
+    color: var(--text-primary);
+}

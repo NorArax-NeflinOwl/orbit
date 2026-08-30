@@ -37,10 +37,7 @@
                     class="chat-list-item @(conversation.Id == ActiveId ? "active" : "") @(conversation.UnreadCount > 0 ? "unread" : "")">
                 <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(conversation.Id)">
                     @AvatarHelper.GetInitials(conversation.Name)
-                    @if (conversation.UnreadCount > 0)
-                    {
-                        <span class="notif-badge">@FormatUnreadCount(conversation.UnreadCount)</span>
-                    }
+                    <UnreadBadge Count="conversation.UnreadCount" />
                     @if (conversation.Presence is { } presence)
                     {
                         <PresenceDot Status="presence" />
@@ -101,6 +98,4 @@
 
     private Task OnSearchInput(ChangeEventArgs args) => SearchChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
 
-    /// <summary>Keeps a badge from stretching its avatar once somebody has left a chat unread for a while.</summary>
-    private static string FormatUnreadCount(int unread) => unread > 9 ? "9+" : unread.ToString();
 }
