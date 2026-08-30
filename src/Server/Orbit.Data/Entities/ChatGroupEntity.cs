@@ -11,5 +11,9 @@ public sealed class ChatGroupEntity
     public string Name { get; set; } = string.Empty;
     public Guid CreatedByUserId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
+
+    /// <summary>When something last happened here - see <see cref="Orbit.Core.Chat.Groups.ChatGroup.LastMessageAtUtc"/>.</summary>
+    public DateTimeOffset LastMessageAtUtc { get; set; }
+
     public List<ChatGroupMemberEntity> Members { get; set; } = [];
 }

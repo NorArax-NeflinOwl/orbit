@@ -190,9 +190,10 @@ as not covered by an automated test today, together with why:
   an arrangement made there is still read on a phone. True dragging by finger (pointer events, with the
   hit-testing and autoscroll that needs) was weighed against this and not taken - it cannot be covered by
   any test this project can run, while the buttons are covered end to end.
-- **A group has no "last message" time.** The one conversation list therefore sorts people by recency
-  and groups by name, in two blocks. Carrying the newest message's timestamp on `ChatGroupDto` would let
-  the whole list sort by when something last happened, which is what somebody scanning it expects.
+- ~~**A group has no "last message" time.**~~ Done: `ChatGroup` carries `LastMessageAtUtc`, stamped where
+  the message fan-out is written, so the one conversation list sorts people and groups against each other
+  by when something last happened. A group nobody has written in yet answers with the day it was made,
+  which keeps the order total without a second rule.
 - **An established contact can disappear.** `Contacts` gates being findable at all, so an account that
   has not unlocked it is a 404 even to somebody who already has a conversation with them - the chat
   exists, the profile behind it does not resolve. Either the gate should not apply to an account you are

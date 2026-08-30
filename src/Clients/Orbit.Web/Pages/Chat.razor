@@ -1509,26 +1509,39 @@ else
     private int UnreadFrom(ContactDto contact) => contact.UserId == UserId ? 0 : contact.UnreadCount;
 
     /// <summary>
-    /// Everything this reader can open, as one list - see ConversationList. People come first, most
-    /// recently spoken to first, since that is the order somebody looks for a conversation in; groups
-    /// follow by name, having no last-message time of their own to sort by.
+    /// Everything this reader can open, as one list - see ConversationList. Sorted by when something
+    /// last happened, people and groups against each other: that is the order somebody scanning for a
+    /// conversation looks in, and it is what they expect of a list that holds both. Groups used to
+    /// follow in a block of their own, sorted by name, because a group carried no such time - it does
+    /// now (see ChatGroup.LastMessageAtUtc), so the two no longer answer different questions.
     /// </summary>
     private IReadOnlyList<Conversation> Conversations =>
     [
-        .. _matchingChats.Select(contact => new Conversation(
-            contact.UserId, contact.DisplayName, IsGroup: false, UnreadFrom(contact), Conversation.PresenceOf(contact),
-            UnreadFrom(contact) > 0 ? T.Format("{0} new", UnreadFrom(contact)) : null)),
-        .. _matchingGroups.Select(group => new Conversation(
-            group.Id, group.Name, IsGroup: true, UnreadCount: 0, Presence: null,
-            T.Format("{0} members", group.Members.Count)))
+        .. _matchingChats
+            .Select(contact => (
+                When: contact.LastMessageAtUtc,
+                Conversation: new Conversation(
+                    contact.UserId, contact.DisplayName, IsGroup: false, UnreadFrom(contact),
+                    Conversation.PresenceOf(contact),
+                    UnreadFrom(contact) > 0 ? T.Format("{0} new", UnreadFrom(contact)) : null)))
+            .Concat(_matchingGroups.Select(group => (
+                When: group.LastMessageAtUtc,
+                Conversation: new Conversation(
+                    group.Id, group.Name, IsGroup: true, UnreadCount: 0, Presence: null,
+                    T.Format("{0} members", group.Members.Count)))))
+            .OrderByDescending(row => row.When)
+            .Select(row => row.Conversation)
     ];
 
-    /// <summary>The groups left after the same search box the people are filtered by.</summary>
+    /// <summary>
+    /// The groups left after the same search box the people are filtered by. Unsorted: Conversations
+    /// above puts these in among the people by when something last happened, and sorting them by name
+    /// first would only be undone there.
+    /// </summary>
     private IEnumerable<ChatGroupDto> _matchingGroups
-        => (_chatSearch.Trim() is { Length: > 0 } query
-                ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
-                : _groups)
-            .OrderBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase);
+        => _chatSearch.Trim() is { Length: > 0 } query
+            ? _groups.Where(group => group.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            : _groups;
 
     private void OpenConversation(Conversation conversation)
     {

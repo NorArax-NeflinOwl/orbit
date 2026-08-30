@@ -258,11 +258,19 @@ those two sections are already independent for access-level purposes.
 ## Group chats
 
 Groups are not a place of their own: the chat page shows **one conversation list**
-(`ConversationList`) holding people and groups together - people first, most recently spoken to first,
-then groups by name, since a group has no last-message time of its own to sort by. A row says which kind
-it is with a small mark, one search box filters both, and "New group" sits under the list rather than in
-a page header. Looking for "who have I been talking to" is one place, and moving between a group and a
-person does not change screens.
+(`ConversationList`) holding people and groups together, **sorted by when something last happened** -
+people and groups against each other, which is the order somebody scanning for a conversation looks in.
+A row says which kind it is with a small mark, one search box filters both, and "New group" sits under
+the list rather than in a page header. Looking for "who have I been talking to" is one place, and moving
+between a group and a person does not change screens.
+
+That single order needs both kinds to answer the same question, so a group carries
+`LastMessageAtUtc` of its own (`ChatGroup`), stamped where the fan-out is written -
+the same thing sending to one person does to that contact's row. It is never null:
+a group with nothing in it yet answers with the day it was made, so the list is
+totally ordered from the moment a group exists rather than needing a second rule for
+the quiet ones. Groups used to follow the people in a block of their own, sorted by
+name, because there was no such time to sort them by.
 
 The list folds to a strip of initials, and **the folding is done by the stylesheet alone** — the names,
 the search box and "New group" always reach the page. That matters because on a narrow screen the list

@@ -255,7 +255,8 @@ public static class ChatEndpoints
         => new(
             group.Id, group.Name, group.CreatedByUserId, group.CreatedAtUtc,
             group.FindMember(callerUserId)?.Role.ToString() ?? ChatGroupRole.Member.ToString(),
-            group.Members.Select(member => new ChatGroupMemberDto(member.UserId, member.Role.ToString(), member.JoinedAtUtc)).ToList());
+            group.Members.Select(member => new ChatGroupMemberDto(member.UserId, member.Role.ToString(), member.JoinedAtUtc)).ToList(),
+            group.LastMessageAtUtc);
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {
