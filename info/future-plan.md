@@ -105,10 +105,10 @@ version, so they aren't mistaken for oversights:
   per member instead of one. See [Functionality — Group chats](functionality.md#group-chats).
 - **Chat delivery is polling-based** (once a second while a chat window is open), not real-time —
   no SignalR or WebSockets.
-- **Task list cycle validation is server-side only.** The Blazor task editor only prevents linking a
-  list to itself in its dropdown; it does not detect longer cycles client-side. Building one still
-  relies on the API's validation (`TaskListLinkValidator`) and surfaces as a failed save rather than
-  an inline client-side error — see [Functionality — Tasks](functionality.md#tasks).
+- ~~**Task list cycle validation is server-side only.**~~ Done: the editor's "link to list" dropdown now
+  leaves out every list that links back to the one being edited, however long the chain
+  (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays
+  the authority — this only stops the editor asking for something it already knows the answer to.
 
 ## Testing gaps
 

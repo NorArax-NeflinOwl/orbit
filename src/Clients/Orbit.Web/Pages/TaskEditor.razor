@@ -217,11 +217,11 @@ else
                                 }
                             </select>
                         </label>
-                        @if (item.Id is { } persistedItemId && _linkableTaskLists.Count > 0)
+                        @if (item.Id is { } persistedItemId && _moveTargetTaskLists.Count > 0)
                         {
                             <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
                                     <option value="">@T["Move to…"]</option>
-                                    @foreach (var targetTaskList in _linkableTaskLists)
+                                    @foreach (var targetTaskList in _moveTargetTaskLists)
                                     {
                                         <option value="@targetTaskList.Id">@Written(targetTaskList.Title)</option>
                                     }
@@ -415,7 +415,11 @@ else
     /// folding them away is that the list stays readable, which a page full of open items would undo.
     /// </summary>
     private TaskItemFormModel? _expandedItem;
+    /// <summary>The lists an item may link to - see TaskListLinkCycle for what is left out and why.</summary>
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
+
+    /// <summary>The lists a row may be moved to, which is any but this one.</summary>
+    private IReadOnlyList<TaskDto> _moveTargetTaskLists = [];
     private bool _isShared;
     private bool _isSharedReadOnly;
     private bool _canShare;
@@ -480,8 +484,18 @@ else
             {
                 Logger.LogWarning(exception, "Failed to load the events a task entry could be tied to");
             }
+            // Somewhere to move a row to is any list but this one - moving is not linking, and carries
+            // none of linking's rules.
+            _moveTargetTaskLists = Id is { } movingFromId
+                ? [.. allTaskLists.Where(taskList => taskList.Id != movingFromId)]
+                : allTaskLists;
+
+            // Linking is narrower: a list that links back here, however long the chain, would close a
+            // loop and the save would refuse it - see TaskListLinkCycle. Left out of the dropdown rather
+            // than offered and then rejected, which is how every other rule the server enforces is
+            // handled on this side.
             _linkableTaskLists = Id is { } currentTaskListId
-                ? allTaskLists.Where(taskList => taskList.Id != currentTaskListId).ToList()
+                ? [.. allTaskLists.Where(taskList => !TaskListLinkCycle.WouldClose(allTaskLists, currentTaskListId, taskList.Id))]
                 : allTaskLists;
 
             if (Id is { } taskListId)

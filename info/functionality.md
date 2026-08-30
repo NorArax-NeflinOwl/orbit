@@ -526,10 +526,16 @@ task list that exists and is owned by the same user, an item can't link to the l
 a link can't close a cycle between task lists (directly, or transitively through a chain of other
 links) — either of the last two would make completion resolution loop forever without this check. A
 validation failure throws `InvalidRequestException` and comes back as a **400 carrying the reason** —
-see [Refusing a request](#refusing-a-request). The Blazor client's task editor only excludes linking a list to itself from its dropdown of
-linkable lists; it does not check for longer cycles client-side, so building one still relies on the
-API's validation and surfaces as a failed save rather than a client-side error message — a known rough
-edge, not a silent gap (see [Future Plan](future-plan.md#known-scope-cuts-and-rough-edges)).
+see [Refusing a request](#refusing-a-request).
+
+**The editor asks the same question before it offers the link.** Its "link to list" dropdown leaves out
+every list that links back to the one being edited, however long the chain (`TaskListLinkCycle`, which
+walks the saved lists exactly as the server does) - so a link that would be refused is never offered in
+the first place, which is how every other rule the server enforces is handled on this side. What it
+replaced was a failed save naming a rule nothing on screen had mentioned, and the deeper the chain the
+less obvious what had gone wrong: A links to B, B to C, and the row offering C a link back to A looked
+like any other. The "move to list" dropdown is not narrowed this way - moving a row is not linking, and
+carries none of linking's rules.
 
 Each **item** also says what it is: `kind` is `Checklist` (the default) or `Calendar`. A calendar entry
 is somewhere to be rather than something to fetch, so it also carries a `location`, and can name the
