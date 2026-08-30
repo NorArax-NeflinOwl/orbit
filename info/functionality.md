@@ -356,22 +356,37 @@ give you the right to erase it from the sender's own history.
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever
-read it, and Orbit's servers can't. Ticking the box in the editor makes the browser seal the title and
+read it, and Orbit's servers can't. Ticking the box in the editor makes the client seal the title and
 the content before saving, so what the server stores is `IsPrivate` plus a base64 ciphertext and nonce
 (`EncryptedPayload`) — the readable columns go **empty**, not merely unread. `Note.Update` and
 `TaskList.Update` enforce that pairing rather than trusting callers: claiming privacy without sealed
 content is refused, and turning privacy off drops the ciphertext.
 
 The key is the one chat already uses, agreed with the owner's own public key on both sides of an ECDH
-exchange (`e2eeChat.js`'s `encryptForSelf`). That means no second key to generate, back up, or restore:
-a browser that can read your chat can read your private items, one that can't asks for your password
-the same way, and **a password reset replaces the key pair, so private content is lost with the chat
-history** — the editor says so next to the checkbox.
+exchange (`e2eeChat.js`'s `encryptForSelf`, and `ChatIdentity.EncryptForSelf` on the phone). That means
+no second key to generate, back up, or restore: a device that can read your chat can read your private
+items, one that can't asks for your password the same way, and **a password reset replaces the key
+pair, so private content is lost with the chat history** — the editor says so next to the checkbox.
 
 Sealing and opening happen in `NotesApiClient`/`TasksApiClient`, not in the pages, so the overview, the
 dashboard, the checklist view and the calendar all receive a readable DTO without knowing any of this
 happened. Content that can no longer be opened renders with an "Unreadable — encrypted with an older
 key" title rather than throwing, so one lost item doesn't take a whole list down.
+
+**Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
+payload shapes (`SealedNote`, `SealedTaskList`, `SealedWarehouse`) live in `Orbit.Contracts` and are
+serialized with the same property names on either side — `SealedContentTests` pins the phone's
+source-generated output against the browser's reflection-based one, because a mismatch there produces
+notes that round-trip perfectly on one client and cannot be opened on the other.
+
+Two things are the phone's own. Its local database holds the **sealed** payload rather than the opened
+words, so a handset that is picked up says no more about a private note than the server does; the
+words are opened for the screen that shows them and never written back (`LocalNoteRepository`,
+`PrivateContentSealer`). And a private item is additionally kept behind the **device lock** — a face
+or a passcode — on the notes, tasks and inventory screens, which is the physical counterpart of a
+promise that otherwise only holds against the server (`PrivateItemGate`). A device holding no key says
+which of the two situations it is in — no key here, or a key pair since replaced — rather than showing
+an empty editor.
 
 What private costs:
 
@@ -382,8 +397,12 @@ What private costs:
   due dates the server can no longer read.
 - **Items can't be moved into or out of one** (`MoveTaskItemCommandHandler` refuses): a private list
   keeps no readable items, so the move would take the item off the source and then drop it.
-- **Completion is recomputed in the browser.** The server derives `IsCompleted` from items it can't see,
-  so what it sends for a private list means nothing; `TasksApiClient` works it out after opening.
+- **Completion is recomputed on the client.** The server derives `IsCompleted` from items it can't see,
+  so what it sends for a private list means nothing; `TasksApiClient` and `LocalTaskListRepository`
+  work it out after opening.
+- **A private list's entries get their identity from the client.** The server mints entry ids and never
+  sees a private list's entries, so the phone mints one for any entry that has none before sealing —
+  without it every entry on the list would share the empty id.
 
 ### Private warehouses
 
@@ -846,8 +865,10 @@ Opening `/inventory` without searching costs nothing extra.
 
 The phone's inventory screen answers the same question (`InventoryViewModel.ShowMatchingItems`), and has
 less to do about it: every warehouse's items came down with the warehouse, so there is nothing to fetch
-and nothing to cache. A private warehouse is one this phone cannot open at all, and is named in the same
-summary for the same reason.
+and nothing to cache. A private warehouse is searched like any other once this device can open it and
+private things are unlocked; one it cannot look inside — no key for it, or the device lock still on — is
+**counted** in the same summary for the same reason, rather than named, since the name is one of the
+things being kept back.
 
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
 warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -

@@ -594,9 +594,9 @@ already has.
   real "this is running right now, and you can stop it" state — the exact thing the Dynamic Island
   exists for, and a genuine safety improvement over a share the user forgot about. Best fit on the
   device.
-- **Face ID for private notes, task lists, and warehouses.** The `IsPrivate` feature already means
-  "only the owner can read this, and the server never can". A biometric gate in front of those is the
-  natural physical counterpart.
+- ~~**Face ID for private notes, task lists, and warehouses.**~~ Built, and now on all three screens
+  rather than only notes (`PrivateItemGate`). The `IsPrivate` feature already means "only the owner can
+  read this, and the server never can"; the biometric gate is the physical counterpart of that promise.
 - **Action Button for quick capture.** One press to a new note or task, the most frequent action in
   the app.
 - **Widgets and Live Activities for today's tasks and the next event.** The dashboard's most valuable
@@ -663,9 +663,11 @@ least from being started early.
   What is *not* done is the rest of phase 3 - key storage on the device, restore at sign-in, and chat
   itself. The risk this bullet described was that the spec would be discovered wrong late; that part is
   settled.
-- **A local database of decrypted content weakens what private items promise** (§5.1). Private notes
-  exist so the server cannot read them; caching them in plaintext on the device moves the exposure
-  rather than removing it. Decide on database encryption deliberately.
+- ~~**A local database of decrypted content weakens what private items promise**~~ (§5.1). Settled by
+  not caching them in the clear at all: the local store holds a private item's sealed payload, exactly
+  as the server does, and the words are opened for the screen that shows them and never written back
+  (`PrivateContentSealer`, `LocalNoteRepository`). The rest of the local database stays unencrypted, as
+  §12 decided; what this bullet was about was the one kind of content that promises otherwise.
 - **Diagnostic logs are a new way to leak plaintext** (§8) out of an app whose whole design avoids it.
   Scrubbing has to happen at the logging call, and stay a review concern afterwards.
 - **Chat history is not portable to a device that never had the key.** This is by design, but it will
