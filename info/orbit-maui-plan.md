@@ -693,24 +693,27 @@ These change the plan materially and are worth answering before the phase they l
 1. ~~**Offline conflict policy** (§5.4)~~ — **settled and built: restrictive**, and the owner-side gap
    is closed for all four shareable types. `IsSharedWithOthers` tells an owner that somebody holds
    accepted access, so the client can tell a private item from one another person may be editing.
-2. **Is the local database encrypted?** (§5.1) ~~Needed before phase 2~~ — **still open, and now
-   load-bearing.** Phase 2 shipped plain SQLite in app-private storage, relying on platform disk
-   encryption. That is a deliberate deferral rather than an answer: private notes are client-encrypted
-   so the server cannot read them, and the phone now caches them decrypted. Everything needed to change
-   it is in `Orbit.Maui/Platform/LocalDatabase.cs` and one provider registration, so switching to
-   SQLCipher stays cheap - but it does not get cheaper by waiting, and more entity types arriving makes
-   the exposure wider rather than the change harder.
+2. ~~**Is the local database encrypted?** (§5.1)~~ — **settled: it is not, deliberately.** The phone
+   keeps plain SQLite in app-private storage and relies on platform disk encryption. The guarantee
+   Orbit makes is about what leaves the device: chat messages, private notes, task lists, warehouses
+   and shared positions are sealed client-side so the server cannot read them, and that is unchanged.
+   A local cache the device's own owner can reach is accepted. Everything needed to revisit it is in
+   `Orbit.Maui/Platform/LocalDatabase.cs` and one provider registration, so SQLCipher stays a cheap
+   change if the answer ever changes.
 3. **Does Orbit.Web keep evolving during this build?** Full parity with a moving target is a very
    different project from parity with a frozen one. Right now the answer looks like yes, which argues
    for §4.4's shared-API-client option so parity work happens once rather than twice.
 4. **Distribution** — App Store and Play Store, TestFlight/internal only, or personal? This decides
    how much review-facing work (privacy manifest, data-safety disclosure, in-app account deletion —
-   already supported server-side, and a store requirement) lands in scope, and how urgently the Mac
-   question in §1.1 needs answering. It also decides how the forced update in §7 sends people to
-   update: a store link, or something else entirely.
-5. **Where does the Mac live?** Kept as the development machine, kept on the LAN as a build host, or
-   replaced by a CI runner. Only matters if Windows is actually on the cards, but it changes the
-   day-to-day workflow completely.
+   already supported server-side, and a store requirement) lands in scope. It also decides how the
+   forced update in §7 sends people to update: a store link, or something else entirely. **Android
+   only, for now** — see below.
+5. ~~**Where does the Mac live?**~~ — **moot until iOS resumes.** iOS is deferred: it needs an Apple
+   developer account and a signing key that are not available, and neither the head nor a store
+   listing can be produced without them. Nothing in the plan is being removed for this — the head is
+   written, `Orbit.Mobile` is shared with it, and §4.2.1's undetectable-push warning still applies the
+   day it resumes. What changes is only that Android is the platform being finished, and that the Mac
+   question stops blocking anything.
 6. **Diagnostic log retention** (§8) — how long uploaded logs are kept before deletion.
 
 ## 13. What exists so far

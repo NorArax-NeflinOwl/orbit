@@ -82,7 +82,8 @@ notification settings, deep links from a notification, and uploadable diagnostic
 
 **Android is the verified head.** It has been driven on an emulator and a device: signing in, syncing
 each feature both ways, chatting, and sharing. iOS was verified on a simulator at phase 1 and not
-since — phases 2-7 were built from a Windows machine, which cannot build that head at all.
+since — phases 2-7 were built and driven on Android, and iOS is now deferred for want of an Apple
+developer account and signing key.
 
 ## Not yet implemented
 
@@ -91,9 +92,10 @@ since — phases 2-7 were built from a Windows machine, which cannot build that 
   needs the Firebase SDK in the app and a `google-services.json` for this application id. Until both
   exist, `PhonePushNotifications` answers `NotAvailableHere` rather than registering a device the
   server would then count as reachable. Browser push works and is unaffected.
-- **iOS beyond phase 1.** The head is written, and everything in `Orbit.Mobile` is shared with it, but
-  nothing built since phase 1 has been run there: it needs a Mac. What that leaves unknown is the
-  head's own platform services, not the features.
+- **iOS beyond phase 1 — deferred.** The head is written and everything in `Orbit.Mobile` is shared
+  with it, but nothing built since phase 1 has been run there. It is blocked on an Apple developer
+  account and a signing key rather than on the work: without them the head cannot be produced at all.
+  What that leaves unknown is the head's own platform services, not the features.
 - **Two-way Google Calendar sync** — writing an event onto a recipient's real Google Calendar. What
   ships today is link-based hand-off, which needs no Google API at all — see
   [Functionality](functionality.md#these-are-links-not-an-api-integration).

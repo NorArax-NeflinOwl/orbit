@@ -15,10 +15,10 @@ picture of what's left.
   head; iOS has not been run since phase 1, and desktop has not been started at all.
 
   What is left of it: push delivered to a phone (blocked on a Firebase registration for this
-  application id), the iOS head beyond phase 1 (blocked on a Mac), and phase 8 — widgets, Live
-  Activities, accessibility. Remaining design decisions are in
-  [§12](orbit-maui-plan.md#12-open-questions), of which **whether the local database is encrypted** is
-  the one that gets more expensive the longer it waits.
+  application id), the iOS head beyond phase 1 (deferred — no Apple developer account or signing
+  key), and phase 8 — widgets, Live Activities, accessibility. Remaining design decisions are in
+  [§12](orbit-maui-plan.md#12-open-questions); the local database staying unencrypted and iOS being
+  deferred are both settled there.
 - **Writing to a real Google Calendar.** `Orbit.GoogleIntegration` (`src/Server`) holds the ID-token
   verification behind Google sign-in (`GoogleIdentityVerifier`, `GoogleAuthSettings`) — that is
   authentication only, and no calendar data is read or written. What ships today is the link-based
