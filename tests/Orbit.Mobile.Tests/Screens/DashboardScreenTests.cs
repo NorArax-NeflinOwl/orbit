@@ -652,7 +652,7 @@ public sealed class DashboardScreenTests
         {
             var network = FixedNetworkStatus.Online;
             _notes = new LocalNoteRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
-            _taskLists = new LocalTaskListRepository(_localStore, _clock, network);
+            _taskLists = new LocalTaskListRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
             _calendarEvents = new LocalCalendarEventRepository(_localStore, _clock, network);
             _chat = new ChatRepository(_localStore, _clock);
             _syncState = new SyncState(network, _clock);

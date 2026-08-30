@@ -1,6 +1,7 @@
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -19,19 +20,27 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// The member list that thing sits on, when it was found through a link - empty when it is the list's
 /// own. Without it a group's row names an errand with no hint of where it came from.
 /// </param>
+/// <param name="IsHidden"><inheritdoc cref="NoteListItem.IsHidden" path="/summary"/></param>
 public sealed record TaskListRow(
     Guid LocalId, string Title, int ItemCount, int CompletedCount, bool IsPinned,
     DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
     string Progress, string Status, string State, string NextThing, string NextThingOnList,
-    string Priority)
+    string Priority, bool IsHidden = false, string HiddenTitle = "Private")
 {
+    /// <inheritdoc cref="NoteListItem.DisplayTitle"/>
+    public string DisplayTitle => IsHidden ? HiddenTitle : Title;
+
+    /// <inheritdoc cref="NoteListItem.CanBeOpened"/>
+    public bool CanBeOpened => !IsHidden;
+
     /// <param name="everyList">
     /// What else the phone holds, so a row that only points at another list can be looked up on the list
     /// it points at rather than skipped.
     /// </param>
     public static TaskListRow From(
         LocalTaskList taskList, IReadOnlyList<LocalTaskList> everyList, bool hasUnsentChanges,
-        INetworkStatus networkStatus, Translations translations)
+        INetworkStatus networkStatus, Translations translations, bool privateItemsAreUnlocked = true,
+        string hiddenTitle = "Private")
     {
         var itemCount = taskList.Items.Count;
         var completedCount = taskList.Items.Count(item => item.IsCompleted);
@@ -39,14 +48,15 @@ public sealed record TaskListRow(
         var next = NextThingLeftToDo(taskList, everyList);
 
         return new(
-            taskList.LocalId, taskList.Title, itemCount, completedCount, taskList.IsPinned,
+            taskList.LocalId, taskList.IsSealed ? hiddenTitle : taskList.Title, itemCount, completedCount, taskList.IsPinned,
             taskList.UpdatedAtUtc, hasUnsentChanges, refusal,
             Describe(itemCount, completedCount, translations),
             OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
             TaskListView.Describe(taskList.Status, translations),
             next?.Description ?? string.Empty,
             next?.OnList ?? string.Empty,
-            PriorityChoice.For(taskList.Priority, translations).Name)
+            PriorityChoice.For(taskList.Priority, translations).Name,
+            IsHidden: taskList.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle)
         {
             HasPriority = PriorityChoice.For(taskList.Priority, translations).IsWorthSaying
         };
@@ -73,7 +83,21 @@ public sealed record TaskListRow(
     /// </summary>
     public bool IsCollapsed { get; init; }
 
-    public bool IsExpanded => !IsCollapsed;
+    /// <summary>
+    /// Whether the card shows more than its heading. A hidden row shows nothing about itself whatever
+    /// the fold says: what it is folded to is a reader's arrangement, and what it is hidden for is the
+    /// device lock - see NoteListItem.IsHidden.
+    /// </summary>
+    public bool IsExpanded => !IsCollapsed && !IsHidden;
+
+    /// <summary>What a hidden row offers instead of everything the heading would otherwise carry.</summary>
+    public bool HasBadges => !IsHidden;
+
+    /// <inheritdoc cref="HasBadges"/>
+    public bool HasPriorityBadge => HasPriority && !IsHidden;
+
+    /// <inheritdoc cref="HasBadges"/>
+    public bool CanBeArranged => CanBeMoved && !IsHidden;
 
     /// <summary>What the fold button says - pointing down at what it would show, up at what it would hide.</summary>
     public string FoldGlyph => IsCollapsed ? "▾" : "▴";

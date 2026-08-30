@@ -293,7 +293,7 @@ public sealed class TaskListSyncTests
         {
             Clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
             Server = new FakeTasksServer(Clock);
-            TaskLists = new LocalTaskListRepository(_localStore, Clock, FixedNetworkStatus.Online);
+            TaskLists = new LocalTaskListRepository(_localStore, Clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             Notes = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             Synchronizer = new TaskListSynchronizer(
                 _localStore, new TasksClient(Server.ToHttpClient()), Clock, new SyncGate(),

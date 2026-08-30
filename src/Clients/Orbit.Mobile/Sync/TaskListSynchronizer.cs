@@ -95,8 +95,10 @@ public sealed class TaskListSynchronizer
         }
 
         taskList.ServerId = await _tasksClient.CreateAsync(
+            // A private list's title and entries are in EncryptedContent and its readable fields are
+            // empty, which is how the row is already stored - see LocalTaskListRepository.
             new CreateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
-                Priority: taskList.Priority),
+                taskList.EncryptedContent, taskList.Priority),
             cancellationToken);
         taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -113,7 +115,7 @@ public sealed class TaskListSynchronizer
         var outcome = await _tasksClient.UpdateAsync(
             serverId,
             new UpdateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
-                Priority: taskList.Priority),
+                taskList.EncryptedContent, taskList.Priority),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)

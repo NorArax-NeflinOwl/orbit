@@ -6,6 +6,7 @@ using Orbit.Core.Tasks;
 using Orbit.Mobile.Location;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Screens.Tasks;
 using Orbit.Mobile.Screens;
@@ -661,14 +662,12 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// A private list arrives sealed: its readable fields are empty and its contents are in a payload
-    /// this phone has no key for. Offering to edit it was worse than useless - saving sends a private
-    /// list with no ciphertext, which the server refuses outright, so the change was queued, retried
-    /// five times and given up on. And had it landed, it would have replaced the sealed list with the
-    /// empty one on screen. The note screen has always drawn this line; the list did not.
+    /// A private list this device cannot open: its readable fields are empty and its contents are in a
+    /// payload no key here fits. Offering to edit it is worse than useless - saving would replace the
+    /// sealed list with the empty one on screen.
     /// </summary>
     [Fact]
-    public async Task A_private_list_is_read_only_here()
+    public async Task A_private_list_this_device_cannot_open_is_read_only_here()
     {
         using var context = new ScreenContext();
         var screen = await context.OpenPrivateTaskListAsync();
@@ -678,6 +677,92 @@ public sealed class TaskListDetailScreenTests
         Assert.NotEmpty(screen.ReadOnlyReason);
     }
 
+    [Fact]
+    public async Task Making_a_list_private_seals_it_and_leaves_the_readable_columns_empty()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var screen = context.OpenTaskList("Bank paperwork");
+
+        screen.IsPrivate = true;
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        var stored = context.Stored();
+        Assert.True(stored.IsPrivate);
+        Assert.Equal(string.Empty, stored.Title);
+        Assert.Empty(stored.Items);
+        Assert.NotNull(stored.EncryptedContent);
+    }
+
+    [Fact]
+    public async Task A_list_this_device_sealed_opens_again_with_its_entries_back()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var screen = context.OpenTaskList("Bank paperwork");
+        screen.NewItemDescription = "call them";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.IsPrivate = true;
+        await screen.SaveListCommand.ExecuteAsync(null);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsReadOnly);
+        Assert.True(screen.IsPrivate);
+        Assert.Equal("Bank paperwork", screen.Title);
+        Assert.Equal(["call them"], screen.Items.Select(item => item.Description));
+    }
+
+    /// <summary>
+    /// The server mints entry ids and never sees a private list's entries, so without one minted here
+    /// every entry on the list would share the empty id - and ticking one would tick them all.
+    /// </summary>
+    [Fact]
+    public async Task Every_entry_on_a_private_list_keeps_an_identity_of_its_own()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var screen = context.OpenTaskList("Bank paperwork");
+        screen.NewItemDescription = "call them";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        screen.NewItemDescription = "post the form";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.IsPrivate = true;
+        await screen.SaveListCommand.ExecuteAsync(null);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var ids = screen.Items.Select(item => item.Id).ToList();
+        Assert.DoesNotContain(Guid.Empty, ids);
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task A_private_list_is_not_offered_to_anybody()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var screen = context.OpenTaskList("Bank paperwork");
+
+        screen.IsPrivate = true;
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        Assert.False(screen.CanBeShared);
+    }
+
+    /// <inheritdoc cref="NoteDetailScreenTests"/>
+    [Fact]
+    public async Task Making_a_list_private_without_a_key_asks_for_it_rather_than_saving()
+    {
+        using var context = new ScreenContext(PrivateContent.SignedInWithoutAKey(Owner));
+        var screen = context.OpenTaskList("Bank paperwork");
+
+        screen.IsPrivate = true;
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        Assert.Contains(nameof(IScreenNavigator.ShowChatKeyGate), context.Navigator.Destinations);
+        Assert.False(context.Stored().IsPrivate);
+    }
+
+    /// <summary>Whoever is signed in - only its identity matters, as the key is kept per account.</summary>
+    private static readonly Guid Owner = Guid.Parse("11111111-0000-4000-8000-000000000001");
+
     /// <summary>A phone with a local store and a server it can sometimes reach, and no MAUI in sight.</summary>
     private sealed class ScreenContext : IDisposable
     {
@@ -685,10 +770,13 @@ public sealed class TaskListDetailScreenTests
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         private readonly LocalTaskListRepository _taskLists;
 
-        public ScreenContext()
+        private readonly PrivateContentSealer _privateContent;
+
+        public ScreenContext(PrivateContentSealer? privateContent = null)
         {
+            _privateContent = privateContent ?? PrivateContent.WithoutAKey();
             Server = new FakeTasksServer(_clock);
-            _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             StockCheck = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()),
                 new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online),
@@ -714,6 +802,16 @@ public sealed class TaskListDetailScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>
+        /// The one row as it really sits in the database, rather than as a read hands it back opened.
+        /// One, because a context makes exactly one list per test.
+        /// </summary>
+        public LocalTaskList Stored()
+        {
+            using var dbContext = _localStore.CreateDbContext();
+            return dbContext.TaskLists.Single();
+        }
+
         /// <summary>A list sealed with a key this phone has not got, as the sync would bring one down.</summary>
         public async Task<TaskListDetailViewModel> OpenPrivateTaskListAsync()
         {
@@ -735,7 +833,7 @@ public sealed class TaskListDetailScreenTests
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
                 new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
-                StockCheck, CalendarEvents, PlacePicker);
+                StockCheck, CalendarEvents, PlacePicker, _privateContent);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;

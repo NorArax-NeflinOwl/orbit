@@ -168,7 +168,7 @@ public sealed class TaskItemSummaryScreenTests
 
         public ScreenContext()
         {
-            _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             _events = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
         }
 

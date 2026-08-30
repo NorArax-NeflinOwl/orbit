@@ -195,6 +195,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         _taskLists[created.Id] = created with
         {
             Items = ToDtos(body.Items), IsGroup = body.IsGroup, IsPrivate = body.IsPrivate,
+            // Stored as the real endpoint stores it: a private list's title and entries are only here,
+            // so a fake that dropped it would answer the next pull with an empty list.
+            EncryptedContent = body.EncryptedContent,
             Priority = body.Priority
         };
         return Json(created.Id, HttpStatusCode.Created);
@@ -219,6 +222,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // "Normal" over the top, and the phone looked like it had never sent one.
             IsGroup = body.IsGroup,
             IsPrivate = body.IsPrivate,
+            EncryptedContent = body.EncryptedContent,
             Priority = body.Priority,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };

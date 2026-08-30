@@ -8,6 +8,7 @@ using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
@@ -33,6 +34,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly TimeProvider _timeProvider;
     private readonly INetworkStatus _networkStatus;
+    private readonly PrivateContentSealer _privateContent;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -76,7 +78,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
         TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck,
-        LocalCalendarEventRepository calendarEvents, IPlacePicker placePicker)
+        LocalCalendarEventRepository calendarEvents, IPlacePicker placePicker,
+        PrivateContentSealer privateContent)
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
@@ -90,6 +93,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _networkStatus = networkStatus;
+        _privateContent = privateContent;
         StockCheck = stockCheck;
         // Generating a warehouse or pointing at a different one changes the list itself, so the screen
         // re-reads rather than letting the panel and the list drift apart.
@@ -110,6 +114,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private bool _isGroup;
 
     /// <summary>
+    /// Only its owner may ever read this list, and the server never can. Orbit.Web's task editor has
+    /// had the checkbox all along; the phone carried the flag without being able to set one - see
+    /// PrivateContentSealer.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPrivate;
+
+    /// <summary>
     /// How much this list matters - Orbit.Web has had the same three choices on its task editor all
     /// along, and the phone could sort by them without ever being able to see or set one.
     /// </summary>
@@ -125,6 +137,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// phone was saved as the one it replaced.
     /// </summary>
     private string _priority = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CanBeShared"/>
+    public bool CanBeShared => _serverId is not null && !IsPrivate;
 
     /// <summary>"Can this be done?" - see StockCheckPanel. Only a group list is asked.</summary>
     public StockCheckPanel StockCheck { get; }
@@ -430,8 +445,20 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     private async Task SaveAsync(IReadOnlyList<TaskItemDto> items, CancellationToken cancellationToken)
     {
-        var outcome = await _taskLists.UpdateAsync(
-            _localId, new TaskListContent(Title, items, IsGroup, _priority), cancellationToken);
+        LocalWriteOutcome outcome;
+        try
+        {
+            outcome = await _taskLists.UpdateAsync(
+                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate), cancellationToken);
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            // Sealing needs the account's own key, and this device has not got it - see
+            // NoteDetailViewModel, which sends the reader to the same gate for the same reason.
+            _navigator.ShowChatKeyGate();
+            return;
+        }
+
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
             Status = _translations[RefusalMessage];
@@ -452,7 +479,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         Title = taskList.Title;
         _serverId = taskList.ServerId;
-        if (taskList.ServerId is { } serverId)
+        // A private list is offered to nobody: the server holds no readable copy to hand over, which is
+        // what makes it private - the same line Orbit.Web's editor draws.
+        if (taskList is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(
                 SharedItemKind.TaskList, serverId, taskList.Title,
@@ -462,19 +491,20 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _items = taskList.Items;
         _isShowingWhatIsStored = true;
         IsGroup = taskList.IsGroup;
+        IsPrivate = taskList.IsPrivate;
         ChosenPriority = PriorityChoice.For(taskList.Priority, _translations);
         _isShowingWhatIsStored = false;
+        OnPropertyChanged(nameof(CanBeShared));
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
-        // Sealed with a key this phone has not got, so there is nothing here to change: the readable
-        // fields arrive empty, and saving would send a private list with no ciphertext - which the
-        // server refuses outright, and which would replace the sealed list with an empty one if it did
-        // not. NoteDetailViewModel has always drawn this line; the list and the shelf did not.
-        if (taskList.IsPrivate)
+        // Sealed with a key this device cannot open, so there is nothing here to change: the readable
+        // fields are empty, and saving would replace the sealed list with an empty one.
+        if (taskList.IsSealed)
         {
             IsReadOnly = true;
-            ReadOnlyReason = _translations[
-                "This list is private, and its contents are sealed with a key this phone doesn't have."];
+            ReadOnlyReason = await _privateContent.HasKeyAsync(cancellationToken)
+                ? _translations["This list was sealed with an encryption key this account no longer has."]
+                : _translations["This list is private. Unlock this device's encryption key to read it."];
         }
         else
         {
@@ -531,6 +561,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnIsGroupChanged(bool value)
     {
+        if (!_isShowingWhatIsStored)
+        {
+            SaveListCommand.Execute(null);
+        }
+    }
+
+    /// <inheritdoc cref="OnIsGroupChanged"/>
+    partial void OnIsPrivateChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanBeShared));
         if (!_isShowingWhatIsStored)
         {
             SaveListCommand.Execute(null);

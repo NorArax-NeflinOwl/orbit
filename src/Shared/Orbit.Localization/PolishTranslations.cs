@@ -1258,6 +1258,10 @@ public static class PolishTranslations
             "Ta notatka została zapieczętowana kluczem szyfrowania, którego to konto już nie ma.",
         ["This list is private, and its contents are sealed with a key this phone doesn't have."] =
             "Ta lista jest prywatna, a jej zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["This list is private. Unlock this device's encryption key to read it."] =
+            "Ta lista jest prywatna. Odblokuj klucz szyfrowania na tym urządzeniu, żeby ją przeczytać.",
+        ["This list was sealed with an encryption key this account no longer has."] =
+            "Ta lista została zapieczętowana kluczem szyfrowania, którego to konto już nie ma.",
         ["This warehouse is private, and its contents are sealed with a key this phone doesn't have."] =
             "Ten magazyn jest prywatny, a jego zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
 

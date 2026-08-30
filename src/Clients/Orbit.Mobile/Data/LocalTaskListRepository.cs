@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Sync;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Data;
@@ -15,8 +16,9 @@ namespace Orbit.Mobile.Data;
 /// because a save writes the whole list: left out, it would go back to Normal every time somebody
 /// renamed the list from a phone.
 /// </param>
+/// <param name="IsPrivate"><inheritdoc cref="NoteContent.IsPrivate" path="/summary"/></param>
 public sealed record TaskListContent(
-    string Title, IReadOnlyList<TaskItemDto> Items, bool IsGroup, string Priority);
+    string Title, IReadOnlyList<TaskItemDto> Items, bool IsGroup, string Priority, bool IsPrivate = false);
 
 /// <summary>
 /// Every read and write a screen performs on task lists. The same shape as
@@ -29,31 +31,94 @@ public sealed class LocalTaskListRepository
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
     private readonly INetworkStatus _networkStatus;
+    private readonly PrivateContentSealer _privateContent;
 
     public LocalTaskListRepository(
-        IDbContextFactory<OrbitLocalDbContext> dbContextFactory, TimeProvider timeProvider, INetworkStatus networkStatus)
+        IDbContextFactory<OrbitLocalDbContext> dbContextFactory, TimeProvider timeProvider, INetworkStatus networkStatus,
+        PrivateContentSealer privateContent)
     {
         _dbContextFactory = dbContextFactory;
         _timeProvider = timeProvider;
         _networkStatus = networkStatus;
+        _privateContent = privateContent;
     }
 
     public async Task<IReadOnlyList<LocalTaskList>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.TaskLists
+        var taskLists = await dbContext.TaskLists
             .AsNoTracking()
             // Pinned lists first, then most recently changed - the order the web client shows them in.
             .OrderByDescending(taskList => taskList.IsPinned)
             .ThenByDescending(taskList => taskList.UpdatedAtUtc)
             .ToListAsync(cancellationToken);
+
+        await OpenPrivateContentAsync(taskLists, cancellationToken);
+        return taskLists;
     }
 
     public async Task<LocalTaskList?> FindAsync(Guid localId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.TaskLists.AsNoTracking()
-            .FirstOrDefaultAsync(taskList => taskList.LocalId == localId, cancellationToken);
+        var taskList = await dbContext.TaskLists.AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken);
+
+        if (taskList is not null)
+        {
+            await OpenPrivateContentAsync([taskList], cancellationToken);
+        }
+
+        return taskList;
+    }
+
+    /// <inheritdoc cref="LocalNoteRepository.OpenPrivateContentAsync"/>
+    private async Task OpenPrivateContentAsync(IReadOnlyList<LocalTaskList> taskLists, CancellationToken cancellationToken)
+    {
+        var privateLists = taskLists.Where(taskList => taskList.IsPrivate).ToList();
+        if (privateLists.Count == 0)
+        {
+            return;
+        }
+
+        PrivateContentKey key;
+        try
+        {
+            key = await _privateContent.UnlockAsync(cancellationToken);
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            foreach (var taskList in privateLists)
+            {
+                taskList.IsSealed = true;
+            }
+
+            return;
+        }
+
+        using (key)
+        {
+            foreach (var taskList in privateLists)
+            {
+                Open(key, taskList);
+            }
+        }
+    }
+
+    private static void Open(PrivateContentKey key, LocalTaskList taskList)
+    {
+        if (taskList.EncryptedContent is not { } encryptedContent
+            || key.Open(encryptedContent, SealedContentSerializerContext.Default.SealedTaskList) is not { } opened)
+        {
+            taskList.IsSealed = true;
+            return;
+        }
+
+        taskList.Title = opened.Title;
+        taskList.Items = opened.Items;
+        // Worked out here for the same reason the domain works it out: the server saw no items to
+        // derive it from, so what it sent back for a private list means nothing.
+        taskList.IsCompleted = opened.Items.Count > 0 && opened.Items.All(item => item.IsCompleted);
+        taskList.IsSealed = false;
     }
 
     /// <summary>
@@ -124,18 +189,53 @@ public sealed class LocalTaskListRepository
         }
 
         var now = _timeProvider.GetUtcNow();
-        taskList.Title = content.Title;
-        taskList.Items = content.Items;
+        await WriteContentAsync(taskList, content, cancellationToken);
         taskList.IsGroup = content.IsGroup;
         taskList.Priority = content.Priority;
         taskList.UpdatedAtUtc = now;
-        // A list is done when every item is - the same rule the server applies.
+        // A list is done when every item is - the same rule the server applies. Worked out from what
+        // was handed in rather than from the row, which holds no items at all when the list is private.
         taskList.IsCompleted = content.Items.Count > 0 && content.Items.All(item => item.IsCompleted);
 
         Enqueue(dbContext, localId, OutboxOperation.Update, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
+
+    /// <inheritdoc cref="LocalNoteRepository.WriteContentAsync"/>
+    private async Task WriteContentAsync(LocalTaskList taskList, TaskListContent content, CancellationToken cancellationToken)
+    {
+        taskList.IsPrivate = content.IsPrivate;
+        taskList.IsSealed = false;
+
+        if (!content.IsPrivate)
+        {
+            taskList.Title = content.Title;
+            taskList.Items = content.Items;
+            taskList.EncryptedCiphertext = null;
+            taskList.EncryptedNonce = null;
+            return;
+        }
+
+        using var key = await _privateContent.UnlockAsync(cancellationToken);
+        var sealedContent = key.Seal(
+            new SealedTaskList(content.Title, WithIdentity(content.Items)),
+            SealedContentSerializerContext.Default.SealedTaskList);
+
+        taskList.Title = string.Empty;
+        taskList.Items = [];
+        taskList.EncryptedCiphertext = sealedContent.Ciphertext;
+        taskList.EncryptedNonce = sealedContent.Nonce;
+    }
+
+    /// <summary>
+    /// Gives every entry an id before it is sealed. The server mints those, and it never sees a private
+    /// list's entries - so without this each one stays empty, every entry in the list has the same id,
+    /// and ticking one ticks them all. Orbit.Web seals empty ids for the same reason it has none to
+    /// send, which is why an entry can arrive here without one.
+    /// </summary>
+    private static IReadOnlyList<TaskItemDto> WithIdentity(IReadOnlyList<TaskItemDto> items)
+        => [.. items.Select(item => item.Id == Guid.Empty ? item with { Id = Guid.NewGuid() } : item)];
 
     /// <inheritdoc cref="LocalNoteRepository.MarkPinnedAsync"/>
     public async Task MarkPinnedAsync(Guid localId, bool isPinned, CancellationToken cancellationToken = default)

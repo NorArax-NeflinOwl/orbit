@@ -183,6 +183,18 @@
                 <Switch Grid.Column="1" IsToggled="{Binding IsGroup}" VerticalOptions="Center" />
             </Grid>
 
+            <!-- The same checkbox Orbit.Web's task editor has: what it turns on is real encryption, so
+                 the row says what it costs rather than only what it is. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
+                <VerticalStackLayout Grid.Column="0">
+                    <Label Text="{controls:Translate 'Private'}" />
+                    <Label Text="{controls:Translate 'Only you can read it, and it cannot be shared.'}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+                <Switch Grid.Column="1" IsToggled="{Binding IsPrivate}" VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Private'}" />
+            </Grid>
+
             <!-- How much this list matters. The phone could sort by it from the day it could list
                  anything, and had no way to see one or set one - see PriorityChoice. -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
@@ -243,7 +255,10 @@
                 </VerticalStackLayout>
             </Border>
 
-            <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
+            <!-- Hidden for a private list, as Orbit.Web's editor hides it: there is no readable copy on
+                 the server to hand anybody, which is what being private means. -->
+            <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4"
+                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanBeShared, x:DataType=tasks:TaskListDetailPage}" />
         </VerticalStackLayout>
 
         <Grid Grid.Row="5" ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">
