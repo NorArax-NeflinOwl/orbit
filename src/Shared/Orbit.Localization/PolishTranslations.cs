@@ -387,6 +387,12 @@ public static class PolishTranslations
         ["Accent colour"] = "Kolor wiodący",
         ["The colour Orbit highlights things in. Kept on this device, like the theme."] =
             "Kolor, którym Orbit wyróżnia elementy. Zapamiętywany na tym urządzeniu, tak jak motyw.",
+        ["No colour"] = "Bez koloru",
+        ["Brown"] = "Brązowy",
+        ["Violet"] = "Fioletowy",
+        // For a colour an event carries that the palette does not offer - set in a browser, or left
+        // from an older palette.
+        ["Another colour"] = "Inny kolor",
         ["Purple"] = "Fioletowy",
         ["Blue"] = "Niebieski",
         ["Teal"] = "Turkusowy",

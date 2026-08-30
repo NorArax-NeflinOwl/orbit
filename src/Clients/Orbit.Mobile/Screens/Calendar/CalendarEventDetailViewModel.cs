@@ -349,7 +349,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     private void ShowColours()
     {
         Colours.Clear();
-        foreach (var colour in EventColourChoice.All(_colour))
+        foreach (var colour in EventColourChoice.All(_colour, _translations))
         {
             Colours.Add(colour);
         }
