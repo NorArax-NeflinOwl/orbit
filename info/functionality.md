@@ -787,6 +787,24 @@ made while the shelf is narrowed keeps the rows that were hidden — the editor 
 row clears all of it, since a new row is filed under nothing and has no name yet, and would otherwise
 be added and hidden in the same click.
 
+**One level up, the inventory page answers "which warehouse is this in".** `/inventory` lists shelves
+rather than what is on them, so `Warehouses.razor` carries a search that reads every warehouse and
+returns each match with the warehouse holding it; a result opens that warehouse. Two things about it
+are deliberate:
+
+- **It searches client-side**, one warehouse at a time, rather than through an endpoint of its own. A
+  private warehouse keeps no item rows on the server at all — its stock is sealed and only the owner's
+  browser holds the key (see [Private warehouses](#private-warehouses)) — so a server-side search would
+  leave those shelves out and report "nowhere". The reader would have no way to tell that apart from
+  "not there".
+- **A warehouse that cannot be read is named**, not skipped: the summary under the results says which
+  ones could not be opened and that nothing in them was searched. The same reasoning — an incomplete
+  answer that looks complete is worse than an honest partial one.
+
+The whole account's stock is read once, on the first search, and reused while the page stays open: the
+results narrow as the reader types, and fetching every shelf per keystroke would be a request storm.
+Opening `/inventory` without searching costs nothing extra.
+
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
 warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -
 which is the whole order for a warehouse nobody has arranged, since everything in one sits at position

@@ -4081,3 +4081,27 @@ input.note-editor-title {
     color: var(--danger);
     font-size: 12px;
 }
+
+/* "Which warehouse is this in" - see Warehouses.razor. Above the shelves rather than inside one,
+   because that is the question it answers. */
+.warehouse-search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.warehouse-search input {
+    flex: 1;
+    min-width: 0;
+}
+
+.warehouse-search-results {
+    margin-bottom: 8px;
+}
+
+/* Where the thing is, pushed to the end of the row: it is what the search was for, so it wants the
+   place the eye stops rather than the one it passes over. */
+.warehouse-search-where {
+    margin-left: auto;
+    color: var(--text-primary);
+}

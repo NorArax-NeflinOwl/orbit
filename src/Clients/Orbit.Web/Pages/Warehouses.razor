@@ -1,8 +1,10 @@
 @page "/inventory"
 @attribute [Authorize]
+@using System.Globalization
 @using System.Text.Json
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Inventory
+@using Orbit.Core.Inventory
 @using Orbit.Web.Services
 @inject InventoryApiClient InventoryApiClient
 @inject ChatApiClient ChatApiClient
@@ -36,6 +38,50 @@
 @if (_errorMessage is not null)
 {
     <p class="error">@_errorMessage</p>
+}
+
+@* "Which warehouse is the flour in?" - the one question this page could not answer, since it lists
+   shelves and not what is on them. Searching one warehouse at a time is the editor's own box; this is
+   the level above it. *@
+@if (_warehouses is { Count: > 0 })
+{
+    <div class="warehouse-search">
+        <input type="search" @bind="_itemSearch" @bind:event="oninput" @bind:after="SearchForItemsAsync"
+               placeholder="@(T["Find an item in any warehouse"])"
+               aria-label="@(T["Find an item in any warehouse"])" />
+        @if (_itemSearch.Trim().Length > 0)
+        {
+            <button type="button" class="btn-secondary" @onclick="ClearItemSearchAsync">@T["Clear"]</button>
+        }
+    </div>
+}
+
+@if (_itemSearch.Trim().Length > 0)
+{
+    @if (_isSearchingItems)
+    {
+        <p>@T["Looking through your warehouses…"]</p>
+    }
+    else if (_itemMatches.Count == 0)
+    {
+        <p class="empty-hint">@T["Nothing on any shelf matches that."]</p>
+    }
+    else
+    {
+        <div class="card warehouse-search-results">
+            @* Where it is comes second on the row and is the point of the whole search, so it is the
+               part that is a link: the name only says what was found. *@
+            @foreach (var match in _itemMatches)
+            {
+                <button type="button" class="list-row list-row-button" @onclick="() => OpenWarehouse(match.WarehouseId)">
+                    <span class="row-title">@match.Name</span>
+                    <span class="row-meta">@match.Amount</span>
+                    <span class="row-meta warehouse-search-where">@match.WarehouseName</span>
+                </button>
+            }
+        </div>
+        <p class="empty-hint">@ItemMatchSummary</p>
+    }
 }
 
 @if (_warehouses is null)
@@ -132,6 +178,28 @@ else
     private IReadOnlyList<ContactDto> _contacts = [];
     private Guid _ownUserId;
     private string? _errorMessage;
+
+    /// <summary>What the reader is looking for across every warehouse, and what was found.</summary>
+    private string _itemSearch = string.Empty;
+    private bool _isSearchingItems;
+    private IReadOnlyList<ItemMatch> _itemMatches = [];
+
+    /// <summary>
+    /// Every warehouse's items, read once and kept for as long as the page is open - a search narrows
+    /// as it is typed, and fetching a whole account's stock per keystroke would be a request storm.
+    /// Null until the first search: opening this page to look at the shelves should cost nothing extra.
+    /// </summary>
+    private IReadOnlyList<ItemMatch>? _everythingOnEveryShelf;
+
+    /// <summary>
+    /// Warehouses whose contents could not be read, if any. Named rather than skipped: a search that
+    /// quietly leaves one out answers "it is nowhere" when the truth is "I could not look there".
+    /// </summary>
+    private IReadOnlyList<string> _unreadableWarehouses = [];
+
+    /// <summary>One thing found, and where it is.</summary>
+    /// <param name="Amount">Already written for reading - see AmountOf.</param>
+    private sealed record ItemMatch(Guid WarehouseId, string WarehouseName, string Name, string Amount);
 
     private bool _isCreating;
     private string _newWarehouseName = string.Empty;
@@ -248,6 +316,95 @@ else
     }
 
     private void OpenWarehouse(Guid warehouseId) => NavigationManager.NavigateTo($"/inventory/{warehouseId}");
+
+    /// <summary>
+    /// Answers "which warehouse is this in". Read here rather than asked of the server, because a
+    /// private warehouse keeps no item rows there at all - its stock is sealed and only this browser
+    /// holds the key (see InventoryApiClient.GetInventoryItemsAsync). A server-side search would leave
+    /// those shelves out and call it "nowhere", which is worse than not offering the search.
+    /// </summary>
+    private async Task SearchForItemsAsync()
+    {
+        if (_itemSearch.Trim() is not { Length: > 0 } wanted)
+        {
+            _itemMatches = [];
+            return;
+        }
+
+        _isSearchingItems = true;
+        try
+        {
+            _everythingOnEveryShelf ??= await ReadEveryShelfAsync();
+        }
+        finally
+        {
+            _isSearchingItems = false;
+        }
+
+        // Matched anywhere in the name and without case, the same as the editor's own box: a shelf holds
+        // "Flour, wheat" and somebody typing "flour" means it.
+        _itemMatches = [.. _everythingOnEveryShelf
+            .Where(item => item.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
+            .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.WarehouseName, StringComparer.CurrentCultureIgnoreCase)];
+    }
+
+    private async Task ClearItemSearchAsync()
+    {
+        _itemSearch = string.Empty;
+        await SearchForItemsAsync();
+    }
+
+    /// <summary>
+    /// Everything in every warehouse, flattened to what a result row needs. A warehouse that will not
+    /// open is remembered by name rather than dropped - see _unreadableWarehouses.
+    /// </summary>
+    private async Task<IReadOnlyList<ItemMatch>> ReadEveryShelfAsync()
+    {
+        var everything = new List<ItemMatch>();
+        var unreadable = new List<string>();
+        foreach (var warehouse in _warehouses ?? [])
+        {
+            try
+            {
+                var items = await InventoryApiClient.GetInventoryItemsAsync(warehouse.Id) ?? [];
+                everything.AddRange(items.Select(item => new ItemMatch(
+                    warehouse.Id, warehouse.Name, item.Name, AmountOf(item))));
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogWarning(exception, "Couldn't read warehouse {WarehouseId} while searching", warehouse.Id);
+                unreadable.Add(warehouse.Name);
+            }
+        }
+
+        _unreadableWarehouses = unreadable;
+        return everything;
+    }
+
+    /// <summary>
+    /// How much of it there is. The unit is left off for something counted one by one - "2" of a thing
+    /// already means two of them - which is the rule a restock errand is written by too.
+    /// </summary>
+    private string AmountOf(InventoryItemDto item)
+    {
+        var unit = InventoryUnitOption.For(item.Unit);
+        var amount = item.Quantity.ToString("0.##", CultureInfo.InvariantCulture);
+        return unit.Value == nameof(InventoryUnit.Piece) ? amount : $"{amount} {T[unit.ShortName]}";
+    }
+
+    /// <summary>
+    /// What was found, and - when a shelf could not be opened - that the answer is short of those.
+    /// Saying only the count would let "nothing found" stand for "I could not look".
+    /// </summary>
+    private string ItemMatchSummary
+        => _unreadableWarehouses.Count == 0
+            ? T.Format("Found in {0} of {1} warehouses.", WarehousesMatched, (_warehouses ?? []).Count)
+            : T.Format(
+                "Found in {0} of {1} warehouses. These could not be opened, so nothing in them was searched: {2}",
+                WarehousesMatched, (_warehouses ?? []).Count, string.Join(", ", _unreadableWarehouses));
+
+    private int WarehousesMatched => _itemMatches.Select(match => match.WarehouseId).Distinct().Count();
 
     private void ToggleSharePanel(Guid warehouseId)
     {
