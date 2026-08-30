@@ -130,11 +130,13 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="17" />
                             </Border.StrokeShape>
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer
+                            <!-- The tap is a Button inside the swatch rather than a gesture on it: a
+                                 Border carrying a gesture is not a clickable node to Android, so a
+                                 screen reader could neither reach it nor activate it. -->
+                            <Button BackgroundColor="Transparent" CornerRadius="17"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseColourCommand, x:DataType=calendar:CalendarEventDetailPage}"
-                                    CommandParameter="{Binding .}" />
-                            </Border.GestureRecognizers>
+                                    CommandParameter="{Binding .}"
+                                    SemanticProperties.Description="{Binding Name}" />
                             <Border.Triggers>
                                 <!-- No colour is an outline, so the swatch is visible at all. -->
                                 <DataTrigger TargetType="Border" Binding="{Binding HasColour}" Value="False">

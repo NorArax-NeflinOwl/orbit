@@ -389,6 +389,36 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Equal("Low", Assert.Single(context.Server.Events).Details.Priority);
     }
 
+
+    /// <summary>
+    /// A swatch says what colour it is. A ring of coloured circles is nothing at all to somebody who
+    /// cannot see it, and the picker had no names to read out - only hex values.
+    /// </summary>
+    [Fact]
+    public void Every_colour_on_offer_is_called_something()
+    {
+        var choices = EventColourChoice.All(null, English());
+
+        Assert.All(choices, choice => Assert.NotEqual(string.Empty, choice.Name));
+        Assert.Equal("No colour", choices[0].Name);
+        Assert.Contains(choices, choice => choice.Name == "Purple");
+    }
+
+    /// <summary>
+    /// A colour the event already carries but the palette does not offer - set in a browser, or left
+    /// from an older palette - is still shown, so it still has to be called something.
+    /// </summary>
+    [Fact]
+    public void A_colour_the_palette_does_not_know_is_still_named()
+    {
+        var choices = EventColourChoice.All("#123456", English());
+
+        var stranger = Assert.Single(choices, choice => choice.Value == "#123456");
+        Assert.Equal("Another colour", stranger.Name);
+    }
+
+    private static Translations English() => new(new InMemoryLanguageStore());
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();

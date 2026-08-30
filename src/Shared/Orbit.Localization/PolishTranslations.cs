@@ -122,6 +122,11 @@ public static class PolishTranslations
         ["Open the calendar"] = "Otwórz kalendarz",
         ["{0} in it"] = "osób: {0}",
         ["Expand"] = "Rozwiń",
+        // Said out loud in place of a glyph, for a reader who cannot see which way it points.
+        ["Collapse"] = "Zwiń",
+        ["Earlier"] = "Wcześniej",
+        ["Later"] = "Później",
+        ["Cancel reply"] = "Anuluj odpowiedź",
         ["Nothing left to do."] = "Nic nie zostało do zrobienia.",
         ["Pick a date"] = "Wybierz datę",
         ["Previous month"] = "Poprzedni miesiąc",
@@ -387,6 +392,12 @@ public static class PolishTranslations
         ["Accent colour"] = "Kolor wiodący",
         ["The colour Orbit highlights things in. Kept on this device, like the theme."] =
             "Kolor, którym Orbit wyróżnia elementy. Zapamiętywany na tym urządzeniu, tak jak motyw.",
+        ["No colour"] = "Bez koloru",
+        ["Brown"] = "Brązowy",
+        ["Violet"] = "Fioletowy",
+        // For a colour an event carries that the palette does not offer - set in a browser, or left
+        // from an older palette.
+        ["Another colour"] = "Inny kolor",
         ["Purple"] = "Fioletowy",
         ["Blue"] = "Niebieski",
         ["Teal"] = "Turkusowy",
@@ -577,6 +588,8 @@ public static class PolishTranslations
             "Dostaniesz własną kopię tylko do odczytu. Nic, co zrobisz, nie zmieni oryginału.",
         ["Frontend error"] = "Błąd interfejsu",
         ["Account"] = "Konto",
+        // Read aloud in place of the avatar, which is otherwise a pair of initials with no name.
+        ["Account menu"] = "Menu konta",
         ["Your account, appearance, and notification preferences."] = "Twoje konto, wygląd i ustawienia powiadomień.",
         ["Your profile, sign-in address, and password."] = "Twój profil, adres logowania i hasło.",
         ["Save profile"] = "Zapisz profil",
@@ -724,6 +737,7 @@ public static class PolishTranslations
             "Nie udało się narysować mapy, ale Twoje położenie zostało zapisane.",
         ["Your location couldn't be read in this browser."] = "Nie udało się odczytać położenia w tej przeglądarce.",
         ["Couldn't build the export. Try again."] = "Nie udało się przygotować eksportu. Spróbuj ponownie.",
+        ["That file is too large to import."] = "Ten plik jest za duży do zaimportowania.",
         ["Couldn't import that file. Try again."] = "Nie udało się zaimportować tego pliku. Spróbuj ponownie.",
         ["That file didn't contain an Orbit export."] = "Ten plik nie zawiera eksportu z Orbita.",
         ["Orbit couldn't read that file. It may have been written by a different version."] =

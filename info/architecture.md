@@ -46,9 +46,8 @@ and shares nothing with the sign-in code beyond living here. See
 
 ### Orbit.Web
 
-A Blazor WebAssembly client, currently the only client, served as static files through nginx in the
-Docker image. Unlike Orbit.Api, it only logs errors to the browser console. A MAUI client is planned
-but not started — see [Future Plan](future-plan.md#planned-features).
+A Blazor WebAssembly client, served as static files through nginx in the Docker image. Unlike
+Orbit.Api, it only logs errors to the browser console.
 
 Two things it does that the API deliberately has no part in:
 
@@ -58,6 +57,17 @@ Two things it does that the API deliberately has no part in:
 - **The Google hand-off links.** `GoogleCalendarEventLink` and `GoogleMapsLink` build ordinary URLs in the
   browser. No Google API is called from anywhere in Orbit, and `Orbit.GoogleIntegration` on the server
   does nothing but verify a sign-in token.
+
+### Orbit.Mobile and Orbit.Maui
+
+The mobile client, split in two. `Orbit.Mobile` (`net10.0`) holds everything decided without a device
+— view models, the local SQLite store, the outbox and sync spine, the crypto — and is in `Orbit.sln`,
+so tests reach it. `Orbit.Maui` (`net10.0-android`, `net10.0-ios`) holds the two app heads and is
+deliberately outside the solution: CI runs on `ubuntu-latest`, which can build neither.
+
+It encrypts the same things Orbit.Web does, against the same wire format — a message sealed in one
+opens in the other. See [Orbit.Maui — Plan](orbit-maui-plan.md) and
+[Current Status](current-status.md#the-mobile-client).
 
 ## `src/Shared`
 
@@ -69,12 +79,13 @@ pulling in a full mediator library.
 
 ### Orbit.Contracts
 
-The DTOs and request/response shapes the API and the Blazor client both reference, so the two can't
-drift out of sync.
+The DTOs and request/response shapes the API, the Blazor client and the mobile client all reference,
+so they cannot drift out of sync.
 
 ## Test projects
 
-`tests/Orbit.Api.Tests` and `tests/Orbit.Web.Tests` mirror the production project layout. See
+`tests/Orbit.Api.Tests`, `tests/Orbit.Web.Tests` and `tests/Orbit.Mobile.Tests` mirror the production
+project layout. See
 [Testing and Running Locally](testing-and-running-locally.md#automated-test-coverage) for exactly
 what each one covers.
 

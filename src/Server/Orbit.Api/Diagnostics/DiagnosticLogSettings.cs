@@ -5,8 +5,9 @@ namespace Orbit.Api.Diagnostics;
 /// by default and is only ever read for a few days after it arrives, so retention is finite and stated
 /// rather than left to grow - see info/orbit-maui-plan.md's "Diagnostic logs".
 ///
-/// Enforced on upload (see DiagnosticLogEndpoints), which is the only time entries appear and therefore
-/// the only time there is anything to sweep.
+/// Swept hourly by DiagnosticLogRetentionBackgroundService, and again on every upload. Upload alone is
+/// not enough: entries age whether or not anyone sends a new report, so a month with no reports left
+/// the month before it sitting there untouched.
 /// </summary>
 public sealed class DiagnosticLogSettings
 {

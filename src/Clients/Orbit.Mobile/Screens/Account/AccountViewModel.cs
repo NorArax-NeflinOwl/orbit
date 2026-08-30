@@ -4,6 +4,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using System.Collections.ObjectModel;
+using System.Text;
 using Orbit.Core.Permissions;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Api;
@@ -213,6 +214,38 @@ public sealed partial class AccountViewModel : ObservableObject
         {
             IsTransferring = false;
         }
+    }
+
+
+    /// <summary>
+    /// The largest file this will read. An export of a whole account is not large by file standards, but
+    /// a hand-made one could be - and here the whole thing becomes a single string in a phone's memory
+    /// before anything looks at it. The same ceiling Orbit.Web enforces on its own picker.
+    /// </summary>
+    public const long MaximumImportSizeBytes = 32 * 1024 * 1024;
+
+    /// <summary>
+    /// Reads the picked file and imports it, refusing one too large to hold. Takes the stream rather
+    /// than the text so that a file over the ceiling is never turned into a string at all - which is
+    /// the thing being guarded against.
+    /// </summary>
+    public async Task ImportAsync(Stream file, CancellationToken cancellationToken = default)
+    {
+        using var reader = new StreamReader(file);
+        var buffer = new char[8192];
+        var json = new StringBuilder();
+        int read;
+        while ((read = await reader.ReadAsync(buffer, cancellationToken)) > 0)
+        {
+            json.Append(buffer, 0, read);
+            if (json.Length > MaximumImportSizeBytes)
+            {
+                TransferMessage = _translations["That file is too large to import."];
+                return;
+            }
+        }
+
+        await ImportAsync(json.ToString(), cancellationToken);
     }
 
     /// <summary>

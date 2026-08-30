@@ -154,7 +154,10 @@ public sealed partial class TasksViewModel : ObservableObject
                 with
                 {
                     CanBeMoved = SortOrder == TaskListSortOrder.Manual,
-                    IsCollapsed = _collapsed.Contains(taskList.LocalId)
+                    IsCollapsed = _collapsed.Contains(taskList.LocalId),
+                    FoldDescription = _collapsed.Contains(taskList.LocalId)
+                        ? _translations["Expand"]
+                        : _translations["Collapse"]
                 });
         }
 

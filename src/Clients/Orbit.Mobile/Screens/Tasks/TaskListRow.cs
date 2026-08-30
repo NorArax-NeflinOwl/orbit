@@ -78,6 +78,13 @@ public sealed record TaskListRow(
     /// <summary>What the fold button says - pointing down at what it would show, up at what it would hide.</summary>
     public string FoldGlyph => IsCollapsed ? "▾" : "▴";
 
+    /// <summary>
+    /// The same thing in words, for a reader who cannot see which way the glyph points. Pre-translated
+    /// like Progress and Status, and correct for as long as the row lives: folding a card rebuilds the
+    /// rows rather than mutating one.
+    /// </summary>
+    public string FoldDescription { get; init; } = string.Empty;
+
     public bool HasStatus => Status.Length > 0;
 
     public bool HasNextThing => NextThing.Length > 0;

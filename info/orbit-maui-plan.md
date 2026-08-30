@@ -562,8 +562,9 @@ mobile version is the same idea with a file and an upload instead of a clipboard
 locale, and whether the failure happened offline. That last one matters more here than in most apps,
 because §5 means "it broke" and "it broke while offline" are genuinely different bugs.
 
-**Server side:** a new endpoint (`POST /api/diagnostics/logs`, authenticated, rate-limited, with a
-request-size cap), parsing into a table of `{ UserId, ReceivedAtUtc, AppVersion, Platform, OsVersion,
+**Server side:** a new endpoint (`POST /api/diagnostics/logs`, authenticated, rate-limited, and
+capped at 2 MB — four times what the app can legitimately send, since DiagnosticLogFile keeps two
+files of 256 KB and sends both), parsing into a table of `{ UserId, ReceivedAtUtc, AppVersion, Platform, OsVersion,
 DeviceModel, Level, Timestamp, Message, Exception }`. Two constraints that are easy to miss:
 
 - **Nothing decryptable may reach the log.** This is an end-to-end-encrypted app whose entire promise
@@ -577,8 +578,11 @@ DeviceModel, Level, Timestamp, Message, Exception }`. Two constraints that are e
   added there. Leaving a deleted user's logs behind would quietly break the guarantee that deleting an
   account deletes everything it owns.
 
-**Retention** should be finite and stated: diagnostic logs are the kind of data that accumulates
-forever by default and is only ever read for a week after it arrives.
+**Retention** should be finite, stated, and enforced by something other than the next upload. Thirty
+days is the default (`DiagnosticLogs:RetentionDays`), swept hourly and again on upload. Sweeping only
+on upload - which is what shipped first - reads as retention but is not: entries age whether or not
+anybody sends a new report, so an account that stopped reporting kept its logs indefinitely. The
+Thirty days is settled (§12).
 
 ## 9. What iPhone 15 Pro actually buys
 
@@ -693,43 +697,55 @@ These change the plan materially and are worth answering before the phase they l
 1. ~~**Offline conflict policy** (§5.4)~~ — **settled and built: restrictive**, and the owner-side gap
    is closed for all four shareable types. `IsSharedWithOthers` tells an owner that somebody holds
    accepted access, so the client can tell a private item from one another person may be editing.
-2. **Is the local database encrypted?** (§5.1) ~~Needed before phase 2~~ — **still open, and now
-   load-bearing.** Phase 2 shipped plain SQLite in app-private storage, relying on platform disk
-   encryption. That is a deliberate deferral rather than an answer: private notes are client-encrypted
-   so the server cannot read them, and the phone now caches them decrypted. Everything needed to change
-   it is in `Orbit.Maui/Platform/LocalDatabase.cs` and one provider registration, so switching to
-   SQLCipher stays cheap - but it does not get cheaper by waiting, and more entity types arriving makes
-   the exposure wider rather than the change harder.
+2. ~~**Is the local database encrypted?** (§5.1)~~ — **settled: it is not, deliberately.** The phone
+   keeps plain SQLite in app-private storage and relies on platform disk encryption. The guarantee
+   Orbit makes is about what leaves the device: chat messages, private notes, task lists, warehouses
+   and shared positions are sealed client-side so the server cannot read them, and that is unchanged.
+   A local cache the device's own owner can reach is accepted. Everything needed to revisit it is in
+   `Orbit.Maui/Platform/LocalDatabase.cs` and one provider registration, so SQLCipher stays a cheap
+   change if the answer ever changes.
 3. **Does Orbit.Web keep evolving during this build?** Full parity with a moving target is a very
    different project from parity with a frozen one. Right now the answer looks like yes, which argues
    for §4.4's shared-API-client option so parity work happens once rather than twice.
 4. **Distribution** — App Store and Play Store, TestFlight/internal only, or personal? This decides
    how much review-facing work (privacy manifest, data-safety disclosure, in-app account deletion —
-   already supported server-side, and a store requirement) lands in scope, and how urgently the Mac
-   question in §1.1 needs answering. It also decides how the forced update in §7 sends people to
-   update: a store link, or something else entirely.
-5. **Where does the Mac live?** Kept as the development machine, kept on the LAN as a build host, or
-   replaced by a CI runner. Only matters if Windows is actually on the cards, but it changes the
-   day-to-day workflow completely.
-6. **Diagnostic log retention** (§8) — how long uploaded logs are kept before deletion.
+   already supported server-side, and a store requirement) lands in scope. It also decides how the
+   forced update in §7 sends people to update: a store link, or something else entirely. **Android
+   only, for now** — see below.
+5. ~~**Where does the Mac live?**~~ — **moot until iOS resumes.** iOS is deferred: it needs an Apple
+   developer account and a signing key that are not available, and neither the head nor a store
+   listing can be produced without them. Nothing in the plan is being removed for this — the head is
+   written, `Orbit.Mobile` is shared with it, and §4.2.1's undetectable-push warning still applies the
+   day it resumes. What changes is only that Android is the platform being finished, and that the Mac
+   question stops blocking anything.
+6. ~~**Diagnostic log retention** (§8)~~ — **settled: 30 days**, and enforced hourly rather than only
+   when somebody uploads. It is a privacy question more than a housekeeping one: a log line is the one
+   channel that can carry something the client failed to scrub, so retention is the second line of
+   defence behind scrubbing and bounds how long a leak survives. A deleted account does not depend on
+   it — `AccountDeletionRepository` drops that user's entries outright.
 
 ## 13. What exists so far
 
-Phases 0 and 1 are built. `src/Clients/` now holds two mobile projects rather than one:
+See [Current Status](current-status.md#the-mobile-client) for what is built, which is kept there rather
+than repeated here so the two cannot drift. In short: phases 0-6 and most of 7, with Android as the
+verified head and iOS never yet built.
 
-- **`Orbit.Mobile`** (`net10.0`) — everything decided without a device: the version gate, the session
-  store, single-flight refresh, the authorization handler. In `Orbit.sln`, so `dotnet test` covers it.
+`src/Clients/` holds two mobile projects rather than one:
+
+- **`Orbit.Mobile`** (`net10.0`) — everything decided without a device: view models, the local store,
+  the sync spine, the crypto. In `Orbit.sln`, so `dotnet test` covers it.
 - **`Orbit.Maui`** (`net10.0-ios`, `net10.0-android`) — the two app heads. Deliberately *not* in
   `Orbit.sln`: CI runs on `ubuntu-latest`, which can build neither head.
 
 That split was not in the architecture sketch in §6, and is worth stating plainly: a MAUI head cannot
 be referenced by an ordinary test project, so anything left inside it can only be checked by running
-the app. With the sync spine named as the largest risk in the plan (§11), it needs to be somewhere a
-test can reach it. The view models are the part still on the wrong side of that line — they hold real
-behaviour and currently depend on MAUI's `Launcher` and page navigation. Worth moving before phase 4
-adds five features' worth of them.
+the app. With the sync spine named as the largest risk in the plan (§11), it needed to be somewhere a
+test can reach it. The view models were the part on the wrong side of that line, and were moved before
+phase 4 added five features' worth of them - what remains in the head is XAML, platform services and
+resources.
 
-**Verified on a simulator, not merely compiled:** an account signs in, the session survives relaunch
-from the Keychain, notes load through the token handler, and an out-of-date build stops on the splash
-screen — including with the server switched off entirely, from the cached verdict, which is the rule
-in §7 that matters most.
+**iOS was verified on a simulator at phase 1**, not merely compiled: an account signed in, the session
+survived relaunch from the Keychain, notes loaded through the token handler, and an out-of-date build
+stopped on the splash screen — including with the server switched off entirely, from the cached
+verdict, which is the rule in §7 that matters most. Nothing since has been checked there: phases 2-7
+were built and driven on Android, from a Windows machine that cannot build the head at all.

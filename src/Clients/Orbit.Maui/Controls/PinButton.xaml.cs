@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using Orbit.Mobile.Localization;
 
 namespace Orbit.Maui.Controls;
 
@@ -10,7 +11,9 @@ namespace Orbit.Maui.Controls;
 public partial class PinButton : ContentView
 {
 	public static readonly BindableProperty IsPinnedProperty =
-		BindableProperty.Create(nameof(IsPinned), typeof(bool), typeof(PinButton), false);
+		BindableProperty.Create(
+			nameof(IsPinned), typeof(bool), typeof(PinButton), false,
+			propertyChanged: (control, _, _) => ((PinButton)control).SayWhatItDoes());
 
 	public static readonly BindableProperty CommandProperty =
 		BindableProperty.Create(nameof(Command), typeof(ICommand), typeof(PinButton));
@@ -18,7 +21,25 @@ public partial class PinButton : ContentView
 	public static readonly BindableProperty CommandParameterProperty =
 		BindableProperty.Create(nameof(CommandParameter), typeof(object), typeof(PinButton));
 
-	public PinButton() => InitializeComponent();
+	public PinButton()
+	{
+		InitializeComponent();
+		SayWhatItDoes();
+	}
+
+	/// <summary>
+	/// A drawn pin says nothing to a screen reader, and which of the two things it offers depends on
+	/// the state it is in - so the name follows the state rather than being fixed at "pin".
+	/// </summary>
+	private void SayWhatItDoes()
+	{
+		var translations = IPlatformApplication.Current?.Services.GetService<Translations>();
+		if (translations is not null)
+		{
+			SemanticProperties.SetDescription(Tap, translations[IsPinned ? "Unpin" : "Pin"]);
+		}
+	}
+
 
 	public bool IsPinned
 	{

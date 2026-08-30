@@ -105,7 +105,7 @@
                                  menu itself is an action sheet rather than a hovering dropdown: on a
                                  phone that is the same affordance in the shape the platform uses, and
                                  it is what a thumb can actually hit. -->
-                            <Button Text="⋯" FontSize="18" Padding="12,0" HorizontalOptions="Start"
+                            <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="12,0" HorizontalOptions="Start"
                                     IsVisible="{Binding HasActions}"
                                     Style="{StaticResource LinkButton}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:ConversationPage}"
@@ -156,7 +156,7 @@
                        VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
                 <Label Grid.Column="1" Text="{Binding ReplyingToPreview}" FontSize="12"
                        LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                <Button Grid.Column="2" Text="✕" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
+                <Button Grid.Column="2" Text="✕" SemanticProperties.Description="{controls:Translate 'Cancel reply'}" FontSize="12" Padding="6,0" MinimumWidthRequest="0"
                         Command="{Binding CancelReplyingCommand}" Style="{StaticResource LinkButton}" />
             </Grid>
 
