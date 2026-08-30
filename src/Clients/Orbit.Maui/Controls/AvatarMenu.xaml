@@ -48,12 +48,12 @@
                 <!-- Folded by default, and readable folded: the row says what is currently set, and
                      opens the two choices only when somebody wants to change it. -->
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding ToggleStatusCommand}" />
-                    </Grid.GestureRecognizers>
                     <Label Grid.Column="0" Text="{controls:Translate 'Status'}" VerticalOptions="Center" />
                     <Label Grid.Column="1" Text="{Binding ChosenDescription}" FontSize="12"
                            VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                            Command="{Binding ToggleStatusCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Status'}" />
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="{Binding IsStatusExpanded}">
@@ -66,12 +66,12 @@
                 </Grid>
 
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding ToggleLanguageCommand}" />
-                    </Grid.GestureRecognizers>
                     <Label Grid.Column="0" Text="{controls:Translate 'Language'}" VerticalOptions="Center" />
                     <Label Grid.Column="1" Text="{Binding LanguageDescription}" FontSize="12"
                            VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                            Command="{Binding ToggleLanguageCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Language'}" />
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="{Binding IsLanguageExpanded}">
@@ -85,9 +85,6 @@
                          Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
 
                 <Grid ColumnDefinitions="*,Auto">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToNotificationsCommand}" />
-                    </Grid.GestureRecognizers>
                     <Label Grid.Column="0" Text="{controls:Translate 'Notifications'}" VerticalOptions="Center" />
                     <Border Grid.Column="1" IsVisible="{Binding HasUnread}" StrokeThickness="0"
                             HeightRequest="18" MinimumWidthRequest="18" Padding="5,0"
@@ -99,15 +96,15 @@
                                TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                            Command="{Binding GoToNotificationsCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Notifications'}" />
                 </Grid>
 
                 <!-- Orbit.Web's "Get the app", which on a phone is an update rather than a download.
                      Badged like Notifications above and for the same reason: startup says it once in a
                      prompt the reader may dismiss, and this is what is left standing afterwards. -->
                 <Grid ColumnDefinitions="*,Auto">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToUpdateCommand}" />
-                    </Grid.GestureRecognizers>
                     <Label Grid.Column="0" Text="{controls:Translate 'Update'}" VerticalOptions="Center" />
                     <!-- A dot rather than a count: there is one newer version, not a number of them. -->
                     <Border Grid.Column="1" IsVisible="{Binding IsUpdateAvailable}" StrokeThickness="0"
@@ -117,20 +114,23 @@
                             <RoundRectangle CornerRadius="6" />
                         </Border.StrokeShape>
                     </Border>
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                            Command="{Binding GoToUpdateCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Update'}" />
                 </Grid>
 
-                <Label Text="{controls:Translate 'Settings'}">
-                    <Label.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToAccountCommand}" />
-                    </Label.GestureRecognizers>
-                </Label>
+                <Grid>
+                    <Label Text="{controls:Translate 'Settings'}" />
+                    <Button BackgroundColor="Transparent" Command="{Binding GoToAccountCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Settings'}" />
+                </Grid>
 
-                <Label Text="{controls:Translate 'Sign out'}"
-                       TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}">
-                    <Label.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding SignOutCommand}" />
-                    </Label.GestureRecognizers>
-                </Label>
+                <Grid>
+                    <Label Text="{controls:Translate 'Sign out'}"
+                           TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+                    <Button BackgroundColor="Transparent" Command="{Binding SignOutCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Sign out'}" />
+                </Grid>
             </VerticalStackLayout>
         </Border>
     </Grid>
