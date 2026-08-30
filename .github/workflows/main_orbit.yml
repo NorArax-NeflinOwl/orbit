@@ -65,6 +65,19 @@ jobs:
       - name: Test
         run: dotnet test Orbit.sln --configuration Release --no-build
 
+      # Everything in Orbit.Web's e2eeChat.js is Web Crypto and IndexedDB, and bUnit executes neither -
+      # so the one file the chat's confidentiality rests on was reachable by no test above. This runs it
+      # in a real browser instead. It sits in this job rather than beside the boot check further down,
+      # so a change that quietly weakens the encryption stops the deploy at the same gate a failing unit
+      # test does, before an image is ever built.
+      - name: Install a browser to run the client's crypto in
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Verify the browser-side encryption
+        run: node ci/verify-browser-crypto.mjs
+
   android:
     # The Android app head, which Orbit.sln cannot carry and so the job above never touches. That
     # exclusion is right for iOS - a Linux runner has no Xcode and cannot build net10.0-ios at all -

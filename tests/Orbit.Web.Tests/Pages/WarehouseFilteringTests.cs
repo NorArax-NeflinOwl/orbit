@@ -167,6 +167,7 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         RegisterApiClients([Item("Flour", unit: "Kilogram")]);
 
         var cut = Render();
+        ExpandTheOnlyItem(cut);
 
         var unitPicker = cut.Find(".editor-item-unit");
         var offered = unitPicker.QuerySelectorAll("option").Select(option => option.GetAttribute("value")).ToList();
@@ -177,12 +178,13 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
     [Fact]
     public void A_unit_is_written_short_beside_the_amount()
     {
-        // "2 kg" is what a shelf label says; "2 Kilogram" is not.
+        // "2 kg" is what a shelf label says; "2 Kilogram" is not. Read off the row itself, not the
+        // picker: the unit is chosen behind the toggle and only reported here.
         RegisterApiClients([Item("Flour", unit: "Kilogram")]);
 
         var cut = Render();
 
-        Assert.Contains("kg", cut.Find(".editor-item-unit").TextContent);
+        Assert.Contains("kg", cut.Find(".editor-item-unit-label").TextContent);
     }
 
     [Fact]
@@ -190,6 +192,7 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
     {
         RegisterApiClients([Item("Flour", unit: "Piece")]);
         var cut = Render();
+        ExpandTheOnlyItem(cut);
 
         cut.Find(".editor-item-unit").Change("Litre");
         ClickButtonSaying(cut, "Save");
@@ -207,6 +210,7 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         // what the next save wrote back.
         RegisterApiClients([Item("Flour", unit: null!)]);
         var cut = Render();
+        ExpandTheOnlyItem(cut);
 
         Assert.Equal("Piece", cut.Find(".editor-item-unit").GetAttribute("value"));
 
@@ -215,6 +219,12 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         Assert.NotNull(_lastSavedJson);
         Assert.Contains("Piece", _lastSavedJson);
     }
+
+    /// <summary>
+    /// Opens the row's other settings. The unit, the expiry and Remove all live behind the toggle now:
+    /// the row itself carries what somebody is reading down a shelf for - the name and the two numbers.
+    /// </summary>
+    private static void ExpandTheOnlyItem(IRenderedFragment cut) => cut.Find(".editor-item-toggle").Click();
 
     [Fact]
     public void A_name_can_be_searched_for()

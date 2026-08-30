@@ -25,25 +25,21 @@ public sealed class InventoryTaskListCoordinator
     /// </summary>
     public const string UpdateStockReminderDescription = RestockTaskNaming.UpdateStockReminderDescription;
 
-    /// <summary>
-    /// When the standing reminder comes back and says so. Morning rather than the midnight a bare
-    /// TimeOnly would default to - a stock reminder arriving while everyone is asleep is one nobody
-    /// acts on. The reader can move it: it is an ordinary daily-reminder time on an ordinary task.
-    /// </summary>
-    private static readonly TimeOnly UpdateStockReminderTimeOfDay = new(9, 0);
-
     private readonly ITaskRepository _taskRepository;
     private readonly IInventoryManagedTaskListRepository _managedTaskListRepository;
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly PendingRestockTaskResolver _pendingRestockTaskResolver;
 
     public InventoryTaskListCoordinator(
         ITaskRepository taskRepository, IInventoryManagedTaskListRepository managedTaskListRepository,
-        IWarehouseRepository warehouseRepository, PendingRestockTaskResolver pendingRestockTaskResolver)
+        IWarehouseRepository warehouseRepository, IInventoryRepository inventoryRepository,
+        PendingRestockTaskResolver pendingRestockTaskResolver)
     {
         _taskRepository = taskRepository;
         _managedTaskListRepository = managedTaskListRepository;
         _warehouseRepository = warehouseRepository;
+        _inventoryRepository = inventoryRepository;
         _pendingRestockTaskResolver = pendingRestockTaskResolver;
     }
 
@@ -74,10 +70,14 @@ public sealed class InventoryTaskListCoordinator
             }
         }
 
+        // The hour the warehouse asked for, not a constant: nine in the morning is only the default (see
+        // RestockListSettings), and a list created after somebody changed it should come round when they
+        // said rather than when Orbit first guessed.
+        var settings = await _managedTaskListRepository.GetSettingsAsync(warehouseId, cancellationToken);
         var reminderItem = TaskItem.Create(
             UpdateStockReminderDescription, dueDateUtc: null, isCompleted: false,
             remindDaily: true, dailyReminderNotificationChannel: NotificationChannel.Push,
-            dailyReminderTimeOfDay: UpdateStockReminderTimeOfDay);
+            dailyReminderTimeOfDay: settings.RefreshTimeOfDay);
         // Pinned from the moment it exists: this is the one list Orbit maintains rather than the reader,
         // and it is only useful if it is where they will see it.
         var taskList = TaskList.Create(ownerUserId, title, [reminderItem], isPinned: true);
@@ -100,6 +100,15 @@ public sealed class InventoryTaskListCoordinator
     {
         item = await _pendingRestockTaskResolver.ResolveAsync(item, cancellationToken);
         if (!item.IsBelowMinimum)
+        {
+            return item;
+        }
+
+        // A list that follows the plan does not answer "what is running out", so a product dropping below
+        // its minimum is not by itself a reason to put it there - see RestockListSettings. What that list
+        // asks for is worked out across every task at once, which is RestockListRefresh's job.
+        var settings = await _managedTaskListRepository.GetSettingsAsync(item.WarehouseId, cancellationToken);
+        if (settings.OnlyLinkedWithDueDate)
         {
             return item;
         }
@@ -138,8 +147,12 @@ public sealed class InventoryTaskListCoordinator
                 $"The restock list for this warehouse is private, so Orbit can't add \"{item.Name}\" to it. Turn privacy off for that list first.");
         }
 
+        // Kind and link, not just a sentence: this is what lets the entry be reconciled against the shelf
+        // it came from without parsing a product name back out of its own description - see
+        // TaskItemKind.Inventory and RestockReconciliation.
         var restockItem = TaskItem.Create(
-            RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity, item.Unit), dueDateUtc: null, isCompleted: false);
+            RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity, item.Unit), dueDateUtc: null, isCompleted: false,
+            kind: TaskItemKind.Inventory, linkedInventoryItemId: item.Id);
         taskList.Update(
             taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate,
             taskList.EncryptedContent, taskList.Priority);
@@ -185,10 +198,20 @@ public sealed class InventoryTaskListCoordinator
             .Select(item => RestockTaskNaming.ProductIn(item.Description))
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 
+        // A shortfall is named rather than pointed at - it is counted off a checklist, which knows product
+        // names and not shelf ids. Where the warehouse does hold a product by that name, the entry is
+        // linked to it anyway, so it reconciles like any other inventory errand; where it does not, the
+        // entry stays an ordinary line and is simply crossed off by hand.
+        var shelf = (await _inventoryRepository.GetAllAsync(warehouseId, cancellationToken))
+            .GroupBy(shelfItem => shelfItem.Name.Trim(), StringComparer.CurrentCultureIgnoreCase)
+            // One match or none: two products sharing a name give no answer to "which one", and guessing
+            // would top up the wrong shelf.
+            .Where(byName => byName.Count() == 1)
+            .ToDictionary(byName => byName.Key, byName => byName.Single().Id, StringComparer.CurrentCultureIgnoreCase);
+
         var added = needs
             .Where(need => alreadyWaiting.Add(need.ProductName.Trim()))
-            .Select(need => TaskItem.Create(
-                RestockTaskNaming.EntryFor(need.ProductName, need.Quantity, unit: null), dueDateUtc: null, isCompleted: false))
+            .Select(need => NewShortfallEntry(need, shelf))
             .ToList();
         if (added.Count == 0)
         {
@@ -217,6 +240,20 @@ public sealed class InventoryTaskListCoordinator
         taskList.Update(
             title, taskList.Items, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
+    }
+
+    /// <summary>
+    /// One shortfall as an entry, linked to the shelf item it names when the warehouse holds exactly one
+    /// by that name.
+    /// </summary>
+    private static TaskItem NewShortfallEntry(RestockNeed need, IReadOnlyDictionary<string, Guid> shelf)
+    {
+        var description = RestockTaskNaming.EntryFor(need.ProductName, need.Quantity, unit: null);
+        return shelf.TryGetValue(need.ProductName.Trim(), out var inventoryItemId)
+            ? TaskItem.Create(
+                description, dueDateUtc: null, isCompleted: false,
+                kind: TaskItemKind.Inventory, linkedInventoryItemId: inventoryItemId)
+            : TaskItem.Create(description, dueDateUtc: null, isCompleted: false);
     }
 }
 

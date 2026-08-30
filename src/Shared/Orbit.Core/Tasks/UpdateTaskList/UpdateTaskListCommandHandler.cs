@@ -46,20 +46,14 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         // TaskListLinkValidator has always validated against.
         await _taskListLinkValidator.ValidateAsync(taskList.UserId, request.Id, request.Items, cancellationToken);
 
-        // Read before the update, since afterwards there is nothing left to compare against.
-        var alreadyDone = taskList.Items.Where(item => item.IsCompleted).Select(item => item.Id).ToHashSet();
-
         taskList.Update(
             request.Title, request.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 
-        // Crossing off a restock errand says the shelf was filled - see RestockCompletion, which does
+        // Crossing off a restock errand says the shelf was filled and the errand is over - see
+        // RestockCompletion, which tops the shelf up and takes the entry off the list, and which does
         // nothing at all for the ordinary lists this handler mostly saves.
-        var justDone = taskList.Items
-            .Where(item => item.IsCompleted && !alreadyDone.Contains(item.Id))
-            .Select(item => item.Id)
-            .ToList();
-        await _restockCompletion.ApplyAsync(request.Id, justDone, cancellationToken);
+        await _restockCompletion.ReconcileAsync(request.Id, cancellationToken);
 
         return EditOutcome.Success;
     }

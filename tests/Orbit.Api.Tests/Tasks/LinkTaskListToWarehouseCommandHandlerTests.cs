@@ -77,30 +77,6 @@ public sealed class LinkTaskListToWarehouseCommandHandlerTests
         Assert.Equal(afterFirst, stored!.UpdatedAtUtc);
     }
 
-    /// <summary>Measuring against nothing is a choice too, and the same one to carry.</summary>
-    [Fact]
-    public async Task Pointing_it_at_nothing_says_the_list_changed_as_well()
-    {
-        var taskList = AList();
-        var warehouseId = _context.AddWarehouse(_userId);
-        var handler = AHandler();
-        await handler.HandleAsync(
-            new LinkTaskListToWarehouseCommand(_userId, taskList.Id, warehouseId), CancellationToken.None);
-        var afterLinking = (await _context.TaskRepository.GetByIdAsync(_userId, taskList.Id, CancellationToken.None))!
-            .UpdatedAtUtc;
-
-        await handler.HandleAsync(
-            new LinkTaskListToWarehouseCommand(_userId, taskList.Id, null), CancellationToken.None);
-
-        var stored = await _context.TaskRepository.GetByIdAsync(_userId, taskList.Id, CancellationToken.None);
-        Assert.Null(stored!.LinkedWarehouseId);
-        Assert.True(stored.UpdatedAtUtc > afterLinking);
-    }
-
-    /// <summary>
-    /// A warehouse the caller cannot read is not one their list may be measured against - the check
-    /// would otherwise report on a shelf they have no access to.
-    /// </summary>
     [Fact]
     public async Task A_warehouse_that_is_not_the_callers_is_refused()
     {

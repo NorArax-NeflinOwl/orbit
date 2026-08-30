@@ -21,4 +21,15 @@ internal sealed class InMemoryInventoryManagedTaskListRepository : IInventoryMan
         _taskListIdByWarehouseId[warehouseId] = taskListId;
         return Task.CompletedTask;
     }
+
+    private readonly Dictionary<Guid, RestockListSettings> _settingsByWarehouseId = [];
+
+    public Task<RestockListSettings> GetSettingsAsync(Guid warehouseId, CancellationToken cancellationToken)
+        => Task.FromResult(_settingsByWarehouseId.GetValueOrDefault(warehouseId, RestockListSettings.Default));
+
+    public Task SetSettingsAsync(Guid warehouseId, RestockListSettings settings, CancellationToken cancellationToken)
+    {
+        _settingsByWarehouseId[warehouseId] = settings;
+        return Task.CompletedTask;
+    }
 }

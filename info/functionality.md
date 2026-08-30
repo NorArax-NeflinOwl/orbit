@@ -319,14 +319,72 @@ That choice buys a lot and costs two things worth knowing:
 
 - Nothing new to distribute or rotate when membership changes, and the server still can't read
   anything — it never had a key and doesn't get one now.
-- **A new member can't read anything sent before they joined**, since no copy was ever encrypted for
-  them. The group view says so rather than showing empty space.
+- **A new member cannot read anything sent before they joined unless somebody hands it to them**, since
+  no copy was ever encrypted for them — see [Letting a new member read the history](#letting-a-new-member-read-the-history)
+  below.
 - A message costs N rows instead of one.
 
 The server checks the fan-out rather than trusting it: exactly one copy per current member, no more and
 no fewer. A missing copy would silently cut someone out of a conversation they are in; an extra one
 would deliver into a group its recipient has no part in. Reading a group returns only the copies the
 caller can actually decrypt — the ones addressed to them plus the ones they sent.
+
+### Letting a new member read the history
+
+Adding somebody to a group offers a checkbox: **"Also give them what was said before they joined"**
+(`GroupMembers.razor`). It is off unless asked for. Everything said in the group so far was said to the
+people who were in it, and handing it on is a decision somebody makes rather than what happens if they
+do not look.
+
+The work is the **adder's browser's**, because there is nowhere else it could happen. The server has
+never held a key to any of this and cannot make a copy for the newcomer, so `GroupHistorySharing` reads
+the conversation the adder can already read, decrypts each message on their device, seals each one again
+under the pairwise key they share with the new member, and posts the results
+(`POST /api/chat/groups/{id}/history`). A message this device cannot open — one sealed under a key pair
+since replaced — is left behind rather than passed on as ciphertext the newcomer would stare at, and the
+page says how many actually went across.
+
+What the server will accept on their behalf is narrow, since it cannot read what it is being handed:
+
+- **Only an admin may share.** Deciding what a newcomer sees on arrival is the same act as deciding they
+  arrive at all (`ChatGroup.EnsureHistoryCanBeSharedWith`). Nothing stops an ordinary member replaying a
+  conversation by hand; what the rule buys is that the group's own history is not handed over as the
+  group's doing by somebody never trusted with its membership.
+- **Only into a membership.** The recipient has to already be in the group, and nobody shares with
+  themselves.
+- **Only what the sharer actually holds.** Each copy names a `GroupMessageId`, and the server looks up
+  the sharer's own copy of it to take the sender, the instant and the edited state from — never from the
+  request. Who wrote a message and when are facts about it, and re-sharing is not the place they get to
+  be restated. A posting the sharer holds no readable copy of is dropped rather than stored under an
+  invented attribution.
+- **Never twice.** A message the recipient already has is skipped, so a retry after a half-finished
+  share, or a button pressed twice, does not leave them reading everything in duplicate.
+
+A backfilled copy is marked (`ChatMessage.IsSharedHistory`) and that mark does two things. It keeps the
+copy out of the original's **delivery receipts** — a receipt says whether a message reached the people it
+was posted to, and counting a copy made afterwards would take a sender's "Read" away for a delivery that
+had already happened. And it sorts last when the conversation picks which copy stands for a message, so
+a reader who already had one keeps reading the one they have been reading, and only the newcomer — who
+has nothing else — is given the new one.
+
+### The line that says somebody joined
+
+Being added to a group used to be visible only to the person it happened to: the group turned up in
+their list, and everybody else saw a roster that had quietly changed. Now the conversation itself carries
+a line for it — *"Anna joined Weekend trip"* — drawn where it happened rather than pinned anywhere
+(`ChatGroupAnnouncement`, rendered by `GroupConversation.razor`).
+
+When the history was shared, the same line says so too: *"Anna joined Weekend trip · Piotr shared the
+conversation so far"*. The two halves are recorded separately on purpose. The join is known the moment it
+happens; the history is sealed in the sharer's browser and arrives afterwards, so the line gains its
+second half only once the copies actually land. An admin who ticked the box and whose browser could open
+nothing has shared nothing, and the line says only what happened.
+
+These lines hold no ciphertext, and that is not an oversight: everything in one — who joined, who added
+them, when — the server already knows from the membership table. There is nothing here to seal. They are
+read from a route of their own (`GET /api/chat/groups/{id}/announcements`) rather than folded into the
+messages, so the conversation endpoint keeps answering exactly what every already-installed client
+expects of it; the browser merges the two by time.
 
 ### Roles
 
@@ -604,6 +662,26 @@ the id doesn't exist or isn't owned by the caller. Deleting a list that another 
 `LinkedTaskCompletionResolver` already treats a link to a missing list as "not completed" instead of
 failing, so this is safe, just something to be aware of if a list you expect to still be linkable is
 gone. The Blazor client's task list page asks for confirmation before calling this endpoint.
+
+### How much of each list the page shows
+
+The tasks page's menu carries a **Card view** with three answers, remembered by the browser like the
+sort order beside it (`TaskListArrangement`):
+
+- **Minimal** folds every card to its heading and the one line worth having - what is still to be done.
+  Each card's own control reads "Expand" while it is on, because this is the same state as folding them
+  all by hand.
+- **Normal**, the default, shows up to five items per card.
+- **Full** shows as much as a card can carry before it stops being a card: **twenty items** on an
+  ordinary list, and **four member lists** on a group one. Counted differently on purpose - a group
+  list's rows are not items but other lists, and each one brings five lines with it: the row naming the
+  member, three of its items, and a fifth that is either "and N more…" or, when there are exactly four,
+  the fourth item itself. Four members is therefore already the twenty lines an ordinary list gets.
+
+Minimal deliberately writes nothing into the per-card folded set, so **leaving it puts back exactly the
+cards that were folded before**. And **expanding a card while it is on leaves the view** rather than
+unfolding one card the view says is folded - it goes back to whatever the page was before it was folded
+away, not to the default, which may be a choice nobody made in months.
 
 ### The page of lists
 
@@ -954,13 +1032,140 @@ product goes low, and how many are short when a task list comes up short. Entrie
 product rather than the whole line, so raising one for eight after one for five does not put a second
 copy on the list.
 
-Crossing an errand off brings its item up to that level - saying it once, on the list, rather than twice.
-Only ever upwards: somebody who stocked more than the minimum keeps it, because finishing an errand is
-not a claim about how much is there beyond it.
+**An errand is a kind, not a sentence.** A restock entry is a `TaskItem` whose `Kind` is `Inventory` and
+which carries `LinkedInventoryItemId` - the shelf item it is about. Orbit used to recognise these entries
+by reading their own description back, parsing "Restock: " and a product name out of it, which meant
+renaming a product broke the connection and two products differing only by punctuation were the same
+errand. The description is now what a person reads; the link is what Orbit acts on. Entries written
+before the link existed are still matched by the product name in their description, so nothing has to be
+migrated by hand.
+
+**Crossing an errand off settles it: the shelf comes up to the level it is meant to hold, and the errand
+leaves the list.** Both halves matter. Only ever upwards - somebody who stocked more than the minimum
+keeps it, because finishing an errand is not a claim about how much is there beyond it. And it leaves,
+because it is no longer something missing: a list that accumulates permanently crossed-off lines is a
+list that stops being read. The shelf item's pointer to the entry is cleared at the same time, or the
+next time that product went low Orbit would look up an entry that no longer exists.
+
+`RestockCompletion.ReconcileAsync` does all of it, and is safe to run twice - which is what lets it run
+in two places. It runs **on save**, so ticking an errand settles it, and again **when the list is
+opened** (`POST /api/tasks/{id}/restocking/reconcile`, asked for by `TaskListChecklist.razor`), which is
+what clears errands that were ticked off before Orbit did any of this. An errand whose product has since
+been deleted still leaves the list: there is nothing left to bring back.
+
+**What the list asks for is the warehouse's choice.** Two settings at the bottom of the warehouse editor
+(`GET`/`PUT /api/warehouses/{id}/restock-list/settings`):
+
+- **What goes on it.** By default the list answers "what is running out": everything on the shelf below
+  its own minimum. Ticked, it answers a different question - "what do I need before Thursday" - and holds
+  only products some task with a **due date** is waiting on. A product below its minimum that nothing is
+  waiting on is left off, and so is one something wants with no date, because without a date there is
+  nothing to be early or late for.
+- **When it comes round.** Nine in the morning was a constant; it is now the default. Changing it moves
+  the standing reminder, since a field that changed nothing would look like a field that does nothing.
+
+Changing either rebuilds the list to match (`RestockListRefresh`), and **Refresh**
+(`POST /api/warehouses/{id}/restock-list/refresh`) does the same rebuild against settings that have not
+changed - what somebody presses when the world moved rather than the settings. It replaced two buttons
+that used to sit on the checklist's menu, "Generate inventory" and "Recalculate against the inventory":
+both did half of something else, and neither answered the question somebody has in front of a restock
+list.
+
+**An errand says where it came from and where else it is being asked for.** Under each one the checklist
+draws up to two links (`GET /api/tasks/{id}/inventory-references`): the warehouse the product sits in,
+and - when a second list carries an errand about the same product - that list. Following either opens the
+target with `?highlight={id}`, and the row it names is drawn highlighted, so arriving on a page of fifty
+rows lands on the one that was linked rather than at the top. Neither link is stored on the task list:
+the shelf item lives in a warehouse, and the other lists are a fact about the whole account, so both are
+looked up when the screen asks rather than carried on every read of every list.
 
 Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
 Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the warehouse
-up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
+up to its minimum; the errands then leave it as they would one at a time, the reminder is finished with
+them, and `RemindDaily` brings the reminder back tomorrow.
+
+### Editing the shelf from the list
+
+A restock errand carries the whole shelf item it names - amount, minimum, unit, product type, category,
+expiry and its notification channel - in the task editor, behind the entry's own toggle. That is what
+the kind and the link were for: the row already knows which product it means, so correcting the amount
+should not mean opening the warehouse in another tab and finding it again.
+
+Saving the list writes the change back to the warehouse and then rebuilds that warehouse's restock list,
+because a corrected amount can settle an errand or raise one. The list is saved first and the shelf
+second: if the shelf write fails the list is still saved, and the screen says so.
+
+**Expiry is asked as how long something keeps**, not as the day it stops keeping - "2 weeks", not the
+14th (`ExpiresInField`, used by both editors). A date is still what gets stored, because the expiry
+reminder needs one and "in two weeks" is not something a background service can compare against; what
+changed is only the asking. An item that already has a date says how long is left, in the coarsest unit
+that divides it exactly.
+
+### What an entry's form offers
+
+The row itself reports rather than sets: what the entry says, whether it is done, when it is due, and -
+for anything that is not an ordinary checklist entry - what kind it is. Everything editable waits behind
+the toggle, because a list of thirty items was thirty rows of boxes.
+
+Behind it, four fields every entry has - **type, due date, due time, move to list** - and then fields
+that depend on the type:
+
+| Kind | What it also carries |
+| --- | --- |
+| Checklist | Link to list, overdue notification, remind daily and its channel and hour |
+| Inventory | The shelf item itself - see above |
+| Calendar | The event's own form - see below |
+
+**A Calendar entry is the appointment, not a pointer at one.** It carries the event's own fields -
+description, start and end, all-day, repeats, a reminder, a colour - and **saving the list makes the
+event**; nothing has to be linked by hand. The events are written before the list itself, so an entry
+carries its event's id when the list is saved rather than in a second write, and a failure there stops
+the save instead of leaving entries pointing at appointments that were never made. Opening a list reads
+each linked event back into its entry, so saving again keeps them in step rather than overwriting them
+with an empty form.
+
+**An entry that already has an event cannot quietly stop being one.** Changing its type is refused, with
+the entry named. Orbit cannot settle that on its own: deleting the event would throw away something that
+may since have been edited in the calendar, and keeping it leaves an appointment nothing points at. So
+the save stops and hands the choice back - **Detach from the event** stops the entry being that event
+without destroying it, and the type is free to change afterwards.
+
+The place named on a calendar entry stays on the entry. The calendar's own location is coordinates first
+(`EventLocationRequest`) and the map overlay deliberately hands back an address rather than a pin, so
+there is nothing to build one from here; the screen says so rather than dropping it quietly.
+
+**A daily reminder needs an hour.** Saving refuses without one rather than sending it at midnight - an
+hour nobody chose is worse than being asked for one. An entry loaded at exactly 00:00 reads as one with
+no hour set: the wire carries a plain `TimeOnly` and cannot say "none".
+
+### Naming a place in your own words
+
+The address box beside a map pin is the reader's to write. It always was, and behaved as though it was
+not: every confirmed pin overwrote whatever was in it with a street address, so correcting
+"ul. Krucza 16/22" to "the back entrance" lasted until the next click on the map.
+
+The pin always moves; the name only follows it when it is still the one the map gave. **The coordinates
+are untouched by anything typed there** - they are what the Google Maps link and the directions are built
+from, and the name is only what the place is called. The event editor offers the map's own address back
+for somebody who renamed a place and then wanted the street after all.
+
+### Names you have already used
+
+The four fields where the same thing gets typed twenty ways - a task list's title, a task item, a
+warehouse's name, a product - offer what the reader already has as they type
+(`GET /api/suggestions/names?kind=…`, `NameSuggestions.razor`). Picking one fills the field. When what is
+being typed is close enough to an existing name to be the same thing spelled differently, the control
+says so out loud - "You already have «Mleko 2%»" - because the moment a duplicate is about to be created
+is the only cheap moment to avoid it.
+
+This is a **similarity search over the reader's own rows**, not a language model: PostgreSQL's `pg_trgm`
+answers it in milliseconds for nothing, and answers it better, since a model does not know what is in
+this warehouse and would invent plausible names instead of offering real ones. Four GIN indexes make it
+cheap enough to run while somebody types. Nothing is asked for under two characters, and nothing is asked
+for when a screen merely opens holding saved values - suggestions are about what is being typed. Private
+notes and private task lists are left out entirely: their names are sealed client-side, so there is
+nothing readable to suggest from. See [Orbit Assistant — Plan](ai-assistant-plan.md), where this is
+step 1 and the reasoning behind it is written down.
 
 ## Calendar
 

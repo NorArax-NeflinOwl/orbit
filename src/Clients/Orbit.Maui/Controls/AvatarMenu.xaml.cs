@@ -20,4 +20,17 @@ public partial class AvatarMenu : ContentView
 		InitializeComponent();
 		BindingContext = IPlatformApplication.Current!.Services.GetRequiredService<NavigationBarViewModel>();
 	}
+
+	/// <summary>
+	/// Opens the licence outside the app. Handled here rather than as a command, because leaving the app
+	/// is a platform call and this is the platform half - the same way the calendar screen opens a
+	/// Google link.
+	/// </summary>
+	private async void OnLicenseTapped(object? sender, TappedEventArgs eventArgs)
+	{
+		if (BindingContext is NavigationBarViewModel viewModel)
+		{
+			await Launcher.Default.OpenAsync(viewModel.LicenseUrl);
+		}
+	}
 }

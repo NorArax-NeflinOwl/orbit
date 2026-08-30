@@ -65,17 +65,47 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     }
 
     [Fact]
-    public void An_entry_tied_to_an_event_is_told_where_it_is_rather_than_asked()
+    public void An_entry_that_already_has_an_event_says_so_and_offers_to_let_go_of_it()
     {
+        // A calendar entry is the appointment now rather than a pointer at one, so it edits the event's
+        // own fields - the place included. What it gains is a way to stop being that event without the
+        // event being destroyed, which is what makes the refusal below fair.
         RegisterApiClients(Item("Dentist", kind: "Calendar", linkedCalendarEventId: EventId));
         var cut = Render();
 
         ExpandTheOnlyItem(cut);
 
-        Assert.Contains("Przychodnia, Długa 4", cut.Markup);
-        Assert.DoesNotContain("Where this happens", cut.Markup);
-        // Nothing to point at either: the event holds the place, and a second answer could drift.
-        Assert.DoesNotContain("Show map", cut.Markup);
+        Assert.Contains("has an event in the calendar", cut.Markup);
+        Assert.Contains("Detach from the event", cut.Markup);
+        Assert.Contains("Where this happens", cut.Markup);
+    }
+
+    [Fact]
+    public void An_entry_that_made_an_event_cannot_quietly_stop_being_one()
+    {
+        RegisterApiClients(Item("Dentist", kind: "Calendar", linkedCalendarEventId: EventId));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".editor-item-details select").Change(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
+        cut.FindAll("button").First(button => button.TextContent.Contains("Save")).Click();
+
+        // Orbit cannot settle this on its own: deleting the event would throw away something that may
+        // since have been edited in the calendar, and keeping it leaves an appointment nothing points
+        // at. The save stops and hands the choice back.
+        Assert.Contains("already has an event in the calendar", cut.Markup);
+    }
+
+    [Fact]
+    public void Letting_go_of_the_event_lets_the_type_change_again()
+    {
+        RegisterApiClients(Item("Dentist", kind: "Calendar", linkedCalendarEventId: EventId));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Detach from the event")).Click();
+
+        Assert.DoesNotContain("Detach from the event", cut.Markup);
     }
 
     [Fact]
@@ -177,6 +207,14 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
+            // The editor asks what shelf items this list's errands are about. None of these lists carry
+            // one, so the answer is empty - without this the fallback below hands back a task list,
+            // which is not what that route returns.
+            if (path.EndsWith("/inventory-references", StringComparison.Ordinal))
+            {
+                return Ok(Array.Empty<object>());
+            }
+
             // The editor takes the edit lock as it opens; nobody else holds it here.
             if (path.EndsWith("/lock", StringComparison.Ordinal))
             {
@@ -198,6 +236,9 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         Services.AddSingleton(new CalendarApiClient(httpClient));
         Services.AddSingleton(new NotificationsApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
+        // The editor reads the shelf behind any inventory errand on the list - see
+        // TaskEditor.LoadInventoryFieldsAsync. These lists carry none, so it is asked and answers nothing.
+        Services.AddSingleton(new InventoryApiClient(httpClient));
         RegisterGeocoding();
     }
 

@@ -20,6 +20,7 @@ namespace Orbit.Data.Migrations
                 .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Orbit.Data.Entities.CalendarEventEntity", b =>
@@ -179,6 +180,34 @@ namespace Orbit.Data.Migrations
                     b.ToTable("ChatConversationAccesses");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.ChatGroupAnnouncementEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AddedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AnnouncedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("HistoryShared")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("JoinedUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GroupId", "JoinedUserId");
+
+                    b.ToTable("ChatGroupAnnouncements");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -254,6 +283,9 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<bool>("IsEdited")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSharedHistory")
                         .HasColumnType("boolean");
 
                     b.Property<string>("NonceBase64")
@@ -477,6 +509,12 @@ namespace Orbit.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name")
+                        .HasDatabaseName("ix_inventory_items_name_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Name"), new[] { "gin_trgm_ops" });
+
                     b.HasIndex("WarehouseId");
 
                     b.ToTable("InventoryItems");
@@ -487,6 +525,14 @@ namespace Orbit.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("OnlyLinkedWithDueDate")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("RefreshTimeOfDayMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(540);
 
                     b.Property<Guid>("TaskListId")
                         .HasColumnType("uuid");
@@ -977,6 +1023,12 @@ namespace Orbit.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Title")
+                        .HasDatabaseName("ix_tasks_title_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Title"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Title"), new[] { "gin_trgm_ops" });
+
                     b.HasIndex("UserId");
 
                     b.ToTable("Tasks");
@@ -1017,6 +1069,9 @@ namespace Orbit.Data.Migrations
                     b.Property<Guid?>("LinkedCalendarEventId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("LinkedInventoryItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("LinkedTaskListId")
                         .HasColumnType("uuid");
 
@@ -1042,6 +1097,12 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Description")
+                        .HasDatabaseName("ix_task_items_description_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Description"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Description"), new[] { "gin_trgm_ops" });
 
                     b.HasIndex("TaskId");
 
@@ -1286,6 +1347,12 @@ namespace Orbit.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name")
+                        .HasDatabaseName("ix_warehouses_name_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Name"), new[] { "gin_trgm_ops" });
+
                     b.HasIndex("UserId");
 
                     b.ToTable("Warehouses");
@@ -1324,6 +1391,15 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("SourceWarehouseId", "RecipientUserId");
 
                     b.ToTable("WarehouseShares");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.ChatGroupAnnouncementEntity", b =>
+                {
+                    b.HasOne("Orbit.Data.Entities.ChatGroupEntity", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupMemberEntity", b =>

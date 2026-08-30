@@ -8,8 +8,9 @@ Run the whole suite with:
 dotnet test Orbit.sln
 ```
 
-This also runs automatically in CI on every push and pull request to `main` — see
-[Architecture — Continuous integration](architecture.md#continuous-integration).
+This also runs automatically in CI on every push to `main` — but **not** on pull requests, so running it
+yourself before opening one is the only check a branch gets. See
+[Architecture — Continuous integration](architecture.md#continuous-integration) for why.
 
 ### `tests/Orbit.Api.Tests`
 
@@ -27,9 +28,14 @@ read-only-vs-can-edit access level rule (see
 exact-match user search including self-exclusion; setting a user's public key; the chat
 message/contact handlers including the first-message-creates-a-contact-in-both-directions rule and the
 push notification it sends the recipient; subscribing/unsubscribing a push endpoint;
-`PushNotificationDispatcher`'s fan-out and expired-subscription pruning; and the overdue-task
+`PushNotificationDispatcher`'s fan-out and expired-subscription pruning; the overdue-task
 notification scheduling logic (see
-[Functionality — Push notifications](functionality.md#push-notifications)).
+[Functionality — Push notifications](functionality.md#push-notifications)); the two delivery senders
+against stand-ins for the services they talk to (`SmtpEmailSenderTests`, `VapidPushNotificationSenderTests`);
+the auth rate limiter against the very policies `Program.cs` installs (`AuthRateLimiterTests`); and
+handing a group's history to somebody who joined after it happened, including who may do it and what the
+server refuses to take on their word (`ShareGroupHistoryTests`, see
+[Functionality — Letting a new member read the history](functionality.md#letting-a-new-member-read-the-history)).
 
 A few of these run against a real database rather than an in-memory double, because what they pin lives
 in storage itself — the order a checklist comes back in, and which tables account deletion empties. They
@@ -114,18 +120,41 @@ node ci/verify-app-boots.mjs https://your-orbit-web-url/ 60000
 See [Future Plan — Testing gaps](future-plan.md#testing-gaps) for the reasoning behind each of these
 and what closing them would take:
 
-- The `/api/auth/*` rate limiter and the exact 429 behavior.
-- Actually sending an email through `SmtpEmailSender` or a push notification through
-  `VapidPushNotificationSender`.
 - The `Chat` page saying why a conversation cannot be opened (an account the API will not resolve),
   which is checked by hand in a browser: the message on screen and the `Warning` it writes to this
   browser's own log. Rendering that page under bUnit means standing up seventeen injected services and
-  the browser crypto behind them, which is the same reason the rest of this bullet exists.
+  the browser crypto behind them.
 - The chat thread, `PushNotificationManager`, and
-  `wwwroot/js/e2eeChat.js`/`wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — the
-  encryption/decryption round trip, key generation and persistence in IndexedDB, browser notification
-  permission handling, and the push subscription/service worker lifecycle have no automated coverage.
-  `Contacts` itself is covered: see `ContactsGateTests` and `ContactInfoTests`.
+  `wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — browser notification permission
+  handling and the push subscription/service worker lifecycle have no automated coverage. Each needs a
+  permission grant and a registered worker rather than a module import, which is a larger harness than
+  the crypto one below. The chat thread's interesting behaviour is timing.
+
+What used to be on this list and no longer is: the `/api/auth/*` rate limiter
+(`AuthRateLimiterTests`, against the very policies `Program.cs` installs), sending through
+`SmtpEmailSender` and `VapidPushNotificationSender` (`SmtpEmailSenderTests` against a loopback SMTP
+listener, `VapidPushNotificationSenderTests` against a stub transport), and `wwwroot/js/e2eeChat.js` —
+see below. `Contacts` is covered by `ContactsGateTests` and `ContactInfoTests`.
+
+### The browser-side encryption, in a real browser
+
+`ci/verify-browser-crypto.mjs` runs `Orbit.Web/wwwroot/js/e2eeChat.js` itself in headless Chromium. It
+exists because every line of that file is Web Crypto and IndexedDB, bUnit executes neither, and the
+whole chat's confidentiality rests on it. The .NET side is pinned against vectors generated *from* this
+file (`tests/Orbit.Mobile.Tests/Crypto`), which proves the two agree — not that this file is right.
+
+It serves `wwwroot` itself rather than booting Blazor: the module is a plain ES module, and `127.0.0.1`
+is a secure context, which is all `crypto.subtle` and IndexedDB need. Fourteen checks cover the round
+trip, a per-message nonce, a tampered message refusing to open, a stranger's key not opening one, two
+accounts in one browser not sharing a key, the password-wrapped backup and its restore, and a key
+surviving a page reload.
+
+It runs in the `test` job of `main_orbit.yml`, so it gates every pull request rather than only a deploy.
+Running it by hand needs the browser installed once:
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-browser-crypto.mjs
+```
 
 ## Running locally
 

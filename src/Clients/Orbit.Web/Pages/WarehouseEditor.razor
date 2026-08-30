@@ -4,6 +4,8 @@
 @using Orbit.Contracts.Inventory
 @using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Inventory
+@using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject InventoryApiClient InventoryApiClient
 @inject NotificationsApiClient NotificationsApiClient
@@ -45,7 +47,12 @@ else
         <fieldset disabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)">
             <div class="field">
                 <label>@T["Name"]</label>
-                <InputText id="warehouseNameInput" @bind-Value="_formModel.Name" />
+                @* oninput as well as the default onchange: the suggestions below have to see the name
+                   as it is being typed, not only once the field is left. *@
+                <InputText id="warehouseNameInput" @bind-Value="_formModel.Name"
+                           @oninput="args => _formModel.Name = args.Value?.ToString() ?? string.Empty" />
+                <NameSuggestions Kind="NameSuggestionKind.WarehouseName" Value="_formModel.Name"
+                                 OnChosen="chosen => _formModel.Name = chosen" />
             </div>
 
             @* Only the owner may turn this on: a warehouse reached through a share belongs to someone
@@ -128,7 +135,7 @@ else
                 }
                 @foreach (var item in VisibleItems)
                 {
-                    <div class="editor-item @(_itemOrder.IsDragging(item) ? "dragging" : "")" @key="item"
+                    <div class="editor-item @(_itemOrder.IsDragging(item) ? "dragging" : "") @(Highlight is { } highlighted && item.Id == highlighted ? "highlighted" : "")" @key="item"
                          @ondragover:preventDefault="true" @ondrop="() => DropItemOn(item)">
                         @* Name and the two numbers that decide whether it needs restocking stay on the
                            row; everything else waits behind the toggle so a full warehouse is readable. *@
@@ -141,7 +148,10 @@ else
                             @* Reassigned on every row, so it holds the last one by the time the loop
                                ends - which is the row Add item just appended. *@
                             <InputText class="editor-item-main" @ref="_lastItemName"
-                                       placeholder="@(T["Item name"])" @bind-Value="item.Name" />
+                                       placeholder="@(T["Item name"])" @bind-Value="item.Name"
+                                       @oninput="args => item.Name = args.Value?.ToString() ?? string.Empty" />
+                            <NameSuggestions Kind="NameSuggestionKind.InventoryItemName" Value="item.Name"
+                                             OnChosen="chosen => item.Name = chosen" />
                             <span class="editor-item-aside">
                                 @if (NeedsRestocking(item))
                                 {
@@ -163,11 +173,25 @@ else
                                     @T["Min"]
                                     <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
                                 </label>
-                                @* Beside the numbers it qualifies rather than behind the toggle with the
-                                   rest: "2" and "2 kg" are different amounts, and the second one is the
-                                   one somebody stocking a shelf can act on. *@
-                                <label title="@(T["What this is counted in"])">
-                                    @T["Unit"]
+                                @* The unit reads on the row it qualifies - "2" and "2 kg" are different
+                                   amounts - but it is set behind the toggle with the rest of the fields,
+                                   because choosing it is a thing done once and read every time. *@
+                                <span class="editor-item-unit-label" title="@(T["What this is counted in"])">
+                                    @T[InventoryUnitOption.For(item.Unit).ShortName]
+                                </span>
+                                <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
+                                        title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
+                                        aria-expanded="@(IsExpanded(item) ? "true" : "false")"
+                                        @onclick="() => ToggleExpanded(item)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+                                </button>
+                            </span>
+                        </div>
+
+                        @if (IsExpanded(item))
+                        {
+                            <div class="editor-item-details">
+                                <label title="@(T["What this is counted in"])">@T["Unit"]
                                     <select class="editor-item-unit" @bind="item.Unit" aria-label="@(T["Unit"])">
                                         @foreach (var option in InventoryUnitOption.All)
                                         {
@@ -175,24 +199,15 @@ else
                                         }
                                     </select>
                                 </label>
-                                <button type="button" class="editor-item-toggle @(IsExpanded(item) ? "open" : "")"
-                                        title="@(IsExpanded(item) ? T["Hide this item's other settings"] : T["Show this item's other settings"])"
-                                        aria-expanded="@(IsExpanded(item) ? "true" : "false")"
-                                        @onclick="() => ToggleExpanded(item)">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
-                                </button>
-                                <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">@T["Remove"]</button>
-                            </span>
-                        </div>
-
-                        @if (IsExpanded(item))
-                        {
-                            <div class="editor-item-details">
                                 <label>@T["Product type"]<InputText placeholder="@(T["Product type"])" @bind-Value="item.ProductType" />
                                 </label>
                                 <label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="item.Category" />
                                 </label>
-                                <label>@T["Expires"]<DateField @bind-Value="item.ExpiryDate" AriaLabel="@(T["Expires"])" />
+                                @* How long it keeps rather than the day it stops keeping - see
+                                   ExpiresInField. A date is still what gets stored; nobody stocking a
+                                   shelf knows the 14th, they know "a fortnight". *@
+                                <label>@T["Expires in"]<ExpiresInField Value="ToExpiryOffset(item.ExpiryDate)"
+                                                                      ValueChanged="expiresOn => item.ExpiryDate = ToExpiryDate(expiresOn)" />
                                 </label>
                                 <label>@T["Expiry notification"]<select @bind="item.ExpiryNotificationChannel">
                                         @foreach (var option in NotificationChannelOption.All)
@@ -201,6 +216,11 @@ else
                                         }
                                     </select>
                                 </label>
+                                @* Taking a row off the shelf is not something to have one click away from
+                                   the amount somebody came to correct. Behind the toggle, at the end,
+                                   where it is found on purpose rather than by accident. *@
+                                <span class="field-break"></span>
+                                <button type="button" class="btn-secondary" @onclick="() => RemoveItem(item)">@T["Remove"]</button>
                             </div>
                         }
                     </div>
@@ -226,11 +246,68 @@ else
         <h2>@T["Link"]</h2>
         <ShareLinkButton ItemType="Warehouse" ItemId="WarehouseId" />
     }
+
+    @* At the very bottom, because it is about the list this warehouse keeps rather than about the shelf
+       somebody came here to edit - see RestockListSettings. *@
+    <h2>@T["Restock list"]</h2>
+    <div class="card restock-settings-card">
+        <label class="field-checkbox" for="onlyLinkedWithDueDateInput">
+            <input id="onlyLinkedWithDueDateInput" type="checkbox" @bind="_restockSettings.OnlyLinkedWithDueDate" />
+            <span>@T["Only what a dated task is waiting on"]</span>
+        </label>
+        <p class="field-hint">
+            @(_restockSettings.OnlyLinkedWithDueDate
+                ? T["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."]
+                : T["The list asks for everything on this shelf that has dropped below its own minimum."])
+        </p>
+
+        <div class="field">
+            <label for="restockRefreshTimeInput">@T["Comes round at"]</label>
+            <TimeField Value="_restockSettings.RefreshTimeOfDay"
+                       ValueChanged="time => _restockSettings.RefreshTimeOfDay = time ?? RestockListSettings.DefaultRefreshTimeOfDay"
+                       AriaLabel="@(T["Comes round at"])" />
+            <small>@T["When the standing \"Update stock levels\" reminder arrives."]</small>
+        </div>
+
+        @if (_restockMessage is not null)
+        {
+            <p class="field-hint">@_restockMessage</p>
+        }
+
+        <div class="form-actions">
+            <button type="button" class="btn-primary" disabled="@_isWorkingOnRestockList"
+                    @onclick="SaveRestockSettingsAsync">@T["Save settings"]</button>
+            @* What replaced "Generate inventory" and "Recalculate against the inventory": one button
+               that rebuilds this list from what is true now, rather than two that each did half of
+               something else. *@
+            <button type="button" class="btn-secondary" disabled="@_isWorkingOnRestockList"
+                    @onclick="RefreshRestockListAsync">@T["Refresh"]</button>
+        </div>
+    </div>
 }
 
 @code {
     [Parameter]
     public Guid WarehouseId { get; set; }
+
+    /// <summary>
+    /// One item to draw attention to, when this page was opened by following a reference to it - see
+    /// TaskListChecklist's inventory references. A hint about what to look at rather than part of what
+    /// this page is, which is why it rides in the query string.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = "highlight")]
+    public Guid? Highlight { get; set; }
+
+    /// <summary>
+    /// How this warehouse's restock list behaves. A working copy, edited in the form below and sent when
+    /// somebody presses Save settings - the same shape the rest of this page uses.
+    /// </summary>
+    private RestockSettingsFormModel _restockSettings = new();
+
+    private bool _isWorkingOnRestockList;
+
+    /// <summary>What the last save or refresh actually moved, said rather than left to be noticed.</summary>
+    private string? _restockMessage;
 
     private bool _isLoading = true;
 
@@ -311,7 +388,85 @@ else
             return;
         }
 
+        await LoadRestockSettingsAsync();
         _isLoading = false;
+    }
+
+    /// <summary>
+    /// Best effort, like the notification settings above: the form at the bottom falling back to the
+    /// defaults is a smaller problem than a warehouse that will not open.
+    /// </summary>
+    private async Task LoadRestockSettingsAsync()
+    {
+        try
+        {
+            if (await InventoryApiClient.GetRestockListSettingsAsync(WarehouseId) is { } settings)
+            {
+                _restockSettings = RestockSettingsFormModel.FromDto(settings);
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to load the restock list settings for warehouse {WarehouseId}", WarehouseId);
+        }
+    }
+
+    private async Task SaveRestockSettingsAsync()
+        => await RunOnTheRestockListAsync(
+            () => InventoryApiClient.SaveRestockListSettingsAsync(WarehouseId, _restockSettings.ToDto()));
+
+    private async Task RefreshRestockListAsync()
+        => await RunOnTheRestockListAsync(() => InventoryApiClient.RefreshRestockListAsync(WarehouseId));
+
+    /// <summary>
+    /// Both buttons do the same thing to this page: work, then say what moved. Nothing moving is said
+    /// too - a button that answers silently reads as one that did not register.
+    /// </summary>
+    private async Task RunOnTheRestockListAsync(Func<Task<RestockRefreshResultDto>> action)
+    {
+        _isWorkingOnRestockList = true;
+        _restockMessage = null;
+        try
+        {
+            var result = await action();
+            _restockMessage = result.AddedCount == 0 && result.RemovedCount == 0
+                ? T["The restock list already asks for exactly what it should."]
+                : T.Format("Restock list updated: {0} added, {1} removed.", result.AddedCount, result.RemovedCount);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "A restock list action failed for warehouse {WarehouseId}", WarehouseId);
+            _restockMessage = T["That didn't work. Try again."];
+        }
+        finally
+        {
+            _isWorkingOnRestockList = false;
+        }
+    }
+
+    /// <summary>
+    /// The form model keeps a DateOnly? because that is what a date box binds to; ExpiresInField speaks
+    /// in DateTimeOffset? because that is what the item carries. These two are the join.
+    /// </summary>
+    private static DateTimeOffset? ToExpiryOffset(DateOnly? expiryDate)
+        => expiryDate is not { } date
+            ? null
+            : new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeZoneInfo.Local.GetUtcOffset(date.ToDateTime(TimeOnly.MinValue)));
+
+    private static DateOnly? ToExpiryDate(DateTimeOffset? expiresOn)
+        => expiresOn is { } value ? DateOnly.FromDateTime(value.LocalDateTime) : null;
+
+    /// <summary>The two restock-list settings while somebody is editing them - see RestockListSettings.</summary>
+    private sealed class RestockSettingsFormModel
+    {
+        public bool OnlyLinkedWithDueDate { get; set; }
+
+        public TimeOnly RefreshTimeOfDay { get; set; } = RestockListSettings.DefaultRefreshTimeOfDay;
+
+        public static RestockSettingsFormModel FromDto(RestockListSettingsDto settings)
+            => new() { OnlyLinkedWithDueDate = settings.OnlyLinkedWithDueDate, RefreshTimeOfDay = settings.RefreshTimeOfDay };
+
+        public RestockListSettingsDto ToDto() => new(OnlyLinkedWithDueDate, RefreshTimeOfDay);
     }
 
     /// <summary>A new row opens straight to its fields - there is nothing to recognise it by yet.</summary>

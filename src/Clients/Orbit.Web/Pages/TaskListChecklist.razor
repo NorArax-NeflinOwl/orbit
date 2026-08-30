@@ -83,16 +83,18 @@ else
                     @(_savedReading == _reading ? T["View saved"] : T["Save view"])
                 </button>
                 <button type="button" class="avatar-dropdown-item" @onclick="GoToDeepEditor">@T["Edit"]</button>
-                <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
-                        @onclick="GenerateInventoryAsync">
-                    @T["Generate inventory"]
-                </button>
-                @* Nothing to recalculate until there is a warehouse to recalculate against. *@
-                <button type="button" class="avatar-dropdown-item"
-                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId.Length == 0)"
-                        @onclick="RecalculateAsync">
-                    @T["Recalculate against the inventory"]
-                </button>
+                @* One button where "Generate inventory" and "Recalculate against the inventory" used to
+                   be. Both did half of something else - one made a warehouse out of a list, the other
+                   counted a list against one - and neither answered the question somebody has in front
+                   of a restock list, which is "is this still what I need?". Offered only there, since
+                   that is the only list Orbit maintains. *@
+                @if (IsARestockList)
+                {
+                    <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
+                            @onclick="RefreshFromTheWarehouseAsync">
+                        @T["Refresh"]
+                    </button>
+                }
             </OverflowMenu>
         </div>
     </div>
@@ -233,11 +235,30 @@ else
             {
                 @foreach (var item in ItemsToShow(section.TaskList))
                 {
-                    <label class="check-row @(item.IsCompleted ? "completed" : "")">
+                    <label class="check-row @(item.IsCompleted ? "completed" : "") @(Highlight == item.Id ? "highlighted" : "")">
                         <input type="checkbox" checked="@item.IsCompleted"
                                disabled="@IsItemLocked(section, item)"
                                @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
                         <span class="check-row-text">@Written(item.Description)</span>
+                        @* An inventory errand says which shelf it is about, and - when a second list is
+                           asking for the same product - where else it is being asked for. Both are links
+                           rather than labels: the reason to show them is to be able to go and look. *@
+                        @if (ReferenceFor(item) is { } reference)
+                        {
+                            <span class="check-row-references" @onclick:stopPropagation="true">
+                                <a class="reference-chip" href="@InventoryHref(reference)"
+                                   @onclick="() => GoTo(InventoryHref(reference))" @onclick:preventDefault="true">
+                                    @T.Format("in {0}", reference.WarehouseName)
+                                </a>
+                                @foreach (var elsewhere in reference.AlsoAskedForBy)
+                                {
+                                    <a class="reference-chip" href="@TaskListHref(elsewhere)"
+                                       @onclick="() => GoTo(TaskListHref(elsewhere))" @onclick:preventDefault="true">
+                                        @T.Format("also on {0}", Written(elsewhere.TaskListTitle))
+                                    </a>
+                                }
+                            </span>
+                        }
                         @if (item.LinkedTaskListId is { } linkedTaskListId)
                         {
                             <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitle(linkedTaskListId))</span>
@@ -265,8 +286,19 @@ else
     [Parameter]
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// One entry to draw attention to, when this page was opened by following a reference to it. From
+    /// the query string rather than the route: it is a hint about what to look at, not part of what
+    /// this page is, and a link shared without it still opens the same list.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = "highlight")]
+    public Guid? Highlight { get; set; }
+
     private bool _isLoading = true;
     private string? _errorMessage;
+
+    /// <summary>What each inventory errand on this list is about - see TasksApiClient.GetInventoryReferencesAsync.</summary>
+    private IReadOnlyList<InventoryReferenceDto> _inventoryReferences = [];
 
     /// <summary>
     /// The list being viewed first, then - when it's a group list - every list its items link to. Kept
@@ -344,6 +376,8 @@ else
 
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         _sections = BuildSections();
+        await SettleFinishedErrandsAsync();
+        await LoadInventoryReferencesAsync();
         await LoadStockCheckAsync();
         // Only asked for once the sections are built, since whether the saved view still applies
         // depends on what this list turned out to hold.
@@ -414,6 +448,131 @@ else
         => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId) is { } linked
             ? Written(linked.Title)
             : T["another list"];
+
+    /// <summary>
+    /// Whether this is the list a warehouse keeps for itself. Only Orbit maintains one of those, so it
+    /// is the only list where "rebuild it from what is true now" means anything.
+    /// </summary>
+    private bool IsARestockList
+        => _sections.Count > 0 && RestockTaskNaming.IsManagedTitle(_sections[0].TaskList.Title);
+
+    /// <summary>
+    /// Rebuilds this list against the warehouse behind it and the settings that warehouse carries - what
+    /// somebody presses when the world changed rather than the list. Re-reads afterwards, since the
+    /// point of asking is to see the answer.
+    /// </summary>
+    private async Task RefreshFromTheWarehouseAsync()
+    {
+        _menu?.Close();
+        if (await WarehouseBehindThisListAsync() is not { } warehouseId)
+        {
+            return;
+        }
+
+        _isWorkingOnInventory = true;
+        _shortfallMessage = null;
+        try
+        {
+            var result = await InventoryApiClient.RefreshRestockListAsync(warehouseId);
+            _shortfallMessage = result.AddedCount == 0 && result.RemovedCount == 0
+                ? T["The restock list already asks for exactly what it should."]
+                : T.Format("Restock list updated: {0} added, {1} removed.", result.AddedCount, result.RemovedCount);
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
+            await LoadInventoryReferencesAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to refresh the restock list for task list {TaskListId}", Id);
+            _errorMessage = T["That didn't work. Try again."];
+        }
+        finally
+        {
+            _isWorkingOnInventory = false;
+        }
+    }
+
+    /// <summary>
+    /// Which warehouse keeps this list. Read off the errands on it rather than from a route of its own:
+    /// every one names the shelf item it is about, and every one of those is in the same warehouse.
+    /// </summary>
+    private async Task<Guid?> WarehouseBehindThisListAsync()
+    {
+        if (_inventoryReferences.Count > 0)
+        {
+            return _inventoryReferences[0].WarehouseId;
+        }
+
+        // A list with nothing on it yet has no errand to read a warehouse off. The one the list is
+        // measured against is the next best answer, and for a restock list it is the same warehouse.
+        return Guid.TryParse(_linkedWarehouseId, out var linked) ? linked : null;
+    }
+
+    /// <summary>
+    /// Settles anything already crossed off on a restock list: each finished errand fills its shelf item
+    /// and leaves the list. Asked for on opening rather than only on saving, so a list that accumulated
+    /// crossed-off errands before Orbit did this clears itself the first time somebody looks at it - and
+    /// the list is re-read afterwards, since it is the thing that changed.
+    ///
+    /// Best effort: a settle that fails leaves the list exactly as it was, which is readable, so it is
+    /// not worth an error bar over the checklist somebody came here to use.
+    /// </summary>
+    private async Task SettleFinishedErrandsAsync()
+    {
+        if (_sections.Count == 0 || !RestockTaskNaming.IsManagedTitle(_sections[0].TaskList.Title))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await TasksApiClient.ReconcileRestockingAsync(Id) == 0)
+            {
+                return;
+            }
+
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't settle the finished errands on task list {TaskListId}", Id);
+        }
+    }
+
+    private async Task LoadInventoryReferencesAsync()
+    {
+        try
+        {
+            _inventoryReferences = await TasksApiClient.GetInventoryReferencesAsync(Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            // The entries still read as what they say; they just have nothing to follow.
+            Logger.LogWarning(exception, "Couldn't load the inventory references for task list {TaskListId}", Id);
+            _inventoryReferences = [];
+        }
+    }
+
+    private InventoryReferenceDto? ReferenceFor(TaskItemDto item)
+        => _inventoryReferences.FirstOrDefault(reference => reference.TaskItemId == item.Id);
+
+    /// <summary>
+    /// The warehouse this errand's product sits in, with the product itself named so the page that opens
+    /// can draw attention to it rather than leaving somebody to find one row among fifty.
+    /// </summary>
+    private static string InventoryHref(InventoryReferenceDto reference)
+        => $"/inventory/{reference.WarehouseId}?highlight={reference.InventoryItemId}";
+
+    private static string TaskListHref(InventoryReferenceElsewhereDto elsewhere)
+        => $"/tasks/{elsewhere.TaskListId}?highlight={elsewhere.TaskItemId}";
+
+    /// <summary>
+    /// Follows a reference. Handled here rather than left to the browser so that going from one task
+    /// list to another is a parameter change Blazor can make in place - an ordinary href would reload
+    /// the whole application to arrive at the same page.
+    /// </summary>
+    private void GoTo(string href) => NavigationManager.NavigateTo(href);
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
     private string Written(string name) => OrbitWrittenNames.Translate(T, name);
@@ -568,41 +727,6 @@ else
     }
 
     /// <summary>
-    /// Builds a warehouse out of what this list calls for and points the list at it, so the check below
-    /// can be read straight away. The entries start empty - a shelf that began full would report the job
-    /// as doable before anybody had fetched anything.
-    /// </summary>
-    private async Task GenerateInventoryAsync()
-    {
-        _menu?.Close();
-        _isWorkingOnInventory = true;
-        _shortfallMessage = null;
-        Logger.LogInformation("User generated an inventory from task list {TaskListId}", Id);
-        try
-        {
-            if (await TasksApiClient.GenerateInventoryAsync(Id) is not { } warehouseId)
-            {
-                return;
-            }
-
-            _warehouses = await InventoryApiClient.GetWarehousesAsync();
-            _linkedWarehouseId = warehouseId.ToString();
-            _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
-            _shortfallMessage = T["Inventory generated from this list."];
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to generate an inventory from task list {TaskListId}", Id);
-            _shortfallMessage = T["Couldn't generate an inventory from this list."];
-        }
-        finally
-        {
-            _isWorkingOnInventory = false;
-        }
-    }
-
-    /// <summary>Asks the question again - the shelf moves without this page hearing about it.</summary>
-    /// <summary>
     /// Crossing off "Update stock levels" while errands are still open on the same list is either the
     /// end of a round of restocking or a tick on one reminder. Only the reader knows which, so they are
     /// asked - and answering yes finishes the rest and brings the shelf up to its minimums in one go.
@@ -639,50 +763,6 @@ else
         await LoadAsync();
         return true;
     }
-
-    /// <summary>
-    /// Reads the warehouse again and brings the list back into step with it - crossing off the work the
-    /// shelf covers, and writing on what the shelf holds that nothing here asked for - then redraws both
-    /// the panel and the lists, since the point of asking is to have the answer applied, not just shown.
-    /// </summary>
-    private async Task RecalculateAsync()
-    {
-        _menu?.Close();
-        _isWorkingOnInventory = true;
-        _shortfallMessage = null;
-        Logger.LogInformation("User recalculated the stock check for task list {TaskListId}", Id);
-        try
-        {
-            var reconciliation = await TasksApiClient.ReconcileWithStockAsync(Id);
-            _shortfallMessage = DescribeReconciliation(reconciliation);
-            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
-            _sections = BuildSections();
-            _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to recalculate the stock check for task list {TaskListId}", Id);
-            _errorMessage = T["Couldn't recalculate against the warehouse. Try again."];
-        }
-        finally
-        {
-            _isWorkingOnInventory = false;
-        }
-    }
-
-    /// <summary>
-    /// What the reconciliation moved, in one sentence. Both halves are said when both happened: "12
-    /// crossed off" alone would leave the reader wondering where the new rows came from.
-    /// </summary>
-    private string DescribeReconciliation(StockReconciliationResultDto reconciliation) => reconciliation switch
-    {
-        { CrossedOffCount: 0, AddedCount: 0 } => T["Nothing new is covered by the warehouse."],
-        { AddedCount: 0 } => T.Format("{0} crossed off, because the warehouse covers them.", reconciliation.CrossedOffCount),
-        { CrossedOffCount: 0 } => T.Format("{0} added from the warehouse.", reconciliation.AddedCount),
-        _ => T.Format(
-            "{0} crossed off, because the warehouse covers them, and {1} added from the warehouse.",
-            reconciliation.CrossedOffCount, reconciliation.AddedCount)
-    };
 
     private void ToggleView()
     {

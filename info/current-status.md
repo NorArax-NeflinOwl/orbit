@@ -21,6 +21,7 @@ stated scope.
 | Inventory planner (warehouses, sharing, restock tasks, expiry warnings) | Implemented | [Functionality — Inventory](functionality.md#inventory) |
 | End-to-end-encrypted 1:1 chat (including editing a sent message) | Implemented | [Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat) |
 | Group chats, with admin and member roles | Implemented | [Functionality — Group chats](functionality.md#group-chats) |
+| Giving a new group member the history, re-encrypted for them | Implemented | [Functionality](functionality.md#letting-a-new-member-read-the-history) |
 | Permissions (Contacts, Chat, Sharing, Location) and their unlock codes | Implemented | [Functionality — Permissions](functionality.md#permissions) |
 | Counting a task list's work against a warehouse, and generating one from it | Implemented | [Functionality — Tasks](functionality.md#can-this-list-be-done) |
 | Priorities on notes, task lists and events, and the dashboard filters that read them | Implemented | [Functionality — Priorities](functionality.md#priorities) |
@@ -34,7 +35,11 @@ stated scope.
 | Mobile client (`Orbit.Maui`, iOS + Android) | Implemented — Android verified on a device, iOS unverified | [Orbit.Maui — Plan](orbit-maui-plan.md) |
 | Push delivery to a phone | Not working on Android yet — see below | [Orbit.Maui — Plan](orbit-maui-plan.md#42-push-notifications-web-push-apns-and-fcm-are-three-different-things) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
-| Password manager and password generator | Not started | [Future Plan](future-plan.md#planned-features) |
+| Name suggestions and duplicate warnings while typing | Implemented | [Functionality](functionality.md#names-you-have-already-used) |
+| Choosing what a warehouse's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |
+| Editing a shelf item from the restock list | Implemented | [Functionality](functionality.md#editing-the-shelf-from-the-list) |
+| A task entry that is a calendar appointment, and makes one | Implemented | [Functionality](functionality.md#what-an-entrys-form-offers) |
+| AI assistant for inventories and task lists | Step 1 built, the model half not started | [Orbit Assistant — Plan](ai-assistant-plan.md) |
 
 `Orbit.GoogleIntegration` (`src/Server`) is no longer the empty placeholder it was: it holds the
 Google ID-token verification behind Google sign-in, and nothing else - the calendar and maps features
@@ -99,8 +104,12 @@ developer account and signing key.
 - **Two-way Google Calendar sync** — writing an event onto a recipient's real Google Calendar. What
   ships today is link-based hand-off, which needs no Google API at all — see
   [Functionality](functionality.md#these-are-links-not-an-api-integration).
-- **Google Contacts sync** — not started.
-- **Password manager and password generator** — not started.
+- **Google Contacts sync** — not started. What it would take, and the design question that has to be
+  answered first, is in [Future Plan](future-plan.md#planned-features).
+- **The AI assistant** — step 1 of [its plan](ai-assistant-plan.md) is built and is the half that needs
+  no model: names the reader already has, offered as they type, and a warning when what they are typing
+  is a name they already use. Everything from step 3 on - the model, the overlay window, the
+  proposals - is not started.
 
 See [Future Plan](future-plan.md) for the fuller list of planned work, known scope cuts, and testing
 gaps.

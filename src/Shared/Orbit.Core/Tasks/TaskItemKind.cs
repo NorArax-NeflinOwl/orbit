@@ -18,5 +18,17 @@ public enum TaskItemKind
     Checklist,
 
     /// <summary>An appointment, which happens somewhere as well as at some time.</summary>
-    Calendar
+    Calendar,
+
+    /// <summary>
+    /// An errand about one product on a shelf: bring this back up to the level the warehouse is meant to
+    /// hold. Carries <see cref="TaskItem.LinkedInventoryItemId"/>, which is what makes it that product's
+    /// errand rather than a line of text that happens to mention it.
+    ///
+    /// The link is why this kind exists. Orbit used to recognise these entries by reading their
+    /// description - "Restock: " and then a product name parsed back out of it - which meant renaming a
+    /// product broke the connection, and two products whose names differed only by punctuation were the
+    /// same errand. The description is now what a person reads; the link is what Orbit acts on.
+    /// </summary>
+    Inventory
 }

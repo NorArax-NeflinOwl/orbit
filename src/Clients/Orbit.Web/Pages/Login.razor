@@ -11,12 +11,6 @@
 
 <PageTitle>@T["Orbit — Log in"]</PageTitle>
 
-@* TODO(Orbit.Web.UI): still plain unstyled <div>/<label>/<input> - and unlike the other pages, this one
-   also renders with the full sidebar shell next to it if a stale-but-still-valid token is already in
-   localStorage (see MainLayout's AuthorizeView), which looks odd against an unstyled form. Worth a
-   dedicated centered-card auth layout (logo, card, form) using app.css's .card/.btn-primary, closer to
-   what a login page usually looks like than reusing the app shell's .page-header pattern. Register.razor
-   is the same story. *@
 <h1>@T["Log in"]</h1>
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync" class="editor-form">

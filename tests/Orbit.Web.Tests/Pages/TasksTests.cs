@@ -86,10 +86,113 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        // The card is for recognising a list; the checklist view is where you work through it.
-        Assert.Equal(4, cut.FindAll(".task-preview-row").Count);
-        Assert.Contains("and 5 more", cut.Markup);
+        // The card is for recognising a list; the checklist view is where you work through it. Five is
+        // what the normal view shows, which is what the page opens on - see TaskListView.
+        Assert.Equal(5, cut.FindAll(".task-preview-row").Count);
+        Assert.Contains("and 4 more", cut.Markup);
         Assert.DoesNotContain("Item 9", cut.Markup);
+    }
+
+    [Fact]
+    public void The_full_view_carries_twenty_of_an_ordinary_lists_items()
+    {
+        var items = Enumerable.Range(1, 30).Select(number => Item($"Item {number}")).ToArray();
+        RegisterTasksApiClient([TaskList("Long one", items)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        ChooseTheView(cut, "Full");
+
+        // As much as a card can carry before it stops being a card.
+        Assert.Equal(20, cut.FindAll(".task-preview-row").Count);
+        Assert.Contains("and 10 more", cut.Markup);
+    }
+
+    [Fact]
+    public void The_full_view_counts_a_group_list_in_member_lists_rather_than_rows()
+    {
+        // Each member costs five lines - its name, three of its items, and either "and N more…" or the
+        // fourth item - so four members is already the twenty lines an ordinary list gets.
+        var members = Enumerable.Range(1, 6)
+            .Select(number => TaskList(
+                $"Member {number}", [.. Enumerable.Range(1, 6).Select(item => Item($"Buy {number}.{item}"))]))
+            .ToArray();
+        var group = TaskList("Saturday", [.. members.Select(LinkTo)]) with { IsGroup = true };
+        RegisterTasksApiClient([group, .. members]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        ChooseTheView(cut, "Full");
+
+        // Four member lists, three items under each. The link rows are the ones naming a member, and the
+        // nested rows only exist on the group's card - the members' own cards link to nothing.
+        var namedMembers = cut.FindAll(".task-preview-row .row-title")
+            .Count(row => row.TextContent.StartsWith("Member ", StringComparison.Ordinal));
+        Assert.Equal(4, namedMembers);
+        Assert.Equal(12, cut.FindAll(".task-preview-row-linked .row-title").Count);
+    }
+
+    [Fact]
+    public void A_member_list_of_exactly_four_shows_its_fourth_item_rather_than_a_line_saying_one_is_missing()
+    {
+        // "and 1 more…" takes exactly the room the row it stands for would have taken.
+        var member = TaskList("Shopping", [.. Enumerable.Range(1, 4).Select(number => Item($"Buy {number}"))]);
+        var group = TaskList("Saturday", LinkTo(member)) with { IsGroup = true };
+        RegisterTasksApiClient([group, member]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Equal(4, cut.FindAll(".task-preview-row-linked .row-title").Count);
+        Assert.DoesNotContain("and 1 more", cut.Markup);
+    }
+
+    [Fact]
+    public void The_minimal_view_folds_every_card()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", Item("Paint walls")),
+            TaskList("Garden", Item("Mow the lawn"))
+        ]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        ChooseTheView(cut, "Minimal");
+
+        // Every card's own control now says "Expand", which is the tick the brief asked for: the minimal
+        // view is the same state as folding each card by hand, so each card shows it as folded.
+        var toggles = cut.FindAll("button").Where(button => button.GetAttribute("aria-label") is "Expand" or "Minimise").ToList();
+        Assert.Equal(2, toggles.Count);
+        Assert.All(toggles, toggle => Assert.Equal("Expand", toggle.GetAttribute("aria-label")));
+
+        // A folded card keeps one line - what is still to be done - so two cards leave two rows.
+        Assert.Equal(2, cut.FindAll(".task-preview-row").Count);
+    }
+
+    [Fact]
+    public void Expanding_a_card_leaves_the_minimal_view_rather_than_unfolding_one_card()
+    {
+        var items = Enumerable.Range(1, 9).Select(number => Item($"Item {number}")).ToArray();
+        RegisterTasksApiClient([TaskList("Long one", items)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        ChooseTheView(cut, "Full");
+        ChooseTheView(cut, "Minimal");
+
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Expand").Click();
+
+        // Back to what the page was before it was folded away, not to the default - see
+        // TaskListArrangement.LeaveMinimalViewAsync.
+        Assert.Equal(9, cut.FindAll(".task-preview-row").Count);
+    }
+
+    /// <summary>
+    /// Opens the menu if it is shut and picks a view. It stays open between choices (see
+    /// OverflowMenu.StaysOpen), so pressing the trigger again would close it rather than open it.
+    /// </summary>
+    private static void ChooseTheView(IRenderedFragment cut, string view)
+    {
+        if (cut.FindAll(".avatar-dropdown-item").Count == 0)
+        {
+            cut.Find(".overflow-menu-trigger").Click();
+        }
+
+        cut.FindAll(".avatar-dropdown-item").First(option => option.TextContent.Contains(view)).Click();
     }
 
     [Fact]

@@ -24,6 +24,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<SharedLocationEntity> SharedLocations => Set<SharedLocationEntity>();
     public DbSet<ChatGroupEntity> ChatGroups => Set<ChatGroupEntity>();
     public DbSet<ChatGroupMemberEntity> ChatGroupMembers => Set<ChatGroupMemberEntity>();
+    public DbSet<ChatGroupAnnouncementEntity> ChatGroupAnnouncements => Set<ChatGroupAnnouncementEntity>();
     public DbSet<CalendarEventShareEntity> CalendarEventShares => Set<CalendarEventShareEntity>();
     public DbSet<PushSubscriptionEntity> PushSubscriptions => Set<PushSubscriptionEntity>();
     public DbSet<TaskOverdueNotificationDeliveryEntity> TaskOverdueNotificationDeliveries => Set<TaskOverdueNotificationDeliveryEntity>();
@@ -43,6 +44,11 @@ public sealed class OrbitDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Trigram similarity, which is what answers "you already have one of these" as somebody types a
+        // name - see NameSuggestionRepository. Declared here so a fresh database gets the extension with
+        // its first migration rather than needing a hand-run CREATE EXTENSION.
+        modelBuilder.HasPostgresExtension("pg_trgm");
+
         modelBuilder.Entity<PermissionCodeEntity>(entity =>
         {
             // The permission is the key: one code per permission, so a second can never be minted
@@ -221,6 +227,29 @@ public sealed class OrbitDbContext : DbContext
             entity.HasIndex(contact => new { contact.OwnerUserId, contact.ContactUserId }).IsUnique();
         });
 
+        // One GIN index per name the suggestions search. Without them a similarity query reads every row
+        // the reader owns, which is fine at ten items and not at a thousand - and this runs on keystrokes.
+        modelBuilder.Entity<InventoryItemEntity>()
+            .HasIndex(item => item.Name)
+            .HasDatabaseName("ix_inventory_items_name_trgm")
+            .HasMethod("gin")
+            .HasOperators("gin_trgm_ops");
+        modelBuilder.Entity<WarehouseEntity>()
+            .HasIndex(warehouse => warehouse.Name)
+            .HasDatabaseName("ix_warehouses_name_trgm")
+            .HasMethod("gin")
+            .HasOperators("gin_trgm_ops");
+        modelBuilder.Entity<TaskEntity>()
+            .HasIndex(task => task.Title)
+            .HasDatabaseName("ix_tasks_title_trgm")
+            .HasMethod("gin")
+            .HasOperators("gin_trgm_ops");
+        modelBuilder.Entity<TaskItemEntity>()
+            .HasIndex(item => item.Description)
+            .HasDatabaseName("ix_task_items_description_trgm")
+            .HasMethod("gin")
+            .HasOperators("gin_trgm_ops");
+
         modelBuilder.Entity<ChatMessageEntity>(entity =>
         {
             entity.HasKey(message => message.Id);
@@ -260,6 +289,26 @@ public sealed class OrbitDbContext : DbContext
             entity.HasMany(group => group.Members)
                 .WithOne()
                 .HasForeignKey(member => member.GroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.RefreshTimeOfDayMinutes)
+            // Nine in the morning, matching RestockListSettings.DefaultRefreshTimeOfDay - stated here as
+            // well so the column's own default agrees with the domain's.
+            .HasDefaultValue(9 * 60);
+
+        modelBuilder.Entity<ChatGroupAnnouncementEntity>(entity =>
+        {
+            entity.HasKey(announcement => announcement.Id);
+            // Read as a group's whole set, and searched within a group for one person's latest arrival
+            // (see IChatGroupAnnouncementRepository.FindLatestJoinAsync); one index covers both.
+            entity.HasIndex(announcement => new { announcement.GroupId, announcement.JoinedUserId });
+            // An announcement is part of its group's conversation and has no life without it, so a
+            // deleted group takes its lines with it rather than leaving them behind unreachable.
+            entity.HasOne<ChatGroupEntity>()
+                .WithMany()
+                .HasForeignKey(announcement => announcement.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

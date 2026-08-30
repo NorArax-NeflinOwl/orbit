@@ -36,10 +36,12 @@ public sealed class GetGroupConversationQueryHandler : IRequestHandler<GetGroupC
 
         // Ordered by id within a group of copies, so the same one is chosen on every read: the browser
         // caches decrypted text against the copy's id, and a choice that wandered between polls would
-        // throw that cache away each time.
+        // throw that cache away each time. A copy re-encrypted for somebody who joined later sorts last,
+        // so it is only ever chosen by the person who has nothing else - the reader who already had a
+        // copy keeps the one they have been reading.
         var visible = messages
             .GroupBy(message => message.GroupMessageId ?? message.Id)
-            .Select(copies => copies.OrderBy(copy => copy.Id).First())
+            .Select(copies => copies.OrderBy(copy => copy.IsSharedHistory).ThenBy(copy => copy.Id).First())
             .OrderBy(message => message.SentAtUtc)
             .ToList();
 

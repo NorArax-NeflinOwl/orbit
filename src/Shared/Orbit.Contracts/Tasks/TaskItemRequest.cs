@@ -5,7 +5,7 @@ namespace Orbit.Contracts.Tasks;
 /// "Push"/"Both" (matches Orbit.Core.Notifications.NotificationChannel). DailyReminderTimeOfDay is the
 /// local time of day the daily reminder is sent at when RemindDaily is set.
 ///
-/// Kind is "Checklist" or "Calendar" - see Orbit.Core.Tasks.TaskItemKind. Location says where a calendar
+/// Kind is "Checklist", "Calendar" or "Inventory" - see Orbit.Core.Tasks.TaskItemKind. Location says where a calendar
 /// entry happens; it is ignored for every other kind, and for one carrying a LinkedCalendarEventId,
 /// since that event already holds the place.
 /// </summary>
@@ -27,4 +27,9 @@ public sealed record TaskItemRequest(
     TimeOnly DailyReminderTimeOfDay,
     string Kind = "Checklist",
     string Location = "",
-    Guid? LinkedCalendarEventId = null);
+    Guid? LinkedCalendarEventId = null,
+    /// <summary>
+    /// The shelf item an Inventory entry is an errand about - see Orbit.Core.Tasks.TaskItem.LinkedInventoryItemId.
+    /// Null for every other kind.
+    /// </summary>
+    Guid? LinkedInventoryItemId = null);

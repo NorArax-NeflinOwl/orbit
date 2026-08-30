@@ -17,10 +17,12 @@ using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.EditMessage;
 using Orbit.Core.Chat.Groups.EditGroupMessage;
+using Orbit.Core.Chat.Groups.GetGroupAnnouncements;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
 using Orbit.Core.Chat.Groups.GetGroupMessageReceipts;
 using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
 using Orbit.Core.Chat.Groups.SendGroupMessage;
+using Orbit.Core.Chat.Groups.ShareGroupHistory;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.Groups.GetChatGroups;
 using Orbit.Core.Chat.Groups.CreateChatGroup;
@@ -34,6 +36,8 @@ using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Inventory;
 using Orbit.Core.Inventory.FinishRestocking;
+using Orbit.Core.Inventory.ReconcileRestockList;
+using Orbit.Core.Inventory.RestockListSettingsAccess;
 using Orbit.Core.Inventory.ExpiryReminders;
 using Orbit.Core.Inventory.GetInventoryItems;
 using Orbit.Core.Inventory.AcceptWarehouseShare;
@@ -101,7 +105,10 @@ using Orbit.Core.Tasks.StockCheck;
 using Orbit.Core.Tasks.RaiseStockShortfalls;
 using Orbit.Core.Tasks.SetTaskListPinned;
 using Orbit.Core.Tasks.ShareTaskList;
+using Orbit.Core.Tasks.GetInventoryReferences;
 using Orbit.Core.Tasks.UpdateTaskList;
+using Orbit.Core.Suggestions;
+using Orbit.Core.Suggestions.GetNameSuggestions;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SaveOwnLocation;
@@ -260,6 +267,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<EditGroupMessageCommand, bool>, EditGroupMessageCommandHandler>();
         services.AddScoped<IRequestHandler<MarkGroupConversationAsReadCommand, bool>, MarkGroupConversationAsReadCommandHandler>();
         services.AddScoped<IRequestHandler<GetGroupMessageReceiptsQuery, IReadOnlyList<GroupMessageReceipt>>, GetGroupMessageReceiptsQueryHandler>();
+        // What a newcomer is given of the conversation they arrived late to, and the line that says so.
+        services.AddScoped<IRequestHandler<ShareGroupHistoryCommand, int>, ShareGroupHistoryCommandHandler>();
+        services.AddScoped<IRequestHandler<GetGroupAnnouncementsQuery, IReadOnlyList<ChatGroupAnnouncement>>, GetGroupAnnouncementsQueryHandler>();
         services.AddScoped<IRequestHandler<GetConversationQuery, IReadOnlyList<ChatMessage>>, GetConversationQueryHandler>();
         services.AddScoped<IRequestHandler<GetContactsQuery, IReadOnlyList<ContactSummary>>, GetContactsQueryHandler>();
         services.AddScoped<IRequestHandler<MarkConversationAsReadCommand, bool>, MarkConversationAsReadCommandHandler>();
@@ -303,6 +313,18 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<PendingRestockTaskResolver>();
         services.AddScoped<InventoryTaskListCoordinator>();
         services.AddScoped<RestockCompletion>();
+        services.AddScoped<RestockListRefresh>();
+
+        // How a warehouse's restock list is built and when it comes round, plus the manual rebuild.
+        services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();
+        services.AddScoped<IRequestHandler<SaveRestockListSettingsCommand, RestockRefreshOutcome>, SaveRestockListSettingsCommandHandler>();
+        services.AddScoped<IRequestHandler<RefreshRestockListCommand, RestockRefreshOutcome>, RefreshRestockListCommandHandler>();
+        services.AddScoped<IRequestHandler<ReconcileRestockListCommand, RestockOutcome>, ReconcileRestockListCommandHandler>();
+        services.AddScoped<IRequestHandler<GetInventoryReferencesQuery, IReadOnlyList<InventoryReference>>, GetInventoryReferencesQueryHandler>();
+
+        // Names the reader has already used, offered as they type one - see GetNameSuggestionsQuery for
+        // why this is a database question rather than a question for the assistant.
+        services.AddScoped<IRequestHandler<GetNameSuggestionsQuery, IReadOnlyList<NameSuggestion>>, GetNameSuggestionsQueryHandler>();
         services.AddScoped<IRequestHandler<FinishRestockingCommand, int>, FinishRestockingCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>?>, GetInventoryItemsQueryHandler>();
 

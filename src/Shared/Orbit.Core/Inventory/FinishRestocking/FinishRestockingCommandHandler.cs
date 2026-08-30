@@ -36,6 +36,11 @@ public sealed class FinishRestockingCommandHandler : IRequestHandler<FinishResto
             await _taskRepository.UpdateAsync(taskList, cancellationToken);
         }
 
+        // And then the finished errands leave, the same way they do when they are crossed off one at a
+        // time - nothing on this list is missing any more, so nothing on it should still be asking for
+        // it. The top-ups above have already happened, so this run only has the entries left to settle.
+        await _restockCompletion.ReconcileAsync(request.TaskListId, cancellationToken);
+
         return toppedUp;
     }
 }
