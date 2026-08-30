@@ -21,3 +21,25 @@ public sealed record StockReconciliationResultDto(int CrossedOffCount, int Added
 
 /// <summary>How many shelf items were brought up to their minimum by finishing a restock list.</summary>
 public sealed record FinishRestockingResultDto(int ToppedUpCount);
+
+/// <summary>
+/// What settling a restock list's finished errands moved - see
+/// Orbit.Core.Inventory.ReconcileRestockList. Both zero for an ordinary list, which is every list no
+/// warehouse tracks.
+/// </summary>
+public sealed record RestockReconciliationResultDto(int ToppedUpCount, int SettledCount);
+
+/// <summary>
+/// What one inventory errand on a list is about - see Orbit.Core.Tasks.GetInventoryReferences. The
+/// screen draws the shelf item as a link, and each entry of AlsoAskedForBy as a second one.
+/// </summary>
+public sealed record InventoryReferenceDto(
+    Guid TaskItemId,
+    Guid InventoryItemId,
+    string InventoryItemName,
+    Guid WarehouseId,
+    string WarehouseName,
+    IReadOnlyList<InventoryReferenceElsewhereDto> AlsoAskedForBy);
+
+/// <summary>Another list asking for the same shelf item, and the entry on it.</summary>
+public sealed record InventoryReferenceElsewhereDto(Guid TaskListId, string TaskListTitle, Guid TaskItemId);

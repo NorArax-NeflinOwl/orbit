@@ -13,16 +13,19 @@ namespace Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 public sealed class AddChatGroupMemberCommandHandler : IRequestHandler<AddChatGroupMemberCommand, bool>
 {
     private readonly IChatGroupRepository _chatGroupRepository;
+    private readonly IChatGroupAnnouncementRepository _chatGroupAnnouncementRepository;
     private readonly IContactRepository _contactRepository;
     private readonly IUserRepository _userRepository;
     private readonly NotificationRecorder _notificationRecorder;
     private readonly PushNotificationDispatcher _pushNotificationDispatcher;
 
     public AddChatGroupMemberCommandHandler(
-        IChatGroupRepository chatGroupRepository, IContactRepository contactRepository, IUserRepository userRepository,
+        IChatGroupRepository chatGroupRepository, IChatGroupAnnouncementRepository chatGroupAnnouncementRepository,
+        IContactRepository contactRepository, IUserRepository userRepository,
         NotificationRecorder notificationRecorder, PushNotificationDispatcher pushNotificationDispatcher)
     {
         _chatGroupRepository = chatGroupRepository;
+        _chatGroupAnnouncementRepository = chatGroupAnnouncementRepository;
         _contactRepository = contactRepository;
         _userRepository = userRepository;
         _notificationRecorder = notificationRecorder;
@@ -54,6 +57,13 @@ public sealed class AddChatGroupMemberCommandHandler : IRequestHandler<AddChatGr
 
         group.AddMember(request.ActorUserId, request.UserId);
         await _chatGroupRepository.UpdateAsync(group, cancellationToken);
+
+        // Said in the conversation, not only to the person it happened to: everyone else's group just
+        // gained a reader, and the notification below reaches the newcomer alone. It is also what a
+        // history share afterwards attaches itself to - see ShareGroupHistoryCommandHandler.
+        await _chatGroupAnnouncementRepository.AddAsync(
+            ChatGroupAnnouncement.MemberJoined(group.Id, request.UserId, request.ActorUserId), cancellationToken);
+
         await NotifyAddedMemberAsync(request, group, cancellationToken);
         return true;
     }

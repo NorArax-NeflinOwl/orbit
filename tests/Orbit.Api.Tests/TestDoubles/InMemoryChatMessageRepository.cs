@@ -137,7 +137,7 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         IReadOnlyCollection<Guid> groupMessageIds, CancellationToken cancellationToken)
     {
         IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>> byMessage = _messages
-            .Where(message => message.GroupMessageId is { } id && groupMessageIds.Contains(id))
+            .Where(message => message.GroupMessageId is { } id && groupMessageIds.Contains(id) && !message.IsSharedHistory)
             .GroupBy(message => message.GroupMessageId!.Value)
             .ToDictionary(
                 group => group.Key,

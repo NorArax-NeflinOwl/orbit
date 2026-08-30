@@ -132,7 +132,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
     private static ChatMessage ToDomain(ChatMessageEntity entity)
         => ChatMessage.FromPersistence(
             entity.Id, entity.SenderUserId, entity.RecipientUserId, entity.CiphertextBase64, entity.NonceBase64, entity.SentAtUtc,
-            entity.IsEdited, entity.EditedAtUtc, entity.GroupId, entity.GroupMessageId);
+            entity.IsEdited, entity.EditedAtUtc, entity.GroupId, entity.GroupMessageId, entity.IsSharedHistory);
 
     private static ChatMessageEntity ToEntity(ChatMessage message)
         => new()
@@ -146,7 +146,8 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             GroupMessageId = message.GroupMessageId,
             SentAtUtc = message.SentAtUtc,
             IsEdited = message.IsEdited,
-            EditedAtUtc = message.EditedAtUtc
+            EditedAtUtc = message.EditedAtUtc,
+            IsSharedHistory = message.IsSharedHistory
         };
     public async Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(
         Guid readerUserId, CancellationToken cancellationToken)
@@ -190,9 +191,14 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             return new Dictionary<Guid, IReadOnlyList<GroupMessageReceipt>>();
         }
 
+        // Copies re-encrypted for a later joiner are left out: they say nothing about whether the message
+        // reached the people it was posted to, and counting them would turn a sender's fully-read message
+        // back into an unread one the moment somebody was given the history.
         var rows = await _dbContext.ChatMessages
             .AsNoTracking()
-            .Where(message => message.GroupMessageId != null && groupMessageIds.Contains(message.GroupMessageId.Value))
+            .Where(message =>
+                message.GroupMessageId != null && groupMessageIds.Contains(message.GroupMessageId.Value)
+                && !message.IsSharedHistory)
             .Select(message => new { GroupMessageId = message.GroupMessageId!.Value, message.RecipientUserId, message.ReadAtUtc })
             .ToListAsync(cancellationToken);
 

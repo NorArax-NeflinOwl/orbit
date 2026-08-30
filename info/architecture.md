@@ -143,6 +143,15 @@ that broke `azure/login`'s OIDC federation the one time it was tried.
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push and pull request targeting `main` (and can also be
-triggered manually): it restores, builds (`Release` configuration), and runs the full test suite
-(`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10.
+`.github/workflows/main_orbit.yml` runs on every push to `main` (and can be triggered manually). Its
+`test` job restores, builds (`Release` configuration), and runs the full test suite
+(`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs
+`ci/verify-browser-crypto.mjs` — the one part of the client no .NET test can reach, since
+`wwwroot/js/e2eeChat.js` is Web Crypto and IndexedDB and bUnit executes neither. Every later job
+depends on this one, so a failure here stops the deploy before an image is built.
+
+It deliberately does **not** run on pull requests: the workflow's own header explains the trade, which
+is billed runner minutes against a branch being unchecked until it lands. Production is still covered,
+because the deploy job needs this one. Running the suite before opening a pull request is therefore on
+whoever opens it — see
+[Testing and Running Locally](testing-and-running-locally.md#automated-test-coverage).

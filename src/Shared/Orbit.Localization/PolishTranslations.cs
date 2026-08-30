@@ -85,6 +85,12 @@ public static class PolishTranslations
         ["This list"] = "Ta lista",
 
         // ---- The names Orbit writes for itself, which the server stores in English - see OrbitWrittenNames. ----
+        ["You already have \"{0}\"."] = "Masz już „{0}”.",
+        ["Version {0}"] = "Wersja {0}",
+        ["All Rights Reserved"] = "Wszelkie prawa zastrzeżone",
+        ["About"] = "O aplikacji",
+        ["in {0}"] = "w {0}",
+        ["also on {0}"] = "także na {0}",
         ["Restock supplies"] = "Uzupełnienie zapasów",
         ["Restock:"] = "Uzupełnij:",
         ["Update stock levels"] = "Zaktualizuj stany magazynowe",

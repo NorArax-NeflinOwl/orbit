@@ -111,6 +111,28 @@ public sealed class TasksApiClient
     /// Says the whole restock list is done: crosses off what is left of it and brings its warehouse up
     /// to the levels it is meant to hold. Answers how many shelf items moved.
     /// </summary>
+    /// <summary>
+    /// Settles the finished errands on a restock list - each fills its shelf item and then leaves the
+    /// list. Answers how many were settled, and does nothing at all for an ordinary list, so the
+    /// checklist screen can ask on opening any of them.
+    /// </summary>
+    public async Task<int> ReconcileRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/restocking/reconcile", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<RestockReconciliationResultDto>(cancellationToken);
+        return result?.SettledCount ?? 0;
+    }
+
+    /// <summary>
+    /// What each inventory errand on this list is about: the shelf item behind it, and any other list
+    /// asking for the same thing. Empty for a list holding none.
+    /// </summary>
+    public async Task<IReadOnlyList<InventoryReferenceDto>> GetInventoryReferencesAsync(
+        Guid taskListId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<InventoryReferenceDto>>(
+            $"api/tasks/{taskListId}/inventory-references", cancellationToken) ?? [];
+
     public async Task<int> FinishRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/restocking/finished", content: null, cancellationToken);

@@ -204,6 +204,30 @@ public sealed class ChatGroup
     }
 
     /// <summary>
+    /// Refuses unless actorUserId may hand this group's history to recipientUserId. An admin's to give,
+    /// for the same reason the membership is: deciding what somebody sees on arrival is the same act as
+    /// deciding they arrive at all, and a group where any member could replay the whole conversation to
+    /// a newcomer would put that choice in nobody's hands in particular.
+    ///
+    /// The recipient has to be in the group already - history is shared into a membership, not instead
+    /// of one - and nobody shares with themselves, who by definition already has it.
+    /// </summary>
+    public void EnsureHistoryCanBeSharedWith(Guid actorUserId, Guid recipientUserId)
+    {
+        RequireAdmin(actorUserId);
+
+        if (actorUserId == recipientUserId)
+        {
+            throw new InvalidRequestException("You already have this group's history.");
+        }
+
+        if (!IsMember(recipientUserId))
+        {
+            throw new InvalidRequestException("That person isn't in this group.");
+        }
+    }
+
+    /// <summary>
     /// Whether actorUserId may delete a message sent by senderUserId: their own always, anyone's if they
     /// administer the group. The single place this rule is expressed - see DeleteChatMessageCommandHandler.
     /// </summary>

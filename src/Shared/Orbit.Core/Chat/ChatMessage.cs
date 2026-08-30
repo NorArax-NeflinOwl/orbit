@@ -26,12 +26,21 @@ public sealed class ChatMessage
     /// </summary>
     public Guid? GroupMessageId { get; private set; }
 
+    /// <summary>
+    /// True for a copy that was not written when the message was posted, but re-encrypted afterwards for
+    /// somebody who joined the group later - see CreateSharedHistoryCopy. What it copies is unchanged:
+    /// same sender, same instant, same words. What is different is that nothing was addressed to this
+    /// recipient at the time, which is why the original's delivery receipts leave it out.
+    /// </summary>
+    public bool IsSharedHistory { get; private set; }
+
     private ChatMessage(
         Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
-        bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId, Guid? groupMessageId)
+        bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId, Guid? groupMessageId, bool isSharedHistory)
     {
         GroupId = groupId;
         GroupMessageId = groupMessageId;
+        IsSharedHistory = isSharedHistory;
         Id = id;
         SenderUserId = senderUserId;
         RecipientUserId = recipientUserId;
@@ -45,7 +54,7 @@ public sealed class ChatMessage
     public static ChatMessage Create(Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
         => new(
             Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, DateTimeOffset.UtcNow,
-            isEdited: false, editedAtUtc: null, groupId: null, groupMessageId: null);
+            isEdited: false, editedAtUtc: null, groupId: null, groupMessageId: null, isSharedHistory: false);
 
     /// <summary>
     /// One recipient's copy of a group message. Groups reuse the pairwise encryption people already
@@ -66,15 +75,34 @@ public sealed class ChatMessage
         DateTimeOffset sentAtUtc)
         => new(
             Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc,
-            isEdited: false, editedAtUtc: null, groupId, groupMessageId);
+            isEdited: false, editedAtUtc: null, groupId, groupMessageId, isSharedHistory: false);
+
+    /// <summary>
+    /// A copy of an already-posted group message, re-encrypted for somebody who joined afterwards. The
+    /// only way a new member can read anything sent before they arrived: no copy was ever made for them,
+    /// and the server holds no key it could make one with, so a member who can already read the message
+    /// has to re-seal it under the pairwise key they share with the newcomer.
+    ///
+    /// Everything except the recipient and the ciphertext is taken from <paramref name="original"/>
+    /// rather than from whoever is sharing: who wrote it and when are facts about the message, and a
+    /// re-share is not the place they get to be restated.
+    /// </summary>
+    public static ChatMessage CreateSharedHistoryCopy(
+        ChatMessage original, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
+        => new(
+            Guid.NewGuid(), original.SenderUserId, recipientUserId, ciphertextBase64, nonceBase64, original.SentAtUtc,
+            original.IsEdited, original.EditedAtUtc, original.GroupId, original.GroupMessageId, isSharedHistory: true);
 
     /// <summary>
     /// Rebuilds a message from already-persisted values, bypassing creation rules.
     /// </summary>
     public static ChatMessage FromPersistence(
         Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
-        bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId = null, Guid? groupMessageId = null)
-        => new(id, senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc, isEdited, editedAtUtc, groupId, groupMessageId);
+        bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId = null, Guid? groupMessageId = null,
+        bool isSharedHistory = false)
+        => new(
+            id, senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc, isEdited, editedAtUtc, groupId,
+            groupMessageId, isSharedHistory);
 
     /// <summary>
     /// Replaces this message's ciphertext with a re-encrypted edit - only the sender is ever allowed to

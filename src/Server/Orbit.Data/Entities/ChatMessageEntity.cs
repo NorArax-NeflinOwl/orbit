@@ -28,4 +28,11 @@ public sealed class ChatMessageEntity
 
     /// <summary>Shared by every per-recipient copy of one group posting - see Orbit.Core.Chat.ChatMessage.GroupMessageId.</summary>
     public Guid? GroupMessageId { get; set; }
+
+    /// <summary>
+    /// True for a copy re-encrypted after the fact for somebody who joined the group later - see
+    /// Orbit.Core.Chat.ChatMessage.IsSharedHistory, and GetGroupReceiptsAsync, which leaves these out so
+    /// a backfill does not turn a sender's read message back into an unread one.
+    /// </summary>
+    public bool IsSharedHistory { get; set; }
 }

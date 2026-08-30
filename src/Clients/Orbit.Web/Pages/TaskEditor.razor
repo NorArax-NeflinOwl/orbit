@@ -11,6 +11,7 @@
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Tasks
+@using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
@@ -89,7 +90,12 @@ else
     <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
         <div class="field">
             <label>@T["Title"]</label>
-            <InputText @bind-Value="_formModel.Title" />
+            @* oninput as well as the default onchange, so the suggestions below see the title as it is
+               being typed rather than only once the field is left. *@
+            <InputText @bind-Value="_formModel.Title"
+                       @oninput="args => _formModel.Title = args.Value?.ToString() ?? string.Empty" />
+            <NameSuggestions Kind="NameSuggestionKind.TaskListTitle" Value="_formModel.Title"
+                             OnChosen="chosen => _formModel.Title = chosen" />
         </div>
 
         @* Only the owner may turn this on: a list reached through a share belongs to someone else,
@@ -148,7 +154,10 @@ else
                     @* Reassigned on every row, so it holds the last one by the time the loop ends - which
                        is the row Add item just appended, and the one the cursor belongs in. *@
                     <InputText class="editor-item-main" @ref="_lastItemDescription" @bind-Value="item.Description"
-                               placeholder="@(T["Item description"])" />
+                               placeholder="@(T["Item description"])"
+                               @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty" />
+                    <NameSuggestions Kind="NameSuggestionKind.TaskItemDescription" Value="item.Description"
+                                     OnChosen="chosen => item.Description = chosen" />
                     <span class="editor-item-aside">
                         @* Labelled rather than left to be guessed from their shape: side by side on a
                            wide screen the pair reads as a due date, but stacked on a narrow one they

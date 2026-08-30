@@ -5,6 +5,7 @@
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Permissions
 @using Orbit.Core.Users
+@using Orbit.Core
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
@@ -206,6 +207,17 @@
 
     <main class="main-content" @onclick="CloseAvatarMenu">
         @Body
+        @* Which build this is, when it was made, and under what licence. In the layout rather than on
+           each page so there is one of it, and inside <main> rather than after it so it scrolls with
+           the content - a bar pinned to the bottom of the window would take height from every screen
+           to say something nobody reads twice. The phone says the same thing behind About. *@
+        <footer class="app-footer">
+            <span>@OrbitRelease.Copyright</span>
+            <span class="app-footer-separator">·</span>
+            <span>@T.Format("Version {0}", OrbitRelease.Version)</span>
+            <span class="app-footer-separator">·</span>
+            <a href="@OrbitRelease.LicenseUrl" target="_blank" rel="noopener">@T[OrbitRelease.LicenseName]</a>
+        </footer>
     </main>
 </div>
 

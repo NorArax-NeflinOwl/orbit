@@ -35,15 +35,18 @@ public sealed class InventoryTaskListCoordinator
     private readonly ITaskRepository _taskRepository;
     private readonly IInventoryManagedTaskListRepository _managedTaskListRepository;
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly PendingRestockTaskResolver _pendingRestockTaskResolver;
 
     public InventoryTaskListCoordinator(
         ITaskRepository taskRepository, IInventoryManagedTaskListRepository managedTaskListRepository,
-        IWarehouseRepository warehouseRepository, PendingRestockTaskResolver pendingRestockTaskResolver)
+        IWarehouseRepository warehouseRepository, IInventoryRepository inventoryRepository,
+        PendingRestockTaskResolver pendingRestockTaskResolver)
     {
         _taskRepository = taskRepository;
         _managedTaskListRepository = managedTaskListRepository;
         _warehouseRepository = warehouseRepository;
+        _inventoryRepository = inventoryRepository;
         _pendingRestockTaskResolver = pendingRestockTaskResolver;
     }
 
@@ -138,8 +141,12 @@ public sealed class InventoryTaskListCoordinator
                 $"The restock list for this warehouse is private, so Orbit can't add \"{item.Name}\" to it. Turn privacy off for that list first.");
         }
 
+        // Kind and link, not just a sentence: this is what lets the entry be reconciled against the shelf
+        // it came from without parsing a product name back out of its own description - see
+        // TaskItemKind.Inventory and RestockReconciliation.
         var restockItem = TaskItem.Create(
-            RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity, item.Unit), dueDateUtc: null, isCompleted: false);
+            RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity, item.Unit), dueDateUtc: null, isCompleted: false,
+            kind: TaskItemKind.Inventory, linkedInventoryItemId: item.Id);
         taskList.Update(
             taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate,
             taskList.EncryptedContent, taskList.Priority);
@@ -185,10 +192,20 @@ public sealed class InventoryTaskListCoordinator
             .Select(item => RestockTaskNaming.ProductIn(item.Description))
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 
+        // A shortfall is named rather than pointed at - it is counted off a checklist, which knows product
+        // names and not shelf ids. Where the warehouse does hold a product by that name, the entry is
+        // linked to it anyway, so it reconciles like any other inventory errand; where it does not, the
+        // entry stays an ordinary line and is simply crossed off by hand.
+        var shelf = (await _inventoryRepository.GetAllAsync(warehouseId, cancellationToken))
+            .GroupBy(shelfItem => shelfItem.Name.Trim(), StringComparer.CurrentCultureIgnoreCase)
+            // One match or none: two products sharing a name give no answer to "which one", and guessing
+            // would top up the wrong shelf.
+            .Where(byName => byName.Count() == 1)
+            .ToDictionary(byName => byName.Key, byName => byName.Single().Id, StringComparer.CurrentCultureIgnoreCase);
+
         var added = needs
             .Where(need => alreadyWaiting.Add(need.ProductName.Trim()))
-            .Select(need => TaskItem.Create(
-                RestockTaskNaming.EntryFor(need.ProductName, need.Quantity, unit: null), dueDateUtc: null, isCompleted: false))
+            .Select(need => NewShortfallEntry(need, shelf))
             .ToList();
         if (added.Count == 0)
         {
@@ -217,6 +234,20 @@ public sealed class InventoryTaskListCoordinator
         taskList.Update(
             title, taskList.Items, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
+    }
+
+    /// <summary>
+    /// One shortfall as an entry, linked to the shelf item it names when the warehouse holds exactly one
+    /// by that name.
+    /// </summary>
+    private static TaskItem NewShortfallEntry(RestockNeed need, IReadOnlyDictionary<string, Guid> shelf)
+    {
+        var description = RestockTaskNaming.EntryFor(need.ProductName, need.Quantity, unit: null);
+        return shelf.TryGetValue(need.ProductName.Trim(), out var inventoryItemId)
+            ? TaskItem.Create(
+                description, dueDateUtc: null, isCompleted: false,
+                kind: TaskItemKind.Inventory, linkedInventoryItemId: inventoryItemId)
+            : TaskItem.Create(description, dueDateUtc: null, isCompleted: false);
     }
 }
 

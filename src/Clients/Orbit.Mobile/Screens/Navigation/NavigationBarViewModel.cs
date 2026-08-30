@@ -4,6 +4,7 @@ using Orbit.Mobile.Api;
 using Orbit.Localization;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
+using Orbit.Core;
 using Orbit.Mobile.Localization;
 using Orbit.Core.Permissions;
 using Orbit.Mobile.Permissions;
@@ -292,6 +293,27 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     [RelayCommand]
     private void GoToAccount() => LeaveMenuFor(_navigator.ShowAccount);
+
+    /// <summary>
+    /// Which build this is, when it was made, and under what licence - the phone's answer to Orbit.Web's
+    /// footer. Folded into the menu rather than given a screen of its own, the way Status and Language
+    /// already are: it is three lines somebody reads once, and a page for it would be a page nobody
+    /// navigates back from having learned anything more.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isAboutExpanded;
+
+    [RelayCommand]
+    private void ToggleAbout() => IsAboutExpanded = !IsAboutExpanded;
+
+    public string AboutCopyright => OrbitRelease.Copyright;
+
+    public string AboutVersion => _translations.Format("Version {0}", OrbitRelease.Version);
+
+    public string LicenseName => _translations[OrbitRelease.LicenseName];
+
+    /// <summary>Where the licence itself can be read - opened outside the app, see AvatarMenu's code-behind.</summary>
+    public string LicenseUrl => OrbitRelease.LicenseUrl;
 
     [RelayCommand]
     private void GoToNotifications() => LeaveMenuFor(_navigator.ShowNotifications);

@@ -165,6 +165,30 @@ public sealed class ChatApiClient
     public async Task<IReadOnlyList<ChatMessageDto>> GetGroupConversationAsync(Guid groupId, CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<List<ChatMessageDto>>($"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
 
+    /// <summary>
+    /// The group's "somebody joined" lines - read separately from its messages, since the two are
+    /// different shapes (see the announcements route in ChatEndpoints).
+    /// </summary>
+    public async Task<IReadOnlyList<ChatGroupAnnouncementDto>> GetGroupAnnouncementsAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<ChatGroupAnnouncementDto>>(
+            $"api/chat/groups/{groupId}/announcements", cancellationToken) ?? [];
+
+    /// <summary>
+    /// Hands the group's past to a member who joined after it happened, already re-encrypted for them.
+    /// Answers with how many copies were stored, which can be fewer than were offered - see the history
+    /// route in ChatEndpoints.
+    /// </summary>
+    public async Task<int> ShareGroupHistoryAsync(
+        Guid groupId, Guid recipientUserId, IReadOnlyList<SharedHistoryCopyDto> copies,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/chat/groups/{groupId}/history", new ShareGroupHistoryRequest(recipientUserId, copies), cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<int>(cancellationToken);
+    }
+
     public async Task SendGroupMessageAsync(
         Guid groupId, IReadOnlyList<GroupMessageCopyDto> copies, CancellationToken cancellationToken = default)
     {

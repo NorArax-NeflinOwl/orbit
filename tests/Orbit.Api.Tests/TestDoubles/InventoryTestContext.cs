@@ -22,12 +22,17 @@ internal sealed class InventoryTestContext
     public PendingRestockTaskResolver RestockTaskResolver { get; }
     public InventoryTaskListCoordinator TaskListCoordinator { get; }
 
+    /// <summary>Settles finished restock errands against the shelf - see RestockCompletion.</summary>
+    public RestockCompletion RestockCompletion { get; }
+
     public InventoryTestContext()
     {
         AccessResolver = new WarehouseAccessResolver(WarehouseRepository, WarehouseShareRepository, UserRepository);
         RestockTaskResolver = new PendingRestockTaskResolver(TaskRepository, WarehouseRepository);
         TaskListCoordinator = new InventoryTaskListCoordinator(
-            TaskRepository, ManagedTaskListRepository, WarehouseRepository, RestockTaskResolver);
+            TaskRepository, ManagedTaskListRepository, WarehouseRepository, InventoryRepository, RestockTaskResolver);
+        RestockCompletion = new RestockCompletion(
+            ManagedTaskListRepository, InventoryRepository, WarehouseRepository, TaskRepository);
     }
 
     /// <summary>Creates and stores a warehouse owned by ownerUserId, returning its id - the starting point for almost every inventory test.</summary>
