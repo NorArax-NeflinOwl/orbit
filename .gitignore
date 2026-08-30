@@ -59,3 +59,7 @@ AndroidManifestOverlay.xml
 # Deployment notes that name real accounts - see notes/permissions.local.md. Kept out of git because
 # which account may do what is a deployment's own business, not the source's.
 *.local.md
+
+# Playwright, installed with `npm install --no-save` by CI and by anyone running
+# ci/verify-browser-crypto.mjs locally. Nothing here is committed - there is no package.json.
+node_modules/
