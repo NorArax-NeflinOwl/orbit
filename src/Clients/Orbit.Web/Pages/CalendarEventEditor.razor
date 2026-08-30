@@ -24,11 +24,6 @@
 
 <PageTitle>@(IsNewEvent ? T["New event"] : T["Edit event"])</PageTitle>
 
-@* TODO(Orbit.Web.UI): still plain unstyled form markup (this is the biggest of the three editors -
-   recurrence, reminders, location/map picker, guests). Restyle together with Calendar.razor (see its own
-   TODO) onto app.css's .card/.btn-primary vocabulary; the map picker (wwwroot/js/mapPicker.js/Leaflet)
-   and the color swatch picker will need their own component-specific styling on top of that, not just
-   class renames. *@
 <h1>@(IsNewEvent ? T["New event"] : T["Edit event"])</h1>
 
 @if (_isLoading)

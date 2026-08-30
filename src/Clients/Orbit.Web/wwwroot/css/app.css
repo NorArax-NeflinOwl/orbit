@@ -1792,6 +1792,32 @@ input.note-editor-title {
     color: var(--accent);
 }
 
+/* The unit, read-only on the row it qualifies - it is set behind the toggle with the rest of the
+   fields, and here it only has to say what the number beside it counts. */
+.editor-item-unit-label {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* A card's heading is the way to the page it summarises - the dashboard is a set of summaries, and the
+   name of one is where somebody reaches for the whole thing. Kept looking exactly like the heading it
+   replaced: it is a heading that happens to be pressable, not a button dressed as one. */
+.card-title-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.card-title-button:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
 /* Which build this is, when it was made, and under what licence. Quiet on purpose: it is a thing to
    look up once, not a thing to read, so it sits at the very end of the content in the smallest type the
    palette still keeps legible. */

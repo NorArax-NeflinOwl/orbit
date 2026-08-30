@@ -17,10 +17,6 @@
 
 <PageTitle>@(IsNewNote ? T["New note"] : T["Edit note"])</PageTitle>
 
-@* TODO(Orbit.Web.UI): still plain unstyled form markup. Restyle onto app.css's .page-header/.card/
-   .btn-primary/.btn-secondary once Notes.razor (the list page) gets the same treatment - do them
-   together, since this editor's "Back"/"Save"/"Delete" affordances should match whatever button/card
-   pattern the list ends up using. *@
 <h1>@(IsNewNote ? T["New note"] : T["Edit note"])</h1>
 
 @if (_isLoading)

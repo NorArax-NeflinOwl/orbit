@@ -101,7 +101,11 @@ else
                                 </svg>
                             </span>
                         }
-                        @Written(taskList.Title)
+                        @* The name is the way into the list, the same way a dashboard card's heading is
+                           the way to its page. It opens the checklist rather than the deep editor:
+                           reading and ticking is what somebody clicking a list's name is after. *@
+                        <button type="button" class="card-title-button" title="@(T["Open checklist"])"
+                                @onclick="() => GoToChecklist(taskList.Id)">@Written(taskList.Title)</button>
                         @if (taskList.IsGroup)
                         {
                             <span class="card-badge">@T["Group"]</span>

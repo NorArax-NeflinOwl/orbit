@@ -292,6 +292,12 @@ public sealed class OrbitDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.RefreshTimeOfDayMinutes)
+            // Nine in the morning, matching RestockListSettings.DefaultRefreshTimeOfDay - stated here as
+            // well so the column's own default agrees with the domain's.
+            .HasDefaultValue(9 * 60);
+
         modelBuilder.Entity<ChatGroupAnnouncementEntity>(entity =>
         {
             entity.HasKey(announcement => announcement.Id);

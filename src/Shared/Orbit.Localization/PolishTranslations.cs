@@ -86,6 +86,17 @@ public static class PolishTranslations
 
         // ---- The names Orbit writes for itself, which the server stores in English - see OrbitWrittenNames. ----
         ["You already have \"{0}\"."] = "Masz już „{0}”.",
+        ["Restock list"] = "Lista uzupełnień",
+        ["Only what a dated task is waiting on"] = "Tylko to, na co czeka zadanie z terminem",
+        ["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."] = "Lista prosi o produkty potrzebne zadaniu z terminem. To, czego brakuje, ale nic na to nie czeka, zostaje pominięte.",
+        ["The list asks for everything on this shelf that has dropped below its own minimum."] = "Lista prosi o wszystko na tej półce, co spadło poniżej własnego minimum.",
+        ["Comes round at"] = "Przypomina o",
+        ["When the standing \"Update stock levels\" reminder arrives."] = "Kiedy przychodzi stałe przypomnienie „Zaktualizuj stany magazynowe”.",
+        ["Save settings"] = "Zapisz ustawienia",
+        ["Refresh"] = "Odśwież",
+        ["The restock list already asks for exactly what it should."] = "Lista uzupełnień prosi dokładnie o to, o co powinna.",
+        ["Restock list updated: {0} added, {1} removed."] = "Lista uzupełnień zaktualizowana: dodano {0}, usunięto {1}.",
+        ["That didn't work. Try again."] = "Nie udało się. Spróbuj ponownie.",
         ["Version {0}"] = "Wersja {0}",
         ["All Rights Reserved"] = "Wszelkie prawa zastrzeżone",
         ["About"] = "O aplikacji",
