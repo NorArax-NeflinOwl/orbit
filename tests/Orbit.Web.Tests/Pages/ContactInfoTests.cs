@@ -64,13 +64,79 @@ public sealed class ContactInfoTests : OrbitTestContext
     }
 
     [Fact]
-    public void An_account_Orbit_cannot_reach_says_so()
+    public void An_id_that_resolves_to_nothing_says_why_it_cannot_be_more_specific()
     {
+        // An account that has not unlocked Contacts is unfindable on purpose, and Orbit answers a
+        // lookup for it exactly as it answers a lookup for nobody. This page cannot tell the two apart,
+        // so it says that rather than picking one - and rather than the old "can't reach that account
+        // right now", which read as a fault Orbit was having.
         RegisterClients(userJson: null, contactsJson: "[]");
 
         var cut = Render();
 
-        Assert.Contains("can't reach that account", cut.Markup);
+        Assert.Contains("nothing to show for this account", cut.Markup);
+        Assert.Contains("answers both the same way", cut.Markup);
+    }
+
+    [Fact]
+    public void Somebody_you_talk_to_who_has_gone_unfindable_is_told_apart_from_a_stranger()
+    {
+        // The conversation is what makes this a different case: it says there is somebody there, even
+        // though the profile behind them will no longer resolve.
+        RegisterClients(userJson: null, contactsJson: ContactListJson("Offline"));
+
+        var cut = Render();
+
+        Assert.Contains("made themselves unfindable", cut.Markup);
+        Assert.DoesNotContain("nothing to show for this account", cut.Markup);
+    }
+
+    [Fact]
+    public void Such_a_person_is_named_from_the_conversation_that_still_knows_them()
+    {
+        // A contact's name resolves without the visibility check a lookup applies, which is what keeps
+        // a conversation readable - so the page has a name to show even here.
+        RegisterClients(userJson: null, contactsJson: ContactListJson("Offline"));
+
+        var cut = Render();
+
+        Assert.Contains("Anna Kowalska", cut.Find("h1").TextContent);
+    }
+
+    [Fact]
+    public void The_messages_are_said_to_be_safe()
+    {
+        // The part worth knowing: a door closed on the profile is not a door closed on the history.
+        RegisterClients(userJson: null, contactsJson: ContactListJson("Offline"));
+
+        var cut = Render();
+
+        Assert.Contains("still there, and still readable", cut.Markup);
+    }
+
+    [Fact]
+    public void The_conversation_can_still_be_opened_from_here()
+    {
+        RegisterClients(userJson: null, contactsJson: ContactListJson("Offline"));
+
+        var cut = Render();
+
+        Assert.Contains(
+            cut.FindAll(".page-header-actions button"),
+            button => button.TextContent.Contains("Open chat", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_stranger_who_resolves_to_nothing_is_not_offered_a_conversation()
+    {
+        // There is nothing behind the button: no contact, no thread, nobody to write to.
+        RegisterClients(userJson: null, contactsJson: "[]");
+
+        var cut = Render();
+
+        Assert.DoesNotContain(
+            cut.FindAll(".page-header-actions button"),
+            button => button.TextContent.Contains("Open chat", StringComparison.Ordinal));
     }
 
     [Fact]
