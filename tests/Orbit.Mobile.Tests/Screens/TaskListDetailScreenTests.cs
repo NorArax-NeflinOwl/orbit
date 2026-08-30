@@ -743,7 +743,7 @@ public sealed class TaskListDetailScreenTests
         screen.IsPrivate = true;
         await screen.SaveListCommand.ExecuteAsync(null);
 
-        Assert.False(screen.CanBeShared);
+        Assert.False(screen.Share.CanShare);
     }
 
     /// <inheritdoc cref="NoteDetailScreenTests"/>

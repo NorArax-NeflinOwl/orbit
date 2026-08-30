@@ -85,18 +85,12 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     public ObservableCollection<WarehouseItemRow> Items { get; } = [];
 
-    /// <inheritdoc cref="Notes.NoteDetailViewModel.CanBeShared"/>
-    public bool CanBeShared => _serverId is not null && !IsPrivate;
-
-    private Guid? _serverId;
-
     /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
     private bool _isShowingWhatIsStored;
 
     /// <summary>Saved as soon as it is switched, the way ticking an entry on a list is.</summary>
     partial void OnIsPrivateChanged(bool value)
     {
-        OnPropertyChanged(nameof(CanBeShared));
         if (!_isShowingWhatIsStored && !IsReadOnly)
         {
             RenameCommand.Execute(null);
@@ -385,11 +379,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
 
         Name = warehouse.Name;
-        _serverId = warehouse.ServerId;
         _isShowingWhatIsStored = true;
         IsPrivate = warehouse.IsPrivate;
         _isShowingWhatIsStored = false;
-        OnPropertyChanged(nameof(CanBeShared));
 
         // A private warehouse is offered to nobody: the server holds no readable copy to hand over,
         // which is what makes it private - the same line Orbit.Web's editor draws.
@@ -398,6 +390,10 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             Share.Describes(
                 SharedItemKind.Warehouse, serverId, warehouse.Name,
                 warehouse.AccessLevel == "CanEdit" ? null : warehouse.OwnerUserId);
+        }
+        else
+        {
+            Share.OffersNothing();
         }
 
         _items = warehouse.Items;

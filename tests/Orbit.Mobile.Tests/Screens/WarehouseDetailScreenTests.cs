@@ -457,7 +457,7 @@ public sealed class WarehouseDetailScreenTests
         Assert.False(reopened.IsReadOnly);
         Assert.True(reopened.IsPrivate);
         Assert.Equal(["Coffee"], reopened.Items.Select(row => row.Name));
-        Assert.False(reopened.CanBeShared);
+        Assert.False(reopened.Share.CanShare);
     }
 
     /// <inheritdoc cref="NoteDetailScreenTests"/>

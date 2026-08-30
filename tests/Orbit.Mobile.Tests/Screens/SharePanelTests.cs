@@ -110,6 +110,48 @@ public sealed class SharePanelTests
         Assert.False(panel.CanShare);
     }
 
+    /// <summary>
+    /// Having the permission is not enough - there has to be something to offer. The panel binds its own
+    /// visibility to this, which is why the question is asked here: an IsVisible set on the instance by
+    /// an editor's markup is overridden by the panel's own binding and does nothing at all. Found on a
+    /// device, with the share buttons still sitting under a note that had just been made private.
+    /// </summary>
+    [Fact]
+    public void Nothing_is_offered_until_an_editor_says_what_it_has()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+
+        var panel = Build(context, shares);
+
+        Assert.False(panel.CanShare);
+    }
+
+    [Fact]
+    public void Something_that_can_no_longer_be_offered_stops_being_offered()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        var panel = Build(context, shares);
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+
+        panel.OffersNothing();
+
+        Assert.False(panel.CanShare);
+    }
+
+    [Fact]
+    public void An_editor_that_says_what_it_has_is_offered_sharing()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        var panel = Build(context, shares);
+
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+
+        Assert.True(panel.CanShare);
+    }
+
     [Fact]
     public async Task A_link_is_built_around_the_token_and_offered()
     {

@@ -98,15 +98,6 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     public bool CanEdit => !IsReadOnly;
 
-    /// <summary>
-    /// Whether there is anything to offer anybody. A private note is offered to nobody - the server
-    /// holds no readable copy to hand over, which is what makes it private - and a note the server has
-    /// never seen cannot be named in a share, because a share names it by its server id.
-    /// </summary>
-    public bool CanBeShared => _isOnTheServer && !IsPrivate;
-
-    private bool _isOnTheServer;
-
     public void Open(Guid localId) => _localId = localId;
 
     [RelayCommand]
@@ -233,11 +224,13 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         // Only a note the server knows about can be offered: a share names it by its server id, and one
         // still waiting in the outbox has none. A private note is offered to nobody - the server holds
         // no readable copy to hand over, which is what makes it private.
-        _isOnTheServer = note.ServerId is not null;
-        OnPropertyChanged(nameof(CanBeShared));
         if (note is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(SharedItemKind.Note, serverId, note.Title, OwnerToAsk(note));
+        }
+        else
+        {
+            Share.OffersNothing();
         }
 
         await ShowWhetherItCanBeChangedAsync(note, cancellationToken);
@@ -345,7 +338,6 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// <inheritdoc cref="OnChosenPriorityChanged"/>
     partial void OnIsPrivateChanged(bool value)
     {
-        OnPropertyChanged(nameof(CanBeShared));
         if (!_isShowingWhatIsStored && CanEdit)
         {
             SaveLinesCommand.Execute(null);

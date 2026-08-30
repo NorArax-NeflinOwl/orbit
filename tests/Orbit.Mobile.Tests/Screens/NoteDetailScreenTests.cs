@@ -226,7 +226,7 @@ public sealed class NoteDetailScreenTests
 
         var reopened = await context.OpenAsync(note.LocalId);
 
-        Assert.False(reopened.CanBeShared);
+        Assert.False(reopened.Share.CanShare);
     }
 
     [Fact]

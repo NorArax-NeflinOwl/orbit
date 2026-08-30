@@ -255,10 +255,9 @@
                 </VerticalStackLayout>
             </Border>
 
-            <!-- Hidden for a private list, as Orbit.Web's editor hides it: there is no readable copy on
-                 the server to hand anybody, which is what being private means. -->
-            <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4"
-                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanBeShared, x:DataType=tasks:TaskListDetailPage}" />
+            <!-- The panel hides itself for a private list, as Orbit.Web's editor hides it: there is no
+                 readable copy on the server to hand anybody - see SharePanel.CanShare. -->
+            <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
 
         <Grid Grid.Row="5" ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">

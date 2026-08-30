@@ -138,9 +138,6 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private string _priority = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
 
-    /// <inheritdoc cref="Notes.NoteDetailViewModel.CanBeShared"/>
-    public bool CanBeShared => _serverId is not null && !IsPrivate;
-
     /// <summary>"Can this be done?" - see StockCheckPanel. Only a group list is asked.</summary>
     public StockCheckPanel StockCheck { get; }
 
@@ -487,6 +484,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 SharedItemKind.TaskList, serverId, taskList.Title,
                 taskList.AccessLevel == "CanEdit" ? null : taskList.OwnerUserId);
         }
+        else
+        {
+            Share.OffersNothing();
+        }
 
         _items = taskList.Items;
         _isShowingWhatIsStored = true;
@@ -494,7 +495,6 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         IsPrivate = taskList.IsPrivate;
         ChosenPriority = PriorityChoice.For(taskList.Priority, _translations);
         _isShowingWhatIsStored = false;
-        OnPropertyChanged(nameof(CanBeShared));
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
         // Sealed with a key this device cannot open, so there is nothing here to change: the readable
@@ -570,7 +570,6 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <inheritdoc cref="OnIsGroupChanged"/>
     partial void OnIsPrivateChanged(bool value)
     {
-        OnPropertyChanged(nameof(CanBeShared));
         if (!_isShowingWhatIsStored)
         {
             SaveListCommand.Execute(null);

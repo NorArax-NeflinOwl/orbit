@@ -173,10 +173,9 @@
         <!-- The panel's own BindingContext would decide its IsVisible too, so the visibility lives on a
              wrapper that still reads the view model. -->
         <VerticalStackLayout Grid.Row="4" IsVisible="{Binding IsShowingList}">
-            <!-- Hidden for a private warehouse, as Orbit.Web's editor hides it: there is no readable
-                 copy on the server to hand anybody, which is what being private means. -->
-            <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4"
-                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanBeShared, x:DataType=inventory:WarehouseDetailPage}" />
+            <!-- The panel hides itself for a private warehouse, as Orbit.Web's editor hides it: there
+                 is no readable copy on the server to hand anybody - see SharePanel.CanShare. -->
+            <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
 
         <!-- Back and away, laid out as the other three detail screens lay them out. -->
