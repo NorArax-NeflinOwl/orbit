@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
+using Orbit.Mobile.Chat;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
@@ -24,6 +26,7 @@ public sealed partial class GroupDetailViewModel : ObservableObject
     private readonly ChatClient _chatClient;
     private readonly ChatSynchronizer _synchronizer;
     private readonly SessionStore _sessionStore;
+    private readonly GroupHistorySharing _historySharing;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -43,12 +46,14 @@ public sealed partial class GroupDetailViewModel : ObservableObject
 
     public GroupDetailViewModel(
         ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
-        SessionStore sessionStore, Translations translations, IScreenNavigator navigator)
+        SessionStore sessionStore, GroupHistorySharing historySharing, Translations translations,
+        IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _synchronizer = synchronizer;
         _sessionStore = sessionStore;
+        _historySharing = historySharing;
         _translations = translations;
         _navigator = navigator;
     }
@@ -154,10 +159,54 @@ public sealed partial class GroupDetailViewModel : ObservableObject
             {
                 return;
             }
+
+            if (ShareHistoryWithNewMembers)
+            {
+                await ShareHistoryWithAsync(userId, cancellationToken);
+            }
         }
 
         IsAdding = false;
         await LoadAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Whether the people being added should also be given what was said before they arrived. Off by
+    /// default, and asked rather than assumed, because the past of a group is not obviously theirs -
+    /// Orbit.Web asks the same question with the same checkbox.
+    /// </summary>
+    [ObservableProperty]
+    private bool _shareHistoryWithNewMembers;
+
+    /// <summary>
+    /// Run after the person is already in, never before: the copies are sealed under the key pair they
+    /// have as a member, and a hand-off that failed leaves them in the group with the history they would
+    /// have had anyway rather than half-added. What went wrong is said out loud - a silent nothing looks
+    /// exactly like a switch that was never read.
+    /// </summary>
+    private async Task ShareHistoryWithAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var shared = await _historySharing.ShareWithAsync(_group!.Id, userId, cancellationToken);
+            Message = shared == 0
+                ? _translations["No earlier messages could be passed on - this device can't open any of them."]
+                : _translations.Format("Passed on {0} earlier messages.", shared);
+        }
+        catch (InvalidOperationException)
+        {
+            // The new member has never signed in, so there is no key to seal anything for.
+            Message = _translations[
+                "They're in the group, but the earlier messages couldn't be passed on until they've signed in once."];
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            Message = _translations["They're in the group, but this device has no key to open the earlier messages with."];
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["They're in the group, but passing on the earlier messages didn't work."];
+        }
     }
 
     [RelayCommand]

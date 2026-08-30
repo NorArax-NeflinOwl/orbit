@@ -222,6 +222,23 @@ public sealed class ChatClient
             $"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
 
     /// <summary>
+    /// Hands the group's past to a member who joined after it happened, already re-encrypted for them -
+    /// the server holds no key to any of it. Answers with how many copies were stored, which can be
+    /// fewer than were offered: one the recipient already has is not stored twice.
+    /// </summary>
+    public async Task<int> ShareGroupHistoryAsync(
+        Guid groupId, Guid recipientUserId, IReadOnlyList<SharedHistoryCopyDto> copies,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            $"api/chat/groups/{groupId}/history", new ShareGroupHistoryRequest(recipientUserId, copies),
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<int>(cancellationToken);
+    }
+
+    /// <summary>
     /// Who one group message reached and who has read it. Asked per message rather than drawn for every
     /// one of them, which is why it is a request of its own and not part of the conversation.
     /// </summary>

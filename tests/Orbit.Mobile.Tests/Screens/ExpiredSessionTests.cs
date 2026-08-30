@@ -118,6 +118,7 @@ public sealed class ExpiredSessionTests
         {
             var screen = new GroupDetailViewModel(
                 _repository, _chatClient, _synchronizer, _sessionStore,
+                GroupHistory.SharedBy(_chatClient, _sessionStore, _users),
                 new Translations(new InMemoryLanguageStore()), Navigator);
             screen.Open(group);
             return screen;

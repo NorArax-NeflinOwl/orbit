@@ -59,11 +59,26 @@
         <Button Grid.Row="3" Text="{controls:Translate 'Add someone'}" Command="{Binding StartAddingCommand}"
                 IsVisible="{Binding CanOfferAdding}" />
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsAdding}">
-            <Button Grid.Column="0" Text="{controls:Translate 'Add'}" Command="{Binding AddSelectedCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Cancel'}" Command="{Binding CancelAddingCommand}"
-                    Style="{StaticResource LinkButton}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="3" Spacing="10" IsVisible="{Binding IsAdding}">
+
+            <!-- The same question Orbit.Web asks beside its own "add" button. Off unless asked for: the
+                 past of a group is not obviously the newcomer's, and handing it over is not undoable. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <VerticalStackLayout Grid.Column="0">
+                    <Label Text="{controls:Translate 'Share the conversation so far'}" />
+                    <Label Text="{controls:Translate 'They will be able to read what was said before they joined.'}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+                <Switch Grid.Column="1" IsToggled="{Binding ShareHistoryWithNewMembers}" VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Share the conversation so far'}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Grid.Column="0" Text="{controls:Translate 'Add'}" Command="{Binding AddSelectedCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Cancel'}" Command="{Binding CancelAddingCommand}"
+                        Style="{StaticResource LinkButton}" />
+            </Grid>
+        </VerticalStackLayout>
 
         <Button Grid.Row="4" Text="{controls:Translate 'Back to groups'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />

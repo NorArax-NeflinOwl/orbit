@@ -35,6 +35,47 @@ public sealed class GroupDetailScreenTests
         Assert.Equal(string.Empty, screen.Message);
     }
 
+    /// <summary>
+    /// The past of a group is not obviously the newcomer's, so it is handed over only when asked for -
+    /// the same default Orbit.Web's checkbox has, and the reason it is a question at all.
+    /// </summary>
+    [Fact]
+    public async Task Adding_somebody_hands_over_nothing_unless_the_switch_says_to()
+    {
+        using var context = new GroupContext();
+        context.AddContact("Celina");
+        var screen = await context.OpenGroupAsync("Trip");
+
+        await screen.StartAddingCommand.ExecuteAsync(null);
+        screen.Candidates.Single().IsSelected = true;
+        await screen.AddSelectedCommand.ExecuteAsync(null);
+
+        Assert.False(screen.ShareHistoryWithNewMembers);
+        Assert.Empty(context.Server.HistoryHandedOver);
+    }
+
+    /// <summary>
+    /// And when it does say to, what came of it is said out loud - a silent nothing looks exactly like a
+    /// switch that was never read. This group has nothing anybody could open, which is the answer the
+    /// message has to carry rather than swallow.
+    /// </summary>
+    [Fact]
+    public async Task Asking_for_the_history_says_what_came_of_it()
+    {
+        using var context = new GroupContext();
+        context.AddContact("Celina");
+        var screen = await context.OpenGroupAsync("Trip");
+
+        await screen.StartAddingCommand.ExecuteAsync(null);
+        screen.Candidates.Single().IsSelected = true;
+        screen.ShareHistoryWithNewMembers = true;
+        await screen.AddSelectedCommand.ExecuteAsync(null);
+
+        // Still added, whatever became of the hand-off: the two are deliberately not one step.
+        Assert.Contains(screen.Members, member => member.DisplayName == "Celina");
+        Assert.NotEqual(string.Empty, screen.Message);
+    }
+
     [Fact]
     public async Task Somebody_already_in_the_group_is_not_offered_again()
     {
@@ -216,6 +257,7 @@ public sealed class GroupDetailScreenTests
 
             var screen = new GroupDetailViewModel(
                 _repository, _chatClient, _synchronizer, _sessionStore,
+                GroupHistory.SharedBy(_chatClient, _sessionStore, _users),
                 new Translations(new InMemoryLanguageStore()), Navigator);
             screen.Open(stored);
             await screen.LoadCommand.ExecuteAsync(null);

@@ -1256,6 +1256,17 @@ public static class PolishTranslations
             "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["This note is private, and its words are sealed with a key this phone doesn't have."] =
             "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["No earlier messages could be passed on - this device can't open any of them."] =
+            "Nie udało się przekazać żadnej wcześniejszej wiadomości — to urządzenie nie potrafi otworzyć ani jednej.",
+        ["Passed on {0} earlier messages."] =
+            "Przekazano wcześniejsze wiadomości: {0}.",
+        ["They're in the group, but passing on the earlier messages didn't work."] =
+            "Są już w grupie, ale przekazanie wcześniejszych wiadomości się nie udało.",
+        ["They're in the group, but the earlier messages couldn't be passed on until they've signed in once."] =
+            "Są już w grupie, ale wcześniejszych wiadomości nie da się przekazać, dopóki choć raz się nie zalogują.",
+        ["Share the conversation so far"] = "Udostępnij dotychczasową rozmowę",
+        ["They will be able to read what was said before they joined."] = "Będą mogli przeczytać to, co napisano przed ich dołączeniem.",
+        ["They're in the group, but this device has no key to open the earlier messages with."] = "Są już w grupie, ale to urządzenie nie ma klucza, którym można otworzyć wcześniejsze wiadomości.",
         ["Use this name"] = "Użyj tej nazwy",
         ["Only you can read it, and it cannot be shared."] =
             "Tylko Ty możesz to przeczytać i nie da się tego udostępnić.",

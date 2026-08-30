@@ -211,6 +211,9 @@ internal sealed class FakeChatServer : HttpMessageHandler
     /// <summary>Which groups the caller said they had read - one entry per time they said it.</summary>
     public List<Guid> GroupsMarkedRead { get; } = [];
 
+    /// <summary>Every hand-off of a group's past, in the order they were offered - see GroupHistorySharing.</summary>
+    public List<ShareGroupHistoryRequest> HistoryHandedOver { get; } = [];
+
     private async Task<HttpResponseMessage> HandleGroupsAsync(
         HttpRequestMessage request, string[] segments, CancellationToken cancellationToken)
     {
@@ -233,6 +236,16 @@ internal sealed class FakeChatServer : HttpMessageHandler
         if (group is null || group.Members.All(member => member.UserId != CallerUserId))
         {
             return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        // api/chat/groups/{id}/history - the past, re-sealed by whoever is sharing it.
+        if (segments.Length == 5 && segments[4] == "history")
+        {
+            var handedOver = JsonSerializer.Deserialize<ShareGroupHistoryRequest>(
+                await request.Content!.ReadAsStringAsync(cancellationToken), _json)!;
+
+            HistoryHandedOver.Add(handedOver);
+            return Json(handedOver.Copies.Count);
         }
 
         // api/chat/groups/{id}/read

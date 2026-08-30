@@ -336,13 +336,18 @@ Adding somebody to a group offers a checkbox: **"Also give them what was said be
 people who were in it, and handing it on is a decision somebody makes rather than what happens if they
 do not look.
 
-The work is the **adder's browser's**, because there is nowhere else it could happen. The server has
+The work is the **adder's own device's**, because there is nowhere else it could happen. The server has
 never held a key to any of this and cannot make a copy for the newcomer, so `GroupHistorySharing` reads
 the conversation the adder can already read, decrypts each message on their device, seals each one again
 under the pairwise key they share with the new member, and posts the results
 (`POST /api/chat/groups/{id}/history`). A message this device cannot open — one sealed under a key pair
 since replaced — is left behind rather than passed on as ciphertext the newcomer would stare at, and the
-page says how many actually went across.
+screen says how many actually went across.
+
+**Both clients can do it**, with a class of that name each: the browser's runs the crypto through
+`e2eeChat.js`, the phone's through `ChatIdentity` in process, and they hand the same thing to the same
+endpoint. Being able to add somebody to a group but not give them its past — which is what a phone
+could do until now — made the switch a thing you had to go and find a browser for.
 
 What the server will accept on their behalf is narrow, since it cannot read what it is being handed:
 
