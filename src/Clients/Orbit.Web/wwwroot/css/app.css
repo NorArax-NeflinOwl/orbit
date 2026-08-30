@@ -3959,6 +3959,13 @@ input.note-editor-title {
     min-width: 160px;
 }
 
+/* Grows into whatever the two dropdowns leave, and is the first thing to take a line of its own when
+   the row wraps: a name is typed rather than picked, so it is the one that wants room. */
+.inventory-filters-search {
+    flex: 1 1 200px;
+    min-width: 160px;
+}
+
 /* Narrow, because it holds "kg" rather than "Kilogram" - the full name is in each option's tooltip. */
 .editor-item-unit {
     width: 74px;
@@ -4073,4 +4080,28 @@ input.note-editor-title {
     padding: 0 12px 8px;
     color: var(--danger);
     font-size: 12px;
+}
+
+/* "Which warehouse is this in" - see Warehouses.razor. Above the shelves rather than inside one,
+   because that is the question it answers. */
+.warehouse-search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.warehouse-search input {
+    flex: 1;
+    min-width: 0;
+}
+
+.warehouse-search-results {
+    margin-bottom: 8px;
+}
+
+/* Where the thing is, pushed to the end of the row: it is what the search was for, so it wants the
+   place the eye stops rather than the one it passes over. */
+.warehouse-search-where {
+    margin-left: auto;
+    color: var(--text-primary);
 }

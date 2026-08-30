@@ -60,9 +60,13 @@ env:
   APK_NAME: orbit-android.apk
 
 jobs:
-  # The same suite main_orbit.yml runs, and deliberately run again rather than assumed: this workflow
-  # can fire on a commit that reached main without ever being a pull request, and the APK it produces
-  # is installed by a person rather than checked by anybody.
+  # The app's own tests, before anything is signed. Narrower than the whole solution on purpose: this
+  # fires on a push to main, and main_orbit.yml runs the full suite on that same commit at the same
+  # moment - paying for it twice bought nothing but minutes, on an account that ran out of them.
+  #
+  # What is left is the half that decides whether the APK is worth installing: everything the phone
+  # does that a device is not needed to check. A change that breaks the server and not the app fails in
+  # the other workflow, where it belongs.
   test:
     runs-on: ubuntu-latest
     steps:
@@ -76,14 +80,8 @@ jobs:
           cache: true
           cache-dependency-path: '**/*.csproj'
 
-      - name: Restore
-        run: dotnet restore Orbit.sln
-
-      - name: Build
-        run: dotnet build Orbit.sln --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test Orbit.sln --configuration Release --no-build
+      - name: Test the app's own code
+        run: dotnet test tests/Orbit.Mobile.Tests/Orbit.Mobile.Tests.csproj --configuration Release
 
   build:
     needs: test

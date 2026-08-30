@@ -11,16 +11,25 @@
 
 name: Build, test and deploy Orbit to Azure Container Apps
 
+# Merges only. A pull request used to run the test and android jobs too, and on a private repository
+# every one of those minutes is billed - a day of ordinary work exhausted the account's allowance and
+# stopped Actions outright, which costs more than a late red build does.
+#
+# What that gives up: a branch is now unchecked until it lands. What it does not give up is production,
+# because the deploy job needs the test job - a merge that breaks the suite fails here rather than
+# reaching Azure. The trade is "main goes red", not "broken code ships".
 on:
   push:
     branches:
       - main
-  # A pull request runs the test job only - the deploy job is skipped by its own condition below, so a
-  # branch is checked without any of it reaching Azure.
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
+
+# One deploy at a time. Two merges a minute apart would otherwise build, push and update the same two
+# Container Apps concurrently, and which image ends up running would be down to which job finished
+# last. Queued rather than cancelled: a deploy interrupted halfway leaves a state nobody chose.
+concurrency:
+  group: deploy-orbit
+  cancel-in-progress: false
 
 env:
   registryName: orbitcontainerregistry
@@ -66,13 +75,43 @@ jobs:
     # In this file rather than a workflow of its own, for the reason at the top: two workflows cannot
     # gate each other and drift instead. But deliberately *not* in the deploy job's `needs` - what goes
     # to Azure is the API and the web client, and a broken phone build is no reason to hold those back.
-    # This is a check on the pull request, not a gate on the release.
+    # This is a check on the merge, not a gate on the release.
+    #
+    # Five of those minutes were spent on every merge, including the ones that only touched the web
+    # client or the API, where the phone build could not possibly differ. The job now looks first and
+    # does nothing when nothing it builds from changed - the same list android-release.yml releases on,
+    # since the question is the same one: is this a different app?
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Decide whether the phone app changed
+        id: changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BEFORE="${{ github.event.before }}"
+
+          # A run with nothing to compare against - a manual dispatch, or the first push to a branch,
+          # where "before" is all zeroes. Build, rather than skip on a question that was never asked.
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          FILES=$(gh api "repos/${{ github.repository }}/compare/$BEFORE...${{ github.sha }}" \
+            --jq '.files[].filename')
+
+          if echo "$FILES" | grep -qE '^(src/Clients/Orbit\.(Maui|Mobile)/|src/Shared/Orbit\.(Contracts|Core|Localization)/)'; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nothing the phone app is built from changed. Not building it."
+          fi
+
       - name: Setup .NET SDK
+        if: steps.changed.outputs.value == 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
@@ -82,6 +121,7 @@ jobs:
       # .NET for Android compiles the Java half with a JDK, and the runner ships several. Naming one
       # keeps the build off whichever happens to be the default that week.
       - name: Setup JDK
+        if: steps.changed.outputs.value == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -91,9 +131,11 @@ jobs:
       # the platform the project compiles against has to exist in the Android SDK. Same list as the
       # Prerequisites section of src/Clients/Orbit.Maui/README.md.
       - name: Install the Android workload
+        if: steps.changed.outputs.value == 'true'
         run: dotnet workload install maui-android
 
       - name: Install the Android platform the head compiles against
+        if: steps.changed.outputs.value == 'true'
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
 
       # Release rather than Debug on purpose: it is the configuration that runs the linker, which is
@@ -101,12 +143,15 @@ jobs:
       # AndroidManifestOverlay.xml exists here - both are gitignored - so this is also the build that
       # proves the app still compiles and packages without them.
       - name: Build the Android head
+        if: steps.changed.outputs.value == 'true'
         run: dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj --framework net10.0-android --configuration Release
 
   deploy:
     # The gate the old arrangement only looked like it had: nothing below runs until the suite is green.
     needs: test
-    # Everything from here talks to Azure, so a pull request stops at the job above.
+    # Everything from here talks to Azure. Nothing triggers this workflow from a pull request any more
+    # (see the top of the file), so the condition is a belt to that braces: if the trigger is ever put
+    # back, a branch still stops at the job above rather than deploying itself.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # Deliberately NOT targeting a GitHub Environment here (e.g. `environment: production`), tempting

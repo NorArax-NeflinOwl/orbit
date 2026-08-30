@@ -65,28 +65,44 @@ else
 
             @* Narrows what is on screen, never what is saved: the whole list still goes back on Save,
                hidden rows included - see WarehouseFormModel.ToRequest, which reads Items and not this. *@
-            @if (_formModel.Items.Count > 0 && (ProductTypesOnTheShelf.Count > 0 || CategoriesOnTheShelf.Count > 0))
+            @if (_formModel.Items.Count > 0)
             {
                 <div class="inventory-filters">
-                    <label>
-                        @T["Product type"]
-                        <select @bind="_filter.ProductType" aria-label="@(T["Product type"])">
-                            <option value="">@T["Any type"]</option>
-                            @foreach (var productType in ProductTypesOnTheShelf)
-                            {
-                                <option value="@productType">@productType</option>
-                            }
-                        </select>
-                    </label>
-                    <label>
-                        @T["Category"]
-                        <select @bind="_filter.Category" aria-label="@(T["Category"])">
-                            <option value="">@T["Any category"]</option>
-                            @foreach (var category in CategoriesOnTheShelf)
-                            {
-                                <option value="@category">@category</option>
-                            }
-                        </select>
+                    @* The two are picked from what is on the shelf, so neither is offered where nothing
+                       is filed under it - a filter with one empty answer is a dead end. Searching by
+                       name has no such condition: a name is typed, and every item has one. *@
+                    @if (ProductTypesOnTheShelf.Count > 0)
+                    {
+                        <label>
+                            @T["Product type"]
+                            <select @bind="_filter.ProductType" aria-label="@(T["Product type"])">
+                                <option value="">@T["Any type"]</option>
+                                @foreach (var productType in ProductTypesOnTheShelf)
+                                {
+                                    <option value="@productType">@productType</option>
+                                }
+                            </select>
+                        </label>
+                    }
+                    @if (CategoriesOnTheShelf.Count > 0)
+                    {
+                        <label>
+                            @T["Category"]
+                            <select @bind="_filter.Category" aria-label="@(T["Category"])">
+                                <option value="">@T["Any category"]</option>
+                                @foreach (var category in CategoriesOnTheShelf)
+                                {
+                                    <option value="@category">@category</option>
+                                }
+                            </select>
+                        </label>
+                    }
+                    <label class="inventory-filters-search">
+                        @T["Search"]
+                        @* Narrows as it is typed rather than on Enter: the list is already on screen, so
+                           there is nothing to wait for. *@
+                        <input type="search" @bind="_filter.Name" @bind:event="oninput"
+                               placeholder="@(T["Item name"])" aria-label="@(T["Search items by name"])" />
                     </label>
                     @if (_filter.IsActive)
                     {
@@ -337,19 +353,34 @@ else
 
         public string Category { get; set; } = string.Empty;
 
-        public bool IsActive => ProductType.Length > 0 || Category.Length > 0;
+        /// <summary>
+        /// What the reader is looking for by name. Matched anywhere in the name rather than from the
+        /// start: a shelf holds "Flour, wheat" and "Wholemeal flour", and somebody typing "flour" means
+        /// both. The type and the category are picked from what is there, so they match exactly; this
+        /// one is typed, so it cannot.
+        /// </summary>
+        public string Name { get; set; } = string.Empty;
+
+        public bool IsActive => ProductType.Length > 0 || Category.Length > 0 || Name.Trim().Length > 0;
 
         public void Clear()
         {
             ProductType = string.Empty;
             Category = string.Empty;
+            Name = string.Empty;
         }
 
         public bool Matches(WarehouseItemFormModel item)
-            => Matches(ProductType, item.ProductType) && Matches(Category, item.Category);
+            => Matches(ProductType, item.ProductType)
+                && Matches(Category, item.Category)
+                && Contains(Name, item.Name);
 
         private static bool Matches(string chosen, string itemValue)
             => chosen.Length == 0 || string.Equals(chosen, itemValue.Trim(), StringComparison.CurrentCultureIgnoreCase);
+
+        private static bool Contains(string typed, string itemName)
+            => typed.Trim() is not { Length: > 0 } wanted
+                || itemName.Contains(wanted, StringComparison.CurrentCultureIgnoreCase);
     }
 
     private void AddItem()

@@ -255,6 +255,13 @@ public static class PolishTranslations
         ["What this is counted in"] = "W czym to jest liczone",
         ["Any type"] = "Dowolny typ",
         ["Any category"] = "Dowolna kategoria",
+        ["Search items by name"] = "Szukaj pozycji po nazwie",
+        ["Find an item in any warehouse"] = "Znajdź pozycję w dowolnym magazynie",
+        ["Looking through your warehouses…"] = "Przeszukuję magazyny…",
+        ["Nothing on any shelf matches that."] = "Nic na żadnej półce nie pasuje.",
+        ["Found in {0} of {1} warehouses."] = "Znaleziono w {0} z {1} magazynów.",
+        ["Found in {0} of {1} warehouses. These could not be opened, so nothing in them was searched: {2}"] =
+            "Znaleziono w {0} z {1} magazynów. Tych nie udało się otworzyć, więc nic w nich nie zostało przeszukane: {2}",
         ["Move up"] = "Przenieś w górę",
         ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",

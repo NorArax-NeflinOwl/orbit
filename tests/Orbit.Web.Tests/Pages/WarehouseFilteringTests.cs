@@ -215,6 +215,124 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         Assert.NotNull(_lastSavedJson);
         Assert.Contains("Piece", _lastSavedJson);
     }
+
+    [Fact]
+    public void A_name_can_be_searched_for()
+    {
+        RegisterApiClients([Item("Flour"), Item("Sugar"), Item("Salt")]);
+        var cut = Render();
+
+        SearchFor(cut, "sug");
+
+        Assert.Equal(["Sugar"], ItemNamesIn(cut));
+    }
+
+    [Fact]
+    public void The_name_is_matched_anywhere_in_it_and_whatever_the_case()
+    {
+        // A shelf holds "Flour, wheat" and "Wholemeal flour", and somebody typing "flour" means both.
+        RegisterApiClients([Item("Flour, wheat"), Item("Wholemeal FLOUR"), Item("Sugar")]);
+        var cut = Render();
+
+        SearchFor(cut, "flour");
+
+        Assert.Equal(["Flour, wheat", "Wholemeal FLOUR"], ItemNamesIn(cut));
+    }
+
+    [Fact]
+    public void A_search_and_a_filter_narrow_together_rather_than_apart()
+    {
+        RegisterApiClients([
+            Item("Flour", productType: "Food", category: "Dry"),
+            Item("Flour cleaner", productType: "Cleaning", category: "Under the sink")]);
+        var cut = Render();
+
+        SearchFor(cut, "flour");
+        ChooseProductType(cut, "Cleaning");
+
+        Assert.Equal(["Flour cleaner"], ItemNamesIn(cut));
+    }
+
+    [Fact]
+    public void A_name_nothing_matches_says_the_rest_is_still_there()
+    {
+        RegisterApiClients([Item("Flour"), Item("Sugar")]);
+        var cut = Render();
+
+        SearchFor(cut, "nothing like it");
+
+        Assert.Empty(ItemNamesIn(cut));
+        Assert.Contains("still there", cut.Markup);
+    }
+
+    [Fact]
+    public void A_searched_shelf_says_how_much_of_it_is_showing()
+    {
+        RegisterApiClients([Item("Flour"), Item("Sugar")]);
+        var cut = Render();
+
+        SearchFor(cut, "flour");
+
+        Assert.Contains("Showing 1 of 2 items", cut.Markup);
+    }
+
+    [Fact]
+    public void Clearing_brings_back_what_the_search_hid()
+    {
+        RegisterApiClients([Item("Flour"), Item("Sugar")]);
+        var cut = Render();
+        SearchFor(cut, "flour");
+
+        ClickButtonSaying(cut, "Show everything");
+
+        Assert.Equal(["Flour", "Sugar"], ItemNamesIn(cut));
+    }
+
+    [Fact]
+    public void Saving_a_searched_shelf_keeps_everything_on_it()
+    {
+        // The same rule the filters follow: it hides rows from the screen, not from the warehouse.
+        RegisterApiClients([Item("Flour"), Item("Sugar")]);
+        var cut = Render();
+        SearchFor(cut, "flour");
+
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        Assert.Contains("Flour", _lastSavedJson);
+        Assert.Contains("Sugar", _lastSavedJson);
+    }
+
+    [Fact]
+    public void Adding_an_item_steps_the_search_aside_too()
+    {
+        // A new row has no name at all, so under a search it would be added and hidden in one click.
+        RegisterApiClients([Item("Flour"), Item("Sugar")]);
+        var cut = Render();
+        SearchFor(cut, "flour");
+
+        ClickButtonSaying(cut, "Add item");
+
+        Assert.Equal(["Flour", "Sugar", ""], ItemNamesIn(cut));
+    }
+
+    [Fact]
+    public void A_shelf_filed_under_nothing_can_still_be_searched()
+    {
+        // Neither dropdown is offered when nothing is filed under a type or a category - but every item
+        // has a name, so the box that searches them is always there.
+        RegisterApiClients([Item("Flour", productType: "", category: ""), Item("Sugar", productType: "", category: "")]);
+        var cut = Render();
+
+        Assert.Empty(cut.FindAll(".inventory-filters select"));
+
+        SearchFor(cut, "flour");
+
+        Assert.Equal(["Flour"], ItemNamesIn(cut));
+    }
+
+    private static void SearchFor(IRenderedComponent<WarehouseEditor> cut, string name)
+        => cut.Find(".inventory-filters-search input").Input(name);
     private IRenderedComponent<WarehouseEditor> Render()
         => RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
 
