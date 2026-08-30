@@ -54,7 +54,7 @@
                                     <controls:Translate Text="This message can't be opened on this device." />
                                 </Label.Text>
                             </Label>
-                            <Label Text="{Binding SentAtUtc, StringFormat='{0:g}'}"
+                            <Label Text="{Binding SentAt}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
                                    FontSize="11" TextColor="{DynamicResource Accent}" />

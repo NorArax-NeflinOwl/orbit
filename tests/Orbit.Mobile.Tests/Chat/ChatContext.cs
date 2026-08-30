@@ -64,8 +64,9 @@ internal sealed class ChatContext : IDisposable
             Repository, ChatClient, directoryReader, encryptionKeyProvider,
             NullLogger<EncryptedChatMessageEditor>.Instance);
         Forwarder = new MessageForwarder(Sender);
+        Translations = new Translations(new InMemoryLanguageStore());
         Reader = new EncryptedChatMessageReader(
-            Repository, encryptionKeyProvider, sessionStore, new Translations(new InMemoryLanguageStore()));
+            Repository, encryptionKeyProvider, sessionStore, Translations);
         Synchronizer = new ChatSynchronizer(
             Repository, ChatClient, usersClient, Sender, NullLogger<ChatSynchronizer>.Instance);
     }
@@ -86,6 +87,9 @@ internal sealed class ChatContext : IDisposable
     public EncryptedChatMessageSender Sender { get; }
     public EncryptedChatMessageEditor Editor { get; }
     public MessageForwarder Forwarder { get; }
+    /// <summary>Held so a test can change the language and see what the reader writes in it.</summary>
+    public Translations Translations { get; }
+
     public EncryptedChatMessageReader Reader { get; }
     public ChatSynchronizer Synchronizer { get; }
 

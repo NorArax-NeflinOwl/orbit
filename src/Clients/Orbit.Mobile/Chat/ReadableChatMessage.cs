@@ -44,6 +44,14 @@ public sealed record ReadableChatMessage(
     /// </summary>
     public bool CannotBeOpened => Text is null && Invitation is null && EditAccessRequest is null;
 
+    /// <summary>
+    /// When it was sent, on the reader's own clock and in their own language. Carried rather than
+    /// formatted on screen: <see cref="SentAtUtc"/> is UTC, and XAML formatting a DateTimeOffset writes
+    /// it in its own offset and the phone's culture - so a message sent at 14:41 in Warsaw read
+    /// "12:41 PM" on a Polish screen. See EncryptedChatMessageReader, which writes this.
+    /// </summary>
+    public string SentAt { get; init; } = string.Empty;
+
     /// <summary>Whether this message is an offer to share something - see SharedItemInvitation.</summary>
     public bool IsInvitation => Invitation is not null;
 
