@@ -36,7 +36,7 @@ public partial class PinButton : ContentView
 		var translations = IPlatformApplication.Current?.Services.GetService<Translations>();
 		if (translations is not null)
 		{
-			SemanticProperties.SetDescription(this, translations[IsPinned ? "Unpin" : "Pin"]);
+			SemanticProperties.SetDescription(Tap, translations[IsPinned ? "Unpin" : "Pin"]);
 		}
 	}
 
