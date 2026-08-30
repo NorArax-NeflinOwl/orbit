@@ -142,7 +142,19 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Remind me daily'}" VerticalOptions="Center" />
                     <Switch Grid.Column="1" IsToggled="{Binding RemindDaily}" VerticalOptions="Center" />
                 </Grid>
-                <TimePicker Time="{Binding DailyReminderTime}" IsVisible="{Binding RemindDaily}" Format="{controls:TimePattern}" />
+                <TimePicker Time="{Binding DailyReminderTime}" Format="{controls:TimePattern}"
+                            IsVisible="{Binding HasDailyReminderTime}" />
+                <!-- Shown in the picker's place for an entry that arrived without an hour. A picker
+                     already showing nine o'clock is one somebody accepts by not touching it, and that
+                     would record nothing - see TaskItemEditor.ChooseAReminderTime. -->
+                <Button Text="{controls:Translate 'Choose a time'}" HorizontalOptions="Start"
+                        FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                        IsVisible="{Binding HasSomethingMissing}"
+                        Command="{Binding ChooseAReminderTimeCommand}" />
+                <!-- An hour is required once a daily reminder is on. Refused rather than quietly
+                     corrected: one nobody chose would be sent at midnight - see TaskItemEditor. -->
+                <Label Text="{Binding WhatIsMissing}" IsVisible="{Binding HasSomethingMissing}"
+                       FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
                 <Picker ItemsSource="{Binding Channels}"
                         SelectedItem="{Binding ChosenDailyReminderNotificationChannel}"
                         ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}"

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 using Orbit.Contracts.Tasks;
@@ -200,11 +201,40 @@ public sealed partial class TaskItemEditor : ObservableObject
             OverdueNotificationChannel = item.OverdueNotificationChannel,
             RemindDaily = item.RemindDaily,
             DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
-            DailyReminderTime = item.DailyReminderTimeOfDay.ToTimeSpan()
+            // Midnight reads as "never set". The wire carries a plain TimeOnly and so cannot say
+            // "none"; an entry reminded daily at exactly 00:00 is far more likely to be one nobody
+            // chose an hour for than one somebody wanted at midnight - and being asked is a smaller
+            // cost than a reminder arriving while everybody is asleep. Orbit.Web reads it the same way.
+            HasDailyReminderTime = !item.RemindDaily || item.DailyReminderTimeOfDay != default,
+            DailyReminderTime = item.DailyReminderTimeOfDay == default
+                ? DefaultReminderTime
+                : item.DailyReminderTimeOfDay.ToTimeSpan()
         };
     }
 
-    public bool CanSave => Description.Trim().Length > 0;
+    public bool CanSave => Description.Trim().Length > 0 && WhatIsMissing is null;
+
+    /// <summary>
+    /// What stops this entry being saved, or null when nothing does. Refused rather than quietly
+    /// corrected: a daily reminder with no hour would be sent at midnight, and an hour nobody chose is
+    /// worse than being asked for one.
+    /// </summary>
+    public string? WhatIsMissing
+        => RemindDaily && !HasDailyReminderTime
+            ? _translations["A daily reminder needs a time to arrive at."]
+            : null;
+
+    public bool HasSomethingMissing => WhatIsMissing is not null;
+
+    /// <summary>
+    /// Whether an hour has actually been chosen. False for an entry that arrived reminded daily at
+    /// midnight, which is what "nobody chose one" looks like on the wire - see the factory.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasDailyReminderTime = true;
+
+    /// <summary>Nine in the morning, which is what the picker opens on when no hour has been chosen.</summary>
+    private static readonly TimeSpan DefaultReminderTime = new(9, 0, 0);
 
     /// <summary>
     /// Everything this screen does not show - the id, whether it is done - travels through untouched.
@@ -237,6 +267,37 @@ public sealed partial class TaskItemEditor : ObservableObject
     {
         OnPropertyChanged(nameof(CanSave));
         Suggestions?.ShowFor(value);
+    }
+
+    /// <summary>Choosing an hour is what answers the refusal above, so the picker records that it was.</summary>
+    partial void OnDailyReminderTimeChanged(TimeSpan value)
+    {
+        HasDailyReminderTime = true;
+        SayWhetherItCanBeSaved();
+    }
+
+    /// <summary>
+    /// Puts an hour on an entry that arrived without one, and opens the picker at it. Its own button
+    /// rather than a picker showing nine o'clock from the start: a picker already showing an hour is
+    /// one somebody can accept by not touching it, and accepting it would leave nothing recorded - the
+    /// refusal would stand with no way through it. The browser has no such trap, its field being empty.
+    /// </summary>
+    [RelayCommand]
+    private void ChooseAReminderTime()
+    {
+        DailyReminderTime = DefaultReminderTime;
+        HasDailyReminderTime = true;
+    }
+
+    partial void OnRemindDailyChanged(bool value) => SayWhetherItCanBeSaved();
+
+    partial void OnHasDailyReminderTimeChanged(bool value) => SayWhetherItCanBeSaved();
+
+    private void SayWhetherItCanBeSaved()
+    {
+        OnPropertyChanged(nameof(WhatIsMissing));
+        OnPropertyChanged(nameof(HasSomethingMissing));
+        OnPropertyChanged(nameof(CanSave));
     }
 
     partial void OnKindChanged(string value) => SayWhatTheFormShows();

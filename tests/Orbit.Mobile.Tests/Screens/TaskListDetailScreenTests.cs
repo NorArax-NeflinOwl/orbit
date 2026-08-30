@@ -809,6 +809,58 @@ public sealed class TaskListDetailScreenTests
         Assert.False(context.Stored().IsPrivate);
     }
 
+    /// <summary>
+    /// The wire carries a plain TimeOnly and cannot say "no hour", so an entry reminded daily at exactly
+    /// midnight is read as one nobody chose an hour for - far likelier than one somebody wanted then,
+    /// and being asked is a smaller cost than a reminder arriving while everybody is asleep.
+    /// </summary>
+    [Fact]
+    public async Task A_daily_reminder_at_midnight_reads_as_one_with_no_hour_chosen()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        await context.AddRemindedAtMidnightAsync(screen, "Water the plants");
+
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+
+        Assert.False(screen.BeingEdited!.HasDailyReminderTime);
+        Assert.False(screen.BeingEdited.CanSave);
+        Assert.NotNull(screen.BeingEdited.WhatIsMissing);
+    }
+
+    [Fact]
+    public async Task Choosing_an_hour_is_what_lets_it_be_saved_again()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        await context.AddRemindedAtMidnightAsync(screen, "Water the plants");
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+
+        screen.BeingEdited!.ChooseAReminderTimeCommand.Execute(null);
+
+        Assert.True(screen.BeingEdited.HasDailyReminderTime);
+        Assert.Equal(new TimeSpan(9, 0, 0), screen.BeingEdited.DailyReminderTime);
+        Assert.True(screen.BeingEdited.CanSave);
+        Assert.Null(screen.BeingEdited.WhatIsMissing);
+    }
+
+    /// <summary>An entry nobody asked to be reminded about is not missing an hour.</summary>
+    [Fact]
+    public async Task An_entry_with_no_daily_reminder_is_not_asked_for_an_hour()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        screen.NewItemDescription = "Buy flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+
+        Assert.True(screen.BeingEdited!.CanSave);
+        Assert.Null(screen.BeingEdited.WhatIsMissing);
+    }
+
     /// <summary>Whoever is signed in - only its identity matters, as the key is kept per account.</summary>
     private static readonly Guid Owner = Guid.Parse("11111111-0000-4000-8000-000000000001");
 
@@ -853,6 +905,26 @@ public sealed class TaskListDetailScreenTests
 
         /// <summary>What this account has already named - see NameSuggestions. Empty unless a test fills it.</summary>
         public FakeSuggestionsServer SuggestionsServer { get; } = new();
+
+        /// <summary>
+        /// An entry reminded daily at exactly midnight, which is what "nobody chose an hour" looks like
+        /// on the wire. Written straight into the store: the phone's own editor cannot produce one.
+        /// </summary>
+        public async Task AddRemindedAtMidnightAsync(TaskListDetailViewModel screen, string description)
+        {
+            screen.NewItemDescription = description;
+            await screen.AddItemCommand.ExecuteAsync(null);
+
+            await using var dbContext = _localStore.CreateDbContext();
+            var stored = dbContext.TaskLists.Single();
+            stored.Items = [.. stored.Items.Select(item => item with
+            {
+                RemindDaily = true,
+                DailyReminderTimeOfDay = default
+            })];
+
+            await dbContext.SaveChangesAsync();
+        }
 
         /// <summary>
         /// The one row as it really sits in the database, rather than as a read hands it back opened.

@@ -1307,6 +1307,9 @@ public static class PolishTranslations
         ["{0} joined {1}"] = "{0} dołączył(a) do grupy {1}",
         ["{0} shared the conversation so far"] = "{0} udostępnił(a) dotychczasową rozmowę",
         ["Somebody"] = "Ktoś",
+        ["A daily reminder needs a time to arrive at."] =
+            "Codzienne przypomnienie potrzebuje godziny, o której ma przyjść.",
+        ["Choose a time"] = "Wybierz godzinę",
         ["Share the conversation so far"] = "Udostępnij dotychczasową rozmowę",
         ["They will be able to read what was said before they joined."] = "Będą mogli przeczytać to, co napisano przed ich dołączeniem.",
         ["They're in the group, but this device has no key to open the earlier messages with."] = "Są już w grupie, ale to urządzenie nie ma klucza, którym można otworzyć wcześniejsze wiadomości.",
