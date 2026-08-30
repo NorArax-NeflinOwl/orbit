@@ -54,6 +54,41 @@ public sealed class TranslationTests
         Assert.Equal(CultureInfo.GetCultureInfo("en-US"), Build(AppLanguage.English).DisplayCulture);
     }
 
+    /// <summary>
+    /// A control that formats its own value gets the pattern rather than a string - MAUI's DatePicker
+    /// and TimePicker render against the phone's culture, not this one, so a Polish calendar reading
+    /// "sierpień 2026" sat above a field reading "8/30/2026". Found on a device.
+    /// </summary>
+    [Fact]
+    public void A_picker_is_told_how_the_reader_writes_a_date()
+    {
+        var polish = Build(AppLanguage.Polish);
+        var english = Build(AppLanguage.English);
+
+        Assert.Equal("d.MM.yyyy", polish.DatePattern);
+        Assert.Equal("HH:mm", polish.TimePattern);
+        Assert.NotEqual(polish.DatePattern, english.DatePattern);
+    }
+
+    /// <summary>
+    /// The patterns are numeric and separator-only, which matters because the control renders them
+    /// against whatever culture the phone is set to: a pattern naming a month or an AM/PM designator
+    /// would come out in a third language on a phone set to a third language.
+    /// </summary>
+    [Fact]
+    public void The_pattern_says_the_same_thing_whatever_the_phone_is_set_to()
+    {
+        var written = new DateTime(2026, 8, 30, 15, 0, 0);
+        var polish = Build(AppLanguage.Polish);
+
+        Assert.Equal(
+            written.ToString(polish.DatePattern, CultureInfo.GetCultureInfo("de-DE")),
+            written.ToString(polish.DatePattern, CultureInfo.GetCultureInfo("en-US")));
+        Assert.Equal(
+            written.ToString(polish.TimePattern, CultureInfo.GetCultureInfo("de-DE")),
+            written.ToString(polish.TimePattern, CultureInfo.GetCultureInfo("en-US")));
+    }
+
     [Fact]
     public void The_choice_survives_a_restart()
     {

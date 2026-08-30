@@ -141,7 +141,7 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Expires'}" VerticalOptions="Center" />
                     <Switch Grid.Column="1" IsToggled="{Binding Expires}" VerticalOptions="Center" />
                 </Grid>
-                <DatePicker Date="{Binding ExpiryDate}" IsVisible="{Binding Expires}" />
+                <DatePicker Date="{Binding ExpiryDate}" IsVisible="{Binding Expires}" Format="{controls:DatePattern}" />
 
                 <Label Text="{controls:Translate 'Expiry notification'}" FontSize="12"
                        Style="{StaticResource SubtleLabel}" />

@@ -124,7 +124,7 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Due date'}" VerticalOptions="Center" />
                     <Switch Grid.Column="1" IsToggled="{Binding HasDueDate}" VerticalOptions="Center" />
                 </Grid>
-                <DatePicker Date="{Binding DueDate}" IsVisible="{Binding HasDueDate}" />
+                <DatePicker Date="{Binding DueDate}" IsVisible="{Binding HasDueDate}" Format="{controls:DatePattern}" />
 
                 <Label Text="{controls:Translate 'When it is overdue'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
                 <Picker ItemsSource="{Binding Channels}"
@@ -135,7 +135,7 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Remind me daily'}" VerticalOptions="Center" />
                     <Switch Grid.Column="1" IsToggled="{Binding RemindDaily}" VerticalOptions="Center" />
                 </Grid>
-                <TimePicker Time="{Binding DailyReminderTime}" IsVisible="{Binding RemindDaily}" />
+                <TimePicker Time="{Binding DailyReminderTime}" IsVisible="{Binding RemindDaily}" Format="{controls:TimePattern}" />
                 <Picker ItemsSource="{Binding Channels}"
                         SelectedItem="{Binding ChosenDailyReminderNotificationChannel}"
                         ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}"

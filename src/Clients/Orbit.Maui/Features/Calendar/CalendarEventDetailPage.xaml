@@ -56,8 +56,8 @@
             <!-- Two dates, not one: the end used to be taken from the start, so an event spanning days
                  was quietly shortened the first time anybody edited it. -->
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <DatePicker Grid.Column="0" Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" />
-                <DatePicker Grid.Column="1" Date="{Binding EndDate}" IsEnabled="{Binding CanEdit}" />
+                <DatePicker Grid.Column="0" Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}" />
+                <DatePicker Grid.Column="1" Date="{Binding EndDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}" />
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -74,8 +74,8 @@
                         <Setter Property="IsVisible" Value="False" />
                     </DataTrigger>
                 </Grid.Triggers>
-                <TimePicker Grid.Column="0" Time="{Binding StartTime}" IsEnabled="{Binding CanEdit}" />
-                <TimePicker Grid.Column="1" Time="{Binding EndTime}" IsEnabled="{Binding CanEdit}" />
+                <TimePicker Grid.Column="0" Time="{Binding StartTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}" />
+                <TimePicker Grid.Column="1" Time="{Binding EndTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}" />
             </Grid>
 
             <!-- Whether it repeats, and how. The three frequencies are Orbit.Core's own. -->
@@ -102,7 +102,7 @@
                             VerticalOptions="Center" />
                 </Grid>
                 <DatePicker Date="{Binding RecurrenceUntil}" IsVisible="{Binding RecurrenceEnds}"
-                            IsEnabled="{Binding CanEdit}" />
+                            IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}" />
             </VerticalStackLayout>
 
             <!-- What is set, then what can be added. Picking from the list adds it: an "add" button

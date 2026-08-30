@@ -48,6 +48,18 @@ public sealed class Translations
     /// </summary>
     public CultureInfo DisplayCulture => Language == AppLanguage.Polish ? PolishCulture : EnglishCulture;
 
+    /// <summary>
+    /// How a date is written here - "d.MM.yyyy" for a Polish reader, "M/d/yyyy" for an English one.
+    ///
+    /// Handed to controls that format a value themselves instead of being given a string. MAUI's
+    /// DatePicker and TimePicker render against the phone's own culture rather than this one, so a
+    /// Polish calendar showed "sierpień 2026" above a field reading "8/30/2026".
+    /// </summary>
+    public string DatePattern => DisplayCulture.DateTimeFormat.ShortDatePattern;
+
+    /// <inheritdoc cref="DatePattern"/>
+    public string TimePattern => DisplayCulture.DateTimeFormat.ShortTimePattern;
+
     public string this[string english]
         => Language == AppLanguage.Polish && PolishTranslations.ByEnglish.TryGetValue(english, out var polish)
             ? polish
