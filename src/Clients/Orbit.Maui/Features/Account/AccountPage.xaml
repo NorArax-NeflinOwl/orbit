@@ -200,7 +200,9 @@
                 <Button Text="{controls:Translate 'Export everything'}" HorizontalOptions="Start"
                         IsEnabled="{Binding IsOnline}" Command="{Binding ExportCommand}" />
 
-                <Label Text="{controls:Translate 'Import'}" FontAttributes="Bold" Margin="0,8,0,0" />
+                <Label Text="{controls:Translate 'Import'}" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
+                <Label Text="{controls:Translate 'Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Button x:Name="ImportButton" Text="{controls:Translate 'Import'}" HorizontalOptions="Start"
                         IsEnabled="{Binding IsOnline}" Clicked="OnImportClicked" />
 

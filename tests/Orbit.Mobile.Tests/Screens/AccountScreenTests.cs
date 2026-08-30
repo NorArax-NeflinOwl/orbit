@@ -3,6 +3,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using System.Text;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Tests.TestDoubles;
@@ -200,6 +201,41 @@ public sealed class AccountScreenTests
 
         Assert.True(screen.HasTransferMessage);
     }
+    /// <summary>
+    /// A file too large to hold is refused before it becomes a string. An export of a whole account is
+    /// not large by file standards, but a hand-made one could be, and here the whole thing would sit in
+    /// a phone's memory at once - Orbit.Web caps its own picker at the same size.
+    /// </summary>
+    [Fact]
+    public async Task A_file_too_large_to_hold_is_refused_without_being_read()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        await screen.ImportAsync(StreamOf(AccountViewModel.MaximumImportSizeBytes + 1));
+
+        Assert.Null(context.Transfer.Imported);
+        Assert.True(screen.HasTransferMessage);
+    }
+
+    /// <summary>And one right up against the ceiling is not, so the guard refuses only what it must.</summary>
+    [Fact]
+    public async Task A_file_at_the_ceiling_is_still_read()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        await screen.ImportAsync(StreamOf(AccountViewModel.MaximumImportSizeBytes));
+
+        // Nonsense rather than an export, so it is refused for what it says and not for its size - what
+        // matters is that it was read at all.
+        Assert.Null(context.Transfer.Imported);
+        Assert.True(screen.HasTransferMessage);
+    }
+
+    private static Stream StreamOf(long sizeBytes)
+        => new MemoryStream(Encoding.UTF8.GetBytes(new string('x', (int)sizeBytes)));
+
 
     /// <summary>
     /// Deleting the account has to leave nothing of it behind on the phone. The session is the obvious

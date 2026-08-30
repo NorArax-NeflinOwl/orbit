@@ -726,6 +726,7 @@ public static class PolishTranslations
             "Nie udało się narysować mapy, ale Twoje położenie zostało zapisane.",
         ["Your location couldn't be read in this browser."] = "Nie udało się odczytać położenia w tej przeglądarce.",
         ["Couldn't build the export. Try again."] = "Nie udało się przygotować eksportu. Spróbuj ponownie.",
+        ["That file is too large to import."] = "Ten plik jest za duży do zaimportowania.",
         ["Couldn't import that file. Try again."] = "Nie udało się zaimportować tego pliku. Spróbuj ponownie.",
         ["That file didn't contain an Orbit export."] = "Ten plik nie zawiera eksportu z Orbita.",
         ["Orbit couldn't read that file. It may have been written by a different version."] =

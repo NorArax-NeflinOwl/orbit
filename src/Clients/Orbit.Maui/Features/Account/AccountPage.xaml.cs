@@ -69,9 +69,10 @@ public partial class AccountPage : ContentPage
 			return;
 		}
 
+		// The stream rather than its text: the view model refuses a file over its ceiling without ever
+		// turning one into a string, which on a phone is the thing worth avoiding.
 		await using var stream = await picked.OpenReadAsync();
-		using var reader = new StreamReader(stream);
-		await _viewModel.ImportAsync(await reader.ReadToEndAsync());
+		await _viewModel.ImportAsync(stream);
 	}
 
 	/// <summary>The tab strip's buttons need the screen's command, and RelativeSource walks the visual tree.</summary>
