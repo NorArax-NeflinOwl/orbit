@@ -166,6 +166,15 @@ public sealed partial class TasksViewModel : ObservableObject
         OnPropertyChanged(nameof(Filters));
     }
 
+    /// <summary>
+    /// Whether there is anything to say. Message was set and never shown: nothing on the page was
+    /// bound to it, so pinning with no connection did nothing and said nothing - the failure this
+    /// screen writes the message to avoid.
+    /// </summary>
+    public bool HasMessage => Message.Length > 0;
+
+    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+
     /// <summary>What the sort button says, which is what it is currently sorted by.</summary>
     public string SortDescription => TaskListView.Describe(SortOrder, _translations);
 

@@ -278,6 +278,28 @@ public sealed class TasksScreenTests : IDisposable
         Assert.True(recounted);
         Assert.Equal(2, screen.Filters.Single(filter => filter.Status is null).Count);
     }
+
+    /// <summary>
+    /// Pinning needs the server, and a phone with no connection has to be told so - the message exists
+    /// for exactly that. Nothing on the page was bound to it, so the tap did nothing and said nothing.
+    /// Found on a device, with the phone's radios switched off.
+    /// </summary>
+    [Fact]
+    public async Task Pinning_with_no_connection_has_something_to_say()
+    {
+        await AddAsync("Move house");
+        var screen = await OpenAsync();
+        _server.IsUnreachable = true;
+
+        var announced = false;
+        screen.PropertyChanged += (_, changed) => announced |= changed.PropertyName == nameof(screen.HasMessage);
+        await screen.TogglePinCommand.ExecuteAsync(screen.TaskLists.Single());
+
+        Assert.True(screen.HasMessage);
+        Assert.NotEmpty(screen.Message);
+        // And says so out loud: the page shows it only when it is told the property changed.
+        Assert.True(announced);
+    }
     private static IReadOnlyList<string> Titles(TasksViewModel screen)
         => [.. screen.TaskLists.Select(row => row.Title)];
 

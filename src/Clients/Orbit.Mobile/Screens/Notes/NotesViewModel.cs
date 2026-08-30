@@ -56,6 +56,11 @@ public sealed partial class NotesViewModel : ObservableObject
 
     public ObservableCollection<NoteListItem> Notes { get; } = [];
 
+    /// <inheritdoc cref="Tasks.TasksViewModel.HasMessage"/>
+    public bool HasMessage => Message.Length > 0;
+
+    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+
     /// <summary>
     /// Shows what is already on the phone first, then synchronises. The other order would leave the
     /// screen blank for the length of a round trip, and empty for as long as there is no network at all.

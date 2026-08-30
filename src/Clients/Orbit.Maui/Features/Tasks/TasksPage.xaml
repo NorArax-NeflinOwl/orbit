@@ -15,7 +15,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
 
 
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Tasks'}">
@@ -68,13 +68,19 @@
                     Clicked="OnSortClicked" />
         </Grid>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <!-- The one thing this screen has to say for itself, which today is only about pinning. It was
+             set and never shown, so pinning with no connection did nothing and said nothing - see
+             TasksViewModel.HasMessage. -->
+        <Label Grid.Row="2" Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
+               LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'New list'}" Text="{Binding NewListTitle}"
                    ReturnType="Done" ReturnCommand="{Binding AddListCommand}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddListCommand}" />
         </Grid>
 
-        <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding TaskLists}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenListCommand}"
