@@ -9,17 +9,11 @@
     <!-- The pin Orbit.Web draws (see its PinButton.razor), on the same 20x20 canvas and with the same
          two paths: filled means pinned, outlined means "pin this". The phone used two red emoji that
          differ by the angle of the pin, which is not a difference anybody reads at this size. -->
-    <Grid WidthRequest="44" HeightRequest="36" BackgroundColor="Transparent">
-        <Grid.GestureRecognizers>
-            <TapGestureRecognizer
-                Command="{Binding Command, Source={x:Reference Root}, x:DataType=controls:PinButton}"
-                CommandParameter="{Binding CommandParameter, Source={x:Reference Root}, x:DataType=controls:PinButton}" />
-        </Grid.GestureRecognizers>
-
+    <Grid WidthRequest="44" HeightRequest="44" BackgroundColor="Transparent">
         <Path Data="M12.3 2.4 17.6 7.7l-2.1.6a3 3 0 0 0-1.5.9l-2.4 2.7 1 1a1 1 0 0 1-1.4 1.4L5.7 9.8a1 1 0 0 1 1.4-1.4l1 1 2.7-2.4a3 3 0 0 0 .9-1.5Z"
               Stroke="{DynamicResource Accent}"
               StrokeThickness="1.5" Aspect="Uniform" WidthRequest="17" HeightRequest="17"
-              HorizontalOptions="Center" VerticalOptions="Center">
+              HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True">
             <Path.Triggers>
                 <DataTrigger TargetType="Path"
                              Binding="{Binding IsPinned, Source={x:Reference Root}, x:DataType=controls:PinButton}"
@@ -33,6 +27,13 @@
         <Path Data="m7.4 12.6-4 4"
               Stroke="{DynamicResource Accent}"
               StrokeThickness="1.5" Aspect="Uniform" WidthRequest="17" HeightRequest="17"
-              HorizontalOptions="Center" VerticalOptions="Center" />
+              HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
+
+        <!-- The tap lives on a Button rather than on the Grid: a Grid carrying a gesture is focusable
+             to a screen reader but not clickable, so the double tap that activates a control does
+             nothing to it. The drawn pin sits underneath and takes no input. -->
+        <Button x:Name="Tap" BackgroundColor="Transparent"
+                Command="{Binding Command, Source={x:Reference Root}, x:DataType=controls:PinButton}"
+                CommandParameter="{Binding CommandParameter, Source={x:Reference Root}, x:DataType=controls:PinButton}" />
     </Grid>
 </ContentView>

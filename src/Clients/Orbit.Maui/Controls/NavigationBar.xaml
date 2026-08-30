@@ -27,62 +27,52 @@
           BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
 
         <!-- The logo is the way back to the dashboard, exactly as it is on the web at this width. -->
-        <Grid Grid.Column="0" WidthRequest="34" HeightRequest="34" VerticalOptions="Center">
-            <Grid.GestureRecognizers>
-                <TapGestureRecognizer Command="{Binding GoToDashboardCommand}" />
-            </Grid.GestureRecognizers>
-            <controls:OrbitMark MarkSize="26" HorizontalOptions="Center" VerticalOptions="Center" />
+        <Grid Grid.Column="0" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
+            <controls:OrbitMark MarkSize="26" HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
+            <Button Command="{Binding GoToDashboardCommand}" BackgroundColor="Transparent"
+                    SemanticProperties.Description="{controls:Translate 'Dashboard'}" />
         </Grid>
 
         <ScrollView Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
                     VerticalOptions="Center">
             <HorizontalStackLayout Spacing="2">
                 <Grid Style="{StaticResource NavigationBarIcon}">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToNotesCommand}" />
-                    </Grid.GestureRecognizers>
-                    <Path Data="{StaticResource NotesIcon}" Style="{StaticResource NavigationBarIconPath}" />
+                    <Path Data="{StaticResource NotesIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
+                    <Button Command="{Binding GoToNotesCommand}" BackgroundColor="Transparent"
+                            SemanticProperties.Description="{controls:Translate 'Notes'}" />
                 </Grid>
                 <Grid Style="{StaticResource NavigationBarIcon}">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToTasksCommand}" />
-                    </Grid.GestureRecognizers>
-                    <Path Data="{StaticResource TasksIcon}" Style="{StaticResource NavigationBarIconPath}" />
+                    <Path Data="{StaticResource TasksIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
+                    <Button Command="{Binding GoToTasksCommand}" BackgroundColor="Transparent"
+                            SemanticProperties.Description="{controls:Translate 'Tasks'}" />
                 </Grid>
                 <Grid Style="{StaticResource NavigationBarIcon}">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToCalendarCommand}" />
-                    </Grid.GestureRecognizers>
-                    <Path Data="{StaticResource CalendarIcon}" Style="{StaticResource NavigationBarIconPath}" />
+                    <Path Data="{StaticResource CalendarIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
+                    <Button Command="{Binding GoToCalendarCommand}" BackgroundColor="Transparent"
+                            SemanticProperties.Description="{controls:Translate 'Calendar'}" />
                 </Grid>
                 <Grid Style="{StaticResource NavigationBarIcon}">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToInventoryCommand}" />
-                    </Grid.GestureRecognizers>
-                    <Path Data="{StaticResource InventoryIcon}" Style="{StaticResource NavigationBarIconPath}" />
+                    <Path Data="{StaticResource InventoryIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
+                    <Button Command="{Binding GoToInventoryCommand}" BackgroundColor="Transparent"
+                            SemanticProperties.Description="{controls:Translate 'Inventory'}" />
                 </Grid>
                 <!-- Hidden rather than shown-and-refused, as the web's sidebar does it: a link that
                      only ever leads to "not unlocked" is not a link. -->
                 <Grid Style="{StaticResource NavigationBarIcon}" IsVisible="{Binding CanUseLocation}">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToMapCommand}" />
-                    </Grid.GestureRecognizers>
-                    <Path Data="{StaticResource MapIcon}" Style="{StaticResource NavigationBarIconPath}" />
+                    <Path Data="{StaticResource MapIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
+                    <Button Command="{Binding GoToMapCommand}" BackgroundColor="Transparent"
+                            SemanticProperties.Description="{controls:Translate 'Map'}" />
                 </Grid>
                 <Grid Style="{StaticResource NavigationBarIcon}" IsVisible="{Binding CanUseConversations}">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding GoToContactsCommand}" />
-                    </Grid.GestureRecognizers>
-                    <Path Data="{StaticResource ContactsIcon}" Style="{StaticResource NavigationBarIconPath}" />
+                    <Path Data="{StaticResource ContactsIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
+                    <Button Command="{Binding GoToContactsCommand}" BackgroundColor="Transparent"
+                            SemanticProperties.Description="{controls:Translate 'Contacts'}" />
                 </Grid>
             </HorizontalStackLayout>
         </ScrollView>
 
         <!-- Initials rather than a picture: Orbit has no avatars to show, and the web does the same. -->
-        <Grid Grid.Column="2" WidthRequest="40" HeightRequest="40" VerticalOptions="Center">
-            <Grid.GestureRecognizers>
-                <TapGestureRecognizer Command="{Binding ToggleMenuCommand}" />
-            </Grid.GestureRecognizers>
+        <Grid Grid.Column="2" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
 
             <Border StrokeThickness="0" BackgroundColor="{DynamicResource Accent}"
                     HeightRequest="34" WidthRequest="34" HorizontalOptions="Center" VerticalOptions="Center">
@@ -111,6 +101,12 @@
                     <RoundRectangle CornerRadius="7" />
                 </Border.StrokeShape>
             </Border>
+
+            <!-- Over the initials, the badge and the presence dot rather than around them: a Grid with a
+                 gesture on it is focusable to a screen reader but not clickable, so the double tap that
+                 activates a control does nothing to it. A Button is both. -->
+            <Button Command="{Binding ToggleMenuCommand}" BackgroundColor="Transparent"
+                    SemanticProperties.Description="{controls:Translate 'Account menu'}" />
         </Grid>
     </Grid>
 </ContentView>

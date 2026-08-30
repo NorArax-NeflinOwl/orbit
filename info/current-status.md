@@ -2,13 +2,11 @@
 
 Orbit is a working prototype. Accounts (including Google sign-in and full self-service account
 management), notes, tasks, calendar, an inventory planner, and end-to-end-encrypted chat — one-to-one
-and group — are implemented end to end in the Blazor WebAssembly web client. Locations can now be
-recorded, seen on a map, and shared with a contact under the same encryption chat uses. The mobile
-client is no longer a plan: `Orbit.Mobile` and `Orbit.Maui` build an Android app that CI signs on
-every change to it and that `/download` links to, with the phasing in
-[Orbit.Maui — Plan](orbit-maui-plan.md#10-phasing) marking phases 0 through 6 built. A real two-way
-Google Calendar sync, as opposed to the hand-off links Orbit builds today, is what remains unbuilt of
-the product's stated scope.
+and group — are implemented end to end. Locations can now be recorded, seen on a map, and shared with a
+contact under the same encryption chat uses. There are two clients: the Blazor WebAssembly web client,
+and a .NET MAUI mobile client whose Android head runs on a real device. A real two-way Google Calendar
+sync, as opposed to the hand-off links Orbit builds today, is what remains unbuilt of the product's
+stated scope.
 
 ## Implemented vs. planned
 
@@ -33,7 +31,8 @@ the product's stated scope.
 | Sharing a location with another user | Implemented | [Functionality](functionality.md#sharing-a-position-with-a-contact) |
 | Google Calendar and Maps links (verified/Google accounts) | Implemented | [Functionality](functionality.md#handing-something-off-to-google) |
 | Two-way Google Calendar sync | Not started | [Future Plan](future-plan.md#what-real-google-calendar-sync-would-take) |
-| Mobile client (`Orbit.Mobile` + `Orbit.Maui`) | Android released; iOS head unreleased (needs a Mac) | [Orbit.Maui — Plan](orbit-maui-plan.md) |
+| Mobile client (`Orbit.Maui`, iOS + Android) | Implemented — Android verified on a device, iOS unverified | [Orbit.Maui — Plan](orbit-maui-plan.md) |
+| Push delivery to a phone | Not working on Android yet — see below | [Orbit.Maui — Plan](orbit-maui-plan.md#42-push-notifications-web-push-apns-and-fcm-are-three-different-things) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Password manager and password generator | Not started | [Future Plan](future-plan.md#planned-features) |
 
@@ -42,7 +41,7 @@ Google ID-token verification behind Google sign-in, and nothing else - the calen
 are links the browser builds, needing no API. The Calendar/Contacts sync it was originally
 reserved for still hasn't been started — see [Future Plan](future-plan.md#planned-features).
 
-## The signed-in experience today
+## The signed-in experience today (web)
 
 Registering or logging in happens on `/register`/`/login`, either with an email address and password
 or with Google. Everything else is behind authentication. Signing in lands on the dashboard (`/`),
@@ -65,12 +64,38 @@ the push half needs the user to approve browser notifications first — see
 [Functionality — Push notifications](functionality.md#push-notifications) and
 [In-app notifications](functionality.md#in-app-notifications).
 
+## The mobile client
+
+`src/Clients/` holds two projects rather than one, and the split matters when reading the tests:
+
+- **`Orbit.Mobile`** (`net10.0`) — every screen's view model, the local store, the sync spine, the
+  crypto, the outbox. In `Orbit.sln`, so `dotnet test` covers it.
+- **`Orbit.Maui`** (`net10.0-android`, `net10.0-ios`) — the two app heads: XAML pages, platform
+  services, resources. Deliberately *not* in `Orbit.sln`, because CI runs on `ubuntu-latest`, which
+  can build neither head. Nothing left in here can be reached by a test, which is why so little is.
+
+Phases 0-6 of the [plan](orbit-maui-plan.md#10-phasing) are built: the version gate, offline SQLite
+with an outbox and delta pull, end-to-end-encrypted chat against the same test vectors the browser
+uses, tasks, calendar, inventory, group chat, and location sharing. Of phase 7, the in-app feed,
+notification settings, deep links from a notification, and uploadable diagnostic logs are built; push
+*delivery* is not (below). Phase 8 — widgets, Live Activities, accessibility — has not been started.
+
+**Android is the verified head.** It has been driven on an emulator and a device: signing in, syncing
+each feature both ways, chatting, and sharing. iOS was verified on a simulator at phase 1 and not
+since — phases 2-7 were built and driven on Android, and iOS is now deferred for want of an Apple
+developer account and signing key.
+
 ## Not yet implemented
 
-- **The iOS half of the mobile client.** `Orbit.Maui` targets `net10.0-ios` as well as
-  `net10.0-android`, but nothing builds or releases it: Apple's toolchain is macOS-only and every
-  runner here is Linux or Windows, so the iOS head has never run on a device. What ships today is the
-  Android app. See [Orbit.Maui — Plan §1.1](orbit-maui-plan.md#11-can-this-be-developed-from-windows).
+- **Push delivered to a phone.** The server sends through Firebase, and the app asks Android for
+  permission — but it cannot yet obtain the FCM registration token that says where to deliver, which
+  needs the Firebase SDK in the app and a `google-services.json` for this application id. Until both
+  exist, `PhonePushNotifications` answers `NotAvailableHere` rather than registering a device the
+  server would then count as reachable. Browser push works and is unaffected.
+- **iOS beyond phase 1 — deferred.** The head is written and everything in `Orbit.Mobile` is shared
+  with it, but nothing built since phase 1 has been run there. It is blocked on an Apple developer
+  account and a signing key rather than on the work: without them the head cannot be produced at all.
+  What that leaves unknown is the head's own platform services, not the features.
 - **Two-way Google Calendar sync** — writing an event onto a recipient's real Google Calendar. What
   ships today is link-based hand-off, which needs no Google API at all — see
   [Functionality](functionality.md#these-are-links-not-an-api-integration).

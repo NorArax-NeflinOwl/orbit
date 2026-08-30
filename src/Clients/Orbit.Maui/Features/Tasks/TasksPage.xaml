@@ -34,30 +34,34 @@
                 <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Filters}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:TaskListFilter">
-                            <Border Style="{StaticResource FilterChip}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.FilterByCommand, x:DataType=tasks:TasksPage}"
-                                        CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
-                                <Border.Triggers>
-                                    <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
-                                        <Setter Property="BackgroundColor"
-                                                Value="{DynamicResource Accent}" />
-                                        <Setter Property="Stroke"
-                                                Value="{DynamicResource Accent}" />
-                                    </DataTrigger>
-                                </Border.Triggers>
-
-                                <Label Text="{Binding Label}" Style="{StaticResource FilterChipLabel}">
-                                    <Label.Triggers>
-                                        <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
-                                            <Setter Property="TextColor"
-                                                    Value="{DynamicResource AccentOn}" />
+                            <Grid>
+                                <Border Style="{StaticResource FilterChip}">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
+                                            <Setter Property="BackgroundColor"
+                                                    Value="{DynamicResource Accent}" />
+                                            <Setter Property="Stroke"
+                                                    Value="{DynamicResource Accent}" />
                                         </DataTrigger>
-                                    </Label.Triggers>
-                                </Label>
-                            </Border>
+                                    </Border.Triggers>
+
+                                    <Label Text="{Binding Label}" Style="{StaticResource FilterChipLabel}">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
+                                                <Setter Property="TextColor"
+                                                        Value="{DynamicResource AccentOn}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                </Border>
+                                <!-- The tap is a Button over the chip rather than a gesture on it: a Border
+                                     carrying a gesture is not a clickable node to Android, so a screen
+                                     reader could neither reach the filters nor use them. -->
+                                <Button BackgroundColor="Transparent"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.FilterByCommand, x:DataType=tasks:TasksPage}"
+                                        CommandParameter="{Binding .}"
+                                        SemanticProperties.Description="{Binding Label}" />
+                            </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </HorizontalStackLayout>
@@ -118,11 +122,11 @@
                                      drags them, which is not a gesture a thumb can aim in a scrolling list. -->
                                 <HorizontalStackLayout Grid.Column="4" Spacing="0" VerticalOptions="Center"
                                                        IsVisible="{Binding CanBeMoved}">
-                                    <Button Text="↑" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
+                                    <Button Text="↑" SemanticProperties.Description="{controls:Translate 'Move up'}" FontSize="12" Padding="2,0" WidthRequest="44"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListUpCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
-                                    <Button Text="↓" FontSize="12" Padding="2,0" MinimumWidthRequest="0" WidthRequest="26"
+                                    <Button Text="↓" SemanticProperties.Description="{controls:Translate 'Move down'}" FontSize="12" Padding="2,0" WidthRequest="44"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListDownCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
@@ -130,8 +134,8 @@
                                 <!-- Folded down to its heading, not filtered away: a list nobody is working
                                      on this week is still one they want to see is there. Orbit.Web folds
                                      the same card with the same chevron. -->
-                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" FontSize="12" Padding="2,0"
-                                        MinimumWidthRequest="0" WidthRequest="26" VerticalOptions="Center"
+                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" SemanticProperties.Description="{Binding FoldDescription}" FontSize="12" Padding="2,0"
+                                        WidthRequest="44" VerticalOptions="Center"
                                         Style="{StaticResource LinkButton}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCollapsedCommand, x:DataType=tasks:TasksPage}"
                                         CommandParameter="{Binding .}" />

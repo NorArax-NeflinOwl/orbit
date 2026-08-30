@@ -83,7 +83,7 @@ the authorization handler, the local SQLite store, the sync spine (delta pull, t
 policy), the crypto against the same vectors the web client is held to, the version gate, and the view
 models behind each screen. What it cannot cover is `Orbit.Maui` itself — a MAUI head cannot be
 referenced by an ordinary test project, which is why behaviour lives on this side of the split (see
-[Architecture — Orbit.Mobile](architecture.md#orbitmobile)).
+[Architecture — Orbit.Mobile and Orbit.Maui](architecture.md#orbitmobile-and-orbitmaui)).
 
 ### What the deploy pipeline checks
 

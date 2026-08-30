@@ -6,32 +6,25 @@ cut, or an identified follow-up. It is not a committed roadmap with dates — it
 picture of what's left.
 
 **Last checked against the code on 2026-08-30.** A plan is only worth reading if it describes the
-present, and this one had drifted: it said MAUI work had not started while two client projects and 757
-tests said otherwise, and it named browser-driven test infrastructure as missing while CI had been
-running Playwright for some time. Anything below that says "not started" or "no coverage" was verified
-against the repository on that date, not carried forward on trust.
+present, and this one had drifted: it named browser-driven test infrastructure as missing while CI had
+been running Playwright, and listed two gaps that tests had since closed. Anything below that says
+"not started" or "no coverage" was checked against the repository on that date rather than carried
+forward on trust.
 
 ## Planned features
 
-- **.NET MAUI client (mobile and desktop) — under way, not planned.** This entry used to say the work
-  had not started and that `src/Clients/Orbit.Maui` was an empty folder outside the solution. Neither is
-  true. There are two projects: **`Orbit.Mobile`**, the platform-independent half (API clients, view
-  models, the local store and sync), which *is* in `Orbit.sln` and carries 757 tests across 113 files;
-  and **`Orbit.Maui`**, the app head itself (XAML and platform code, thirteen feature areas from
-  Authentication to Diagnostics), deliberately *outside* the solution because building it needs the MAUI
-  workload that `dotnet test Orbit.sln` should not require. CI builds and signs the Android APK whenever
-  the phone app changes on `main`, and on demand when a version is being chosen deliberately
-  (`.github/workflows/android-release.yml`); `/download` is where somebody installs it.
+- **.NET MAUI client (mobile and desktop).** The long-term target architecture is a shared ASP.NET
+  Core API backing a .NET MAUI client so every device stays in sync (see the top-level
+  [README](../README.md)). **The mobile half is built** — see
+  [Current Status](current-status.md#the-mobile-client) for exactly how far, and
+  [Orbit.Maui — Plan](orbit-maui-plan.md) for the design it was built to. Android is the verified
+  head; iOS has not been run since phase 1, and desktop has not been started at all.
 
-  [Orbit.Maui — Plan](orbit-maui-plan.md) is the document for this, and its phase table
-  ([§10](orbit-maui-plan.md#10-phasing)) is where status is marked as work lands — read that rather than
-  this entry, which will drift again. Phases 0 through 6 are marked built; the iOS head has no release
-  path, because building it needs a Mac and every runner here is Linux or Windows.
-
-  Two of its [open questions](orbit-maui-plan.md#12-open-questions) are load-bearing rather than
-  academic: whether the **local database is encrypted** (phase 2 shipped plain SQLite, so private notes
-  the server cannot read are now cached decrypted on the phone), and **how the app is distributed**,
-  which decides how much store-review work is in scope and where the forced-update gate sends people.
+  What is left of it: push delivered to a phone (blocked on a Firebase registration for this
+  application id), the iOS head beyond phase 1 (deferred — no Apple developer account or signing
+  key), and phase 8 — widgets, Live Activities, accessibility. Remaining design decisions are in
+  [§12](orbit-maui-plan.md#12-open-questions); the local database staying unencrypted and iOS being
+  deferred are both settled there.
 - **Writing to a real Google Calendar.** `Orbit.GoogleIntegration` (`src/Server`) holds the ID-token
   verification behind Google sign-in (`GoogleIdentityVerifier`, `GoogleAuthSettings`) — that is
   authentication only, and no calendar data is read or written. What ships today is the link-based

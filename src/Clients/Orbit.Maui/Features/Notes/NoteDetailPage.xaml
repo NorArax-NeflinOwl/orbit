@@ -72,7 +72,7 @@
                                IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
                                ReturnCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.SaveLinesCommand, x:DataType=notes:NoteDetailPage}" />
 
-                        <Button Grid.Column="2" Text="⋯" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
+                        <Button Grid.Column="2" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanEdit, x:DataType=notes:NoteDetailPage}"
                                 TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowLineMenuCommand, x:DataType=notes:NoteDetailPage}"
