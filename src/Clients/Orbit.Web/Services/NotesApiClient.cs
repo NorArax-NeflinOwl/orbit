@@ -103,9 +103,6 @@ public sealed class NotesApiClient
         return (string.Empty, [], encryptedContent);
     }
 
-    /// <summary>Everything a private note hides from the server, as one sealed payload.</summary>
-    private sealed record SealedNote(string Title, IReadOnlyList<NoteContentLineDto> Content);
-
     public async Task<Guid> CreateNoteAsync(CreateNoteRequest request, CancellationToken cancellationToken = default)
     {
         var (title, content, encryptedContent) = await SealIfPrivateAsync(

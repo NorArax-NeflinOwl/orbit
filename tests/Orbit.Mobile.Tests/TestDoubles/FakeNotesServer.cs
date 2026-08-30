@@ -105,7 +105,10 @@ internal sealed class FakeNotesServer : HttpMessageHandler
         var created = AddNote(body!.Title);
         _notes[created.Id] = created with
         {
-            Content = body.Content, IsPrivate = body.IsPrivate, Priority = body.Priority
+            Content = body.Content, IsPrivate = body.IsPrivate, Priority = body.Priority,
+            // Stored as the real endpoint stores it: a private note's words are only here, so a fake
+            // that dropped it would answer the next pull with an empty note and look like data loss.
+            EncryptedContent = body.EncryptedContent
         };
         return Json(created.Id, HttpStatusCode.Created);
     }
@@ -124,6 +127,7 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             Title = body!.Title,
             Content = body.Content,
             IsPrivate = body.IsPrivate,
+            EncryptedContent = body.EncryptedContent,
             // Stored by the real endpoint, and a fake that dropped it would hide the very thing this
             // was written for: an update that carried no priority looked exactly like one that did.
             Priority = body.Priority,

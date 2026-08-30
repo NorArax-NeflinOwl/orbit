@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using Orbit.Contracts;
 using Orbit.Contracts.Notes;
 
 namespace Orbit.Mobile.Data;
@@ -28,10 +30,29 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
 
     public bool IsPrivate { get; set; }
 
-    /// <summary>The sealed title and lines of a private note - carried through untouched; the phone cannot open it yet.</summary>
+    /// <summary>
+    /// The sealed title and lines of a private note. This is where a private note's words live: the
+    /// readable columns above are empty for one, on the phone exactly as on the server, so a database
+    /// file lifted off the handset says no more about it than Orbit.Api can - see PrivateContentSealer.
+    /// </summary>
     public string? EncryptedCiphertext { get; set; }
 
     public string? EncryptedNonce { get; set; }
+
+    /// <summary>The sealed payload in the shape it travels and is opened in, or null when nothing is sealed here.</summary>
+    [NotMapped]
+    public EncryptedContentDto? EncryptedContent
+        => EncryptedCiphertext is { } ciphertext && EncryptedNonce is { } nonce
+            ? new EncryptedContentDto(ciphertext, nonce)
+            : null;
+
+    /// <summary>
+    /// True when this row's private content is still sealed because the read could not open it - this
+    /// device holds no key, or the note was sealed under a key pair that has since been replaced. Not
+    /// stored: it describes one read rather than the note, and the next read may well answer differently.
+    /// </summary>
+    [NotMapped]
+    public bool IsSealed { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
 

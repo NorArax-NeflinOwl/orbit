@@ -64,7 +64,7 @@ public sealed class SignInCompletionTests : IDisposable
         Assert.True(completing.IsCompletedSuccessfully);
     }
 
-    private LocalNoteRepository Notes() => new(_localStore, TimeProvider.System, FixedNetworkStatus.Online);
+    private LocalNoteRepository Notes() => new(_localStore, TimeProvider.System, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
 
     private async Task LeaveBehindANoteOwnedBy(Guid userId)
     {

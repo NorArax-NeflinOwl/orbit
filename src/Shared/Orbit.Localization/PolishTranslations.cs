@@ -1250,6 +1250,12 @@ public static class PolishTranslations
             "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["This note is private, and its words are sealed with a key this phone doesn't have."] =
             "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["Only you can read it, and it cannot be shared."] =
+            "Tylko Ty możesz to przeczytać i nie da się tego udostępnić.",
+        ["This note is private. Unlock this device's encryption key to read it."] =
+            "Ta notatka jest prywatna. Odblokuj klucz szyfrowania na tym urządzeniu, żeby ją przeczytać.",
+        ["This note was sealed with an encryption key this account no longer has."] =
+            "Ta notatka została zapieczętowana kluczem szyfrowania, którego to konto już nie ma.",
         ["This list is private, and its contents are sealed with a key this phone doesn't have."] =
             "Ta lista jest prywatna, a jej zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
         ["This warehouse is private, and its contents are sealed with a key this phone doesn't have."] =

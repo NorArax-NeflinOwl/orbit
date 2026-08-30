@@ -107,6 +107,9 @@ public static class MauiProgram
 		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
 		// Shared, because the synchronisers are transient and the thing being guarded is the database.
 		services.AddSingleton<SyncGate>();
+		// One instance: it reads the key this device already holds and nothing else - no network, no state
+		// of its own - so the repositories that seal with it can stay singletons too.
+		services.AddSingleton<PrivateContentSealer>();
 		services.AddSingleton<LocalNoteRepository>();
 		services.AddSingleton<LocalTaskListRepository>();
 		services.AddSingleton<LocalCalendarEventRepository>();

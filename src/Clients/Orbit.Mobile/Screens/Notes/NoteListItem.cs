@@ -18,6 +18,11 @@ namespace Orbit.Mobile.Screens.Notes;
 /// A private note while private things are locked. The row still appears - a note vanishing from the
 /// list would look like it had been deleted - but says nothing about itself until it is unlocked.
 /// </param>
+/// <param name="Title">
+/// What the note is called. A private note this device could not open has none to show - its title is
+/// sealed with the rest of it - so the row falls back to what a hidden one says and the note itself
+/// explains why when it is opened (see NoteDetailViewModel).
+/// </param>
 public sealed record NoteListItem(
     Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
     string Status = "", string Updated = "", bool IsPinned = false, bool IsSharedWithMe = false,
@@ -30,7 +35,7 @@ public sealed record NoteListItem(
         var refusal = OfflineEditPolicy.Evaluate(note, networkStatus);
 
         return new(
-            note.LocalId, note.Title, note.UpdatedAtUtc, hasUnsentChanges, refusal,
+            note.LocalId, note.IsSealed ? hiddenTitle : note.Title, note.UpdatedAtUtc, hasUnsentChanges, refusal,
             OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
             translations.Format(
                 "Updated {0}", note.UpdatedAtUtc.ToLocalTime().ToString("g", translations.DisplayCulture)),
