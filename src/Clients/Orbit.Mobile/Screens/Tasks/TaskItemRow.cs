@@ -1,4 +1,5 @@
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -15,18 +16,26 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// Where an inventory errand points - the shelf it is about, and any other list asking for the same
 /// product. Empty for every other kind of entry, which is most of them.
 /// </param>
+/// <param name="IsWaitingToReachTheServer">
+/// True while this entry stands for something made on this phone that the server has not been told
+/// about yet - today an appointment written with no connection. Said on the row rather than left to be
+/// discovered: an appointment nobody else can see yet is a different thing from one they can, and the
+/// difference is invisible otherwise.
+/// </param>
 public sealed record TaskItemRow(
-    TaskItemDto Item, string Detail, bool IsOverdue, IReadOnlyList<TaskItemReference> References)
+    TaskItemDto Item, string Detail, bool IsOverdue, IReadOnlyList<TaskItemReference> References,
+    bool IsWaitingToReachTheServer = false)
 {
     public static TaskItemRow From(
         TaskItemDto item, Translations translations, DateTimeOffset nowUtc,
-        IReadOnlyList<TaskItemReference>? references = null)
+        IReadOnlyList<TaskItemReference>? references = null, bool isWaitingToReachTheServer = false)
         => new(
             item,
             Describe(item, translations),
             // Only worth saying about something still to do: a finished entry cannot be late any more.
             !item.IsCompleted && item.DueDateUtc is { } due && due < nowUtc,
-            references ?? []);
+            references ?? [],
+            isWaitingToReachTheServer);
 
     public Guid Id => Item.Id;
 
@@ -39,6 +48,9 @@ public sealed record TaskItemRow(
     public bool HasDetail => Detail.Length > 0;
 
     public bool HasReferences => References.Count > 0;
+
+    /// <summary>The other half of the pair - said as plainly as the waiting one, so neither is a puzzle.</summary>
+    public bool HasReachedTheServer => !IsWaitingToReachTheServer && Item.Kind == nameof(TaskItemKind.Calendar);
 
     private static string Describe(TaskItemDto item, Translations translations)
     {

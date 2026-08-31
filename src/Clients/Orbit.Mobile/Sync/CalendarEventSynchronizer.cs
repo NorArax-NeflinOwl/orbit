@@ -19,16 +19,19 @@ public sealed class CalendarEventSynchronizer
     private readonly CalendarClient _calendarClient;
     private readonly TimeProvider _timeProvider;
     private readonly SyncGate _syncGate;
+    private readonly PendingCalendarLinkResolver _pendingLinks;
     private readonly ILogger<CalendarEventSynchronizer> _logger;
 
     public CalendarEventSynchronizer(
         IDbContextFactory<OrbitLocalDbContext> dbContextFactory, CalendarClient calendarClient,
-        TimeProvider timeProvider, SyncGate syncGate, ILogger<CalendarEventSynchronizer> logger)
+        TimeProvider timeProvider, SyncGate syncGate, PendingCalendarLinkResolver pendingLinks,
+        ILogger<CalendarEventSynchronizer> logger)
     {
         _dbContextFactory = dbContextFactory;
         _calendarClient = calendarClient;
         _timeProvider = timeProvider;
         _syncGate = syncGate;
+        _pendingLinks = pendingLinks;
         _logger = logger;
     }
 
@@ -42,6 +45,10 @@ public sealed class CalendarEventSynchronizer
         var push = await OutboxReplay.RunAsync(
             dbContext, SyncEntityType.CalendarEvent,
             (entry, token) => SendAsync(dbContext, entry, token), _logger, cancellationToken);
+
+        // Straight after the push, because that is where a locally-made event gains its server id -
+        // and an appointment made offline is only half made until its entry carries that id.
+        await _pendingLinks.ResolveAsync(dbContext, cancellationToken);
 
         try
         {

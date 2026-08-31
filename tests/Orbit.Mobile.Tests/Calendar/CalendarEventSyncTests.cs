@@ -1,6 +1,10 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Api;
+using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Sync;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
@@ -128,6 +132,55 @@ public sealed class CalendarEventSyncTests
             await context.Events.UpdateAsync(stored.LocalId, stored.Details with { Title = "Edited anyway" }));
     }
 
+    /// <summary>
+    /// The other half of an appointment made with no connection: once the event is named, the entry that
+    /// stands for it has to carry that name, and the list has to be queued so the server hears about it.
+    /// Without this the appointment would exist on both sides and be joined on neither.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_made_offline_is_joined_to_its_entry_when_the_event_is_named()
+    {
+        using var context = new CalendarContext();
+        context.GoOffline();
+        var madeHere = await context.Events.CreateAsync(
+            FakeCalendarServer.DetailsFor("Dentist", context.Clock.GetUtcNow()));
+        var entryId = await context.AddCalendarEntryWaitingForAsync(madeHere.LocalId);
+
+        context.ComeBackOnline();
+        await context.SynchroniseAsync();
+
+        var entry = await context.FindEntryAsync(entryId);
+        var named = Assert.Single(context.Server.Events, item => item.Details.Title == "Dentist");
+        Assert.Equal(named.Id, entry.LinkedCalendarEventId);
+        Assert.Empty(await context.PendingLinksAsync());
+        // Queued as well as joined: the id is new to the server, and nothing else would carry it up.
+        Assert.True(await context.HasQueuedTheListAsync());
+    }
+
+    /// <summary>
+    /// An entry that stopped being an appointment while the phone was offline. The link is stale rather
+    /// than pending: it is dropped, and the event stays in the calendar for the reader to deal with -
+    /// the same thing that happens when the kind is changed online.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_that_stopped_being_an_appointment_is_let_go_of_rather_than_joined()
+    {
+        using var context = new CalendarContext();
+        context.GoOffline();
+        var madeHere = await context.Events.CreateAsync(
+            FakeCalendarServer.DetailsFor("Dentist", context.Clock.GetUtcNow()));
+        var entryId = await context.AddCalendarEntryWaitingForAsync(madeHere.LocalId);
+        await context.TurnTheEntryIntoAnErrandAsync(entryId);
+
+        context.ComeBackOnline();
+        await context.SynchroniseAsync();
+
+        var entry = await context.FindEntryAsync(entryId);
+        Assert.Null(entry.LinkedCalendarEventId);
+        Assert.Empty(await context.PendingLinksAsync());
+        Assert.Contains(context.Server.Events, item => item.Details.Title == "Dentist");
+    }
+
     private sealed class CalendarContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -140,6 +193,7 @@ public sealed class CalendarEventSyncTests
                 _localStore, Clock, online ? FixedNetworkStatus.Online : FixedNetworkStatus.Offline);
             Synchronizer = new CalendarEventSynchronizer(
                 _localStore, new CalendarClient(Server.ToHttpClient()), Clock, new SyncGate(),
+                new PendingCalendarLinkResolver(Clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                 NullLogger<CalendarEventSynchronizer>.Instance);
         }
 
@@ -153,6 +207,64 @@ public sealed class CalendarEventSyncTests
         public void GoOffline() => Server.IsUnreachable = true;
 
         public void ComeBackOnline() => Server.IsUnreachable = false;
+
+        /// <summary>A list holding one Calendar entry that stands for an event this phone has just made.</summary>
+        public async Task<Guid> AddCalendarEntryWaitingForAsync(Guid calendarEventLocalId)
+        {
+            var listLocalId = Guid.NewGuid();
+            var entryId = Guid.NewGuid();
+            await using var dbContext = _localStore.CreateDbContext();
+            dbContext.TaskLists.Add(new LocalTaskList
+            {
+                LocalId = listLocalId,
+                ServerId = Guid.NewGuid(),
+                Title = "Saturday",
+                Items = [new TaskItemDto(
+                    entryId, "dentist", null, false, null, "Push", false, "Push", new TimeOnly(9, 0),
+                    nameof(TaskItemKind.Calendar))],
+                CreatedAtUtc = Clock.GetUtcNow(),
+                UpdatedAtUtc = Clock.GetUtcNow()
+            });
+
+            dbContext.PendingCalendarLinks.Add(new PendingCalendarLink
+            {
+                TaskItemId = entryId,
+                TaskListLocalId = listLocalId,
+                CalendarEventLocalId = calendarEventLocalId
+            });
+
+            await dbContext.SaveChangesAsync();
+            return entryId;
+        }
+
+        public async Task TurnTheEntryIntoAnErrandAsync(Guid entryId)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            var list = dbContext.TaskLists.Single();
+            list.Items = [.. list.Items.Select(item => item.Id == entryId
+                ? item with { Kind = nameof(TaskItemKind.Checklist) }
+                : item)];
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        public async Task<TaskItemDto> FindEntryAsync(Guid entryId)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            return dbContext.TaskLists.Single().Items.Single(item => item.Id == entryId);
+        }
+
+        public async Task<IReadOnlyList<PendingCalendarLink>> PendingLinksAsync()
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            return await dbContext.PendingCalendarLinks.ToListAsync();
+        }
+
+        public async Task<bool> HasQueuedTheListAsync()
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            return await dbContext.Outbox.AnyAsync(entry => entry.EntityType == SyncEntityType.TaskList);
+        }
 
         public void Dispose()
         {

@@ -271,11 +271,12 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// The one step on this screen that is not offline-capable, and it says so rather than saving an
-    /// entry that points at an appointment nobody made.
+    /// An appointment can be made with no connection: it goes into this phone's own calendar and waits
+    /// to be named. The entry carries no server id yet - which is what the row's "offline" tag says -
+    /// and gets one when the calendar syncs.
     /// </summary>
     [Fact]
-    public async Task An_appointment_that_cannot_be_written_stops_the_entry_being_saved()
+    public async Task An_appointment_made_with_no_connection_is_written_here_and_waits()
     {
         using var context = new ScreenContext();
         var screen = context.OpenTaskList("Saturday");
@@ -285,12 +286,49 @@ public sealed class TaskListDetailScreenTests
 
         screen.EditItemCommand.Execute(screen.Items[0]);
         screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 3);
         await screen.SaveItemCommand.ExecuteAsync(null);
 
-        // Still open, with what was typed - nothing is lost by waiting for a connection.
-        Assert.NotNull(screen.BeingEdited);
-        Assert.Contains("calendar", screen.Status);
-        Assert.Null(Assert.Single(screen.Items).Item.LinkedCalendarEventId);
+        var stored = Assert.Single(await context.CalendarEvents.GetAllAsync());
+        Assert.Equal("dentist", stored.Details.Title);
+        Assert.Null(stored.ServerId);
+
+        var row = Assert.Single(screen.Items);
+        Assert.Null(row.Item.LinkedCalendarEventId);
+        Assert.True(row.IsWaitingToReachTheServer);
+    }
+
+    /// <summary>
+    /// Reopening one before it syncs shows what was typed. Without this the form would open empty and
+    /// the next save would make a *second* appointment - the duplicate this whole pairing exists to stop.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_still_waiting_reopens_on_what_was_typed()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        context.CalendarServer.IsUnreachable = true;
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.Description = "Bring the letter";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.Equal("Bring the letter", screen.BeingEdited!.Event.Description);
+        Assert.Equal(new DateTime(2026, 9, 3), screen.BeingEdited.Event.StartDate);
+
+        screen.BeingEdited.Event.Description = "Bring both letters";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        // One appointment, corrected - not two.
+        var stored = Assert.Single(await context.CalendarEvents.GetAllAsync());
+        Assert.Equal("Bring both letters", stored.Details.Description);
     }
 
     /// <summary>

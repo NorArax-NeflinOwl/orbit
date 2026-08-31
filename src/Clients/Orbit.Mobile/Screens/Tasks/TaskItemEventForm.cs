@@ -131,6 +131,27 @@ public sealed partial class TaskItemEventForm : ObservableObject
         => ToUtc(IsAllDay ? EndDate.Date + TimeSpan.FromDays(1) : EndDate.Date + EndTime);
 
     /// <summary>
+    /// The appointment in the shape this phone's own calendar stores, for one made with no connection -
+    /// see PendingCalendarLink. The same fields as <see cref="ToRequest"/>; the two shapes differ only
+    /// in the types the wire and the store each use for a place and a recurrence, and this one sets
+    /// neither to anything but null.
+    /// </summary>
+    public CalendarEventDetailsDto ToDetails(string title)
+        => new(
+            title,
+            string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
+            Location: null,
+            Colour,
+            StartsAtUtc,
+            EndsAtUtc,
+            IsAllDay,
+            ChosenRecurrence is { } recurrence ? new RecurrenceDto(recurrence.Value, 1, null) : null,
+            Guests: [],
+            ChosenReminder is { } reminder ? [reminder.MinutesBefore] : [],
+            CreationNotificationChannel: "None",
+            ReminderNotificationChannel: "Push");
+
+    /// <summary>
     /// The appointment in the shape the calendar takes. <paramref name="title"/> is the entry's own
     /// words: an entry and its appointment are one thing, so they cannot be named separately.
     /// </summary>

@@ -441,6 +441,7 @@ public sealed class CalendarEventDetailScreenTests
             Contacts = new ChatRepository(_localStore, _clock);
             _synchronizer = new CalendarEventSynchronizer(
                 _localStore, new CalendarClient(_server.ToHttpClient()), _clock, new SyncGate(),
+                new PendingCalendarLinkResolver(_clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                 NullLogger<CalendarEventSynchronizer>.Instance);
         }
 

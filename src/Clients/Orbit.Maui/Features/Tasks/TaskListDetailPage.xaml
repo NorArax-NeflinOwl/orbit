@@ -87,6 +87,18 @@
                                 </Label.Triggers>
                             </Label>
 
+                            <!-- Whether the appointment behind this entry is anywhere but here yet.
+                                 Said on the row because it is otherwise invisible: an appointment made
+                                 with no connection looks exactly like one everybody can already see. -->
+                            <HorizontalStackLayout Spacing="6">
+                                <Label Text="{controls:Translate 'offline'}" FontSize="10" Padding="6,1"
+                                       IsVisible="{Binding IsWaitingToReachTheServer}"
+                                       Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{controls:Translate 'online'}" FontSize="10" Padding="6,1"
+                                       IsVisible="{Binding HasReachedTheServer}"
+                                       Style="{StaticResource SubtleLabel}" />
+                            </HorizontalStackLayout>
+
                             <!-- Where an inventory errand points: the shelf it is about, and any other
                                  list asking for the same product. Buttons rather than labels, for the
                                  reason Orbit.Web gives about its own chips - the reason to say it is to

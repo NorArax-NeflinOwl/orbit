@@ -737,6 +737,7 @@ public sealed class DashboardScreenTests
                     NullLogger<TaskListSynchronizer>.Instance),
                 new CalendarEventSynchronizer(
                     _localStore, new CalendarClient(new FakeCalendarServer(_clock).ToHttpClient()), _clock, gate,
+                    new PendingCalendarLinkResolver(_clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                     NullLogger<CalendarEventSynchronizer>.Instance),
                 new WarehouseSynchronizer(
                     _localStore, new InventoryClient(new FakeInventoryServer(_clock).ToHttpClient()), _clock, gate,

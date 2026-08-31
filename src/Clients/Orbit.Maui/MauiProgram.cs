@@ -122,6 +122,7 @@ public static class MauiProgram
 		services.AddTransient<NoteSynchronizer>();
 		services.AddTransient<TaskListSynchronizer>();
 		services.AddTransient<CalendarEventSynchronizer>();
+		services.AddTransient<PendingCalendarLinkResolver>();
 		services.AddTransient<WarehouseSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<LocalStoreReset>();

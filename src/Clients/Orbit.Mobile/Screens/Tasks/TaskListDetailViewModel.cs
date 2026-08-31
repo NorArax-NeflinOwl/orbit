@@ -463,7 +463,29 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private CalendarEventDetailsDto? AppointmentFor(TaskItemDto item)
         => item.LinkedCalendarEventId is { } eventId && _appointments.TryGetValue(eventId, out var details)
             ? details
-            : null;
+            : _appointmentsWaitingToBeNamed.GetValueOrDefault(item.Id);
+
+    /// <summary>
+    /// Appointments made on this phone that the server has not named yet, by the entry they belong to.
+    /// Without this an entry saved offline would reopen on an empty form, and the next save would make a
+    /// second event rather than correcting the first - see PendingCalendarLink.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, CalendarEventDetailsDto> _appointmentsWaitingToBeNamed =
+        new Dictionary<Guid, CalendarEventDetailsDto>();
+
+    private async Task ShowAppointmentsWaitingToBeNamedAsync(CancellationToken cancellationToken)
+    {
+        var waiting = new Dictionary<Guid, CalendarEventDetailsDto>();
+        foreach (var item in _items.Where(item => item.Kind == nameof(TaskItemKind.Calendar)))
+        {
+            if (await _calendarEvents.FindPendingForTaskItemAsync(item.Id, cancellationToken) is { } pending)
+            {
+                waiting[item.Id] = pending.Details;
+            }
+        }
+
+        _appointmentsWaitingToBeNamed = waiting;
+    }
 
     [RelayCommand]
     private void CancelItemEdit() => BeingEdited = null;
@@ -584,13 +606,18 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     /// <summary>
     /// Brings a Calendar entry's appointment into being, or into step, and hands back the entry carrying
-    /// its id. Before the list is written rather than after, so there is no window where the entry exists
-    /// and the appointment does not - the order Orbit.Web's SaveTheCalendarAsync settles on.
+    /// whatever id it should. Before the list is written rather than after, so there is no window where
+    /// the entry exists and the appointment does not - the order Orbit.Web's SaveTheCalendarAsync
+    /// settles on.
     ///
-    /// Null when it could not be written, so the caller stops rather than saving an entry that points at
-    /// an appointment nobody made. Unlike the rest of this screen this one step is not offline-capable,
-    /// and says so: the entry has to carry an id the server issued, and a phone with no connection
-    /// cannot be given one. Nothing is lost by waiting - the form stays open with what was typed.
+    /// Online this goes straight to the server, which names the event and lets the entry carry that name
+    /// immediately. Offline it writes the event to this phone's own calendar and remembers the pairing
+    /// (see PendingCalendarLink): the entry carries no server id yet, and gets one when the calendar
+    /// syncs. Both are real appointments - the difference is only whether anybody else can see one yet,
+    /// which is what the row's tag says.
+    ///
+    /// Null when even the local write was refused, so the caller stops rather than saving an entry that
+    /// points at an appointment nobody made.
     /// </summary>
     private async Task<TaskItemDto?> PutInTheCalendarAsync(
         TaskItemEditor editor, TaskItemDto edited, CancellationToken cancellationToken)
@@ -612,14 +639,45 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
         catch (HttpRequestException)
         {
-            Status = _translations[AppointmentRefusalMessage];
-            return null;
+            return await PutInThisPhonesCalendarAsync(editor, edited, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// The offline half: the appointment is written here and waits to be named. An entry already being
+    /// corrected keeps the event it made earlier rather than making a second one - which is the whole
+    /// reason the pairing is remembered rather than inferred.
+    /// </summary>
+    private async Task<TaskItemDto?> PutInThisPhonesCalendarAsync(
+        TaskItemEditor editor, TaskItemDto edited, CancellationToken cancellationToken)
+    {
+        var details = editor.Event.ToDetails(edited.Description);
+        if (await _calendarEvents.FindPendingForTaskItemAsync(edited.Id, cancellationToken) is { } waiting)
+        {
+            var outcome = await _calendarEvents.UpdateAsync(waiting.LocalId, details, cancellationToken);
+            if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+            {
+                Status = _translations[AppointmentRefusalMessage];
+                return null;
+            }
+
+            Status = _translations[AppointmentQueuedMessage];
+            return edited;
+        }
+
+        var created = await _calendarEvents.CreateAsync(details, cancellationToken);
+        await _calendarEvents.RememberPendingLinkAsync(edited.Id, _localId, created.LocalId, cancellationToken);
+        Status = _translations[AppointmentQueuedMessage];
+        return edited;
     }
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string AppointmentRefusalMessage =
-        "This entry is an appointment, and Orbit can't be reached to put it in the calendar. Nothing was saved - try again once you're back online.";
+        "Somebody else can change this appointment, and Orbit can't be reached to check. It stays as it was until you're back online.";
+
+    /// <inheritdoc cref="AppointmentRefusalMessage"/>
+    private const string AppointmentQueuedMessage =
+        "Saved on this phone - the appointment reaches the calendar when you're back online.";
 
     /// <summary>
     /// Ticking off "Update stock levels" while errands are still open on the same list is either the end
@@ -822,6 +880,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // Both before the rows are built below: a row asks these two what it points at - see ReferencesFor.
         await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
         await ShowWhoElseIsAskingAsync(cancellationToken);
+        await ShowAppointmentsWaitingToBeNamedAsync(cancellationToken);
         // Sealed with a key this device cannot open, so there is nothing here to change: the readable
         // fields are empty, and saving would replace the sealed list with an empty one.
         if (taskList.IsSealed)
@@ -850,7 +909,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         foreach (var item in taskList.Items)
         {
             Items.Add(TaskItemRow.From(
-                item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item)));
+                item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item),
+                _appointmentsWaitingToBeNamed.ContainsKey(item.Id)));
         }
 
         await StockCheck.ShowAsync(taskList, cancellationToken);

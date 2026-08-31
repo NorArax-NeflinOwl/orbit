@@ -85,6 +85,54 @@ public sealed class LocalCalendarEventRepository
         return calendarEvent;
     }
 
+    /// <summary>
+    /// Remembers that a task entry stands for an event this phone made and the server has not named yet
+    /// - see <see cref="PendingCalendarLink"/>. Replaces any earlier pairing for the same entry, so
+    /// saving an appointment twice before it syncs corrects the one event rather than making a second.
+    /// </summary>
+    public async Task RememberPendingLinkAsync(
+        Guid taskItemId, Guid taskListLocalId, Guid calendarEventLocalId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.PendingCalendarLinks.FirstOrDefaultAsync(
+                link => link.TaskItemId == taskItemId, cancellationToken) is { } existing)
+        {
+            existing.TaskListLocalId = taskListLocalId;
+            existing.CalendarEventLocalId = calendarEventLocalId;
+        }
+        else
+        {
+            dbContext.PendingCalendarLinks.Add(new PendingCalendarLink
+            {
+                TaskItemId = taskItemId,
+                TaskListLocalId = taskListLocalId,
+                CalendarEventLocalId = calendarEventLocalId
+            });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The event an entry stands for while it is still waiting to be named, or null when it is not
+    /// waiting for one. What lets an appointment made offline be reopened and corrected rather than
+    /// showing an empty form that would make a second event on the next save.
+    /// </summary>
+    public async Task<LocalCalendarEvent?> FindPendingForTaskItemAsync(
+        Guid taskItemId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.PendingCalendarLinks.AsNoTracking().FirstOrDefaultAsync(
+                link => link.TaskItemId == taskItemId, cancellationToken) is not { } link)
+        {
+            return null;
+        }
+
+        return await dbContext.CalendarEvents.AsNoTracking()
+            .FirstOrDefaultAsync(calendarEvent => calendarEvent.LocalId == link.CalendarEventLocalId, cancellationToken);
+    }
+
     /// <summary>Refuses rather than queues when the offline policy forbids it - see LocalWriteOutcome.</summary>
     public async Task<LocalWriteOutcome> UpdateAsync(
         Guid localId, CalendarEventDetailsDto details, CancellationToken cancellationToken = default)

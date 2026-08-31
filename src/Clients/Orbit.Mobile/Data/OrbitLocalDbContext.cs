@@ -46,6 +46,9 @@ public sealed class OrbitLocalDbContext : DbContext
     /// <summary>What this account may use - see LocalPermission.</summary>
     public DbSet<LocalPermission> Permissions => Set<LocalPermission>();
 
+    /// <summary>Appointments made here that the server has not named yet - see PendingCalendarLink.</summary>
+    public DbSet<PendingCalendarLink> PendingCalendarLinks => Set<PendingCalendarLink>();
+
     /// <summary>
     /// SQLite has no date type, and EF's default mapping for <see cref="DateTimeOffset"/> cannot be
     /// sorted or compared in SQL - "ORDER BY UpdatedAtUtc" fails outright. Since sync is decided almost
@@ -78,6 +81,10 @@ public sealed class OrbitLocalDbContext : DbContext
                 .HasConversion(ItemsConverter)
                 .Metadata.SetValueComparer(ItemsComparer);
         });
+
+        // One entry stands for one appointment, so the entry's own id is the key: saving the same
+        // entry twice before it syncs must replace the pairing rather than make a second one.
+        modelBuilder.Entity<PendingCalendarLink>(link => link.HasKey(entity => entity.TaskItemId));
 
         modelBuilder.Entity<LocalCalendarEvent>(calendarEvent =>
         {
