@@ -115,15 +115,13 @@ None of this is required for what Orbit does today, which is why it is here rath
 Explicitly called out in the functionality documentation as deliberate limitations of this first
 version, so they aren't mistaken for oversights:
 
-- **`pg_trgm` may not be allowed on the deployed database, and nothing would find out until it is too
-  late.** The name-suggestion migration runs `CREATE EXTENSION pg_trgm`. Azure Database for PostgreSQL
-  Flexible Server only permits extensions listed in its `azure.extensions` server parameter, and
-  `Program.cs` applies migrations at startup without catching anything - so a server that has not been
-  told to allow it would fail to start, the revision would never turn healthy, and the deploy would roll
-  back. **CI cannot catch this**: the smoke test runs against a plain `postgres:18-alpine`, where the
-  extension needs no permission. Check with
-  `az postgres flexible-server parameter show --resource-group Orbit --server-name <name> --name azure.extensions`
-  before the next deploy, and record the answer in [Azure setup](azure-setup.md).
+- ~~**`pg_trgm` may not be allowed on the deployed database.**~~ It was allowed: the deploy on
+  2026-08-31 applied the migration and `orbit-api` came up healthy, with `azure.extensions` empty. The
+  warning was over-stated - the allowlist is not the absolute gate it is usually described as, at least
+  not for this extension on this server. What remains true, and is kept in
+  [Azure setup](azure-setup.md#3-allow-the-pgtrgm-extension), is the shape of the failure if a different
+  server ever does refuse: migrations run at startup, so the API simply would not start, and CI would not
+  see it first because its smoke test uses a plain `postgres:18-alpine`.
 - ~~**The forced-update gate has nothing to compare against.**~~ Done: the Android release now sets
   `MobileVersion__Android__LatestVersion` on `orbit-api` to whatever it just published, so the app's
   update row can light up. It needs one repository variable naming the resource group - see

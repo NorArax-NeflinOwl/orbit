@@ -178,12 +178,16 @@ revision automatically, which picks up the current secret value on its own.
 
 ### 3. Allow the pg_trgm extension
 
-Orbit's name suggestions are a trigram search, so a migration runs `CREATE EXTENSION pg_trgm`. Flexible
-Server refuses that unless the extension is on the server's own allowlist - and because `Program.cs`
-applies migrations at startup, a server that refuses it is a server the API cannot start against.
+Orbit's name suggestions are a trigram search, so a migration runs `CREATE EXTENSION pg_trgm`. Because
+`Program.cs` applies migrations at startup, a server that refuses the extension is a server the API
+cannot start against - and nothing in CI would find it first, since the smoke test runs against a plain
+`postgres:18-alpine`, where the extension needs no permission.
 
-Nothing in CI will find this first: the smoke test runs against a plain `postgres:18-alpine`, where the
-extension needs no permission.
+**On this deployment it worked with `azure.extensions` empty**, on 2026-08-31: `orbit-postgres-djgiwo`
+allowed the extension without being told to. So the allowlist is not the absolute gate it is often
+described as - at least not for `pg_trgm`, and at least not here. This section stays because the failure
+mode is real and expensive when it happens, and because a different server, region or Postgres version
+may well answer differently. Check rather than assume:
 
 ```bash
 az postgres flexible-server parameter show \
