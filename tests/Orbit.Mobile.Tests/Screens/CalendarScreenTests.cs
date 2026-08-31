@@ -147,7 +147,7 @@ public sealed class CalendarScreenTests
 
         var screen = await context.OpenAsync();
 
-        Assert.NotEmpty(screen.Events.Where(row => row.Title == "Standup"));
+        Assert.Contains(screen.Events, row => row.Title == "Standup");
     }
 
     /// <summary>

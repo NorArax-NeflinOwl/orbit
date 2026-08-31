@@ -53,7 +53,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     }
 
     [Fact]
-    public void A_calendar_entry_can_be_typed_or_pointed_at()
+    public async Task A_calendar_entry_can_be_typed_or_pointed_at()
     {
         RegisterApiClients(Item("Dentist", kind: "Calendar"));
         var cut = Render();
@@ -109,7 +109,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     }
 
     [Fact]
-    public void The_map_opens_over_the_page_rather_than_inside_the_row()
+    public async Task The_map_opens_over_the_page_rather_than_inside_the_row()
     {
         RegisterApiClients(Item("Dentist", kind: "Calendar"));
         var cut = Render();
@@ -122,7 +122,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     }
 
     [Fact]
-    public void A_confirmed_pin_fills_the_location_box_and_closes_the_map()
+    public async Task A_confirmed_pin_fills_the_location_box_and_closes_the_map()
     {
         RegisterApiClients(Item("Dentist", kind: "Calendar"));
         var cut = Render();
@@ -130,7 +130,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         ClickButtonSaying(cut, "Show map");
 
         var overlay = cut.FindComponent<Web.Components.LocationPickerOverlay>();
-        cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122));
         cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Yes")).Click();
 
         Assert.Empty(cut.FindAll(".map-overlay"));
@@ -138,7 +138,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     }
 
     [Fact]
-    public void Backing_out_of_the_map_leaves_what_was_already_typed()
+    public async Task Backing_out_of_the_map_leaves_what_was_already_typed()
     {
         // A stray click on a map must not rewrite an address somebody typed.
         RegisterApiClients(Item("Dentist", kind: "Calendar", location: "Przychodnia"));
@@ -147,7 +147,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         ClickButtonSaying(cut, "Show map");
 
         var overlay = cut.FindComponent<Web.Components.LocationPickerOverlay>();
-        cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122));
         cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Cancel")).Click();
 
         Assert.Empty(cut.FindAll(".map-overlay"));

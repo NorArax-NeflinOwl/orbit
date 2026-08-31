@@ -20,10 +20,9 @@ public sealed class NotificationChangeFeedTests
     public async Task Something_recorded_after_the_cursor_comes_back()
     {
         var context = new ChangeFeedContext();
-        var before = DateTimeOffset.UtcNow;
         await context.RecordAsync("A task is overdue", "/tasks/1");
 
-        var changed = await context.ChangedSinceAsync(before);
+        var changed = await context.ChangedSinceAsync(ChangeFeedContext.BeforeAnythingWasRecorded);
 
         Assert.Equal("A task is overdue", Assert.Single(changed).Title);
     }
@@ -48,11 +47,11 @@ public sealed class NotificationChangeFeedTests
     {
         var context = new ChangeFeedContext();
         await context.RecordAsync("A task is overdue", "/tasks/1");
-        var afterItWasRecorded = DateTimeOffset.UtcNow;
 
         await context.MarkReadAtAsync("/tasks/1");
 
-        var entry = Assert.Single(await context.ChangedSinceAsync(afterItWasRecorded));
+        // The cursor sits on the record itself, so only the reading is after it - which is the point.
+        var entry = Assert.Single(await context.ChangedSinceAsync(ChangeFeedContext.RecordedAt));
         Assert.True(entry.IsRead);
     }
 
@@ -62,11 +61,10 @@ public sealed class NotificationChangeFeedTests
     {
         var context = new ChangeFeedContext();
         await context.RecordAsync("A task is overdue", "/tasks/1");
-        var afterItWasRecorded = DateTimeOffset.UtcNow;
 
         await context.ClearAsync();
 
-        var entry = Assert.Single(await context.ChangedSinceAsync(afterItWasRecorded));
+        var entry = Assert.Single(await context.ChangedSinceAsync(ChangeFeedContext.RecordedAt));
         Assert.True(entry.IsDismissed);
     }
 
@@ -74,14 +72,27 @@ public sealed class NotificationChangeFeedTests
     public async Task Somebody_else_s_notifications_are_never_in_it()
     {
         var context = new ChangeFeedContext();
-        var before = DateTimeOffset.UtcNow;
         await context.RecordForSomebodyElseAsync("Not yours", "/tasks/1");
 
-        Assert.Empty(await context.ChangedSinceAsync(before));
+        Assert.Empty(await context.ChangedSinceAsync(ChangeFeedContext.BeforeAnythingWasRecorded));
     }
 
     private sealed class ChangeFeedContext
     {
+        /// <summary>
+        /// When these entries were recorded. An hour ago, and fixed, because the rule under test is
+        /// "strictly after the cursor" and a cursor read from the clock a moment before or after the
+        /// record is not reliably either: two DateTimeOffset.UtcNow reads can land on the same tick, and
+        /// then "after" is false and the test fails for a reason that has nothing to do with the rule.
+        ///
+        /// With the record an hour in the past, every cursor these tests use is unambiguously one side of
+        /// it or the other.
+        /// </summary>
+        public static readonly DateTimeOffset RecordedAt = DateTimeOffset.UtcNow.AddHours(-1);
+
+        /// <summary>A moment before anything was recorded - what a client that has never pulled sends.</summary>
+        public static readonly DateTimeOffset BeforeAnythingWasRecorded = RecordedAt.AddMinutes(-1);
+
         private readonly InMemoryNotificationEntryRepository _entryRepository = new();
         private readonly Guid _userId = Guid.NewGuid();
 
@@ -93,7 +104,7 @@ public sealed class NotificationChangeFeedTests
         {
             var entry = NotificationEntry.FromPersistence(
                 Guid.NewGuid(), userId, NotificationEntryKind.PushReminder, title, [], "Body", [], url,
-                DateTimeOffset.UtcNow, readAtUtc: null, dismissedAtUtc: null);
+                RecordedAt, readAtUtc: null, dismissedAtUtc: null);
             await _entryRepository.AddAsync(entry, CancellationToken.None);
         }
 

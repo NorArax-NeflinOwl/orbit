@@ -95,7 +95,7 @@ public sealed class AuthRateLimiterTests
                 {
                     app.Use(async (context, next) =>
                     {
-                        if (context.Request.Query["user"] is [var userId, ..])
+                        if (context.Request.Query["user"] is [{ } userId, ..])
                         {
                             context.User = new ClaimsPrincipal(
                                 new ClaimsIdentity([new Claim(JwtRegisteredClaimNames.Sub, userId)], "Test"));
