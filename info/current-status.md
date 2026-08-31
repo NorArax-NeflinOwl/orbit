@@ -90,6 +90,12 @@ four fields the browser offers them under — a product's name, an errand's desc
 and a warehouse's name — each field with its own set, since a title and the box below it are on screen
 together.
 
+Two more things the browser had and the phone did not: a warehouse's **restock list settings** - the rule
+deciding what that list asks for, and the hour its reminder comes round - and the calendar's **day view**,
+so "just today" no longer means finding today in a month grid. The names Orbit writes for itself are also
+read in the reader's language here now, as they always were in the browser: a restock list on a Polish
+screen said "Restock supplies - Kuchnia" until this.
+
 The browser's rebuilt item controls are all here now: the expiry asked as a length, the daily
 reminder's missing hour, and the Inventory kind, which round-trips rather than silently rewriting to
 Checklist and cutting a restock errand loose from its product. So are the two entries that carry
@@ -109,9 +115,18 @@ belongs to the phone, is shared with nobody, and stays off the wire until it has
 online, one review window shows every outstanding copy against what it came from, each diffed from what
 that said when the copy was taken, and offers three answers: keep mine, keep theirs, or keep both. The
 last leaves the copy as a thing of its own, tagged `copy` in its list and still pointing at what it came
-from, which is what the History window lists. Both windows hang off the avatar's menu, badged there the
-way notifications are, because a copy can be of any of the four kinds and no single list is the right
-place to wait for one.
+from, which is what that thing's own History window lists - opened from the thing itself, because a
+history is a fact about a note or a list rather than about the account. The review window hangs off the
+avatar's menu, badged there the way notifications are, because a copy can be of any of the four kinds
+and no single list is the right place to wait for one. When what a copy came from has been deleted the
+review stops offering a choice that no longer has two sides and asks the one thing left: keep your copy?
+
+The outbox no longer deletes work for being out of range. Every retryable failure used to count towards
+its give-up limit, and "there is no network" is retryable - so five launches without signal dropped a
+queued change for good. Only an answer from the server counts now, and when a change really is given up
+on, the phone writes that into its own notification feed rather than only into a log. That feed is now
+something the phone can write to at all: it also carries a copy waiting to be reviewed, named and by
+kind, and takes the notice away once the review is answered.
 
 Of phase 7, the in-app feed, notification settings, deep links from a notification, and uploadable
 diagnostic logs are built — and **push is delivered on Android**: the app obtains an FCM registration

@@ -257,6 +257,11 @@
                         Style="{StaticResource LinkButton}" />
                 <Button Text="{controls:Translate 'Delete event'}" Command="{Binding DeleteCommand}"
                         IsVisible="{Binding CanEdit}" Style="{StaticResource DestructiveButton}" />
+                <!-- Where this thing's own copies are found again - see CopyHistoryViewModel. Only
+                     once there is one, and here rather than in the account's menu: a history belongs to
+                     the thing it is the history of. -->
+                <Button Text="{controls:Translate 'History'}" IsVisible="{Binding HasHistory}"
+                        Command="{Binding GoToHistoryCommand}" Style="{StaticResource LinkButton}" />
             </HorizontalStackLayout>
 
         </VerticalStackLayout>

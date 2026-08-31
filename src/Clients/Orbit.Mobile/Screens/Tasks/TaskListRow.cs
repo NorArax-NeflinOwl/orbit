@@ -49,13 +49,13 @@ public sealed record TaskListRow(
         var next = NextThingLeftToDo(taskList, everyList);
 
         return new(
-            taskList.LocalId, taskList.IsSealed ? hiddenTitle : taskList.Title, itemCount, completedCount, taskList.IsPinned,
+            taskList.LocalId, taskList.IsSealed ? hiddenTitle : translations.Written(taskList.Title), itemCount, completedCount, taskList.IsPinned,
             taskList.UpdatedAtUtc, hasUnsentChanges, refusal,
             Describe(itemCount, completedCount, translations),
             OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
             TaskListView.Describe(taskList.Status, translations),
-            next?.Description ?? string.Empty,
-            next?.OnList ?? string.Empty,
+            next is { } thing ? translations.Written(thing.Description) : string.Empty,
+            next is { OnList: { } onList } ? translations.Written(onList) : string.Empty,
             PriorityChoice.For(taskList.Priority, translations).Name,
             IsHidden: taskList.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle,
             IsCopy: taskList.CopyOfLocalId is not null)

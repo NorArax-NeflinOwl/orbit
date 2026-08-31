@@ -262,6 +262,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             Share.OffersNothing();
         }
 
+        HasHistory = (await _notes.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         await ShowWhetherItCanBeChangedAsync(note, cancellationToken);
 
         Lines.Clear();
@@ -391,4 +392,15 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         AddLineCommand.NotifyCanExecuteChanged();
         AddChecklistItemCommand.NotifyCanExecuteChanged();
     }
+
+    /// <summary>
+    /// Whether anything was ever copied from this - what puts its history within reach. Hidden until
+    /// there is one, because most things have none and a permanent link to an empty window is clutter.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasHistory;
+
+    /// <summary>This thing's own history, opened from this thing - see CopyHistoryViewModel.</summary>
+    [RelayCommand]
+    private void GoToHistory() => _navigator.ShowCopyHistory(CopyKind.Note, _localId);
 }

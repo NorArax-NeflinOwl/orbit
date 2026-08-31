@@ -698,6 +698,9 @@ public sealed class WarehouseDetailScreenTests
             return warehouse;
         }
 
+        /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
+        public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
         public async Task<WarehouseDetailViewModel> OpenAsync(Guid localId)
         {
             var screen = new WarehouseDetailViewModel(
@@ -705,7 +708,10 @@ public sealed class WarehouseDetailScreenTests
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
                 Navigator,
                 new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), _privateContent,
-                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer));
+                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer), Network,
+                new RestockListSettingsPanel(
+                    new InventoryClient(Server.ToHttpClient()), new Translations(new InMemoryLanguageStore()),
+                    new ConnectionRequirement(Network, new Translations(new InMemoryLanguageStore()))));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

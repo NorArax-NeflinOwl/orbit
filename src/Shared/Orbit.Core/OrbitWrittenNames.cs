@@ -1,6 +1,6 @@
 using Orbit.Core.Inventory;
 
-namespace Orbit.Web.Services;
+namespace Orbit.Core;
 
 /// <summary>
 /// The names Orbit writes for itself, said in the reader's language.
@@ -12,6 +12,11 @@ namespace Orbit.Web.Services;
 /// What is stored stays English, deliberately: the server recognises its own list again by that name
 /// when a warehouse is renamed, and an entry by its prefix when a shortfall is raised twice. The
 /// translation happens here instead, on the way to the screen, and never on the way back.
+///
+/// Shared rather than the browser's own, because the phone shows the same names off the same server and
+/// was showing them in English on an otherwise Polish screen. It lives beside RestockTaskNaming, which
+/// writes them, and it takes a lookup rather than either client's Translations class - the browser and
+/// the phone each have one of their own, and a delegate is the only thing the two have in common.
 /// </summary>
 public static class OrbitWrittenNames
 {
@@ -19,21 +24,25 @@ public static class OrbitWrittenNames
     /// <paramref name="name"/> in the reader's language when Orbit wrote it, and unchanged when anybody
     /// else did. The part a person chose - the warehouse's name, the product - rides along untouched.
     /// </summary>
-    public static string Translate(Translations translations, string name)
+    /// <param name="say">
+    /// How this client turns an English string into the reader's language - <c>key => translations[key]</c>
+    /// on both. A delegate because the browser and the phone each have a Translations of their own.
+    /// </param>
+    public static string Translate(Func<string, string> say, string name)
     {
         if (name == RestockTaskNaming.UpdateStockReminderDescription)
         {
-            return translations[name];
+            return say(name);
         }
 
         if (name.StartsWith(RestockTaskNaming.EntryPrefix, StringComparison.Ordinal))
         {
-            return translations["Restock:"] + " " + TranslateUnit(translations, name[RestockTaskNaming.EntryPrefix.Length..]);
+            return say("Restock:") + " " + TranslateUnit(say, name[RestockTaskNaming.EntryPrefix.Length..]);
         }
 
         if (name.StartsWith(RestockTaskNaming.ListTitlePrefix, StringComparison.Ordinal))
         {
-            return translations[RestockTaskNaming.ListTitlePrefix] + name[RestockTaskNaming.ListTitlePrefix.Length..];
+            return say(RestockTaskNaming.ListTitlePrefix) + name[RestockTaskNaming.ListTitlePrefix.Length..];
         }
 
         return name;
@@ -44,7 +53,7 @@ public static class OrbitWrittenNames
     /// Only a trailing "(number unit)" whose unit is one Orbit itself writes is touched, so a product
     /// somebody named "Flour (organic)" comes back exactly as they typed it.
     /// </summary>
-    private static string TranslateUnit(Translations translations, string entry)
+    private static string TranslateUnit(Func<string, string> say, string entry)
     {
         var openingBracket = entry.LastIndexOf(" (", StringComparison.Ordinal);
         if (!entry.EndsWith(')') || openingBracket < 0)
@@ -62,6 +71,6 @@ public static class OrbitWrittenNames
         var shortForm = inBrackets[(lastSpace + 1)..];
         return InventoryUnitShortForm.Read(shortForm) is null
             ? entry
-            : $"{entry[..(openingBracket + 2)]}{inBrackets[..lastSpace]} {translations[shortForm]})";
+            : $"{entry[..(openingBracket + 2)]}{inBrackets[..lastSpace]} {say(shortForm)})";
     }
 }

@@ -29,4 +29,16 @@ public static class SyncFailure
             _ => false
         };
     }
+
+    /// <summary>
+    /// Whether the server actually answered, as opposed to there being nothing to answer.
+    ///
+    /// The difference decides whether a failed send counts against the outbox's give-up limit. A server
+    /// that answers badly five times is refusing something, and dropping that change is the price of not
+    /// blocking every change queued behind it. A phone with no signal has not been refused anything - it
+    /// has not asked - and counting that would delete somebody's work for having been on a train five
+    /// times, which is the exact opposite of what an outbox is for.
+    /// </summary>
+    public static bool WasAnswered(Exception exception)
+        => exception is HttpRequestException { StatusCode: not null };
 }

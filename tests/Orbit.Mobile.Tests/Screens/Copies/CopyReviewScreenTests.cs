@@ -294,6 +294,49 @@ public sealed class CopyReviewScreenTests
         Assert.Single(await context.Notes.GetCopiesOfAsync(original.LocalId));
     }
 
+    /// <summary>
+    /// The reader has to be told which thing they wrote in - a badge saying "1" is a puzzle when two
+    /// rows share a title. So the copy announces itself in the feed, by name.
+    /// </summary>
+    [Fact]
+    public async Task Taking_a_copy_says_so_in_the_notification_feed_and_names_what_it_is_a_copy_of()
+    {
+        using var context = new ReviewContext();
+        var original = await context.AddSharedTaskListAsync("Errands", "post office");
+        var copy = await context.CopyTheTaskListAsync(original.LocalId);
+
+        var announced = Assert.Single(context.Announcements());
+        Assert.True(announced.IsRaisedHere);
+        Assert.Equal($"/copies/{copy.LocalId}", announced.Url);
+        Assert.Contains("task list", announced.Body);
+        Assert.Contains("Errands", announced.BodyArgumentsJson);
+    }
+
+    /// <summary>
+    /// And it stops saying so once the question has been answered - whichever of the three answers it
+    /// was. A feed still advertising a decision already made is worse than not having said it.
+    /// </summary>
+    [Theory]
+    [InlineData("mine")]
+    [InlineData("theirs")]
+    [InlineData("both")]
+    public async Task Answering_a_review_takes_its_notice_away(string answer)
+    {
+        using var context = new ReviewContext();
+        var original = await context.AddSharedNoteAsync("Team shopping", "milk");
+        await context.CopyTheNoteAsync(original.LocalId, "milk", "bread");
+        var screen = await context.OpenAsync();
+
+        await (answer switch
+        {
+            "mine" => screen.KeepMineCommand.ExecuteAsync(screen.Reviews[0]),
+            "theirs" => screen.KeepTheirsCommand.ExecuteAsync(screen.Reviews[0]),
+            _ => screen.KeepBothCommand.ExecuteAsync(screen.Reviews[0])
+        });
+
+        Assert.Empty(context.Announcements());
+    }
+
     [Fact]
     public async Task Nothing_taken_offline_means_nothing_to_review()
     {
@@ -455,6 +498,13 @@ public sealed class CopyReviewScreenTests
             var note = dbContext.Notes.Single(candidate => candidate.LocalId == localId);
             note.Content = [.. lines.Select(NoteLine)];
             await dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>What this phone has told itself, which is where a waiting copy announces itself.</summary>
+        public IReadOnlyList<LocalNotification> Announcements()
+        {
+            using var dbContext = _localStore.CreateDbContext();
+            return [.. dbContext.Notifications.Where(notice => notice.IsRaisedHere)];
         }
 
         /// <summary>What is still queued about one row - see the never-pushed test.</summary>

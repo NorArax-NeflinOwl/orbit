@@ -472,9 +472,14 @@ Three answers and no more:
 - **Keep both** — the copy becomes a thing in its own right, queued as a create, tagged `copy` in its
   list, and still pointing at what it came from. That pointer is the whole of the **History** window.
 
-**One window, four kinds.** A copy can be of a note, a task list, an appointment or a warehouse, so no
-one list is the right place to wait for one: both windows hang off the avatar's menu, badged there the
-way notifications are. Each repository implements `ICopyReviewStore` and renders its own rows into
+**The history is the thing's own.** Opened from the note or the list it belongs to, from either version,
+and it lists copies still awaiting review as well as answered ones - a question still open is part of
+what happened to that thing too. A global list of everything ever kept would make somebody read past
+everything else to find the pair they are looking at.
+
+**One review window, four kinds.** A copy can be of a note, a task list, an appointment or a warehouse,
+so no one list is the right place to wait for one: it hangs off the avatar's menu, badged there the way
+notifications are, and each copy announces itself in the notification feed by name and by kind. Each repository implements `ICopyReviewStore` and renders its own rows into
 lines — a note's lines, a list's entries, an appointment's times, a shelf's stock — and one diff then
 serves all four.
 

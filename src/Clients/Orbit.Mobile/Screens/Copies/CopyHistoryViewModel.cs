@@ -25,12 +25,21 @@ public sealed class HistoryRow
     public Guid? OriginalLocalId { get; init; }
 
     public bool HasOriginal => OriginalLocalId is not null;
+
+    /// <summary>
+    /// Still a question rather than a decision - the history shows both, because a copy sitting
+    /// unanswered is part of what happened to this thing just as much as one that was kept.
+    /// </summary>
+    public bool IsAwaitingReview { get; init; }
 }
 
 /// <summary>
-/// Where a copy kept by a review goes to be found again - the "Historia" window from the offline work
-/// order. It answers one question no list can: this and that are two versions of the same thing, and
-/// here is which came from which.
+/// One thing's history: the copies taken from it, and where each came from.
+///
+/// Per thing rather than one list of everything ever kept. History is a fact about a note or a list, not
+/// about the account - somebody looking at two lists called "Zakupy" wants that pair's story, and a
+/// global window would make them read past everything else to find it. Opened from the thing itself,
+/// and it shows the same story whichever of the two versions was open.
 /// </summary>
 public sealed partial class CopyHistoryViewModel : ObservableObject
 {
@@ -50,19 +59,32 @@ public sealed partial class CopyHistoryViewModel : ObservableObject
 
     public bool HasNothing => Rows.Count == 0;
 
+    /// <summary>What the thing is called, so the window says whose history this is.</summary>
+    [ObservableProperty]
+    private string _subjectTitle = string.Empty;
+
+    private CopyKind _kind;
+
+    private Guid _localId;
+
+    /// <summary>Which thing's history to show - see the class summary for why it is one thing's.</summary>
+    public void Open(CopyKind kind, Guid localId)
+    {
+        _kind = kind;
+        _localId = localId;
+    }
+
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        var kept = new List<CopyUnderReview>();
-        foreach (var store in _stores)
-        {
-            kept.AddRange(await store.GetKeptCopiesAsync(cancellationToken));
-        }
-
         Rows.Clear();
-        foreach (var copy in kept.OrderByDescending(candidate => candidate.CopiedAtUtc))
+        if (_stores.FirstOrDefault(candidate => candidate.Kind == _kind) is { } store)
         {
-            Rows.Add(Describe(copy));
+            foreach (var copy in await store.GetHistoryOfAsync(_localId, cancellationToken))
+            {
+                SubjectTitle = copy.Title;
+                Rows.Add(Describe(copy));
+            }
         }
 
         OnPropertyChanged(nameof(HasNothing));
@@ -87,8 +109,9 @@ public sealed partial class CopyHistoryViewModel : ObservableObject
         }
     }
 
+    /// <summary>Back to the thing this is the history of, which is where it was opened from.</summary>
     [RelayCommand]
-    private void GoBack() => _navigator.ShowDashboard();
+    private void GoBack() => CopyDestination.Show(_navigator, _kind, _localId);
 
     private HistoryRow Describe(CopyUnderReview copy)
     {
@@ -103,6 +126,7 @@ public sealed partial class CopyHistoryViewModel : ObservableObject
             Description = copy.OriginalLines is null
                 ? string.Format(_translations["{0} · copied on {1}. What it came from is gone."], kind, takenOn)
                 : string.Format(_translations["{0} · copy of “{1}”, made on {2}."], kind, copy.Title, takenOn),
+            IsAwaitingReview = !copy.IsKept,
             OriginalLocalId = copy.OriginalLines is null ? null : copy.OriginalLocalId
         };
     }

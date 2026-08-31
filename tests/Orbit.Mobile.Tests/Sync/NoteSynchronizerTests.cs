@@ -1,6 +1,8 @@
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Contracts.Notes;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Sync;
 using Xunit;
 
 namespace Orbit.Mobile.Tests.Sync;
@@ -168,20 +170,27 @@ public sealed class NoteSynchronizerTests
         Assert.False(result.ReachedTheServer);
     }
 
+    /// <summary>
+    /// A server that answers badly is refusing this change, and one row it will never accept would
+    /// otherwise block every change queued behind it forever.
+    ///
+    /// This test used to take the network away instead, which made it assert the opposite of what the
+    /// limit is for: it proved that five journeys out of range deleted somebody's note. Answering is
+    /// now the whole of it - see SyncFailure.WasAnswered.
+    /// </summary>
     [Fact]
     public async Task A_change_the_server_keeps_refusing_is_eventually_given_up_on()
     {
         using var context = new SyncContext();
         await context.Notes.CreateAsync("Doomed", SomeContent);
-        context.GoOffline();
+        context.Server.ForcedFailure = HttpStatusCode.InternalServerError;
 
-        // Five runs that each fail; the sixth finds nothing left to block the queue.
+        // Five runs that each are refused; the sixth finds nothing left to block the queue.
         for (var attempt = 0; attempt < 5; attempt++)
         {
             await context.SynchroniseAsync();
         }
 
-        // One permanently failing change must not hold up everything queued behind it forever.
         Assert.Empty(await context.DbContext.Outbox.ToListAsync());
     }
 
@@ -321,4 +330,30 @@ public sealed class NoteSynchronizerTests
 
         Assert.Single(await context.DbContext.Notes.ToListAsync());
     }
+
+    /// <summary>
+    /// The worst thing an outbox can do is throw away what it was given. Being out of range is not a
+    /// refusal - nothing was asked - so it must not count towards the give-up limit. Ten launches with
+    /// no signal is a fortnight away from a network, not a reason to delete somebody's note.
+    /// </summary>
+    [Fact]
+    public async Task Being_offline_never_uses_up_the_attempts_a_change_is_allowed()
+    {
+        using var context = new SyncContext();
+        var note = await context.Notes.CreateAsync("Shopping", [new NoteContentLineDto("milk", false, false)]);
+        context.GoOffline();
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            await context.SynchroniseAsync();
+        }
+
+        context.ComeBackOnline();
+        await context.SynchroniseAsync();
+
+        Assert.Single(context.Server.Notes, stored => stored.Title == "Shopping");
+        using var dbContext = context.DbContext;
+        Assert.NotNull(dbContext.Notes.Single(candidate => candidate.LocalId == note.LocalId).ServerId);
+    }
+
 }

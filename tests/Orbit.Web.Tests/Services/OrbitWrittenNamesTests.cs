@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Localization;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -11,6 +12,9 @@ namespace Orbit.Web.Tests.Services;
 /// </summary>
 public sealed class OrbitWrittenNamesTests
 {
+    /// <summary>How a client turns an English string into the reader's language - see OrbitWrittenNames.</summary>
+    private static Func<string, string> Saying(Translations translations) => key => translations[key];
+
     private static Translations InPolish()
     {
         var translations = new Translations(new StubJSRuntime());
@@ -23,26 +27,26 @@ public sealed class OrbitWrittenNamesTests
     {
         Assert.Equal(
             "Uzupełnienie zapasów - Spiżarnia",
-            OrbitWrittenNames.Translate(InPolish(), "Restock supplies - Spiżarnia"));
+            OrbitWrittenNames.Translate(Saying(InPolish()), "Restock supplies - Spiżarnia"));
     }
 
     [Fact]
     public void A_restock_errand_keeps_the_product_and_the_number()
     {
-        Assert.Equal("Uzupełnij: Mąka (5)", OrbitWrittenNames.Translate(InPolish(), "Restock: Mąka (5)"));
+        Assert.Equal("Uzupełnij: Mąka (5)", OrbitWrittenNames.Translate(Saying(InPolish()), "Restock: Mąka (5)"));
     }
 
 
     [Fact]
     public void The_unit_an_errand_carries_is_said_in_Polish_too()
     {
-        Assert.Equal("Uzupełnij: Mleko (2 opak.)", OrbitWrittenNames.Translate(InPolish(), "Restock: Mleko (2 pack)"));
+        Assert.Equal("Uzupełnij: Mleko (2 opak.)", OrbitWrittenNames.Translate(Saying(InPolish()), "Restock: Mleko (2 pack)"));
     }
 
     [Fact]
     public void A_unit_that_reads_the_same_in_both_is_left_as_it_is()
     {
-        Assert.Equal("Uzupełnij: Mąka (5 kg)", OrbitWrittenNames.Translate(InPolish(), "Restock: Mąka (5 kg)"));
+        Assert.Equal("Uzupełnij: Mąka (5 kg)", OrbitWrittenNames.Translate(Saying(InPolish()), "Restock: Mąka (5 kg)"));
     }
 
     [Fact]
@@ -51,20 +55,20 @@ public sealed class OrbitWrittenNamesTests
         // Nothing here is a unit Orbit writes, so the whole tail is somebody's own words.
         Assert.Equal(
             "Uzupełnij: Mąka (typ 500)",
-            OrbitWrittenNames.Translate(InPolish(), "Restock: Mąka (typ 500)"));
+            OrbitWrittenNames.Translate(Saying(InPolish()), "Restock: Mąka (typ 500)"));
     }
     [Fact]
     public void The_standing_reminder_is_translated_too()
     {
         Assert.Equal(
             "Zaktualizuj stany magazynowe",
-            OrbitWrittenNames.Translate(InPolish(), "Update stock levels"));
+            OrbitWrittenNames.Translate(Saying(InPolish()), "Update stock levels"));
     }
 
     [Fact]
     public void A_name_somebody_wrote_themselves_is_left_alone()
     {
-        Assert.Equal("Zakupy", OrbitWrittenNames.Translate(InPolish(), "Zakupy"));
+        Assert.Equal("Zakupy", OrbitWrittenNames.Translate(Saying(InPolish()), "Zakupy"));
     }
 
     [Fact]
@@ -72,6 +76,6 @@ public sealed class OrbitWrittenNamesTests
     {
         var translations = new Translations(new StubJSRuntime());
 
-        Assert.Equal("Restock supplies - Pantry", OrbitWrittenNames.Translate(translations, "Restock supplies - Pantry"));
+        Assert.Equal("Restock supplies - Pantry", OrbitWrittenNames.Translate(key => translations[key], "Restock supplies - Pantry"));
     }
 }

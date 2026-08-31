@@ -575,7 +575,7 @@ else
     private void GoTo(string href) => NavigationManager.NavigateTo(href);
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     private static string CompletionSummary(TaskDto taskList)
         => $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";

@@ -35,6 +35,13 @@ internal sealed class SyncContext : IDisposable
     public IReadOnlyList<string> WriteRequests()
         => Server.ReceivedRequests.Where(request => !request.Contains("/changes")).ToList();
 
+    /// <summary>How much is still queued - what tells a test that nothing was quietly dropped.</summary>
+    public int QueuedCount()
+    {
+        using var dbContext = _localStore.CreateDbContext();
+        return dbContext.Outbox.Count();
+    }
+
     public void GoOffline() => Server.IsUnreachable = true;
 
     public void ComeBackOnline() => Server.IsUnreachable = false;

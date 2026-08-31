@@ -218,6 +218,7 @@ public sealed class LocalNoteRepository : ICopyReviewStore
         };
 
         dbContext.Notes.Add(copy);
+        CopiesForEditing.Announce(dbContext, CopyKind.Note, copy.LocalId, original.Title, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return copy;
     }
@@ -248,6 +249,17 @@ public sealed class LocalNoteRepository : ICopyReviewStore
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await DescribeAllAsync(dbContext, CopiesForEditing.KeptAsync<LocalNote>, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetHistoryOfAsync(
+        Guid localId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(
+            dbContext,
+            (context, token) => CopiesForEditing.HistoryOfAsync<LocalNote>(context, localId, token),
+            cancellationToken);
     }
 
     /// <summary>
@@ -333,7 +345,8 @@ public sealed class LocalNoteRepository : ICopyReviewStore
                 original?.Title is { Length: > 0 } title ? title : copy.CopyBaseTitle,
                 copy.CopiedAtUtc ?? copy.CreatedAtUtc,
                 copy.CopyBaseLines, Describe(copy.Content),
-                original is null ? null : Describe(original.Content)));
+                original is null ? null : Describe(original.Content),
+                copy.IsKeptCopy));
         }
 
         return described;

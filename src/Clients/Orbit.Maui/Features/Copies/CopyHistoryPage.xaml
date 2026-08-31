@@ -14,13 +14,13 @@
         <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20" RowSpacing="12">
 
             <VerticalStackLayout Grid.Row="0" Spacing="10">
-                <controls:PageHeader Title="{controls:Translate 'History'}">
+                <controls:PageHeader Title="{Binding SubjectTitle}">
                     <controls:PageHeader.Subtitle>
-                        <controls:Translate Text="Copies you kept, and what each came from." />
+                        <controls:Translate Text="Copies of this, and what each came from." />
                     </controls:PageHeader.Subtitle>
                 </controls:PageHeader>
 
-                <Label Text="{controls:Translate 'Nothing kept yet.'}" IsVisible="{Binding HasNothing}"
+                <Label Text="{controls:Translate 'Nothing has been copied from this.'}" IsVisible="{Binding HasNothing}"
                        Style="{StaticResource SubtleLabel}" HorizontalOptions="Center" Margin="0,20,0,0" />
 
                 <Button Text="{controls:Translate 'Back'}" FontSize="13" Padding="8,4" HorizontalOptions="Start"
@@ -43,6 +43,12 @@
                             <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
                             <Label Text="{Binding Description}" FontSize="12" LineBreakMode="WordWrap"
                                    Style="{StaticResource SubtleLabel}" />
+
+                            <!-- A copy nobody has answered for yet is part of what happened here too,
+                                 and saying so is what stops the window reading as settled history. -->
+                            <Label Text="{controls:Translate 'Still waiting to be reviewed'}"
+                                   IsVisible="{Binding IsAwaitingReview}" FontSize="12"
+                                   TextColor="{DynamicResource Accent}" />
 
                             <Button Text="{controls:Translate 'Open the original'}" IsVisible="{Binding HasOriginal}"
                                     FontSize="12" Padding="0,2" HorizontalOptions="Start"

@@ -551,7 +551,7 @@ else
             : [];
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     private static int CompletionPercent(TaskDto taskList)
         => taskList.Items.Count == 0 ? 0 : (int)Math.Round(100.0 * taskList.Items.Count(item => item.IsCompleted) / taskList.Items.Count);

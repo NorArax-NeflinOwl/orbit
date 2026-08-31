@@ -138,7 +138,11 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     private void OnPermissionsChanged(object? sender, EventArgs e) => ShowPermissions();
 
-    private void OnSyncStateChanged(object? sender, EventArgs e) => ShowSyncState();
+    /// <summary>
+    /// A sync that just failed is one of the two states worth offering Reconnect in, so this asks the
+    /// whole question rather than only redrawing the line - see ShowWhetherToOfferReconnecting.
+    /// </summary>
+    private void OnSyncStateChanged(object? sender, EventArgs e) => ShowWhetherToOfferReconnecting();
 
     private void ShowSyncState()
     {
@@ -232,31 +236,23 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// How many copies taken offline are still waiting to be chosen between, and whether anything has
-    /// ever been kept. Counted from the phone, so it is right with no connection - which is the state
-    /// these were made in.
+    /// How many copies taken offline are still waiting to be chosen between. Counted from the phone, so
+    /// it is right with no connection - which is the state they were made in.
     /// </summary>
     private async Task ShowWhatIsWaitingToBeDecidedAsync(CancellationToken cancellationToken)
     {
         var waiting = 0;
-        var kept = false;
         foreach (var store in _copyStores)
         {
             waiting += (await store.GetCopiesAwaitingReviewAsync(cancellationToken)).Count;
-            kept |= (await store.GetKeptCopiesAsync(cancellationToken)).Count > 0;
         }
 
         CopiesAwaitingReview = waiting;
-        HasCopyHistory = kept;
     }
 
     /// <summary>What is waiting to be decided, badged in the menu the way notifications are.</summary>
     [ObservableProperty]
     private int _copiesAwaitingReview;
-
-    /// <summary>Whether anything has ever been kept, which is what puts History in the menu at all.</summary>
-    [ObservableProperty]
-    private bool _hasCopyHistory;
 
     public bool HasCopiesAwaitingReview => CopiesAwaitingReview > 0;
 
@@ -273,13 +269,6 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     {
         IsMenuOpen = false;
         _navigator.ShowCopyReview();
-    }
-
-    [RelayCommand]
-    private void GoToCopyHistory()
-    {
-        IsMenuOpen = false;
-        _navigator.ShowCopyHistory();
     }
 
     /// <summary>
@@ -305,9 +294,14 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         ShowWhetherToOfferReconnecting();
     }
 
+    /// <summary>
+    /// Offered whenever trying again could help: with no connection, and equally when the phone had one
+    /// and the attempt failed anyway. "Couldn't sync" with nothing to tap was the worse of the two -
+    /// being told something went wrong and given no way to do anything about it.
+    /// </summary>
     private void ShowWhetherToOfferReconnecting()
     {
-        CanReconnect = !_networkStatus.IsOnline;
+        CanReconnect = !_networkStatus.IsOnline || _syncState.Condition is SyncCondition.Failed;
         ShowSyncState();
     }
 

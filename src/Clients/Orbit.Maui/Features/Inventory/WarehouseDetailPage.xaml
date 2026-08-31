@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:inventoryScreens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
     xmlns:common="clr-namespace:Orbit.Mobile.Screens;assembly=Orbit.Mobile"
     xmlns:contracts="clr-namespace:Orbit.Contracts.Inventory;assembly=Orbit.Contracts"
     xmlns:inventory="clr-namespace:Orbit.Maui.Features.Inventory"
@@ -160,17 +161,65 @@
         <!-- The panel's own BindingContext would decide its IsVisible too, so the visibility lives on a
              wrapper that still reads the view model. -->
         <VerticalStackLayout Grid.Row="4" IsVisible="{Binding IsShowingList}">
+            <!-- What this shelf's restock list asks for, and when it comes round. At the bottom because
+                 it is about the list the warehouse keeps rather than about the shelf somebody came here
+                 to edit - which is where Orbit.Web puts it too. -->
+            <VerticalStackLayout BindingContext="{Binding RestockList}" Spacing="8" Margin="0,4"
+                                 x:DataType="inventoryScreens:RestockListSettingsPanel"
+                                 IsVisible="{Binding IsOffered}">
+                <Label Text="{controls:Translate 'Restock list'}" Style="{StaticResource FieldLabel}" />
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <VerticalStackLayout Grid.Column="0">
+                        <Label Text="{controls:Translate 'Only what a dated task is waiting on'}"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="{Binding RuleDescription}" FontSize="12" LineBreakMode="WordWrap"
+                               Style="{StaticResource SubtleLabel}" />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding OnlyLinkedWithDueDate}" VerticalOptions="Center"
+                            SemanticProperties.Description="{controls:Translate 'Only what a dated task is waiting on'}" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <VerticalStackLayout Grid.Column="0">
+                        <Label Text="{controls:Translate 'Comes round at'}" VerticalOptions="Center" />
+                        <Label Text="{controls:Translate 'When the standing &quot;Update stock levels&quot; reminder arrives.'}"
+                               FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                    </VerticalStackLayout>
+                    <TimePicker Grid.Column="1" Time="{Binding RefreshTime}" VerticalOptions="Center"
+                                SemanticProperties.Description="{controls:Translate 'Comes round at'}" />
+                </Grid>
+
+                <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
+                       LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+
+                <!-- Greyed out rather than offered and refused, as everything needing a connection is. -->
+                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8" HorizontalOptions="Start">
+                    <Button Grid.Column="0" Text="{controls:Translate 'Save settings'}" FontSize="12" Padding="6,4"
+                            Style="{StaticResource LinkButton}" Command="{Binding SaveCommand}"
+                            IsEnabled="{Binding Connection.IsMet}" />
+                    <Button Grid.Column="1" Text="{controls:Translate 'Refresh'}" FontSize="12" Padding="6,4"
+                            Style="{StaticResource LinkButton}" Command="{Binding RefreshCommand}"
+                            IsEnabled="{Binding Connection.IsMet}" />
+                </Grid>
+            </VerticalStackLayout>
+
             <!-- The panel hides itself for a private warehouse, as Orbit.Web's editor hides it: there
                  is no readable copy on the server to hand anybody - see SharePanel.CanShare. -->
             <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
 
         <!-- Back and away, laid out as the other three detail screens lay them out. -->
-        <Grid Grid.Row="5" ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">
+        <Grid Grid.Row="5" ColumnDefinitions="*,*,Auto" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">
             <Button Grid.Column="0" Text="{controls:Translate 'Back to inventory'}" Command="{Binding GoBackCommand}"
                     Style="{StaticResource LinkButton}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Delete warehouse'}" Command="{Binding DeleteCommand}"
                     IsVisible="{Binding CanEdit}" Style="{StaticResource DestructiveButton}" />
+            <!-- Where this thing's own copies are found again - see CopyHistoryViewModel. Only once
+                 there is one, and here rather than in the account's menu: a history belongs to the
+                 thing it is the history of. -->
+            <Button Grid.Column="2" Text="{controls:Translate 'History'}" IsVisible="{Binding HasHistory}"
+                    Command="{Binding GoToHistoryCommand}" Style="{StaticResource LinkButton}" />
         </Grid>
 
     </Grid>

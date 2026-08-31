@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Sync;
 
@@ -56,9 +57,14 @@ public interface ICopyableForEditing
 /// What the original says now, or null when it has since been deleted - in which case the copy is all
 /// that is left of it and there is nothing to apply it over.
 /// </param>
+/// <param name="IsKept">
+/// Whether a review has already answered for this one. The review window only ever sees copies that
+/// have not been; a thing's history shows both, because a question still open is part of its story.
+/// </param>
 public sealed record CopyUnderReview(
     CopyKind Kind, Guid LocalId, Guid OriginalLocalId, string Title, DateTimeOffset CopiedAtUtc,
-    IReadOnlyList<string> BaseLines, IReadOnlyList<string> Lines, IReadOnlyList<string>? OriginalLines);
+    IReadOnlyList<string> BaseLines, IReadOnlyList<string> Lines, IReadOnlyList<string>? OriginalLines,
+    bool IsKept = false);
 
 /// <summary>
 /// What a repository has to answer for the review window to work over its kind. Each of the four
@@ -72,6 +78,14 @@ public interface ICopyReviewStore
     Task<IReadOnlyList<CopyUnderReview>> GetCopiesAwaitingReviewAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CopyUnderReview>> GetKeptCopiesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Everything this thing's history is made of: the copies taken from it, and - when it is itself a
+    /// copy - the ones taken from whatever it came from, so opening the history of either version shows
+    /// the same story.
+    /// </summary>
+    Task<IReadOnlyList<CopyUnderReview>> GetHistoryOfAsync(
+        Guid localId, CancellationToken cancellationToken = default);
 
     /// <summary>Puts the copy's words onto what it came from, and drops the copy. "Keep mine".</summary>
     Task<LocalWriteOutcome> ApplyCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default);
@@ -110,7 +124,26 @@ public static class CopiesForEditing
             .OrderByDescending(copy => copy.CopiedAtUtc)
             .ToListAsync(cancellationToken);
 
-    /// <summary>Copies of this kind kept on purpose - what the History window lists.</summary>
+    /// <summary>
+    /// Every copy that belongs to one thing's history, whichever version of it was opened: the copies
+    /// taken from <paramref name="localId"/>, and - when that is itself a copy - its siblings.
+    /// </summary>
+    public static async Task<IReadOnlyList<TEntity>> HistoryOfAsync<TEntity>(
+        OrbitLocalDbContext dbContext, Guid localId, CancellationToken cancellationToken)
+        where TEntity : class, ICopyableForEditing
+    {
+        var subject = await dbContext.Set<TEntity>().AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken);
+
+        var root = subject?.CopyOfLocalId ?? localId;
+
+        return await dbContext.Set<TEntity>().AsNoTracking()
+            .Where(copy => copy.CopyOfLocalId == root)
+            .OrderByDescending(copy => copy.CopiedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Copies of this kind kept on purpose - what a thing's history is drawn from.</summary>
     public static async Task<IReadOnlyList<TEntity>> KeptAsync<TEntity>(
         OrbitLocalDbContext dbContext, CancellationToken cancellationToken)
         where TEntity : class, ICopyableForEditing
@@ -139,6 +172,7 @@ public static class CopiesForEditing
 
         dbContext.Outbox.RemoveRange(queued);
         dbContext.Set<TEntity>().Remove(copy);
+        Settle(dbContext, copy.LocalId);
     }
 
     /// <summary>
@@ -150,6 +184,7 @@ public static class CopiesForEditing
         where TEntity : class, ICopyableForEditing
     {
         copy.IsKeptCopy = true;
+        Settle(dbContext, copy.LocalId);
         dbContext.Outbox.Add(new OutboxEntry
         {
             EntityType = entityType,
@@ -162,4 +197,53 @@ public static class CopiesForEditing
     /// <summary>A copy taken offline that no review has answered yet.</summary>
     public static bool IsAwaitingReview(ICopyableForEditing entity)
         => entity is { CopyOfLocalId: not null, IsKeptCopy: false };
+
+    /// <summary>
+    /// Says in the notification feed that a copy is waiting to be decided on, naming what it is a copy
+    /// of. Written in the same save as the copy itself, so the two cannot disagree.
+    ///
+    /// In the feed rather than only as a badge, because a badge says "something" and the reader needs
+    /// to know <i>which</i> thing they wrote in - two rows called "Zakupy" are otherwise a puzzle.
+    /// </summary>
+    public static void Announce(
+        OrbitLocalDbContext dbContext, CopyKind kind, Guid copyLocalId, string title, DateTimeOffset now)
+        => dbContext.Notifications.Add(new LocalNotification
+        {
+            Id = Guid.NewGuid(),
+            Kind = "CopyAwaitingReview",
+            Title = "A copy is waiting to be reviewed",
+            Body = WaitingDescription(kind),
+            BodyArgumentsJson = JsonSerializer.Serialize(new[] { title }),
+            Url = NoticeUrl(copyLocalId),
+            CreatedAtUtc = now,
+            IsRaisedHere = true
+        });
+
+    /// <summary>
+    /// Takes that notice away, because the question it was asking has been answered. Called wherever a
+    /// copy stops waiting - applied, discarded or kept - so the feed never advertises a decision that
+    /// has already been made.
+    /// </summary>
+    public static void Settle(OrbitLocalDbContext dbContext, Guid copyLocalId)
+    {
+        var url = NoticeUrl(copyLocalId);
+        dbContext.Notifications.RemoveRange(
+            dbContext.Notifications.Where(notice => notice.IsRaisedHere && notice.Url == url));
+    }
+
+    /// <summary>Which copy a notice is about - see NotificationDestination's "copies" path.</summary>
+    private static string NoticeUrl(Guid copyLocalId) => $"/copies/{copyLocalId}";
+
+    /// <summary>
+    /// One whole sentence per kind rather than a noun dropped into a shared one: Polish declines what
+    /// was copied, so "kopii notatki" and "…listy zadań" cannot come from the same template.
+    /// </summary>
+    private static string WaitingDescription(CopyKind kind)
+        => kind switch
+        {
+            CopyKind.Note => "You wrote in a copy of the note “{0}” while you were offline.",
+            CopyKind.TaskList => "You wrote in a copy of the task list “{0}” while you were offline.",
+            CopyKind.CalendarEvent => "You wrote in a copy of the appointment “{0}” while you were offline.",
+            _ => "You wrote in a copy of the warehouse “{0}” while you were offline."
+        };
 }

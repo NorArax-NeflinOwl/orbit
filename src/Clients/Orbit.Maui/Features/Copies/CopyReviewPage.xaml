@@ -55,7 +55,9 @@
                                        IsVisible="{Binding HasConflict}" FontSize="12" LineBreakMode="WordWrap"
                                        TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
 
-                                <Label Text="{controls:Translate 'The note this came from is gone.'}"
+                                <!-- Its owner deleted it while this phone was away, so there is nothing
+                                     left to choose between - only whether to keep what was written. -->
+                                <Label Text="{controls:Translate 'The original is gone - its owner may have deleted it. Do you want to keep your copy?'}"
                                        IsVisible="{Binding IsOriginalGone}" FontSize="12" LineBreakMode="WordWrap"
                                        TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
 
@@ -85,7 +87,16 @@
                                 <!-- Three answers and no more, which is the whole of the decision. Link
                                      buttons: they are the point of the card, but three solid blocks of
                                      accent colour under every card would read as the content. -->
-                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                                <!-- One answer when there is nothing to compare against. It keeps the
+                                     copy, which then stands on its own - tagged, and still in that
+                                     thing's history so its past is not lost with the original. -->
+                                <Button Text="{controls:Translate 'Keep my copy'}" IsVisible="{Binding IsOriginalGone}"
+                                        FontSize="12" Padding="6,4" HorizontalOptions="Start"
+                                        Style="{StaticResource LinkButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepBothCommand, x:DataType=copies:CopyReviewPage}"
+                                        CommandParameter="{Binding .}" />
+
+                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6" IsVisible="{Binding IsDecidable}">
                                     <Button Grid.Column="0" Text="{controls:Translate 'Keep mine'}" FontSize="12"
                                             Padding="6,4" LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepMineCommand, x:DataType=copies:CopyReviewPage}"

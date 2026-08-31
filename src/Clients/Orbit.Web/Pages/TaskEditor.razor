@@ -1019,7 +1019,7 @@ else
     /// A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames. Used where another
     /// list is named, never on the title box: what is typed there is what gets saved.
     /// </summary>
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     /// <summary>
     /// The events an entry can be tied to. Read once with the lists, since the dropdown offering them

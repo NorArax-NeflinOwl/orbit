@@ -302,9 +302,12 @@ public static class PolishTranslations
         ["Keep theirs"] = "Zostaw tamtą",
         ["Keep both"] = "Zostaw obie",
         ["History"] = "Historia",
-        ["Copies you kept, and what each came from."] =
-            "Kopie, które zostawiłeś, i to, z czego każda powstała.",
-        ["Nothing kept yet."] = "Nic jeszcze nie zostało zostawione.",
+        ["Copies of this, and what each came from."] = "Kopie tego elementu i to, z czego każda powstała.",
+        ["Nothing has been copied from this."] = "Nic nie zostało z tego skopiowane.",
+        ["Still waiting to be reviewed"] = "Wciąż czeka na przejrzenie",
+        ["The original is gone - its owner may have deleted it. Do you want to keep your copy?"] =
+            "Nie znaleziono oryginału - możliwe, że właściciel go usunął. Czy chcesz zachować swoją kopię?",
+        ["Keep my copy"] = "Zachowaj moją kopię",
         ["Open the original"] = "Otwórz oryginał",
         ["{0} · copy of “{1}”, made on {2}."] = "{0} · kopia „{1}”, zrobiona {2}.",
         ["{0} · copied on {1}. What it came from is gone."] =
@@ -312,6 +315,34 @@ public static class PolishTranslations
         ["Orbit can't be reached to check who else is editing. Try this again once you're back online."] =
             "Nie można połączyć się z Orbitem, żeby sprawdzić, kto jeszcze to edytuje. Spróbuj ponownie, gdy wrócisz online.",
         ["That is no longer here."] = "Tego już tu nie ma.",
+
+        // What rebuilding a warehouse's restock list moved, and what it needs - see the phone's
+        // RestockListSettingsPanel, which shows the settings Orbit.Web has had all along.
+        ["Added {0}, removed {1}."] = "Dodano {0}, usunięto {1}.",
+        ["The restock list needs a connection."] = "Lista uzupełnień wymaga połączenia.",
+
+        // What the phone tells itself, in the notification feed - see LocalNotification.IsRaisedHere.
+        // One whole sentence per kind, because Polish declines what was refused or copied.
+        ["A change couldn't be saved"] = "Nie udało się zapisać zmiany",
+        ["Orbit kept refusing a change to a note, so it is no longer waiting to be sent."] =
+            "Orbit uporczywie odrzucał zmianę w notatce, więc nie czeka już na wysłanie.",
+        ["Orbit kept refusing a change to a task list, so it is no longer waiting to be sent."] =
+            "Orbit uporczywie odrzucał zmianę na liście zadań, więc nie czeka już na wysłanie.",
+        ["Orbit kept refusing a change to an appointment, so it is no longer waiting to be sent."] =
+            "Orbit uporczywie odrzucał zmianę w spotkaniu, więc nie czeka już na wysłanie.",
+        ["Orbit kept refusing a change to a warehouse, so it is no longer waiting to be sent."] =
+            "Orbit uporczywie odrzucał zmianę w magazynie, więc nie czeka już na wysłanie.",
+        ["Orbit kept refusing a change, so it is no longer waiting to be sent."] =
+            "Orbit uporczywie odrzucał zmianę, więc nie czeka już na wysłanie.",
+        ["A copy is waiting to be reviewed"] = "Kopia czeka na przejrzenie",
+        ["You wrote in a copy of the note “{0}” while you were offline."] =
+            "Bez połączenia pisałeś w kopii notatki „{0}”.",
+        ["You wrote in a copy of the task list “{0}” while you were offline."] =
+            "Bez połączenia pisałeś w kopii listy zadań „{0}”.",
+        ["You wrote in a copy of the appointment “{0}” while you were offline."] =
+            "Bez połączenia pisałeś w kopii spotkania „{0}”.",
+        ["You wrote in a copy of the warehouse “{0}” while you were offline."] =
+            "Bez połączenia pisałeś w kopii magazynu „{0}”.",
 
         // ---- Tasks ----
         ["Add task list"] = "Dodaj listę zadań",

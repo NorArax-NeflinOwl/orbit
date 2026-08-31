@@ -9,9 +9,11 @@ using Xunit;
 namespace Orbit.Mobile.Tests.Screens.Copies;
 
 /// <summary>
-/// Where a copy kept by a review can be found again. Its whole job is the reference: this note came
-/// from that one - which nothing else in the app records, and which the notes list cannot show without
-/// becoming a list of pairs.
+/// One thing's history: the copies taken from it, and where each came from. Its whole job is the
+/// reference - this note came from that one - which nothing else in the app records and which the notes
+/// list cannot show without becoming a list of pairs.
+///
+/// Per thing rather than global, so these open it on a note and expect that note's story.
 /// </summary>
 public sealed class CopyHistoryScreenTests
 {
@@ -22,7 +24,7 @@ public sealed class CopyHistoryScreenTests
         var original = await context.AddNoteAsync("Team shopping");
         await context.KeepACopyOfAsync(original.LocalId);
 
-        var screen = await context.OpenAsync();
+        var screen = await context.OpenAsync(original.LocalId);
 
         var row = Assert.Single(screen.Rows);
         Assert.Equal("Team shopping", row.Title);
@@ -31,28 +33,42 @@ public sealed class CopyHistoryScreenTests
     }
 
     /// <summary>
-    /// A copy that has not been through a review is not history - it is a question still waiting to be
-    /// answered, and it belongs to the review window.
+    /// A copy nobody has answered for yet is part of what happened to this note just as much as one
+    /// that was kept, so it is listed - and marked as the open question it still is.
     /// </summary>
     [Fact]
-    public async Task A_copy_still_awaiting_review_is_not_history_yet()
+    public async Task A_copy_still_awaiting_review_is_listed_and_says_so()
     {
         using var context = new HistoryContext();
         var original = await context.AddNoteAsync("Team shopping");
         await context.Notes.CopyForEditingAsync(original.LocalId);
 
-        var screen = await context.OpenAsync();
+        var row = Assert.Single((await context.OpenAsync(original.LocalId)).Rows);
 
-        Assert.True(screen.HasNothing);
+        Assert.True(row.IsAwaitingReview);
+    }
+
+    /// <summary>
+    /// Opened on the copy rather than on what it came from, the story is the same one - otherwise
+    /// somebody standing on one of two versions would be told it has no history at all.
+    /// </summary>
+    [Fact]
+    public async Task The_same_history_opens_from_either_version()
+    {
+        using var context = new HistoryContext();
+        var original = await context.AddNoteAsync("Team shopping");
+        var copy = await context.KeepACopyOfAsync(original.LocalId);
+
+        Assert.Single((await context.OpenAsync(copy.LocalId)).Rows);
     }
 
     [Fact]
-    public async Task Nothing_kept_leaves_the_window_empty_rather_than_wrong()
+    public async Task Nothing_copied_leaves_the_window_empty_rather_than_wrong()
     {
         using var context = new HistoryContext();
-        await context.AddNoteAsync("Team shopping");
+        var original = await context.AddNoteAsync("Team shopping");
 
-        Assert.True((await context.OpenAsync()).HasNothing);
+        Assert.True((await context.OpenAsync(original.LocalId)).HasNothing);
     }
 
     /// <summary>
@@ -67,7 +83,7 @@ public sealed class CopyHistoryScreenTests
         await context.KeepACopyOfAsync(original.LocalId);
         await context.Notes.DeleteAsync(original.LocalId);
 
-        var row = Assert.Single((await context.OpenAsync()).Rows);
+        var row = Assert.Single((await context.OpenAsync(original.LocalId)).Rows);
 
         Assert.False(row.HasOriginal);
         Assert.Null(row.OriginalLocalId);
@@ -79,7 +95,7 @@ public sealed class CopyHistoryScreenTests
         using var context = new HistoryContext();
         var original = await context.AddNoteAsync("Team shopping");
         var copy = await context.KeepACopyOfAsync(original.LocalId);
-        var screen = await context.OpenAsync();
+        var screen = await context.OpenAsync(original.LocalId);
 
         screen.OpenCommand.Execute(screen.Rows[0]);
 
@@ -92,7 +108,7 @@ public sealed class CopyHistoryScreenTests
         using var context = new HistoryContext();
         var original = await context.AddNoteAsync("Team shopping");
         await context.KeepACopyOfAsync(original.LocalId);
-        var screen = await context.OpenAsync();
+        var screen = await context.OpenAsync(original.LocalId);
 
         screen.OpenOriginalCommand.Execute(screen.Rows[0]);
 
@@ -125,11 +141,12 @@ public sealed class CopyHistoryScreenTests
             return copy;
         }
 
-        public async Task<CopyHistoryViewModel> OpenAsync()
+        public async Task<CopyHistoryViewModel> OpenAsync(Guid localId)
         {
             var screen = new CopyHistoryViewModel(
                 [Notes], new Translations(new InMemoryLanguageStore()), Navigator);
 
+            screen.Open(CopyKind.Note, localId);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }

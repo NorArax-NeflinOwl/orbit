@@ -230,6 +230,8 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
         };
 
         dbContext.CalendarEvents.Add(copy);
+        CopiesForEditing.Announce(
+            dbContext, CopyKind.CalendarEvent, copy.LocalId, original.Details.Title, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return copy;
     }
@@ -249,6 +251,17 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await DescribeAllAsync(dbContext, CopiesForEditing.KeptAsync<LocalCalendarEvent>, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetHistoryOfAsync(
+        Guid localId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(
+            dbContext,
+            (context, token) => CopiesForEditing.HistoryOfAsync<LocalCalendarEvent>(context, localId, token),
+            cancellationToken);
     }
 
     /// <inheritdoc cref="LocalNoteRepository.ApplyCopyAsync"/>
@@ -332,7 +345,8 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
                 original?.Details.Title is { Length: > 0 } title ? title : copy.CopyBaseTitle,
                 copy.CopiedAtUtc ?? copy.CreatedAtUtc,
                 copy.CopyBaseLines, Describe(copy.Details),
-                original is null ? null : Describe(original.Details)));
+                original is null ? null : Describe(original.Details),
+                copy.IsKeptCopy));
         }
 
         return described;
