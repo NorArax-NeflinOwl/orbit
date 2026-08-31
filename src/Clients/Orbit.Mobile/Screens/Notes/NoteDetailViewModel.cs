@@ -52,6 +52,15 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     private string _readOnlyReason = string.Empty;
 
     /// <summary>
+    /// Whether to ask "then take a copy?" - offered only where the refusal is one a copy answers: no
+    /// connection, and somebody else able to change this. A sealed note is not offered one (there is
+    /// nothing readable to copy), and neither is a note somebody is in right now, because that refusal
+    /// ends by itself in a minute and a copy would outlive it.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <summary>
     /// Only its owner may ever read this note, and the server never can. Orbit.Web's editor has had the
     /// checkbox all along; the phone honoured the flag - hiding such a note behind the device lock - but
     /// could not set one, so a note made here could never be private.
@@ -183,6 +192,26 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [RelayCommand]
     private void GoBack() => _navigator.ShowNotes();
 
+    /// <summary>
+    /// Takes the copy the reader has just asked for and opens it, so they carry on writing where they
+    /// meant to rather than being returned to the list to find it.
+    /// </summary>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _notes.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowNote(copy.LocalId);
+    }
+
+    /// <summary>Reading it and leaving it alone, which is the ordinary answer - and asked only once.</summary>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
+
     private async Task SaveAsync(IReadOnlyList<NoteContentLineDto> lines, CancellationToken cancellationToken)
     {
         try
@@ -258,6 +287,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _notes.CanEditAsync(_localId, cancellationToken);
         ReadOnlyReason = IsReadOnly ? _translations[RefusalMessage] : string.Empty;
+        IsCopyOffered = IsReadOnly && note.CopyOfLocalId is null;
 
         if (IsReadOnly || note.ServerId is not { } serverId)
         {

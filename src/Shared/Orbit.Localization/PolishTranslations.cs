@@ -280,6 +280,36 @@ public static class PolishTranslations
         ["Sharing"] = "Udostępnianie",
         ["Link"] = "Link",
 
+        // What a note copied for editing offline is called, and the two windows that exist because of
+        // it - the review that asks which version to keep, and the history of the ones kept.
+        ["Make a copy you can write in while you are offline?"] =
+            "Zrobić kopię, w której możesz pisać bez połączenia?",
+        ["Make a copy"] = "Zrób kopię",
+        ["Not now"] = "Nie teraz",
+        ["copy"] = "kopia",
+        ["Copies to review"] = "Kopie do przejrzenia",
+        ["What you wrote while you were offline, beside the note it came from."] =
+            "To, co napisałeś bez połączenia, obok notatki, z której to powstało.",
+        ["Nothing to review."] = "Nie ma nic do przejrzenia.",
+        ["This note was also changed elsewhere."] = "Ta notatka zmieniła się też gdzie indziej.",
+        ["The note this came from is gone."] = "Notatki, z której to powstało, już nie ma.",
+        ["Your copy"] = "Twoja kopia",
+        ["Changed elsewhere"] = "Zmienione gdzie indziej",
+        ["Keep mine"] = "Zostaw moją",
+        ["Keep theirs"] = "Zostaw tamtą",
+        ["Keep both"] = "Zostaw obie",
+        ["History"] = "Historia",
+        ["Copies you kept, and the notes they came from."] =
+            "Kopie, które zostawiłeś, i notatki, z których powstały.",
+        ["Nothing kept yet."] = "Nic jeszcze nie zostało zostawione.",
+        ["Open the original"] = "Otwórz oryginał",
+        ["Copy of “{0}”, made on {1}."] = "Kopia „{0}”, zrobiona {1}.",
+        ["Copied on {0}. The note it came from is gone."] =
+            "Skopiowane {0}. Notatki, z której to powstało, już nie ma.",
+        ["Orbit can't be reached to check who else is editing. Try this again once you're back online."] =
+            "Nie można połączyć się z Orbitem, żeby sprawdzić, kto jeszcze to edytuje. Spróbuj ponownie, gdy wrócisz online.",
+        ["That note is no longer here."] = "Tej notatki już tu nie ma.",
+
         // ---- Tasks ----
         ["Add task list"] = "Dodaj listę zadań",
         ["Every list you own or someone shared with you."] = "Każda lista, którą masz albo którą Ci udostępniono.",

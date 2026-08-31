@@ -283,6 +283,129 @@ public sealed class NoteDetailScreenTests
     /// <summary>Whoever is signed in - only its identity matters, as the key is kept per account.</summary>
     private static readonly Guid Owner = Guid.Parse("11111111-0000-4000-8000-000000000001");
 
+    /// <summary>
+    /// The way out of a refusal, rather than only being told about one. Somebody on a train who has
+    /// something to write down about a shared note may write it down - into a copy of their own, which
+    /// nobody else can be editing and which therefore breaks no rule the policy exists to keep.
+    /// </summary>
+    [Fact]
+    public async Task A_note_that_cannot_be_changed_offline_offers_a_copy_instead()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddSharedNoteAsync("Team shopping", "milk");
+        context.Network.Becomes(false);
+
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.True(screen.IsReadOnly);
+        Assert.True(screen.IsCopyOffered);
+    }
+
+    [Fact]
+    public async Task A_note_that_can_be_changed_is_not_asked_about_at_all()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Mine alone", "milk");
+        context.Network.Becomes(false);
+
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.False(screen.IsReadOnly);
+        Assert.False(screen.IsCopyOffered);
+    }
+
+    /// <summary>
+    /// Nothing readable to copy, and a copy is written in the clear - so the offer is not made. Being
+    /// told why it is read-only is all this screen can honestly give.
+    /// </summary>
+    [Fact]
+    public async Task A_sealed_note_is_never_offered_a_copy()
+    {
+        using var context = new ScreenContext(PrivateContent.SignedInWithoutAKey(Owner));
+        var note = await context.AddSealedNoteAsync();
+        context.Network.Becomes(false);
+
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.True(screen.IsReadOnly);
+        Assert.False(screen.IsCopyOffered);
+    }
+
+    [Fact]
+    public async Task Taking_the_copy_opens_it_with_the_words_that_were_there()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddSharedNoteAsync("Team shopping", "milk", "bread");
+        context.Network.Becomes(false);
+        var screen = await context.OpenAsync(note.LocalId);
+
+        await screen.CopyForEditingCommand.ExecuteAsync(null);
+
+        var copy = Assert.Single(await context.Notes.GetCopiesOfAsync(note.LocalId));
+        Assert.Equal("Team shopping", copy.Title);
+        Assert.Equal(["milk", "bread"], copy.Content.Select(line => line.Text));
+        Assert.Equal(copy.LocalId, context.Navigator.LastNoteId);
+    }
+
+    /// <summary>
+    /// The copy is this phone's own and shared with nobody, so the very policy that refused the
+    /// original allows it - which is the whole point, and would be silently untrue if a copy inherited
+    /// the original's sharing.
+    /// </summary>
+    [Fact]
+    public async Task The_copy_can_be_written_on_with_no_connection()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddSharedNoteAsync("Team shopping", "milk");
+        context.Network.Becomes(false);
+        var screen = await context.OpenAsync(note.LocalId);
+        await screen.CopyForEditingCommand.ExecuteAsync(null);
+        var copy = Assert.Single(await context.Notes.GetCopiesOfAsync(note.LocalId));
+
+        var copyScreen = await context.OpenAsync(copy.LocalId);
+        copyScreen.NewLine = "bread";
+        await copyScreen.AddLineCommand.ExecuteAsync(null);
+
+        Assert.False(copyScreen.IsReadOnly);
+        Assert.Equal(["milk", "bread"], copyScreen.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>Asked once. A reader who says no is reading, and being asked again is being nagged.</summary>
+    [Fact]
+    public async Task Declining_puts_the_question_away()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddSharedNoteAsync("Team shopping", "milk");
+        context.Network.Becomes(false);
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.DeclineCopyCommand.Execute(null);
+
+        Assert.False(screen.IsCopyOffered);
+        Assert.True(screen.IsReadOnly);
+    }
+
+    /// <summary>A copy of a copy is a chain nobody could review; the offer stops at one.</summary>
+    [Fact]
+    public async Task A_copy_is_not_itself_offered_a_copy()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddSharedNoteAsync("Team shopping", "milk");
+        context.Network.Becomes(false);
+        var screen = await context.OpenAsync(note.LocalId);
+        await screen.CopyForEditingCommand.ExecuteAsync(null);
+        var copy = Assert.Single(await context.Notes.GetCopiesOfAsync(note.LocalId));
+
+        // Shared, so the policy would refuse it - if a copy ever arrived shared, it still gets no offer.
+        await using (var dbContext = context.Store.CreateDbContext())
+        {
+            dbContext.Notes.Single(candidate => candidate.LocalId == copy.LocalId).IsShared = true;
+            await dbContext.SaveChangesAsync();
+        }
+
+        Assert.False((await context.OpenAsync(copy.LocalId)).IsCopyOffered);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -294,10 +417,26 @@ public sealed class NoteDetailScreenTests
         {
             _privateContent = privateContent ?? PrivateContent.WithoutAKey();
             Server = new FakeNotesServer(_clock);
-            Notes = new LocalNoteRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
+            Notes = new LocalNoteRepository(_localStore, _clock, Network, _privateContent);
             _synchronizer = new NoteSynchronizer(
                 _localStore, new NotesClient(Server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<NoteSynchronizer>.Instance);
+        }
+
+        /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
+        public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
+        /// <summary>
+        /// A note somebody else shared in, which is the one kind the offline policy refuses - see
+        /// OfflineEditPolicy.
+        /// </summary>
+        public async Task<LocalNote> AddSharedNoteAsync(string title, params string[] lines)
+        {
+            var note = await AddNoteAsync(title, lines);
+            await using var dbContext = _localStore.CreateDbContext();
+            dbContext.Notes.Single(candidate => candidate.LocalId == note.LocalId).IsShared = true;
+            await dbContext.SaveChangesAsync();
+            return note;
         }
 
         /// <summary>The row as it really sits in the database, rather than as a read hands it back opened.</summary>
@@ -308,6 +447,9 @@ public sealed class NoteDetailScreenTests
         }
 
         public FakeNotesServer Server { get; }
+
+        /// <summary>The database itself, for the few tests that must arrange a row a screen cannot.</summary>
+        public LocalStore Store => _localStore;
 
         public LocalNoteRepository Notes { get; }
 

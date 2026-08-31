@@ -94,5 +94,41 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
     /// accepted - which is also what <see cref="ServerId"/> being null means, kept separately because a
     /// synced note that is later edited offline has one and not the other.
     /// </summary>
+    /// <summary>
+    /// The note this one is a copy of, made so it could be edited with no connection - null for an
+    /// ordinary note, which is nearly all of them.
+    ///
+    /// Offline, a note somebody else can change is read-only: it is one row, protected by a lock this
+    /// phone cannot hold, so an edit made here could only be discovered to be impossible at replay time
+    /// (see OfflineEditPolicy). Refusing was honest and unhelpful - somebody on a train with something
+    /// to write down has nowhere to put it. So the refusal now offers a copy instead: a note of this
+    /// phone's own, which nobody else can be editing and which therefore has no such problem.
+    ///
+    /// What it costs is the reconciling, which is what <see cref="CopyBaseTitle"/> exists for.
+    /// </summary>
+    public Guid? CopyOfLocalId { get; set; }
+
+    /// <summary>When the copy was taken, which is what the review screen orders and dates them by.</summary>
+    public DateTimeOffset? CopiedAtUtc { get; set; }
+
+    /// <summary>
+    /// What the original said at the moment the copy was taken - the third point a review needs.
+    ///
+    /// Without it a review can only say "these two differ", which is true of every field the reader
+    /// deliberately changed and says nothing. With it the screen can tell the two apart: a field only
+    /// this copy changed is a change to apply, and one both sides changed is the actual conflict.
+    /// </summary>
+    public string CopyBaseTitle { get; set; } = string.Empty;
+
+    /// <inheritdoc cref="CopyBaseTitle"/>
+    public IReadOnlyList<NoteContentLineDto> CopyBaseContent { get; set; } = [];
+
+    /// <summary>
+    /// Kept on purpose after a review rather than applied or dropped - the reader wanted both versions.
+    /// It stops being a copy under review and becomes a note in its own right, still pointing at what it
+    /// came from so the History screen can say where it came from.
+    /// </summary>
+    public bool IsKeptCopy { get; set; }
+
     public DateTimeOffset? LastSyncedAtUtc { get; set; }
 }

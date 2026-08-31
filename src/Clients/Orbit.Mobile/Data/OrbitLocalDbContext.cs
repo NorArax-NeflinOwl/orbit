@@ -72,6 +72,10 @@ public sealed class OrbitLocalDbContext : DbContext
             note.Property(entity => entity.Content)
                 .HasConversion(ContentConverter)
                 .Metadata.SetValueComparer(ContentComparer);
+            // Stored the same way as the content it is a snapshot of - see LocalNote.CopyBaseContent.
+            note.Property(entity => entity.CopyBaseContent)
+                .HasConversion(ContentConverter)
+                .Metadata.SetValueComparer(ContentComparer);
         });
 
         modelBuilder.Entity<LocalTaskList>(taskList =>

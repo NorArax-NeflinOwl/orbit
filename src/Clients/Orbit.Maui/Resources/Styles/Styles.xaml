@@ -439,6 +439,21 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
     </Style>
 
+    <!-- One line of a diff on the copy-review screen. Grey by default - most lines did not change and
+         should recede - with green for what was added and red for what went. The sign in the margin
+         says the same thing (see DiffLine.Display), so the colour is a second telling, not the only one. -->
+    <Style x:Key="DiffLineLabel" TargetType="Label">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+        <Style.Triggers>
+            <DataTrigger TargetType="Label" Binding="{Binding IsAdded}" Value="True">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SuccessLight}, Dark={StaticResource SuccessDark}}" />
+            </DataTrigger>
+            <DataTrigger TargetType="Label" Binding="{Binding IsRemoved}" Value="True">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Text that warns without being an error: destructive actions, irreversible consequences. -->
     <Style x:Key="WarningLabel" TargetType="Label">
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />

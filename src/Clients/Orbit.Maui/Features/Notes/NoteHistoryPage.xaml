@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Notes.NoteHistoryPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
+    x:DataType="screens:NoteHistoryViewModel"
+    Title="{controls:Translate 'History'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20" RowSpacing="12">
+
+            <VerticalStackLayout Grid.Row="0" Spacing="10">
+                <controls:PageHeader Title="{controls:Translate 'History'}">
+                    <controls:PageHeader.Subtitle>
+                        <controls:Translate Text="Copies you kept, and the notes they came from." />
+                    </controls:PageHeader.Subtitle>
+                </controls:PageHeader>
+
+                <Label Text="{controls:Translate 'Nothing kept yet.'}" IsVisible="{Binding HasNothing}"
+                       Style="{StaticResource SubtleLabel}" HorizontalOptions="Center" Margin="0,20,0,0" />
+
+                <Button Text="{controls:Translate 'Back'}" FontSize="13" Padding="8,4" HorizontalOptions="Start"
+                        Style="{StaticResource LinkButton}" Command="{Binding GoBackCommand}" />
+            </VerticalStackLayout>
+
+            <CollectionView Grid.Row="1" ItemsSource="{Binding Rows}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="screens:HistoryRow">
+                        <!-- The row is the button, as everywhere else in the app: tapping a copy opens
+                             it. The one extra thing a row can do - go to what it came from - is a link
+                             under it rather than a second button beside the title. -->
+                        <VerticalStackLayout Padding="0,12" Spacing="2">
+                            <VerticalStackLayout.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=notes:NoteHistoryPage}"
+                                    CommandParameter="{Binding .}" />
+                            </VerticalStackLayout.GestureRecognizers>
+
+                            <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                            <Label Text="{Binding Description}" FontSize="12" LineBreakMode="WordWrap"
+                                   Style="{StaticResource SubtleLabel}" />
+
+                            <Button Text="{controls:Translate 'Open the original'}" IsVisible="{Binding HasOriginal}"
+                                    FontSize="12" Padding="0,2" HorizontalOptions="Start"
+                                    Style="{StaticResource LinkButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenOriginalCommand, x:DataType=notes:NoteHistoryPage}"
+                                    CommandParameter="{Binding .}" />
+
+                            <BoxView HeightRequest="1" Margin="0,12,0,0"
+                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+</ContentPage>

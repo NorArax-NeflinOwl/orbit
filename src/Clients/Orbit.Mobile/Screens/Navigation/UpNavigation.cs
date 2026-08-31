@@ -24,6 +24,8 @@ public sealed class UpNavigation
         [Screen.Notes] = Screen.Dashboard,
         [Screen.Tasks] = Screen.Dashboard,
         [Screen.Note] = Screen.Notes,
+        [Screen.NoteCopyReview] = Screen.Notes,
+        [Screen.NoteHistory] = Screen.Notes,
         [Screen.TaskList] = Screen.Tasks,
         [Screen.Calendar] = Screen.Dashboard,
         [Screen.CalendarEvent] = Screen.Calendar,

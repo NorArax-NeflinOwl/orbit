@@ -38,6 +38,18 @@ public sealed partial class NotesViewModel : ObservableObject
     [ObservableProperty]
     private string _message = string.Empty;
 
+    /// <summary>
+    /// How many copies taken offline are waiting to be chosen between. Shown here rather than pushed at
+    /// the reader the moment a connection returns: a copy was made deliberately, it is safe where it is,
+    /// and a prompt over whatever screen they happen to be on would be answered by dismissing it.
+    /// </summary>
+    [ObservableProperty]
+    private int _copiesAwaitingReview;
+
+    /// <summary>Whether anything has ever been kept, which is what puts History in reach at all.</summary>
+    [ObservableProperty]
+    private bool _hasHistory;
+
     public NotesViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient,
         INetworkStatus networkStatus,
@@ -60,6 +72,10 @@ public sealed partial class NotesViewModel : ObservableObject
     public bool HasMessage => Message.Length > 0;
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+
+    public bool HasCopiesAwaitingReview => CopiesAwaitingReview > 0;
+
+    partial void OnCopiesAwaitingReviewChanged(int value) => OnPropertyChanged(nameof(HasCopiesAwaitingReview));
 
     /// <summary>
     /// Shows what is already on the phone first, then synchronises. The other order would leave the
@@ -123,6 +139,12 @@ public sealed partial class NotesViewModel : ObservableObject
     /// of hiding it - see NoteListItem.CanBeOpened.
     /// </summary>
     [RelayCommand]
+    private void GoToCopyReview() => _navigator.ShowNoteCopyReview();
+
+    [RelayCommand]
+    private void GoToHistory() => _navigator.ShowNoteHistory();
+
+    [RelayCommand]
     private void Open(NoteListItem? row)
     {
         if (row is { CanBeOpened: true })
@@ -149,6 +171,9 @@ public sealed partial class NotesViewModel : ObservableObject
     {
         var stored = await _notes.GetAllAsync(cancellationToken);
         var pending = await _notes.GetPendingNoteLocalIdsAsync(cancellationToken);
+
+        CopiesAwaitingReview = (await _notes.GetCopiesAwaitingReviewAsync(cancellationToken)).Count;
+        HasHistory = (await _notes.GetKeptCopiesAsync(cancellationToken)).Count > 0;
 
         Notes.Clear();
         foreach (var note in stored)

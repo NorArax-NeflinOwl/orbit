@@ -85,6 +85,10 @@ public sealed class AppNavigator : IScreenNavigator
 	public void ShowNote(Guid localId)
 		=> ShowAsRoot<NoteDetailPage>(Screen.Note, page => page.ViewModel.Open(localId));
 
+	public void ShowNoteCopyReview() => ShowAsRoot<NoteCopyReviewPage>(Screen.NoteCopyReview);
+
+	public void ShowNoteHistory() => ShowAsRoot<NoteHistoryPage>(Screen.NoteHistory);
+
 	public void ShowCalendarEvent(Guid localId)
 		=> ShowAsRoot<CalendarEventDetailPage>(Screen.CalendarEvent, page => page.ViewModel.Open(localId));
 

@@ -12,7 +12,7 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
         <!-- The title is the note's own, so it is edited in place rather than shown twice. -->
         <Entry Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
@@ -22,11 +22,25 @@
         <Label Grid.Row="1" Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
                FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
-        <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+        <!-- The way out of the refusal above, offered rather than imposed: a copy is a second note on
+             the list, so nobody should get one without asking. Sits directly under the reason it
+             answers, and goes away once it has been answered either way. -->
+        <VerticalStackLayout Grid.Row="2" IsVisible="{Binding IsCopyOffered}" Spacing="4">
+            <Label Text="{controls:Translate 'Make a copy you can write in while you are offline?'}"
+                   FontSize="12" LineBreakMode="WordWrap" />
+            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="6" HorizontalOptions="Start">
+                <Button Grid.Column="0" Text="{controls:Translate 'Make a copy'}" FontSize="12" Padding="6,4"
+                        Style="{StaticResource LinkButton}" Command="{Binding CopyForEditingCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Not now'}" FontSize="12" Padding="6,4"
+                        Style="{StaticResource LinkButton}" Command="{Binding DeclineCopyCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+
+        <Label Grid.Row="3" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" LineBreakMode="WordWrap"
                TextColor="{DynamicResource Accent}" />
 
-        <VerticalStackLayout Grid.Row="3" Spacing="8" IsVisible="{Binding CanEdit}">
+        <VerticalStackLayout Grid.Row="4" Spacing="8" IsVisible="{Binding CanEdit}">
             <!-- How much this note matters. The phone's own dashboard filters by it and there was no
                  way to set one here - see PriorityChoice. -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -58,7 +72,7 @@
                     Command="{Binding AddChecklistItemCommand}" />
         </VerticalStackLayout>
 
-        <CollectionView Grid.Row="4" ItemsSource="{Binding Lines}">
+        <CollectionView Grid.Row="5" ItemsSource="{Binding Lines}">
 
             <CollectionView.EmptyView>
                 <Label Text="{controls:Translate 'Nothing written here yet.'}" Padding="24" HorizontalTextAlignment="Center" />
@@ -97,9 +111,9 @@
 
         <!-- The panel hides itself for a private note, as Orbit.Web's editor hides it: there is no
              readable copy on the server to hand anybody - see SharePanel.CanShare. -->
-        <controls:SharePanel Grid.Row="5" BindingContext="{Binding Share}" Margin="0,4" />
+        <controls:SharePanel Grid.Row="6" BindingContext="{Binding Share}" Margin="0,4" />
 
-        <HorizontalStackLayout Grid.Row="6" Spacing="16">
+        <HorizontalStackLayout Grid.Row="7" Spacing="16">
             <Button Text="{controls:Translate 'Back to notes'}" Command="{Binding GoBackCommand}"
                     Style="{StaticResource LinkButton}" />
             <Button Text="{controls:Translate 'Delete note'}" Command="{Binding DeleteCommand}"
