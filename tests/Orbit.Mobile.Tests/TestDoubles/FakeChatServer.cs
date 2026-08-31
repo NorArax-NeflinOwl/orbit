@@ -69,6 +69,12 @@ internal sealed class FakeChatServer : HttpMessageHandler
     /// <summary>Set to make the server refuse sends - 403 is "they haven't approved this conversation".</summary>
     public HttpStatusCode? RefuseSendsWith { get; set; }
 
+    /// <summary>
+    /// Set to refuse only the contacts list, leaving the rest of chat alone. This is what an account
+    /// that has not unlocked contacts gets, and other screens ask for the list in passing.
+    /// </summary>
+    public HttpStatusCode? RefuseContactsWith { get; set; }
+
     /// <summary>Everyone this caller has allowed to chat with them, as approving records.</summary>
     public List<Guid> ApprovedConversations { get; } = [];
 
@@ -160,7 +166,9 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
         if (segments[^1] == "contacts")
         {
-            return Json(Contacts);
+            return RefuseContactsWith is { } contactsRefusal
+                ? new HttpResponseMessage(contactsRefusal)
+                : Json(Contacts);
         }
 
         if (segments[^1] == "approve")

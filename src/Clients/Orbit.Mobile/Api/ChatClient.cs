@@ -68,8 +68,27 @@ public sealed class ChatClient
 
     public ChatClient(HttpClient httpClient) => _httpClient = httpClient;
 
+    /// <summary>
+    /// Empty rather than an exception when this account has not unlocked contacts (see
+    /// PermissionPolicies in Orbit.Api). Screens other than the contacts list ask this in passing - the
+    /// map wants names for the people it could share a position with - and a refusal there is not a
+    /// failure to report, it is the answer: there is nobody to show. Orbit.Web answers the same way.
+    ///
+    /// Unlike the 403 that ChatSynchronizer deliberately lets through, this one is not about a session
+    /// having gone: it is a standing rule that another attempt will not change.
+    /// </summary>
     public async Task<IReadOnlyList<ContactDto>> GetContactsAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<IReadOnlyList<ContactDto>>("api/chat/contacts", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<IReadOnlyList<ContactDto>>(
+                "api/chat/contacts", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
 
     /// <summary>
     /// The conversation with one person. <paramref name="sinceUtc"/> asks for only what arrived after a
