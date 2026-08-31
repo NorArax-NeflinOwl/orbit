@@ -510,7 +510,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Take(RowsPerCard)
             .Select(list => new DashboardRow(
                 list.LocalId,
-                NameOf(list.IsSealed, list.Title, _translations["Untitled list"]),
+                NameOf(list.IsSealed, _translations.Written(list.Title), _translations["Untitled list"]),
                 DescribeProgress(list))
             {
                 HasProgress = list.Items.Count > 0,

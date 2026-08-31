@@ -320,7 +320,7 @@
     }
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     /// <summary>
     /// Looks up guestUserId's login for display, preferring the already-loaded contact list and falling

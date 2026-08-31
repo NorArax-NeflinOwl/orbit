@@ -24,7 +24,7 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// </param>
 public sealed record TaskItemRow(
     TaskItemDto Item, string Detail, bool IsOverdue, IReadOnlyList<TaskItemReference> References,
-    bool IsWaitingToReachTheServer = false)
+    bool IsWaitingToReachTheServer = false, string WrittenDescription = "")
 {
     public static TaskItemRow From(
         TaskItemDto item, Translations translations, DateTimeOffset nowUtc,
@@ -35,11 +35,16 @@ public sealed record TaskItemRow(
             // Only worth saying about something still to do: a finished entry cannot be late any more.
             !item.IsCompleted && item.DueDateUtc is { } due && due < nowUtc,
             references ?? [],
-            isWaitingToReachTheServer);
+            isWaitingToReachTheServer,
+            translations.Written(item.Description));
 
     public Guid Id => Item.Id;
 
-    public string Description => Item.Description;
+    /// <summary>
+    /// What the entry says, in the reader's language when Orbit wrote it - see Translations.Written.
+    /// Falls back to what is stored, which is what every entry a person typed comes back as anyway.
+    /// </summary>
+    public string Description => WrittenDescription.Length > 0 ? WrittenDescription : Item.Description;
 
     public bool IsCompleted => Item.IsCompleted;
 

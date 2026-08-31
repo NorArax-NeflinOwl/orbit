@@ -183,7 +183,7 @@ else
     /// <summary>The list this entry is on, at the shallow level - see TaskListChecklist.</summary>
     private void GoToTaskList() => NavigationManager.NavigateTo($"/tasks/{TaskListId}");
 
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     public async ValueTask DisposeAsync()
     {
