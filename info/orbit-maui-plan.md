@@ -449,6 +449,32 @@ it silently discards someone else's work — the exact outcome the locks were ad
 stamps the caller's access level onto it. Two people with `CanEdit` are editing one row, which is what
 the locks exist for and what makes offline editing of a shared item genuinely unsafe.
 
+**The way out of a refusal: a copy (built for notes).** Refusing is honest, but it leaves somebody with
+something to write down and nowhere to write it. So the refusal now offers a second answer: take a copy
+of the note and write in that. The copy is the phone's own — shared with nobody, and therefore editable
+under the very policy that refused the original, so nothing above is weakened to allow it. A sealed or
+private note is not offered one: what would be copied is either ciphertext this device cannot open or
+words that are only allowed to exist sealed, and a copy is written in the clear.
+
+**A copy is a question, not a note, until it is answered.** It stays on the phone and out of the outbox
+while it waits — pushed on sight, two of the three answers below would have to take a note off the
+server again, and the reader would watch a duplicate appear and disappear for nothing.
+
+**The review.** Back online, `NoteCopyReviewViewModel` shows the copy and the note it came from, each
+diffed against what the note said when the copy was taken (`CopyBaseTitle`/`CopyBaseContent`), so a
+change can be told from a collision — both sides having moved is flagged rather than silently resolved.
+Three answers and no more:
+
+- **Keep mine** — the copy's words go onto the original through the ordinary update path, so a review
+  is an edit made late rather than a private route to the server; still refused, and the copy kept, if
+  the connection has gone again.
+- **Keep theirs** — the copy and anything queued about it go away together.
+- **Keep both** — the copy becomes a note in its own right, queued as a create, tagged `copy` in the
+  list, and still pointing at what it came from. That pointer is the whole of the **History** window.
+
+The same shape is what the other three entity types will need; notes prove it first, as they proved the
+sync spine.
+
 **One prerequisite the API doesn't meet yet.** A client can see when an item was shared *with* it —
 `IsShared` on the DTO — but nothing tells an **owner** that they shared an item *out*. So the owner's
 copy of a note that someone else can edit looks, to the client, exactly like a private one. Applying
@@ -733,6 +759,8 @@ These change the plan materially and are worth answering before the phase they l
 1. ~~**Offline conflict policy** (§5.4)~~ — **settled and built: restrictive**, and the owner-side gap
    is closed for all four shareable types. `IsSharedWithOthers` tells an owner that somebody holds
    accepted access, so the client can tell a private item from one another person may be editing.
+   A refusal now offers a copy to write in, and a review window to decide between the two afterwards —
+   built for notes, and the shape the other three types will follow.
 2. ~~**Is the local database encrypted?** (§5.1)~~ — **settled: it is not, deliberately.** The phone
    keeps plain SQLite in app-private storage and relies on platform disk encryption. The guarantee
    Orbit makes is about what leaves the device: chat messages, private notes, task lists, warehouses

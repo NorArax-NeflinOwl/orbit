@@ -102,6 +102,15 @@ shelf and rebuilds that warehouse's restock list; it also says which shelf it is
 list is asking for the same product, both as something to tap. Unlike the calendar half this one works
 offline, because the product already exists and is only being corrected.
 
+Being offline no longer only refuses. A shared note that cannot be edited without a connection - see
+[the conflict policy](orbit-maui-plan.md#54-pushing-changes-and-conflicts-built-for-notes) - now offers
+a copy to write in instead. The copy belongs to the phone, is shared with nobody, and stays off the
+wire until it has been decided on; back online, a review window shows it against the note it came from,
+each diffed from what that note said when the copy was taken, and offers three answers: keep mine, keep
+theirs, or keep both. The last leaves the copy as a note of its own, tagged `copy` in the list and
+still pointing at what it came from, which is what the History window lists. Notes have it; the other
+three shareable types have not yet.
+
 Of phase 7, the in-app feed, notification settings, deep links from a notification, and uploadable
 diagnostic logs are built — and **push is delivered on Android**: the app obtains an FCM registration
 token, registers it on every sign-in, and a notification the server raises arrives in the tray and taps
