@@ -31,6 +31,10 @@
                    FontSize="12" TextColor="{DynamicResource Accent}" LineBreakMode="WordWrap" />
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+            <controls:CopyOffer IsOffered="{Binding IsCopyOffered}"
+                                TakeCommand="{Binding CopyForEditingCommand}"
+                                DeclineCommand="{Binding DeclineCopyCommand}" />
         </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="2" Spacing="8" IsVisible="{Binding IsShowingList}">

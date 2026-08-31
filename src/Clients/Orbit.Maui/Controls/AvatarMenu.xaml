@@ -141,6 +141,34 @@
                             SemanticProperties.Description="{controls:Translate 'Update'}" />
                 </Grid>
 
+                <!-- What was written offline and has not been decided on yet. Here rather than on one
+                     of the lists, because a copy can be of any of the four kinds and no single list is
+                     the right place to wait for it. Badged like Notifications above. -->
+                <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasCopiesAwaitingReview}">
+                    <Label Grid.Column="0" Text="{controls:Translate 'Copies to review'}" VerticalOptions="Center" />
+                    <Border Grid.Column="1" StrokeThickness="0" HeightRequest="18" MinimumWidthRequest="18"
+                            Padding="5,0"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="9" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding CopiesAwaitingReviewLabel}" FontSize="10" FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                            Command="{Binding GoToCopyReviewCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Copies to review'}" />
+                </Grid>
+
+                <!-- Only once something has been kept: a permanent way to an empty screen is one more
+                     row in a menu that is already long. -->
+                <Grid IsVisible="{Binding HasCopyHistory}">
+                    <Label Text="{controls:Translate 'History'}" />
+                    <Button BackgroundColor="Transparent" Command="{Binding GoToCopyHistoryCommand}"
+                            SemanticProperties.Description="{controls:Translate 'History'}" />
+                </Grid>
+
                 <Grid>
                     <Label Text="{controls:Translate 'Settings'}" />
                     <Button BackgroundColor="Transparent" Command="{Binding GoToAccountCommand}"

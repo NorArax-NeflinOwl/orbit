@@ -10,7 +10,7 @@ namespace Orbit.Mobile.Data;
 /// Everything the event actually is lives in <see cref="Details"/>, which the server treats as one
 /// block too - so unlike a task list, there is nothing here to take apart.
 /// </summary>
-public sealed class LocalCalendarEvent : ISharedState
+public sealed class LocalCalendarEvent : ISharedState, ICopyableForEditing
 {
     public Guid LocalId { get; set; }
 
@@ -35,6 +35,22 @@ public sealed class LocalCalendarEvent : ISharedState
     public Guid? OwnerUserId { get; set; }
 
     public DateTimeOffset? LastSyncedAtUtc { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopyOfLocalId"/>
+    public Guid? CopyOfLocalId { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopiedAtUtc"/>
+    public DateTimeOffset? CopiedAtUtc { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopyBaseTitle"/>
+    public string CopyBaseTitle { get; set; } = string.Empty;
+
+    /// <inheritdoc cref="ICopyableForEditing.CopyBaseLines"/>
+    public IReadOnlyList<string> CopyBaseLines { get; set; } = [];
+
+    /// <inheritdoc cref="LocalNote.IsKeptCopy"/>
+    public bool IsKeptCopy { get; set; }
+
 
     /// <summary>
     /// What a row holds before anything has been read into it. EF needs a value it can construct, and an

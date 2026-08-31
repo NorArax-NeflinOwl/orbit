@@ -102,14 +102,16 @@ shelf and rebuilds that warehouse's restock list; it also says which shelf it is
 list is asking for the same product, both as something to tap. Unlike the calendar half this one works
 offline, because the product already exists and is only being corrected.
 
-Being offline no longer only refuses. A shared note that cannot be edited without a connection - see
+Being offline no longer only refuses. Anything shared that cannot be edited without a connection - see
 [the conflict policy](orbit-maui-plan.md#54-pushing-changes-and-conflicts-built-for-notes) - now offers
-a copy to write in instead. The copy belongs to the phone, is shared with nobody, and stays off the
-wire until it has been decided on; back online, a review window shows it against the note it came from,
-each diffed from what that note said when the copy was taken, and offers three answers: keep mine, keep
-theirs, or keep both. The last leaves the copy as a note of its own, tagged `copy` in the list and
-still pointing at what it came from, which is what the History window lists. Notes have it; the other
-three shareable types have not yet.
+a copy to write in instead, for all four kinds: notes, task lists, appointments and warehouses. The copy
+belongs to the phone, is shared with nobody, and stays off the wire until it has been decided on; back
+online, one review window shows every outstanding copy against what it came from, each diffed from what
+that said when the copy was taken, and offers three answers: keep mine, keep theirs, or keep both. The
+last leaves the copy as a thing of its own, tagged `copy` in its list and still pointing at what it came
+from, which is what the History window lists. Both windows hang off the avatar's menu, badged there the
+way notifications are, because a copy can be of any of the four kinds and no single list is the right
+place to wait for one.
 
 Of phase 7, the in-app feed, notification settings, deep links from a notification, and uploadable
 diagnostic logs are built — and **push is delivered on Android**: the app obtains an FCM registration

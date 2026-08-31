@@ -920,12 +920,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             ReadOnlyReason = await _privateContent.HasKeyAsync(cancellationToken)
                 ? _translations["This list was sealed with an encryption key this account no longer has."]
                 : _translations["This list is private. Unlock this device's encryption key to read it."];
+            IsCopyOffered = false;
         }
         else
         {
             // Asked of the store rather than decided here, so the screen and the write agree by construction.
             IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
             ReadOnlyReason = string.Empty;
+            IsCopyOffered = IsReadOnly && taskList.CopyOfLocalId is null;
         }
 
         if (!IsReadOnly && taskList.ServerId is { } lockedServerId)
@@ -1078,4 +1080,25 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public Task CloseAsync() => _editLock.ReleaseAsync();
 
     partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsCopyOffered"/>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyForEditingAsync"/>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _taskLists.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowTaskList(copy.LocalId);
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
 }

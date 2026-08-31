@@ -19,6 +19,48 @@ namespace Orbit.Mobile.Tests.TestDoubles;
 /// </summary>
 internal static class Synchronizers
 {
+    /// <summary>
+    /// One that really does talk to the four fake servers handed in - what a test about a review needs,
+    /// since answering a review queues a write and the point is whether it arrives.
+    ///
+    /// Chat and permissions still talk to nobody: they are not what any of those tests are about.
+    /// </summary>
+    public static EverythingSynchronizer Against(
+        LocalStore localStore, ChatRepository chat, UserPermissions permissions, SessionStore sessionStore,
+        HttpClient notes, HttpClient tasks, HttpClient calendar, HttpClient inventory)
+    {
+        var nobody = StubHttpMessageHandler.Unreachable().ToHttpClient();
+        var gate = new SyncGate();
+        var clock = TimeProvider.System;
+        var chatClient = new ChatClient(nobody);
+        var usersClient = new UsersClient(nobody);
+
+        return new EverythingSynchronizer(
+            new NoteSynchronizer(
+                localStore, new NotesClient(notes), clock, gate,
+                NullLogger<NoteSynchronizer>.Instance),
+            new TaskListSynchronizer(
+                localStore, new TasksClient(tasks), clock, gate,
+                NullLogger<TaskListSynchronizer>.Instance),
+            new CalendarEventSynchronizer(
+                localStore, new CalendarClient(calendar), clock, gate,
+                new PendingCalendarLinkResolver(clock, NullLogger<PendingCalendarLinkResolver>.Instance),
+                NullLogger<CalendarEventSynchronizer>.Instance),
+            new WarehouseSynchronizer(
+                localStore, new InventoryClient(inventory), clock, gate,
+                NullLogger<WarehouseSynchronizer>.Instance),
+            new ChatSynchronizer(
+                chat, chatClient, usersClient,
+                new EncryptedChatMessageSender(
+                    chat, chatClient, new ChatDirectoryReader(chatClient, usersClient, sessionStore),
+                    new OwnEncryptionKeyProvider(
+                        new InMemoryChatKeyStorage(), new EncryptionKeyClient(nobody), sessionStore,
+                        NullLogger<OwnEncryptionKeyProvider>.Instance),
+                    gate, NullLogger<EncryptedChatMessageSender>.Instance),
+                NullLogger<ChatSynchronizer>.Instance),
+            permissions);
+    }
+
     public static EverythingSynchronizer AgainstNobody(
         LocalStore localStore, ChatRepository chat, UserPermissions permissions, SessionStore sessionStore)
     {

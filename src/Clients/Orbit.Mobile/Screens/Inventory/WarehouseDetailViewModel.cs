@@ -419,11 +419,13 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             ReadOnlyReason = await _privateContent.HasKeyAsync(cancellationToken)
                 ? _translations["This warehouse was sealed with an encryption key this account no longer has."]
                 : _translations["This warehouse is private. Unlock this device's encryption key to read it."];
+            IsCopyOffered = false;
         }
         else
         {
             IsReadOnly = !await _warehouses.CanEditAsync(_localId, cancellationToken);
             ReadOnlyReason = string.Empty;
+            IsCopyOffered = IsReadOnly && warehouse.CopyOfLocalId is null;
         }
 
         if (!IsReadOnly && warehouse.ServerId is { } lockedServerId)
@@ -601,4 +603,25 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     public Task CloseAsync() => _editLock.ReleaseAsync();
 
     partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsCopyOffered"/>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyForEditingAsync"/>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _warehouses.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowWarehouse(copy.LocalId);
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
 }

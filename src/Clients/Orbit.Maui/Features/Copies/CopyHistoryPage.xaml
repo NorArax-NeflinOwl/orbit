@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
-    x:Class="Orbit.Maui.Features.Notes.NoteHistoryPage"
+    x:Class="Orbit.Maui.Features.Copies.CopyHistoryPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
-    xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
-    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
-    x:DataType="screens:NoteHistoryViewModel"
+    xmlns:copies="clr-namespace:Orbit.Maui.Features.Copies"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Copies;assembly=Orbit.Mobile"
+    x:DataType="screens:CopyHistoryViewModel"
     Title="{controls:Translate 'History'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -16,7 +16,7 @@
             <VerticalStackLayout Grid.Row="0" Spacing="10">
                 <controls:PageHeader Title="{controls:Translate 'History'}">
                     <controls:PageHeader.Subtitle>
-                        <controls:Translate Text="Copies you kept, and the notes they came from." />
+                        <controls:Translate Text="Copies you kept, and what each came from." />
                     </controls:PageHeader.Subtitle>
                 </controls:PageHeader>
 
@@ -36,7 +36,7 @@
                         <VerticalStackLayout Padding="0,12" Spacing="2">
                             <VerticalStackLayout.GestureRecognizers>
                                 <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=notes:NoteHistoryPage}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=copies:CopyHistoryPage}"
                                     CommandParameter="{Binding .}" />
                             </VerticalStackLayout.GestureRecognizers>
 
@@ -47,7 +47,7 @@
                             <Button Text="{controls:Translate 'Open the original'}" IsVisible="{Binding HasOriginal}"
                                     FontSize="12" Padding="0,2" HorizontalOptions="Start"
                                     Style="{StaticResource LinkButton}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenOriginalCommand, x:DataType=notes:NoteHistoryPage}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenOriginalCommand, x:DataType=copies:CopyHistoryPage}"
                                     CommandParameter="{Binding .}" />
 
                             <BoxView HeightRequest="1" Margin="0,12,0,0"

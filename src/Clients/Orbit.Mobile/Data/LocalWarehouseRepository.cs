@@ -20,7 +20,7 @@ public sealed record WarehouseContent(
 /// the rule that each write records its own outbox entry in the same transaction as the change, and that
 /// the offline policy is refused here rather than only shown on screen.
 /// </summary>
-public sealed class LocalWarehouseRepository
+public sealed class LocalWarehouseRepository : ICopyReviewStore
 {
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
@@ -175,7 +175,12 @@ public sealed class LocalWarehouseRepository
         await WriteContentAsync(warehouse, content, cancellationToken);
         warehouse.UpdatedAtUtc = now;
 
-        Enqueue(dbContext, localId, OutboxOperation.Update, now);
+        // A copy still awaiting review is written to this phone and queued for nobody: what it is has
+        // not been decided yet, and the review is what sends it - see LocalNoteRepository.UpdateAsync.
+        if (!CopiesForEditing.IsAwaitingReview(warehouse))
+        {
+            Enqueue(dbContext, localId, OutboxOperation.Update, now);
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
@@ -236,6 +241,153 @@ public sealed class LocalWarehouseRepository
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
+
+    /// <inheritdoc cref="LocalNoteRepository.CopyForEditingAsync"/>
+    public async Task<LocalWarehouse?> CopyForEditingAsync(Guid originalLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.Warehouses.FirstOrDefaultAsync(
+                candidate => candidate.LocalId == originalLocalId, cancellationToken)
+            is not { IsSealed: false, IsPrivate: false } original)
+        {
+            return null;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        var copy = new LocalWarehouse
+        {
+            LocalId = Guid.NewGuid(),
+            ServerId = null,
+            Name = original.Name,
+            // The shelf items keep their ids - see ICopyReviewStore.KeepCopyAsync for why, and for
+            // where they are given up again.
+            Items = original.Items,
+            CopyOfLocalId = original.LocalId,
+            CopiedAtUtc = now,
+            CopyBaseTitle = original.Name,
+            CopyBaseLines = Describe(original.Items),
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+        dbContext.Warehouses.Add(copy);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return copy;
+    }
+
+    public CopyKind Kind => CopyKind.Warehouse;
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetCopiesAwaitingReviewAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(dbContext, CopiesForEditing.AwaitingReviewAsync<LocalWarehouse>, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetKeptCopiesAsync(CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(dbContext, CopiesForEditing.KeptAsync<LocalWarehouse>, cancellationToken);
+    }
+
+    /// <inheritdoc cref="LocalNoteRepository.ApplyCopyAsync"/>
+    public async Task<LocalWriteOutcome> ApplyCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalWarehouse>(dbContext, copyLocalId, cancellationToken)
+            is not { CopyOfLocalId: { } originalLocalId } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (await dbContext.Warehouses.FirstOrDefaultAsync(
+                candidate => candidate.LocalId == originalLocalId, cancellationToken) is not { } original)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(original, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        original.Name = copy.Name;
+        original.Items = copy.Items;
+        original.UpdatedAtUtc = now;
+        Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+
+        CopiesForEditing.Remove(dbContext, copy, SyncEntityType.Warehouse);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LocalWriteOutcome> DiscardCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalWarehouse>(dbContext, copyLocalId, cancellationToken) is not { } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        CopiesForEditing.Remove(dbContext, copy, SyncEntityType.Warehouse);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LocalWriteOutcome> KeepCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalWarehouse>(dbContext, copyLocalId, cancellationToken) is not { } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        // Its shelf items stop being the original's the moment this becomes a warehouse of its own -
+        // an errand still pointing at one of them means the shelf it was always about.
+        copy.Items = [.. copy.Items.Select(item => item with { Id = null })];
+        copy.UpdatedAtUtc = now;
+        CopiesForEditing.Keep(dbContext, copy, SyncEntityType.Warehouse, now);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc cref="LocalNoteRepository.DescribeAllAsync"/>
+    private async Task<IReadOnlyList<CopyUnderReview>> DescribeAllAsync(
+        OrbitLocalDbContext dbContext,
+        Func<OrbitLocalDbContext, CancellationToken, Task<IReadOnlyList<LocalWarehouse>>> read,
+        CancellationToken cancellationToken)
+    {
+        var described = new List<CopyUnderReview>();
+        foreach (var copy in await read(dbContext, cancellationToken))
+        {
+            var original = await dbContext.Warehouses.AsNoTracking().FirstOrDefaultAsync(
+                candidate => candidate.LocalId == copy.CopyOfLocalId, cancellationToken);
+
+            described.Add(new CopyUnderReview(
+                CopyKind.Warehouse, copy.LocalId, copy.CopyOfLocalId!.Value,
+                original?.Name is { Length: > 0 } name ? name : copy.CopyBaseTitle,
+                copy.CopiedAtUtc ?? copy.CreatedAtUtc,
+                copy.CopyBaseLines, Describe(copy.Items),
+                original is null ? null : Describe(original.Items)));
+        }
+
+        return described;
+    }
+
+    /// <summary>
+    /// A shelf as a review reads it: what is on it, how much, and how little is too little. Amounts are
+    /// written plainly and unlocalised - see <see cref="LocalTaskListRepository.Describe"/>.
+    /// </summary>
+    private static IReadOnlyList<string> Describe(IReadOnlyList<WarehouseItemDto> items)
+        => [.. items.Select(item => item.MinimumQuantity is { } minimum
+            ? $"{item.Name}: {item.Quantity} {item.Unit} (min {minimum})"
+            : $"{item.Name}: {item.Quantity} {item.Unit}")];
 
     private static void Enqueue(
         OrbitLocalDbContext dbContext, Guid localId, OutboxOperation operation, DateTimeOffset queuedAtUtc,

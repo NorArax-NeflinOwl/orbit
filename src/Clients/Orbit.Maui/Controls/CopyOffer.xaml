@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.CopyOffer"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:Name="Root"
+    IsVisible="{Binding IsOffered, Source={x:Reference Root}, x:DataType=controls:CopyOffer}">
+
+    <!-- The way out of a refusal, offered rather than imposed: a copy is a second row on a list, so
+         nobody should get one without asking. Sits directly under the reason it answers, and goes away
+         once it has been answered either way. -->
+    <VerticalStackLayout Spacing="4">
+        <Label Text="{controls:Translate 'Make a copy you can write in while you are offline?'}"
+               FontSize="12" LineBreakMode="WordWrap" />
+        <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="6" HorizontalOptions="Start">
+            <Button Grid.Column="0" Text="{controls:Translate 'Make a copy'}" FontSize="12" Padding="6,4"
+                    Style="{StaticResource LinkButton}"
+                    Command="{Binding TakeCommand, Source={x:Reference Root}, x:DataType=controls:CopyOffer}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Not now'}" FontSize="12" Padding="6,4"
+                    Style="{StaticResource LinkButton}"
+                    Command="{Binding DeclineCommand, Source={x:Reference Root}, x:DataType=controls:CopyOffer}" />
+        </Grid>
+    </VerticalStackLayout>
+</ContentView>

@@ -14,8 +14,8 @@ namespace Orbit.Mobile.Tests.Screens;
 
 /// <summary>
 /// The notes list, in the one respect a copy taken offline changes it: two notes with the same title
-/// now exist, and the list is where somebody has to be able to tell them apart and find their way to
-/// the window that decides between them.
+/// now exist, and the list is where somebody has to be able to tell them apart. Where the deciding
+/// happens is the avatar's menu - see NavigationBarTests.
 /// </summary>
 public sealed class NotesScreenTests
 {
@@ -30,47 +30,6 @@ public sealed class NotesScreenTests
 
         Assert.Contains(screen.Notes, row => row.IsCopy);
         Assert.Contains(screen.Notes, row => !row.IsCopy);
-    }
-
-    /// <summary>
-    /// The only way to the review window. Hidden until there is something waiting, because a permanent
-    /// link to an empty screen is one more thing on a list that is meant to be notes.
-    /// </summary>
-    [Fact]
-    public async Task The_way_to_the_review_window_appears_only_when_something_is_waiting()
-    {
-        using var context = new ListContext();
-        var original = await context.AddNoteAsync("Team shopping");
-
-        Assert.False((await context.OpenAsync()).HasCopiesAwaitingReview);
-
-        await context.Notes.CopyForEditingAsync(original.LocalId);
-
-        Assert.True((await context.OpenAsync()).HasCopiesAwaitingReview);
-    }
-
-    /// <summary>A copy that has been decided on is history, and stops being a question.</summary>
-    [Fact]
-    public async Task A_kept_copy_moves_from_the_review_count_to_history()
-    {
-        using var context = new ListContext();
-        var original = await context.AddNoteAsync("Team shopping");
-        var copy = await context.Notes.CopyForEditingAsync(original.LocalId);
-        await context.Notes.KeepCopyAsync(copy!.LocalId);
-
-        var screen = await context.OpenAsync();
-
-        Assert.False(screen.HasCopiesAwaitingReview);
-        Assert.True(screen.HasHistory);
-    }
-
-    [Fact]
-    public async Task Nothing_kept_leaves_history_out_of_the_way()
-    {
-        using var context = new ListContext();
-        await context.AddNoteAsync("Team shopping");
-
-        Assert.False((await context.OpenAsync()).HasHistory);
     }
 
     private sealed class ListContext : IDisposable

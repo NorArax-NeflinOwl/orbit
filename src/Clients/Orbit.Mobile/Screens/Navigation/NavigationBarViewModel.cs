@@ -94,13 +94,22 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [ObservableProperty]
     private bool _canUseConversations = true;
 
+    /// <summary>
+    /// The four repositories, as the two copy windows know them - see Data.ICopyReviewStore. The bar
+    /// asks them how much is outstanding, which is what puts the review within reach from any screen:
+    /// a copy can be of any of the four kinds, so no one list is the right place to wait for it.
+    /// </summary>
+    private readonly IReadOnlyList<Data.ICopyReviewStore> _copyStores;
+
     public NavigationBarViewModel(
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
         MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator,
-        EverythingSynchronizer synchronizer, INetworkStatus networkStatus)
+        EverythingSynchronizer synchronizer, INetworkStatus networkStatus,
+        IEnumerable<Data.ICopyReviewStore> copyStores)
     {
+        _copyStores = [.. copyStores];
         _serverVersion = serverVersion;
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
@@ -208,6 +217,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         await _permissions.EnsureLoadedAsync(cancellationToken);
 
         IsUpdateAvailable = await _versionGate.RememberedDecisionAsync(cancellationToken) is { OffersUpdate: true };
+        await ShowWhatIsWaitingToBeDecidedAsync(cancellationToken);
 
         try
         {
@@ -219,6 +229,57 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         catch (OperationCanceledException)
         {
         }
+    }
+
+    /// <summary>
+    /// How many copies taken offline are still waiting to be chosen between, and whether anything has
+    /// ever been kept. Counted from the phone, so it is right with no connection - which is the state
+    /// these were made in.
+    /// </summary>
+    private async Task ShowWhatIsWaitingToBeDecidedAsync(CancellationToken cancellationToken)
+    {
+        var waiting = 0;
+        var kept = false;
+        foreach (var store in _copyStores)
+        {
+            waiting += (await store.GetCopiesAwaitingReviewAsync(cancellationToken)).Count;
+            kept |= (await store.GetKeptCopiesAsync(cancellationToken)).Count > 0;
+        }
+
+        CopiesAwaitingReview = waiting;
+        HasCopyHistory = kept;
+    }
+
+    /// <summary>What is waiting to be decided, badged in the menu the way notifications are.</summary>
+    [ObservableProperty]
+    private int _copiesAwaitingReview;
+
+    /// <summary>Whether anything has ever been kept, which is what puts History in the menu at all.</summary>
+    [ObservableProperty]
+    private bool _hasCopyHistory;
+
+    public bool HasCopiesAwaitingReview => CopiesAwaitingReview > 0;
+
+    public string CopiesAwaitingReviewLabel => CopiesAwaitingReview.ToString();
+
+    partial void OnCopiesAwaitingReviewChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasCopiesAwaitingReview));
+        OnPropertyChanged(nameof(CopiesAwaitingReviewLabel));
+    }
+
+    [RelayCommand]
+    private void GoToCopyReview()
+    {
+        IsMenuOpen = false;
+        _navigator.ShowCopyReview();
+    }
+
+    [RelayCommand]
+    private void GoToCopyHistory()
+    {
+        IsMenuOpen = false;
+        _navigator.ShowCopyHistory();
     }
 
     /// <summary>
@@ -277,7 +338,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     /// the other two.
     /// </summary>
     [RelayCommand]
-    private void ToggleMenu()
+    private async Task ToggleMenuAsync(CancellationToken cancellationToken)
     {
         _presence.MarkActive();
         IsMenuOpen = !IsMenuOpen;
@@ -285,7 +346,13 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         {
             IsStatusExpanded = false;
             IsLanguageExpanded = false;
+            return;
         }
+
+        // Counted again on the way open rather than only when the bar loaded. Answering a review is the
+        // one thing that changes this number without leaving the screen, and a badge still claiming one
+        // waiting, on the menu the reader has just used to answer it, reads as an answer that failed.
+        await ShowWhatIsWaitingToBeDecidedAsync(cancellationToken);
     }
 
     /// <summary>

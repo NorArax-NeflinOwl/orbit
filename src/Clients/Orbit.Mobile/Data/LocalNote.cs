@@ -12,7 +12,7 @@ namespace Orbit.Mobile.Data;
 /// structural rather than an optimisation: a screen written against the API cannot be given offline
 /// support later without rewriting it.
 /// </summary>
-public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
+public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState, ICopyableForEditing
 {
     /// <summary>
     /// The key on this device, generated here and never changing. Distinct from <see cref="ServerId"/>
@@ -120,8 +120,8 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState
     /// </summary>
     public string CopyBaseTitle { get; set; } = string.Empty;
 
-    /// <inheritdoc cref="CopyBaseTitle"/>
-    public IReadOnlyList<NoteContentLineDto> CopyBaseContent { get; set; } = [];
+    /// <inheritdoc cref="ICopyableForEditing.CopyBaseLines"/>
+    public IReadOnlyList<string> CopyBaseLines { get; set; } = [];
 
     /// <summary>
     /// Kept on purpose after a review rather than applied or dropped - the reader wanted both versions.

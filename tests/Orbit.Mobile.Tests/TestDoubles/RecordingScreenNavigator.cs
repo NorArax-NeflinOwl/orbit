@@ -85,9 +85,9 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
         _destinations.Add(nameof(ShowNote));
     }
 
-    public void ShowNoteCopyReview() => _destinations.Add(nameof(ShowNoteCopyReview));
+    public void ShowCopyReview() => _destinations.Add(nameof(ShowCopyReview));
 
-    public void ShowNoteHistory() => _destinations.Add(nameof(ShowNoteHistory));
+    public void ShowCopyHistory() => _destinations.Add(nameof(ShowCopyHistory));
 
     public void ShowCalendar() => _destinations.Add(nameof(ShowCalendar));
 

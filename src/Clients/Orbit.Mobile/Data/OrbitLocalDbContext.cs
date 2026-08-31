@@ -72,10 +72,9 @@ public sealed class OrbitLocalDbContext : DbContext
             note.Property(entity => entity.Content)
                 .HasConversion(ContentConverter)
                 .Metadata.SetValueComparer(ContentComparer);
-            // Stored the same way as the content it is a snapshot of - see LocalNote.CopyBaseContent.
-            note.Property(entity => entity.CopyBaseContent)
-                .HasConversion(ContentConverter)
-                .Metadata.SetValueComparer(ContentComparer);
+            note.Property(entity => entity.CopyBaseLines)
+                .HasConversion(LinesConverter)
+                .Metadata.SetValueComparer(LinesComparer);
         });
 
         modelBuilder.Entity<LocalTaskList>(taskList =>
@@ -87,6 +86,9 @@ public sealed class OrbitLocalDbContext : DbContext
             taskList.Property(entity => entity.Items)
                 .HasConversion(ItemsConverter)
                 .Metadata.SetValueComparer(ItemsComparer);
+            taskList.Property(entity => entity.CopyBaseLines)
+                .HasConversion(LinesConverter)
+                .Metadata.SetValueComparer(LinesComparer);
         });
 
         // The server's id is the only id a notification has - nothing on a phone raises one.
@@ -106,6 +108,9 @@ public sealed class OrbitLocalDbContext : DbContext
                 .HasConversion(
                     details => JsonSerializer.Serialize(details, LocalStoreSerializerContext.Default.CalendarEventDetailsDto),
                     stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.CalendarEventDetailsDto)!);
+            calendarEvent.Property(entity => entity.CopyBaseLines)
+                .HasConversion(LinesConverter)
+                .Metadata.SetValueComparer(LinesComparer);
         });
 
         modelBuilder.Entity<LocalWarehouse>(warehouse =>
@@ -115,6 +120,9 @@ public sealed class OrbitLocalDbContext : DbContext
             warehouse.Property(entity => entity.Items)
                 .HasConversion(WarehouseItemsConverter)
                 .Metadata.SetValueComparer(WarehouseItemsComparer);
+            warehouse.Property(entity => entity.CopyBaseLines)
+                .HasConversion(LinesConverter)
+                .Metadata.SetValueComparer(LinesComparer);
         });
 
         modelBuilder.Entity<OutboxEntry>(entry =>
@@ -187,6 +195,25 @@ public sealed class OrbitLocalDbContext : DbContext
         (left, right) => left!.SequenceEqual(right!),
         items => items.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
         items => items.ToList());
+
+    /// <summary>
+    /// What a copy was taken from, rendered as lines and stored in one column. The same JSON-in-a-column
+    /// answer every list here gets, and for the same reason: nothing ever queries one line of it.
+    /// </summary>
+    private static readonly ValueConverter<IReadOnlyList<string>, string> LinesConverter = new(
+        lines => JsonSerializer.Serialize(lines, LocalStoreSerializerContext.Default.IReadOnlyListString),
+        // Blank is read as "none", not as broken JSON. A column added by a migration is backfilled with
+        // that migration's default, and an empty string is the default EF picks for TEXT - which threw
+        // on every existing row until this, and took the screen reading them down with it.
+        stored => stored.Length == 0
+            ? new List<string>()
+            : JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListString) ?? new List<string>());
+
+    /// <summary>Without this a changed snapshot is compared by reference and saved unchanged.</summary>
+    private static readonly ValueComparer<IReadOnlyList<string>> LinesComparer = new(
+        (left, right) => left!.SequenceEqual(right!),
+        lines => lines.Aggregate(0, (hash, line) => HashCode.Combine(hash, line.GetHashCode())),
+        lines => lines.ToList());
 
     /// <summary>A group's membership, in one column - nothing ever queries a single member.</summary>
     private static readonly ValueConverter<IReadOnlyList<LocalChatGroupMember>, string> MembersConverter = new(

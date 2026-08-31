@@ -449,14 +449,14 @@ it silently discards someone else's work — the exact outcome the locks were ad
 stamps the caller's access level onto it. Two people with `CanEdit` are editing one row, which is what
 the locks exist for and what makes offline editing of a shared item genuinely unsafe.
 
-**The way out of a refusal: a copy (built for notes).** Refusing is honest, but it leaves somebody with
+**The way out of a refusal: a copy (built for all four).** Refusing is honest, but it leaves somebody with
 something to write down and nowhere to write it. So the refusal now offers a second answer: take a copy
 of the note and write in that. The copy is the phone's own — shared with nobody, and therefore editable
 under the very policy that refused the original, so nothing above is weakened to allow it. A sealed or
 private note is not offered one: what would be copied is either ciphertext this device cannot open or
 words that are only allowed to exist sealed, and a copy is written in the clear.
 
-**A copy is a question, not a note, until it is answered.** It stays on the phone and out of the outbox
+**A copy is a question, not a thing, until it is answered.** It stays on the phone and out of the outbox
 while it waits — pushed on sight, two of the three answers below would have to take a note off the
 server again, and the reader would watch a duplicate appear and disappear for nothing.
 
@@ -469,11 +469,19 @@ Three answers and no more:
   is an edit made late rather than a private route to the server; still refused, and the copy kept, if
   the connection has gone again.
 - **Keep theirs** — the copy and anything queued about it go away together.
-- **Keep both** — the copy becomes a note in its own right, queued as a create, tagged `copy` in the
+- **Keep both** — the copy becomes a thing in its own right, queued as a create, tagged `copy` in its
   list, and still pointing at what it came from. That pointer is the whole of the **History** window.
 
-The same shape is what the other three entity types will need; notes prove it first, as they proved the
-sync spine.
+**One window, four kinds.** A copy can be of a note, a task list, an appointment or a warehouse, so no
+one list is the right place to wait for one: both windows hang off the avatar's menu, badged there the
+way notifications are. Each repository implements `ICopyReviewStore` and renders its own rows into
+lines — a note's lines, a list's entries, an appointment's times, a shelf's stock — and one diff then
+serves all four.
+
+**A copy carries the original's inner ids, and gives them up when kept.** That is what lets "keep mine"
+replace words rather than identity: an entry linked to an appointment stays that entry. "Keep both"
+re-issues them, since two lists claiming one entry id is exactly what the server would otherwise have
+to resolve by renaming both (§5.4's identity rule).
 
 **One prerequisite the API doesn't meet yet.** A client can see when an item was shared *with* it —
 `IsShared` on the DTO — but nothing tells an **owner** that they shared an item *out*. So the owner's

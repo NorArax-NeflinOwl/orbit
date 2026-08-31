@@ -1,8 +1,6 @@
-using Orbit.Contracts.Notes;
+namespace Orbit.Mobile.Screens.Copies;
 
-namespace Orbit.Mobile.Screens.Notes;
-
-/// <summary>What became of one line between two versions of a note.</summary>
+/// <summary>What became of one line between two versions of the same thing.</summary>
 public enum LineChange
 {
     Unchanged,
@@ -32,39 +30,27 @@ public sealed record DiffLine(string Text, LineChange Change)
 }
 
 /// <summary>
-/// The difference between two versions of a note's lines, for the window that asks which one to keep.
+/// The difference between two versions of the same thing, for the window that asks which one to keep.
 ///
-/// Line-by-line rather than word-by-word: a note here is a list of lines, added and ticked and removed
-/// one at a time, so that is the unit a reader recognises. The longest common subsequence is what keeps
-/// an inserted line from re-reading every line after it as changed - the naive index-by-index compare
-/// did exactly that, and turned "I added milk at the top" into "everything changed".
+/// Works on lines of text, whatever the thing is: each repository renders its own rows into words - a
+/// note's lines, a list's entries, an appointment's times, a shelf's stock - and one diff then serves
+/// all four. Line-by-line rather than word-by-word, because a line is the unit a reader recognises in
+/// every one of them.
+///
+/// The longest common subsequence is what keeps an inserted line from re-reading every line after it as
+/// changed - the naive index-by-index compare did exactly that, and turned "I added milk at the top"
+/// into "everything changed".
 /// </summary>
-public static class NoteVersionDiff
+public static class VersionDiff
 {
-    public static IReadOnlyList<DiffLine> Between(
-        IReadOnlyList<NoteContentLineDto> before, IReadOnlyList<NoteContentLineDto> after)
-        => Between([.. before.Select(Describe)], [.. after.Select(Describe)]);
-
     /// <summary>
     /// Whether the two versions say anything different at all - what tells a review that both sides
     /// moved, which is the only case where the reader is choosing rather than just catching up.
     /// </summary>
-    public static bool Differ(IReadOnlyList<NoteContentLineDto> before, IReadOnlyList<NoteContentLineDto> after)
+    public static bool Differ(IReadOnlyList<string> before, IReadOnlyList<string> after)
         => Between(before, after).Any(line => line.Change is not LineChange.Unchanged);
 
-    /// <summary>
-    /// A tick is part of what a line says. Two lines reading "milk", one ticked, are not the same line,
-    /// and a diff that called them equal would hide the only change somebody made all day.
-    /// </summary>
-    private static string Describe(NoteContentLineDto line)
-        => line switch
-        {
-            { IsChecklistItem: true, IsChecked: true } => $"[x] {line.Text}",
-            { IsChecklistItem: true } => $"[ ] {line.Text}",
-            _ => line.Text
-        };
-
-    private static IReadOnlyList<DiffLine> Between(IReadOnlyList<string> before, IReadOnlyList<string> after)
+    public static IReadOnlyList<DiffLine> Between(IReadOnlyList<string> before, IReadOnlyList<string> after)
     {
         var common = LongestCommonSubsequence(before, after);
         var lines = new List<DiffLine>();

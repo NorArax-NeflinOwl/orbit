@@ -28,6 +28,8 @@ using Orbit.Mobile.Screens.Tasks;
 using Orbit.Mobile.Screens;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
+using Orbit.Maui.Features.Copies;
+using Orbit.Mobile.Screens.Copies;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
@@ -312,10 +314,17 @@ public static class MauiProgram
 		// One lock per editor, not one for the app: two editors open at once each hold their own item.
 		services.AddTransient<EditLock>();
 		services.AddTransient<NoteDetailViewModel>();
-		services.AddTransient<NoteCopyReviewPage>();
-		services.AddTransient<NoteCopyReviewViewModel>();
-		services.AddTransient<NoteHistoryPage>();
-		services.AddTransient<NoteHistoryViewModel>();
+		services.AddTransient<CopyReviewPage>();
+		services.AddTransient<CopyReviewViewModel>();
+		services.AddTransient<CopyHistoryPage>();
+		services.AddTransient<CopyHistoryViewModel>();
+		// The four repositories, again, as the one thing the two copy screens know them by. Registered
+		// against the same instances rather than as separate ones: a copy resolved here has to be the
+		// copy the rest of the app is reading.
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalNoteRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalTaskListRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalCalendarEventRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalWarehouseRepository>());
 		services.AddTransient<CalendarEventDetailViewModel>();
 		services.AddTransient<TasksPage>();
 		services.AddTransient<TasksViewModel>();

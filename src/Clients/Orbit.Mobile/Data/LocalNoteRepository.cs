@@ -29,7 +29,7 @@ public sealed record NoteContent(
 /// that was applied but not queued would be silently lost at the next pull, which is the worst failure
 /// this layer could have.
 /// </summary>
-public sealed class LocalNoteRepository
+public sealed class LocalNoteRepository : ICopyReviewStore
 {
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
@@ -212,7 +212,7 @@ public sealed class LocalNoteRepository
             CopiedAtUtc = now,
             // What the original said now, kept so a review can tell a change from a collision.
             CopyBaseTitle = original.Title,
-            CopyBaseContent = original.Content,
+            CopyBaseLines = Describe(original.Content),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
@@ -233,31 +233,25 @@ public sealed class LocalNoteRepository
             .ToListAsync(cancellationToken);
     }
 
-    /// <summary>
-    /// Every copy this phone has taken and not yet resolved, newest first - what the review screen opens
-    /// on once there is a connection again.
-    /// </summary>
-    public async Task<IReadOnlyList<LocalNote>> GetCopiesAwaitingReviewAsync(CancellationToken cancellationToken = default)
+    public CopyKind Kind => CopyKind.Note;
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetCopiesAwaitingReviewAsync(
+        CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.Notes.AsNoTracking()
-            .Where(note => note.CopyOfLocalId != null && !note.IsKeptCopy)
-            .OrderByDescending(note => note.CopiedAtUtc)
-            .ToListAsync(cancellationToken);
+        return await DescribeAllAsync(dbContext, CopiesForEditing.AwaitingReviewAsync<LocalNote>, cancellationToken);
     }
 
-    /// <summary>Everything kept on purpose after a review - what the History screen lists.</summary>
-    public async Task<IReadOnlyList<LocalNote>> GetKeptCopiesAsync(CancellationToken cancellationToken = default)
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetKeptCopiesAsync(CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.Notes.AsNoTracking()
-            .Where(note => note.IsKeptCopy)
-            .OrderByDescending(note => note.CopiedAtUtc)
-            .ToListAsync(cancellationToken);
+        return await DescribeAllAsync(dbContext, CopiesForEditing.KeptAsync<LocalNote>, cancellationToken);
     }
 
     /// <summary>
-    /// Puts the copy's words onto the note it came from and drops the copy. What "keep mine" means.
+    /// Keeps what was written offline, over the note it was copied from.
     ///
     /// The original is written through the ordinary update path, so it is queued, locked and refused by
     /// exactly the rules any other edit is - a review with a connection is just an edit made late.
@@ -265,7 +259,7 @@ public sealed class LocalNoteRepository
     public async Task<LocalWriteOutcome> ApplyCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        if (await dbContext.Notes.FirstOrDefaultAsync(candidate => candidate.LocalId == copyLocalId, cancellationToken)
+        if (await CopiesForEditing.FindCopyAsync<LocalNote>(dbContext, copyLocalId, cancellationToken)
             is not { CopyOfLocalId: { } originalLocalId } copy)
         {
             return LocalWriteOutcome.NotFound;
@@ -288,63 +282,75 @@ public sealed class LocalNoteRepository
         original.UpdatedAtUtc = now;
         Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
 
-        RemoveWithItsQueue(dbContext, copy);
+        CopiesForEditing.Remove(dbContext, copy, SyncEntityType.Note);
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
 
-    /// <summary>Drops the copy and leaves the original as it stands. What "keep theirs" means.</summary>
+    /// <inheritdoc/>
     public async Task<LocalWriteOutcome> DiscardCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        if (await dbContext.Notes.FirstOrDefaultAsync(
-                candidate => candidate.LocalId == copyLocalId && candidate.CopyOfLocalId != null, cancellationToken)
-            is not { } copy)
+        if (await CopiesForEditing.FindCopyAsync<LocalNote>(dbContext, copyLocalId, cancellationToken) is not { } copy)
         {
             return LocalWriteOutcome.NotFound;
         }
 
-        RemoveWithItsQueue(dbContext, copy);
+        CopiesForEditing.Remove(dbContext, copy, SyncEntityType.Note);
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
 
-    /// <summary>
-    /// Leaves both, which is the third answer a review can give. The copy stops being one under review
-    /// and becomes a note in its own right - it keeps pointing at what it came from, which is all the
-    /// History screen needs to say where it came from.
-    /// </summary>
+    /// <inheritdoc/>
     public async Task<LocalWriteOutcome> KeepCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        if (await dbContext.Notes.FirstOrDefaultAsync(
-                candidate => candidate.LocalId == copyLocalId && candidate.CopyOfLocalId != null, cancellationToken)
-            is not { } copy)
+        if (await CopiesForEditing.FindCopyAsync<LocalNote>(dbContext, copyLocalId, cancellationToken) is not { } copy)
         {
             return LocalWriteOutcome.NotFound;
         }
 
         var now = _timeProvider.GetUtcNow();
-        copy.IsKeptCopy = true;
         copy.UpdatedAtUtc = now;
-        Enqueue(dbContext, copy.LocalId, OutboxOperation.Create, now);
+        CopiesForEditing.Keep(dbContext, copy, SyncEntityType.Note, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
 
-    /// <summary>
-    /// Takes a copy out along with anything queued about it. An unreviewed copy queues nothing, but one
-    /// resolved twice - kept and then applied - would have a Create waiting, and leaving that behind
-    /// would push a note the reader has just discarded.
-    /// </summary>
-    private static void RemoveWithItsQueue(OrbitLocalDbContext dbContext, LocalNote copy)
+    private async Task<IReadOnlyList<CopyUnderReview>> DescribeAllAsync(
+        OrbitLocalDbContext dbContext,
+        Func<OrbitLocalDbContext, CancellationToken, Task<IReadOnlyList<LocalNote>>> read,
+        CancellationToken cancellationToken)
     {
-        var queued = dbContext.Outbox
-            .Where(entry => entry.EntityType == SyncEntityType.Note && entry.LocalId == copy.LocalId);
+        var described = new List<CopyUnderReview>();
+        foreach (var copy in await read(dbContext, cancellationToken))
+        {
+            var original = await dbContext.Notes.AsNoTracking().FirstOrDefaultAsync(
+                candidate => candidate.LocalId == copy.CopyOfLocalId, cancellationToken);
 
-        dbContext.Outbox.RemoveRange(queued);
-        dbContext.Notes.Remove(copy);
+            described.Add(new CopyUnderReview(
+                CopyKind.Note, copy.LocalId, copy.CopyOfLocalId!.Value,
+                original?.Title is { Length: > 0 } title ? title : copy.CopyBaseTitle,
+                copy.CopiedAtUtc ?? copy.CreatedAtUtc,
+                copy.CopyBaseLines, Describe(copy.Content),
+                original is null ? null : Describe(original.Content)));
+        }
+
+        return described;
     }
+
+    /// <summary>
+    /// A note's lines as a review reads them. A tick is part of what a line says: two lines reading
+    /// "milk", one ticked, are not the same line, and a diff that called them equal would hide the only
+    /// change somebody made all day.
+    /// </summary>
+    private static IReadOnlyList<string> Describe(IReadOnlyList<NoteContentLineDto> content)
+        => [.. content.Select(line => line switch
+        {
+            { IsChecklistItem: true, IsChecked: true } => $"[x] {line.Text}",
+            { IsChecklistItem: true } => $"[ ] {line.Text}",
+            _ => line.Text
+        })];
 
     /// <inheritdoc cref="LocalTaskListRepository.CanEditAsync"/>
     public async Task<bool> CanEditAsync(Guid localId, CancellationToken cancellationToken = default)
@@ -380,7 +386,7 @@ public sealed class LocalNoteRepository
         note.Priority = content.Priority;
         note.UpdatedAtUtc = now;
 
-        if (!IsAwaitingReview(note))
+        if (!CopiesForEditing.IsAwaitingReview(note))
         {
             Enqueue(dbContext, localId, OutboxOperation.Update, now);
         }
@@ -473,9 +479,6 @@ public sealed class LocalNoteRepository
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
-
-    /// <summary>A copy taken offline that no review has answered yet - see CopyForEditingAsync.</summary>
-    private static bool IsAwaitingReview(LocalNote note) => note is { CopyOfLocalId: not null, IsKeptCopy: false };
 
     private static void Enqueue(
         OrbitLocalDbContext dbContext, Guid noteLocalId, OutboxOperation operation, DateTimeOffset queuedAtUtc,

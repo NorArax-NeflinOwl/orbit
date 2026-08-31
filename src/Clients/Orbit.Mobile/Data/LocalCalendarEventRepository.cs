@@ -10,7 +10,7 @@ namespace Orbit.Mobile.Data;
 /// repositories, including the rule that matters: each write records its own outbox entry in the same
 /// transaction as the change, and the offline policy is refused here rather than only shown on screen.
 /// </summary>
-public sealed class LocalCalendarEventRepository
+public sealed class LocalCalendarEventRepository : ICopyReviewStore
 {
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
@@ -157,7 +157,12 @@ public sealed class LocalCalendarEventRepository
         calendarEvent.Details = details;
         calendarEvent.UpdatedAtUtc = now;
 
-        Enqueue(dbContext, localId, OutboxOperation.Update, now);
+        // A copy still awaiting review is written to this phone and queued for nobody: what it is has
+        // not been decided yet, and the review is what sends it - see LocalNoteRepository.UpdateAsync.
+        if (!CopiesForEditing.IsAwaitingReview(calendarEvent))
+        {
+            Enqueue(dbContext, localId, OutboxOperation.Update, now);
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
@@ -192,6 +197,171 @@ public sealed class LocalCalendarEventRepository
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
+    }
+
+    /// <summary>
+    /// <inheritdoc cref="LocalNoteRepository.CopyForEditingAsync" path="/summary/node()[1]"/>
+    ///
+    /// An appointment has no sealed form of its own - everything it is travels as one block the server
+    /// stores whole - so the only reason to refuse is that there is nothing there to copy.
+    /// </summary>
+    public async Task<LocalCalendarEvent?> CopyForEditingAsync(
+        Guid originalLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.CalendarEvents.FirstOrDefaultAsync(
+                candidate => candidate.LocalId == originalLocalId, cancellationToken) is not { } original)
+        {
+            return null;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        var copy = new LocalCalendarEvent
+        {
+            LocalId = Guid.NewGuid(),
+            ServerId = null,
+            Details = original.Details,
+            CopyOfLocalId = original.LocalId,
+            CopiedAtUtc = now,
+            CopyBaseTitle = original.Details.Title,
+            CopyBaseLines = Describe(original.Details),
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+        dbContext.CalendarEvents.Add(copy);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return copy;
+    }
+
+    public CopyKind Kind => CopyKind.CalendarEvent;
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetCopiesAwaitingReviewAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(dbContext, CopiesForEditing.AwaitingReviewAsync<LocalCalendarEvent>, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetKeptCopiesAsync(CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(dbContext, CopiesForEditing.KeptAsync<LocalCalendarEvent>, cancellationToken);
+    }
+
+    /// <inheritdoc cref="LocalNoteRepository.ApplyCopyAsync"/>
+    public async Task<LocalWriteOutcome> ApplyCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalCalendarEvent>(dbContext, copyLocalId, cancellationToken)
+            is not { CopyOfLocalId: { } originalLocalId } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (await dbContext.CalendarEvents.FirstOrDefaultAsync(
+                candidate => candidate.LocalId == originalLocalId, cancellationToken) is not { } original)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(original, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        original.Details = copy.Details;
+        original.UpdatedAtUtc = now;
+        Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+
+        CopiesForEditing.Remove(dbContext, copy, SyncEntityType.CalendarEvent);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LocalWriteOutcome> DiscardCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalCalendarEvent>(dbContext, copyLocalId, cancellationToken)
+            is not { } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        CopiesForEditing.Remove(dbContext, copy, SyncEntityType.CalendarEvent);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LocalWriteOutcome> KeepCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalCalendarEvent>(dbContext, copyLocalId, cancellationToken)
+            is not { } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        // Nothing inside an appointment carries an id of its own, so there is nothing here to re-issue.
+        var now = _timeProvider.GetUtcNow();
+        copy.UpdatedAtUtc = now;
+        CopiesForEditing.Keep(dbContext, copy, SyncEntityType.CalendarEvent, now);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc cref="LocalNoteRepository.DescribeAllAsync"/>
+    private async Task<IReadOnlyList<CopyUnderReview>> DescribeAllAsync(
+        OrbitLocalDbContext dbContext,
+        Func<OrbitLocalDbContext, CancellationToken, Task<IReadOnlyList<LocalCalendarEvent>>> read,
+        CancellationToken cancellationToken)
+    {
+        var described = new List<CopyUnderReview>();
+        foreach (var copy in await read(dbContext, cancellationToken))
+        {
+            var original = await dbContext.CalendarEvents.AsNoTracking().FirstOrDefaultAsync(
+                candidate => candidate.LocalId == copy.CopyOfLocalId, cancellationToken);
+
+            described.Add(new CopyUnderReview(
+                CopyKind.CalendarEvent, copy.LocalId, copy.CopyOfLocalId!.Value,
+                original?.Details.Title is { Length: > 0 } title ? title : copy.CopyBaseTitle,
+                copy.CopiedAtUtc ?? copy.CreatedAtUtc,
+                copy.CopyBaseLines, Describe(copy.Details),
+                original is null ? null : Describe(original.Details)));
+        }
+
+        return described;
+    }
+
+    /// <summary>
+    /// An appointment as a review reads it: what it is called, when it is, where, and what it says.
+    /// Times are written plainly rather than in the reader's own format - see
+    /// <see cref="LocalTaskListRepository.Describe"/> for why that matters here.
+    /// </summary>
+    private static IReadOnlyList<string> Describe(CalendarEventDetailsDto details)
+    {
+        var lines = new List<string> { details.Title };
+
+        lines.Add(details.IsAllDay
+            ? $"{details.StartUtc:yyyy-MM-dd} - {details.EndUtc:yyyy-MM-dd}"
+            : $"{details.StartUtc:yyyy-MM-dd HH:mm} - {details.EndUtc:yyyy-MM-dd HH:mm}");
+
+        if (details.Location?.Address is { Length: > 0 } place)
+        {
+            lines.Add(place);
+        }
+
+        if (details.Description is { Length: > 0 } description)
+        {
+            lines.AddRange(description.Split('\n'));
+        }
+
+        return lines;
     }
 
     private static void Enqueue(

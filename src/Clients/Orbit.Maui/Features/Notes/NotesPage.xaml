@@ -30,13 +30,6 @@
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
                    LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
 
-            <!-- What was written offline and has not been decided on yet. Waited for here rather than
-                 pushed at the reader the moment a connection returns: the copy is safe where it is, and
-                 a prompt over whatever screen they happen to be on gets dismissed rather than read. -->
-            <Button Text="{controls:Translate 'Copies to review'}" IsVisible="{Binding HasCopiesAwaitingReview}"
-                    FontSize="13" Padding="8,4" HorizontalOptions="Start"
-                    Style="{StaticResource LinkButton}" Command="{Binding GoToCopyReviewCommand}" />
-
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Entry Grid.Column="0"
                        Placeholder="{controls:Translate 'New note'}"
@@ -101,12 +94,6 @@
 
             </CollectionView>
         </RefreshView>
-
-        <!-- Where a copy kept by a review is found again. Below the list rather than beside "Add": it is
-             looked for now and then, not used, and the top of the screen is for what is used. -->
-        <Button Grid.Row="2" Text="{controls:Translate 'History'}" IsVisible="{Binding HasHistory}"
-                FontSize="13" Padding="8,4" HorizontalOptions="Start"
-                Style="{StaticResource LinkButton}" Command="{Binding GoToHistoryCommand}" />
 
 
     </Grid>

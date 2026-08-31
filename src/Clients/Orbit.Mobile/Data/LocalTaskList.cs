@@ -12,7 +12,7 @@ namespace Orbit.Mobile.Data;
 /// task list is not a single blob of text but a title plus a list of items, each with a due date and its
 /// own notification settings.
 /// </summary>
-public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState
+public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState, ICopyableForEditing
 {
     /// <summary>The key on this device, generated here and never changing - see <see cref="LocalNote.LocalId"/>.</summary>
     public Guid LocalId { get; set; }
@@ -80,4 +80,20 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState
 
     /// <summary>When the server last confirmed this row - see <see cref="LocalNote.LastSyncedAtUtc"/>.</summary>
     public DateTimeOffset? LastSyncedAtUtc { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopyOfLocalId"/>
+    public Guid? CopyOfLocalId { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopiedAtUtc"/>
+    public DateTimeOffset? CopiedAtUtc { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopyBaseTitle"/>
+    public string CopyBaseTitle { get; set; } = string.Empty;
+
+    /// <inheritdoc cref="ICopyableForEditing.CopyBaseLines"/>
+    public IReadOnlyList<string> CopyBaseLines { get; set; } = [];
+
+    /// <inheritdoc cref="LocalNote.IsKeptCopy"/>
+    public bool IsKeptCopy { get; set; }
+
 }

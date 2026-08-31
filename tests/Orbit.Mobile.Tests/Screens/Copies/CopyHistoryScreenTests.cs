@@ -2,18 +2,18 @@ using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Notes;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
-using Orbit.Mobile.Screens.Notes;
+using Orbit.Mobile.Screens.Copies;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 
-namespace Orbit.Mobile.Tests.Screens;
+namespace Orbit.Mobile.Tests.Screens.Copies;
 
 /// <summary>
 /// Where a copy kept by a review can be found again. Its whole job is the reference: this note came
 /// from that one - which nothing else in the app records, and which the notes list cannot show without
 /// becoming a list of pairs.
 /// </summary>
-public sealed class NoteHistoryScreenTests
+public sealed class CopyHistoryScreenTests
 {
     [Fact]
     public async Task A_kept_copy_is_listed_with_what_it_came_from()
@@ -125,10 +125,10 @@ public sealed class NoteHistoryScreenTests
             return copy;
         }
 
-        public async Task<NoteHistoryViewModel> OpenAsync()
+        public async Task<CopyHistoryViewModel> OpenAsync()
         {
-            var screen = new NoteHistoryViewModel(
-                Notes, new Translations(new InMemoryLanguageStore()), Navigator);
+            var screen = new CopyHistoryViewModel(
+                [Notes], new Translations(new InMemoryLanguageStore()), Navigator);
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

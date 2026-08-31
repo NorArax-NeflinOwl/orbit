@@ -21,11 +21,12 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// own. Without it a group's row names an errand with no hint of where it came from.
 /// </param>
 /// <param name="IsHidden"><inheritdoc cref="NoteListItem.IsHidden" path="/summary"/></param>
+/// <param name="IsCopy"><inheritdoc cref="Notes.NoteListItem" path="/param[@name='IsCopy']/node()"/></param>
 public sealed record TaskListRow(
     Guid LocalId, string Title, int ItemCount, int CompletedCount, bool IsPinned,
     DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
     string Progress, string Status, string State, string NextThing, string NextThingOnList,
-    string Priority, bool IsHidden = false, string HiddenTitle = "Private")
+    string Priority, bool IsHidden = false, string HiddenTitle = "Private", bool IsCopy = false)
 {
     /// <inheritdoc cref="NoteListItem.DisplayTitle"/>
     public string DisplayTitle => IsHidden ? HiddenTitle : Title;
@@ -56,7 +57,8 @@ public sealed record TaskListRow(
             next?.Description ?? string.Empty,
             next?.OnList ?? string.Empty,
             PriorityChoice.For(taskList.Priority, translations).Name,
-            IsHidden: taskList.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle)
+            IsHidden: taskList.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle,
+            IsCopy: taskList.CopyOfLocalId is not null)
         {
             HasPriority = PriorityChoice.For(taskList.Priority, translations).IsWorthSaying
         };

@@ -26,7 +26,7 @@ public sealed record TaskListContent(
 /// transaction as the change, because a local edit that was applied but not queued is silently lost at
 /// the next pull.
 /// </summary>
-public sealed class LocalTaskListRepository
+public sealed class LocalTaskListRepository : ICopyReviewStore
 {
     private readonly IDbContextFactory<OrbitLocalDbContext> _dbContextFactory;
     private readonly TimeProvider _timeProvider;
@@ -197,7 +197,12 @@ public sealed class LocalTaskListRepository
         // was handed in rather than from the row, which holds no items at all when the list is private.
         taskList.IsCompleted = content.Items.Count > 0 && content.Items.All(item => item.IsCompleted);
 
-        Enqueue(dbContext, localId, OutboxOperation.Update, now);
+        // A copy still awaiting review is written to this phone and queued for nobody: what it is has
+        // not been decided yet, and the review is what sends it - see LocalNoteRepository.UpdateAsync.
+        if (!CopiesForEditing.IsAwaitingReview(taskList))
+        {
+            Enqueue(dbContext, localId, OutboxOperation.Update, now);
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
@@ -291,6 +296,164 @@ public sealed class LocalTaskListRepository
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
+
+    /// <inheritdoc cref="LocalNoteRepository.CopyForEditingAsync"/>
+    public async Task<LocalTaskList?> CopyForEditingAsync(Guid originalLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.TaskLists.FirstOrDefaultAsync(candidate => candidate.LocalId == originalLocalId, cancellationToken)
+            is not { IsSealed: false, IsPrivate: false } original)
+        {
+            return null;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        var copy = new LocalTaskList
+        {
+            LocalId = Guid.NewGuid(),
+            ServerId = null,
+            Title = original.Title,
+            // The entries keep their ids - see ICopyReviewStore.KeepCopyAsync for why, and for where
+            // they are given up again.
+            Items = original.Items,
+            IsGroup = original.IsGroup,
+            IsCompleted = original.IsCompleted,
+            LinkedWarehouseId = original.LinkedWarehouseId,
+            Priority = original.Priority,
+            Status = original.Status,
+            CopyOfLocalId = original.LocalId,
+            CopiedAtUtc = now,
+            CopyBaseTitle = original.Title,
+            CopyBaseLines = Describe(original.Items),
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+        dbContext.TaskLists.Add(copy);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return copy;
+    }
+
+    public CopyKind Kind => CopyKind.TaskList;
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetCopiesAwaitingReviewAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(dbContext, CopiesForEditing.AwaitingReviewAsync<LocalTaskList>, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetKeptCopiesAsync(CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(dbContext, CopiesForEditing.KeptAsync<LocalTaskList>, cancellationToken);
+    }
+
+    /// <inheritdoc cref="LocalNoteRepository.ApplyCopyAsync"/>
+    public async Task<LocalWriteOutcome> ApplyCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalTaskList>(dbContext, copyLocalId, cancellationToken)
+            is not { CopyOfLocalId: { } originalLocalId } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (await dbContext.TaskLists.FirstOrDefaultAsync(
+                candidate => candidate.LocalId == originalLocalId, cancellationToken) is not { } original)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(original, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        original.Title = copy.Title;
+        original.Items = copy.Items;
+        original.IsGroup = copy.IsGroup;
+        original.Priority = copy.Priority;
+        original.IsCompleted = copy.Items.Count > 0 && copy.Items.All(item => item.IsCompleted);
+        original.UpdatedAtUtc = now;
+        Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+
+        CopiesForEditing.Remove(dbContext, copy, SyncEntityType.TaskList);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LocalWriteOutcome> DiscardCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalTaskList>(dbContext, copyLocalId, cancellationToken) is not { } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        CopiesForEditing.Remove(dbContext, copy, SyncEntityType.TaskList);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LocalWriteOutcome> KeepCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await CopiesForEditing.FindCopyAsync<LocalTaskList>(dbContext, copyLocalId, cancellationToken) is not { } copy)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        var now = _timeProvider.GetUtcNow();
+        // Its entries stop being the original's entries the moment this becomes a list of its own.
+        copy.Items = [.. copy.Items.Select(item => item with { Id = Guid.NewGuid() })];
+        copy.UpdatedAtUtc = now;
+        CopiesForEditing.Keep(dbContext, copy, SyncEntityType.TaskList, now);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
+    /// <inheritdoc cref="LocalNoteRepository.DescribeAllAsync"/>
+    private async Task<IReadOnlyList<CopyUnderReview>> DescribeAllAsync(
+        OrbitLocalDbContext dbContext,
+        Func<OrbitLocalDbContext, CancellationToken, Task<IReadOnlyList<LocalTaskList>>> read,
+        CancellationToken cancellationToken)
+    {
+        var described = new List<CopyUnderReview>();
+        foreach (var copy in await read(dbContext, cancellationToken))
+        {
+            var original = await dbContext.TaskLists.AsNoTracking().FirstOrDefaultAsync(
+                candidate => candidate.LocalId == copy.CopyOfLocalId, cancellationToken);
+
+            described.Add(new CopyUnderReview(
+                CopyKind.TaskList, copy.LocalId, copy.CopyOfLocalId!.Value,
+                original?.Title is { Length: > 0 } title ? title : copy.CopyBaseTitle,
+                copy.CopiedAtUtc ?? copy.CreatedAtUtc,
+                copy.CopyBaseLines, Describe(copy.Items),
+                original is null ? null : Describe(original.Items)));
+        }
+
+        return described;
+    }
+
+    /// <summary>
+    /// A list's entries as a review reads them: ticked or not, what it says, and when it is due. The
+    /// date is written plainly rather than in the reader's own format, because these lines are compared
+    /// as text - a snapshot taken under one language must not read as a change under another.
+    /// </summary>
+    private static IReadOnlyList<string> Describe(IReadOnlyList<TaskItemDto> items)
+        => [.. items.Select(item => item switch
+        {
+            { IsCompleted: true, DueDateUtc: { } completedDue } => $"[x] {item.Description} ({completedDue:yyyy-MM-dd})",
+            { IsCompleted: true } => $"[x] {item.Description}",
+            { DueDateUtc: { } due } => $"[ ] {item.Description} ({due:yyyy-MM-dd})",
+            _ => $"[ ] {item.Description}"
+        })];
 
     private static void Enqueue(
         OrbitLocalDbContext dbContext, Guid localId, OutboxOperation operation, DateTimeOffset queuedAtUtc,

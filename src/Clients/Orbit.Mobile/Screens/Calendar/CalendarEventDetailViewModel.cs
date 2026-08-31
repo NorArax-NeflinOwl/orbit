@@ -554,6 +554,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _events.CanEditAsync(_localId, cancellationToken);
         ReadOnlyReason = string.Empty;
+        IsCopyOffered = IsReadOnly && calendarEvent.CopyOfLocalId is null;
 
         if (!IsReadOnly && calendarEvent.ServerId is { } lockedServerId)
         {
@@ -629,4 +630,25 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     public Task CloseAsync() => _editLock.ReleaseAsync();
 
     partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsCopyOffered"/>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyForEditingAsync"/>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _events.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowCalendarEvent(copy.LocalId);
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
 }

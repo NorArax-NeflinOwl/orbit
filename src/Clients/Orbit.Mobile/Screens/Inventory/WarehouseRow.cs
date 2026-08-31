@@ -10,7 +10,8 @@ namespace Orbit.Mobile.Screens.Inventory;
 /// <param name="IsHidden"><inheritdoc cref="Notes.NoteListItem.IsHidden" path="/summary"/></param>
 public sealed record WarehouseRow(
     Guid LocalId, string Name, int ItemCount, bool HasUnsentChanges, OfflineEditRefusal Refusal,
-    string Contents, string Status, bool IsHidden = false, string HiddenName = "Private")
+    string Contents, string Status, bool IsHidden = false, string HiddenName = "Private",
+    bool IsCopy = false)
 {
     public static WarehouseRow From(
         LocalWarehouse warehouse, bool hasUnsentChanges, INetworkStatus networkStatus, Translations translations,
@@ -23,7 +24,8 @@ public sealed record WarehouseRow(
             hasUnsentChanges, refusal,
             translations.Format("Items: {0}", warehouse.Items.Count),
             OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
-            IsHidden: warehouse.IsPrivate && !privateItemsAreUnlocked, HiddenName: hiddenName);
+            IsHidden: warehouse.IsPrivate && !privateItemsAreUnlocked, HiddenName: hiddenName,
+            IsCopy: warehouse.CopyOfLocalId is not null);
     }
 
     /// <inheritdoc cref="Notes.NoteListItem.DisplayTitle"/>

@@ -22,19 +22,9 @@
         <Label Grid.Row="1" Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
                FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
-        <!-- The way out of the refusal above, offered rather than imposed: a copy is a second note on
-             the list, so nobody should get one without asking. Sits directly under the reason it
-             answers, and goes away once it has been answered either way. -->
-        <VerticalStackLayout Grid.Row="2" IsVisible="{Binding IsCopyOffered}" Spacing="4">
-            <Label Text="{controls:Translate 'Make a copy you can write in while you are offline?'}"
-                   FontSize="12" LineBreakMode="WordWrap" />
-            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="6" HorizontalOptions="Start">
-                <Button Grid.Column="0" Text="{controls:Translate 'Make a copy'}" FontSize="12" Padding="6,4"
-                        Style="{StaticResource LinkButton}" Command="{Binding CopyForEditingCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Not now'}" FontSize="12" Padding="6,4"
-                        Style="{StaticResource LinkButton}" Command="{Binding DeclineCopyCommand}" />
-            </Grid>
-        </VerticalStackLayout>
+        <controls:CopyOffer Grid.Row="2" IsOffered="{Binding IsCopyOffered}"
+                            TakeCommand="{Binding CopyForEditingCommand}"
+                            DeclineCommand="{Binding DeclineCopyCommand}" />
 
         <Label Grid.Row="3" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" LineBreakMode="WordWrap"

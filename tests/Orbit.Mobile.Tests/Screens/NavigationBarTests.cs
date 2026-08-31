@@ -11,6 +11,7 @@ using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 using Orbit.Mobile.Sync;
+using Orbit.Contracts.Notes;
 
 namespace Orbit.Mobile.Tests.Screens;
 
@@ -113,25 +114,25 @@ public sealed class NavigationBarTests
     }
 
     [Fact]
-    public void The_avatar_opens_a_menu_rather_than_going_anywhere()
+    public async Task The_avatar_opens_a_menu_rather_than_going_anywhere()
     {
         // Orbit.Web's avatar does the same: the account, the notifications and signing out all hang off
         // it, and making the avatar mean one of them would hide the other two.
         var context = new BarContext("Ala");
         var bar = context.Open();
 
-        bar.ToggleMenuCommand.Execute(null);
+        await bar.ToggleMenuCommand.ExecuteAsync(null);
 
         Assert.True(bar.IsMenuOpen);
         Assert.Empty(context.Navigator.Destinations);
     }
 
     [Fact]
-    public void Leaving_the_menu_for_somewhere_closes_it()
+    public async Task Leaving_the_menu_for_somewhere_closes_it()
     {
         var context = new BarContext("Ala");
         var bar = context.Open();
-        bar.ToggleMenuCommand.Execute(null);
+        await bar.ToggleMenuCommand.ExecuteAsync(null);
 
         bar.GoToNotificationsCommand.Execute(null);
 
@@ -141,13 +142,13 @@ public sealed class NavigationBarTests
     }
 
     [Fact]
-    public void Setting_a_status_leaves_the_menu_open()
+    public async Task Setting_a_status_leaves_the_menu_open()
     {
         // Setting a status is not leaving the menu, and closing it would hide the dot the reader just
         // changed before they could see it change.
         var context = new BarContext("Ala");
         var bar = context.Open();
-        bar.ToggleMenuCommand.Execute(null);
+        await bar.ToggleMenuCommand.ExecuteAsync(null);
 
         bar.ChooseUnavailableCommand.Execute(null);
 
@@ -188,11 +189,11 @@ public sealed class NavigationBarTests
     }
 
     [Fact]
-    public void The_update_row_leads_to_where_a_newer_build_is()
+    public async Task The_update_row_leads_to_where_a_newer_build_is()
     {
         var context = new BarContext("Ala");
         var bar = context.Open();
-        bar.ToggleMenuCommand.Execute(null);
+        await bar.ToggleMenuCommand.ExecuteAsync(null);
 
         bar.GoToUpdateCommand.Execute(null);
 
@@ -290,6 +291,83 @@ public sealed class NavigationBarTests
         Assert.True(bar.CanReconnect);
     }
 
+    /// <summary>
+    /// The way to the review window, from every screen. It lives here rather than on one of the four
+    /// lists because a copy can be of any of the four kinds, and no single list is the right place to
+    /// wait for one.
+    /// </summary>
+    [Fact]
+    public async Task Copies_waiting_to_be_decided_are_badged_in_the_menu()
+    {
+        var context = new BarContext("Ala");
+        await context.TakeACopyOfANoteAsync();
+
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(bar.HasCopiesAwaitingReview);
+        Assert.Equal("1", bar.CopiesAwaitingReviewLabel);
+    }
+
+    [Fact]
+    public async Task Nothing_taken_offline_leaves_the_row_out_of_the_menu()
+    {
+        var context = new BarContext("Ala");
+
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(bar.HasCopiesAwaitingReview);
+        Assert.False(bar.HasCopyHistory);
+    }
+
+    /// <summary>A copy answered with "keep both" stops being a question and becomes history.</summary>
+    [Fact]
+    public async Task A_kept_copy_moves_from_the_badge_to_History()
+    {
+        var context = new BarContext("Ala");
+        await context.KeepACopyOfANoteAsync();
+
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(bar.HasCopiesAwaitingReview);
+        Assert.True(bar.HasCopyHistory);
+    }
+
+    /// <summary>
+    /// Answering a review is the one thing that changes this number without leaving the screen, so the
+    /// menu counts again on its way open - a badge still claiming one waiting, on the menu just used to
+    /// answer it, reads as an answer that failed.
+    /// </summary>
+    [Fact]
+    public async Task The_badge_catches_up_when_the_menu_is_opened_again()
+    {
+        var context = new BarContext("Ala");
+        await context.TakeACopyOfANoteAsync();
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+
+        await context.AnswerEveryReviewAsync();
+        await bar.ToggleMenuCommand.ExecuteAsync(null);
+
+        Assert.False(bar.HasCopiesAwaitingReview);
+    }
+
+    [Fact]
+    public async Task The_review_row_leads_to_the_review_window()
+    {
+        var context = new BarContext("Ala");
+        await context.TakeACopyOfANoteAsync();
+        var bar = context.Open();
+        await bar.ToggleMenuCommand.ExecuteAsync(null);
+
+        bar.GoToCopyReviewCommand.Execute(null);
+
+        Assert.Equal("ShowCopyReview", context.Navigator.LastDestination);
+        Assert.False(bar.IsMenuOpen);
+    }
+
     private sealed class BarContext
     {
         private readonly SessionStore _sessionStore;
@@ -299,6 +377,41 @@ public sealed class NavigationBarTests
                 new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", displayName)));
 
         public LocalStore LocalStore { get; } = new();
+
+        /// <summary>
+        /// One of the four the bar counts copies from - see NavigationBarViewModel's copy stores. Notes
+        /// alone here: what is being checked is that the bar asks and badges, not that four repositories
+        /// each answer, which CopyReviewScreenTests covers.
+        /// </summary>
+        public LocalNoteRepository Notes => _notes ??= new LocalNoteRepository(
+            LocalStore, new FakeTimeProvider(DateTimeOffset.Parse("2026-08-27T09:00:00Z")),
+            FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+
+        private LocalNoteRepository? _notes;
+
+        /// <summary>A note copied for editing offline and not yet decided on - what the bar badges.</summary>
+        public async Task TakeACopyOfANoteAsync()
+        {
+            var note = await Notes.CreateAsync("Team shopping", [new NoteContentLineDto("milk", false, false)]);
+            await Notes.CopyForEditingAsync(note.LocalId);
+        }
+
+        /// <summary>Answers whatever is outstanding, as the review window would have.</summary>
+        public async Task AnswerEveryReviewAsync()
+        {
+            foreach (var copy in await Notes.GetCopiesAwaitingReviewAsync())
+            {
+                await Notes.KeepCopyAsync(copy.LocalId);
+            }
+        }
+
+        /// <summary>And one already answered with "keep both", which is what History lists.</summary>
+        public async Task KeepACopyOfANoteAsync()
+        {
+            var note = await Notes.CreateAsync("Errands", [new NoteContentLineDto("post office", false, false)]);
+            var copy = await Notes.CopyForEditingAsync(note.LocalId);
+            await Notes.KeepCopyAsync(copy!.LocalId);
+        }
 
         public FakeNotificationServer Server { get; } = new();
 
@@ -345,7 +458,8 @@ public sealed class NavigationBarTests
                 Synchronizers.AgainstNobody(
                     LocalStore, new ChatRepository(LocalStore, TimeProvider.System),
                     UnlockedPermissions.For(LocalStore), _sessionStore),
-                Network);
+                Network,
+                [Notes]);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

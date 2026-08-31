@@ -25,6 +25,10 @@
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
+            <controls:CopyOffer IsOffered="{Binding IsCopyOffered}"
+                                TakeCommand="{Binding CopyForEditingCommand}"
+                                DeclineCommand="{Binding DeclineCopyCommand}" />
+
             <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" HeightRequest="110"
                     Placeholder="{controls:Translate 'Description'}" />
 
