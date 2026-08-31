@@ -1637,6 +1637,18 @@ left open behind thirty others is not somebody there to answer. The connection s
 on its own keep an account looking available — the client reports being at the keyboard, and declining to
 report is what lets the account age.
 
+**The phone holds the same connection, and only while it is in front.** Started and stopped with the
+window, the way its presence heartbeat already was: a socket held open behind a locked screen is one
+Android drops in Doze anyway, and what it would have carried is exactly what push already delivers. So
+the connection speeds up the app somebody is looking at, and push covers the app they are not. Its chat
+polls slow from 5s and 10s to 30s while it is up and snap back when it drops; the unread badge and the
+notification feed hear about the feed changing instead of waiting for the next screen to be opened; and
+the presence heartbeat goes over the connection when there is one — a frame instead of a handshake and a
+round trip every twenty seconds — falling back to the request when there is not.
+
+The phone does not listen for `PresenceChanged`: it shows nobody else's presence yet, so there would be
+nothing to redraw.
+
 ### How it is put together
 
 | Piece | Where | What it is for |
