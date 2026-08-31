@@ -48,6 +48,26 @@ public sealed class TaskListDetailScreenTests
         Assert.True(entry.IsCompleted);
     }
 
+    /// <summary>
+    /// The bug this stands for: an entry added on the phone came out with both notification channels
+    /// set to None, where Orbit.Web starts a new entry on Push. Nothing on either screen says a channel
+    /// is off, so a task added on the phone went overdue in silence and read as push being broken.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_added_here_will_notify_when_it_goes_overdue()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        screen.NewItemDescription = "Buy milk";
+
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        var entry = Assert.Single(context.Server.TaskLists.Single().Items);
+        Assert.Equal("Push", entry.OverdueNotificationChannel);
+        Assert.Equal("Push", entry.DailyReminderNotificationChannel);
+        Assert.False(entry.RemindDaily);
+    }
+
     [Fact]
     public async Task An_entry_added_offline_reaches_the_server_with_one_id_once_the_connection_returns()
     {

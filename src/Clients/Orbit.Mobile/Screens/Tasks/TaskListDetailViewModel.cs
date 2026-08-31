@@ -202,8 +202,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var description = NewItemDescription.Trim();
         NewItemDescription = string.Empty;
 
+        // Both channels start at Push, as Orbit.Web's new-entry defaults do. "None" would be a quieter
+        // default in name only: nothing on this screen says a channel is off, so an entry added here
+        // would go overdue in silence and look like push was broken rather than switched off.
         return SaveAsync(
-            [.. _items, new TaskItemDto(Guid.Empty, description, null, false, null, "None", false, "None", new TimeOnly(9, 0))],
+            [.. _items, new TaskItemDto(Guid.Empty, description, null, false, null, "Push", false, "Push", new TimeOnly(9, 0))],
             cancellationToken);
     }
 
