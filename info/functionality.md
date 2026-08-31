@@ -658,8 +658,27 @@ and reverse-geocodes it into an address. Over the page because a map needs room 
 none. Nothing is written back until the pin is confirmed: the overlay asks "Use this place?" with the
 address it found, and only a yes replaces what the box held — a stray click on a map must not silently
 rewrite an address somebody typed. The map opens where the box already points, when that address can be
-found (`GeocodingApiClient.FindPlaceAsync`). Only the address is stored; the item keeps no coordinates,
-which is why the pin has to become words before it is worth anything.
+found (`GeocodingApiClient.FindPlaceAsync`).
+
+**A confirmed pin keeps its position, not only its name.** The overlay hands back a `PickedPlace` -
+where it is as well as what it is called - and the editor keeps both. The words are still the reader's
+to choose (confirming a pin fills an empty box and leaves a name they wrote alone), but the position is
+what the calendar needs: a `EventLocation` is coordinates with an optional label, so an address on its
+own cannot be shown on a map or turned into a Google Maps link.
+
+This used to be the other way round - the overlay reverse-geocoded the pin and then discarded where it
+was - and the consequences reached further than the pin. A calendar entry's event was created with no
+place at all, and worse, an entry that *already had* an event sent "no place" back on every save, so
+editing a task list's colour or its day erased a location somebody had set in the calendar. The web
+editor now reads the linked event's location into the form along with every other field it already read
+back, and the phone - which has no map to offer and so cannot set a place - carries the one it loaded
+through untouched rather than writing a blank over it (`TaskItemEventForm.PlaceItAlreadyHad`).
+
+**A name nobody pointed at stays a name.** Typing "the back entrance" and never opening the map leaves
+the entry with a label and the event with no place, and the editor says so under the box rather than
+letting it go nowhere quietly. Orbit does not look coordinates up for it: `SearchPlacesAsync` exists
+precisely because "Długa 4" is a real address in a dozen towns, and silently taking the first match
+would put the appointment in the wrong one. The calendar's own event editor refuses in the same way.
 
 **A place can be named as well as pointed at.** The overlay carries an address search
 (`GeocodingApiClient.SearchPlacesAsync`), which is the way that works when somebody knows the address

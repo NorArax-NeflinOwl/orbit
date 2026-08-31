@@ -47,6 +47,10 @@ public sealed partial class TaskItemEventForm : ObservableObject
         var end = details.EndUtc.ToLocalTime();
 
         form.Description = details.Description ?? string.Empty;
+        // Kept, not shown. This screen has no map to offer, so it cannot set a place - but an event
+        // made on the web can already have one, and sending nothing back was erasing it every time
+        // somebody edited the entry's day or its colour from a phone.
+        form.PlaceItAlreadyHad = details.Location;
         form.StartDate = start.Date;
         form.StartTime = start.TimeOfDay;
         // An all-day event ends at midnight after its last day, so the day a reader would name is the
@@ -136,11 +140,23 @@ public sealed partial class TaskItemEventForm : ObservableObject
     /// in the types the wire and the store each use for a place and a recurrence, and this one sets
     /// neither to anything but null.
     /// </summary>
+    /// <summary>
+    /// The place this event already had when it was opened, carried untouched so that saving from a
+    /// phone gives it back. Nothing here can change it: setting a place needs a map, and this screen
+    /// has none - which is exactly why it must not be the thing that removes one.
+    /// </summary>
+    public EventLocationDto? PlaceItAlreadyHad { get; private set; }
+
+    private EventLocationRequest? PlaceToSendBack()
+        => PlaceItAlreadyHad is { } place
+            ? new EventLocationRequest(place.Address, place.Latitude, place.Longitude)
+            : null;
+
     public CalendarEventDetailsDto ToDetails(string title)
         => new(
             title,
             string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
-            Location: null,
+            PlaceItAlreadyHad,
             Colour,
             StartsAtUtc,
             EndsAtUtc,
@@ -159,9 +175,7 @@ public sealed partial class TaskItemEventForm : ObservableObject
         => new(
             title,
             string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
-            // No place on the event itself: the calendar's location is coordinates first, and an entry
-            // carries only a name. The name stays on the entry, exactly as Orbit.Web leaves it there.
-            Location: null,
+            PlaceToSendBack(),
             Colour,
             StartsAtUtc,
             EndsAtUtc,
