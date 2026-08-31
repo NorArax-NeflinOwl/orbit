@@ -16,22 +16,54 @@ namespace Orbit.Core;
 /// </summary>
 /// <param name="Version">"0.1.17", or <see cref="Unknown"/>'s value for a build nobody stamped.</param>
 /// <param name="CommitHash">The full hash, or empty when there is none to show.</param>
-public sealed record OrbitVersion(string Version, string CommitHash)
+/// <param name="ShowsTheCommit">
+/// Whether the commit is part of what this build says about itself. True for a Debug build and false for
+/// a Release one - see <see cref="IsADebugBuild"/>.
+///
+/// A value rather than a compile-time check read wherever it is needed, so both answers can be built and
+/// asserted on rather than only whichever one the test run happened to compile.
+/// </param>
+public sealed record OrbitVersion(string Version, string CommitHash, bool ShowsTheCommit)
 {
+    /// <summary>
+    /// Whether this was built to be debugged. The one place the configuration is read: everything else
+    /// takes it as a value.
+    /// </summary>
+    public const bool IsADebugBuild =
+#if DEBUG
+        true;
+#else
+        false;
+#endif
+
     /// <summary>
     /// What a local `dotnet run` says. Deliberately not "0.1.0": a made-up number that looks real is
     /// worse than one that says it is not, and this is the string somebody pastes into a bug report.
     /// </summary>
-    public static readonly OrbitVersion Unknown = new("0.0.0-dev", string.Empty);
+    public static readonly OrbitVersion Unknown = new("0.0.0-dev", string.Empty, IsADebugBuild);
 
     /// <summary>Enough of the hash to find the commit by, which is all anybody reads at a glance.</summary>
     public string ShortCommitHash => CommitHash.Length > 7 ? CommitHash[..7] : CommitHash;
 
-    /// <summary>What is shown: "ver:0.1.17+gitHash:51536f3".</summary>
-    public string Short => Describe(ShortCommitHash);
+    /// <summary>
+    /// Whether there is a longer form to reveal at all. False for a released build, where the commit is
+    /// not shown - so the number is text rather than something that looks pressable and then does
+    /// nothing.
+    /// </summary>
+    public bool CanShowTheWholeCommit => ShowsTheCommit && CommitHash.Length > ShortCommitHash.Length;
+
+    /// <summary>
+    /// What is shown: "ver:0.1.17+gitHash:51536f3" while debugging, and "ver:0.1.17" once released.
+    ///
+    /// A released build says the number and stops. The number is what somebody reporting a problem needs
+    /// and what the update gate compares; which commit it was cut from is a question for whoever has the
+    /// repository, and putting it in front of everybody else is detail about the inside of the
+    /// application that a released build has no reason to volunteer.
+    /// </summary>
+    public string Short => ShowsTheCommit ? Describe(ShortCommitHash) : $"ver:{Version}";
 
     /// <summary>What a press reveals: the same, with the whole hash - which is what a `git checkout` takes.</summary>
-    public string Full => Describe(CommitHash);
+    public string Full => ShowsTheCommit ? Describe(CommitHash) : Short;
 
     private string Describe(string hash) => hash.Length == 0 ? $"ver:{Version}" : $"ver:{Version}+gitHash:{hash}";
 
@@ -55,6 +87,8 @@ public sealed record OrbitVersion(string Version, string CommitHash)
 
         // "1.0.0" is what the SDK writes when nobody said otherwise, and it is not a version this
         // repository ever ships - see Directory.Build.props.
-        return version is "1.0.0" or "" ? Unknown : new OrbitVersion(version, commitHash);
+        return version is "1.0.0" or ""
+            ? Unknown
+            : new OrbitVersion(version, commitHash, IsADebugBuild);
     }
 }

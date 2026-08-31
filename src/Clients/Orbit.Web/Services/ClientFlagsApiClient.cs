@@ -26,6 +26,36 @@ public sealed class ClientFlagsApiClient
     public async Task<bool> GetExceptionDetailsAllowedAsync(CancellationToken cancellationToken = default)
         => (await GetFlagsAsync(cancellationToken)).ExceptionDetailsAllowed;
 
+    /// <summary>
+    /// Which build of the server this client is talking to. Null when it cannot be asked - an offline
+    /// footer should say nothing about the server rather than guess, and the client's own version is
+    /// still worth showing on its own.
+    ///
+    /// Cached like the flags: it cannot change without the server restarting, and a footer drawn on
+    /// every page must not cost a round trip each time.
+    /// </summary>
+    public async Task<ServerVersionDto?> GetServerVersionAsync(CancellationToken cancellationToken = default)
+    {
+        if (_cachedServerVersion is not null)
+        {
+            return _cachedServerVersion;
+        }
+
+        try
+        {
+            _cachedServerVersion = await _httpClient.GetFromJsonAsync<ServerVersionDto>(
+                "api/config/version", cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            return null;
+        }
+
+        return _cachedServerVersion;
+    }
+
+    private ServerVersionDto? _cachedServerVersion;
+
     private async Task<ClientFlagsDto> GetFlagsAsync(CancellationToken cancellationToken)
     {
         if (_cachedFlags is not null)

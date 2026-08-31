@@ -21,9 +21,15 @@ COPY src/Server/Orbit.Data/ src/Server/Orbit.Data/
 COPY src/Server/Orbit.GoogleIntegration/ src/Server/Orbit.GoogleIntegration/
 COPY src/Server/Orbit.Api/ src/Server/Orbit.Api/
 
+# What this build calls itself, worked out by the pipeline from the history - see ci/compute-version.sh.
+# Empty for a local `docker compose build`: nothing counted the days, so it reports 0.0.0-dev rather than
+# a number that looks real. See Orbit.Core's OrbitVersion.
+ARG ORBIT_VERSION=
+
 RUN dotnet publish src/Server/Orbit.Api/Orbit.Api.csproj \
     --configuration Release \
     --no-restore \
+    ${ORBIT_VERSION:+-p:InformationalVersion="$ORBIT_VERSION"} \
     --output /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime

@@ -1155,6 +1155,26 @@ The footer says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of 
 is what anybody reads, the whole one is what a `git checkout` takes, and asking for it should not mean
 going somewhere else. The phone's **About** row says the same thing and behaves the same way when tapped.
 
+**The hash is only there while debugging.** A released build says `ver:0.1.17` and stops: nothing to
+press, and nothing that looks pressable. The number is what somebody reporting a problem needs and what
+the update gate compares; which commit it was cut from is a question for whoever has the repository, and
+a released build has no reason to volunteer detail about its own insides. The rule lives in one place
+(`OrbitVersion.IsADebugBuild`) and travels as a value, so both answers can be tested rather than only
+whichever one the test run happened to compile.
+
+**Both versions are shown, the client's and the server's**, because they can differ:
+
+- The pipeline deploys `orbit-api` and `orbit-web` from one commit but **rolls each back on its own**, so
+  an API that fails its health check leaves the web client new and the server old.
+- A browser holding a cached Blazor client is the same drift by another route.
+- The phone is released separately and updated whenever its owner chooses - which is the whole reason the
+  version gate exists.
+
+So the footer and the About row carry a second entry, `api ver:0.1.17+gitHash:…`, read from
+`GET /api/config/version`. A released **server** sends no hash at all rather than sending one the client
+then hides: what is not sent cannot be read off the wire. When the server cannot be reached the entry is
+simply absent - an offline footer knows nothing about it and should not guess.
+
 **Nobody maintains the number.** The patch is the count of distinct days on which a commit touched that
 project (`ci/compute-version.sh`): a day with five commits counts once, a day whose commits went nowhere
 near the project does not count at all, and the same commit always numbers itself the same. There is no

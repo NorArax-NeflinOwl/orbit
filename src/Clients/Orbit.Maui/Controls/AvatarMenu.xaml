@@ -130,7 +130,7 @@
                      default, like Status and Language above. -->
                 <Grid>
                     <Label Text="{controls:Translate 'About'}" />
-                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutCommand}"
+                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutAsyncCommand}"
                             SemanticProperties.Description="{controls:Translate 'About'}" />
                 </Grid>
 
@@ -147,6 +147,11 @@
                     </Label>
                     <!-- Tapped rather than shown as a URL: the licence is a document to read, and the
                          address of it is not the information anybody came for. -->
+                    <!-- The server's own build, beside the app's. The two drift by design here: the
+                         phone is updated whenever its owner chooses. Hidden while the server has not
+                         answered - an offline About row should say nothing about it rather than guess. -->
+                    <Label Text="{Binding AboutServerVersion}" IsVisible="{Binding HasServerVersion}"
+                           FontSize="12" LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
                     <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"
                            TextDecorations="Underline" Style="{StaticResource SubtleLabel}">
                         <Label.GestureRecognizers>

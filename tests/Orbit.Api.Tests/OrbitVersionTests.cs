@@ -12,6 +12,21 @@ namespace Orbit.Api.Tests;
 /// </summary>
 public sealed class OrbitVersionTests
 {
+    /// <summary>
+    /// That the flag actually follows the configuration, rather than being a constant somebody could set
+    /// once and forget. Asserted against this project's own DEBUG symbol: the two are compiled by the
+    /// same command, so they agree only if the propagation works.
+    /// </summary>
+    [Fact]
+    public void Whether_the_commit_is_shown_follows_the_configuration_this_was_built_in()
+    {
+#if DEBUG
+        Assert.True(OrbitVersion.IsADebugBuild);
+#else
+        Assert.False(OrbitVersion.IsADebugBuild);
+#endif
+    }
+
     [Fact]
     public void A_stamped_build_says_its_number_and_the_commit_it_came_from()
     {
@@ -19,22 +34,52 @@ public sealed class OrbitVersionTests
 
         Assert.Equal("0.1.32", version.Version);
         Assert.Equal("51536f360a130d98b3b631da81dce22e38c0903a", version.CommitHash);
+        // Whether it is said out loud follows the configuration this was compiled in, and nothing else.
+        Assert.Equal(OrbitVersion.IsADebugBuild, version.ShowsTheCommit);
     }
 
     [Fact]
-    public void The_short_form_is_the_one_anybody_reads()
+    public void While_debugging_the_short_form_is_the_one_anybody_reads()
     {
-        var version = Read("0.1.32+51536f360a130d98b3b631da81dce22e38c0903a");
+        var version = ADebugBuild();
 
         Assert.Equal("ver:0.1.32+gitHash:51536f3", version.Short);
+        Assert.True(version.CanShowTheWholeCommit);
     }
 
     [Fact]
-    public void The_long_form_is_the_one_a_checkout_takes()
+    public void While_debugging_the_long_form_is_the_one_a_checkout_takes()
     {
-        var version = Read("0.1.32+51536f360a130d98b3b631da81dce22e38c0903a");
+        Assert.Equal("ver:0.1.32+gitHash:51536f360a130d98b3b631da81dce22e38c0903a", ADebugBuild().Full);
+    }
 
-        Assert.Equal("ver:0.1.32+gitHash:51536f360a130d98b3b631da81dce22e38c0903a", version.Full);
+    [Fact]
+    public void A_released_build_says_the_number_and_stops()
+    {
+        var version = AReleasedBuild();
+
+        // Which commit it was cut from is a question for whoever has the repository. The number is what
+        // somebody reporting a problem needs and what the update gate compares.
+        Assert.Equal("ver:0.1.32", version.Short);
+    }
+
+    [Fact]
+    public void A_released_build_reveals_nothing_when_pressed()
+    {
+        var version = AReleasedBuild();
+
+        // Full is the same as Short, and nothing offers the press: a number that looks pressable and
+        // then does nothing is worse than one that plainly is not.
+        Assert.Equal(version.Short, version.Full);
+        Assert.False(version.CanShowTheWholeCommit);
+    }
+
+    [Fact]
+    public void A_released_build_still_knows_the_commit_it_just_does_not_say_it()
+    {
+        // Not hidden by being thrown away - the stamp is still there for anything that has a reason to
+        // read it. What changes is only what is put in front of a reader.
+        Assert.Equal("51536f360a130d98b3b631da81dce22e38c0903a", AReleasedBuild().CommitHash);
     }
 
     [Fact]
@@ -52,18 +97,30 @@ public sealed class OrbitVersionTests
     {
         // A build numbered by hand - the release workflow accepts a version as input - carries no hash,
         // and a trailing "+gitHash:" with nothing after it would look like something went wrong.
-        var version = Read("0.2.0");
+        var version = new OrbitVersion("0.2.0", string.Empty, ShowsTheCommit: true);
 
         Assert.Equal("ver:0.2.0", version.Short);
         Assert.Equal("ver:0.2.0", version.Full);
     }
 
+    /// <summary>
+    /// The two builds, made rather than compiled for: which one a test run happens to be is not
+    /// something the rule should depend on being able to assert.
+    /// </summary>
+    private static OrbitVersion ADebugBuild()
+        => new("0.1.32", "51536f360a130d98b3b631da81dce22e38c0903a", ShowsTheCommit: true);
+
+    private static OrbitVersion AReleasedBuild()
+        => new("0.1.32", "51536f360a130d98b3b631da81dce22e38c0903a", ShowsTheCommit: false);
+
     [Fact]
     public void A_hash_shorter_than_the_short_form_is_not_cut_further()
     {
-        var version = Read("0.1.1+abc");
+        var version = new OrbitVersion("0.1.1", "abc", ShowsTheCommit: true);
 
         Assert.Equal("ver:0.1.1+gitHash:abc", version.Short);
+        // And there is no longer form to reveal, so nothing offers to.
+        Assert.False(version.CanShowTheWholeCommit);
     }
 
     /// <summary>

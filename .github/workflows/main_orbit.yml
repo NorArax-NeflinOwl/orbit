@@ -208,8 +208,9 @@ jobs:
       - name: Work out the version
         id: version
         run: |
-          ci/compute-version.sh web >> "$GITHUB_OUTPUT"
-          echo "This build is $(ci/compute-version.sh web | head -1 | cut -d= -f2)"
+          ci/compute-version.sh web | sed 's/^version=/web=/;s/^commit=/commit=/' >> "$GITHUB_OUTPUT"
+          ci/compute-version.sh api | sed -n 's/^version=/api=/p' >> "$GITHUB_OUTPUT"
+          echo "web $(ci/compute-version.sh web | head -1 | cut -d= -f2), api $(ci/compute-version.sh api | head -1 | cut -d= -f2)"
 
       # OIDC login: Azure exchanges GitHub's short-lived token for an access token. No client secret
       # is ever generated, stored, or rotated. Reuses the same identity (identity-orbit) and secrets
@@ -274,6 +275,7 @@ jobs:
             --tag ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }} \
             --tag ${{ env.registryLoginServer }}/orbit-api:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
+            --build-arg ORBIT_VERSION="${{ steps.version.outputs.api }}+${{ steps.version.outputs.commit }}" \
             .
 
       - name: Build orbit-web image
@@ -283,7 +285,7 @@ jobs:
             --tag ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }} \
             --tag ${{ env.registryLoginServer }}/orbit-web:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
-            --build-arg ORBIT_VERSION="${{ steps.version.outputs.version }}+${{ steps.version.outputs.commit }}" \
+            --build-arg ORBIT_VERSION="${{ steps.version.outputs.web }}+${{ steps.version.outputs.commit }}" \
             .
 
       # Runs the freshly built orbit-api image for real, against a real PostgreSQL, before it ever
