@@ -88,7 +88,8 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowCopyReview() => ShowAsRoot<CopyReviewPage>(Screen.CopyReview);
 
-	public void ShowCopyHistory() => ShowAsRoot<CopyHistoryPage>(Screen.CopyHistory);
+	public void ShowCopyHistory(CopyKind kind, Guid localId)
+		=> ShowAsRoot<CopyHistoryPage>(Screen.CopyHistory, page => page.ViewModel.Open(kind, localId));
 
 	public void ShowCalendarEvent(Guid localId)
 		=> ShowAsRoot<CalendarEventDetailPage>(Screen.CalendarEvent, page => page.ViewModel.Open(localId));

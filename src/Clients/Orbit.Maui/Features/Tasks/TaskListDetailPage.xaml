@@ -369,12 +369,17 @@
             <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
 
-        <Grid Grid.Row="5" ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">
+        <Grid Grid.Row="5" ColumnDefinitions="*,*,Auto" ColumnSpacing="12" IsVisible="{Binding IsShowingList}">
             <Button Grid.Column="0" Text="{controls:Translate 'Back to task lists'}" Command="{Binding GoBackCommand}"
                     Style="{StaticResource LinkButton}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Delete list'}" Command="{Binding DeleteListCommand}"
                     Style="{StaticResource DestructiveButton}"
                     IsVisible="{Binding CanEdit}" />
+            <!-- Where this thing's own copies are found again - see CopyHistoryViewModel. Only once
+                 there is one, and here rather than in the account's menu: a history belongs to the
+                 thing it is the history of. -->
+            <Button Grid.Column="2" Text="{controls:Translate 'History'}" IsVisible="{Binding HasHistory}"
+                    Command="{Binding GoToHistoryCommand}" Style="{StaticResource LinkButton}" />
         </Grid>
 
     </Grid>

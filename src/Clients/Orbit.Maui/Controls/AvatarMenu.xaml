@@ -161,14 +161,6 @@
                             SemanticProperties.Description="{controls:Translate 'Copies to review'}" />
                 </Grid>
 
-                <!-- Only once something has been kept: a permanent way to an empty screen is one more
-                     row in a menu that is already long. -->
-                <Grid IsVisible="{Binding HasCopyHistory}">
-                    <Label Text="{controls:Translate 'History'}" />
-                    <Button BackgroundColor="Transparent" Command="{Binding GoToCopyHistoryCommand}"
-                            SemanticProperties.Description="{controls:Translate 'History'}" />
-                </Grid>
-
                 <Grid>
                     <Label Text="{controls:Translate 'Settings'}" />
                     <Button BackgroundColor="Transparent" Command="{Binding GoToAccountCommand}"

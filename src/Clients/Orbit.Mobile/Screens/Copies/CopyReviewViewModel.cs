@@ -35,11 +35,15 @@ public sealed class CopyReviewRow
     public required bool HasConflict { get; init; }
 
     /// <summary>
-    /// What this was copied from is no longer here - deleted while the phone was away. There is nothing
-    /// to apply the copy over, so the copy is all that is left of it and keeping it is the only answer
-    /// that does not lose the words.
+    /// What this was copied from is no longer here - its owner deleted it while the phone was away.
+    /// There is nothing left to choose between, so the card asks the one question that remains: keep
+    /// this copy, or not. Keeping it makes it the thing itself, and it keeps its copy tag and its place
+    /// in that thing's history so the reader can still see where it came from.
     /// </summary>
     public required bool IsOriginalGone { get; init; }
+
+    /// <summary>Whether there are two versions to choose between, which is what the three answers are for.</summary>
+    public bool IsDecidable => !IsOriginalGone;
 
     public bool HasTheirChanges => TheirChanges.Any(line => line.Change is not LineChange.Unchanged);
 }

@@ -24,6 +24,9 @@ namespace Orbit.Mobile.Screens.Inventory;
 public sealed partial class WarehouseDetailViewModel : ObservableObject
 {
     private readonly LocalWarehouseRepository _warehouses;
+
+    /// <summary>Only to say why this is read-only, in the same words the inventory's own rows use.</summary>
+    private readonly INetworkStatus _networkStatus;
     private readonly WarehouseSynchronizer _synchronizer;
     private readonly InventoryClient _inventoryClient;
     private readonly EditLock _editLock;
@@ -71,8 +74,10 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
         InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
-        NameSuggestions nameSuggestions, NameSuggestions warehouseNameSuggestions)
+        NameSuggestions nameSuggestions, NameSuggestions warehouseNameSuggestions,
+        INetworkStatus networkStatus)
     {
+        _networkStatus = networkStatus;
         _warehouses = warehouses;
         _synchronizer = synchronizer;
         _translations = translations;
@@ -409,6 +414,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             Share.OffersNothing();
         }
 
+        HasHistory = (await _warehouses.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         _items = warehouse.Items;
 
         // Sealed with a key this device cannot open - see TaskListDetailViewModel for the same guard
@@ -424,7 +430,10 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         else
         {
             IsReadOnly = !await _warehouses.CanEditAsync(_localId, cancellationToken);
-            ReadOnlyReason = string.Empty;
+            // Said in the same words the row on the list before it used - being told it cannot be
+            // changed, without being told why, leaves a screen that simply looks broken.
+            ReadOnlyReason = OfflineEditExplanation.For(
+                OfflineEditPolicy.Evaluate(warehouse, _networkStatus), hasUnsentChanges: false, _translations);
             IsCopyOffered = IsReadOnly && warehouse.CopyOfLocalId is null;
         }
 
@@ -624,4 +633,15 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
     [RelayCommand]
     private void DeclineCopy() => IsCopyOffered = false;
+
+    /// <summary>
+    /// Whether anything was ever copied from this - what puts its history within reach. Hidden until
+    /// there is one, because most things have none and a permanent link to an empty window is clutter.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasHistory;
+
+    /// <summary>This thing's own history, opened from this thing - see CopyHistoryViewModel.</summary>
+    [RelayCommand]
+    private void GoToHistory() => _navigator.ShowCopyHistory(CopyKind.Warehouse, _localId);
 }

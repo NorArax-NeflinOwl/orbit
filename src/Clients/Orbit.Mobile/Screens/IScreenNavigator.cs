@@ -44,8 +44,11 @@ public interface IScreenNavigator
     /// </summary>
     void ShowCopyReview();
 
-    /// <summary>Copies kept rather than merged, and what each came from - see CopyHistoryViewModel.</summary>
-    void ShowCopyHistory();
+    /// <summary>
+    /// One thing's history: the copies taken from it, and where each came from. Opened from the thing
+    /// itself - see CopyHistoryViewModel for why it is per thing rather than one global list.
+    /// </summary>
+    void ShowCopyHistory(Data.CopyKind kind, Guid localId);
 
     void ShowTasks();
 

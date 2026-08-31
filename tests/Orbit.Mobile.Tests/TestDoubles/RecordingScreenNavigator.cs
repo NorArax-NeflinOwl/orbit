@@ -87,7 +87,14 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowCopyReview() => _destinations.Add(nameof(ShowCopyReview));
 
-    public void ShowCopyHistory() => _destinations.Add(nameof(ShowCopyHistory));
+    /// <summary>Whose history was opened, so a test can check the screen led to the right one.</summary>
+    public (Orbit.Mobile.Data.CopyKind Kind, Guid LocalId)? LastHistory { get; private set; }
+
+    public void ShowCopyHistory(Orbit.Mobile.Data.CopyKind kind, Guid localId)
+    {
+        LastHistory = (kind, localId);
+        _destinations.Add(nameof(ShowCopyHistory));
+    }
 
     public void ShowCalendar() => _destinations.Add(nameof(ShowCalendar));
 

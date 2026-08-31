@@ -236,31 +236,23 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// How many copies taken offline are still waiting to be chosen between, and whether anything has
-    /// ever been kept. Counted from the phone, so it is right with no connection - which is the state
-    /// these were made in.
+    /// How many copies taken offline are still waiting to be chosen between. Counted from the phone, so
+    /// it is right with no connection - which is the state they were made in.
     /// </summary>
     private async Task ShowWhatIsWaitingToBeDecidedAsync(CancellationToken cancellationToken)
     {
         var waiting = 0;
-        var kept = false;
         foreach (var store in _copyStores)
         {
             waiting += (await store.GetCopiesAwaitingReviewAsync(cancellationToken)).Count;
-            kept |= (await store.GetKeptCopiesAsync(cancellationToken)).Count > 0;
         }
 
         CopiesAwaitingReview = waiting;
-        HasCopyHistory = kept;
     }
 
     /// <summary>What is waiting to be decided, badged in the menu the way notifications are.</summary>
     [ObservableProperty]
     private int _copiesAwaitingReview;
-
-    /// <summary>Whether anything has ever been kept, which is what puts History in the menu at all.</summary>
-    [ObservableProperty]
-    private bool _hasCopyHistory;
 
     public bool HasCopiesAwaitingReview => CopiesAwaitingReview > 0;
 
@@ -277,13 +269,6 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     {
         IsMenuOpen = false;
         _navigator.ShowCopyReview();
-    }
-
-    [RelayCommand]
-    private void GoToCopyHistory()
-    {
-        IsMenuOpen = false;
-        _navigator.ShowCopyHistory();
     }
 
     /// <summary>

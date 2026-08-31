@@ -26,6 +26,9 @@ namespace Orbit.Mobile.Screens.Calendar;
 public sealed partial class CalendarEventDetailViewModel : ObservableObject
 {
     private readonly LocalCalendarEventRepository _events;
+
+    /// <summary>Only to say why this is read-only, in the same words the calendar's own rows use.</summary>
+    private readonly INetworkStatus _networkStatus;
     private readonly CalendarEventSynchronizer _synchronizer;
     private readonly CalendarClient _calendarClient;
     private readonly EditLock _editLock;
@@ -196,8 +199,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
         CalendarClient calendarClient, EditLock editLock, IDeviceLocation deviceLocation,
-        ChatRepository contacts, GoogleIntegrationAccess google)
+        ChatRepository contacts, GoogleIntegrationAccess google, INetworkStatus networkStatus)
     {
+        _networkStatus = networkStatus;
         _events = events;
         _synchronizer = synchronizer;
         _translations = translations;
@@ -552,8 +556,12 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
 
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
+        HasHistory = (await _events.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         IsReadOnly = !await _events.CanEditAsync(_localId, cancellationToken);
-        ReadOnlyReason = string.Empty;
+        // Said in the same words the row on the list before it used - being told it cannot be
+        // changed, without being told why, leaves a screen that simply looks broken.
+        ReadOnlyReason = OfflineEditExplanation.For(
+            OfflineEditPolicy.Evaluate(calendarEvent, _networkStatus), hasUnsentChanges: false, _translations);
         IsCopyOffered = IsReadOnly && calendarEvent.CopyOfLocalId is null;
 
         if (!IsReadOnly && calendarEvent.ServerId is { } lockedServerId)
@@ -651,4 +659,15 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
     [RelayCommand]
     private void DeclineCopy() => IsCopyOffered = false;
+
+    /// <summary>
+    /// Whether anything was ever copied from this - what puts its history within reach. Hidden until
+    /// there is one, because most things have none and a permanent link to an empty window is clutter.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasHistory;
+
+    /// <summary>This thing's own history, opened from this thing - see CopyHistoryViewModel.</summary>
+    [RelayCommand]
+    private void GoToHistory() => _navigator.ShowCopyHistory(CopyKind.CalendarEvent, _localId);
 }

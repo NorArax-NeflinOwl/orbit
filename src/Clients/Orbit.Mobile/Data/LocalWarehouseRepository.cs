@@ -293,6 +293,17 @@ public sealed class LocalWarehouseRepository : ICopyReviewStore
         return await DescribeAllAsync(dbContext, CopiesForEditing.KeptAsync<LocalWarehouse>, cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CopyUnderReview>> GetHistoryOfAsync(
+        Guid localId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await DescribeAllAsync(
+            dbContext,
+            (context, token) => CopiesForEditing.HistoryOfAsync<LocalWarehouse>(context, localId, token),
+            cancellationToken);
+    }
+
     /// <inheritdoc cref="LocalNoteRepository.ApplyCopyAsync"/>
     public async Task<LocalWriteOutcome> ApplyCopyAsync(Guid copyLocalId, CancellationToken cancellationToken = default)
     {
@@ -375,7 +386,8 @@ public sealed class LocalWarehouseRepository : ICopyReviewStore
                 original?.Name is { Length: > 0 } name ? name : copy.CopyBaseTitle,
                 copy.CopiedAtUtc ?? copy.CreatedAtUtc,
                 copy.CopyBaseLines, Describe(copy.Items),
-                original is null ? null : Describe(original.Items)));
+                original is null ? null : Describe(original.Items),
+                copy.IsKeptCopy));
         }
 
         return described;

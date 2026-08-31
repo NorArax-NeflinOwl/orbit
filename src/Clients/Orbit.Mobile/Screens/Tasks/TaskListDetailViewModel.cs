@@ -910,6 +910,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // Both before the rows are built below: a row asks these two what it points at - see ReferencesFor.
         await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
         await ShowWhoElseIsAskingAsync(cancellationToken);
+        HasHistory = (await _taskLists.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         await ShowAppointmentsWaitingToBeNamedAsync(cancellationToken);
         await ShowWhetherAnythingIsQueuedAsync(cancellationToken);
         // Sealed with a key this device cannot open, so there is nothing here to change: the readable
@@ -926,7 +927,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         {
             // Asked of the store rather than decided here, so the screen and the write agree by construction.
             IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
-            ReadOnlyReason = string.Empty;
+            // Said in the same words the row on the list before it used - being told it cannot be
+            // changed, without being told why, leaves a screen that simply looks broken.
+            ReadOnlyReason = OfflineEditExplanation.For(
+                OfflineEditPolicy.Evaluate(taskList, _networkStatus), hasUnsentChanges: false, _translations);
             IsCopyOffered = IsReadOnly && taskList.CopyOfLocalId is null;
         }
 
@@ -1101,4 +1105,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
     [RelayCommand]
     private void DeclineCopy() => IsCopyOffered = false;
+
+    /// <summary>
+    /// Whether anything was ever copied from this - what puts its history within reach. Hidden until
+    /// there is one, because most things have none and a permanent link to an empty window is clutter.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasHistory;
+
+    /// <summary>This thing's own history, opened from this thing - see CopyHistoryViewModel.</summary>
+    [RelayCommand]
+    private void GoToHistory() => _navigator.ShowCopyHistory(CopyKind.TaskList, _localId);
 }

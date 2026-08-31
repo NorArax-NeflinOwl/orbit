@@ -486,6 +486,9 @@ public sealed class CalendarEventDetailScreenTests
             => new(new InMemorySessionStorage(
                 new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Me")));
 
+        /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
+        public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
         public async Task<CalendarEventDetailViewModel> OpenAsync(Guid localId)
         {
             var screen = new CalendarEventDetailViewModel(
@@ -496,7 +499,8 @@ public sealed class CalendarEventDetailScreenTests
                 new EditLock(FixedNetworkStatus.Online, _clock, new Translations(new InMemoryLanguageStore())),
                 Here, Contacts,
                 new GoogleIntegrationAccess(new AccountClient(
-                    _users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests())));
+                    _users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests())),
+                Network);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

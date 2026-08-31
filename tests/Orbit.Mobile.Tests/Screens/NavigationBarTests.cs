@@ -318,12 +318,15 @@ public sealed class NavigationBarTests
         await bar.LoadCommand.ExecuteAsync(null);
 
         Assert.False(bar.HasCopiesAwaitingReview);
-        Assert.False(bar.HasCopyHistory);
     }
 
-    /// <summary>A copy answered with "keep both" stops being a question and becomes history.</summary>
+    /// <summary>
+    /// A copy answered with "keep both" stops being a question, so the badge stops asking. Where it
+    /// goes afterwards is the thing's own history, which is not the bar's business - see
+    /// CopyHistoryScreenTests.
+    /// </summary>
     [Fact]
-    public async Task A_kept_copy_moves_from_the_badge_to_History()
+    public async Task A_copy_that_has_been_answered_stops_being_badged()
     {
         var context = new BarContext("Ala");
         await context.KeepACopyOfANoteAsync();
@@ -332,7 +335,6 @@ public sealed class NavigationBarTests
         await bar.LoadCommand.ExecuteAsync(null);
 
         Assert.False(bar.HasCopiesAwaitingReview);
-        Assert.True(bar.HasCopyHistory);
     }
 
     /// <summary>

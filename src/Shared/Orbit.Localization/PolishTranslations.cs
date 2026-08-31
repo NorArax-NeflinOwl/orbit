@@ -302,9 +302,12 @@ public static class PolishTranslations
         ["Keep theirs"] = "Zostaw tamtą",
         ["Keep both"] = "Zostaw obie",
         ["History"] = "Historia",
-        ["Copies you kept, and what each came from."] =
-            "Kopie, które zostawiłeś, i to, z czego każda powstała.",
-        ["Nothing kept yet."] = "Nic jeszcze nie zostało zostawione.",
+        ["Copies of this, and what each came from."] = "Kopie tego elementu i to, z czego każda powstała.",
+        ["Nothing has been copied from this."] = "Nic nie zostało z tego skopiowane.",
+        ["Still waiting to be reviewed"] = "Wciąż czeka na przejrzenie",
+        ["The original is gone - its owner may have deleted it. Do you want to keep your copy?"] =
+            "Nie znaleziono oryginału - możliwe, że właściciel go usunął. Czy chcesz zachować swoją kopię?",
+        ["Keep my copy"] = "Zachowaj moją kopię",
         ["Open the original"] = "Otwórz oryginał",
         ["{0} · copy of “{1}”, made on {2}."] = "{0} · kopia „{1}”, zrobiona {2}.",
         ["{0} · copied on {1}. What it came from is gone."] =
