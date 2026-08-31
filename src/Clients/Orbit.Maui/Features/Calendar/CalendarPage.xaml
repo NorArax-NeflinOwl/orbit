@@ -67,21 +67,28 @@
                 </Button>
             </HorizontalStackLayout>
 
-            <HorizontalStackLayout BindableLayout.ItemsSource="{Binding WeekdayNames}"
-                                   IsVisible="{Binding IsShowingMonth}">
+            <!-- A seventh of the row each, for both the names and the days beneath them - see the day
+                 cell below for why this is a fraction rather than a width. -->
+            <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding WeekdayNames}"
+                        IsVisible="{Binding IsShowingMonth}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="x:String">
-                        <Label Text="{Binding .}" FontSize="10" WidthRequest="46" HorizontalTextAlignment="Center"
-                               Style="{StaticResource SubtleLabel}" />
+                        <Label Text="{Binding .}" FontSize="10" FlexLayout.Basis="14.28%"
+                               HorizontalTextAlignment="Center" Style="{StaticResource SubtleLabel}" />
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
-            </HorizontalStackLayout>
+            </FlexLayout>
 
             <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Days}"
                         IsVisible="{Binding IsShowingMonth}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarDay">
-                        <Grid WidthRequest="46" HeightRequest="40" RowDefinitions="*,Auto">
+                        <!-- A seventh of the row, not a fixed 46. A week is seven days by construction;
+                             with a width it was seven only on the screens the width happened to suit,
+                             and the grid ran eight days to a row on a phone slightly wider than that.
+                             Just under a seventh so seven always fit: 7 x 14.29% overflows and wraps at
+                             six, which is the same bug the other way. -->
+                        <Grid FlexLayout.Basis="14.28%" HeightRequest="40" RowDefinitions="*,Auto">
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseDayCommand, x:DataType=calendar:CalendarPage}"
