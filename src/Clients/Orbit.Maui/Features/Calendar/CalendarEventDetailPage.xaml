@@ -34,6 +34,11 @@
             <Entry Text="{Binding LocationAddress}" IsReadOnly="{Binding IsReadOnly}"
                    Placeholder="{controls:Translate 'Name of the place'}"
                    ReturnType="Done" ReturnCommand="{Binding SaveCommand}" />
+            <!-- Said rather than left to be discovered, which is what Orbit.Web's rebuild added beside
+                 its own box: the name is the reader's, and taking the point keeps it. -->
+            <Label Text="{controls:Translate 'The name is yours to write - the point is kept either way.'}"
+                   IsVisible="{Binding CanEdit}" FontSize="12" LineBreakMode="WordWrap"
+                   Style="{StaticResource SubtleLabel}" />
             <HorizontalStackLayout Spacing="10" IsVisible="{Binding CanEdit}">
                 <Button Text="{controls:Translate 'Use my location'}" FontSize="12" Padding="12,6"
                         Style="{StaticResource SecondaryButton}" Command="{Binding UseMyLocationCommand}" />

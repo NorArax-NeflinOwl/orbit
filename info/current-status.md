@@ -86,7 +86,9 @@ warehouses are read and written here too, sealed under the account's own key and
 local store as well — see [Functionality](functionality.md#private-notes-and-task-lists). A restock
 list settles its finished errands when the phone opens it, as a browser does, the names already in the
 account are offered under a product's name and an errand's description, and an admin can hand a group's
-past to somebody they have just added. Of phase 7, the in-app feed,
+past to somebody they have just added. Of the browser's rebuilt item controls it has the expiry asked
+as a length and the daily reminder's missing hour; the inventory entry carrying its whole shelf item,
+and the calendar entry carrying its event's form, are still browser-only. Of phase 7, the in-app feed,
 notification settings, deep links from a notification, and uploadable diagnostic logs are built; push
 *delivery* is not (below). Phase 8 — widgets, Live Activities, accessibility — has not been started.
 

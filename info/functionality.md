@@ -1126,10 +1126,16 @@ because a corrected amount can settle an errand or raise one. The list is saved 
 second: if the shelf write fails the list is still saved, and the screen says so.
 
 **Expiry is asked as how long something keeps**, not as the day it stops keeping - "2 weeks", not the
-14th (`ExpiresInField`, used by both editors). A date is still what gets stored, because the expiry
-reminder needs one and "in two weeks" is not something a background service can compare against; what
-changed is only the asking. An item that already has a date says how long is left, in the coarsest unit
-that divides it exactly.
+14th (`ExpiresInField` in the browser, the same two boxes on the phone's shelf editor). A date is still
+what gets stored, because the expiry reminder needs one and "in two weeks" is not something a background
+service can compare against; what changed is only the asking. An item that already has a date says how
+long is left, in the coarsest unit that lands on it exactly.
+
+The rule turning one into the other is `ExpiryPeriod` in `Orbit.Core`, shared rather than written twice:
+a phone reading "14 days" where a browser reads "2 weeks" would be two clients disagreeing about one
+row. Months and years are asked of the calendar rather than divided out of a day count - three months
+from the 30th of August is 92 days, which divides by neither 30 nor 7, so a length set in months used to
+read back as "92 days".
 
 ### What an entry's form offers
 
@@ -1166,7 +1172,10 @@ there is nothing to build one from here; the screen says so rather than dropping
 
 **A daily reminder needs an hour.** Saving refuses without one rather than sending it at midnight - an
 hour nobody chose is worse than being asked for one. An entry loaded at exactly 00:00 reads as one with
-no hour set: the wire carries a plain `TimeOnly` and cannot say "none".
+no hour set: the wire carries a plain `TimeOnly` and cannot say "none". **Both clients read it that
+way.** The phone needed one thing the browser did not: its picker cannot be empty, so an hour shown
+from the start would be one somebody accepts by not touching it - which records nothing and leaves the
+refusal standing. There the picker appears only once an hour exists, and a button puts one there.
 
 ### Naming a place in your own words
 
@@ -1178,6 +1187,13 @@ The pin always moves; the name only follows it when it is still the one the map 
 are untouched by anything typed there** - they are what the Google Maps link and the directions are built
 from, and the name is only what the place is called. The event editor offers the map's own address back
 for somebody who renamed a place and then wanted the street after all.
+
+
+**The phone had already landed here**, by a different route. It has no map pin to move: a place there is
+the phone's own position, taken on purpose, and its calendar screen has always filled the name only when
+the box was empty. Its task entries carry a name and no point at all, so the map's answer has nowhere
+else to go and must land in the name - which is why the picker asks before answering rather than writing
+on every tap. What was missing was only saying so, which the screen now does.
 
 ### Names you have already used
 

@@ -1310,6 +1310,8 @@ public static class PolishTranslations
         ["A daily reminder needs a time to arrive at."] =
             "Codzienne przypomnienie potrzebuje godziny, o której ma przyjść.",
         ["Choose a time"] = "Wybierz godzinę",
+        ["The name is yours to write - the point is kept either way."] =
+            "Nazwa należy do Ciebie — punkt i tak zostaje zapisany.",
         ["Share the conversation so far"] = "Udostępnij dotychczasową rozmowę",
         ["They will be able to read what was said before they joined."] = "Będą mogli przeczytać to, co napisano przed ich dołączeniem.",
         ["They're in the group, but this device has no key to open the earlier messages with."] = "Są już w grupie, ale to urządzenie nie ma klucza, którym można otworzyć wcześniejsze wiadomości.",
