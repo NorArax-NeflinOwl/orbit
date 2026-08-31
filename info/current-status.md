@@ -87,8 +87,10 @@ local store as well — see [Functionality](functionality.md#private-notes-and-t
 list settles its finished errands when the phone opens it, as a browser does, the names already in the
 account are offered under a product's name and an errand's description, and an admin can hand a group's
 past to somebody they have just added. Of the browser's rebuilt item controls it has the expiry asked
-as a length and the daily reminder's missing hour; the inventory entry carrying its whole shelf item,
-and the calendar entry carrying its event's form, are still browser-only. Of phase 7, the in-app feed,
+as a length, the daily reminder's missing hour, and the Inventory kind - which it now round-trips
+rather than silently rewriting to Checklist and cutting a restock errand loose from its product. The
+shelf item that entry carries on the web, and the calendar entry carrying its event's form, are still
+browser-only. Of phase 7, the in-app feed,
 notification settings, deep links from a notification, and uploadable diagnostic logs are built; push
 *delivery* is not (below). Phase 8 — widgets, Live Activities, accessibility — has not been started.
 
