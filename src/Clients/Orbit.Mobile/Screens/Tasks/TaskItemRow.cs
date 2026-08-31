@@ -11,14 +11,22 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// Already in the reader's language: when it is due, and whether it says anything about being late or
 /// repeats daily. Empty when the entry is only a line of text, which most are.
 /// </param>
-public sealed record TaskItemRow(TaskItemDto Item, string Detail, bool IsOverdue)
+/// <param name="References">
+/// Where an inventory errand points - the shelf it is about, and any other list asking for the same
+/// product. Empty for every other kind of entry, which is most of them.
+/// </param>
+public sealed record TaskItemRow(
+    TaskItemDto Item, string Detail, bool IsOverdue, IReadOnlyList<TaskItemReference> References)
 {
-    public static TaskItemRow From(TaskItemDto item, Translations translations, DateTimeOffset nowUtc)
+    public static TaskItemRow From(
+        TaskItemDto item, Translations translations, DateTimeOffset nowUtc,
+        IReadOnlyList<TaskItemReference>? references = null)
         => new(
             item,
             Describe(item, translations),
             // Only worth saying about something still to do: a finished entry cannot be late any more.
-            !item.IsCompleted && item.DueDateUtc is { } due && due < nowUtc);
+            !item.IsCompleted && item.DueDateUtc is { } due && due < nowUtc,
+            references ?? []);
 
     public Guid Id => Item.Id;
 
@@ -29,6 +37,8 @@ public sealed record TaskItemRow(TaskItemDto Item, string Detail, bool IsOverdue
     public string CompletionMark => IsCompleted ? "✓" : "○";
 
     public bool HasDetail => Detail.Length > 0;
+
+    public bool HasReferences => References.Count > 0;
 
     private static string Describe(TaskItemDto item, Translations translations)
     {

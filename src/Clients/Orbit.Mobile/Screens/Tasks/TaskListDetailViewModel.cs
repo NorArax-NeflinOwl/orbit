@@ -377,6 +377,89 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             ? TaskItemShelfProduct.For(found.WarehouseLocalId, found.WarehouseName, found.Product, _translations)
             : null;
 
+    /// <summary>
+    /// Every list other than this one that is asking for the same product, by that product's id. Worked
+    /// out from this phone's own lists rather than asked for - Orbit.Web asks its server, which is the
+    /// difference between a browser and something that has to work on a train.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, IReadOnlyList<TaskItemReference>> _alsoAskedForBy =
+        new Dictionary<Guid, IReadOnlyList<TaskItemReference>>();
+
+    private async Task ShowWhoElseIsAskingAsync(CancellationToken cancellationToken)
+    {
+        var byProductId = new Dictionary<Guid, List<TaskItemReference>>();
+        foreach (var list in await _taskLists.GetAllAsync(cancellationToken))
+        {
+            if (list.LocalId == _localId)
+            {
+                continue;
+            }
+
+            foreach (var productId in list.Items
+                .Where(item => item.Kind == nameof(TaskItemKind.Inventory))
+                .Select(item => item.LinkedInventoryItemId)
+                .OfType<Guid>()
+                .Distinct())
+            {
+                byProductId.TryAdd(productId, []);
+                byProductId[productId].Add(new(
+                    // The title as stored, which is how every other screen on this phone shows one.
+                    _translations.Format("also on {0}", list.Title),
+                    list.LocalId,
+                    TaskItemReferenceTarget.TaskList));
+            }
+        }
+
+        _alsoAskedForBy = byProductId.ToDictionary(
+            pair => pair.Key, pair => (IReadOnlyList<TaskItemReference>)pair.Value);
+    }
+
+    /// <summary>
+    /// Where an inventory errand points: the shelf it is about first, then every other list asking for
+    /// the same product. Both are somewhere to go rather than something to read - see TaskItemReference.
+    /// </summary>
+    private IReadOnlyList<TaskItemReference> ReferencesFor(TaskItemDto item)
+    {
+        if (item.Kind != nameof(TaskItemKind.Inventory) || item.LinkedInventoryItemId is not { } productId)
+        {
+            return [];
+        }
+
+        var references = new List<TaskItemReference>();
+        if (_shelfProducts.TryGetValue(productId, out var shelf))
+        {
+            references.Add(new(
+                _translations.Format("in {0}", shelf.WarehouseName),
+                shelf.WarehouseLocalId,
+                TaskItemReferenceTarget.Warehouse));
+        }
+
+        if (_alsoAskedForBy.TryGetValue(productId, out var elsewhere))
+        {
+            references.AddRange(elsewhere);
+        }
+
+        return references;
+    }
+
+    /// <summary>Opens what a reference points at, which is the whole reason it is shown.</summary>
+    [RelayCommand]
+    private void OpenReference(TaskItemReference? reference)
+    {
+        if (reference is null)
+        {
+            return;
+        }
+
+        if (reference.Target == TaskItemReferenceTarget.Warehouse)
+        {
+            _navigator.ShowWarehouse(reference.LocalId);
+            return;
+        }
+
+        _navigator.ShowTaskList(reference.LocalId);
+    }
+
     private CalendarEventDetailsDto? AppointmentFor(TaskItemDto item)
         => item.LinkedCalendarEventId is { } eventId && _appointments.TryGetValue(eventId, out var details)
             ? details
@@ -736,7 +819,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _isShowingWhatIsStored = false;
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
+        // Both before the rows are built below: a row asks these two what it points at - see ReferencesFor.
         await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
+        await ShowWhoElseIsAskingAsync(cancellationToken);
         // Sealed with a key this device cannot open, so there is nothing here to change: the readable
         // fields are empty, and saving would replace the sealed list with an empty one.
         if (taskList.IsSealed)
@@ -764,7 +849,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in taskList.Items)
         {
-            Items.Add(TaskItemRow.From(item, _translations, _timeProvider.GetUtcNow()));
+            Items.Add(TaskItemRow.From(
+                item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item)));
         }
 
         await StockCheck.ShowAsync(taskList, cancellationToken);

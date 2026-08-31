@@ -380,6 +380,63 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// An inventory errand says which shelf it is about, and tapping that opens the warehouse - the
+    /// reason to show it at all is to be able to go and look. Orbit.Web asks its server for this; a
+    /// phone works it out from what it already holds, so it still says so with no connection.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_says_which_shelf_it_is_about_and_opens_it()
+    {
+        using var context = new ScreenContext();
+        var shelf = await context.AddShelfProductAsync("Kitchen", "Coffee", quantity: 2);
+        var screen = context.OpenTaskList("Saturday");
+        await context.AddErrandAsync(screen, "Buy coffee", shelf.ProductId);
+
+        var reference = Assert.Single(Assert.Single(screen.Items).References);
+        Assert.Contains("Kitchen", reference.Label);
+
+        screen.OpenReferenceCommand.Execute(reference);
+
+        Assert.Equal(shelf.WarehouseLocalId, context.Navigator.LastWarehouseId);
+    }
+
+    /// <summary>
+    /// When a second list is asking for the same product, the errand says where else - so somebody about
+    /// to buy coffee knows the other list wants it too, instead of buying twice.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_says_which_other_list_is_asking_for_the_same_product()
+    {
+        using var context = new ScreenContext();
+        var shelf = await context.AddShelfProductAsync("Kitchen", "Coffee", quantity: 2);
+        var otherList = context.OpenTaskList("Weekend");
+        await context.AddErrandAsync(otherList, "Buy coffee", shelf.ProductId);
+
+        var screen = context.OpenTaskList("Saturday");
+        await context.AddErrandAsync(screen, "Buy coffee", shelf.ProductId);
+
+        var elsewhere = Assert.Single(
+            Assert.Single(screen.Items).References,
+            reference => reference.Target == TaskItemReferenceTarget.TaskList);
+        Assert.Contains("Weekend", elsewhere.Label);
+
+        screen.OpenReferenceCommand.Execute(elsewhere);
+        Assert.Equal(elsewhere.LocalId, context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>A plain errand points nowhere, and says nothing - which is most entries.</summary>
+    [Fact]
+    public async Task An_ordinary_entry_has_nothing_to_point_at()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "Buy milk";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.Empty(Assert.Single(screen.Items).References);
+    }
+
+    /// <summary>
     /// An errand whose product this phone has not got - a warehouse no longer shared, or one not synced
     /// yet - still opens, with the shelf half missing rather than an empty form that looks broken.
     /// </summary>
