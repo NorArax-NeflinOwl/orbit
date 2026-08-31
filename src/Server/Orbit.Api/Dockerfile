@@ -11,7 +11,7 @@ WORKDIR /src
 # Inherited by every project below, so a property added to it applies here as well as locally. Copied
 # rather than left out: without it a build in this image quietly ignores whatever it says, and the
 # difference only shows up as "works on my machine".
-COPY Directory.Build.props ./
+COPY Directory.Build.props version.props ./
 
 COPY src/Shared/Orbit.Core/Orbit.Core.csproj src/Shared/Orbit.Core/
 COPY src/Shared/Orbit.Contracts/Orbit.Contracts.csproj src/Shared/Orbit.Contracts/

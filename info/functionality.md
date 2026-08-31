@@ -1223,12 +1223,25 @@ So the footer and the About row carry a second entry, `api ver:0.1.17+gitHash:â€
 then hides: what is not sent cannot be read off the wire. When the server cannot be reached the entry is
 simply absent - an offline footer knows nothing about it and should not guess.
 
-**Nobody maintains the number.** The patch is the count of distinct days on which a commit touched that
-project (`ci/compute-version.sh`): a day with five commits counts once, a day whose commits went nowhere
-near the project does not count at all, and the same commit always numbers itself the same. There is no
-file to forget to bump and no two builds of one commit that disagree. The series - the `0.1` of `0.1.17` -
-is the one number decided by hand, in `Directory.Build.props`, because it is what says a release is a
-different thing rather than the next of the same.
+**The number reads `version.patch.build`, and the three parts answer three different questions.**
+
+- **version** - the move to production. Orbit runs on a test environment today: publicly reachable, but a
+  test one. The day it moves to its own address this becomes `1`, and nothing else raises it.
+- **patch** - a milestone, raised by hand when somebody decides one has been reached. Deliberately not
+  derivable from anything: "far enough to matter" is a judgement, not a count.
+- **build** - nobody maintains this one. It is the count of distinct days on which a commit landed **on
+  main** touching that project (`ci/compute-version.sh`), since either number above was last changed. A
+  day with five commits counts once, a day whose commits went nowhere near the project does not count at
+  all, and the same commit always numbers itself the same.
+
+The first two live in `version.props` - a file that holds nothing else, and that is the point. The build
+count restarts at whatever commit last changed that file, so the file has to mean "a version bump" and
+nothing more. It used to live in `Directory.Build.props` alongside the warnings settings, and turning
+warnings into errors silently restarted the count, which is not a version bump by any reading.
+
+Counting against **main** rather than against whatever is checked out is what makes the number a claim
+about what has shipped. Commits on a branch have not shipped, so a build from a branch reports the number
+main would - which is what lets a local build be compared against a released one at all.
 
 It is counted **per project**, which is the point of counting it at all: a day that changed the phone and
 not the web client raises one and not the other. Each client counts the shared projects it compiles as

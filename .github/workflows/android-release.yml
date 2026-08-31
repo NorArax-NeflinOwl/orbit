@@ -3,8 +3,8 @@
 #
 # Runs on its own whenever the phone app changes on main, so what /download offers is the current
 # Orbit rather than whatever was last released by hand. Still startable by hand as well, which is how
-# a version is chosen deliberately - a release that renames the series (0.1 to 0.2, say) is a decision
-# somebody makes, not something a push should infer.
+# a version is chosen deliberately - raising the milestone (0.2 to 0.3, say) is a decision somebody
+# makes, not something a push should infer.
 #
 # A workflow of its own rather than another job in main_orbit.yml, and for a different reason than the
 # one at the top of that file: what goes to Azure as a container and what somebody installs on a phone
@@ -95,14 +95,13 @@ jobs:
           # The whole history, because the version is counted from it - see ci/compute-version.sh.
           fetch-depth: 0
 
-      # A hand-started release is told its version. A push works it out from the history: the patch is
-      # the number of days on which a commit touched the phone's own projects, so a day that changed
-      # nothing there raises nothing, two builds of the same commit agree, and nobody maintains a
-      # number. See ci/compute-version.sh.
+      # A hand-started release is told its version. A push works it out from the history: the build
+      # number is the count of days on which a commit landed on main touching the phone's own projects,
+      # so a day that changed nothing there raises nothing, two builds of the same commit agree, and
+      # nobody maintains a number. See ci/compute-version.sh.
       #
-      # Raising the series is an edit to Directory.Build.props, which is a decision somebody makes on
-      # purpose - it is the number that says a release is a different thing rather than the next of the
-      # same.
+      # The two numbers in front of it are edits to version.props, which are decisions somebody makes on
+      # purpose: the move to production, and a milestone.
       - name: Decide the version
         id: version
         run: |
