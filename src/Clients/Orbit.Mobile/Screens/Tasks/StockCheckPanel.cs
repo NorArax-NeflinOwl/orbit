@@ -36,14 +36,17 @@ public sealed record StockRequirementRow(string Name, string Required, string Av
 public sealed partial class StockCheckPanel : ObservableObject
 {
     private readonly TasksClient _tasks;
+    private readonly InventoryClient _inventory;
     private readonly LocalWarehouseRepository _warehouses;
     private readonly Translations _translations;
 
     private Guid? _taskListServerId;
 
-    public StockCheckPanel(TasksClient tasks, LocalWarehouseRepository warehouses, Translations translations)
+    public StockCheckPanel(
+        TasksClient tasks, InventoryClient inventory, LocalWarehouseRepository warehouses, Translations translations)
     {
         _tasks = tasks;
+        _inventory = inventory;
         _warehouses = warehouses;
         _translations = translations;
     }
@@ -123,22 +126,29 @@ public sealed partial class StockCheckPanel : ObservableObject
     }
 
     /// <summary>
-    /// Brings the list and the warehouse back into step, then reads the check again - the same thing
-    /// Orbit.Web's "Recalculate" does. Asking again on its own was all this did before, which left the
-    /// reader ticking off by hand what the panel had just told them was on the shelf; the point of
-    /// asking is to have the answer applied, not only shown.
+    /// Rebuilds the restock list against the warehouse behind it and the settings that warehouse
+    /// carries - what somebody presses when the world changed rather than the list - and then reads the
+    /// check again, since the point of asking is to see the answer.
+    ///
+    /// This is what Orbit.Web's rebuild put in place of two half-actions, and the phone was still
+    /// offering one of them: "recalculate against the inventory" reconciled the list one way and left
+    /// the reader to work out the rest.
     /// </summary>
     [RelayCommand]
-    private async Task RecalculateAsync(CancellationToken cancellationToken)
+    private async Task RefreshFromTheWarehouseAsync(CancellationToken cancellationToken)
     {
-        if (_taskListServerId is not { } serverId)
+        if (LinkedWarehouse?.ServerId is not { } warehouseId)
         {
             return;
         }
 
         try
         {
-            Message = Describe(await _tasks.ReconcileWithStockAsync(serverId, cancellationToken));
+            var refreshed = await _inventory.RefreshRestockListAsync(warehouseId, cancellationToken);
+            Message = refreshed is { AddedCount: 0, RemovedCount: 0 }
+                ? _translations["The restock list already asks for exactly what it should."]
+                : _translations.Format(
+                    "Restock list updated: {0} added, {1} removed.", refreshed.AddedCount, refreshed.RemovedCount);
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {
@@ -148,23 +158,6 @@ public sealed partial class StockCheckPanel : ObservableObject
 
         await AskAsync(cancellationToken);
     }
-
-    /// <summary>
-    /// What the reconciliation moved, in one sentence and in Orbit.Web's own words. Both halves are said
-    /// when both happened: "12 crossed off" alone would leave the reader wondering where the new rows
-    /// came from.
-    /// </summary>
-    private string Describe(StockReconciliationResultDto reconciliation) => reconciliation switch
-    {
-        { CrossedOffCount: 0, AddedCount: 0 } => _translations["Nothing new is covered by the warehouse."],
-        { AddedCount: 0 } => _translations.Format(
-            "{0} crossed off, because the warehouse covers them.", reconciliation.CrossedOffCount),
-        { CrossedOffCount: 0 } => _translations.Format(
-            "{0} added from the warehouse.", reconciliation.AddedCount),
-        _ => _translations.Format(
-            "{0} crossed off, because the warehouse covers them, and {1} added from the warehouse.",
-            reconciliation.CrossedOffCount, reconciliation.AddedCount)
-    };
 
     [RelayCommand]
     private async Task RaiseShortfallsAsync(CancellationToken cancellationToken)

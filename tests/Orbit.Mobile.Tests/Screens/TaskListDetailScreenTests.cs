@@ -914,7 +914,7 @@ public sealed class TaskListDetailScreenTests
             Server = new FakeTasksServer(_clock);
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             StockCheck = new StockCheckPanel(
-                new TasksClient(Server.ToHttpClient()),
+                new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()),
                 new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey()),
                 new Translations(new InMemoryLanguageStore()));
             CalendarEvents = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
@@ -940,6 +940,9 @@ public sealed class TaskListDetailScreenTests
 
         /// <summary>What this account has already named - see NameSuggestions. Empty unless a test fills it.</summary>
         public FakeSuggestionsServer SuggestionsServer { get; } = new();
+
+        /// <summary>The shelves, which the stock check's refresh asks - see StockCheckPanel.</summary>
+        public FakeInventoryServer Warehouses { get; } = new(TimeProvider.System);
 
         /// <summary>
         /// An errand about one product on a shelf, as the restock machinery makes one. Written straight

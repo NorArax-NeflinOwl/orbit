@@ -1096,10 +1096,13 @@ been deleted still leaves the list: there is nothing left to bring back.
 
 Changing either rebuilds the list to match (`RestockListRefresh`), and **Refresh**
 (`POST /api/warehouses/{id}/restock-list/refresh`) does the same rebuild against settings that have not
-changed - what somebody presses when the world moved rather than the settings. It replaced two buttons
-that used to sit on the checklist's menu, "Generate inventory" and "Recalculate against the inventory":
-both did half of something else, and neither answered the question somebody has in front of a restock
-list.
+changed - what somebody presses when the world moved rather than the settings. It replaced a button that
+used to sit on the checklist's menu, "Recalculate against the inventory", which did half of something
+else and did not answer the question somebody has in front of a restock list.
+
+**The phone offers the same one**, in the stock check beside the list's warehouse picker, and stopped
+offering the button it replaced. Until it did, the two clients disagreed about what the menu over a
+restock list even contained.
 
 **An errand says where it came from and where else it is being asked for.** Under each one the checklist
 draws up to two links (`GET /api/tasks/{id}/inventory-references`): the warehouse the product sits in,

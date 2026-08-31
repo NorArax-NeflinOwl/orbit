@@ -55,17 +55,17 @@ public partial class TaskListDetailPage : ContentPage
 	private async Task ShowListMenuAsync()
 	{
 		var generate = _translations["Generate inventory"];
-		var recalculate = _translations["Recalculate against the inventory"];
+		var refresh = _translations["Refresh the restock list"];
 		var chosen = await DisplayActionSheet(
-			_translations["List options"], _translations["Cancel"], destruction: null, generate, recalculate);
+			_translations["List options"], _translations["Cancel"], destruction: null, generate, refresh);
 
 		if (chosen == generate)
 		{
 			_viewModel.StockCheck.GenerateInventoryCommand.Execute(null);
 		}
-		else if (chosen == recalculate)
+		else if (chosen == refresh)
 		{
-			_viewModel.StockCheck.RecalculateCommand.Execute(null);
+			_viewModel.StockCheck.RefreshFromTheWarehouseCommand.Execute(null);
 		}
 	}
 

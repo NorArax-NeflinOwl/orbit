@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
@@ -77,34 +78,52 @@ public sealed class StockCheckPanelTests
     /// the shelf covers and writing on what it holds that nothing asked for - which left the phone's
     /// reader ticking off by hand what the panel had just told them was already there.
     /// </summary>
+    /// <summary>
+    /// What Orbit.Web's rebuild put in place of two half-actions: rebuild the list against what is on
+    /// the shelves now. The phone was still offering one of the two it replaced.
+    /// </summary>
     [Fact]
-    public async Task Recalculating_brings_the_list_and_the_shelf_back_into_step()
+    public async Task Refreshing_rebuilds_the_list_against_the_warehouse()
     {
         using var context = new PanelContext();
         var warehouse = await context.AddWarehouseAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(true, []);
-        context.Server.Reconciliation = new StockReconciliationResultDto(CrossedOffCount: 3, AddedCount: 2);
+        context.Warehouses.RestockRefresh = new RestockRefreshResultDto(AddedCount: 3, RemovedCount: 2);
         var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
 
-        await panel.RecalculateCommand.ExecuteAsync(null);
+        await panel.RefreshFromTheWarehouseCommand.ExecuteAsync(null);
 
-        Assert.Equal(1, context.Server.ReconciliationsAsked);
+        Assert.Equal(1, context.Warehouses.RestockRefreshesAsked);
         Assert.Contains("3", panel.Message);
         Assert.Contains("2", panel.Message);
     }
 
     [Fact]
-    public async Task Recalculating_when_nothing_moved_says_so()
+    public async Task Refreshing_when_nothing_moved_says_the_list_already_asks_for_the_right_things()
     {
         using var context = new PanelContext();
         var warehouse = await context.AddWarehouseAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(true, []);
         var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
 
-        await panel.RecalculateCommand.ExecuteAsync(null);
+        await panel.RefreshFromTheWarehouseCommand.ExecuteAsync(null);
 
-        Assert.Equal(1, context.Server.ReconciliationsAsked);
-        Assert.NotEmpty(panel.Message);
+        Assert.Equal(1, context.Warehouses.RestockRefreshesAsked);
+        Assert.Contains("already asks", panel.Message);
+    }
+
+    /// <summary>A list measured against nothing has no warehouse to rebuild from, so nothing is asked.</summary>
+    [Fact]
+    public async Task A_list_measured_against_nothing_refreshes_nothing()
+    {
+        using var context = new PanelContext();
+        await context.AddWarehouseAsync("Kitchen");
+        context.Server.StockCheck = new TaskListStockCheckDto(true, []);
+        var panel = await context.ShowAsync(isGroup: true);
+
+        await panel.RefreshFromTheWarehouseCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, context.Warehouses.RestockRefreshesAsked);
     }
 
     /// <summary>
@@ -211,6 +230,9 @@ public sealed class StockCheckPanelTests
 
         public FakeTasksServer Server { get; }
 
+        /// <summary>The shelves themselves, which is where a refresh is asked for - see StockCheckPanel.</summary>
+        public FakeInventoryServer Warehouses { get; } = new(TimeProvider.System);
+
         /// <summary>A warehouse the server knows about, which is what makes it choosable.</summary>
         public async Task<Guid> AddWarehouseAsync(string name)
         {
@@ -225,7 +247,7 @@ public sealed class StockCheckPanelTests
         public async Task<StockCheckPanel> ShowAsync(bool isGroup, Guid? linkedWarehouseId = null)
         {
             var panel = new StockCheckPanel(
-                new TasksClient(Server.ToHttpClient()), _warehouses,
+                new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()), _warehouses,
                 new Translations(new InMemoryLanguageStore()));
 
             await panel.ShowAsync(new LocalTaskList
@@ -242,6 +264,7 @@ public sealed class StockCheckPanelTests
         public void Dispose()
         {
             Server.Dispose();
+            Warehouses.Dispose();
             _localStore.Dispose();
         }
     }

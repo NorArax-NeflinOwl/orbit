@@ -81,6 +81,25 @@ public sealed class InventoryClient : ILockableItems
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>
+    /// Rebuilds this warehouse's restock list against what is on its shelves now and the settings it
+    /// carries - what somebody asks for when the world changed rather than the list. Answers with what
+    /// moved.
+    ///
+    /// Replaced two half-actions on Orbit.Web, and the phone still offered one of them: "recalculate
+    /// against the inventory" reconciled the list one way and left the reader to do the rest.
+    /// </summary>
+    public async Task<RestockRefreshResultDto> RefreshRestockListAsync(
+        Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/warehouses/{warehouseId}/restock-list/refresh", content: null, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RestockRefreshResultDto>(cancellationToken)
+            ?? new RestockRefreshResultDto(0, 0);
+    }
+
     public async Task<WriteOutcome> DeleteAsync(Guid warehouseId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/warehouses/{warehouseId}", cancellationToken);

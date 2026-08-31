@@ -60,6 +60,13 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         }
 
         // Nobody else is ever in it here; EditLockTests covers the answer where somebody is.
+        // api/warehouses/{id}/restock-list/refresh - rebuilt against what is on the shelves now.
+        if (path.EndsWith("/restock-list/refresh", StringComparison.Ordinal))
+        {
+            RestockRefreshesAsked++;
+            return Json(RestockRefresh);
+        }
+
         if (path.EndsWith("/lock", StringComparison.Ordinal))
         {
             return new HttpResponseMessage(HttpStatusCode.NoContent);
@@ -88,6 +95,11 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             _ => Json(_warehouses.Values.ToList())
         };
     }
+
+    /// <summary>What a refresh of a warehouse's restock list answers with, and how often one was asked for.</summary>
+    public RestockRefreshResultDto RestockRefresh { get; set; } = new(0, 0);
+
+    public int RestockRefreshesAsked { get; private set; }
 
     private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
