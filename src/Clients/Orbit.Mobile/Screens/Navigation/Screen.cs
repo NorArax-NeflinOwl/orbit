@@ -16,6 +16,12 @@ public enum Screen
     Dashboard,
     Notes,
     Note,
+
+    /// <summary>Copies taken offline, waiting to be chosen between - see CopyReviewViewModel.</summary>
+    CopyReview,
+
+    /// <summary>Copies kept on purpose, and what each came from - see CopyHistoryViewModel.</summary>
+    CopyHistory,
     Tasks,
     TaskList,
     TaskItem,

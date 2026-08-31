@@ -10,7 +10,15 @@ public sealed class DeviceNetworkStatus : INetworkStatus
 {
 	private readonly IConnectivity _connectivity;
 
-	public DeviceNetworkStatus(IConnectivity connectivity) => _connectivity = connectivity;
+	public DeviceNetworkStatus(IConnectivity connectivity)
+	{
+		_connectivity = connectivity;
+		// Subscribed for the life of the app rather than per screen: this is a singleton, and a phone
+		// changes network far less often than it changes screen.
+		_connectivity.ConnectivityChanged += (_, _) => Changed?.Invoke(this, EventArgs.Empty);
+	}
 
 	public bool IsOnline => _connectivity.NetworkAccess is NetworkAccess.Internet;
+
+	public event EventHandler? Changed;
 }

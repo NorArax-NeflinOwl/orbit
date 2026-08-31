@@ -7,7 +7,10 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
@@ -25,6 +28,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private readonly InventoryClient _inventoryClient;
     private readonly EditLock _editLock;
     private readonly Translations _translations;
+    private readonly PrivateContentSealer _privateContent;
+    private readonly NameSuggestions _nameSuggestions;
+    private readonly NameSuggestions _warehouseNameSuggestions;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -53,10 +59,19 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReadOnly;
 
+    /// <summary>
+    /// Only its owner may ever read this warehouse, and the server never can. Orbit.Web's warehouse
+    /// editor has had the checkbox all along; the phone carried the flag without being able to set one -
+    /// see PrivateContentSealer.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPrivate;
+
     public WarehouseDetailViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
-        InventoryClient inventoryClient, EditLock editLock)
+        InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
+        NameSuggestions nameSuggestions, NameSuggestions warehouseNameSuggestions)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
@@ -64,6 +79,12 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Share = share;
         _navigator = navigator;
         _inventoryClient = inventoryClient;
+        _privateContent = privateContent;
+        _nameSuggestions = nameSuggestions;
+        OfferNamesToTheQuickAddBox();
+        _warehouseNameSuggestions = warehouseNameSuggestions;
+        _warehouseNameSuggestions.Offers(NameSuggestionKind.WarehouseName);
+        _warehouseNameSuggestions.Takes = name => Name = name;
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _anyProductType = translations["Any type"];
@@ -73,6 +94,18 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     }
 
     public ObservableCollection<WarehouseItemRow> Items { get; } = [];
+
+    /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
+    private bool _isShowingWhatIsStored;
+
+    /// <summary>Saved as soon as it is switched, the way ticking an entry on a list is.</summary>
+    partial void OnIsPrivateChanged(bool value)
+    {
+        if (!_isShowingWhatIsStored && !IsReadOnly)
+        {
+            RenameCommand.Execute(null);
+        }
+    }
 
     /// <summary>
     /// The types and categories actually on this shelf, each behind an "any" that stands for no choice -
@@ -192,7 +225,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = WarehouseItemEditor.For(row.Item, _translations);
+            BeingEdited = WarehouseItemEditor.For(row.Item, _translations, _nameSuggestions);
         }
     }
 
@@ -321,7 +354,20 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     private async Task SaveAsync(IReadOnlyList<WarehouseItemDto> items, CancellationToken cancellationToken)
     {
-        var outcome = await _warehouses.UpdateAsync(_localId, Name, items, cancellationToken);
+        LocalWriteOutcome outcome;
+        try
+        {
+            outcome = await _warehouses.UpdateAsync(
+                _localId, new WarehouseContent(Name, items, IsPrivate), cancellationToken);
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            // Sealing needs the account's own key, and this device has not got it - see
+            // NoteDetailViewModel, which sends the reader to the same gate for the same reason.
+            _navigator.ShowChatKeyGate();
+            return;
+        }
+
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
             Status = _translations[
@@ -343,27 +389,43 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
 
         Name = warehouse.Name;
-        if (warehouse.ServerId is { } serverId)
+        // Taken as already looked up, so opening a warehouse does not offer completions of its own name
+        // and warn that it duplicates itself - see NameSuggestions.StartsAt.
+        _warehouseNameSuggestions.StartsAt(warehouse.Name);
+        _isShowingWhatIsStored = true;
+        IsPrivate = warehouse.IsPrivate;
+        _isShowingWhatIsStored = false;
+
+        // A private warehouse is offered to nobody: the server holds no readable copy to hand over,
+        // which is what makes it private - the same line Orbit.Web's editor draws.
+        if (warehouse is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(
                 SharedItemKind.Warehouse, serverId, warehouse.Name,
                 warehouse.AccessLevel == "CanEdit" ? null : warehouse.OwnerUserId);
         }
+        else
+        {
+            Share.OffersNothing();
+        }
 
         _items = warehouse.Items;
 
-        // Sealed with a key this phone has not got - see TaskListDetailViewModel for the same guard and
-        // why saving one anyway is worse than not offering to.
-        if (warehouse.IsPrivate)
+        // Sealed with a key this device cannot open - see TaskListDetailViewModel for the same guard
+        // and why saving one anyway is worse than not offering to.
+        if (warehouse.IsSealed)
         {
             IsReadOnly = true;
-            ReadOnlyReason = _translations[
-                "This warehouse is private, and its contents are sealed with a key this phone doesn't have."];
+            ReadOnlyReason = await _privateContent.HasKeyAsync(cancellationToken)
+                ? _translations["This warehouse was sealed with an encryption key this account no longer has."]
+                : _translations["This warehouse is private. Unlock this device's encryption key to read it."];
+            IsCopyOffered = false;
         }
         else
         {
             IsReadOnly = !await _warehouses.CanEditAsync(_localId, cancellationToken);
             ReadOnlyReason = string.Empty;
+            IsCopyOffered = IsReadOnly && warehouse.CopyOfLocalId is null;
         }
 
         if (!IsReadOnly && warehouse.ServerId is { } lockedServerId)
@@ -476,15 +538,49 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     partial void OnBeingEditedChanged(WarehouseItemEditor? value)
     {
+        // Nothing on offer once the form is gone, and the box above the list takes what is chosen
+        // again - it is the field being typed into whenever no editor is.
+        if (value is null)
+        {
+            OfferNamesToTheQuickAddBox();
+        }
+
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
+    }
+
+    /// <summary>
+    /// Products already on the shelves, offered under whichever field is being typed into - the box
+    /// above the list, or an item's name once one is open. One at a time, because only one of the two
+    /// is ever on screen.
+    /// </summary>
+    public NameSuggestions Suggestions => _nameSuggestions;
+
+    /// <summary>
+    /// Warehouse names this account already has, offered under the name field. Its own instance rather
+    /// than the one above: the name and the quick-add box are on screen together, and one instance
+    /// serves one field - see NameSuggestions.Takes.
+    /// </summary>
+    public NameSuggestions WarehouseNameSuggestions => _warehouseNameSuggestions;
+
+    private void OfferNamesToTheQuickAddBox()
+    {
+        _nameSuggestions.Forget();
+        _nameSuggestions.Offers(NameSuggestionKind.InventoryItemName);
+        _nameSuggestions.Takes = name => NewItemName = name;
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
     partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
-    partial void OnNewItemNameChanged(string value) => AddItemCommand.NotifyCanExecuteChanged();
+    partial void OnNewItemNameChanged(string value)
+    {
+        AddItemCommand.NotifyCanExecuteChanged();
+        Suggestions.ShowFor(value);
+    }
+
+    partial void OnNameChanged(string value) => WarehouseNameSuggestions.ShowFor(value);
 
     /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
     [ObservableProperty]
@@ -507,4 +603,25 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     public Task CloseAsync() => _editLock.ReleaseAsync();
 
     partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsCopyOffered"/>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyForEditingAsync"/>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _warehouses.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowWarehouse(copy.LocalId);
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
 }

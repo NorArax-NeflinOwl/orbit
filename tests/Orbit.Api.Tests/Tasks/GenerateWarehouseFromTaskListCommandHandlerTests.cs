@@ -123,8 +123,11 @@ public sealed class GenerateWarehouseFromTaskListCommandHandlerTests
     public async Task The_list_is_pointed_at_what_was_generated()
     {
         var shopping = AShoppingTree();
-        // Copied out rather than read again afterwards: the store hands back the list itself.
-        var before = shopping.UpdatedAtUtc;
+        // Aged first - see InMemoryTaskRepository.PretendItWasLastChanged. Comparing against the stamp
+        // the tree was built with asks whether the clock ticked in between, which is not what this test
+        // is about.
+        var before = DateTimeOffset.UtcNow.AddMinutes(-1);
+        _context.TaskRepository.PretendItWasLastChanged(shopping.Id, before);
 
         var warehouseId = await AHandler().HandleAsync(
             new GenerateWarehouseFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);

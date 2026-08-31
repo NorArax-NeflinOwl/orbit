@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:inventory="clr-namespace:Orbit.Maui.Features.Inventory"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
     x:DataType="screens:InventoryViewModel"
     Title="{controls:Translate 'Inventory'}">
@@ -45,8 +46,20 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:WarehouseRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
-                            <Label Text="{Binding Contents}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <!-- Two rows with the same name are otherwise indistinguishable, and the
+                                 reader has no way of telling which one they wrote in. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <Label Grid.Column="0" Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
+                                          FontSize="11" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                            </Grid>
+                            <!-- A hidden row keeps its place - a warehouse vanishing would look like it
+                                 had been deleted - but says nothing about itself until unlocked. -->
+                            <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}" FontSize="12" Padding="12,2"
+                                    HorizontalOptions="Start" Style="{StaticResource LinkButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=inventory:InventoryPage}" />
+                            <Label Text="{Binding Contents}" IsVisible="{Binding CanBeOpened}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                                    FontSize="12" TextColor="{DynamicResource Accent}" />
                             <BoxView HeightRequest="1" Margin="0,12,0,0"

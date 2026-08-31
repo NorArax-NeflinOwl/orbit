@@ -101,27 +101,33 @@
                                  beside a title is what a phone has room for only if none of them takes more
                                  than it needs. -->
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4">
-                                <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
-                                       VerticalOptions="Center" />
+                                <!-- Two rows with the same title are otherwise indistinguishable, and the
+                                     reader has no way of telling which one they wrote in. -->
+                                <Grid Grid.Column="0" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                    <Label Grid.Column="0" Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold"
+                                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
+                                          FontSize="11" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                                </Grid>
                                 <!-- Only where it says something: a badge on every list, most of them
                                      Normal, would mark nothing out - see PriorityChoice.IsWorthSaying. -->
                                 <Border Grid.Column="1" Style="{StaticResource FilterChip}" Padding="6,3"
-                                        IsVisible="{Binding HasPriority}" VerticalOptions="Center">
+                                        IsVisible="{Binding HasPriorityBadge}" VerticalOptions="Center">
                                     <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
                                 </Border>
                                 <!-- Where the list stands, in the same words as the chips above it. -->
                                 <Border Grid.Column="2" Style="{StaticResource FilterChip}" Padding="6,3"
-                                        VerticalOptions="Center">
+                                        IsVisible="{Binding HasBadges}" VerticalOptions="Center">
                                     <Label Text="{Binding State}" Style="{StaticResource FilterChipLabel}" />
                                 </Border>
-                                <controls:PinButton Grid.Column="3" IsPinned="{Binding IsPinned}"
+                                <controls:PinButton Grid.Column="3" IsPinned="{Binding IsPinned}" IsVisible="{Binding HasBadges}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=tasks:TasksPage}"
                                                     CommandParameter="{Binding .}" />
                                 <!-- Only where the reader is sorting by the order they put the cards in:
                                      moving one under any other order would be undone by the sort. The web
                                      drags them, which is not a gesture a thumb can aim in a scrolling list. -->
                                 <HorizontalStackLayout Grid.Column="4" Spacing="0" VerticalOptions="Center"
-                                                       IsVisible="{Binding CanBeMoved}">
+                                                       IsVisible="{Binding CanBeArranged}">
                                     <Button Text="↑" SemanticProperties.Description="{controls:Translate 'Move up'}" FontSize="12" Padding="2,0" WidthRequest="44"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListUpCommand, x:DataType=tasks:TasksPage}"
@@ -135,11 +141,17 @@
                                      on this week is still one they want to see is there. Orbit.Web folds
                                      the same card with the same chevron. -->
                                 <Button Grid.Column="5" Text="{Binding FoldGlyph}" SemanticProperties.Description="{Binding FoldDescription}" FontSize="12" Padding="2,0"
-                                        WidthRequest="44" VerticalOptions="Center"
+                                        WidthRequest="44" VerticalOptions="Center" IsVisible="{Binding HasBadges}"
                                         Style="{StaticResource LinkButton}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCollapsedCommand, x:DataType=tasks:TasksPage}"
                                         CommandParameter="{Binding .}" />
                             </Grid>
+                            <!-- A hidden row keeps its place - a list vanishing would look like it had
+                                 been deleted - but says nothing about itself until unlocked. -->
+                            <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}" FontSize="12" Padding="12,2"
+                                    HorizontalOptions="Start" Style="{StaticResource LinkButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=tasks:TasksPage}" />
+
                             <!-- Everything but the heading and its buttons, so folding the card is one
                                  IsVisible rather than one on each line. -->
                             <VerticalStackLayout Spacing="2" IsVisible="{Binding IsExpanded}">

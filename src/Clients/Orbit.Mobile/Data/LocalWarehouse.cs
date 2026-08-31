@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using Orbit.Contracts;
 using Orbit.Contracts.Inventory;
 using Orbit.Mobile.Sync;
 
@@ -11,7 +13,7 @@ namespace Orbit.Mobile.Data;
 /// those from their own endpoint. So <see cref="Items"/> is filled by a second call, made only for the
 /// warehouses a pull actually reported as changed rather than for all of them.
 /// </summary>
-public sealed class LocalWarehouse : ISharedState
+public sealed class LocalWarehouse : ISharedState, ICopyableForEditing
 {
     public Guid LocalId { get; set; }
 
@@ -24,10 +26,21 @@ public sealed class LocalWarehouse : ISharedState
 
     public bool IsPrivate { get; set; }
 
-    /// <summary>The sealed name and items of a private warehouse - carried through untouched.</summary>
+    /// <inheritdoc cref="LocalNote.EncryptedCiphertext"/>
     public string? EncryptedCiphertext { get; set; }
 
     public string? EncryptedNonce { get; set; }
+
+    /// <inheritdoc cref="LocalNote.EncryptedContent"/>
+    [NotMapped]
+    public EncryptedContentDto? EncryptedContent
+        => EncryptedCiphertext is { } ciphertext && EncryptedNonce is { } nonce
+            ? new EncryptedContentDto(ciphertext, nonce)
+            : null;
+
+    /// <inheritdoc cref="LocalNote.IsSealed"/>
+    [NotMapped]
+    public bool IsSealed { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
 
@@ -45,4 +58,20 @@ public sealed class LocalWarehouse : ISharedState
     public Guid? OwnerUserId { get; set; }
 
     public DateTimeOffset? LastSyncedAtUtc { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopyOfLocalId"/>
+    public Guid? CopyOfLocalId { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopiedAtUtc"/>
+    public DateTimeOffset? CopiedAtUtc { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopyBaseTitle"/>
+    public string CopyBaseTitle { get; set; } = string.Empty;
+
+    /// <inheritdoc cref="ICopyableForEditing.CopyBaseLines"/>
+    public IReadOnlyList<string> CopyBaseLines { get; set; } = [];
+
+    /// <inheritdoc cref="LocalNote.IsKeptCopy"/>
+    public bool IsKeptCopy { get; set; }
+
 }

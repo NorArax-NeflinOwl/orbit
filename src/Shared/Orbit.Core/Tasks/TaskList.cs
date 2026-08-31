@@ -172,6 +172,23 @@ public sealed class TaskList
     }
 
     /// <summary>
+    /// Gives a fresh id to every entry whose own is contested, and says whether anything moved. Called
+    /// on the *other* list in a collision - see <see cref="TaskItemIdentity"/> for why both sides are
+    /// renamed rather than the newcomer alone.
+    /// </summary>
+    public bool ReissueItemIds(IReadOnlySet<Guid> contested)
+    {
+        if (!Items.Any(item => contested.Contains(item.Id)))
+        {
+            return false;
+        }
+
+        Items = [.. Items.Select(item => contested.Contains(item.Id) ? item.WithNewId() : item)];
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        return true;
+    }
+
+    /// <summary>
     /// Crosses off everything still outstanding, and says the list changed - which is what carries the
     /// change to anybody else's copy of it. Answers whether anything actually moved.
     ///

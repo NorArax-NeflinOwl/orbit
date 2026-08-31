@@ -48,6 +48,25 @@ public sealed class TaskRepository : ITaskRepository
         return entity is null ? null : ToDomain(entity);
     }
 
+    public async Task<IReadOnlyList<TaskList>> GetHoldingItemsAsync(
+        Guid userId, Guid exceptListId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken)
+    {
+        if (itemIds.Count == 0)
+        {
+            return [];
+        }
+
+        var entities = await _dbContext.Tasks
+            .AsNoTracking()
+            .Include(task => task.Items)
+            .Where(task => task.UserId == userId
+                && task.Id != exceptListId
+                && task.Items.Any(item => itemIds.Contains(item.Id)))
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
     public async Task AddAsync(TaskList taskList, CancellationToken cancellationToken)
     {
         _dbContext.Tasks.Add(ToEntity(taskList));

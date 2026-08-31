@@ -41,6 +41,15 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="mobile:ReadableChatMessage">
                         <VerticalStackLayout Padding="0,8" Spacing="2">
+
+                            <!-- A line nobody wrote: somebody joined, and whether the past came with
+                                 them. Centred and quiet so it reads as the thread saying something
+                                 rather than as a message - the same shape Orbit.Web gives it. -->
+                            <Label Text="{Binding Announcement}" IsVisible="{Binding IsAnnouncement}"
+                                   FontSize="12" LineBreakMode="WordWrap" HorizontalTextAlignment="Center"
+                                   Margin="0,4" Style="{StaticResource SubtleLabel}" />
+
+                            <VerticalStackLayout Spacing="2" IsVisible="{Binding IsNotAnnouncement}">
                             <!-- Who wrote it, which a one-to-one conversation gets from the title. -->
                             <Label Text="{Binding SenderName}" IsVisible="{Binding HasSenderName}"
                                    FontSize="12" FontAttributes="Bold" TextColor="{DynamicResource Accent}" />
@@ -78,6 +87,7 @@
                                     TextColor="{DynamicResource Accent}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
                                     CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

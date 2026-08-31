@@ -20,6 +20,13 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
 
     public bool IsUnreachable { get; set; }
 
+    /// <summary>
+    /// Set to make a request hang until the client gives up, which is what a phone with no route
+    /// actually sees - a timeout rather than a refusal. Told apart from IsUnreachable because the two
+    /// arrive as different exception types and code has been written that only handled one.
+    /// </summary>
+    public bool TimesOut { get; set; }
+
     public IReadOnlyCollection<CalendarEventDto> Events => _events.Values;
 
     public CalendarEventDto AddEvent(string title, bool isShared = false, bool isSharedWithOthers = false)
@@ -50,6 +57,11 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
         if (IsUnreachable)
         {
             throw new HttpRequestException("No such host is known.");
+        }
+
+        if (TimesOut)
+        {
+            throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout.");
         }
 
         // Nobody else is ever in it here; EditLockTests covers the answer where somebody is.

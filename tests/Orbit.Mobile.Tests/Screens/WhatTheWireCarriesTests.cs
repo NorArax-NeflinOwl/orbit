@@ -30,7 +30,7 @@ public sealed class WhatTheWireCarriesTests
             new TaskItemDto(
                 Guid.NewGuid(), "Collect the parcel", null, false, null, "None", false, "None",
                 new TimeOnly(9, 0), "Checklist", "", null),
-            new Translations(new InMemoryLanguageStore()), [], []);
+            new Translations(new InMemoryLanguageStore()), linkedEvent: null, []);
 
         editor.HasDueDate = true;
         editor.DueDate = new DateTime(2026, 8, 30);
@@ -51,13 +51,13 @@ public sealed class WhatTheWireCarriesTests
                 Guid.NewGuid(), "Milk", "Bottle", "Fridge", 1, null, nameof(InventoryUnit.Piece), null, "None"),
             new Translations(new InMemoryLanguageStore()));
 
-        editor.Expires = true;
-        editor.ExpiryDate = new DateTime(2026, 9, 3);
+        editor.ChosenExpiryUnit = ExpiryUnitChoice.For(editor.ExpiryUnits, ExpiryUnit.Days);
+        editor.ExpiresIn = "3";
 
         var sent = editor.ToDto().ExpiryDate;
         Assert.NotNull(sent);
         Assert.Equal(TimeSpan.Zero, sent.Value.Offset);
-        Assert.Equal(new DateTime(2026, 9, 3), sent.Value.LocalDateTime.Date);
+        Assert.Equal(DateTime.Today.AddDays(3), sent.Value.LocalDateTime.Date);
     }
 
 }

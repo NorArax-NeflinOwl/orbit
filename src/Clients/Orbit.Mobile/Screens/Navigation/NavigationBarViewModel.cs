@@ -35,6 +35,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly LocalStoreReset _localStore;
     private readonly UserPermissions _permissions;
     private readonly SyncState _syncState;
+    private readonly EverythingSynchronizer _synchronizer;
+    private readonly INetworkStatus _networkStatus;
     private readonly MobileVersionGate _versionGate;
     private readonly IScreenNavigator _navigator;
 
@@ -92,12 +94,22 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [ObservableProperty]
     private bool _canUseConversations = true;
 
+    /// <summary>
+    /// The four repositories, as the two copy windows know them - see Data.ICopyReviewStore. The bar
+    /// asks them how much is outstanding, which is what puts the review within reach from any screen:
+    /// a copy can be of any of the four kinds, so no one list is the right place to wait for it.
+    /// </summary>
+    private readonly IReadOnlyList<Data.ICopyReviewStore> _copyStores;
+
     public NavigationBarViewModel(
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
-        MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator)
+        MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator,
+        EverythingSynchronizer synchronizer, INetworkStatus networkStatus,
+        IEnumerable<Data.ICopyReviewStore> copyStores)
     {
+        _copyStores = [.. copyStores];
         _serverVersion = serverVersion;
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
@@ -107,6 +119,9 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         _localStore = localStore;
         _permissions = permissions;
         _syncState = syncState;
+        _synchronizer = synchronizer;
+        _networkStatus = networkStatus;
+        _networkStatus.Changed += (_, _) => ShowWhetherToOfferReconnecting();
         _versionGate = versionGate;
 
         _navigator = navigator;
@@ -116,6 +131,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         ShowPresence();
         ShowPermissions();
         ShowSyncState();
+        ShowWhetherToOfferReconnecting();
     }
 
     private void OnPresenceChanged(object? sender, EventArgs e) => ShowPresence();
@@ -126,6 +142,16 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     private void ShowSyncState()
     {
+        // A phone with no network says so, whatever the last sync happened to conclude. Otherwise the
+        // row reads "Synced" next to a button offering to reconnect, which is two answers to one
+        // question - and "Synced" is the wrong one: it was true when it was said and is not now.
+        if (!_networkStatus.IsOnline)
+        {
+            SyncLabel = _translations["No connection"];
+            IsSyncing = false;
+            return;
+        }
+
         SyncLabel = _syncState.Condition switch
         {
             SyncCondition.Syncing => _translations["Syncing…"],
@@ -191,6 +217,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         await _permissions.EnsureLoadedAsync(cancellationToken);
 
         IsUpdateAvailable = await _versionGate.RememberedDecisionAsync(cancellationToken) is { OffersUpdate: true };
+        await ShowWhatIsWaitingToBeDecidedAsync(cancellationToken);
 
         try
         {
@@ -202,6 +229,86 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         catch (OperationCanceledException)
         {
         }
+    }
+
+    /// <summary>
+    /// How many copies taken offline are still waiting to be chosen between, and whether anything has
+    /// ever been kept. Counted from the phone, so it is right with no connection - which is the state
+    /// these were made in.
+    /// </summary>
+    private async Task ShowWhatIsWaitingToBeDecidedAsync(CancellationToken cancellationToken)
+    {
+        var waiting = 0;
+        var kept = false;
+        foreach (var store in _copyStores)
+        {
+            waiting += (await store.GetCopiesAwaitingReviewAsync(cancellationToken)).Count;
+            kept |= (await store.GetKeptCopiesAsync(cancellationToken)).Count > 0;
+        }
+
+        CopiesAwaitingReview = waiting;
+        HasCopyHistory = kept;
+    }
+
+    /// <summary>What is waiting to be decided, badged in the menu the way notifications are.</summary>
+    [ObservableProperty]
+    private int _copiesAwaitingReview;
+
+    /// <summary>Whether anything has ever been kept, which is what puts History in the menu at all.</summary>
+    [ObservableProperty]
+    private bool _hasCopyHistory;
+
+    public bool HasCopiesAwaitingReview => CopiesAwaitingReview > 0;
+
+    public string CopiesAwaitingReviewLabel => CopiesAwaitingReview.ToString();
+
+    partial void OnCopiesAwaitingReviewChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasCopiesAwaitingReview));
+        OnPropertyChanged(nameof(CopiesAwaitingReviewLabel));
+    }
+
+    [RelayCommand]
+    private void GoToCopyReview()
+    {
+        IsMenuOpen = false;
+        _navigator.ShowCopyReview();
+    }
+
+    [RelayCommand]
+    private void GoToCopyHistory()
+    {
+        IsMenuOpen = false;
+        _navigator.ShowCopyHistory();
+    }
+
+    /// <summary>
+    /// Whether to offer trying again. Only while the phone believes it is offline: online there is
+    /// nothing to reconnect, and a button that is always there invites tapping at a working app.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canReconnect;
+
+    /// <summary>
+    /// Tries the server again, now, rather than waiting for whatever would have tried next.
+    ///
+    /// It cannot put the phone back on a network - no app can - so what it actually does is attempt the
+    /// work that being offline prevented. That is the useful half: a phone whose connection came back
+    /// without the system noticing, or one behind a portal that has just been signed into, is in step
+    /// again afterwards, and the corner says so instead of "No connection" until something else asks.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReconnectAsync(CancellationToken cancellationToken)
+    {
+        await _synchronizer.SynchroniseAsync(cancellationToken);
+        await _permissions.RefreshAsync(cancellationToken);
+        ShowWhetherToOfferReconnecting();
+    }
+
+    private void ShowWhetherToOfferReconnecting()
+    {
+        CanReconnect = !_networkStatus.IsOnline;
+        ShowSyncState();
     }
 
     [RelayCommand]
@@ -231,7 +338,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     /// the other two.
     /// </summary>
     [RelayCommand]
-    private void ToggleMenu()
+    private async Task ToggleMenuAsync(CancellationToken cancellationToken)
     {
         _presence.MarkActive();
         IsMenuOpen = !IsMenuOpen;
@@ -239,7 +346,13 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         {
             IsStatusExpanded = false;
             IsLanguageExpanded = false;
+            return;
         }
+
+        // Counted again on the way open rather than only when the bar loaded. Answering a review is the
+        // one thing that changes this number without leaving the screen, and a badge still claiming one
+        // waiting, on the menu the reader has just used to answer it, reads as an answer that failed.
+        await ShowWhatIsWaitingToBeDecidedAsync(cancellationToken);
     }
 
     /// <summary>

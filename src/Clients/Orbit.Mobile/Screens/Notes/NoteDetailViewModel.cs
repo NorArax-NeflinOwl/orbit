@@ -6,6 +6,7 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Sync;
 
@@ -16,10 +17,11 @@ namespace Orbit.Mobile.Screens.Notes;
 /// the same way: every change is written to the local database first and queued from there, so writing
 /// works with no connection and the screen never waits on a request.
 ///
-/// <b>A private note opens read-only</b>, and not as a limitation of this screen. Its words live inside
-/// an encrypted payload the phone has no key for - the server sends an empty title and no lines at all
-/// (see Orbit.Core.Notes.Note.ReadableOrSealed) - so there is nothing here to show and nothing that
-/// could be sent back. Saying so is the only honest thing to do until the phone can hold that key.
+/// <b>A private note is opened here rather than only carried through.</b> Its words live inside a
+/// payload sealed under the account's own key (see PrivateContentSealer), which this phone holds for
+/// chat already - so the same note reads the same in a browser and here, and the checkbox that makes
+/// one is on this screen exactly as it is in Orbit.Web's editor. A note this device cannot open - no
+/// key, or a key pair since replaced - still opens read-only and says which of those it is.
 /// </summary>
 public sealed partial class NoteDetailViewModel : ObservableObject
 {
@@ -28,6 +30,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     private readonly NotesClient _notesClient;
     private readonly EditLock _editLock;
     private readonly Translations _translations;
+    private readonly PrivateContentSealer _privateContent;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -44,19 +47,37 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReadOnly;
 
-    /// <summary>Why it cannot be changed, when it cannot - a private note, or somebody else's while offline.</summary>
+    /// <summary>Why it cannot be changed, when it cannot - a sealed note, or somebody else's while offline.</summary>
     [ObservableProperty]
     private string _readOnlyReason = string.Empty;
 
+    /// <summary>
+    /// Whether to ask "then take a copy?" - offered only where the refusal is one a copy answers: no
+    /// connection, and somebody else able to change this. A sealed note is not offered one (there is
+    /// nothing readable to copy), and neither is a note somebody is in right now, because that refusal
+    /// ends by itself in a minute and a copy would outlive it.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <summary>
+    /// Only its owner may ever read this note, and the server never can. Orbit.Web's editor has had the
+    /// checkbox all along; the phone honoured the flag - hiding such a note behind the device lock - but
+    /// could not set one, so a note made here could never be private.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPrivate;
+
     public NoteDetailViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
-        Translations translations, SharePanel share, IScreenNavigator navigator)
+        Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator)
     {
         _notes = notes;
         _synchronizer = synchronizer;
         _notesClient = notesClient;
         _editLock = editLock;
         _translations = translations;
+        _privateContent = privateContent;
         Share = share;
         _navigator = navigator;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
@@ -171,12 +192,43 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [RelayCommand]
     private void GoBack() => _navigator.ShowNotes();
 
+    /// <summary>
+    /// Takes the copy the reader has just asked for and opens it, so they carry on writing where they
+    /// meant to rather than being returned to the list to find it.
+    /// </summary>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _notes.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowNote(copy.LocalId);
+    }
+
+    /// <summary>Reading it and leaving it alone, which is the ordinary answer - and asked only once.</summary>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
+
     private async Task SaveAsync(IReadOnlyList<NoteContentLineDto> lines, CancellationToken cancellationToken)
     {
-        if (await _notes.UpdateAsync(_localId, new NoteContent(Title.Trim(), lines, _priority), cancellationToken)
-            is LocalWriteOutcome.RefusedWhileOffline)
+        try
         {
-            Status = _translations[RefusalMessage];
+            if (await _notes.UpdateAsync(
+                    _localId, new NoteContent(Title.Trim(), lines, _priority, IsPrivate), cancellationToken)
+                is LocalWriteOutcome.RefusedWhileOffline)
+            {
+                Status = _translations[RefusalMessage];
+                return;
+            }
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            // Sealing needs the account's own key, and this device has not got it. The key gate is where
+            // that is fixed, and it is where chat sends people for the same reason.
+            _navigator.ShowChatKeyGate();
             return;
         }
 
@@ -195,13 +247,19 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         Title = note.Title;
         _isShowingWhatIsStored = true;
         ChosenPriority = Tasks.PriorityChoice.For(note.Priority, _translations);
+        IsPrivate = note.IsPrivate;
         _isShowingWhatIsStored = false;
 
         // Only a note the server knows about can be offered: a share names it by its server id, and one
-        // still waiting in the outbox has none.
-        if (note.ServerId is { } serverId)
+        // still waiting in the outbox has none. A private note is offered to nobody - the server holds
+        // no readable copy to hand over, which is what makes it private.
+        if (note is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(SharedItemKind.Note, serverId, note.Title, OwnerToAsk(note));
+        }
+        else
+        {
+            Share.OffersNothing();
         }
 
         await ShowWhetherItCanBeChangedAsync(note, cancellationToken);
@@ -215,16 +273,21 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     private async Task ShowWhetherItCanBeChangedAsync(LocalNote note, CancellationToken cancellationToken)
     {
-        if (note.IsPrivate)
+        if (note.IsSealed)
         {
+            // Nothing to show and nothing that could be sent back: saving would replace a sealed note
+            // with an empty one. Which of the two reasons it is decides what the reader can do about it.
             IsReadOnly = true;
-            ReadOnlyReason = _translations["This note is private, and its words are sealed with a key this phone doesn't have."];
+            ReadOnlyReason = await _privateContent.HasKeyAsync(cancellationToken)
+                ? _translations["This note was sealed with an encryption key this account no longer has."]
+                : _translations["This note is private. Unlock this device's encryption key to read it."];
             return;
         }
 
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _notes.CanEditAsync(_localId, cancellationToken);
         ReadOnlyReason = IsReadOnly ? _translations[RefusalMessage] : string.Empty;
+        IsCopyOffered = IsReadOnly && note.CopyOfLocalId is null;
 
         if (IsReadOnly || note.ServerId is not { } serverId)
         {
@@ -296,6 +359,15 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     partial void OnChosenPriorityChanged(Tasks.PriorityChoice value)
     {
         _priority = value.Value;
+        if (!_isShowingWhatIsStored && CanEdit)
+        {
+            SaveLinesCommand.Execute(null);
+        }
+    }
+
+    /// <inheritdoc cref="OnChosenPriorityChanged"/>
+    partial void OnIsPrivateChanged(bool value)
+    {
         if (!_isShowingWhatIsStored && CanEdit)
         {
             SaveLinesCommand.Execute(null);

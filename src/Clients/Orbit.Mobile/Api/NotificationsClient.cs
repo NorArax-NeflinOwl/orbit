@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Sync;
 using Orbit.Contracts.PushNotifications;
 
 namespace Orbit.Mobile.Api;
@@ -19,6 +20,19 @@ public sealed class NotificationsClient
     public NotificationsClient(HttpClient httpClient) => _httpClient = httpClient;
 
     /// <summary>The recent feed, newest first, capped by the server.</summary>
+    /// <summary>
+    /// What has changed since the cursor - the delta this phone keeps its own copy of the feed from, so
+    /// the feed reads with no connection like everything else. Same shape as the other four.
+    /// </summary>
+    public async Task<ChangeFeedDto<NotificationEntryDto>> GetChangesAsync(
+        string? cursor, CancellationToken cancellationToken = default)
+    {
+        var since = cursor ?? DateTimeOffset.MinValue.UtcDateTime.ToString("O");
+        return await _httpClient.GetFromJsonAsync<ChangeFeedDto<NotificationEntryDto>>(
+            $"api/notifications/changes?since={Uri.EscapeDataString(since)}", cancellationToken)
+            ?? new ChangeFeedDto<NotificationEntryDto>([], [], since);
+    }
+
     public async Task<IReadOnlyList<NotificationEntryDto>> GetRecentAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<IReadOnlyList<NotificationEntryDto>>(
             "api/notifications", cancellationToken) ?? [];

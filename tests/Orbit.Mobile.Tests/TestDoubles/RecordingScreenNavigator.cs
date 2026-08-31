@@ -85,6 +85,10 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
         _destinations.Add(nameof(ShowNote));
     }
 
+    public void ShowCopyReview() => _destinations.Add(nameof(ShowCopyReview));
+
+    public void ShowCopyHistory() => _destinations.Add(nameof(ShowCopyHistory));
+
     public void ShowCalendar() => _destinations.Add(nameof(ShowCalendar));
 
     /// <summary>Which event was opened, so a test can check the calendar led to the right one.</summary>

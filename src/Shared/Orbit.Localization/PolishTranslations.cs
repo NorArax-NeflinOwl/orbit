@@ -98,9 +98,21 @@ public static class PolishTranslations
         ["The name is yours to write - the pin below keeps its exact position either way."] = "Nazwę piszesz sam – pinezka i tak zachowuje swoje dokładne położenie.",
         ["Use the address from the map"] = "Użyj adresu z mapy",
         ["What this is about"] = "Czego to dotyczy",
+        ["This errand's product needs a name and an amount."] = "Produkt tego sprawunku potrzebuje nazwy i ilości.",
+        ["This needs a connection. It will work again once you're back online."] = "To wymaga połączenia. Zadziała ponownie, gdy wrócisz online.",
+        ["Reconnect"] = "Połącz ponownie",
+        ["offline"] = "offline",
+        ["online"] = "online",
+        ["Saved on this phone - the appointment reaches the calendar when you're back online."] = "Zapisano na tym telefonie — wydarzenie trafi do kalendarza po powrocie połączenia.",
+        ["Somebody else can change this appointment, and Orbit can't be reached to check. It stays as it was until you're back online."] = "Ktoś inny może zmieniać to wydarzenie, a Orbit jest nieosiągalny, żeby to sprawdzić. Zostaje bez zmian do czasu powrotu połączenia.",
         ["Repeats"] = "Powtarza się",
         ["Does not repeat"] = "Nie powtarza się",
+        ["Never"] = "Nigdy",
         ["Remind before"] = "Przypomnij wcześniej",
+        ["No reminder"] = "Bez przypomnienia",
+        ["Starts"] = "Zaczyna się",
+        ["Ends"] = "Kończy się",
+        ["This ends before it starts."] = "To kończy się przed rozpoczęciem.",
         ["This entry has an event in the calendar. Saving keeps the two in step."] = "Ta pozycja ma wydarzenie w kalendarzu. Zapis utrzymuje je w zgodzie.",
         ["Detach from the event"] = "Odłącz od wydarzenia",
         ["The place stays on this entry. To put it on the map in the calendar, open the event there."] = "Miejsce zostaje przy tej pozycji. Aby umieścić je na mapie w kalendarzu, otwórz tam wydarzenie.",
@@ -268,6 +280,39 @@ public static class PolishTranslations
         ["Sharing"] = "Udostępnianie",
         ["Link"] = "Link",
 
+        // What a note copied for editing offline is called, and the two windows that exist because of
+        // it - the review that asks which version to keep, and the history of the ones kept.
+        ["Make a copy you can write in while you are offline?"] =
+            "Zrobić kopię, w której możesz pisać bez połączenia?",
+        ["Make a copy"] = "Zrób kopię",
+        ["Not now"] = "Nie teraz",
+        ["copy"] = "kopia",
+        ["Copies to review"] = "Kopie do przejrzenia",
+        ["What you wrote while you were offline, beside what it came from."] =
+            "To, co napisałeś bez połączenia, obok tego, z czego to powstało.",
+        ["Nothing to review."] = "Nie ma nic do przejrzenia.",
+        ["This note was also changed elsewhere."] = "Ta notatka zmieniła się też gdzie indziej.",
+        ["The note this came from is gone."] = "Notatki, z której to powstało, już nie ma.",
+        // What each kind is called, for the two copy windows that hold all four at once. "Note",
+        // "Task list" and "Warehouse" are already translated above, under the words the whole app shares.
+        ["Appointment"] = "Spotkanie",
+        ["Your copy"] = "Twoja kopia",
+        ["Changed elsewhere"] = "Zmienione gdzie indziej",
+        ["Keep mine"] = "Zostaw moją",
+        ["Keep theirs"] = "Zostaw tamtą",
+        ["Keep both"] = "Zostaw obie",
+        ["History"] = "Historia",
+        ["Copies you kept, and what each came from."] =
+            "Kopie, które zostawiłeś, i to, z czego każda powstała.",
+        ["Nothing kept yet."] = "Nic jeszcze nie zostało zostawione.",
+        ["Open the original"] = "Otwórz oryginał",
+        ["{0} · copy of “{1}”, made on {2}."] = "{0} · kopia „{1}”, zrobiona {2}.",
+        ["{0} · copied on {1}. What it came from is gone."] =
+            "{0} · skopiowane {1}. Tego, z czego to powstało, już nie ma.",
+        ["Orbit can't be reached to check who else is editing. Try this again once you're back online."] =
+            "Nie można połączyć się z Orbitem, żeby sprawdzić, kto jeszcze to edytuje. Spróbuj ponownie, gdy wrócisz online.",
+        ["That is no longer here."] = "Tego już tu nie ma.",
+
         // ---- Tasks ----
         ["Add task list"] = "Dodaj listę zadań",
         ["Every list you own or someone shared with you."] = "Każda lista, którą masz albo którą Ci udostępniono.",
@@ -313,8 +358,8 @@ public static class PolishTranslations
         ["Looking through your warehouses…"] = "Przeszukuję magazyny…",
         ["Nothing on any shelf matches that."] = "Nic na żadnej półce nie pasuje.",
         ["Found in {0} of {1} warehouses."] = "Znaleziono w {0} z {1} magazynów.",
-        ["Found in {0} of {1} warehouses. These could not be opened, so nothing in them was searched: {2}"] =
-            "Znaleziono w {0} z {1} magazynów. Tych nie udało się otworzyć, więc nic w nich nie zostało przeszukane: {2}",
+        ["Found in {0} of {1} warehouses. {2} could not be opened, so nothing in them was searched."] =
+            "Znaleziono w {0} z {1} magazynów. {2} nie udało się otworzyć, więc nic w nich nie zostało przeszukane.",
         ["Move up"] = "Przenieś w górę",
         ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",
@@ -1298,10 +1343,45 @@ public static class PolishTranslations
             "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["This note is private, and its words are sealed with a key this phone doesn't have."] =
             "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["No earlier messages could be passed on - this device can't open any of them."] =
+            "Nie udało się przekazać żadnej wcześniejszej wiadomości — to urządzenie nie potrafi otworzyć ani jednej.",
+        ["Passed on {0} earlier messages."] =
+            "Przekazano wcześniejsze wiadomości: {0}.",
+        ["They're in the group, but passing on the earlier messages didn't work."] =
+            "Są już w grupie, ale przekazanie wcześniejszych wiadomości się nie udało.",
+        ["They're in the group, but the earlier messages couldn't be passed on until they've signed in once."] =
+            "Są już w grupie, ale wcześniejszych wiadomości nie da się przekazać, dopóki choć raz się nie zalogują.",
+        ["{0} joined {1}"] = "{0} dołączył(a) do grupy {1}",
+        ["{0} shared the conversation so far"] = "{0} udostępnił(a) dotychczasową rozmowę",
+        ["Somebody"] = "Ktoś",
+        ["A daily reminder needs a time to arrive at."] =
+            "Codzienne przypomnienie potrzebuje godziny, o której ma przyjść.",
+        ["Choose a time"] = "Wybierz godzinę",
+        ["The name is yours to write - the point is kept either way."] =
+            "Nazwa należy do Ciebie — punkt i tak zostaje zapisany.",
+        ["Refresh the restock list"] = "Odśwież listę uzupełnień",
+        ["Share the conversation so far"] = "Udostępnij dotychczasową rozmowę",
+        ["They will be able to read what was said before they joined."] = "Będą mogli przeczytać to, co napisano przed ich dołączeniem.",
+        ["They're in the group, but this device has no key to open the earlier messages with."] = "Są już w grupie, ale to urządzenie nie ma klucza, którym można otworzyć wcześniejsze wiadomości.",
+        ["Use this name"] = "Użyj tej nazwy",
+        ["Only you can read it, and it cannot be shared."] =
+            "Tylko Ty możesz to przeczytać i nie da się tego udostępnić.",
+        ["This note is private. Unlock this device's encryption key to read it."] =
+            "Ta notatka jest prywatna. Odblokuj klucz szyfrowania na tym urządzeniu, żeby ją przeczytać.",
+        ["This note was sealed with an encryption key this account no longer has."] =
+            "Ta notatka została zapieczętowana kluczem szyfrowania, którego to konto już nie ma.",
         ["This list is private, and its contents are sealed with a key this phone doesn't have."] =
             "Ta lista jest prywatna, a jej zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["This list is private. Unlock this device's encryption key to read it."] =
+            "Ta lista jest prywatna. Odblokuj klucz szyfrowania na tym urządzeniu, żeby ją przeczytać.",
+        ["This list was sealed with an encryption key this account no longer has."] =
+            "Ta lista została zapieczętowana kluczem szyfrowania, którego to konto już nie ma.",
         ["This warehouse is private, and its contents are sealed with a key this phone doesn't have."] =
             "Ten magazyn jest prywatny, a jego zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
+        ["This warehouse is private. Unlock this device's encryption key to read it."] =
+            "Ten magazyn jest prywatny. Odblokuj klucz szyfrowania na tym urządzeniu, żeby go otworzyć.",
+        ["This warehouse was sealed with an encryption key this account no longer has."] =
+            "Ten magazyn został zapieczętowany kluczem szyfrowania, którego to konto już nie ma.",
 
         // One group message's own info view: who it reached, and who has opened it.
         ["{0} - read {1}"] = "{0} — przeczytano {1}",

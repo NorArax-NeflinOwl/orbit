@@ -180,7 +180,14 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarEventRow">
                         <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                            <!-- Two rows with the same title are otherwise indistinguishable, and the
+                                 reader has no way of telling which one they wrote in. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <Label Grid.Column="0" Text="{Binding Title}" FontSize="17" FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
+                                          FontSize="11" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                            </Grid>
                             <Label Text="{Binding When}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                                    FontSize="12" TextColor="{DynamicResource Accent}" />

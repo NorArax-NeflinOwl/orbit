@@ -5,6 +5,7 @@ using Orbit.Mobile.Chat;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Tests.Chat;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 
@@ -108,6 +109,48 @@ public sealed class SharePanelTests
         var panel = Build(context, shares, await UnlockedPermissions.LockedTo(localStore, ApplicationPermission.Chat));
 
         Assert.False(panel.CanShare);
+    }
+
+    /// <summary>
+    /// Having the permission is not enough - there has to be something to offer. The panel binds its own
+    /// visibility to this, which is why the question is asked here: an IsVisible set on the instance by
+    /// an editor's markup is overridden by the panel's own binding and does nothing at all. Found on a
+    /// device, with the share buttons still sitting under a note that had just been made private.
+    /// </summary>
+    [Fact]
+    public void Nothing_is_offered_until_an_editor_says_what_it_has()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+
+        var panel = Build(context, shares);
+
+        Assert.False(panel.CanShare);
+    }
+
+    [Fact]
+    public void Something_that_can_no_longer_be_offered_stops_being_offered()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        var panel = Build(context, shares);
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+
+        panel.OffersNothing();
+
+        Assert.False(panel.CanShare);
+    }
+
+    [Fact]
+    public void An_editor_that_says_what_it_has_is_offered_sharing()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        var panel = Build(context, shares);
+
+        panel.Describes(SharedItemKind.Note, Guid.NewGuid(), "Shopping");
+
+        Assert.True(panel.CanShare);
     }
 
     [Fact]
@@ -265,9 +308,25 @@ public sealed class SharePanelTests
         await context.Repository.StoreContactsAsync([context.Server.Contacts[index]]);
     }
 
+    /// <summary>
+    /// Every button on this panel needs the server - a share is an offer somebody else has to accept,
+    /// and a link is a token only the server mints - so none is offered while there is nobody to ask.
+    /// Said before the tap rather than after, which is the whole point.
+    /// </summary>
+    [Fact]
+    public void Nothing_on_the_panel_is_offered_without_a_connection()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        var panel = Build(context, shares, connection: Connections.Offline);
+
+        Assert.True(panel.Connection.IsNotMet);
+        Assert.NotEmpty(panel.Connection.Explanation);
+    }
+
     private static SharePanel Build(
         ChatContext context, FakeShareServer shares, Orbit.Mobile.Permissions.UserPermissions? permissions = null,
-        FakePublicShareServer? links = null)
+        FakePublicShareServer? links = null, ConnectionRequirement? connection = null)
     {
         var http = shares.ToHttpClient();
 
@@ -279,6 +338,7 @@ public sealed class SharePanelTests
                 context.Sender),
             new PublicShareClient((links ?? new FakePublicShareServer()).ToHttpClient()),
             permissions ?? UnlockedPermissions.For(new LocalStore()),
-            new Translations(new InMemoryLanguageStore()));
+            new Translations(new InMemoryLanguageStore()),
+            connection ?? Connections.Online);
     }
 }

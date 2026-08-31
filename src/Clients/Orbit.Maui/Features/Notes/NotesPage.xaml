@@ -58,10 +58,14 @@
                             <!-- The pin sits beside the title as it does on the web. Filled when it is
                                  set, outlined when it is not, so the row says which it is without a
                                  word - and absent on a note somebody else owns, whose order is theirs. -->
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                 <Label Grid.Column="0" Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold"
                                        VerticalOptions="Center" />
-                                <controls:PinButton Grid.Column="1" IsVisible="{Binding CanBePinned}"
+                                <!-- Two rows with the same title are otherwise indistinguishable, and
+                                     the reader has no way of telling which one they wrote in. -->
+                                <Label Grid.Column="1" Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
+                                       FontSize="11" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                                <controls:PinButton Grid.Column="2" IsVisible="{Binding CanBePinned}"
                                                     IsPinned="{Binding IsPinned}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=notes:NotesPage}"
                                                     CommandParameter="{Binding .}" />

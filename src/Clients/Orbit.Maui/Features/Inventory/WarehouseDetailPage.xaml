@@ -16,23 +16,49 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
-        <Entry Grid.Row="0" Text="{Binding Name}" FontSize="20" FontAttributes="Bold"
-               IsReadOnly="{Binding IsReadOnly}" Placeholder="{controls:Translate 'Untitled'}"
-               ReturnType="Done" ReturnCommand="{Binding RenameCommand}" />
+        <VerticalStackLayout Grid.Row="0" Spacing="6">
+            <Entry Text="{Binding Name}" FontSize="20" FontAttributes="Bold"
+                   IsReadOnly="{Binding IsReadOnly}" Placeholder="{controls:Translate 'Untitled'}"
+                   ReturnType="Done" ReturnCommand="{Binding RenameCommand}" />
+
+            <!-- Warehouse names already in use, offered as this one is typed - its own strip, because
+                 the box below is a different field and is on screen at the same time. -->
+            <controls:NameSuggestionChips BindingContext="{Binding WarehouseNameSuggestions}" />
+        </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                    FontSize="12" TextColor="{DynamicResource Accent}" LineBreakMode="WordWrap" />
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+            <controls:CopyOffer IsOffered="{Binding IsCopyOffered}"
+                                TakeCommand="{Binding CopyForEditingCommand}"
+                                DeclineCommand="{Binding DeclineCopyCommand}" />
         </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="2" Spacing="8" IsVisible="{Binding IsShowingList}">
+            <!-- The same checkbox Orbit.Web's warehouse editor has: what it turns on is real
+                 encryption, so the row says what it costs rather than only what it is. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
+                <VerticalStackLayout Grid.Column="0">
+                    <Label Text="{controls:Translate 'Private'}" />
+                    <Label Text="{controls:Translate 'Only you can read it, and it cannot be shared.'}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+                <Switch Grid.Column="1" IsToggled="{Binding IsPrivate}" VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Private'}" />
+            </Grid>
+
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemName}"
                        ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
             </Grid>
+
+            <!-- Under the box a new product is named in, which on a phone is where names are actually
+                 typed - the editor below is mostly for changing one. -->
+            <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
 
             <!-- Narrows what is on screen, never what is saved: the whole list still goes back on save,
                  so a filter that reached it would delete the rows it hid. -->
@@ -120,34 +146,7 @@
                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
             <VerticalStackLayout Padding="0,8" Spacing="10" BindingContext="{Binding BeingEdited}"
                                  x:DataType="screens:WarehouseItemEditor">
-                <Entry Placeholder="{controls:Translate 'Item name'}" Text="{Binding Name}" />
-                <Entry Placeholder="{controls:Translate 'Product type'}" Text="{Binding ProductType}" />
-                <Entry Placeholder="{controls:Translate 'Category'}" Text="{Binding Category}" />
-
-                <!-- The unit sits beside the numbers it qualifies rather than below with the rest of the
-                     settings, for the reason Orbit.Web's editor gives: "2" and "2 kg" are different
-                     amounts, and the second is the one somebody stocking a shelf can act on. -->
-                <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
-                    <Entry Grid.Column="0" Placeholder="{controls:Translate 'Quantity'}" Text="{Binding Quantity}"
-                           Keyboard="Numeric" />
-                    <Entry Grid.Column="1" Placeholder="{controls:Translate 'Minimum'}" Text="{Binding MinimumQuantity}"
-                           Keyboard="Numeric" />
-                    <Picker Grid.Column="2" Title="{controls:Translate 'Unit'}" WidthRequest="96"
-                            ItemsSource="{Binding Units}" SelectedItem="{Binding ChosenUnit}"
-                            ItemDisplayBinding="{Binding ShortName, x:DataType=screens:InventoryUnitChoice}" />
-                </Grid>
-
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <Label Grid.Column="0" Text="{controls:Translate 'Expires'}" VerticalOptions="Center" />
-                    <Switch Grid.Column="1" IsToggled="{Binding Expires}" VerticalOptions="Center" />
-                </Grid>
-                <DatePicker Date="{Binding ExpiryDate}" IsVisible="{Binding Expires}" Format="{controls:DatePattern}" />
-
-                <Label Text="{controls:Translate 'Expiry notification'}" FontSize="12"
-                       Style="{StaticResource SubtleLabel}" />
-                <Picker ItemsSource="{Binding Channels}"
-                        SelectedItem="{Binding ChosenExpiryNotificationChannel}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}" />
+                <controls:ShelfProductFields />
             </VerticalStackLayout>
         </ScrollView>
 
@@ -161,6 +160,8 @@
         <!-- The panel's own BindingContext would decide its IsVisible too, so the visibility lives on a
              wrapper that still reads the view model. -->
         <VerticalStackLayout Grid.Row="4" IsVisible="{Binding IsShowingList}">
+            <!-- The panel hides itself for a private warehouse, as Orbit.Web's editor hides it: there
+                 is no readable copy on the server to hand anybody - see SharePanel.CanShare. -->
             <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
 

@@ -255,7 +255,8 @@ public sealed class ContactsScreenTests
         {
             var screen = new ContactsViewModel(
                 Repository, _chatClient, UsersClient, _synchronizer, _encryptionKeyProvider,
-                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator);
+                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator,
+                Connections.Online);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
         }

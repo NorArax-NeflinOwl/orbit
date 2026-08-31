@@ -44,6 +44,22 @@ public sealed class NotificationEntryRepository : INotificationEntryRepository
         return entities.Select(ToDomain).ToList();
     }
 
+    public async Task<IReadOnlyList<NotificationEntry>> GetChangedSinceAsync(
+        Guid userId, DateTimeOffset since, int take, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.NotificationEntries
+            .AsNoTracking()
+            .Where(entity => entity.UserId == userId
+                && (entity.CreatedAtUtc > since
+                    || (entity.ReadAtUtc != null && entity.ReadAtUtc > since)
+                    || (entity.DismissedAtUtc != null && entity.DismissedAtUtc > since)))
+            .OrderByDescending(entity => entity.CreatedAtUtc)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
     public async Task<IReadOnlyList<NotificationEntry>> GetUnreadAsync(Guid userId, int take, CancellationToken cancellationToken)
     {
         var entities = await _dbContext.NotificationEntries

@@ -1,14 +1,20 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Core.Inventory;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
@@ -26,6 +32,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly LocalCalendarEventRepository _calendarEvents;
+    private readonly CalendarClient _calendarClient;
+    private readonly LocalWarehouseRepository _warehouses;
+    private readonly WarehouseSynchronizer _warehouseSynchronizer;
+    private readonly InventoryClient _inventoryClient;
     private readonly IPlacePicker _placePicker;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly TasksClient _tasksClient;
@@ -33,14 +43,22 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly TimeProvider _timeProvider;
     private readonly INetworkStatus _networkStatus;
+    private readonly PrivateContentSealer _privateContent;
+    private readonly NameSuggestions _nameSuggestions;
+    private readonly NameSuggestions _titleSuggestions;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
     private Guid? _serverId;
     private IReadOnlyList<TaskItemDto> _items = [];
 
-    /// <summary>The events an entry could be tied to - see <see cref="CalendarEventChoice"/>.</summary>
-    private IReadOnlyList<CalendarEventChoice> _linkableEvents = [];
+    /// <summary>
+    /// The appointment behind each Calendar entry that already has one, by the id the entry carries.
+    /// Read from this phone's own copy of the calendar, so opening an entry offline still shows when it
+    /// happens rather than an empty form that would overwrite it on save.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, CalendarEventDetailsDto> _appointments =
+        new Dictionary<Guid, CalendarEventDetailsDto>();
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -75,10 +93,19 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
-        TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck,
-        LocalCalendarEventRepository calendarEvents, IPlacePicker placePicker)
+        TasksClient tasksClient, CalendarClient calendarClient, EditLock editLock,
+        INetworkStatus networkStatus, StockCheckPanel stockCheck,
+        LocalCalendarEventRepository calendarEvents, LocalWarehouseRepository warehouses,
+        WarehouseSynchronizer warehouseSynchronizer, InventoryClient inventoryClient,
+        IPlacePicker placePicker,
+        PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
+        NameSuggestions titleSuggestions)
     {
         _taskLists = taskLists;
+        _calendarClient = calendarClient;
+        _warehouses = warehouses;
+        _warehouseSynchronizer = warehouseSynchronizer;
+        _inventoryClient = inventoryClient;
         _calendarEvents = calendarEvents;
         _placePicker = placePicker;
         _synchronizer = synchronizer;
@@ -90,6 +117,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _networkStatus = networkStatus;
+        _privateContent = privateContent;
+        _nameSuggestions = nameSuggestions;
+        _titleSuggestions = titleSuggestions;
+        _titleSuggestions.Offers(NameSuggestionKind.TaskListTitle);
+        _titleSuggestions.Takes = title => Title = title;
+        OfferNamesToTheQuickAddBox();
         StockCheck = stockCheck;
         // Generating a warehouse or pointing at a different one changes the list itself, so the screen
         // re-reads rather than letting the panel and the list drift apart.
@@ -108,6 +141,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     private bool _isGroup;
+
+    /// <summary>
+    /// Only its owner may ever read this list, and the server never can. Orbit.Web's task editor has
+    /// had the checkbox all along; the phone carried the flag without being able to set one - see
+    /// PrivateContentSealer.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPrivate;
 
     /// <summary>
     /// How much this list matters - Orbit.Web has had the same three choices on its task editor all
@@ -139,7 +180,45 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public void Open(Guid localId) => _localId = localId;
 
     [RelayCommand]
-    private Task LoadAsync(CancellationToken cancellationToken) => ShowStoredListAsync(cancellationToken);
+    private async Task LoadAsync(CancellationToken cancellationToken)
+    {
+        await ShowStoredListAsync(cancellationToken);
+        await SettleFinishedErrandsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Settles anything already crossed off on a restock list: each finished errand fills its shelf item
+    /// and leaves the list. Asked on opening rather than on ticking, which is where Orbit.Web asks it -
+    /// and it has to be asked here too, or the same list settles itself in a browser and quietly does
+    /// not on a phone, which is the one thing two clients on one account must never do.
+    ///
+    /// Best effort. A settle that could not be asked for leaves the list exactly as it was, which is
+    /// readable and correct-looking; saying so over a checklist somebody came here to use would be
+    /// noise about something they did not ask for.
+    /// </summary>
+    private async Task SettleFinishedErrandsAsync(CancellationToken cancellationToken)
+    {
+        if (_serverId is not { } serverId || !RestockTaskNaming.IsManagedTitle(Title))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await _tasksClient.ReconcileRestockingAsync(serverId, cancellationToken) == 0)
+            {
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            return;
+        }
+
+        // The server moved the errands, so the list is pulled back rather than rewritten from here.
+        await SynchroniseAsync(cancellationToken);
+        await ShowStoredListAsync(cancellationToken);
+    }
 
     [RelayCommand(CanExecute = nameof(CanAddItem))]
     private Task AddItemAsync(CancellationToken cancellationToken)
@@ -147,8 +226,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var description = NewItemDescription.Trim();
         NewItemDescription = string.Empty;
 
+        // Both channels start at Push, as Orbit.Web's new-entry defaults do. "None" would be a quieter
+        // default in name only: nothing on this screen says a channel is off, so an entry added here
+        // would go overdue in silence and look like push was broken rather than switched off.
         return SaveAsync(
-            [.. _items, new TaskItemDto(Guid.Empty, description, null, false, null, "None", false, "None", new TimeOnly(9, 0))],
+            [.. _items, new TaskItemDto(Guid.Empty, description, null, false, null, "Push", false, "Push", new TimeOnly(9, 0))],
             cancellationToken);
     }
 
@@ -160,7 +242,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = TaskItemEditor.For(row.Item, _translations, _linkableEvents, LinkTargets);
+            BeingEdited = TaskItemEditor.For(
+                row.Item, _translations, AppointmentFor(row.Item), LinkTargets, _nameSuggestions,
+                ShelfProductFor(row.Item));
             MoveTarget = null;
             OnPropertyChanged(nameof(CanMoveItem));
         }
@@ -184,14 +268,30 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private TaskListChoice? _moveTarget;
 
     /// <summary>
-    /// An entry added on this phone and not yet synced has no id the server would recognise, so there
-    /// is nothing to move yet. Offline there is nobody to do the moving at all.
+    /// Moving is a change to two lists, which only the server can make - so it is offered only for an
+    /// entry the server already knows about, and only while there is somebody to ask.
+    ///
+    /// "Has an id" used to be the test for that, and stopped being one when this phone started naming
+    /// its own entries (see LocalTaskListRepository.WithIdentity): an entry written a second ago now has
+    /// an id too. What actually says the server has seen it is that nothing about this list is still
+    /// waiting to be pushed - after a successful sync the queue is empty and everything on the list is
+    /// known, and while anything is queued this entry may be the thing that is queued.
     /// </summary>
     public bool CanMoveItem
         => CanEdit
             && _networkStatus.IsOnline
             && MoveTargets.Count > 0
+            && !_isWaitingToBePushed
             && BeingEdited?.ToDto().Id is { } itemId && itemId != Guid.Empty;
+
+    /// <summary>Whether this list has changes the server has not been told about - see CanMoveItem.</summary>
+    private bool _isWaitingToBePushed;
+
+    private async Task ShowWhetherAnythingIsQueuedAsync(CancellationToken cancellationToken)
+    {
+        _isWaitingToBePushed = (await _taskLists.GetPendingLocalIdsAsync(cancellationToken)).Contains(_localId);
+        OnPropertyChanged(nameof(CanMoveItem));
+    }
 
     [RelayCommand]
     private async Task MoveItemAsync(TaskListChoice? target, CancellationToken cancellationToken)
@@ -247,10 +347,162 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         var events = await _calendarEvents.GetAllAsync(cancellationToken);
 
-        _linkableEvents = [.. events
+        _appointments = events
             .Where(candidate => candidate.ServerId is not null)
-            .Select(candidate => new CalendarEventChoice(
-                candidate.ServerId, candidate.Details.Title, candidate.Details.Location?.Address ?? string.Empty))];
+            .ToDictionary(candidate => candidate.ServerId!.Value, candidate => candidate.Details);
+    }
+
+    /// <summary>
+    /// The appointment an entry already has, or null when saving it will make one. Null is also the
+    /// answer for an entry whose event this phone has not synced yet, which opens the form on today
+    /// rather than on nothing - the event itself is not lost, since the id still travels untouched.
+    /// </summary>
+    /// <summary>
+    /// The product behind each Inventory entry, by the shelf item's id, together with the warehouse it
+    /// sits on. Read from this phone's own copy rather than asked for: the whole point of the link is
+    /// that the row already knows which product it means, and a correction has to be possible offline
+    /// the same as every other edit on this screen.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, ShelfProductLocation> _shelfProducts =
+        new Dictionary<Guid, ShelfProductLocation>();
+
+    /// <summary>Where one product lives, so a change made here knows which warehouse to go back to.</summary>
+    private sealed record ShelfProductLocation(Guid WarehouseLocalId, string WarehouseName, WarehouseItemDto Product);
+
+    private async Task ShowWhatItsErrandsAreAboutAsync(CancellationToken cancellationToken)
+    {
+        var byProductId = new Dictionary<Guid, ShelfProductLocation>();
+        foreach (var warehouse in await _warehouses.GetAllAsync(cancellationToken))
+        {
+            // A product still waiting to be pushed has no id yet, so nothing can be pointing at it.
+            foreach (var product in warehouse.Items.Where(product => product.Id is not null))
+            {
+                byProductId[product.Id!.Value] = new(warehouse.LocalId, warehouse.Name, product);
+            }
+        }
+
+        _shelfProducts = byProductId;
+    }
+
+    /// <summary>
+    /// The product an errand is about, ready to edit, or null when this phone has not got it - a
+    /// warehouse somebody stopped sharing, or one not synced yet. The entry still opens either way.
+    /// </summary>
+    private TaskItemShelfProduct? ShelfProductFor(TaskItemDto item)
+        => item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found)
+            ? TaskItemShelfProduct.For(found.WarehouseLocalId, found.WarehouseName, found.Product, _translations)
+            : null;
+
+    /// <summary>
+    /// Every list other than this one that is asking for the same product, by that product's id. Worked
+    /// out from this phone's own lists rather than asked for - Orbit.Web asks its server, which is the
+    /// difference between a browser and something that has to work on a train.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, IReadOnlyList<TaskItemReference>> _alsoAskedForBy =
+        new Dictionary<Guid, IReadOnlyList<TaskItemReference>>();
+
+    private async Task ShowWhoElseIsAskingAsync(CancellationToken cancellationToken)
+    {
+        var byProductId = new Dictionary<Guid, List<TaskItemReference>>();
+        foreach (var list in await _taskLists.GetAllAsync(cancellationToken))
+        {
+            if (list.LocalId == _localId)
+            {
+                continue;
+            }
+
+            foreach (var productId in list.Items
+                .Where(item => item.Kind == nameof(TaskItemKind.Inventory))
+                .Select(item => item.LinkedInventoryItemId)
+                .OfType<Guid>()
+                .Distinct())
+            {
+                byProductId.TryAdd(productId, []);
+                byProductId[productId].Add(new(
+                    // The title as stored, which is how every other screen on this phone shows one.
+                    _translations.Format("also on {0}", list.Title),
+                    list.LocalId,
+                    TaskItemReferenceTarget.TaskList));
+            }
+        }
+
+        _alsoAskedForBy = byProductId.ToDictionary(
+            pair => pair.Key, pair => (IReadOnlyList<TaskItemReference>)pair.Value);
+    }
+
+    /// <summary>
+    /// Where an inventory errand points: the shelf it is about first, then every other list asking for
+    /// the same product. Both are somewhere to go rather than something to read - see TaskItemReference.
+    /// </summary>
+    private IReadOnlyList<TaskItemReference> ReferencesFor(TaskItemDto item)
+    {
+        if (item.Kind != nameof(TaskItemKind.Inventory) || item.LinkedInventoryItemId is not { } productId)
+        {
+            return [];
+        }
+
+        var references = new List<TaskItemReference>();
+        if (_shelfProducts.TryGetValue(productId, out var shelf))
+        {
+            references.Add(new(
+                _translations.Format("in {0}", shelf.WarehouseName),
+                shelf.WarehouseLocalId,
+                TaskItemReferenceTarget.Warehouse));
+        }
+
+        if (_alsoAskedForBy.TryGetValue(productId, out var elsewhere))
+        {
+            references.AddRange(elsewhere);
+        }
+
+        return references;
+    }
+
+    /// <summary>Opens what a reference points at, which is the whole reason it is shown.</summary>
+    [RelayCommand]
+    private void OpenReference(TaskItemReference? reference)
+    {
+        if (reference is null)
+        {
+            return;
+        }
+
+        if (reference.Target == TaskItemReferenceTarget.Warehouse)
+        {
+            _navigator.ShowWarehouse(reference.LocalId);
+            return;
+        }
+
+        _navigator.ShowTaskList(reference.LocalId);
+    }
+
+    private CalendarEventDetailsDto? AppointmentFor(TaskItemDto item)
+        => item.LinkedCalendarEventId is { } eventId && _appointments.TryGetValue(eventId, out var details)
+            ? details
+            : _appointmentsWaitingToBeNamed.GetValueOrDefault(item.Description);
+
+    /// <summary>
+    /// Appointments made on this phone that the server has not named yet, by the entry they belong to.
+    /// Without this an entry saved offline would reopen on an empty form, and the next save would make a
+    /// second event rather than correcting the first - see PendingCalendarLink.
+    /// </summary>
+    private IReadOnlyDictionary<string, CalendarEventDetailsDto> _appointmentsWaitingToBeNamed =
+        new Dictionary<string, CalendarEventDetailsDto>();
+
+    private async Task ShowAppointmentsWaitingToBeNamedAsync(CancellationToken cancellationToken)
+    {
+        // Keyed on the words rather than the id, for the reason PendingCalendarLink gives: an entry
+        // made offline has no id of its own yet.
+        var waiting = new Dictionary<string, CalendarEventDetailsDto>();
+        foreach (var item in _items.Where(item => item.Kind == nameof(TaskItemKind.Calendar)))
+        {
+            if (await _calendarEvents.FindPendingForAsync(_localId, item.Description, cancellationToken) is { } pending)
+            {
+                waiting[item.Description] = pending.Details;
+            }
+        }
+
+        _appointmentsWaitingToBeNamed = waiting;
     }
 
     [RelayCommand]
@@ -277,18 +529,185 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task SaveItemAsync(CancellationToken cancellationToken)
+    private async Task SaveItemAsync(CancellationToken cancellationToken)
     {
         if (BeingEdited is not { CanSave: true } editor)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         var edited = editor.ToDto();
-        BeingEdited = null;
+        if (edited.Kind == nameof(TaskItemKind.Calendar))
+        {
+            if (await PutInTheCalendarAsync(editor, edited, cancellationToken) is not { } withItsAppointment)
+            {
+                return;
+            }
 
-        return SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
+            edited = withItsAppointment;
+        }
+
+        var shelf = editor.IsShelfEntry ? editor.Shelf : null;
+        BeingEdited = null;
+        await SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
+
+        if (shelf is not null)
+        {
+            await SaveTheShelfAsync(shelf, cancellationToken);
+        }
     }
+
+    /// <summary>
+    /// Writes a corrected product back to the warehouse it lives on, then asks that warehouse to work
+    /// out its restock list again - a corrected amount can settle an errand or raise one, and a list
+    /// still saying the old thing makes the correction look like it did not take.
+    ///
+    /// After the task list is saved rather than before, and it does not stop the save if it fails: the
+    /// shelf is a second thing this screen touches, not the thing it is for. That is the order Orbit.Web
+    /// settles on too, and the opposite of the calendar's - an appointment has to exist before the entry
+    /// can name it, while a product already exists and is only being corrected.
+    /// </summary>
+    private async Task SaveTheShelfAsync(TaskItemShelfProduct shelf, CancellationToken cancellationToken)
+    {
+        if (await _warehouses.FindAsync(shelf.WarehouseLocalId, cancellationToken) is not { } warehouse)
+        {
+            return;
+        }
+
+        var corrected = shelf.Product.ToDto();
+        var outcome = await _warehouses.UpdateAsync(
+            shelf.WarehouseLocalId,
+            new WarehouseContent(
+                warehouse.Name,
+                [.. warehouse.Items.Select(product => product.Id == corrected.Id ? corrected : product)],
+                warehouse.IsPrivate),
+            cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations[ShelfRefusalMessage];
+            return;
+        }
+
+        // Pushed here rather than left for whenever somebody next opens the warehouse: the correction is
+        // to a shelf this screen is not otherwise about, so nothing else would carry it up, and a
+        // restock list rebuilt before the new amount arrives would be rebuilt from the old one.
+        await _warehouseSynchronizer.SynchroniseAsync(cancellationToken);
+        await RefreshTheRestockListAsync(warehouse.ServerId, cancellationToken);
+        await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Best effort, and deliberately quiet: the correction is already saved on this phone and on its way
+    /// up, and a restock list that is one sync behind rights itself. Saying "couldn't reach Orbit" about
+    /// a change that did land would be the wrong thing to tell somebody.
+    /// </summary>
+    private async Task RefreshTheRestockListAsync(Guid? warehouseServerId, CancellationToken cancellationToken)
+    {
+        if (warehouseServerId is not { } serverId)
+        {
+            return;
+        }
+
+        try
+        {
+            await _inventoryClient.RefreshRestockListAsync(serverId, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string ShelfRefusalMessage =
+        "The list was saved, but the shelf couldn't be updated. Open the warehouse and check it.";
+
+    /// <summary>
+    /// Brings a Calendar entry's appointment into being, or into step, and hands back the entry carrying
+    /// whatever id it should. Before the list is written rather than after, so there is no window where
+    /// the entry exists and the appointment does not - the order Orbit.Web's SaveTheCalendarAsync
+    /// settles on.
+    ///
+    /// Online this goes straight to the server, which names the event and lets the entry carry that name
+    /// immediately. Offline it writes the event to this phone's own calendar and remembers the pairing
+    /// (see PendingCalendarLink): the entry carries no server id yet, and gets one when the calendar
+    /// syncs. Both are real appointments - the difference is only whether anybody else can see one yet,
+    /// which is what the row's tag says.
+    ///
+    /// Null when even the local write was refused, so the caller stops rather than saving an entry that
+    /// points at an appointment nobody made.
+    /// </summary>
+    private async Task<TaskItemDto?> PutInTheCalendarAsync(
+        TaskItemEditor editor, TaskItemDto edited, CancellationToken cancellationToken)
+    {
+        // Asked before trying rather than learned from the attempt. With no route a request does not
+        // fail quickly and cleanly - it hangs until the client gives up, which arrives as a timeout
+        // rather than an HttpRequestException, and a catch written for the latter let an appointment
+        // saved on a phone with no connection call itself "online". Found on a device.
+        if (!_networkStatus.IsOnline)
+        {
+            return await PutInThisPhonesCalendarAsync(editor, edited, cancellationToken);
+        }
+
+        var details = editor.Event.ToRequest(edited.Description);
+        try
+        {
+            if (edited.LinkedCalendarEventId is { } eventId)
+            {
+                await _calendarClient.UpdateAsync(eventId, new UpdateCalendarEventRequest(details), cancellationToken);
+                return edited;
+            }
+
+            return edited with
+            {
+                LinkedCalendarEventId = await _calendarClient.CreateAsync(
+                    new CreateCalendarEventRequest(details), cancellationToken)
+            };
+        }
+        // Both, because a connection that is up but going nowhere ends either way - and the fallback
+        // is the same whichever it was.
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            return await PutInThisPhonesCalendarAsync(editor, edited, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// The offline half: the appointment is written here and waits to be named. An entry already being
+    /// corrected keeps the event it made earlier rather than making a second one - which is the whole
+    /// reason the pairing is remembered rather than inferred.
+    /// </summary>
+    private async Task<TaskItemDto?> PutInThisPhonesCalendarAsync(
+        TaskItemEditor editor, TaskItemDto edited, CancellationToken cancellationToken)
+    {
+        var details = editor.Event.ToDetails(edited.Description);
+        if (await _calendarEvents.FindPendingForAsync(_localId, edited.Description, cancellationToken) is { } waiting)
+        {
+            var outcome = await _calendarEvents.UpdateAsync(waiting.LocalId, details, cancellationToken);
+            if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+            {
+                Status = _translations[AppointmentRefusalMessage];
+                return null;
+            }
+
+            Status = _translations[AppointmentQueuedMessage];
+            return edited;
+        }
+
+        var created = await _calendarEvents.CreateAsync(details, cancellationToken);
+        await _calendarEvents.RememberPendingLinkAsync(
+            created.LocalId, _localId, edited.Description, cancellationToken);
+        Status = _translations[AppointmentQueuedMessage];
+        return edited;
+    }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string AppointmentRefusalMessage =
+        "Somebody else can change this appointment, and Orbit can't be reached to check. It stays as it was until you're back online.";
+
+    /// <inheritdoc cref="AppointmentRefusalMessage"/>
+    private const string AppointmentQueuedMessage =
+        "Saved on this phone - the appointment reaches the calendar when you're back online.";
 
     /// <summary>
     /// Ticking off "Update stock levels" while errands are still open on the same list is either the end
@@ -430,8 +849,20 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     private async Task SaveAsync(IReadOnlyList<TaskItemDto> items, CancellationToken cancellationToken)
     {
-        var outcome = await _taskLists.UpdateAsync(
-            _localId, new TaskListContent(Title, items, IsGroup, _priority), cancellationToken);
+        LocalWriteOutcome outcome;
+        try
+        {
+            outcome = await _taskLists.UpdateAsync(
+                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate), cancellationToken);
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            // Sealing needs the account's own key, and this device has not got it - see
+            // NoteDetailViewModel, which sends the reader to the same gate for the same reason.
+            _navigator.ShowChatKeyGate();
+            return;
+        }
+
         if (outcome is LocalWriteOutcome.RefusedWhileOffline)
         {
             Status = _translations[RefusalMessage];
@@ -451,36 +882,52 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         Title = taskList.Title;
+        // Taken as already looked up, so opening a list does not offer completions of its own title and
+        // warn that it duplicates itself - see NameSuggestions.StartsAt.
+        _titleSuggestions.StartsAt(taskList.Title);
         _serverId = taskList.ServerId;
-        if (taskList.ServerId is { } serverId)
+        // A private list is offered to nobody: the server holds no readable copy to hand over, which is
+        // what makes it private - the same line Orbit.Web's editor draws.
+        if (taskList is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(
                 SharedItemKind.TaskList, serverId, taskList.Title,
                 taskList.AccessLevel == "CanEdit" ? null : taskList.OwnerUserId);
         }
+        else
+        {
+            Share.OffersNothing();
+        }
 
         _items = taskList.Items;
         _isShowingWhatIsStored = true;
         IsGroup = taskList.IsGroup;
+        IsPrivate = taskList.IsPrivate;
         ChosenPriority = PriorityChoice.For(taskList.Priority, _translations);
         _isShowingWhatIsStored = false;
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
-        // Sealed with a key this phone has not got, so there is nothing here to change: the readable
-        // fields arrive empty, and saving would send a private list with no ciphertext - which the
-        // server refuses outright, and which would replace the sealed list with an empty one if it did
-        // not. NoteDetailViewModel has always drawn this line; the list and the shelf did not.
-        if (taskList.IsPrivate)
+        // Both before the rows are built below: a row asks these two what it points at - see ReferencesFor.
+        await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
+        await ShowWhoElseIsAskingAsync(cancellationToken);
+        await ShowAppointmentsWaitingToBeNamedAsync(cancellationToken);
+        await ShowWhetherAnythingIsQueuedAsync(cancellationToken);
+        // Sealed with a key this device cannot open, so there is nothing here to change: the readable
+        // fields are empty, and saving would replace the sealed list with an empty one.
+        if (taskList.IsSealed)
         {
             IsReadOnly = true;
-            ReadOnlyReason = _translations[
-                "This list is private, and its contents are sealed with a key this phone doesn't have."];
+            ReadOnlyReason = await _privateContent.HasKeyAsync(cancellationToken)
+                ? _translations["This list was sealed with an encryption key this account no longer has."]
+                : _translations["This list is private. Unlock this device's encryption key to read it."];
+            IsCopyOffered = false;
         }
         else
         {
             // Asked of the store rather than decided here, so the screen and the write agree by construction.
             IsReadOnly = !await _taskLists.CanEditAsync(_localId, cancellationToken);
             ReadOnlyReason = string.Empty;
+            IsCopyOffered = IsReadOnly && taskList.CopyOfLocalId is null;
         }
 
         if (!IsReadOnly && taskList.ServerId is { } lockedServerId)
@@ -494,7 +941,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in taskList.Items)
         {
-            Items.Add(TaskItemRow.From(item, _translations, _timeProvider.GetUtcNow()));
+            Items.Add(TaskItemRow.From(
+                item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item),
+                _appointmentsWaitingToBeNamed.ContainsKey(item.Description)));
         }
 
         await StockCheck.ShowAsync(taskList, cancellationToken);
@@ -526,10 +975,36 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private const string RefusalMessage =
         "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
 
+    /// <inheritdoc cref="Inventory.WarehouseDetailViewModel.Suggestions"/>
+    public NameSuggestions Suggestions => _nameSuggestions;
+
+    /// <summary>
+    /// Titles this account already has, offered under the title field. Its own instance rather than the
+    /// one above: both fields are on screen at once here, and one instance serves one field - see
+    /// NameSuggestions.Takes. Orbit.Web arrives at the same place by putting one component per field.
+    /// </summary>
+    public NameSuggestions TitleSuggestions => _titleSuggestions;
+
+    private void OfferNamesToTheQuickAddBox()
+    {
+        _nameSuggestions.Forget();
+        _nameSuggestions.Offers(NameSuggestionKind.TaskItemDescription);
+        _nameSuggestions.Takes = description => NewItemDescription = description;
+    }
+
     /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
     private bool _isShowingWhatIsStored;
 
     partial void OnIsGroupChanged(bool value)
+    {
+        if (!_isShowingWhatIsStored)
+        {
+            SaveListCommand.Execute(null);
+        }
+    }
+
+    /// <inheritdoc cref="OnIsGroupChanged"/>
+    partial void OnIsPrivateChanged(bool value)
     {
         if (!_isShowingWhatIsStored)
         {
@@ -549,6 +1024,13 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnBeingEditedChanged(TaskItemEditor? value)
     {
+        // Nothing on offer once the form is gone, and the box above the list takes what is chosen
+        // again - it is the field being typed into whenever no editor is.
+        if (value is null)
+        {
+            OfferNamesToTheQuickAddBox();
+        }
+
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
         OnPropertyChanged(nameof(CanMoveItem));
@@ -569,7 +1051,13 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
-    partial void OnNewItemDescriptionChanged(string value) => AddItemCommand.NotifyCanExecuteChanged();
+    partial void OnNewItemDescriptionChanged(string value)
+    {
+        AddItemCommand.NotifyCanExecuteChanged();
+        Suggestions.ShowFor(value);
+    }
+
+    partial void OnTitleChanged(string value) => TitleSuggestions.ShowFor(value);
 
     /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
     [ObservableProperty]
@@ -592,4 +1080,25 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public Task CloseAsync() => _editLock.ReleaseAsync();
 
     partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsCopyOffered"/>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyForEditingAsync"/>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _taskLists.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowTaskList(copy.LocalId);
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
 }

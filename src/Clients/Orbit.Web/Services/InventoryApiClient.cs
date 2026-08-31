@@ -73,9 +73,6 @@ public sealed class InventoryApiClient
         return request with { Name = string.Empty, Items = [], EncryptedContent = encryptedContent };
     }
 
-    /// <summary>Everything a private warehouse hides from the server, as one sealed payload.</summary>
-    private sealed record SealedWarehouse(string Name, IReadOnlyList<WarehouseItemDto> Items);
-
     public async Task<IReadOnlyList<WarehouseDto>> GetWarehousesAsync(CancellationToken cancellationToken = default)
     {
         var warehouses = await _httpClient.GetFromJsonAsync<List<WarehouseDto>>("api/warehouses", cancellationToken) ?? [];

@@ -1,9 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
+using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 
 namespace Orbit.Mobile.Screens.Tasks;
 
@@ -68,10 +72,46 @@ public sealed partial class TaskItemEditor : ObservableObject
     }
 
     /// <summary>
-    /// The events this entry could be tied to, the first of them standing for none. Taken in the factory
-    /// like the rest: the picker reads it once, when the form appears.
+    /// The appointment this entry is - see <see cref="TaskItemEventForm"/>. Present on every entry, not
+    /// only a Calendar one, so switching kinds back and forth does not lose what was typed.
     /// </summary>
-    public IReadOnlyList<CalendarEventChoice> CalendarEvents { get; private init; } = [];
+    public TaskItemEventForm Event { get; private init; } = null!;
+
+    /// <summary>
+    /// The event this entry already has in the calendar, or null when saving it will make one. Carried
+    /// through untouched: it is what tells an update from a creation, and nothing on this screen sets it.
+    /// </summary>
+    public Guid? LinkedCalendarEventId { get; private init; }
+
+    /// <summary>
+    /// The product an Inventory entry is an errand about - see <see cref="TaskItemShelfProduct"/>. Null
+    /// for every other kind, and for an errand whose product this phone has not got: an entry tied to a
+    /// warehouse somebody stopped sharing still opens, with the shelf half missing rather than the form.
+    /// </summary>
+    public TaskItemShelfProduct? Shelf { get; private init; }
+
+    /// <summary>True when this entry is an errand about a product that can be corrected from here.</summary>
+    public bool IsShelfEntry => Kind == nameof(TaskItemKind.Inventory) && Shelf is not null;
+
+    /// <summary>
+    /// Said before anything is changed: this form writes to a warehouse, not only to the list. Empty
+    /// when there is no product behind the entry.
+    /// </summary>
+    public string WhereTheProductLives
+        => Shelf is null
+            ? string.Empty
+            : _translations.Format(
+                "On the shelf in {0}. Saving this list saves the change there too.", Shelf.WarehouseName);
+
+    /// <summary>
+    /// An Inventory entry with nothing behind it - one whose warehouse is gone, or not synced yet. Said
+    /// rather than left as an empty form that looks broken, which is the line Orbit.Web draws too.
+    /// </summary>
+    public bool HasNoProductToEdit => Kind == nameof(TaskItemKind.Inventory) && Shelf is null;
+
+    /// <inheritdoc cref="HasNoProductToEdit"/>
+    public string NoProductMessage
+        => _translations["This entry isn't tied to a product yet, so there is nothing to edit here."];
 
     /// <summary>
     /// Lists this entry can be made to stand for, the first of them being "none" - see
@@ -98,26 +138,16 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsCalendarEntry => Kind == nameof(TaskItemKind.Calendar);
 
     /// <summary>
-    /// One place, not two: tied to an event, the event holds it, so the box gives way to what the event
-    /// says rather than offering a second answer that could drift from the first.
+    /// Where a calendar entry happens, asked on the entry rather than on its appointment. The calendar's
+    /// own location is coordinates first and an entry carries only a name, so the two are not the same
+    /// field - which is why Orbit.Web leaves the name here and sends the event none.
     /// </summary>
-    public bool CanSayWhereItHappens => IsCalendarEntry && ChosenCalendarEvent?.ServerId is null;
-
-    public bool IsTiedToAnEvent => IsCalendarEntry && ChosenCalendarEvent?.ServerId is not null;
-
-    public string WhereTheEventHappens
-        => ChosenCalendarEvent?.Address is { Length: > 0 } address
-            ? _translations.Format("Happens at {0}, which the event decides.", address)
-            : _translations.Format(
-                "Happens at {0}, which the event decides.", _translations["somewhere the event does not say"]);
+    public bool CanSayWhereItHappens => IsCalendarEntry;
 
     private readonly Translations _translations;
 
     [ObservableProperty]
     private string _kind = nameof(TaskItemKind.Checklist);
-
-    [ObservableProperty]
-    private CalendarEventChoice? _chosenCalendarEvent;
 
     /// <summary>Where a calendar entry happens, as somebody typed it - see TaskItemDto.Location.</summary>
     [ObservableProperty]
@@ -154,36 +184,89 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// What the calendar knows about, which the caller reads: the editor is handed the choices rather
     /// than reaching for a store, the same way it is handed the notification channels.
     /// </param>
-    public static TaskItemEditor For(
-        TaskItemDto item, Translations translations, IReadOnlyList<CalendarEventChoice> events,
-        IReadOnlyList<TaskListChoice> lists)
-    {
-        var choices = new List<CalendarEventChoice> { CalendarEventChoice.NoEvent(translations) };
-        choices.AddRange(events);
+    /// <inheritdoc cref="Inventory.WarehouseItemEditor.Suggestions"/>
+    public NameSuggestions? Suggestions { get; private init; }
 
-        return new(item, translations)
+    public static TaskItemEditor For(
+        TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
+        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions = null,
+        TaskItemShelfProduct? shelf = null)
+    {
+        var editor = Build(item, translations, linkedEvent, lists, suggestions, shelf);
+        if (suggestions is not null)
         {
+            suggestions.Offers(NameSuggestionKind.TaskItemDescription);
+            suggestions.StartsAt(editor.Description);
+            suggestions.Takes = description => editor.Description = description;
+        }
+
+        return editor;
+    }
+
+    private static TaskItemEditor Build(
+        TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
+        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions, TaskItemShelfProduct? shelf)
+    {
+        var editor = new TaskItemEditor(item, translations)
+        {
+            Suggestions = suggestions,
             Channels = NotificationChannelChoice.All(translations),
             Kinds = TaskItemKindChoice.All(translations),
-            CalendarEvents = choices,
+            Event = TaskItemEventForm.For(linkedEvent, translations),
+            Shelf = shelf,
+            LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkableTaskLists = lists,
             ChosenLinkedTaskList = lists.FirstOrDefault(choice => choice.ServerId == item.LinkedTaskListId)
                 ?? lists.FirstOrDefault(),
             Kind = item.Kind,
             Location = item.Location,
-            ChosenCalendarEvent = choices.FirstOrDefault(choice => choice.ServerId == item.LinkedCalendarEventId)
-                ?? choices[0],
             Description = item.Description,
             HasDueDate = item.DueDateUtc is not null,
             DueDate = item.DueDateUtc?.LocalDateTime.Date ?? DateTime.Today,
             OverdueNotificationChannel = item.OverdueNotificationChannel,
             RemindDaily = item.RemindDaily,
             DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
-            DailyReminderTime = item.DailyReminderTimeOfDay.ToTimeSpan()
+            // Midnight reads as "never set". The wire carries a plain TimeOnly and so cannot say
+            // "none"; an entry reminded daily at exactly 00:00 is far more likely to be one nobody
+            // chose an hour for than one somebody wanted at midnight - and being asked is a smaller
+            // cost than a reminder arriving while everybody is asleep. Orbit.Web reads it the same way.
+            HasDailyReminderTime = !item.RemindDaily || item.DailyReminderTimeOfDay != default,
+            DailyReminderTime = item.DailyReminderTimeOfDay == default
+                ? DefaultReminderTime
+                : item.DailyReminderTimeOfDay.ToTimeSpan()
         };
+
+        // The Save button answers to the appointment as well as to the entry - see TaskItemEventForm.
+        editor.Event.Missing = editor.SayWhatTheFormShows;
+        return editor;
     }
 
-    public bool CanSave => Description.Trim().Length > 0;
+    public bool CanSave => Description.Trim().Length > 0 && WhatIsMissing is null;
+
+    /// <summary>
+    /// What stops this entry being saved, or null when nothing does. Refused rather than quietly
+    /// corrected: a daily reminder with no hour would be sent at midnight, and an hour nobody chose is
+    /// worse than being asked for one.
+    /// </summary>
+    public string? WhatIsMissing
+        => RemindDaily && !HasDailyReminderTime
+            ? _translations["A daily reminder needs a time to arrive at."]
+            : IsCalendarEntry ? Event.WhatIsMissing
+            : IsShelfEntry && !Shelf!.Product.CanSave
+                ? _translations["This errand's product needs a name and an amount."]
+                : null;
+
+    public bool HasSomethingMissing => WhatIsMissing is not null;
+
+    /// <summary>
+    /// Whether an hour has actually been chosen. False for an entry that arrived reminded daily at
+    /// midnight, which is what "nobody chose one" looks like on the wire - see the factory.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasDailyReminderTime = true;
+
+    /// <summary>Nine in the morning, which is what the picker opens on when no hour has been chosen.</summary>
+    private static readonly TimeSpan DefaultReminderTime = new(9, 0, 0);
 
     /// <summary>
     /// Everything this screen does not show - the id, whether it is done - travels through untouched.
@@ -207,26 +290,65 @@ public sealed partial class TaskItemEditor : ObservableObject
             DailyReminderTimeOfDay = TimeOnly.FromTimeSpan(DailyReminderTime),
             Kind = Kind,
             Location = Location.Trim(),
-            // Only a calendar entry can be tied to an event; anything else sends none, whatever the
-            // picker last held. The same rule Orbit.Web's ToLinkedCalendarEventId applies.
-            LinkedCalendarEventId = IsCalendarEntry ? ChosenCalendarEvent?.ServerId : null
+            // Only a calendar entry keeps its appointment; anything else sends none, whatever it was
+            // before. The same rule Orbit.Web's ToLinkedCalendarEventId applies. The id itself is
+            // filled in by the screen when it puts the appointment in the calendar - see
+            // TaskListDetailViewModel.PutAppointmentsInTheCalendarAsync.
+            LinkedCalendarEventId = IsCalendarEntry ? LinkedCalendarEventId : null
         };
 
-    partial void OnDescriptionChanged(string value) => OnPropertyChanged(nameof(CanSave));
+    partial void OnDescriptionChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanSave));
+        Suggestions?.ShowFor(value);
+    }
+
+    /// <summary>Choosing an hour is what answers the refusal above, so the picker records that it was.</summary>
+    partial void OnDailyReminderTimeChanged(TimeSpan value)
+    {
+        HasDailyReminderTime = true;
+        SayWhetherItCanBeSaved();
+    }
+
+    /// <summary>
+    /// Puts an hour on an entry that arrived without one, and opens the picker at it. Its own button
+    /// rather than a picker showing nine o'clock from the start: a picker already showing an hour is
+    /// one somebody can accept by not touching it, and accepting it would leave nothing recorded - the
+    /// refusal would stand with no way through it. The browser has no such trap, its field being empty.
+    /// </summary>
+    [RelayCommand]
+    private void ChooseAReminderTime()
+    {
+        DailyReminderTime = DefaultReminderTime;
+        HasDailyReminderTime = true;
+    }
+
+    partial void OnRemindDailyChanged(bool value) => SayWhetherItCanBeSaved();
+
+    partial void OnHasDailyReminderTimeChanged(bool value) => SayWhetherItCanBeSaved();
+
+    private void SayWhetherItCanBeSaved()
+    {
+        OnPropertyChanged(nameof(WhatIsMissing));
+        OnPropertyChanged(nameof(HasSomethingMissing));
+        OnPropertyChanged(nameof(CanSave));
+    }
 
     partial void OnKindChanged(string value) => SayWhatTheFormShows();
 
-    partial void OnChosenCalendarEventChanged(CalendarEventChoice? value) => SayWhatTheFormShows();
-
     /// <summary>
-    /// The three things that appear and disappear together: which of them is on screen depends on the
-    /// kind and on whether an event was chosen, so both changes announce all three.
+    /// What appears and disappears together: the appointment's form and the place it happens are shown
+    /// for a Calendar entry and hidden for the rest, and whether it can be saved depends on both halves.
     /// </summary>
     private void SayWhatTheFormShows()
     {
         OnPropertyChanged(nameof(IsCalendarEntry));
         OnPropertyChanged(nameof(CanSayWhereItHappens));
-        OnPropertyChanged(nameof(IsTiedToAnEvent));
-        OnPropertyChanged(nameof(WhereTheEventHappens));
+        OnPropertyChanged(nameof(IsShelfEntry));
+        OnPropertyChanged(nameof(HasNoProductToEdit));
+        OnPropertyChanged(nameof(WhereTheProductLives));
+        OnPropertyChanged(nameof(WhatIsMissing));
+        OnPropertyChanged(nameof(HasSomethingMissing));
+        OnPropertyChanged(nameof(CanSave));
     }
 }

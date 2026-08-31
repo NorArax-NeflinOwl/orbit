@@ -72,7 +72,8 @@ public sealed class WarehouseSyncTests
 
         var stored = (await context.Warehouses.GetAllAsync()).Single();
         var itemId = stored.Items.Single().Id;
-        await context.Warehouses.UpdateAsync(stored.LocalId, "Pantry", [stored.Items.Single() with { Quantity = 5 }]);
+        await context.Warehouses.UpdateAsync(
+            stored.LocalId, new WarehouseContent("Pantry", [stored.Items.Single() with { Quantity = 5 }]));
         await context.SynchroniseAsync();
 
         // Minting a fresh id on every save would cut loose whatever points at the item - an open restock
@@ -93,7 +94,7 @@ public sealed class WarehouseSyncTests
 
         var stored = (await context.Warehouses.GetAllAsync()).Single();
         var keeping = stored.Items.Single(item => item.Name == "Flour");
-        await context.Warehouses.UpdateAsync(stored.LocalId, "Pantry", [keeping]);
+        await context.Warehouses.UpdateAsync(stored.LocalId, new WarehouseContent("Pantry", [keeping]));
         await context.SynchroniseAsync();
 
         Assert.Equal("Flour", Assert.Single(context.Server.ItemsIn(remote.Id)).Name);
@@ -133,7 +134,7 @@ public sealed class WarehouseSyncTests
             Clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
             Server = new FakeInventoryServer(Clock);
             Client = new InventoryClient(Server.ToHttpClient());
-            Warehouses = new LocalWarehouseRepository(_localStore, Clock, FixedNetworkStatus.Online);
+            Warehouses = new LocalWarehouseRepository(_localStore, Clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             Synchronizer = new WarehouseSynchronizer(
                 _localStore, Client, Clock, new SyncGate(), NullLogger<WarehouseSynchronizer>.Instance);
         }

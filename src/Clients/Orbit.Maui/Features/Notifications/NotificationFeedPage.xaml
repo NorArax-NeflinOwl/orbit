@@ -31,9 +31,11 @@
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                 <Button Grid.Column="0" Text="{controls:Translate 'Mark all read'}" FontSize="12" Padding="6,4"
                         LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        IsEnabled="{Binding Connection.IsMet}"
                         Command="{Binding MarkEverythingReadCommand}" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" FontSize="12" Padding="6,4"
                         LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        IsEnabled="{Binding Connection.IsMet}"
                         Command="{Binding ClearCommand}" />
                 <Button Grid.Column="2" Text="{Binding ShowEverythingLabel}" FontSize="12" Padding="6,4"
                         LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
@@ -51,7 +53,15 @@
         <CollectionView Grid.Row="1" ItemsSource="{Binding Rows}">
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="screens:NotificationRow">
+                    <!-- The row is the button, as everywhere else in the app and in every other phone
+                         app: a notification that leads somewhere is tapped, not accompanied by an
+                         "Open". One that leads nowhere simply does not respond. -->
                     <Grid ColumnDefinitions="Auto,*" Padding="0,10" ColumnSpacing="10">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=feed:NotificationFeedPage}"
+                                CommandParameter="{Binding .}" />
+                        </Grid.GestureRecognizers>
 
                         <!-- An unread entry is the only thing worth drawing the eye to, so it is the only
                              thing marked. A read one carries no dot rather than a greyed-out one. -->
@@ -62,10 +72,6 @@
                         <VerticalStackLayout Grid.Column="1" Spacing="2">
                             <Label Text="{Binding Title}" FontAttributes="Bold" />
                             <Label Text="{Binding Body}" FontSize="13" LineBreakMode="WordWrap" />
-                            <Button Text="{controls:Translate 'Open'}" FontSize="12" Padding="12,2" HorizontalOptions="Start"
-                                    IsVisible="{Binding CanBeOpened}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=feed:NotificationFeedPage}"
-                                    CommandParameter="{Binding .}" />
                         </VerticalStackLayout>
                     </Grid>
                 </DataTemplate>

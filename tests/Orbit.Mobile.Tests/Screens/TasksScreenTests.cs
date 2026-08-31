@@ -4,6 +4,7 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Tasks;
+using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -25,7 +26,7 @@ public sealed class TasksScreenTests : IDisposable
     public TasksScreenTests()
     {
         _server = new FakeTasksServer(_clock);
-        _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online);
+        _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
     }
 
     public void Dispose()
@@ -347,6 +348,7 @@ public sealed class TasksScreenTests : IDisposable
                 _localStore, new TasksClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<TaskListSynchronizer>.Instance),
             new TasksClient(_server.ToHttpClient()), FixedNetworkStatus.Online, Arrangement,
+            new PrivateItemGate(new FixedDeviceAuthentication()),
             new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(),
             new Translations(new InMemoryLanguageStore()));
 

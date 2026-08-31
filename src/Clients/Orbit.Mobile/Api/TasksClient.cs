@@ -143,28 +143,6 @@ public sealed class TasksClient : ILockableItems
     }
 
     /// <summary>
-    /// Reads the warehouse again and brings the list back into step with it both ways: crossing off what
-    /// the shelf turns out to cover, and writing on what the shelf holds that nothing here asked for.
-    ///
-    /// Nothing moved when the server refuses, which is what the zeroes say - the caller reports what the
-    /// reconciliation did, and "it did nothing" is a true answer to give for a call that did not land.
-    /// </summary>
-    public async Task<StockReconciliationResultDto> ReconcileWithStockAsync(
-        Guid taskListId, CancellationToken cancellationToken = default)
-    {
-        using var response = await _httpClient.PostAsync(
-            $"api/tasks/{taskListId}/stock-check/reconciliation", content: null, cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            return new StockReconciliationResultDto(0, 0);
-        }
-
-        return await response.Content.ReadFromJsonAsync<StockReconciliationResultDto>(cancellationToken)
-            ?? new StockReconciliationResultDto(0, 0);
-    }
-
-    /// <summary>
     /// "Everything on this list is done": brings every product in the warehouse up to its minimum, and
     /// answers with how many that moved. A claim about the shelf rather than an edit to the list, which
     /// is why it is its own call and not part of saving the entries.
@@ -181,6 +159,29 @@ public sealed class TasksClient : ILockableItems
 
         var result = await response.Content.ReadFromJsonAsync<FinishRestockingResultDto>(cancellationToken);
         return result?.ToppedUpCount ?? 0;
+    }
+
+    /// <summary>
+    /// Settles the errands already crossed off on a restock list: each one fills its shelf item and then
+    /// leaves the list. Answers how many were settled, and does nothing at all for an ordinary list, so
+    /// the screen can ask on opening any of them.
+    ///
+    /// The counterpart of Orbit.Web's call of the same name, and asked at the same moment - on opening
+    /// rather than on ticking - so a list that gathered crossed-off errands before either client did
+    /// this clears itself the first time somebody looks at it, on whichever client they look with.
+    /// </summary>
+    public async Task<int> ReconcileRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync(
+            $"api/tasks/{taskListId}/restocking/reconcile", content: null, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return 0;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<RestockReconciliationResultDto>(cancellationToken);
+        return result?.SettledCount ?? 0;
     }
 
     /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>

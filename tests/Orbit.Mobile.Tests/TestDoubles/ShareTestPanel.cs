@@ -33,7 +33,8 @@ internal static class ShareTestPanel
                 new InventoryClient(shares), sender),
             new PublicShareClient((linkServer ?? new FakePublicShareServer()).ToHttpClient()),
             UnlockedPermissions.For(localStore),
-            new Translations(new InMemoryLanguageStore()));
+            new Translations(new InMemoryLanguageStore()),
+            Connections.Online);
     }
 
     private static EncryptedChatMessageSender Sender(ChatRepository chatRepository, FakeChatServer? chatServer)

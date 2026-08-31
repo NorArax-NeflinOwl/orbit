@@ -4,6 +4,8 @@ using Orbit.Mobile.Screens;
 using Orbit.Contracts.Inventory;
 using Orbit.Core.Inventory;
 using Orbit.Core.Notifications;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 
 namespace Orbit.Mobile.Screens.Inventory;
 
@@ -83,20 +85,76 @@ public sealed partial class WarehouseItemEditor : ObservableObject
     [ObservableProperty]
     private string _minimumQuantity = string.Empty;
 
-    [ObservableProperty]
-    private bool _expires;
+    /// <summary>
+    /// How long this keeps, rather than the day it stops keeping - the question Orbit.Web's editor asks
+    /// since its own rebuild, and the one somebody stocking a shelf can actually answer. A date is
+    /// still what gets stored: the expiry reminder needs one (see ExpiryPeriod).
+    /// </summary>
+    public IReadOnlyList<ExpiryUnitChoice> ExpiryUnits { get; private init; } = [];
 
     [ObservableProperty]
-    private DateTime _expiryDate = DateTime.Today;
+    private ExpiryUnitChoice? _chosenExpiryUnit;
+
+    /// <summary>How many of the chosen unit. Hidden, along with the date, while nothing expires.</summary>
+    [ObservableProperty]
+    private string _expiresIn = "1";
+
+    /// <summary>True once a unit has been chosen, which is what the number and the date hang off.</summary>
+    public bool Expires => ChosenExpiryUnit is { Unit: not ExpiryUnit.None };
+
+    /// <summary>
+    /// The day this lands on, said quietly beside the boxes. Somebody who set "2 weeks" is owed the
+    /// answer to "when exactly", and so is somebody reading a shelf - the web says it in the same place.
+    /// </summary>
+    public string ExpiresOn
+        => ExpiryDate is { } date ? date.ToLocalTime().ToString("d", _displayCulture) : string.Empty;
+
+    public bool HasExpiryDate => ExpiryDate is not null;
+
+    /// <summary>What <see cref="ToDto"/> stores, worked out from the two boxes above.</summary>
+    private DateTimeOffset? ExpiryDate
+        => new ExpiryPeriod(ParseExpiresIn(), ChosenExpiryUnit?.Unit ?? ExpiryUnit.None).On(DateTime.Today);
+
+    private System.Globalization.CultureInfo _displayCulture = System.Globalization.CultureInfo.CurrentCulture;
 
     [ObservableProperty]
     private string _expiryNotificationChannel = nameof(NotificationChannel.Push);
 
     private WarehouseItemEditor(Guid? id) => _id = id;
 
-    public static WarehouseItemEditor For(WarehouseItemDto item, Translations translations)
+    /// <summary>
+    /// Names already on the shelves, offered while this one is typed - the field the suggestion feature
+    /// exists for, since the same product gets typed twenty ways. Null when the editor was built without
+    /// one, which is what every test that is not about suggestions does.
+    /// </summary>
+    public NameSuggestions? Suggestions { get; private init; }
+
+    public static WarehouseItemEditor For(
+        WarehouseItemDto item, Translations translations, NameSuggestions? suggestions = null)
+    {
+        var editor = Build(item, translations, suggestions);
+        // Set after the list exists rather than in the initialiser, which cannot pick out of a property
+        // it is still assigning.
+        editor.ChosenExpiryUnit = ExpiryUnitChoice.For(
+            editor.ExpiryUnits, ExpiryPeriod.For(item.ExpiryDate, DateTime.Today).Unit);
+
+        if (suggestions is not null)
+        {
+            suggestions.Offers(NameSuggestionKind.InventoryItemName);
+            // Opened on a name rather than typed into: nothing is offered until the reader changes it,
+            // or an item opened for its expiry date would be warned that it is a duplicate of itself.
+            suggestions.StartsAt(editor.Name);
+            suggestions.Takes = name => editor.Name = name;
+        }
+
+        return editor;
+    }
+
+    private static WarehouseItemEditor Build(
+        WarehouseItemDto item, Translations translations, NameSuggestions? suggestions)
         => new(item.Id)
         {
+            Suggestions = suggestions,
             Channels = NotificationChannelChoice.All(translations),
             Units = InventoryUnitChoice.All(translations),
             Unit = item.Unit,
@@ -105,8 +163,10 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             Category = item.Category,
             Quantity = item.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture),
             MinimumQuantity = item.MinimumQuantity?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
-            Expires = item.ExpiryDate is not null,
-            ExpiryDate = item.ExpiryDate?.LocalDateTime.Date ?? DateTime.Today,
+            ExpiryUnits = ExpiryUnitChoice.All(translations),
+            ExpiresIn = ExpiryPeriod.For(item.ExpiryDate, DateTime.Today).Amount.ToString(
+                System.Globalization.CultureInfo.InvariantCulture),
+            _displayCulture = translations.DisplayCulture,
             ExpiryNotificationChannel = item.ExpiryNotificationChannel
         };
 
@@ -129,10 +189,25 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             Unit,
             // Converted rather than sent with the local offset the picker works in - see the same line
             // in TaskItemEditor for what a non-zero offset costs on the way to Postgres.
-            Expires
-                ? new DateTimeOffset(ExpiryDate.Date, TimeZoneInfo.Local.GetUtcOffset(ExpiryDate.Date)).ToUniversalTime()
-                : null,
+            ExpiryDate?.ToUniversalTime(),
             ExpiryNotificationChannel);
+
+    private int ParseExpiresIn()
+        => int.TryParse(ExpiresIn.Trim(), out var amount) && amount > 0 ? amount : 1;
+
+    partial void OnChosenExpiryUnitChanged(ExpiryUnitChoice? value)
+    {
+        OnPropertyChanged(nameof(Expires));
+        SayWhenItLands();
+    }
+
+    partial void OnExpiresInChanged(string value) => SayWhenItLands();
+
+    private void SayWhenItLands()
+    {
+        OnPropertyChanged(nameof(ExpiresOn));
+        OnPropertyChanged(nameof(HasExpiryDate));
+    }
 
     private decimal? ParseQuantity()
         => decimal.TryParse(Quantity.Trim(), System.Globalization.NumberStyles.Number,
@@ -146,7 +221,11 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             ? minimum
             : null;
 
-    partial void OnNameChanged(string value) => OnPropertyChanged(nameof(CanSave));
+    partial void OnNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanSave));
+        Suggestions?.ShowFor(value);
+    }
 
     partial void OnQuantityChanged(string value) => OnPropertyChanged(nameof(CanSave));
 }

@@ -68,8 +68,27 @@ public sealed class ChatClient
 
     public ChatClient(HttpClient httpClient) => _httpClient = httpClient;
 
+    /// <summary>
+    /// Empty rather than an exception when this account has not unlocked contacts (see
+    /// PermissionPolicies in Orbit.Api). Screens other than the contacts list ask this in passing - the
+    /// map wants names for the people it could share a position with - and a refusal there is not a
+    /// failure to report, it is the answer: there is nobody to show. Orbit.Web answers the same way.
+    ///
+    /// Unlike the 403 that ChatSynchronizer deliberately lets through, this one is not about a session
+    /// having gone: it is a standing rule that another attempt will not change.
+    /// </summary>
     public async Task<IReadOnlyList<ContactDto>> GetContactsAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<IReadOnlyList<ContactDto>>("api/chat/contacts", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<IReadOnlyList<ContactDto>>(
+                "api/chat/contacts", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
 
     /// <summary>
     /// The conversation with one person. <paramref name="sinceUtc"/> asks for only what arrived after a
@@ -220,6 +239,33 @@ public sealed class ChatClient
         Guid groupId, CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatMessageDto>>(
             $"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
+
+    /// <summary>
+    /// The lines in a group's conversation that nobody wrote - who joined, and whether whoever added
+    /// them also handed over what was said before. Read separately from the messages because the server
+    /// keeps them separately: they are facts about the membership rather than anything encrypted.
+    /// </summary>
+    public async Task<IReadOnlyList<ChatGroupAnnouncementDto>> GetGroupAnnouncementsAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatGroupAnnouncementDto>>(
+            $"api/chat/groups/{groupId}/announcements", cancellationToken) ?? [];
+
+    /// <summary>
+    /// Hands the group's past to a member who joined after it happened, already re-encrypted for them -
+    /// the server holds no key to any of it. Answers with how many copies were stored, which can be
+    /// fewer than were offered: one the recipient already has is not stored twice.
+    /// </summary>
+    public async Task<int> ShareGroupHistoryAsync(
+        Guid groupId, Guid recipientUserId, IReadOnlyList<SharedHistoryCopyDto> copies,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            $"api/chat/groups/{groupId}/history", new ShareGroupHistoryRequest(recipientUserId, copies),
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<int>(cancellationToken);
+    }
 
     /// <summary>
     /// Who one group message reached and who has read it. Asked per message rather than drawn for every

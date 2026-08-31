@@ -144,6 +144,17 @@ public sealed class TaskItem
             kind, location, linkedCalendarEventId, linkedInventoryItemId);
 
     /// <summary>
+    /// The same entry under a new name. Used when two clients hand over the same id and neither may keep
+    /// it - see <see cref="TaskItemIdentity"/>. Everything else travels: what the entry is does not
+    /// change, only what it is called.
+    /// </summary>
+    public TaskItem WithNewId()
+        => new(
+            Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListId,
+            OverdueNotificationChannel, RemindDaily, DailyReminderNotificationChannel, DailyReminderTimeOfDay,
+            Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId);
+
+    /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
     /// used both to reload an entry as persisted, and by <see cref="LinkedTaskCompletionResolver"/> to
     /// apply a freshly resolved completion value to a linked entry.

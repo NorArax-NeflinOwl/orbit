@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Inventory;
 using Orbit.Core.Notifications;
@@ -27,7 +28,7 @@ public sealed class WarehouseChangeVisibilityTests : IDisposable
         var flour = InventoryItem.Create(
             warehouse.Id, "Flour", "Food", "Dry", 0, 5, InventoryUnit.Piece, null, NotificationChannel.None);
         await items.AddAsync(flour, CancellationToken.None);
-        var before = await LastChangedAsync(warehouses, warehouse.Id);
+        var before = await PutTheStampBackAsync(warehouse);
 
         Assert.True(flour.TopUpToMinimum());
         await items.UpdateAsync(flour, CancellationToken.None);
@@ -39,17 +40,18 @@ public sealed class WarehouseChangeVisibilityTests : IDisposable
     public async Task Adding_and_removing_a_product_say_so_too()
     {
         var (warehouses, items, warehouse) = await AShelfAsync();
-        var createdAt = await LastChangedAsync(warehouses, warehouse.Id);
+        var beforeAdding = await PutTheStampBackAsync(warehouse);
 
         var sugar = InventoryItem.Create(
             warehouse.Id, "Sugar", "Food", "Dry", 1, null, InventoryUnit.Piece, null, NotificationChannel.None);
         await items.AddAsync(sugar, CancellationToken.None);
-        var afterAdding = await LastChangedAsync(warehouses, warehouse.Id);
-        Assert.True(afterAdding > createdAt);
 
+        Assert.True(await LastChangedAsync(warehouses, warehouse.Id) > beforeAdding);
+
+        var beforeRemoving = await PutTheStampBackAsync(warehouse);
         await items.DeleteAsync(warehouse.Id, sugar.Id, CancellationToken.None);
 
-        Assert.True(await LastChangedAsync(warehouses, warehouse.Id) > afterAdding);
+        Assert.True(await LastChangedAsync(warehouses, warehouse.Id) > beforeRemoving);
     }
 
     // No test here for a shelf nothing happened to staying out of the feed: the delta itself is a
@@ -62,6 +64,27 @@ public sealed class WarehouseChangeVisibilityTests : IDisposable
         var warehouse = Warehouse.Create(_userId, "Pantry");
         await warehouses.AddAsync(warehouse, CancellationToken.None);
         return (warehouses, new InventoryRepository(_database.DbContext), warehouse);
+    }
+
+    /// <summary>
+    /// Puts the shelf's "last changed" a minute back and hands the value over, so the assertions above
+    /// are about the stamp being rewritten rather than about whether the clock ticked between two
+    /// writes made microseconds apart - see InMemoryTaskRepository.PretendItWasLastChanged, which says
+    /// what was measured.
+    /// </summary>
+    private async Task<DateTimeOffset> PutTheStampBackAsync(Warehouse warehouse)
+    {
+        var aMinuteAgo = DateTimeOffset.UtcNow.AddMinutes(-1);
+        // Written at the row rather than through the repository: the context is already tracking this
+        // warehouse, and handing it a second instance of the same id is an identity conflict rather
+        // than an update. These tests are against the real database on purpose, so reaching the column
+        // is in keeping.
+        var stored = await _database.DbContext.Warehouses.FirstAsync(
+            candidate => candidate.Id == warehouse.Id);
+        stored.UpdatedAtUtc = aMinuteAgo;
+        await _database.DbContext.SaveChangesAsync();
+
+        return aMinuteAgo;
     }
 
     private async Task<DateTimeOffset> LastChangedAsync(WarehouseRepository warehouses, Guid warehouseId)

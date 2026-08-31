@@ -74,7 +74,7 @@ public sealed class OfflineEditEnforcementTests
     public async Task Editing_a_shared_list_offline_is_refused_by_the_store_not_only_hidden_on_screen()
     {
         using var store = new LocalStore();
-        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline, PrivateContent.WithoutAKey());
         var taskList = await SharedListAsync(store);
 
         var outcome = await repository.UpdateAsync(taskList.LocalId, new TaskListContent("Edited anyway", SomeItems, IsGroup: false, "Normal"));
@@ -86,7 +86,7 @@ public sealed class OfflineEditEnforcementTests
     public async Task A_refused_edit_leaves_nothing_in_the_queue()
     {
         using var store = new LocalStore();
-        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline, PrivateContent.WithoutAKey());
         var taskList = await SharedListAsync(store);
 
         await repository.UpdateAsync(taskList.LocalId, new TaskListContent("Edited anyway", SomeItems, IsGroup: false, "Normal"));
@@ -99,7 +99,7 @@ public sealed class OfflineEditEnforcementTests
     public async Task Deleting_a_shared_list_offline_is_refused_too()
     {
         using var store = new LocalStore();
-        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline, PrivateContent.WithoutAKey());
         var taskList = await SharedListAsync(store);
 
         Assert.Equal(LocalWriteOutcome.RefusedWhileOffline, await repository.DeleteAsync(taskList.LocalId));
@@ -109,7 +109,7 @@ public sealed class OfflineEditEnforcementTests
     public async Task Online_the_same_edit_goes_through_because_the_server_can_hold_a_lock()
     {
         using var store = new LocalStore();
-        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Online);
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
         var taskList = await SharedListAsync(store);
 
         Assert.Equal(LocalWriteOutcome.Applied, await repository.UpdateAsync(taskList.LocalId, new TaskListContent("Edited", SomeItems, IsGroup: false, "Normal")));
@@ -119,7 +119,7 @@ public sealed class OfflineEditEnforcementTests
     public async Task A_list_nobody_else_can_touch_is_editable_offline()
     {
         using var store = new LocalStore();
-        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline, PrivateContent.WithoutAKey());
         var taskList = await repository.CreateAsync("Mine alone", SomeItems);
 
         Assert.Equal(LocalWriteOutcome.Applied, await repository.UpdateAsync(taskList.LocalId, new TaskListContent("Edited", SomeItems, IsGroup: false, "Normal")));
@@ -129,7 +129,7 @@ public sealed class OfflineEditEnforcementTests
     public async Task Asking_whether_a_list_can_be_edited_does_not_edit_it()
     {
         using var store = new LocalStore();
-        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline, PrivateContent.WithoutAKey());
         var taskList = await repository.CreateAsync("Mine alone", SomeItems);
 
         await repository.CanEditAsync(taskList.LocalId);
@@ -143,7 +143,7 @@ public sealed class OfflineEditEnforcementTests
     public async Task The_screen_and_the_write_agree_about_a_shared_list()
     {
         using var store = new LocalStore();
-        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline);
+        var repository = new LocalTaskListRepository(store, TimeProvider.System, FixedNetworkStatus.Offline, PrivateContent.WithoutAKey());
         var taskList = await SharedListAsync(store);
 
         Assert.False(await repository.CanEditAsync(taskList.LocalId));

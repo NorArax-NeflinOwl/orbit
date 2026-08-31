@@ -219,9 +219,6 @@ public sealed class TasksApiClient
         return (string.Empty, [], encryptedContent);
     }
 
-    /// <summary>Everything a private list hides from the server, as one sealed payload.</summary>
-    private sealed record SealedTaskList(string Title, IReadOnlyList<TaskItemDto> Items);
-
     public async Task<Guid> CreateTaskListAsync(CreateTaskRequest request, CancellationToken cancellationToken = default)
     {
         var (title, items, encryptedContent) = await SealIfPrivateAsync(

@@ -12,6 +12,17 @@ public interface ITaskRepository
 
     Task<TaskList?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Every list of userId's, other than <paramref name="exceptListId"/>, that holds an entry with one
+    /// of <paramref name="itemIds"/> - what tells a save that an id it was handed is already taken.
+    ///
+    /// Clients now mint entry ids themselves, so that an entry written with no connection has one
+    /// identity from the moment it exists rather than being renamed by its first successful push. Two
+    /// clients can therefore hand over the same id, which is what this exists to notice.
+    /// </summary>
+    Task<IReadOnlyList<TaskList>> GetHoldingItemsAsync(
+        Guid userId, Guid exceptListId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken);
+
     Task AddAsync(TaskList taskList, CancellationToken cancellationToken);
 
     Task UpdateAsync(TaskList taskList, CancellationToken cancellationToken);

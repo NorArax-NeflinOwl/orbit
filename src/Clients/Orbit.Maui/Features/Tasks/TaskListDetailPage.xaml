@@ -7,6 +7,7 @@
     xmlns:common="clr-namespace:Orbit.Mobile.Screens;assembly=Orbit.Mobile"
     xmlns:tasks="clr-namespace:Orbit.Maui.Features.Tasks"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
+    xmlns:calendar="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     x:DataType="screens:TaskListDetailViewModel"
     Title="{Binding Title}">
 
@@ -17,7 +18,8 @@
 
         <!-- The list's own name, and the things it can do that are not "tick something off" - the two
              Orbit.Web keeps in its overflow menu. -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="4">
+        <VerticalStackLayout Grid.Row="0" Spacing="6">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
             <Entry Grid.Column="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold"
                    IsReadOnly="{Binding IsReadOnly}" Placeholder="{controls:Translate 'Untitled'}"
                    ReturnType="Done" ReturnCommand="{Binding SaveListCommand}" />
@@ -27,18 +29,32 @@
                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowListMenuCommand, x:DataType=tasks:TaskListDetailPage}" />
         </Grid>
 
+            <!-- Titles already in use, offered as this one is typed - its own strip, because the box
+                 below is a different field and is on screen at the same time. -->
+            <controls:NameSuggestionChips BindingContext="{Binding TitleSuggestions}" />
+        </VerticalStackLayout>
+
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                    FontSize="12" TextColor="{DynamicResource Accent}" LineBreakMode="WordWrap" />
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+            <controls:CopyOffer IsOffered="{Binding IsCopyOffered}"
+                                TakeCommand="{Binding CopyForEditingCommand}"
+                                DeclineCommand="{Binding DeclineCopyCommand}" />
         </VerticalStackLayout>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsShowingList}">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemDescription}"
-                   ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="2" Spacing="6" IsVisible="{Binding IsShowingList}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemDescription}"
+                       ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
+            </Grid>
+
+            <!-- Under the box an errand is written in, which on a phone is where they are actually typed. -->
+            <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+        </VerticalStackLayout>
 
         <CollectionView Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
 
@@ -74,6 +90,35 @@
                                     </DataTrigger>
                                 </Label.Triggers>
                             </Label>
+
+                            <!-- Whether the appointment behind this entry is anywhere but here yet.
+                                 Said on the row because it is otherwise invisible: an appointment made
+                                 with no connection looks exactly like one everybody can already see. -->
+                            <HorizontalStackLayout Spacing="6">
+                                <Label Text="{controls:Translate 'offline'}" FontSize="10" Padding="6,1"
+                                       IsVisible="{Binding IsWaitingToReachTheServer}"
+                                       Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{controls:Translate 'online'}" FontSize="10" Padding="6,1"
+                                       IsVisible="{Binding HasReachedTheServer}"
+                                       Style="{StaticResource SubtleLabel}" />
+                            </HorizontalStackLayout>
+
+                            <!-- Where an inventory errand points: the shelf it is about, and any other
+                                 list asking for the same product. Buttons rather than labels, for the
+                                 reason Orbit.Web gives about its own chips - the reason to say it is to
+                                 be able to go and look. Outside the tap that opens the entry, so one
+                                 does not swallow the other. -->
+                            <FlexLayout Wrap="Wrap" Direction="Row" IsVisible="{Binding HasReferences}"
+                                        BindableLayout.ItemsSource="{Binding References}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="screens:TaskItemReference">
+                                        <Button Text="{Binding Label}" FontSize="11" Padding="8,2" Margin="0,2,6,0"
+                                                Style="{StaticResource LinkButton}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenReferenceCommand, x:DataType=tasks:TaskListDetailPage}"
+                                                CommandParameter="{Binding .}" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
                         </VerticalStackLayout>
                         <Button Grid.Column="2" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" WidthRequest="44" Padding="0"
                                 BackgroundColor="Transparent"
@@ -92,6 +137,8 @@
             <VerticalStackLayout Padding="0,8" Spacing="10" BindingContext="{Binding BeingEdited}"
                                  x:DataType="screens:TaskItemEditor">
                 <Entry Placeholder="{controls:Translate 'Checklist item'}" Text="{Binding Description}" />
+                <!-- Errands this account has already written, offered as this one is typed. -->
+                <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
 
                 <!-- What this entry is. On the entry rather than on the list, because a day's plan holds
                      two errands and an appointment - see TaskItemKind. -->
@@ -99,26 +146,61 @@
                 <Picker ItemsSource="{Binding Kinds}" SelectedItem="{Binding ChosenKind}"
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskItemKindChoice}" />
 
-                <!-- Only somewhere to be has a place and an event; the rest of the form is the same
-                     whichever this entry is. -->
+                <!-- A Calendar entry is the appointment rather than a pointer at one, so this is the
+                     event's own form - the same fields Orbit.Web's task editor shows. Saving the entry
+                     is what puts it in the calendar. -->
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsCalendarEntry}">
-                    <Label Text="{controls:Translate 'Calendar event'}" FontSize="12"
-                           Style="{StaticResource SubtleLabel}" />
-                    <Picker ItemsSource="{Binding CalendarEvents}" SelectedItem="{Binding ChosenCalendarEvent}"
-                            ItemDisplayBinding="{Binding Title, x:DataType=screens:CalendarEventChoice}" />
-
-                    <Entry Placeholder="{controls:Translate 'Where this happens'}" Text="{Binding Location}"
-                           IsVisible="{Binding CanSayWhereItHappens}" />
+                    <Entry Placeholder="{controls:Translate 'Where this happens'}" Text="{Binding Location}" />
                     <!-- Typing an address is one way; pointing at it is the other, and the one that
                          works when nobody knows what the street is called. -->
                     <Button Text="{controls:Translate 'Show map'}" FontSize="13" HorizontalOptions="Start"
                             Style="{StaticResource LinkButton}"
-                            IsVisible="{Binding CanSayWhereItHappens}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ShowMapCommand, x:DataType=tasks:TaskListDetailPage}" />
-                    <!-- One place, not two: tied to an event, the event holds it. -->
-                    <Label Text="{Binding WhereTheEventHappens}" IsVisible="{Binding IsTiedToAnEvent}"
-                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+                    <VerticalStackLayout Spacing="10" BindingContext="{Binding Event}"
+                                         x:DataType="screens:TaskItemEventForm">
+                        <Editor Placeholder="{controls:Translate 'Description'}" Text="{Binding Description}"
+                                AutoSize="TextChanges" MinimumHeightRequest="60" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{controls:Translate 'All-day event'}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding IsAllDay}" VerticalOptions="Center" />
+                        </Grid>
+
+                        <Label Text="{controls:Translate 'Starts'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                        <DatePicker Date="{Binding StartDate}" Format="{controls:DatePattern}" />
+                        <TimePicker Time="{Binding StartTime}" IsVisible="{Binding ShowsTimes}" Format="{controls:TimePattern}" />
+
+                        <Label Text="{controls:Translate 'Ends'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                        <DatePicker Date="{Binding EndDate}" Format="{controls:DatePattern}" />
+                        <TimePicker Time="{Binding EndTime}" IsVisible="{Binding ShowsTimes}" Format="{controls:TimePattern}" />
+
+                        <Label Text="{controls:Translate 'Repeats'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                        <Picker ItemsSource="{Binding Recurrences}" SelectedItem="{Binding ChosenRecurrence}"
+                                Title="{controls:Translate 'Never'}"
+                                ItemDisplayBinding="{Binding Name, x:DataType=calendar:RecurrenceChoice}" />
+
+                        <Label Text="{controls:Translate 'Remind before'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                        <Picker ItemsSource="{Binding Reminders}" SelectedItem="{Binding ChosenReminder}"
+                                Title="{controls:Translate 'No reminder'}"
+                                ItemDisplayBinding="{Binding Name, x:DataType=calendar:ReminderChoice}" />
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
+
+                <!-- An errand about a product opens the product itself, so correcting an amount does
+                     not mean leaving the list and finding the warehouse again. The same form the
+                     warehouse screen shows, and saving here saves it there - see TaskItemShelfProduct. -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShelfEntry}">
+                    <Label Text="{Binding WhereTheProductLives}" FontSize="12" LineBreakMode="WordWrap"
+                           Style="{StaticResource SubtleLabel}" />
+                    <controls:ShelfProductFields BindingContext="{Binding Shelf.Product}" />
+                </VerticalStackLayout>
+
+                <!-- An errand whose product this phone has not got - a warehouse no longer shared, or
+                     one not synced yet. Said, rather than left as an empty form that looks broken. -->
+                <Label Text="{Binding NoProductMessage}"
+                       IsVisible="{Binding HasNoProductToEdit}" FontSize="12" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}" />
 
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Label Grid.Column="0" Text="{controls:Translate 'Due date'}" VerticalOptions="Center" />
@@ -135,7 +217,19 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Remind me daily'}" VerticalOptions="Center" />
                     <Switch Grid.Column="1" IsToggled="{Binding RemindDaily}" VerticalOptions="Center" />
                 </Grid>
-                <TimePicker Time="{Binding DailyReminderTime}" IsVisible="{Binding RemindDaily}" Format="{controls:TimePattern}" />
+                <TimePicker Time="{Binding DailyReminderTime}" Format="{controls:TimePattern}"
+                            IsVisible="{Binding HasDailyReminderTime}" />
+                <!-- Shown in the picker's place for an entry that arrived without an hour. A picker
+                     already showing nine o'clock is one somebody accepts by not touching it, and that
+                     would record nothing - see TaskItemEditor.ChooseAReminderTime. -->
+                <Button Text="{controls:Translate 'Choose a time'}" HorizontalOptions="Start"
+                        FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                        IsVisible="{Binding HasSomethingMissing}"
+                        Command="{Binding ChooseAReminderTimeCommand}" />
+                <!-- An hour is required once a daily reminder is on. Refused rather than quietly
+                     corrected: one nobody chose would be sent at midnight - see TaskItemEditor. -->
+                <Label Text="{Binding WhatIsMissing}" IsVisible="{Binding HasSomethingMissing}"
+                       FontSize="12" LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
                 <Picker ItemsSource="{Binding Channels}"
                         SelectedItem="{Binding ChosenDailyReminderNotificationChannel}"
                         ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}"
@@ -183,6 +277,18 @@
                 <Switch Grid.Column="1" IsToggled="{Binding IsGroup}" VerticalOptions="Center" />
             </Grid>
 
+            <!-- The same checkbox Orbit.Web's task editor has: what it turns on is real encryption, so
+                 the row says what it costs rather than only what it is. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
+                <VerticalStackLayout Grid.Column="0">
+                    <Label Text="{controls:Translate 'Private'}" />
+                    <Label Text="{controls:Translate 'Only you can read it, and it cannot be shared.'}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+                <Switch Grid.Column="1" IsToggled="{Binding IsPrivate}" VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Private'}" />
+            </Grid>
+
             <!-- How much this list matters. The phone could sort by it from the day it could list
                  anything, and had no way to see one or set one - see PriorityChoice. -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
@@ -200,11 +306,17 @@
                 <VerticalStackLayout Spacing="10">
                     <Label Text="{controls:Translate 'Can this be done?'}" Style="{StaticResource CardTitle}" />
 
+                    <!-- Both questions here are the server's to answer, so neither is offered while there
+                         is nobody to ask - see ConnectionRequirement. -->
+                    <Label Text="{Binding Connection.Explanation}" IsVisible="{Binding Connection.IsNotMet}"
+                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
                     <!-- A sheet rather than a picker, for the reason the event editor's three are:
                          iOS docks a picker's wheel at the bottom of the screen, which here covers the
                          sharing links and the way back. -->
                     <Button Text="{Binding LinkedWarehouse.Name}" HorizontalOptions="Start"
                             FontSize="13" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                            IsEnabled="{Binding Connection.IsMet}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseWarehouseCommand, x:DataType=tasks:TaskListDetailPage}" />
 
                     <Label Text="{Binding Summary}" IsVisible="{Binding HasSummary}" FontSize="13"
@@ -233,6 +345,7 @@
                     </VerticalStackLayout>
 
                     <Button Text="{controls:Translate 'Add what is missing to the restock list'}"
+                            IsEnabled="{Binding Connection.IsMet}"
                             IsVisible="{Binding IsShortOfSomething}" HorizontalOptions="Start"
                             FontSize="12" Padding="12,6" LineBreakMode="WordWrap"
                             Command="{Binding RaiseShortfallsCommand}" />
@@ -243,6 +356,8 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- The panel hides itself for a private list, as Orbit.Web's editor hides it: there is no
+                 readable copy on the server to hand anybody - see SharePanel.CanShare. -->
             <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
 

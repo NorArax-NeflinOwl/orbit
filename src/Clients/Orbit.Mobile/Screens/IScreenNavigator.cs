@@ -38,6 +38,15 @@ public interface IScreenNavigator
     /// <summary>One note, opened from the list - see NoteDetailViewModel.</summary>
     void ShowNote(Guid localId);
 
+    /// <summary>
+    /// The copies taken while offline, each beside the thing it came from - opened when the connection
+    /// is back and there is something to decide. See CopyReviewViewModel.
+    /// </summary>
+    void ShowCopyReview();
+
+    /// <summary>Copies kept rather than merged, and what each came from - see CopyHistoryViewModel.</summary>
+    void ShowCopyHistory();
+
     void ShowTasks();
 
     void ShowTaskList(Guid localId);

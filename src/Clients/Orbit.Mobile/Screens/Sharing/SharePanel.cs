@@ -30,6 +30,13 @@ public sealed partial class SharePanel : ObservableObject
     private readonly SharedItemSharing _sharing;
     private readonly PublicShareClient _links;
     private readonly UserPermissions _permissions;
+
+    /// <summary>
+    /// Every button on this panel needs the server - a share is an offer somebody else has to be
+    /// able to accept, and a link is a token only the server can mint. So they are disabled while
+    /// there is no connection rather than offered and refused.
+    /// </summary>
+    public ConnectionRequirement Connection { get; }
     private readonly Translations _translations;
 
     private SharedItemKind _kind;
@@ -53,13 +60,15 @@ public sealed partial class SharePanel : ObservableObject
 
     public SharePanel(
         ChatRepository chatRepository, ChatSynchronizer synchronizer, SharedItemSharing sharing,
-        PublicShareClient links, UserPermissions permissions, Translations translations)
+        PublicShareClient links, UserPermissions permissions, Translations translations,
+        ConnectionRequirement connection)
     {
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _sharing = sharing;
         _links = links;
         _permissions = permissions;
+        Connection = connection;
         _translations = translations;
         AccessLevels = [.. Enum.GetValues<ShareAccessLevel>().Select(level => new AccessLevelChoice(level, Describe(level)))];
         AccessLevel = AccessLevels[0];
@@ -70,8 +79,18 @@ public sealed partial class SharePanel : ObservableObject
 
     public IReadOnlyList<AccessLevelChoice> AccessLevels { get; }
 
-    /// <summary>Whether the editor should offer sharing at all - see ApplicationPermission.Sharing.</summary>
-    public bool CanShare => _permissions.Has(ApplicationPermission.Sharing);
+    /// <summary>
+    /// Whether the editor should offer sharing at all. Two questions, and both have to be yes: whether
+    /// this account may share (see ApplicationPermission.Sharing), and whether there is anything to
+    /// offer - a private item is offered to nobody, because the server holds no readable copy to hand
+    /// over, and one the server has never seen cannot be named in an offer at all.
+    ///
+    /// Asked here rather than by hiding the panel from outside, because the panel's own markup binds
+    /// its visibility to this - an IsVisible set on the instance is overridden by that and does nothing.
+    /// </summary>
+    public bool CanShare => _permissions.Has(ApplicationPermission.Sharing) && _hasSomethingToOffer;
+
+    private bool _hasSomethingToOffer;
 
     public bool HasMessage => Message.Length > 0;
 
@@ -157,7 +176,23 @@ public sealed partial class SharePanel : ObservableObject
         _itemId = itemId;
         _name = name;
         _ownerUserId = ownerUserId;
+        _hasSomethingToOffer = true;
         OnPropertyChanged(nameof(CanAskToEdit));
+        OnPropertyChanged(nameof(CanShare));
+    }
+
+    /// <summary>
+    /// Said instead of <see cref="Describes"/> when the thing on screen cannot be offered to anybody -
+    /// it is private, or the server has never seen it. Said rather than left unsaid, because the panel
+    /// outlives one screen's load: a note opened after a shareable one would otherwise keep offering.
+    /// </summary>
+    public void OffersNothing()
+    {
+        _hasSomethingToOffer = false;
+        _ownerUserId = null;
+        IsOpen = false;
+        OnPropertyChanged(nameof(CanAskToEdit));
+        OnPropertyChanged(nameof(CanShare));
     }
 
     private Guid? _ownerUserId;

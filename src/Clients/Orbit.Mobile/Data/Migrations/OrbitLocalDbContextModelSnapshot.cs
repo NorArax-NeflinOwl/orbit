@@ -27,12 +27,29 @@ namespace Orbit.Mobile.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("CopiedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CopyBaseLines")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CopyBaseTitle")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CopyOfLocalId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CreatedAtUtc")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Details")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsKeptCopy")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsShared")
                         .HasColumnType("INTEGER");
@@ -186,6 +203,20 @@ namespace Orbit.Mobile.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("CopiedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CopyBaseLines")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CopyBaseTitle")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CopyOfLocalId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CreatedAtUtc")
                         .HasColumnType("INTEGER");
 
@@ -194,6 +225,9 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsKeptCopy")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsPinned")
                         .HasColumnType("INTEGER");
@@ -239,6 +273,49 @@ namespace Orbit.Mobile.Data.Migrations
                     b.ToTable("Notes");
                 });
 
+            modelBuilder.Entity("Orbit.Mobile.Data.LocalNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BodyArgumentsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDismissed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TitleArgumentsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Url")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("Orbit.Mobile.Data.LocalPermission", b =>
                 {
                     b.Property<string>("Name")
@@ -273,6 +350,20 @@ namespace Orbit.Mobile.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("CopiedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CopyBaseLines")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CopyBaseTitle")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CopyOfLocalId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CreatedAtUtc")
                         .HasColumnType("INTEGER");
 
@@ -286,6 +377,9 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsGroup")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsKeptCopy")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsPinned")
@@ -353,6 +447,20 @@ namespace Orbit.Mobile.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("CopiedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CopyBaseLines")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CopyBaseTitle")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CopyOfLocalId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CreatedAtUtc")
                         .HasColumnType("INTEGER");
 
@@ -361,6 +469,9 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsKeptCopy")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("INTEGER");
@@ -462,6 +573,24 @@ namespace Orbit.Mobile.Data.Migrations
                     b.HasIndex("Id");
 
                     b.ToTable("OutgoingChatMessages");
+                });
+
+            modelBuilder.Entity("Orbit.Mobile.Data.PendingCalendarLink", b =>
+                {
+                    b.Property<Guid>("CalendarEventLocalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TaskListLocalId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("CalendarEventLocalId");
+
+                    b.ToTable("PendingCalendarLinks");
                 });
 
             modelBuilder.Entity("Orbit.Mobile.Data.SyncCursor", b =>

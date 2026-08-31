@@ -24,6 +24,13 @@ internal sealed class FakeLocationServer : HttpMessageHandler
     /// <summary>Set to make every request come back refused, which is not the same as unreachable.</summary>
     public HttpStatusCode? RefuseEverythingWith { get; set; }
 
+    /// <summary>
+    /// Set to refuse only the two reads about sharing, leaving the caller's own position alone. This is
+    /// the shape the real server has for an account that unlocked Location but not Contacts: recording
+    /// where you are is allowed, asking who is sharing with whom is not (see PermissionPolicies).
+    /// </summary>
+    public HttpStatusCode? RefuseShareReadsWith { get; set; }
+
     /// <summary>The caller's own recorded position - stored in the clear, as the real one does.</summary>
     public SaveOwnLocationRequest? OwnLocation { get; private set; }
 
@@ -48,6 +55,13 @@ internal sealed class FakeLocationServer : HttpMessageHandler
         }
 
         var path = request.RequestUri!.AbsolutePath;
+
+        if (RefuseShareReadsWith is { } shareRefusal && request.Method == HttpMethod.Get
+            && (path.EndsWith("/location/shared-with-me", StringComparison.Ordinal)
+                || path.EndsWith("/location/shares", StringComparison.Ordinal)))
+        {
+            return new HttpResponseMessage(shareRefusal);
+        }
 
         if (path.EndsWith("/location/shared-with-me", StringComparison.Ordinal))
         {

@@ -5,6 +5,8 @@ using Orbit.Contracts.Sync;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens.Notes;
+using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -23,6 +25,7 @@ public sealed partial class TasksViewModel : ObservableObject
     private readonly IScreenNavigator _navigator;
     private readonly Translations _translations;
     private readonly ITaskListArrangementStore _arrangements;
+    private readonly PrivateItemGate _privateItems;
 
     [ObservableProperty]
     private string _newListTitle = string.Empty;
@@ -46,7 +49,7 @@ public sealed partial class TasksViewModel : ObservableObject
 
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
-        INetworkStatus networkStatus, ITaskListArrangementStore arrangements,
+        INetworkStatus networkStatus, ITaskListArrangementStore arrangements, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _taskLists = taskLists;
@@ -57,6 +60,7 @@ public sealed partial class TasksViewModel : ObservableObject
         _navigator = navigator;
         _translations = translations;
         _arrangements = arrangements;
+        _privateItems = privateItems;
         _arrangement = new TaskListArrangement(arrangements.ReadSortOrder(), arrangements.ReadManualOrder());
         _collapsed = [.. arrangements.ReadCollapsed()];
     }
@@ -89,12 +93,26 @@ public sealed partial class TasksViewModel : ObservableObject
 
     private bool CanAddList => NewListTitle.Trim().Length > 0;
 
+    /// <summary>
+    /// Opens one list. A hidden row opens nothing: it offers the lock instead, which is the whole point
+    /// of hiding it - see TaskListRow.CanBeOpened.
+    /// </summary>
     [RelayCommand]
     private void OpenList(TaskListRow? row)
     {
-        if (row is not null)
+        if (row is { CanBeOpened: true })
         {
             _navigator.ShowTaskList(row.LocalId);
+        }
+    }
+
+    /// <inheritdoc cref="NotesViewModel.UnlockPrivateAsync"/>
+    [RelayCommand]
+    private async Task UnlockPrivateAsync(CancellationToken cancellationToken)
+    {
+        if (await _privateItems.TryUnlockAsync(cancellationToken))
+        {
+            ShowArrangedLists();
         }
     }
 
@@ -150,7 +168,8 @@ public sealed partial class TasksViewModel : ObservableObject
             // Every list, not just the visible ones: a group's row looks up what its links stand for,
             // and a member filtered off the screen is still where that work sits.
             TaskLists.Add(TaskListRow.From(
-                taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations)
+                taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations,
+                _privateItems.IsUnlocked, _translations["Private"])
                 with
                 {
                     CanBeMoved = SortOrder == TaskListSortOrder.Manual,

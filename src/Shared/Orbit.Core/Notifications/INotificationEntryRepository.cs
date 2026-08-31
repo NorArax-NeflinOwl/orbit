@@ -24,6 +24,18 @@ public interface INotificationEntryRepository
     /// </summary>
     Task<IReadOnlyList<NotificationEntry>> GetUnreadAsync(Guid userId, int take, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Everything about userId's notifications that has changed since <paramref name="since"/>, most
+    /// recent first - what a phone asks for so it can hold its own copy and show the feed with no
+    /// connection.
+    ///
+    /// Changed means more than created: reading one and clearing one both change what the feed shows,
+    /// and a client that only heard about new entries would keep showing an old one as unread forever.
+    /// Dismissed entries are included for the same reason - the phone has to be told they went.
+    /// </summary>
+    Task<IReadOnlyList<NotificationEntry>> GetChangedSinceAsync(
+        Guid userId, DateTimeOffset since, int take, CancellationToken cancellationToken);
+
     /// <summary>Marks every currently-unread entry for userId as read as of nowUtc.</summary>
     Task MarkAllReadAsync(Guid userId, DateTimeOffset nowUtc, CancellationToken cancellationToken);
 

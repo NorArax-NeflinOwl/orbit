@@ -439,6 +439,21 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
     </Style>
 
+    <!-- One line of a diff on the copy-review screen. Grey by default - most lines did not change and
+         should recede - with green for what was added and red for what went. The sign in the margin
+         says the same thing (see DiffLine.Display), so the colour is a second telling, not the only one. -->
+    <Style x:Key="DiffLineLabel" TargetType="Label">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+        <Style.Triggers>
+            <DataTrigger TargetType="Label" Binding="{Binding IsAdded}" Value="True">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SuccessLight}, Dark={StaticResource SuccessDark}}" />
+            </DataTrigger>
+            <DataTrigger TargetType="Label" Binding="{Binding IsRemoved}" Value="True">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Text that warns without being an error: destructive actions, irreversible consequences. -->
     <Style x:Key="WarningLabel" TargetType="Label">
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
@@ -448,12 +463,42 @@
     <Style x:Key="LinkButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{DynamicResource Accent}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <!-- A link button has no fill to grey, so only its text can say it is unavailable.
+                         Without this an action disabled for want of a connection looked exactly like one
+                         that works, and the only clue was that tapping it did nothing. -->
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
     </Style>
 
     <!-- The same, for something that destroys data. -->
     <Style x:Key="DestructiveButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <!-- A link button has no fill to grey, so only its text can say it is unavailable.
+                         Without this an action disabled for want of a connection looked exactly like one
+                         that works, and the only clue was that tapping it did nothing. -->
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
     </Style>
 
     <!-- Orbit.Web's .card, which is that client's one content container: a hairline, a background

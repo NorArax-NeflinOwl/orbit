@@ -147,6 +147,27 @@
 		a pile of NU1608 warnings and two AndroidX versions in one app. 1.1.0.30 binds the same
 		androidx.biometric 1.1.0 against the versions MAUI already brings. Raise it when MAUI does. -->
 		<PackageReference Include="Xamarin.AndroidX.Biometric" Version="1.1.0.30" />
+		<!-- The FCM registration token that tells Orbit's server where to deliver a notification. Android
+		only: iOS gets its token from APNs through the same Firebase project, but that needs an auth key
+		uploaded to the console first, so its head still answers NotAvailableHere - see
+		Platforms/iOS/PhonePushNotifications.cs.
+
+		Messaging is the only Firebase piece Orbit uses, and it is pinned below the newest build for the
+		reason the biometric binding above is: from 125.x it drags AndroidX Lifecycle, Activity, Fragment,
+		Collection and SavedState past what MAUI 10.0.20 pins, which restores as fifty NU1608 warnings and
+		leaves MAUI running against AndroidX it was not built against. 124.1.2 is the newest that asks for
+		exactly the versions MAUI already carries - measured, not guessed: 125.0.2 gives nine warnings and
+		125.1.1 gives fifty. Raise it when MAUI does. -->
+		<PackageReference Include="Xamarin.Firebase.Messaging" Version="124.1.2" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('Platforms\Android\google-services.json')">
+		<!-- Turned into the resource values the Firebase SDK reads at startup: the project number, the
+		app id and the API key. Without this the SDK initialises with no options and there is no token to
+		be had - which is a build made without the file, and an ordinary state rather than a fault, the
+		same as the Maps key below. See Platforms/Android/PhonePushNotifications.cs for what it answers
+		then. The file is deployment-specific and gitignored. -->
+		<GoogleServicesJson Include="Platforms\Android\google-services.json" />
 	</ItemGroup>
 
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('Platforms\Android\AndroidManifestOverlay.xml')">

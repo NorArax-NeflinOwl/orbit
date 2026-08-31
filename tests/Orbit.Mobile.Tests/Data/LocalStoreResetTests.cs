@@ -77,7 +77,7 @@ public sealed class LocalStoreResetTests : IDisposable
         Assert.Empty(after.SyncCursors);
     }
 
-    private LocalNoteRepository Notes() => new(_localStore, _clock, FixedNetworkStatus.Online);
+    private LocalNoteRepository Notes() => new(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
 
     private async Task AddANoteAsync()
         => await Notes().CreateAsync("Something private", [new NoteContentLineDto("Body", false, false)]);

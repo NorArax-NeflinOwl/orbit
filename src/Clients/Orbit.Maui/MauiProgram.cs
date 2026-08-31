@@ -15,6 +15,7 @@ using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
@@ -27,6 +28,8 @@ using Orbit.Mobile.Screens.Tasks;
 using Orbit.Mobile.Screens;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
+using Orbit.Maui.Features.Copies;
+using Orbit.Mobile.Screens.Copies;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
@@ -105,8 +108,14 @@ public static class MauiProgram
 		services.AddDbContextFactory<OrbitLocalDbContext>(options => options.UseSqlite(LocalDatabase.ConnectionString));
 		services.AddSingleton(TimeProvider.System);
 		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
+		// Transient: each screen binds its own, and one that outlived its screen would keep it alive
+		// through the connectivity subscription.
+		services.AddTransient<ConnectionRequirement>();
 		// Shared, because the synchronisers are transient and the thing being guarded is the database.
 		services.AddSingleton<SyncGate>();
+		// One instance: it reads the key this device already holds and nothing else - no network, no state
+		// of its own - so the repositories that seal with it can stay singletons too.
+		services.AddSingleton<PrivateContentSealer>();
 		services.AddSingleton<LocalNoteRepository>();
 		services.AddSingleton<LocalTaskListRepository>();
 		services.AddSingleton<LocalCalendarEventRepository>();
@@ -118,6 +127,9 @@ public static class MauiProgram
 		services.AddTransient<NoteSynchronizer>();
 		services.AddTransient<TaskListSynchronizer>();
 		services.AddTransient<CalendarEventSynchronizer>();
+		services.AddTransient<NotificationSynchronizer>();
+		services.AddTransient<LocalNotificationRepository>();
+		services.AddTransient<PendingCalendarLinkResolver>();
 		services.AddTransient<WarehouseSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<LocalStoreReset>();
@@ -130,9 +142,13 @@ public static class MauiProgram
 		services.AddTransient<ChatDirectoryReader>();
 		services.AddTransient<EncryptedChatMessageEditor>();
 		services.AddTransient<MessageForwarder>();
+		services.AddTransient<GroupHistorySharing>();
 		services.AddTransient<SharedItemAcceptance>();
 		services.AddTransient<SharedItemSharing>();
 		services.AddTransient<SharePanel>();
+		// One per editor screen rather than one for the app: it holds what is being typed into the field
+		// that is open, and two screens sharing it would offer each other's names.
+		services.AddTransient<NameSuggestions>();
 		services.AddTransient<StockCheckPanel>();
 		services.AddTransient<GoogleAccountLink>();
 		services.AddTransient<SharedLocations>();
@@ -224,6 +240,8 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<InventoryClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<SuggestionsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 
 		// Talks to Google rather than to Orbit, so it gets no base address and no authorization handler -
 		// both endpoints it uses are absolute, and Orbit's token means nothing to Google.
@@ -296,6 +314,17 @@ public static class MauiProgram
 		// One lock per editor, not one for the app: two editors open at once each hold their own item.
 		services.AddTransient<EditLock>();
 		services.AddTransient<NoteDetailViewModel>();
+		services.AddTransient<CopyReviewPage>();
+		services.AddTransient<CopyReviewViewModel>();
+		services.AddTransient<CopyHistoryPage>();
+		services.AddTransient<CopyHistoryViewModel>();
+		// The four repositories, again, as the one thing the two copy screens know them by. Registered
+		// against the same instances rather than as separate ones: a copy resolved here has to be the
+		// copy the rest of the app is reading.
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalNoteRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalTaskListRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalCalendarEventRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalWarehouseRepository>());
 		services.AddTransient<CalendarEventDetailViewModel>();
 		services.AddTransient<TasksPage>();
 		services.AddTransient<TasksViewModel>();

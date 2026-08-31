@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Web;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
 
@@ -47,6 +48,14 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     /// <summary>How many times the shelf was asked to be topped up in one go.</summary>
     public int RestockingsFinished { get; private set; }
+
+    /// <summary>How often the screen asked for the finished errands to be settled - see ReconcileRestockingAsync.</summary>
+    public int RestockingsSettled { get; private set; }
+
+    /// <summary>What the settle answers with. Nothing settled unless a test says otherwise.</summary>
+    public int SettledCount { get; set; }
+
+    public int SettledToppedUpCount { get; set; }
 
     /// <summary>The warehouse a list was last pointed at.</summary>
     public Guid? LinkedWarehouseId { get; private set; }
@@ -132,6 +141,12 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             return Json(new FinishRestockingResultDto(ToppedUpCount));
         }
 
+        if (path.EndsWith("/restocking/reconcile", StringComparison.Ordinal))
+        {
+            RestockingsSettled++;
+            return Json(new RestockReconciliationResultDto(SettledToppedUpCount, SettledCount));
+        }
+
         if (path.EndsWith("/inventory", StringComparison.Ordinal))
         {
             return GeneratedWarehouseId is { } generated
@@ -195,6 +210,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         _taskLists[created.Id] = created with
         {
             Items = ToDtos(body.Items), IsGroup = body.IsGroup, IsPrivate = body.IsPrivate,
+            // Stored as the real endpoint stores it: a private list's title and entries are only here,
+            // so a fake that dropped it would answer the next pull with an empty list.
+            EncryptedContent = body.EncryptedContent,
             Priority = body.Priority
         };
         return Json(created.Id, HttpStatusCode.Created);
@@ -219,6 +237,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // "Normal" over the top, and the phone looked like it had never sent one.
             IsGroup = body.IsGroup,
             IsPrivate = body.IsPrivate,
+            EncryptedContent = body.EncryptedContent,
             Priority = body.Priority,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
@@ -247,7 +266,11 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         => items.Select(item => new TaskItemDto(
             item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
             item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-            item.DailyReminderTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId)).ToList();
+            item.DailyReminderTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId,
+            // Kept only for an Inventory entry, which is TaskItem's own rule - a fake that kept it for
+            // every kind would let a client sending the wrong kind pass, and the real server would cut
+            // the errand loose from its product.
+            item.Kind == nameof(TaskItemKind.Inventory) ? item.LinkedInventoryItemId : null)).ToList();
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 

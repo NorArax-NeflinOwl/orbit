@@ -336,13 +336,18 @@ Adding somebody to a group offers a checkbox: **"Also give them what was said be
 people who were in it, and handing it on is a decision somebody makes rather than what happens if they
 do not look.
 
-The work is the **adder's browser's**, because there is nowhere else it could happen. The server has
+The work is the **adder's own device's**, because there is nowhere else it could happen. The server has
 never held a key to any of this and cannot make a copy for the newcomer, so `GroupHistorySharing` reads
 the conversation the adder can already read, decrypts each message on their device, seals each one again
 under the pairwise key they share with the new member, and posts the results
 (`POST /api/chat/groups/{id}/history`). A message this device cannot open — one sealed under a key pair
 since replaced — is left behind rather than passed on as ciphertext the newcomer would stare at, and the
-page says how many actually went across.
+screen says how many actually went across.
+
+**Both clients can do it**, with a class of that name each: the browser's runs the crypto through
+`e2eeChat.js`, the phone's through `ChatIdentity` in process, and they hand the same thing to the same
+endpoint. Being able to add somebody to a group but not give them its past — which is what a phone
+could do until now — made the switch a thing you had to go and find a browser for.
 
 What the server will accept on their behalf is narrow, since it cannot read what it is being handed:
 
@@ -372,7 +377,8 @@ has nothing else — is given the new one.
 Being added to a group used to be visible only to the person it happened to: the group turned up in
 their list, and everybody else saw a roster that had quietly changed. Now the conversation itself carries
 a line for it — *"Anna joined Weekend trip"* — drawn where it happened rather than pinned anywhere
-(`ChatGroupAnnouncement`, rendered by `GroupConversation.razor`).
+(`ChatGroupAnnouncement`, rendered by `GroupConversation.razor` and, on the phone, by
+`GroupAnnouncementLine` in the same thread and the same words).
 
 When the history was shared, the same line says so too: *"Anna joined Weekend trip · Piotr shared the
 conversation so far"*. The two halves are recorded separately on purpose. The join is known the moment it
@@ -414,22 +420,37 @@ give you the right to erase it from the sender's own history.
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever
-read it, and Orbit's servers can't. Ticking the box in the editor makes the browser seal the title and
+read it, and Orbit's servers can't. Ticking the box in the editor makes the client seal the title and
 the content before saving, so what the server stores is `IsPrivate` plus a base64 ciphertext and nonce
 (`EncryptedPayload`) — the readable columns go **empty**, not merely unread. `Note.Update` and
 `TaskList.Update` enforce that pairing rather than trusting callers: claiming privacy without sealed
 content is refused, and turning privacy off drops the ciphertext.
 
 The key is the one chat already uses, agreed with the owner's own public key on both sides of an ECDH
-exchange (`e2eeChat.js`'s `encryptForSelf`). That means no second key to generate, back up, or restore:
-a browser that can read your chat can read your private items, one that can't asks for your password
-the same way, and **a password reset replaces the key pair, so private content is lost with the chat
-history** — the editor says so next to the checkbox.
+exchange (`e2eeChat.js`'s `encryptForSelf`, and `ChatIdentity.EncryptForSelf` on the phone). That means
+no second key to generate, back up, or restore: a device that can read your chat can read your private
+items, one that can't asks for your password the same way, and **a password reset replaces the key
+pair, so private content is lost with the chat history** — the editor says so next to the checkbox.
 
 Sealing and opening happen in `NotesApiClient`/`TasksApiClient`, not in the pages, so the overview, the
 dashboard, the checklist view and the calendar all receive a readable DTO without knowing any of this
 happened. Content that can no longer be opened renders with an "Unreadable — encrypted with an older
 key" title rather than throwing, so one lost item doesn't take a whole list down.
+
+**Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
+payload shapes (`SealedNote`, `SealedTaskList`, `SealedWarehouse`) live in `Orbit.Contracts` and are
+serialized with the same property names on either side — `SealedContentTests` pins the phone's
+source-generated output against the browser's reflection-based one, because a mismatch there produces
+notes that round-trip perfectly on one client and cannot be opened on the other.
+
+Two things are the phone's own. Its local database holds the **sealed** payload rather than the opened
+words, so a handset that is picked up says no more about a private note than the server does; the
+words are opened for the screen that shows them and never written back (`LocalNoteRepository`,
+`PrivateContentSealer`). And a private item is additionally kept behind the **device lock** — a face
+or a passcode — on the notes, tasks and inventory screens, which is the physical counterpart of a
+promise that otherwise only holds against the server (`PrivateItemGate`). A device holding no key says
+which of the two situations it is in — no key here, or a key pair since replaced — rather than showing
+an empty editor.
 
 What private costs:
 
@@ -440,8 +461,12 @@ What private costs:
   due dates the server can no longer read.
 - **Items can't be moved into or out of one** (`MoveTaskItemCommandHandler` refuses): a private list
   keeps no readable items, so the move would take the item off the source and then drop it.
-- **Completion is recomputed in the browser.** The server derives `IsCompleted` from items it can't see,
-  so what it sends for a private list means nothing; `TasksApiClient` works it out after opening.
+- **Completion is recomputed on the client.** The server derives `IsCompleted` from items it can't see,
+  so what it sends for a private list means nothing; `TasksApiClient` and `LocalTaskListRepository`
+  work it out after opening.
+- **A private list's entries get their identity from the client.** The server mints entry ids and never
+  sees a private list's entries, so the phone mints one for any entry that has none before sealing —
+  without it every entry on the list would share the empty id.
 
 ### Private warehouses
 
@@ -924,8 +949,10 @@ Opening `/inventory` without searching costs nothing extra.
 
 The phone's inventory screen answers the same question (`InventoryViewModel.ShowMatchingItems`), and has
 less to do about it: every warehouse's items came down with the warehouse, so there is nothing to fetch
-and nothing to cache. A private warehouse is one this phone cannot open at all, and is named in the same
-summary for the same reason.
+and nothing to cache. A private warehouse is searched like any other once this device can open it and
+private things are unlocked; one it cannot look inside — no key for it, or the device lock still on — is
+**counted** in the same summary for the same reason, rather than named, since the name is one of the
+things being kept back.
 
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
 warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -
@@ -1049,8 +1076,11 @@ next time that product went low Orbit would look up an entry that no longer exis
 
 `RestockCompletion.ReconcileAsync` does all of it, and is safe to run twice - which is what lets it run
 in two places. It runs **on save**, so ticking an errand settles it, and again **when the list is
-opened** (`POST /api/tasks/{id}/restocking/reconcile`, asked for by `TaskListChecklist.razor`), which is
-what clears errands that were ticked off before Orbit did any of this. An errand whose product has since
+opened** (`POST /api/tasks/{id}/restocking/reconcile`, asked for by `TaskListChecklist.razor` and by the
+phone's `TaskListDetailViewModel`), which is what clears errands that were ticked off before Orbit did
+any of this. Both clients ask, and on opening rather than on ticking: a list that settled itself in a
+browser and quietly did not on a phone would behave differently depending on which client last looked
+at it, with the shelf left un-topped-up in between. An errand whose product has since
 been deleted still leaves the list: there is nothing left to bring back.
 
 **What the list asks for is the warehouse's choice.** Two settings at the bottom of the warehouse editor
@@ -1066,10 +1096,13 @@ been deleted still leaves the list: there is nothing left to bring back.
 
 Changing either rebuilds the list to match (`RestockListRefresh`), and **Refresh**
 (`POST /api/warehouses/{id}/restock-list/refresh`) does the same rebuild against settings that have not
-changed - what somebody presses when the world moved rather than the settings. It replaced two buttons
-that used to sit on the checklist's menu, "Generate inventory" and "Recalculate against the inventory":
-both did half of something else, and neither answered the question somebody has in front of a restock
-list.
+changed - what somebody presses when the world moved rather than the settings. It replaced a button that
+used to sit on the checklist's menu, "Recalculate against the inventory", which did half of something
+else and did not answer the question somebody has in front of a restock list.
+
+**The phone offers the same one**, in the stock check beside the list's warehouse picker, and stopped
+offering the button it replaced. Until it did, the two clients disagreed about what the menu over a
+restock list even contained.
 
 **An errand says where it came from and where else it is being asked for.** Under each one the checklist
 draws up to two links (`GET /api/tasks/{id}/inventory-references`): the warehouse the product sits in,
@@ -1096,10 +1129,16 @@ because a corrected amount can settle an errand or raise one. The list is saved 
 second: if the shelf write fails the list is still saved, and the screen says so.
 
 **Expiry is asked as how long something keeps**, not as the day it stops keeping - "2 weeks", not the
-14th (`ExpiresInField`, used by both editors). A date is still what gets stored, because the expiry
-reminder needs one and "in two weeks" is not something a background service can compare against; what
-changed is only the asking. An item that already has a date says how long is left, in the coarsest unit
-that divides it exactly.
+14th (`ExpiresInField` in the browser, the same two boxes on the phone's shelf editor). A date is still
+what gets stored, because the expiry reminder needs one and "in two weeks" is not something a background
+service can compare against; what changed is only the asking. An item that already has a date says how
+long is left, in the coarsest unit that lands on it exactly.
+
+The rule turning one into the other is `ExpiryPeriod` in `Orbit.Core`, shared rather than written twice:
+a phone reading "14 days" where a browser reads "2 weeks" would be two clients disagreeing about one
+row. Months and years are asked of the calendar rather than divided out of a day count - three months
+from the 30th of August is 92 days, which divides by neither 30 nor 7, so a length set in months used to
+read back as "92 days".
 
 ### What an entry's form offers
 
@@ -1136,7 +1175,10 @@ there is nothing to build one from here; the screen says so rather than dropping
 
 **A daily reminder needs an hour.** Saving refuses without one rather than sending it at midnight - an
 hour nobody chose is worse than being asked for one. An entry loaded at exactly 00:00 reads as one with
-no hour set: the wire carries a plain `TimeOnly` and cannot say "none".
+no hour set: the wire carries a plain `TimeOnly` and cannot say "none". **Both clients read it that
+way.** The phone needed one thing the browser did not: its picker cannot be empty, so an hour shown
+from the start would be one somebody accepts by not touching it - which records nothing and leaves the
+refusal standing. There the picker appears only once an hour exists, and a button puts one there.
 
 ### Naming a place in your own words
 
@@ -1148,6 +1190,12 @@ The pin always moves; the name only follows it when it is still the one the map 
 are untouched by anything typed there** - they are what the Google Maps link and the directions are built
 from, and the name is only what the place is called. The event editor offers the map's own address back
 for somebody who renamed a place and then wanted the street after all.
+
+**The phone had already landed here**, by a different route. It has no map pin to move: a place there is
+the phone's own position, taken on purpose, and its calendar screen has always filled the name only when
+the box was empty. Its task entries carry a name and no point at all, so the map's answer has nowhere
+else to go and must land in the name - which is why the picker asks before answering rather than writing
+on every tap. What was missing was only saying so, which the screen now does.
 
 ### Which build this is
 
@@ -1200,7 +1248,13 @@ address keeps working without the page being edited every release.
 
 The four fields where the same thing gets typed twenty ways - a task list's title, a task item, a
 warehouse's name, a product - offer what the reader already has as they type
-(`GET /api/suggestions/names?kind=…`, `NameSuggestions.razor`). Picking one fills the field. When what is
+(`GET /api/suggestions/names?kind=…`, `NameSuggestions.razor`). Picking one fills the field.
+
+**The phone offers the same thing under two of the four** (`Orbit.Mobile`'s `NameSuggestions`, drawn by
+`NameSuggestionChips`): a product's name and an errand's description, which are the two the feature
+exists for. It offers them under the box a new one is typed into as well as in the editor, because on a
+phone that box is where names are actually written - the editor is mostly for changing one that exists.
+A list's title and a warehouse's name are not offered there yet. When what is
 being typed is close enough to an existing name to be the same thing spelled differently, the control
 says so out loud - "You already have «Mleko 2%»" - because the moment a duplicate is about to be created
 is the only cheap moment to avoid it.

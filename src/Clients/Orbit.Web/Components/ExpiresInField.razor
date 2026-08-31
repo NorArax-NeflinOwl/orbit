@@ -1,3 +1,4 @@
+@using Orbit.Core.Inventory
 @using Orbit.Web.Services
 @inject Translations T
 
@@ -31,16 +32,6 @@
 
     [Parameter] public EventCallback<DateTimeOffset?> ValueChanged { get; set; }
 
-    /// <summary>What the two boxes are counting in. None is "does not expire", and hides the number.</summary>
-    private enum ExpiryUnit
-    {
-        None,
-        Days,
-        Weeks,
-        Months,
-        Years
-    }
-
     private int _amount = 1;
     private string _unit = nameof(ExpiryUnit.None);
 
@@ -58,28 +49,12 @@
         ReadTheBoxesFrom(Value);
     }
 
-    /// <summary>
-    /// Turns a stored date back into how long is left, choosing the coarsest unit that divides it
-    /// exactly - 14 days reads as "2 weeks", 15 as "15 days". A date already gone reads as one day,
-    /// because zero would offer nothing to edit.
-    /// </summary>
+    /// <summary>Reads a stored date back as a length - see ExpiryPeriod, which both clients count by.</summary>
     private void ReadTheBoxesFrom(DateTimeOffset? value)
     {
-        if (value is not { } expiresOn)
-        {
-            _unit = nameof(ExpiryUnit.None);
-            _amount = 1;
-            return;
-        }
-
-        var days = Math.Max(1, (int)Math.Round((expiresOn.Date - DateTime.Today).TotalDays));
-        (_amount, _unit) = days switch
-        {
-            _ when days % 365 == 0 => (days / 365, nameof(ExpiryUnit.Years)),
-            _ when days % 30 == 0 => (days / 30, nameof(ExpiryUnit.Months)),
-            _ when days % 7 == 0 => (days / 7, nameof(ExpiryUnit.Weeks)),
-            _ => (days, nameof(ExpiryUnit.Days))
-        };
+        var period = ExpiryPeriod.For(value, DateTime.Today);
+        _amount = period.Amount;
+        _unit = period.Unit.ToString();
     }
 
     private async Task OnAmountChangedAsync(ChangeEventArgs args)
@@ -94,29 +69,14 @@
         await WriteTheDateAsync();
     }
 
-    /// <summary>
-    /// Counted from today rather than from whatever the item held before: "keeps two weeks" is a
-    /// statement about something just put on the shelf, which is when anybody sets it.
-    /// </summary>
+    /// <inheritdoc cref="ExpiryPeriod.On"/>
     private async Task WriteTheDateAsync()
     {
-        DateTimeOffset? expiresOn = _unit switch
-        {
-            nameof(ExpiryUnit.Days) => Today.AddDays(_amount),
-            nameof(ExpiryUnit.Weeks) => Today.AddDays(7 * _amount),
-            nameof(ExpiryUnit.Months) => Today.AddMonths(_amount),
-            nameof(ExpiryUnit.Years) => Today.AddYears(_amount),
-            _ => null
-        };
+        var unit = Enum.TryParse<ExpiryUnit>(_unit, out var parsed) ? parsed : ExpiryUnit.None;
+        var expiresOn = new ExpiryPeriod(_amount, unit).On(DateTime.Today);
 
         _lastSeenValue = expiresOn;
         Value = expiresOn;
         await ValueChanged.InvokeAsync(expiresOn);
     }
-
-    /// <summary>
-    /// Midnight local, as a DateTimeOffset - the same shape DateField writes, so an item's expiry means
-    /// the same thing however it was set.
-    /// </summary>
-    private static DateTimeOffset Today => new(DateTime.Today, TimeZoneInfo.Local.GetUtcOffset(DateTime.Today));
 }

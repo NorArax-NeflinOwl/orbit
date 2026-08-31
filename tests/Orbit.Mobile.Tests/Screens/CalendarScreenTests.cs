@@ -333,9 +333,10 @@ public sealed class CalendarScreenTests
         {
             _server = new FakeCalendarServer(_clock);
             _events = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
-            _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             _synchronizer = new CalendarEventSynchronizer(
                 _localStore, new CalendarClient(_server.ToHttpClient()), _clock, new SyncGate(),
+                new PendingCalendarLinkResolver(_clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                 NullLogger<CalendarEventSynchronizer>.Instance);
         }
 

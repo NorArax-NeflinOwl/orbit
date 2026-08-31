@@ -1,4 +1,5 @@
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -11,14 +12,30 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// Already in the reader's language: when it is due, and whether it says anything about being late or
 /// repeats daily. Empty when the entry is only a line of text, which most are.
 /// </param>
-public sealed record TaskItemRow(TaskItemDto Item, string Detail, bool IsOverdue)
+/// <param name="References">
+/// Where an inventory errand points - the shelf it is about, and any other list asking for the same
+/// product. Empty for every other kind of entry, which is most of them.
+/// </param>
+/// <param name="IsWaitingToReachTheServer">
+/// True while this entry stands for something made on this phone that the server has not been told
+/// about yet - today an appointment written with no connection. Said on the row rather than left to be
+/// discovered: an appointment nobody else can see yet is a different thing from one they can, and the
+/// difference is invisible otherwise.
+/// </param>
+public sealed record TaskItemRow(
+    TaskItemDto Item, string Detail, bool IsOverdue, IReadOnlyList<TaskItemReference> References,
+    bool IsWaitingToReachTheServer = false)
 {
-    public static TaskItemRow From(TaskItemDto item, Translations translations, DateTimeOffset nowUtc)
+    public static TaskItemRow From(
+        TaskItemDto item, Translations translations, DateTimeOffset nowUtc,
+        IReadOnlyList<TaskItemReference>? references = null, bool isWaitingToReachTheServer = false)
         => new(
             item,
             Describe(item, translations),
             // Only worth saying about something still to do: a finished entry cannot be late any more.
-            !item.IsCompleted && item.DueDateUtc is { } due && due < nowUtc);
+            !item.IsCompleted && item.DueDateUtc is { } due && due < nowUtc,
+            references ?? [],
+            isWaitingToReachTheServer);
 
     public Guid Id => Item.Id;
 
@@ -29,6 +46,16 @@ public sealed record TaskItemRow(TaskItemDto Item, string Detail, bool IsOverdue
     public string CompletionMark => IsCompleted ? "✓" : "○";
 
     public bool HasDetail => Detail.Length > 0;
+
+    public bool HasReferences => References.Count > 0;
+
+    /// <summary>
+    /// The other half of the pair, and it means what it says: the server knows this appointment, because
+    /// the entry carries the id the server gave it. Written as its own question rather than as "not
+    /// waiting" - an entry that is a Calendar entry with no appointment at all is neither, and calling
+    /// that "online" claimed the server knew about something nobody had made.
+    /// </summary>
+    public bool HasReachedTheServer => Item.LinkedCalendarEventId is not null;
 
     private static string Describe(TaskItemDto item, Translations translations)
     {
