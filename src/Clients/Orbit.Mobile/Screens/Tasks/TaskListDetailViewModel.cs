@@ -31,11 +31,12 @@ namespace Orbit.Mobile.Screens.Tasks;
 public sealed partial class TaskListDetailViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
-    private readonly LocalCalendarEventRepository _calendarEvents;
-    private readonly CalendarClient _calendarClient;
-    private readonly LocalWarehouseRepository _warehouses;
-    private readonly WarehouseSynchronizer _warehouseSynchronizer;
-    private readonly InventoryClient _inventoryClient;
+
+    /// <summary>Making or correcting the appointment a Calendar entry carries - see <see cref="EntryAppointment"/>.</summary>
+    private readonly EntryAppointment _entryAppointment;
+
+    /// <summary>The shelf an Inventory errand is about - see <see cref="ShelfCorrection"/>.</summary>
+    private readonly ShelfCorrection _shelfCorrection;
     private readonly IPlacePicker _placePicker;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly TasksClient _tasksClient;
@@ -93,20 +94,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
-        TasksClient tasksClient, CalendarClient calendarClient, EditLock editLock,
+        TasksClient tasksClient, EditLock editLock,
         INetworkStatus networkStatus, StockCheckPanel stockCheck,
-        LocalCalendarEventRepository calendarEvents, LocalWarehouseRepository warehouses,
-        WarehouseSynchronizer warehouseSynchronizer, InventoryClient inventoryClient,
-        IPlacePicker placePicker,
+        EntryAppointment appointments, ShelfCorrection shelfCorrection, IPlacePicker placePicker,
         PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
         NameSuggestions titleSuggestions)
     {
         _taskLists = taskLists;
-        _calendarClient = calendarClient;
-        _warehouses = warehouses;
-        _warehouseSynchronizer = warehouseSynchronizer;
-        _inventoryClient = inventoryClient;
-        _calendarEvents = calendarEvents;
+        _entryAppointment = appointments;
+        _shelfCorrection = shelfCorrection;
         _placePicker = placePicker;
         _synchronizer = synchronizer;
         _translations = translations;
@@ -345,11 +341,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private async Task ShowWhatItCanBeTiedToAsync(CancellationToken cancellationToken)
     {
-        var events = await _calendarEvents.GetAllAsync(cancellationToken);
-
-        _appointments = events
-            .Where(candidate => candidate.ServerId is not null)
-            .ToDictionary(candidate => candidate.ServerId!.Value, candidate => candidate.Details);
+        _appointments = await _entryAppointment.KnownByServerIdAsync(cancellationToken);
     }
 
     /// <summary>
@@ -372,7 +364,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private async Task ShowWhatItsErrandsAreAboutAsync(CancellationToken cancellationToken)
     {
         var byProductId = new Dictionary<Guid, ShelfProductLocation>();
-        foreach (var warehouse in await _warehouses.GetAllAsync(cancellationToken))
+        foreach (var warehouse in await _shelfCorrection.ShelvesAsync(cancellationToken))
         {
             // A product still waiting to be pushed has no id yet, so nothing can be pointing at it.
             foreach (var product in warehouse.Items.Where(product => product.Id is not null))
@@ -496,7 +488,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var waiting = new Dictionary<string, CalendarEventDetailsDto>();
         foreach (var item in _items.Where(item => item.Kind == nameof(TaskItemKind.Calendar)))
         {
-            if (await _calendarEvents.FindPendingForAsync(_localId, item.Description, cancellationToken) is { } pending)
+            if (await _entryAppointment.FindWaitingForAsync(_localId, item.Description, cancellationToken) is { } pending)
             {
                 waiting[item.Description] = pending.Details;
             }
@@ -539,7 +531,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var edited = editor.ToDto();
         if (edited.Kind == nameof(TaskItemKind.Calendar))
         {
-            if (await PutInTheCalendarAsync(editor, edited, cancellationToken) is not { } withItsAppointment)
+            var appointment = await _entryAppointment.SaveAsync(editor, edited, _localId, cancellationToken);
+            Status = appointment.Outcome switch
+            {
+                AppointmentOutcome.Refused => _translations[AppointmentRefusalMessage],
+                AppointmentOutcome.QueuedOnThisPhone => _translations[AppointmentQueuedMessage],
+                _ => Status
+            };
+
+            // Nothing made the appointment, so the entry must not be saved pointing at one.
+            if (appointment.Entry is not { } withItsAppointment)
             {
                 return;
             }
@@ -553,153 +554,28 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         if (shelf is not null)
         {
-            await SaveTheShelfAsync(shelf, cancellationToken);
+            await CorrectTheShelfAsync(shelf, cancellationToken);
         }
     }
 
     /// <summary>
-    /// Writes a corrected product back to the warehouse it lives on, then asks that warehouse to work
-    /// out its restock list again - a corrected amount can settle an errand or raise one, and a list
-    /// still saying the old thing makes the correction look like it did not take.
-    ///
-    /// After the task list is saved rather than before, and it does not stop the save if it fails: the
-    /// shelf is a second thing this screen touches, not the thing it is for. That is the order Orbit.Web
-    /// settles on too, and the opposite of the calendar's - an appointment has to exist before the entry
-    /// can name it, while a product already exists and is only being corrected.
+    /// Writes a corrected product back to its shelf and says so when it could not - see
+    /// <see cref="ShelfCorrection"/> for why the correction itself lives outside this screen.
     /// </summary>
-    private async Task SaveTheShelfAsync(TaskItemShelfProduct shelf, CancellationToken cancellationToken)
+    private async Task CorrectTheShelfAsync(TaskItemShelfProduct shelf, CancellationToken cancellationToken)
     {
-        if (await _warehouses.FindAsync(shelf.WarehouseLocalId, cancellationToken) is not { } warehouse)
-        {
-            return;
-        }
-
-        var corrected = shelf.Product.ToDto();
-        var outcome = await _warehouses.UpdateAsync(
-            shelf.WarehouseLocalId,
-            new WarehouseContent(
-                warehouse.Name,
-                [.. warehouse.Items.Select(product => product.Id == corrected.Id ? corrected : product)],
-                warehouse.IsPrivate),
-            cancellationToken);
-
-        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        if (await _shelfCorrection.ApplyAsync(shelf, cancellationToken) is ShelfCorrectionOutcome.RefusedWhileOffline)
         {
             Status = _translations[ShelfRefusalMessage];
             return;
         }
 
-        // Pushed here rather than left for whenever somebody next opens the warehouse: the correction is
-        // to a shelf this screen is not otherwise about, so nothing else would carry it up, and a
-        // restock list rebuilt before the new amount arrives would be rebuilt from the old one.
-        await _warehouseSynchronizer.SynchroniseAsync(cancellationToken);
-        await RefreshTheRestockListAsync(warehouse.ServerId, cancellationToken);
         await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// Best effort, and deliberately quiet: the correction is already saved on this phone and on its way
-    /// up, and a restock list that is one sync behind rights itself. Saying "couldn't reach Orbit" about
-    /// a change that did land would be the wrong thing to tell somebody.
-    /// </summary>
-    private async Task RefreshTheRestockListAsync(Guid? warehouseServerId, CancellationToken cancellationToken)
-    {
-        if (warehouseServerId is not { } serverId)
-        {
-            return;
-        }
-
-        try
-        {
-            await _inventoryClient.RefreshRestockListAsync(serverId, cancellationToken);
-        }
-        catch (HttpRequestException)
-        {
-        }
     }
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string ShelfRefusalMessage =
         "The list was saved, but the shelf couldn't be updated. Open the warehouse and check it.";
-
-    /// <summary>
-    /// Brings a Calendar entry's appointment into being, or into step, and hands back the entry carrying
-    /// whatever id it should. Before the list is written rather than after, so there is no window where
-    /// the entry exists and the appointment does not - the order Orbit.Web's SaveTheCalendarAsync
-    /// settles on.
-    ///
-    /// Online this goes straight to the server, which names the event and lets the entry carry that name
-    /// immediately. Offline it writes the event to this phone's own calendar and remembers the pairing
-    /// (see PendingCalendarLink): the entry carries no server id yet, and gets one when the calendar
-    /// syncs. Both are real appointments - the difference is only whether anybody else can see one yet,
-    /// which is what the row's tag says.
-    ///
-    /// Null when even the local write was refused, so the caller stops rather than saving an entry that
-    /// points at an appointment nobody made.
-    /// </summary>
-    private async Task<TaskItemDto?> PutInTheCalendarAsync(
-        TaskItemEditor editor, TaskItemDto edited, CancellationToken cancellationToken)
-    {
-        // Asked before trying rather than learned from the attempt. With no route a request does not
-        // fail quickly and cleanly - it hangs until the client gives up, which arrives as a timeout
-        // rather than an HttpRequestException, and a catch written for the latter let an appointment
-        // saved on a phone with no connection call itself "online". Found on a device.
-        if (!_networkStatus.IsOnline)
-        {
-            return await PutInThisPhonesCalendarAsync(editor, edited, cancellationToken);
-        }
-
-        var details = editor.Event.ToRequest(edited.Description);
-        try
-        {
-            if (edited.LinkedCalendarEventId is { } eventId)
-            {
-                await _calendarClient.UpdateAsync(eventId, new UpdateCalendarEventRequest(details), cancellationToken);
-                return edited;
-            }
-
-            return edited with
-            {
-                LinkedCalendarEventId = await _calendarClient.CreateAsync(
-                    new CreateCalendarEventRequest(details), cancellationToken)
-            };
-        }
-        // Both, because a connection that is up but going nowhere ends either way - and the fallback
-        // is the same whichever it was.
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
-        {
-            return await PutInThisPhonesCalendarAsync(editor, edited, cancellationToken);
-        }
-    }
-
-    /// <summary>
-    /// The offline half: the appointment is written here and waits to be named. An entry already being
-    /// corrected keeps the event it made earlier rather than making a second one - which is the whole
-    /// reason the pairing is remembered rather than inferred.
-    /// </summary>
-    private async Task<TaskItemDto?> PutInThisPhonesCalendarAsync(
-        TaskItemEditor editor, TaskItemDto edited, CancellationToken cancellationToken)
-    {
-        var details = editor.Event.ToDetails(edited.Description);
-        if (await _calendarEvents.FindPendingForAsync(_localId, edited.Description, cancellationToken) is { } waiting)
-        {
-            var outcome = await _calendarEvents.UpdateAsync(waiting.LocalId, details, cancellationToken);
-            if (outcome is LocalWriteOutcome.RefusedWhileOffline)
-            {
-                Status = _translations[AppointmentRefusalMessage];
-                return null;
-            }
-
-            Status = _translations[AppointmentQueuedMessage];
-            return edited;
-        }
-
-        var created = await _calendarEvents.CreateAsync(details, cancellationToken);
-        await _calendarEvents.RememberPendingLinkAsync(
-            created.LocalId, _localId, edited.Description, cancellationToken);
-        Status = _translations[AppointmentQueuedMessage];
-        return edited;
-    }
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string AppointmentRefusalMessage =

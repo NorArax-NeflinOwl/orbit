@@ -329,6 +329,10 @@ public static class MauiProgram
 		services.AddTransient<TasksPage>();
 		services.AddTransient<TasksViewModel>();
 		services.AddTransient<TaskListDetailPage>();
+		// The two things the task list screen does besides being a task list: the appointment a Calendar
+		// entry carries, and the shelf an Inventory errand is about.
+		services.AddTransient<EntryAppointment>();
+		services.AddTransient<ShelfCorrection>();
 		services.AddTransient<TaskListDetailViewModel>();
 		services.AddTransient<TaskItemSummaryPage>();
 		services.AddTransient<TaskItemSummaryViewModel>();

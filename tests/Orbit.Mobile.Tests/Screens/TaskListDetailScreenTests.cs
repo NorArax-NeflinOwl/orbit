@@ -1407,16 +1407,21 @@ public sealed class TaskListDetailScreenTests
             return screen;
         }
 
+        /// <summary>Whether the phone has a connection, shared by the screen and what it saves through.</summary>
+        public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
         public TaskListDetailViewModel OpenTaskList(string title)
         {
             var created = _taskLists.CreateAsync(title, []).GetAwaiter().GetResult();
             var screen = new TaskListDetailViewModel(
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
-                new TasksClient(Server.ToHttpClient()), new CalendarClient(CalendarServer.ToHttpClient()),
-                NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
-                StockCheck, CalendarEvents, Shelves, ShelfSynchronizer,
-                new InventoryClient(Warehouses.ToHttpClient()), PlacePicker, _privateContent,
+                new TasksClient(Server.ToHttpClient()),
+                NothingIsBeingEdited(_clock), Network,
+                StockCheck,
+                new EntryAppointment(CalendarEvents, new CalendarClient(CalendarServer.ToHttpClient()), Network),
+                new ShelfCorrection(Shelves, ShelfSynchronizer, new InventoryClient(Warehouses.ToHttpClient())),
+                PlacePicker, _privateContent,
                 Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer));
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
