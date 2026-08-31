@@ -46,9 +46,26 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         // TaskListLinkValidator has always validated against.
         await _taskListLinkValidator.ValidateAsync(taskList.UserId, request.Id, request.Items, cancellationToken);
 
+        // Clients name their own entries now, so two of them can hand over the same id. Both sides are
+        // renamed when they do - see TaskItemIdentity for why neither may keep it.
+        var identity = TaskItemIdentity.Resolve(
+            request.Items,
+            await _taskRepository.GetHoldingItemsAsync(
+                taskList.UserId, request.Id, [.. request.Items.Select(item => item.Id)], cancellationToken));
+
         taskList.Update(
-            request.Title, request.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority);
-        await _taskRepository.UpdateAsync(taskList, cancellationToken);
+            request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority);
+
+        // One save when another list had to be renamed too, so a failure cannot leave two entries
+        // claiming one id in the database - the state this exists to prevent.
+        if (identity.ListsToSaveToo.Count > 0)
+        {
+            await _taskRepository.UpdateManyAsync([taskList, .. identity.ListsToSaveToo], cancellationToken);
+        }
+        else
+        {
+            await _taskRepository.UpdateAsync(taskList, cancellationToken);
+        }
 
         // Crossing off a restock errand says the shelf was filled and the errand is over - see
         // RestockCompletion, which tops the shelf up and takes the entry off the list, and which does

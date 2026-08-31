@@ -25,6 +25,14 @@ internal sealed class InMemoryTaskRepository : ITaskRepository
     public Task<TaskList?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
         => Task.FromResult(_taskLists.FirstOrDefault(taskList => taskList.Id == id && taskList.UserId == userId));
 
+    public Task<IReadOnlyList<TaskList>> GetHoldingItemsAsync(
+        Guid userId, Guid exceptListId, IReadOnlyList<Guid> itemIds, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<TaskList>>(
+            _taskLists.Where(taskList => taskList.UserId == userId
+                    && taskList.Id != exceptListId
+                    && taskList.Items.Any(item => itemIds.Contains(item.Id)))
+                .ToList());
+
     public Task AddAsync(TaskList taskList, CancellationToken cancellationToken)
     {
         _taskLists.Add(taskList);

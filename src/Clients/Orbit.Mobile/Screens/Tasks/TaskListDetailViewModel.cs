@@ -268,14 +268,30 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private TaskListChoice? _moveTarget;
 
     /// <summary>
-    /// An entry added on this phone and not yet synced has no id the server would recognise, so there
-    /// is nothing to move yet. Offline there is nobody to do the moving at all.
+    /// Moving is a change to two lists, which only the server can make - so it is offered only for an
+    /// entry the server already knows about, and only while there is somebody to ask.
+    ///
+    /// "Has an id" used to be the test for that, and stopped being one when this phone started naming
+    /// its own entries (see LocalTaskListRepository.WithIdentity): an entry written a second ago now has
+    /// an id too. What actually says the server has seen it is that nothing about this list is still
+    /// waiting to be pushed - after a successful sync the queue is empty and everything on the list is
+    /// known, and while anything is queued this entry may be the thing that is queued.
     /// </summary>
     public bool CanMoveItem
         => CanEdit
             && _networkStatus.IsOnline
             && MoveTargets.Count > 0
+            && !_isWaitingToBePushed
             && BeingEdited?.ToDto().Id is { } itemId && itemId != Guid.Empty;
+
+    /// <summary>Whether this list has changes the server has not been told about - see CanMoveItem.</summary>
+    private bool _isWaitingToBePushed;
+
+    private async Task ShowWhetherAnythingIsQueuedAsync(CancellationToken cancellationToken)
+    {
+        _isWaitingToBePushed = (await _taskLists.GetPendingLocalIdsAsync(cancellationToken)).Contains(_localId);
+        OnPropertyChanged(nameof(CanMoveItem));
+    }
 
     [RelayCommand]
     private async Task MoveItemAsync(TaskListChoice? target, CancellationToken cancellationToken)
@@ -895,6 +911,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
         await ShowWhoElseIsAskingAsync(cancellationToken);
         await ShowAppointmentsWaitingToBeNamedAsync(cancellationToken);
+        await ShowWhetherAnythingIsQueuedAsync(cancellationToken);
         // Sealed with a key this device cannot open, so there is nothing here to change: the readable
         // fields are empty, and saving would replace the sealed list with an empty one.
         if (taskList.IsSealed)

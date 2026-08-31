@@ -208,10 +208,14 @@ public sealed class LocalTaskListRepository
         taskList.IsPrivate = content.IsPrivate;
         taskList.IsSealed = false;
 
+        // Named here rather than by the server, for every list and not only a sealed one - see
+        // WithIdentity.
+        var items = WithIdentity(content.Items);
+
         if (!content.IsPrivate)
         {
             taskList.Title = content.Title;
-            taskList.Items = content.Items;
+            taskList.Items = items;
             taskList.EncryptedCiphertext = null;
             taskList.EncryptedNonce = null;
             return;
@@ -219,7 +223,7 @@ public sealed class LocalTaskListRepository
 
         using var key = await _privateContent.UnlockAsync(cancellationToken);
         var sealedContent = key.Seal(
-            new SealedTaskList(content.Title, WithIdentity(content.Items)),
+            new SealedTaskList(content.Title, items),
             SealedContentSerializerContext.Default.SealedTaskList);
 
         taskList.Title = string.Empty;
@@ -229,10 +233,17 @@ public sealed class LocalTaskListRepository
     }
 
     /// <summary>
-    /// Gives every entry an id before it is sealed. The server mints those, and it never sees a private
-    /// list's entries - so without this each one stays empty, every entry in the list has the same id,
-    /// and ticking one ticks them all. Orbit.Web seals empty ids for the same reason it has none to
-    /// send, which is why an entry can arrive here without one.
+    /// Gives every entry an id as it is written, whatever kind of list it is on.
+    ///
+    /// It began as a rule for sealed lists alone: the server never sees a private list's entries, so
+    /// without this each stayed empty, every entry had the same id, and ticking one ticked them all.
+    /// It now applies to all of them, which is a change of principle rather than of scope - <b>an entry
+    /// is named by whoever writes it</b>, so one written with no connection has an identity from the
+    /// moment it exists instead of being renamed by its first successful push.
+    ///
+    /// That rename was the thing making offline work hard: nothing on this phone could point at an
+    /// entry and still be pointing at it after a sync. The server accepts these ids and settles a
+    /// collision by renaming both sides - see Orbit.Core.Tasks.TaskItemIdentity.
     /// </summary>
     private static IReadOnlyList<TaskItemDto> WithIdentity(IReadOnlyList<TaskItemDto> items)
         => [.. items.Select(item => item.Id == Guid.Empty ? item with { Id = Guid.NewGuid() } : item)];
