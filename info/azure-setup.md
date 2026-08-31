@@ -238,7 +238,21 @@ az containerapp ingress show -n orbit-api -g Orbit
 az containerapp ingress show -n orbit-web -g Orbit
 ```
 
-### 6. Where the phone apps are downloaded from
+### 6. Let a release record itself as the newest build
+
+The Android release workflow tells `orbit-api` what it just published, so the app's update row lights up
+(`MobileVersion__Android__LatestVersion`). It needs one repository variable naming the resource group the
+Container App is in, and skips the step silently when it is absent:
+
+```bash
+gh variable set API_CONTAINER_APP_RESOURCE_GROUP --body Orbit
+```
+
+Only `LatestVersion` is set. `MinimumSupportedVersion` is the one that **blocks** an app that is too old,
+and while Orbit is a prototype it should stay empty so every build keeps working - see
+`MobileVersionPolicy`, where the two verdicts are `UpdateAvailable` and `UpdateRequired`.
+
+### 7. Where the phone apps are downloaded from
 
 Optional, and only needed once there is a build to hand out. `/download` in the web client offers
 whatever [`MobileDownloads`](../src/Clients/Orbit.Web/wwwroot/appsettings.json) names, and says nothing
