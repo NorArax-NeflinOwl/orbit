@@ -77,8 +77,10 @@ services:
       GoogleAuth__ClientId: "${GOOGLE_CLIENT_ID:-}"
       GoogleAuth__IosClientId: "${GOOGLE_IOS_CLIENT_ID:-}"
       GoogleAuth__AndroidClientId: "${GOOGLE_ANDROID_CLIENT_ID:-}"
-      # Push to the Orbit.Maui apps. Mount the key in rather than baking it into the image.
-      Firebase__ServiceAccountKeyPath: "${FIREBASE_SERVICE_ACCOUNT_KEY_PATH:-}"
+      # Push to the Orbit.Maui apps. This is the path *inside* the container - the key is mounted in
+      # rather than baked into the image, from the directory the volume below names. With no key
+      # there, FirebasePushNotificationSender logs a warning and drops the push; nothing else breaks.
+      Firebase__ServiceAccountKeyPath: "/run/secrets/firebase-service-account.json"
       # Optional - see .env.example. Read directly (not under a "Smtp__"-style prefix) since it's
       # picked up by Azure Monitor's exporter by its own conventional env var name, not app config.
       APPLICATIONINSIGHTS_CONNECTION_STRING: "${APPLICATIONINSIGHTS_CONNECTION_STRING:-}"
@@ -89,6 +91,10 @@ services:
       Vapid__Subject: "${VAPID_SUBJECT:-}"
     volumes:
       - orbit-api-logs:/app/logs
+      # Read-only, and the whole directory rather than the single file: Docker creates a *directory*
+      # in place of a bind source that does not exist, so naming the file would leave a stray one
+      # behind on any checkout without a key.
+      - ${FIREBASE_SECRETS_DIRECTORY:-./secrets}:/run/secrets:ro
     depends_on:
       aspire-dashboard:
         condition: service_started
