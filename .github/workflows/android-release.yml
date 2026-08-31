@@ -288,11 +288,21 @@ jobs:
       # while Orbit is a prototype every build should keep working - see MobileVersionPolicy, where the
       # two verdicts are UpdateAvailable and UpdateRequired.
       - name: Tell the server this is the newest Android build
-        if: vars.API_CONTAINER_APP_RESOURCE_GROUP != ''
+        if: vars.API_CONTAINER_APP_RESOURCE_GROUP != '' && vars.DOWNLOADS_STORAGE_ACCOUNT != ''
         run: |
+          # The address as well as the number. Without somewhere to send people, UpdateViewModel leaves
+          # its download button disabled (CanUpdate is false on an empty url) - the app would announce an
+          # update and then offer no way to get it, which is worse than saying nothing.
+          #
+          # The fixed name, not the versioned one: this address is stored and read back later, and it has
+          # to still point at a build the day after the next release.
+          DOWNLOAD_URL="https://${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ vars.DOWNLOADS_CONTAINER }}/$APK_BASE_NAME.apk"
+
           az containerapp update \
             --name orbit-api \
             --resource-group "${{ vars.API_CONTAINER_APP_RESOURCE_GROUP }}" \
-            --set-env-vars "MobileVersion__Android__LatestVersion=${{ steps.version.outputs.value }}"
-          echo "orbit-api now offers ${{ steps.version.outputs.value }} as the newest Android build."
+            --set-env-vars \
+              "MobileVersion__Android__LatestVersion=${{ steps.version.outputs.value }}" \
+              "MobileVersion__Android__UpdateUrl=$DOWNLOAD_URL"
+          echo "orbit-api now offers ${{ steps.version.outputs.value }} at $DOWNLOAD_URL"
 
