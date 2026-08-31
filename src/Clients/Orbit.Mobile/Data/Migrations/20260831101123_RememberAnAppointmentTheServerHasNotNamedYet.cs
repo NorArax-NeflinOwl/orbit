@@ -15,13 +15,13 @@ namespace Orbit.Mobile.Data.Migrations
                 name: "PendingCalendarLinks",
                 columns: table => new
                 {
-                    TaskItemId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    CalendarEventLocalId = table.Column<Guid>(type: "TEXT", nullable: false),
                     TaskListLocalId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CalendarEventLocalId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Description = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_PendingCalendarLinks", x => x.TaskItemId);
+                    table.PrimaryKey("PK_PendingCalendarLinks", x => x.CalendarEventLocalId);
                 });
         }
 

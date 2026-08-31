@@ -228,9 +228,9 @@ public sealed class CalendarEventSyncTests
 
             dbContext.PendingCalendarLinks.Add(new PendingCalendarLink
             {
-                TaskItemId = entryId,
+                CalendarEventLocalId = calendarEventLocalId,
                 TaskListLocalId = listLocalId,
-                CalendarEventLocalId = calendarEventLocalId
+                Description = "dentist"
             });
 
             await dbContext.SaveChangesAsync();

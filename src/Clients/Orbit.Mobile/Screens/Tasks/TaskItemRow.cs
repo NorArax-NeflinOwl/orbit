@@ -49,8 +49,13 @@ public sealed record TaskItemRow(
 
     public bool HasReferences => References.Count > 0;
 
-    /// <summary>The other half of the pair - said as plainly as the waiting one, so neither is a puzzle.</summary>
-    public bool HasReachedTheServer => !IsWaitingToReachTheServer && Item.Kind == nameof(TaskItemKind.Calendar);
+    /// <summary>
+    /// The other half of the pair, and it means what it says: the server knows this appointment, because
+    /// the entry carries the id the server gave it. Written as its own question rather than as "not
+    /// waiting" - an entry that is a Calendar entry with no appointment at all is neither, and calling
+    /// that "online" claimed the server knew about something nobody had made.
+    /// </summary>
+    public bool HasReachedTheServer => Item.LinkedCalendarEventId is not null;
 
     private static string Describe(TaskItemDto item, Translations translations)
     {

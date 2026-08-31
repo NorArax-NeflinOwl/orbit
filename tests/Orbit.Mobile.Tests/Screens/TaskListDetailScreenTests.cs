@@ -244,7 +244,10 @@ public sealed class TaskListDetailScreenTests
         var appointment = Assert.Single(context.CalendarServer.Events);
         // Its own words are the appointment's title: an entry and its appointment are one thing.
         Assert.Equal("dentist", appointment.Details.Title);
-        Assert.Equal(appointment.Id, Assert.Single(screen.Items).Item.LinkedCalendarEventId);
+        var row = Assert.Single(screen.Items);
+        Assert.Equal(appointment.Id, row.Item.LinkedCalendarEventId);
+        Assert.True(row.HasReachedTheServer);
+        Assert.False(row.IsWaitingToReachTheServer);
     }
 
     /// <summary>
@@ -268,6 +271,31 @@ public sealed class TaskListDetailScreenTests
 
         Assert.Equal("12 Mill Lane", Assert.Single(screen.Items).Item.Location);
         Assert.Null(Assert.Single(context.CalendarServer.Events).Details.Location);
+    }
+
+    /// <summary>
+    /// The bug this stands for: with no route a request does not fail quickly, it hangs until the client
+    /// gives up - which arrives as a timeout rather than an HttpRequestException. A save written to
+    /// catch only the latter wrote the appointment nowhere and called the entry "online". Found on a
+    /// device, which is the only place a phone actually has no route.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_saved_where_the_connection_times_out_is_still_written_here()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        context.CalendarServer.TimesOut = true;
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 3);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Single(await context.CalendarEvents.GetAllAsync());
+        Assert.True(Assert.Single(screen.Items).IsWaitingToReachTheServer);
     }
 
     /// <summary>
@@ -297,6 +325,7 @@ public sealed class TaskListDetailScreenTests
         var row = Assert.Single(screen.Items);
         Assert.Null(row.Item.LinkedCalendarEventId);
         Assert.True(row.IsWaitingToReachTheServer);
+        Assert.False(row.HasReachedTheServer);
     }
 
     /// <summary>

@@ -11,7 +11,7 @@ using Orbit.Mobile.Data;
 namespace Orbit.Mobile.Data.Migrations
 {
     [DbContext(typeof(OrbitLocalDbContext))]
-    [Migration("20260831093834_RememberAnAppointmentTheServerHasNotNamedYet")]
+    [Migration("20260831101123_RememberAnAppointmentTheServerHasNotNamedYet")]
     partial class RememberAnAppointmentTheServerHasNotNamedYet
     {
         /// <inheritdoc />
@@ -469,17 +469,18 @@ namespace Orbit.Mobile.Data.Migrations
 
             modelBuilder.Entity("Orbit.Mobile.Data.PendingCalendarLink", b =>
                 {
-                    b.Property<Guid>("TaskItemId")
+                    b.Property<Guid>("CalendarEventLocalId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("CalendarEventLocalId")
+                    b.Property<string>("Description")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("TaskListLocalId")
                         .HasColumnType("TEXT");
 
-                    b.HasKey("TaskItemId");
+                    b.HasKey("CalendarEventLocalId");
 
                     b.ToTable("PendingCalendarLinks");
                 });

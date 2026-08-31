@@ -67,7 +67,7 @@ public sealed class PendingCalendarLinkResolver
                 continue;
             }
 
-            if (!TryPointAtTheEvent(taskList, link.TaskItemId, eventServerId, out var items))
+            if (!TryPointAtTheEvent(taskList, link.Description, eventServerId, out var items))
             {
                 dbContext.PendingCalendarLinks.Remove(link);
                 continue;
@@ -100,23 +100,32 @@ public sealed class PendingCalendarLinkResolver
     }
 
     /// <summary>
-    /// False when the entry is no longer an appointment - deleted, or turned back into an errand while
-    /// the phone was offline. Either way the link is stale rather than pending, and the event stays in
-    /// the calendar for the reader to deal with, exactly as it does when the same thing happens online.
+    /// Finds the entry the appointment was made for and points it at the event.
+    ///
+    /// By the words rather than by an id, for the reason <see cref="PendingCalendarLink"/> gives: an
+    /// entry made offline is given its id by the server, so the id it had when the appointment was made
+    /// is not the id it has now. An appointment that already has one is skipped, which is what keeps two
+    /// appointments made on one list from both landing on the same entry.
+    ///
+    /// False when there is no such entry - deleted, or turned back into an errand while the phone was
+    /// offline. The link is then stale rather than pending, and the event stays in the calendar for the
+    /// reader to deal with, exactly as it does when the same thing happens online.
     /// </summary>
     private static bool TryPointAtTheEvent(
-        LocalTaskList taskList, Guid taskItemId, Guid eventServerId, out IReadOnlyList<TaskItemDto> items)
+        LocalTaskList taskList, string description, Guid eventServerId, out IReadOnlyList<TaskItemDto> items)
     {
         items = taskList.Items;
-        if (taskList.Items.FirstOrDefault(item => item.Id == taskItemId) is not
-            { Kind: nameof(TaskItemKind.Calendar) })
+        if (taskList.Items.FirstOrDefault(item =>
+                item.Kind == nameof(TaskItemKind.Calendar)
+                && item.LinkedCalendarEventId is null
+                && item.Description == description) is not { } waiting)
         {
             return false;
         }
 
         items =
         [
-            .. taskList.Items.Select(item => item.Id == taskItemId
+            .. taskList.Items.Select(item => ReferenceEquals(item, waiting)
                 ? item with { LinkedCalendarEventId = eventServerId }
                 : item)
         ];

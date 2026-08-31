@@ -87,27 +87,27 @@ public sealed class LocalCalendarEventRepository
 
     /// <summary>
     /// Remembers that a task entry stands for an event this phone made and the server has not named yet
-    /// - see <see cref="PendingCalendarLink"/>. Replaces any earlier pairing for the same entry, so
-    /// saving an appointment twice before it syncs corrects the one event rather than making a second.
+    /// - see <see cref="PendingCalendarLink"/>. Keyed on the event, so correcting an appointment before
+    /// it syncs updates the one pairing rather than making a second.
     /// </summary>
     public async Task RememberPendingLinkAsync(
-        Guid taskItemId, Guid taskListLocalId, Guid calendarEventLocalId,
+        Guid calendarEventLocalId, Guid taskListLocalId, string description,
         CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         if (await dbContext.PendingCalendarLinks.FirstOrDefaultAsync(
-                link => link.TaskItemId == taskItemId, cancellationToken) is { } existing)
+                link => link.CalendarEventLocalId == calendarEventLocalId, cancellationToken) is { } existing)
         {
             existing.TaskListLocalId = taskListLocalId;
-            existing.CalendarEventLocalId = calendarEventLocalId;
+            existing.Description = description;
         }
         else
         {
             dbContext.PendingCalendarLinks.Add(new PendingCalendarLink
             {
-                TaskItemId = taskItemId,
+                CalendarEventLocalId = calendarEventLocalId,
                 TaskListLocalId = taskListLocalId,
-                CalendarEventLocalId = calendarEventLocalId
+                Description = description
             });
         }
 
@@ -118,13 +118,17 @@ public sealed class LocalCalendarEventRepository
     /// The event an entry stands for while it is still waiting to be named, or null when it is not
     /// waiting for one. What lets an appointment made offline be reopened and corrected rather than
     /// showing an empty form that would make a second event on the next save.
+    ///
+    /// Found by the words the entry carries, for the reason <see cref="PendingCalendarLink"/> gives: an
+    /// entry made offline has no id to be found by.
     /// </summary>
-    public async Task<LocalCalendarEvent?> FindPendingForTaskItemAsync(
-        Guid taskItemId, CancellationToken cancellationToken = default)
+    public async Task<LocalCalendarEvent?> FindPendingForAsync(
+        Guid taskListLocalId, string description, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         if (await dbContext.PendingCalendarLinks.AsNoTracking().FirstOrDefaultAsync(
-                link => link.TaskItemId == taskItemId, cancellationToken) is not { } link)
+                link => link.TaskListLocalId == taskListLocalId && link.Description == description,
+                cancellationToken) is not { } link)
         {
             return null;
         }

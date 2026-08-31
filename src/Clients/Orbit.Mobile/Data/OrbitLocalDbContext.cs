@@ -82,9 +82,9 @@ public sealed class OrbitLocalDbContext : DbContext
                 .Metadata.SetValueComparer(ItemsComparer);
         });
 
-        // One entry stands for one appointment, so the entry's own id is the key: saving the same
-        // entry twice before it syncs must replace the pairing rather than make a second one.
-        modelBuilder.Entity<PendingCalendarLink>(link => link.HasKey(entity => entity.TaskItemId));
+        // One event stands for one entry, so the event is the key - see PendingCalendarLink for why
+        // it cannot be the entry: an entry made offline has no id until the server gives it one.
+        modelBuilder.Entity<PendingCalendarLink>(link => link.HasKey(entity => entity.CalendarEventLocalId));
 
         modelBuilder.Entity<LocalCalendarEvent>(calendarEvent =>
         {
