@@ -153,6 +153,17 @@ public sealed partial class TaskItemEditor : ObservableObject
     [ObservableProperty]
     private string _location = string.Empty;
 
+    /// <summary>
+    /// Where that place actually is, once it is known - from a pin, or from looking the typed name up.
+    /// The name alone cannot be saved: an entry that has an appointment keeps no place of its own (see
+    /// Orbit.Core's TaskItem.WhereItHappens), so the place has to go on the appointment, and an
+    /// appointment stores a point first.
+    /// </summary>
+    public double? LocationLatitude { get; set; }
+
+    /// <inheritdoc cref="LocationLatitude"/>
+    public double? LocationLongitude { get; set; }
+
     [ObservableProperty]
     private string _description = string.Empty;
 
@@ -219,7 +230,11 @@ public sealed partial class TaskItemEditor : ObservableObject
             ChosenLinkedTaskList = lists.FirstOrDefault(choice => choice.ServerId == item.LinkedTaskListId)
                 ?? lists.FirstOrDefault(),
             Kind = item.Kind,
-            Location = item.Location,
+            // From the appointment when there is one, because that is where the place lives once the two
+            // are linked - and from the entry when there is not, which is how an unlinked one holds it.
+            Location = linkedEvent?.Location?.Address is { Length: > 0 } placed ? placed : item.Location,
+            LocationLatitude = linkedEvent?.Location?.Latitude,
+            LocationLongitude = linkedEvent?.Location?.Longitude,
             Description = item.Description,
             HasDueDate = item.DueDateUtc is not null,
             DueDate = item.DueDateUtc?.LocalDateTime.Date ?? DateTime.Today,

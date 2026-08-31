@@ -213,11 +213,13 @@ public sealed class TaskListDetailScreenTests
         screen.EditItemCommand.Execute(screen.Items[0]);
         screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
         screen.BeingEdited.Location = "12 Mill Lane";
+        await screen.ShowMapCommand.ExecuteAsync(null);
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         var item = Assert.Single(screen.Items).Item;
         Assert.Equal(nameof(TaskItemKind.Calendar), item.Kind);
-        Assert.Equal("12 Mill Lane", item.Location);
+        // On the appointment, which is where it survives - see A_calendar_entrys_place_is_kept_on_its_appointment.
+        Assert.Equal("12 Mill Lane", Assert.Single(context.CalendarServer.Events).Details.Location?.Address);
     }
 
     /// <summary>
@@ -251,9 +253,13 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// Where a calendar entry happens stays on the entry, not on its appointment: the calendar's own
-    /// location is coordinates first and an entry carries only a name, so the two are different fields.
-    /// Orbit.Web leaves the name on the entry for the same reason.
+    /// Where a calendar entry's place is actually kept, which this test used to get backwards.
+    ///
+    /// It asserted that the name stays on the entry and the appointment gets none - true of Orbit.Web,
+    /// where an entry is tied to an event only if somebody picks one. On a phone saving a calendar entry
+    /// always makes the appointment, so the entry is always tied, and an entry that is tied keeps no
+    /// place at all (Orbit.Core's TaskItem.WhereItHappens clears it). The place was being thrown away on
+    /// every save, and this test was watching it happen locally, before the round trip that dropped it.
     /// </summary>
     [Fact]
     public async Task A_calendar_entry_keeps_the_place_it_happens()
@@ -267,10 +273,10 @@ public sealed class TaskListDetailScreenTests
         screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
         Assert.True(screen.BeingEdited.CanSayWhereItHappens);
         screen.BeingEdited.Location = "12 Mill Lane";
+        await screen.ShowMapCommand.ExecuteAsync(null);
         await screen.SaveItemCommand.ExecuteAsync(null);
 
-        Assert.Equal("12 Mill Lane", Assert.Single(screen.Items).Item.Location);
-        Assert.Null(Assert.Single(context.CalendarServer.Events).Details.Location);
+        Assert.Equal("12 Mill Lane", Assert.Single(context.CalendarServer.Events).Details.Location?.Address);
     }
 
     /// <summary>
@@ -543,12 +549,76 @@ public sealed class TaskListDetailScreenTests
     /// <summary>
     /// Pointing at a place is the other way to say where something happens - the one that works when
     /// nobody knows what the street is called. The map opens where the box already pointed.
+    /// <summary>
+    /// The place somebody typed was being thrown away on every save, and this is where it went: an entry
+    /// tied to an appointment keeps no place of its own (see Orbit.Core's TaskItem.WhereItHappens), and
+    /// on a phone saving a calendar entry always makes the appointment - so the entry was always tied,
+    /// and the box always emptied itself. The place belongs on the appointment.
+    /// </summary>
+    [Fact]
+    public async Task A_calendar_entrys_place_is_kept_on_its_appointment()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+
+        await screen.ShowMapCommand.ExecuteAsync(null);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var appointment = Assert.Single(context.CalendarServer.Events);
+        Assert.Equal("12 Mill Lane", appointment.Details.Location?.Address);
+        Assert.Equal(52.23, appointment.Details.Location?.Latitude);
+    }
+
+    /// <summary>And it comes back on the next open, from where it was actually stored.</summary>
+    [Fact]
+    public async Task That_place_is_there_again_when_the_entry_is_reopened()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        await screen.ShowMapCommand.ExecuteAsync(null);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        await context.SynchroniseCalendarAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items[0]);
+
+        Assert.Equal("12 Mill Lane", screen.BeingEdited!.Location);
+    }
+
+    /// <summary>
+    /// A name nothing could be found for cannot be stored - an appointment holds a point first - so the
+    /// screen says so rather than saving one that quietly lost it.
+    /// </summary>
+    [Fact]
+    public async Task A_place_that_cannot_be_found_is_reported_rather_than_dropped_in_silence()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Location = "somewhere nobody can find";
+
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasStatus);
+    }
+
     /// </summary>
     [Fact]
     public async Task A_place_can_be_pointed_at_on_the_map()
     {
         using var context = new ScreenContext();
-        context.PlacePicker.Result = PickedPlace.Chosen("12 Mill Lane");
+        context.PlacePicker.Result = PickedPlace.Chosen("12 Mill Lane", 52.23, 21.01);
         var screen = context.OpenTaskList("Saturday");
         screen.NewItemDescription = "dentist";
         await screen.AddItemCommand.ExecuteAsync(null);
@@ -1319,6 +1389,16 @@ public sealed class TaskListDetailScreenTests
         /// <summary>This phone's copy of the calendar, which is where an entry's appointment is read from.</summary>
         public LocalCalendarEventRepository CalendarEvents { get; private set; } = null!;
 
+        /// <summary>
+        /// Brings this phone's calendar into step with the fake server's, so an entry saved a moment ago
+        /// reopens knowing the appointment it made - which is where its place is now kept.
+        /// </summary>
+        public Task SynchroniseCalendarAsync()
+            => new CalendarEventSynchronizer(
+                _localStore, new CalendarClient(CalendarServer.ToHttpClient()), _clock, new SyncGate(),
+                new PendingCalendarLinkResolver(_clock, NullLogger<PendingCalendarLinkResolver>.Instance),
+                NullLogger<CalendarEventSynchronizer>.Instance).SynchroniseAsync(CancellationToken.None);
+
         /// <summary>Where a Calendar entry's appointment is written - see PutInTheCalendarAsync.</summary>
         public FakeCalendarServer CalendarServer { get; }
 
@@ -1410,6 +1490,13 @@ public sealed class TaskListDetailScreenTests
         /// <summary>Whether the phone has a connection, shared by the screen and what it saves through.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
+        /// <summary>
+        /// Where a typed place turns out to be. Unreachable by default, which is the honest stand-in for
+        /// a third-party lookup no test should depend on - a place typed without a pin is then one
+        /// nothing could be found for, which is the case worth checking anyway.
+        /// </summary>
+        public PlaceSearch Places { get; } = new(StubHttpMessageHandler.Unreachable().ToHttpClient());
+
         public TaskListDetailViewModel OpenTaskList(string title)
         {
             var created = _taskLists.CreateAsync(title, []).GetAwaiter().GetResult();
@@ -1419,7 +1506,8 @@ public sealed class TaskListDetailScreenTests
                 new TasksClient(Server.ToHttpClient()),
                 NothingIsBeingEdited(_clock), Network,
                 StockCheck,
-                new EntryAppointment(CalendarEvents, new CalendarClient(CalendarServer.ToHttpClient()), Network),
+                new EntryAppointment(
+                    CalendarEvents, new CalendarClient(CalendarServer.ToHttpClient()), Network, Places),
                 new ShelfCorrection(Shelves, ShelfSynchronizer, new InventoryClient(Warehouses.ToHttpClient())),
                 PlacePicker, _privateContent,
                 Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer));
