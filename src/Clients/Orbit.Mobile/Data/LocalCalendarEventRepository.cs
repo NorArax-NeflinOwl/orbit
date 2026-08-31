@@ -230,6 +230,8 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
         };
 
         dbContext.CalendarEvents.Add(copy);
+        CopiesForEditing.Announce(
+            dbContext, CopyKind.CalendarEvent, copy.LocalId, original.Details.Title, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return copy;
     }

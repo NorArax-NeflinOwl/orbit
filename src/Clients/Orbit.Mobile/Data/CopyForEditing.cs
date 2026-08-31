@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Sync;
 
@@ -139,6 +140,7 @@ public static class CopiesForEditing
 
         dbContext.Outbox.RemoveRange(queued);
         dbContext.Set<TEntity>().Remove(copy);
+        Settle(dbContext, copy.LocalId);
     }
 
     /// <summary>
@@ -150,6 +152,7 @@ public static class CopiesForEditing
         where TEntity : class, ICopyableForEditing
     {
         copy.IsKeptCopy = true;
+        Settle(dbContext, copy.LocalId);
         dbContext.Outbox.Add(new OutboxEntry
         {
             EntityType = entityType,
@@ -162,4 +165,53 @@ public static class CopiesForEditing
     /// <summary>A copy taken offline that no review has answered yet.</summary>
     public static bool IsAwaitingReview(ICopyableForEditing entity)
         => entity is { CopyOfLocalId: not null, IsKeptCopy: false };
+
+    /// <summary>
+    /// Says in the notification feed that a copy is waiting to be decided on, naming what it is a copy
+    /// of. Written in the same save as the copy itself, so the two cannot disagree.
+    ///
+    /// In the feed rather than only as a badge, because a badge says "something" and the reader needs
+    /// to know <i>which</i> thing they wrote in - two rows called "Zakupy" are otherwise a puzzle.
+    /// </summary>
+    public static void Announce(
+        OrbitLocalDbContext dbContext, CopyKind kind, Guid copyLocalId, string title, DateTimeOffset now)
+        => dbContext.Notifications.Add(new LocalNotification
+        {
+            Id = Guid.NewGuid(),
+            Kind = "CopyAwaitingReview",
+            Title = "A copy is waiting to be reviewed",
+            Body = WaitingDescription(kind),
+            BodyArgumentsJson = JsonSerializer.Serialize(new[] { title }),
+            Url = NoticeUrl(copyLocalId),
+            CreatedAtUtc = now,
+            IsRaisedHere = true
+        });
+
+    /// <summary>
+    /// Takes that notice away, because the question it was asking has been answered. Called wherever a
+    /// copy stops waiting - applied, discarded or kept - so the feed never advertises a decision that
+    /// has already been made.
+    /// </summary>
+    public static void Settle(OrbitLocalDbContext dbContext, Guid copyLocalId)
+    {
+        var url = NoticeUrl(copyLocalId);
+        dbContext.Notifications.RemoveRange(
+            dbContext.Notifications.Where(notice => notice.IsRaisedHere && notice.Url == url));
+    }
+
+    /// <summary>Which copy a notice is about - see NotificationDestination's "copies" path.</summary>
+    private static string NoticeUrl(Guid copyLocalId) => $"/copies/{copyLocalId}";
+
+    /// <summary>
+    /// One whole sentence per kind rather than a noun dropped into a shared one: Polish declines what
+    /// was copied, so "kopii notatki" and "…listy zadań" cannot come from the same template.
+    /// </summary>
+    private static string WaitingDescription(CopyKind kind)
+        => kind switch
+        {
+            CopyKind.Note => "You wrote in a copy of the note “{0}” while you were offline.",
+            CopyKind.TaskList => "You wrote in a copy of the task list “{0}” while you were offline.",
+            CopyKind.CalendarEvent => "You wrote in a copy of the appointment “{0}” while you were offline.",
+            _ => "You wrote in a copy of the warehouse “{0}” while you were offline."
+        };
 }

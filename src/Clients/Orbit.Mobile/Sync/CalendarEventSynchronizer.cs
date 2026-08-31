@@ -44,7 +44,7 @@ public sealed class CalendarEventSynchronizer
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var push = await OutboxReplay.RunAsync(
             dbContext, SyncEntityType.CalendarEvent,
-            (entry, token) => SendAsync(dbContext, entry, token), _logger, cancellationToken);
+            (entry, token) => SendAsync(dbContext, entry, token), _timeProvider, _logger, cancellationToken);
 
         // Straight after the push, because that is where a locally-made event gains its server id -
         // and an appointment made offline is only half made until its entry carries that id.
@@ -118,7 +118,7 @@ public sealed class CalendarEventSynchronizer
         if (outcome is not WriteOutcome.Applied)
         {
             _logger.LogInformation("The server refused an offline edit of event {ServerId}: {Outcome}", serverId, outcome);
-            return SendResult.Abandoned;
+            return SendResult.Refused;
         }
 
         calendarEvent.LastSyncedAtUtc = _timeProvider.GetUtcNow();

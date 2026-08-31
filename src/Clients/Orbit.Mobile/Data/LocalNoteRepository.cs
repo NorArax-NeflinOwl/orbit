@@ -218,6 +218,7 @@ public sealed class LocalNoteRepository : ICopyReviewStore
         };
 
         dbContext.Notes.Add(copy);
+        CopiesForEditing.Announce(dbContext, CopyKind.Note, copy.LocalId, original.Title, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return copy;
     }

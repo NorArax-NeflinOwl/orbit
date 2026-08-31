@@ -70,7 +70,7 @@ public sealed class NoteSynchronizer
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var push = await OutboxReplay.RunAsync(
             dbContext, SyncEntityType.Note,
-            (entry, token) => SendAsync(dbContext, entry, token), _logger, cancellationToken);
+            (entry, token) => SendAsync(dbContext, entry, token), _timeProvider, _logger, cancellationToken);
 
         try
         {
@@ -149,7 +149,7 @@ public sealed class NoteSynchronizer
         if (outcome is not WriteOutcome.Applied)
         {
             _logger.LogInformation("The server refused an offline edit of note {ServerId}: {Outcome}", serverId, outcome);
-            return SendResult.Abandoned;
+            return SendResult.Refused;
         }
 
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();

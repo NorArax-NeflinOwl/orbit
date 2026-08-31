@@ -26,7 +26,13 @@ public enum NotificationTarget
 
     Inventory,
 
-    Map
+    Map,
+
+    /// <summary>
+    /// The copies taken offline that are waiting to be decided on. The only destination the phone
+    /// raises for itself: a copy has no server id to name, and nobody but this device knows it exists.
+    /// </summary>
+    CopyReview
 }
 
 /// <summary>
@@ -58,6 +64,10 @@ public sealed record NotificationDestination(NotificationTarget Target, Guid? Id
             // is deliberately dropped rather than carried to somewhere that cannot use it.
             ["calendar", _] or ["calendar"] => new NotificationDestination(NotificationTarget.Calendar),
             ["inventory"] => new NotificationDestination(NotificationTarget.Inventory),
+            ["copies"] => new NotificationDestination(NotificationTarget.CopyReview),
+            // The id names which copy the notice is about, so answering that one can take its notice
+            // away again. The window itself shows them all, so the opener has no use for it.
+            ["copies", var copyLocalId] => ForId(NotificationTarget.CopyReview, copyLocalId),
             ["map"] => new NotificationDestination(NotificationTarget.Map),
             _ => null
         };

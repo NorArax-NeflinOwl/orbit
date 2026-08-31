@@ -92,6 +92,10 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     {
         try
         {
+            // Both sides: the server does not know about what this phone raised for itself, and left to
+            // the server alone "mark all read" would leave one stubbornly unread - see
+            // LocalNotificationRepository.MarkEverythingReadAsync.
+            await _notifications.MarkEverythingReadAsync(cancellationToken);
             await _notificationsClient.MarkAllReadAsync(cancellationToken);
             await ShowFeedAsync(cancellationToken);
         }
@@ -109,6 +113,7 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     {
         try
         {
+            await _notifications.DismissEverythingAsync(cancellationToken);
             await _notificationsClient.ClearAsync(cancellationToken);
             await ShowFeedAsync(cancellationToken);
         }
@@ -153,9 +158,13 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
                 _ => string.Empty
             };
 
-            if (outcome == NotificationOpenOutcome.Opened && row.Url is { Length: > 0 } url)
+            if (outcome == NotificationOpenOutcome.Opened)
             {
-                await _notificationsClient.MarkReadAtAsync(url);
+                await _notifications.MarkReadAsync(row.Id);
+                if (row.Url is { Length: > 0 } url)
+                {
+                    await _notificationsClient.MarkReadAtAsync(url);
+                }
             }
         }
         catch (HttpRequestException)

@@ -330,6 +330,7 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         };
 
         dbContext.TaskLists.Add(copy);
+        CopiesForEditing.Announce(dbContext, CopyKind.TaskList, copy.LocalId, original.Title, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return copy;
     }

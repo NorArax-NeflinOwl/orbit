@@ -271,6 +271,7 @@ public sealed class LocalWarehouseRepository : ICopyReviewStore
         };
 
         dbContext.Warehouses.Add(copy);
+        CopiesForEditing.Announce(dbContext, CopyKind.Warehouse, copy.LocalId, original.Name, now);
         await dbContext.SaveChangesAsync(cancellationToken);
         return copy;
     }

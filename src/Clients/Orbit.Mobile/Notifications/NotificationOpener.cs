@@ -100,6 +100,10 @@ public sealed class NotificationOpener
                 _navigator.ShowMap();
                 return NotificationOpenOutcome.Opened;
 
+            case NotificationTarget.CopyReview:
+                _navigator.ShowCopyReview();
+                return NotificationOpenOutcome.Opened;
+
             default:
                 return NotificationOpenOutcome.NowhereToGo;
         }

@@ -8,8 +8,12 @@ namespace Orbit.Mobile.Data;
 /// and marking one read or clearing them failed. Whatever the phone was told about is now kept here,
 /// which is also what lets an overdue task still be visible on a train.
 ///
-/// Pulled and never pushed. Notifications are the server's to write - nothing on a phone raises one -
-/// so there is no outbox entry and no local id: the server's id is the only id there is.
+/// Pulled and never pushed: a notification the server wrote is the server's, and there is no outbox
+/// entry for one.
+///
+/// <b>The phone raises a few of its own</b> - see <see cref="IsRaisedHere"/>. They are the things only
+/// this device knows: a queued change the server would not take, and a copy made offline that is waiting
+/// to be decided on. Both are facts about this phone, so there is nobody to have been told them by.
 /// </summary>
 public sealed class LocalNotification
 {
@@ -40,4 +44,10 @@ public sealed class LocalNotification
 
     /// <inheritdoc cref="TitleArgumentsJson"/>
     public string BodyArgumentsJson { get; set; } = "[]";
+
+    /// <summary>
+    /// Written by this phone rather than pulled from the server, and so unknown to it: marking one read
+    /// or clearing it is a local matter, and no pull will ever bring it back or take it away.
+    /// </summary>
+    public bool IsRaisedHere { get; set; }
 }

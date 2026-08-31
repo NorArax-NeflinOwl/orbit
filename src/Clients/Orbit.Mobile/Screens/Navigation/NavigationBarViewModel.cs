@@ -138,7 +138,11 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     private void OnPermissionsChanged(object? sender, EventArgs e) => ShowPermissions();
 
-    private void OnSyncStateChanged(object? sender, EventArgs e) => ShowSyncState();
+    /// <summary>
+    /// A sync that just failed is one of the two states worth offering Reconnect in, so this asks the
+    /// whole question rather than only redrawing the line - see ShowWhetherToOfferReconnecting.
+    /// </summary>
+    private void OnSyncStateChanged(object? sender, EventArgs e) => ShowWhetherToOfferReconnecting();
 
     private void ShowSyncState()
     {
@@ -305,9 +309,14 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         ShowWhetherToOfferReconnecting();
     }
 
+    /// <summary>
+    /// Offered whenever trying again could help: with no connection, and equally when the phone had one
+    /// and the attempt failed anyway. "Couldn't sync" with nothing to tap was the worse of the two -
+    /// being told something went wrong and given no way to do anything about it.
+    /// </summary>
     private void ShowWhetherToOfferReconnecting()
     {
-        CanReconnect = !_networkStatus.IsOnline;
+        CanReconnect = !_networkStatus.IsOnline || _syncState.Condition is SyncCondition.Failed;
         ShowSyncState();
     }
 
