@@ -16,6 +16,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject IJSRuntime JSRuntime
+@inject ChosenPlace ChosenPlace
 @inject DevicePreferences DevicePreferences
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
@@ -38,6 +39,10 @@
             {
                 <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="ClearLocationAsync">@T["Forget it"]</button>
             }
+            @* Somewhere else entirely - not where you are, but where something is going to happen. The
+               map is already the place people come to point at things, so this is where pointing at one
+               and making something of it belongs. *@
+            <button type="button" class="btn-secondary" @onclick="OpenTheMapToPickAPlace">@T["Plan something here"]</button>
         </div>
     </div>
 
@@ -187,7 +192,71 @@
 
 </div>
 
+@if (_isPickingAPlace)
+{
+    <LocationPickerOverlay Address="@string.Empty" OnPicked="PlaceWasPicked" OnCancelled="StopPickingAPlace" />
+}
+
+@* Asked rather than guessed: an appointment and an errand at the same address are different things,
+   and only the person pointing at it knows which they meant. Reuses the map overlay's own panel, so a
+   question that follows a map looks like it came from the same place. *@
+@if (_placeToPlanFor is { } chosen)
+{
+    <div class="map-overlay" @onclick="ForgetTheChosenPlace">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["What happens here?"]</h2>
+            </div>
+            <p class="map-overlay-hint">@chosen.Address</p>
+            <div class="map-overlay-confirm">
+                <button type="button" class="btn-primary" @onclick="PlanAnEventHere">@T["An event in the calendar"]</button>
+                <button type="button" class="btn-secondary" @onclick="PlanATaskHere">@T["A task list starting here"]</button>
+                <button type="button" class="btn-secondary" @onclick="ForgetTheChosenPlace">@T["Cancel"]</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
+    /// <summary>Whether the map for choosing somewhere to plan is open - not the one showing where you are.</summary>
+    private bool _isPickingAPlace;
+
+    /// <summary>The confirmed pin, while the question about what to make of it is still on screen.</summary>
+    private PickedPlace? _placeToPlanFor;
+
+    private void OpenTheMapToPickAPlace() => _isPickingAPlace = true;
+
+    private void StopPickingAPlace() => _isPickingAPlace = false;
+
+    /// <summary>The map closes as the question opens, so the two are never both on screen.</summary>
+    private void PlaceWasPicked(PickedPlace place)
+    {
+        _isPickingAPlace = false;
+        _placeToPlanFor = place;
+    }
+
+    private void ForgetTheChosenPlace() => _placeToPlanFor = null;
+
+    private void PlanAnEventHere() => HandOverThePlaceTo("/calendar/new");
+
+    private void PlanATaskHere() => HandOverThePlaceTo("/tasks/new");
+
+    /// <summary>
+    /// The place travels in ChosenPlace rather than in the address bar - see that class. Cleared from
+    /// here as it goes, so backing out of the form and coming back does not find it waiting.
+    /// </summary>
+    private void HandOverThePlaceTo(string url)
+    {
+        if (_placeToPlanFor is not { } place)
+        {
+            return;
+        }
+
+        ChosenPlace.Hold(place);
+        _placeToPlanFor = null;
+        NavigationManager.NavigateTo(url);
+    }
+
     private const string MapElementId = "recordedLocationMap";
 
     /// <summary>Long enough for a cold GPS fix, short enough that a page waiting on nothing gives up.</summary>
