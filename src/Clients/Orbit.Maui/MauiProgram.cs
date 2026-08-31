@@ -19,6 +19,7 @@ using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
+using Orbit.Mobile.Live;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Presence;
@@ -72,6 +73,7 @@ public static class MauiProgram
 		RegisterPlatformServices(builder.Services);
 		RegisterLocalStore(builder.Services);
 		RegisterHttpClients(builder.Services, OrbitApiSettings.Current);
+		RegisterLiveUpdates(builder.Services, OrbitApiSettings.Current);
 		RegisterScreens(builder.Services);
 
 #if DEBUG
@@ -228,6 +230,23 @@ public static class MauiProgram
 	/// access token; the other two must not, because refreshing through the token handler would recurse
 	/// into the retry that called it, and the version gate has to work for a build too old to sign in.
 	/// </summary>
+	/// <summary>
+	/// The one connection the app holds open to hear that something changed. Takes the API's address
+	/// rather than an HttpClient: a hub connection is not an HTTP call and does not go through the
+	/// message handlers, so it carries its own token - see LiveUpdatesConnection.
+	/// </summary>
+	private static void RegisterLiveUpdates(IServiceCollection services, OrbitApiSettings apiSettings)
+	{
+		services.AddSingleton(provider => new LiveUpdatesConnection(
+			provider.GetRequiredService<SessionStore>(),
+			provider.GetRequiredService<TokenRefreshService>(),
+			apiSettings.BaseAddress,
+			provider.GetRequiredService<ILogger<LiveUpdatesConnection>>()));
+
+		// Screens depend on the interface so they can be tested without a hub - see ILiveUpdates.
+		services.AddSingleton<ILiveUpdates>(provider => provider.GetRequiredService<LiveUpdatesConnection>());
+	}
+
 	private static void RegisterHttpClients(IServiceCollection services, OrbitApiSettings apiSettings)
 	{
 		services.AddTransient<AuthorizationMessageHandler>();

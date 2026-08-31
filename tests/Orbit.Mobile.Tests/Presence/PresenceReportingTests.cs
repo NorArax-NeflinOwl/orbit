@@ -144,6 +144,42 @@ public sealed class PresenceReportingTests
         Assert.Equal(afterTheChoice + 1, context.Server.RequestCount);
     }
 
+    /// <summary>
+    /// A heartbeat over a connection already open costs a frame; as a request of its own it costs a
+    /// handshake and a round trip every twenty seconds. That saving is most of why the hub takes
+    /// presence at all - see Orbit.Api's LiveUpdatesHub.
+    /// </summary>
+    [Fact]
+    public async Task A_heartbeat_goes_over_the_live_connection_when_there_is_one()
+    {
+        using var context = new ReportingContext();
+        context.LiveUpdates.Becomes(connected: true);
+        using var reporter = context.Reporter();
+        reporter.Start();
+
+        await context.BeatAsync();
+
+        Assert.Equal(0, context.Server.HeartbeatCount);
+        Assert.True(context.LiveUpdates.PresenceReports > 0);
+    }
+
+    /// <summary>
+    /// And it is the request it always was when there is not. The connection speeds this up; it is not
+    /// what makes it work, and a phone on a network that will not carry one must still be seen.
+    /// </summary>
+    [Fact]
+    public async Task A_heartbeat_falls_back_to_the_request_with_no_live_connection()
+    {
+        using var context = new ReportingContext();
+        using var reporter = context.Reporter();
+        reporter.Start();
+
+        await context.BeatAsync();
+
+        Assert.True(context.Server.HeartbeatCount > 0);
+        Assert.Equal(0, context.LiveUpdates.PresenceReports);
+    }
+
     private sealed class ReportingContext : IDisposable
     {
         private readonly SessionStore _sessionStore;
@@ -164,9 +200,15 @@ public sealed class PresenceReportingTests
 
         public Orbit.Mobile.Presence.Presence Presence { get; }
 
+        /// <summary>
+        /// The live connection, disconnected by default - so these keep testing the request the
+        /// reporter has always made, and one test can turn it on to check the cheaper path.
+        /// </summary>
+        public AnnouncedLiveUpdates LiveUpdates { get; } = new();
+
         public PresenceReporter Reporter()
             => new(Presence, new UsersClient(Server.ToHttpClient()), _sessionStore,
-                NullLogger<PresenceReporter>.Instance, _clock);
+                NullLogger<PresenceReporter>.Instance, _clock, LiveUpdates);
 
         /// <summary>
         /// Lets one heartbeat fall due and waits for what it sends. The timer runs on this clock, so

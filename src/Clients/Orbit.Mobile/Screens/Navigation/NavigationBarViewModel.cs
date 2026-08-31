@@ -107,9 +107,12 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
         MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator,
         EverythingSynchronizer synchronizer, INetworkStatus networkStatus,
-        IEnumerable<Data.ICopyReviewStore> copyStores)
+        IEnumerable<Data.ICopyReviewStore> copyStores, Live.ILiveUpdates liveUpdates)
     {
         _copyStores = [.. copyStores];
+        // The badge is the one thing on this bar that changes because of somebody else, so it is the one
+        // thing worth being told about rather than asked about - see ILiveUpdates.
+        liveUpdates.NotificationsChanged += () => _ = ShowUnreadAsync(CancellationToken.None);
         _serverVersion = serverVersion;
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
@@ -223,6 +226,15 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         IsUpdateAvailable = await _versionGate.RememberedDecisionAsync(cancellationToken) is { OffersUpdate: true };
         await ShowWhatIsWaitingToBeDecidedAsync(cancellationToken);
 
+        await ShowUnreadAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// How many are unread. Asked when the bar loads, and again whenever something says the feed
+    /// changed - which is what stops the badge waiting for the next screen to notice.
+    /// </summary>
+    private async Task ShowUnreadAsync(CancellationToken cancellationToken)
+    {
         try
         {
             UnreadLabel = FormatCount((await _notificationsClient.GetUnreadAsync(cancellationToken)).Count);
