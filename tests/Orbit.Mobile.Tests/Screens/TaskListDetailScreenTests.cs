@@ -220,29 +220,117 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// One place, not two: tied to an event, the event holds it, so the box gives way to what the event
-    /// says rather than offering a second answer that could drift from the first.
+    /// A Calendar entry is the appointment rather than a pointer at one: saving it is what puts it in
+    /// the calendar, and the entry comes back carrying the event's id. This replaces the picker of
+    /// events made elsewhere, which is what Orbit.Web dropped when it made the entry the event.
     /// </summary>
     [Fact]
-    public async Task An_entry_tied_to_an_event_says_where_the_event_happens()
+    public async Task Saving_a_calendar_entry_puts_its_appointment_in_the_calendar()
     {
         using var context = new ScreenContext();
-        var eventId = await context.AddCalendarEventAsync("Checkup", "12 Mill Lane");
         var screen = context.OpenTaskList("Saturday");
         screen.NewItemDescription = "dentist";
         await screen.AddItemCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items[0]);
         screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
-        screen.BeingEdited.ChosenCalendarEvent =
-            screen.BeingEdited.CalendarEvents.Single(choice => choice.ServerId == eventId);
-
-        Assert.False(screen.BeingEdited.CanSayWhereItHappens);
-        Assert.True(screen.BeingEdited.IsTiedToAnEvent);
-        Assert.Contains("12 Mill Lane", screen.BeingEdited.WhereTheEventHappens);
-
+        screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.StartTime = new TimeSpan(14, 30, 0);
+        screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.EndTime = new TimeSpan(15, 0, 0);
         await screen.SaveItemCommand.ExecuteAsync(null);
-        Assert.Equal(eventId, Assert.Single(screen.Items).Item.LinkedCalendarEventId);
+
+        var appointment = Assert.Single(context.CalendarServer.Events);
+        // Its own words are the appointment's title: an entry and its appointment are one thing.
+        Assert.Equal("dentist", appointment.Details.Title);
+        Assert.Equal(appointment.Id, Assert.Single(screen.Items).Item.LinkedCalendarEventId);
+    }
+
+    /// <summary>
+    /// Where a calendar entry happens stays on the entry, not on its appointment: the calendar's own
+    /// location is coordinates first and an entry carries only a name, so the two are different fields.
+    /// Orbit.Web leaves the name on the entry for the same reason.
+    /// </summary>
+    [Fact]
+    public async Task A_calendar_entry_keeps_the_place_it_happens()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        Assert.True(screen.BeingEdited.CanSayWhereItHappens);
+        screen.BeingEdited.Location = "12 Mill Lane";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Equal("12 Mill Lane", Assert.Single(screen.Items).Item.Location);
+        Assert.Null(Assert.Single(context.CalendarServer.Events).Details.Location);
+    }
+
+    /// <summary>
+    /// The one step on this screen that is not offline-capable, and it says so rather than saving an
+    /// entry that points at an appointment nobody made.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_that_cannot_be_written_stops_the_entry_being_saved()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        context.CalendarServer.IsUnreachable = true;
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        // Still open, with what was typed - nothing is lost by waiting for a connection.
+        Assert.NotNull(screen.BeingEdited);
+        Assert.Contains("calendar", screen.Status);
+        Assert.Null(Assert.Single(screen.Items).Item.LinkedCalendarEventId);
+    }
+
+    /// <summary>
+    /// Opening an entry that already has an appointment fills the form from it, rather than showing an
+    /// empty one that would overwrite the appointment on the next save.
+    /// </summary>
+    [Fact]
+    public async Task Opening_an_entry_shows_the_appointment_it_already_has()
+    {
+        using var context = new ScreenContext();
+        var startsAt = new DateTimeOffset(2026, 9, 3, 12, 30, 0, TimeSpan.Zero);
+        var eventId = await context.AddCalendarEventAsync("Checkup", "12 Mill Lane", startsAt);
+        var screen = context.OpenTaskList("Saturday");
+        await context.AddCalendarEntryAsync(screen, "dentist", eventId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+
+        var form = screen.BeingEdited!.Event;
+        Assert.Equal("Bring the letter", form.Description);
+        Assert.Equal(startsAt.ToLocalTime().Date, form.StartDate);
+        Assert.Equal(startsAt.ToLocalTime().TimeOfDay, form.StartTime);
+        Assert.Equal(30, form.ChosenReminder?.MinutesBefore);
+    }
+
+    /// <summary>An appointment that ends before it starts is a typo, and is refused rather than saved.</summary>
+    [Fact]
+    public async Task An_appointment_that_ends_before_it_starts_cannot_be_saved()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 1);
+
+        Assert.False(screen.BeingEdited.CanSave);
+        Assert.NotNull(screen.BeingEdited.WhatIsMissing);
+        Assert.Empty(context.CalendarServer.Events);
     }
 
     /// <summary>
@@ -307,23 +395,25 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// Only a calendar entry can be tied to an event, so one turned back into an errand sends none -
-    /// whatever the picker last held. The same rule Orbit.Web's editor applies.
+    /// Only a calendar entry keeps its appointment, so one turned back into an errand lets go of it.
+    /// The same rule Orbit.Web's editor applies. The appointment itself stays in the calendar - what
+    /// the reader does with it there is their business, not this screen's.
     /// </summary>
     [Fact]
     public async Task An_entry_turned_back_into_an_errand_is_tied_to_nothing()
     {
         using var context = new ScreenContext();
-        var eventId = await context.AddCalendarEventAsync("Checkup", "12 Mill Lane");
         var screen = context.OpenTaskList("Saturday");
         screen.NewItemDescription = "dentist";
         await screen.AddItemCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items[0]);
         screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
-        screen.BeingEdited.ChosenCalendarEvent =
-            screen.BeingEdited.CalendarEvents.Single(choice => choice.ServerId == eventId);
-        screen.BeingEdited.Kind = nameof(TaskItemKind.Checklist);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        Assert.NotNull(Assert.Single(screen.Items).Item.LinkedCalendarEventId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Checklist);
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         Assert.Null(Assert.Single(screen.Items).Item.LinkedCalendarEventId);
@@ -987,6 +1077,8 @@ public sealed class TaskListDetailScreenTests
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
+        /// <summary>The list OpenTaskList last made, so a helper can reach it behind the screen.</summary>
+        private Guid _openedListId;
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         private readonly LocalTaskListRepository _taskLists;
 
@@ -996,6 +1088,7 @@ public sealed class TaskListDetailScreenTests
         {
             _privateContent = privateContent ?? PrivateContent.WithoutAKey();
             Server = new FakeTasksServer(_clock);
+            CalendarServer = new FakeCalendarServer(_clock);
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             StockCheck = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()),
@@ -1012,8 +1105,11 @@ public sealed class TaskListDetailScreenTests
         /// <summary>The map an entry's place can be pointed at on - see IPlacePicker.</summary>
         public FixedPlacePicker PlacePicker { get; } = new();
 
-        /// <summary>What an entry can be tied to - see CalendarEventChoice. Empty unless a test adds one.</summary>
+        /// <summary>This phone's copy of the calendar, which is where an entry's appointment is read from.</summary>
         public LocalCalendarEventRepository CalendarEvents { get; private set; } = null!;
+
+        /// <summary>Where a Calendar entry's appointment is written - see PutInTheCalendarAsync.</summary>
+        public FakeCalendarServer CalendarServer { get; }
 
         /// <summary>"Can this be done?" - see StockCheckPanel.</summary>
         public StockCheckPanel StockCheck { get; private set; } = null!;
@@ -1100,23 +1196,48 @@ public sealed class TaskListDetailScreenTests
             var screen = new TaskListDetailViewModel(
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
-                new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
+                new TasksClient(Server.ToHttpClient()), new CalendarClient(CalendarServer.ToHttpClient()),
+                NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
                 StockCheck, CalendarEvents, PlacePicker, _privateContent,
                 Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer));
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+            _openedListId = created.LocalId;
             return screen;
         }
 
         /// <summary>
-        /// An event the server knows about, which is what makes it something an entry can be tied to -
-        /// the tie is stored as the event's own id.
+        /// An appointment this phone already holds, as one an entry can carry the id of - which is what
+        /// the entry's form is filled from when it is opened again.
         /// </summary>
-        public async Task<Guid> AddCalendarEventAsync(string title, string? address)
+        /// <summary>An entry already standing for an appointment the phone holds, saved as the wire has it.</summary>
+        public async Task AddCalendarEntryAsync(TaskListDetailViewModel screen, string description, Guid eventId)
         {
+            screen.NewItemDescription = description;
+            await screen.AddItemCommand.ExecuteAsync(null);
+
+            var stored = await _taskLists.FindAsync(_openedListId);
+            await _taskLists.UpdateAsync(
+                _openedListId,
+                new TaskListContent(
+                    stored!.Title,
+                    [.. stored.Items.Select(item => item with
+                    {
+                        Kind = nameof(TaskItemKind.Calendar),
+                        LinkedCalendarEventId = eventId
+                    })],
+                    stored.IsGroup, stored.Priority, stored.IsPrivate));
+
+            await screen.LoadCommand.ExecuteAsync(null);
+        }
+
+        public async Task<Guid> AddCalendarEventAsync(
+            string title, string? address, DateTimeOffset? startUtc = null, bool isAllDay = false)
+        {
+            var starts = startUtc ?? _clock.GetUtcNow();
             var created = await CalendarEvents.CreateAsync(new CalendarEventDetailsDto(
-                title, null, address is null ? null : new EventLocationDto(address, 0, 0), null,
-                _clock.GetUtcNow(), _clock.GetUtcNow().AddHours(1), false, null, [], [], "None", "None"));
+                title, "Bring the letter", address is null ? null : new EventLocationDto(address, 0, 0), null,
+                starts, starts.AddHours(1), isAllDay, null, [], [30], "None", "Push"));
 
             await using var dbContext = _localStore.CreateDbContext();
             var stored = dbContext.CalendarEvents.Single(candidate => candidate.LocalId == created.LocalId);

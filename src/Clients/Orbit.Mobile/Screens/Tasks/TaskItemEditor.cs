@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
+using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
@@ -71,10 +72,16 @@ public sealed partial class TaskItemEditor : ObservableObject
     }
 
     /// <summary>
-    /// The events this entry could be tied to, the first of them standing for none. Taken in the factory
-    /// like the rest: the picker reads it once, when the form appears.
+    /// The appointment this entry is - see <see cref="TaskItemEventForm"/>. Present on every entry, not
+    /// only a Calendar one, so switching kinds back and forth does not lose what was typed.
     /// </summary>
-    public IReadOnlyList<CalendarEventChoice> CalendarEvents { get; private init; } = [];
+    public TaskItemEventForm Event { get; private init; } = null!;
+
+    /// <summary>
+    /// The event this entry already has in the calendar, or null when saving it will make one. Carried
+    /// through untouched: it is what tells an update from a creation, and nothing on this screen sets it.
+    /// </summary>
+    public Guid? LinkedCalendarEventId { get; private init; }
 
     /// <summary>
     /// Lists this entry can be made to stand for, the first of them being "none" - see
@@ -101,26 +108,16 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsCalendarEntry => Kind == nameof(TaskItemKind.Calendar);
 
     /// <summary>
-    /// One place, not two: tied to an event, the event holds it, so the box gives way to what the event
-    /// says rather than offering a second answer that could drift from the first.
+    /// Where a calendar entry happens, asked on the entry rather than on its appointment. The calendar's
+    /// own location is coordinates first and an entry carries only a name, so the two are not the same
+    /// field - which is why Orbit.Web leaves the name here and sends the event none.
     /// </summary>
-    public bool CanSayWhereItHappens => IsCalendarEntry && ChosenCalendarEvent?.ServerId is null;
-
-    public bool IsTiedToAnEvent => IsCalendarEntry && ChosenCalendarEvent?.ServerId is not null;
-
-    public string WhereTheEventHappens
-        => ChosenCalendarEvent?.Address is { Length: > 0 } address
-            ? _translations.Format("Happens at {0}, which the event decides.", address)
-            : _translations.Format(
-                "Happens at {0}, which the event decides.", _translations["somewhere the event does not say"]);
+    public bool CanSayWhereItHappens => IsCalendarEntry;
 
     private readonly Translations _translations;
 
     [ObservableProperty]
     private string _kind = nameof(TaskItemKind.Checklist);
-
-    [ObservableProperty]
-    private CalendarEventChoice? _chosenCalendarEvent;
 
     /// <summary>Where a calendar entry happens, as somebody typed it - see TaskItemDto.Location.</summary>
     [ObservableProperty]
@@ -161,10 +158,10 @@ public sealed partial class TaskItemEditor : ObservableObject
     public NameSuggestions? Suggestions { get; private init; }
 
     public static TaskItemEditor For(
-        TaskItemDto item, Translations translations, IReadOnlyList<CalendarEventChoice> events,
+        TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
         IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions = null)
     {
-        var editor = Build(item, translations, events, lists, suggestions);
+        var editor = Build(item, translations, linkedEvent, lists, suggestions);
         if (suggestions is not null)
         {
             suggestions.Offers(NameSuggestionKind.TaskItemDescription);
@@ -176,25 +173,21 @@ public sealed partial class TaskItemEditor : ObservableObject
     }
 
     private static TaskItemEditor Build(
-        TaskItemDto item, Translations translations, IReadOnlyList<CalendarEventChoice> events,
+        TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
         IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions)
     {
-        var choices = new List<CalendarEventChoice> { CalendarEventChoice.NoEvent(translations) };
-        choices.AddRange(events);
-
-        return new(item, translations)
+        var editor = new TaskItemEditor(item, translations)
         {
             Suggestions = suggestions,
             Channels = NotificationChannelChoice.All(translations),
             Kinds = TaskItemKindChoice.All(translations),
-            CalendarEvents = choices,
+            Event = TaskItemEventForm.For(linkedEvent, translations),
+            LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkableTaskLists = lists,
             ChosenLinkedTaskList = lists.FirstOrDefault(choice => choice.ServerId == item.LinkedTaskListId)
                 ?? lists.FirstOrDefault(),
             Kind = item.Kind,
             Location = item.Location,
-            ChosenCalendarEvent = choices.FirstOrDefault(choice => choice.ServerId == item.LinkedCalendarEventId)
-                ?? choices[0],
             Description = item.Description,
             HasDueDate = item.DueDateUtc is not null,
             DueDate = item.DueDateUtc?.LocalDateTime.Date ?? DateTime.Today,
@@ -210,6 +203,10 @@ public sealed partial class TaskItemEditor : ObservableObject
                 ? DefaultReminderTime
                 : item.DailyReminderTimeOfDay.ToTimeSpan()
         };
+
+        // The Save button answers to the appointment as well as to the entry - see TaskItemEventForm.
+        editor.Event.Missing = editor.SayWhatTheFormShows;
+        return editor;
     }
 
     public bool CanSave => Description.Trim().Length > 0 && WhatIsMissing is null;
@@ -222,7 +219,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     public string? WhatIsMissing
         => RemindDaily && !HasDailyReminderTime
             ? _translations["A daily reminder needs a time to arrive at."]
-            : null;
+            : IsCalendarEntry ? Event.WhatIsMissing : null;
 
     public bool HasSomethingMissing => WhatIsMissing is not null;
 
@@ -258,9 +255,11 @@ public sealed partial class TaskItemEditor : ObservableObject
             DailyReminderTimeOfDay = TimeOnly.FromTimeSpan(DailyReminderTime),
             Kind = Kind,
             Location = Location.Trim(),
-            // Only a calendar entry can be tied to an event; anything else sends none, whatever the
-            // picker last held. The same rule Orbit.Web's ToLinkedCalendarEventId applies.
-            LinkedCalendarEventId = IsCalendarEntry ? ChosenCalendarEvent?.ServerId : null
+            // Only a calendar entry keeps its appointment; anything else sends none, whatever it was
+            // before. The same rule Orbit.Web's ToLinkedCalendarEventId applies. The id itself is
+            // filled in by the screen when it puts the appointment in the calendar - see
+            // TaskListDetailViewModel.PutAppointmentsInTheCalendarAsync.
+            LinkedCalendarEventId = IsCalendarEntry ? LinkedCalendarEventId : null
         };
 
     partial void OnDescriptionChanged(string value)
@@ -302,17 +301,16 @@ public sealed partial class TaskItemEditor : ObservableObject
 
     partial void OnKindChanged(string value) => SayWhatTheFormShows();
 
-    partial void OnChosenCalendarEventChanged(CalendarEventChoice? value) => SayWhatTheFormShows();
-
     /// <summary>
-    /// The three things that appear and disappear together: which of them is on screen depends on the
-    /// kind and on whether an event was chosen, so both changes announce all three.
+    /// What appears and disappears together: the appointment's form and the place it happens are shown
+    /// for a Calendar entry and hidden for the rest, and whether it can be saved depends on both halves.
     /// </summary>
     private void SayWhatTheFormShows()
     {
         OnPropertyChanged(nameof(IsCalendarEntry));
         OnPropertyChanged(nameof(CanSayWhereItHappens));
-        OnPropertyChanged(nameof(IsTiedToAnEvent));
-        OnPropertyChanged(nameof(WhereTheEventHappens));
+        OnPropertyChanged(nameof(WhatIsMissing));
+        OnPropertyChanged(nameof(HasSomethingMissing));
+        OnPropertyChanged(nameof(CanSave));
     }
 }

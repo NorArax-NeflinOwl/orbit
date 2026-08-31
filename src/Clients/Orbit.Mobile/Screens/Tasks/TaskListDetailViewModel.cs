@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Core.Inventory;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
@@ -29,6 +31,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly LocalCalendarEventRepository _calendarEvents;
+    private readonly CalendarClient _calendarClient;
     private readonly IPlacePicker _placePicker;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly TasksClient _tasksClient;
@@ -45,8 +48,13 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private Guid? _serverId;
     private IReadOnlyList<TaskItemDto> _items = [];
 
-    /// <summary>The events an entry could be tied to - see <see cref="CalendarEventChoice"/>.</summary>
-    private IReadOnlyList<CalendarEventChoice> _linkableEvents = [];
+    /// <summary>
+    /// The appointment behind each Calendar entry that already has one, by the id the entry carries.
+    /// Read from this phone's own copy of the calendar, so opening an entry offline still shows when it
+    /// happens rather than an empty form that would overwrite it on save.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, CalendarEventDetailsDto> _appointments =
+        new Dictionary<Guid, CalendarEventDetailsDto>();
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -81,12 +89,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
-        TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck,
+        TasksClient tasksClient, CalendarClient calendarClient, EditLock editLock,
+        INetworkStatus networkStatus, StockCheckPanel stockCheck,
         LocalCalendarEventRepository calendarEvents, IPlacePicker placePicker,
         PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
         NameSuggestions titleSuggestions)
     {
         _taskLists = taskLists;
+        _calendarClient = calendarClient;
         _calendarEvents = calendarEvents;
         _placePicker = placePicker;
         _synchronizer = synchronizer;
@@ -223,7 +233,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = TaskItemEditor.For(row.Item, _translations, _linkableEvents, LinkTargets, _nameSuggestions);
+            BeingEdited = TaskItemEditor.For(
+                row.Item, _translations, AppointmentFor(row.Item), LinkTargets, _nameSuggestions);
             MoveTarget = null;
             OnPropertyChanged(nameof(CanMoveItem));
         }
@@ -310,11 +321,20 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         var events = await _calendarEvents.GetAllAsync(cancellationToken);
 
-        _linkableEvents = [.. events
+        _appointments = events
             .Where(candidate => candidate.ServerId is not null)
-            .Select(candidate => new CalendarEventChoice(
-                candidate.ServerId, candidate.Details.Title, candidate.Details.Location?.Address ?? string.Empty))];
+            .ToDictionary(candidate => candidate.ServerId!.Value, candidate => candidate.Details);
     }
+
+    /// <summary>
+    /// The appointment an entry already has, or null when saving it will make one. Null is also the
+    /// answer for an entry whose event this phone has not synced yet, which opens the form on today
+    /// rather than on nothing - the event itself is not lost, since the id still travels untouched.
+    /// </summary>
+    private CalendarEventDetailsDto? AppointmentFor(TaskItemDto item)
+        => item.LinkedCalendarEventId is { } eventId && _appointments.TryGetValue(eventId, out var details)
+            ? details
+            : null;
 
     [RelayCommand]
     private void CancelItemEdit() => BeingEdited = null;
@@ -340,18 +360,66 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task SaveItemAsync(CancellationToken cancellationToken)
+    private async Task SaveItemAsync(CancellationToken cancellationToken)
     {
         if (BeingEdited is not { CanSave: true } editor)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         var edited = editor.ToDto();
-        BeingEdited = null;
+        if (edited.Kind == nameof(TaskItemKind.Calendar))
+        {
+            if (await PutInTheCalendarAsync(editor, edited, cancellationToken) is not { } withItsAppointment)
+            {
+                return;
+            }
 
-        return SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
+            edited = withItsAppointment;
+        }
+
+        BeingEdited = null;
+        await SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
     }
+
+    /// <summary>
+    /// Brings a Calendar entry's appointment into being, or into step, and hands back the entry carrying
+    /// its id. Before the list is written rather than after, so there is no window where the entry exists
+    /// and the appointment does not - the order Orbit.Web's SaveTheCalendarAsync settles on.
+    ///
+    /// Null when it could not be written, so the caller stops rather than saving an entry that points at
+    /// an appointment nobody made. Unlike the rest of this screen this one step is not offline-capable,
+    /// and says so: the entry has to carry an id the server issued, and a phone with no connection
+    /// cannot be given one. Nothing is lost by waiting - the form stays open with what was typed.
+    /// </summary>
+    private async Task<TaskItemDto?> PutInTheCalendarAsync(
+        TaskItemEditor editor, TaskItemDto edited, CancellationToken cancellationToken)
+    {
+        var details = editor.Event.ToRequest(edited.Description);
+        try
+        {
+            if (edited.LinkedCalendarEventId is { } eventId)
+            {
+                await _calendarClient.UpdateAsync(eventId, new UpdateCalendarEventRequest(details), cancellationToken);
+                return edited;
+            }
+
+            return edited with
+            {
+                LinkedCalendarEventId = await _calendarClient.CreateAsync(
+                    new CreateCalendarEventRequest(details), cancellationToken)
+            };
+        }
+        catch (HttpRequestException)
+        {
+            Status = _translations[AppointmentRefusalMessage];
+            return null;
+        }
+    }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string AppointmentRefusalMessage =
+        "This entry is an appointment, and Orbit can't be reached to put it in the calendar. Nothing was saved - try again once you're back online.";
 
     /// <summary>
     /// Ticking off "Update stock levels" while errands are still open on the same list is either the end
