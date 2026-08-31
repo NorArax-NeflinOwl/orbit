@@ -98,6 +98,7 @@ public static class PolishTranslations
         ["The name is yours to write - the pin below keeps its exact position either way."] = "Nazwę piszesz sam – pinezka i tak zachowuje swoje dokładne położenie.",
         ["Use the address from the map"] = "Użyj adresu z mapy",
         ["What this is about"] = "Czego to dotyczy",
+        ["This errand's product needs a name and an amount."] = "Produkt tego sprawunku potrzebuje nazwy i ilości.",
         ["Repeats"] = "Powtarza się",
         ["Does not repeat"] = "Nie powtarza się",
         ["Never"] = "Nigdy",

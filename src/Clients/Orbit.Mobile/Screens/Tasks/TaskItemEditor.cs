@@ -84,6 +84,36 @@ public sealed partial class TaskItemEditor : ObservableObject
     public Guid? LinkedCalendarEventId { get; private init; }
 
     /// <summary>
+    /// The product an Inventory entry is an errand about - see <see cref="TaskItemShelfProduct"/>. Null
+    /// for every other kind, and for an errand whose product this phone has not got: an entry tied to a
+    /// warehouse somebody stopped sharing still opens, with the shelf half missing rather than the form.
+    /// </summary>
+    public TaskItemShelfProduct? Shelf { get; private init; }
+
+    /// <summary>True when this entry is an errand about a product that can be corrected from here.</summary>
+    public bool IsShelfEntry => Kind == nameof(TaskItemKind.Inventory) && Shelf is not null;
+
+    /// <summary>
+    /// Said before anything is changed: this form writes to a warehouse, not only to the list. Empty
+    /// when there is no product behind the entry.
+    /// </summary>
+    public string WhereTheProductLives
+        => Shelf is null
+            ? string.Empty
+            : _translations.Format(
+                "On the shelf in {0}. Saving this list saves the change there too.", Shelf.WarehouseName);
+
+    /// <summary>
+    /// An Inventory entry with nothing behind it - one whose warehouse is gone, or not synced yet. Said
+    /// rather than left as an empty form that looks broken, which is the line Orbit.Web draws too.
+    /// </summary>
+    public bool HasNoProductToEdit => Kind == nameof(TaskItemKind.Inventory) && Shelf is null;
+
+    /// <inheritdoc cref="HasNoProductToEdit"/>
+    public string NoProductMessage
+        => _translations["This entry isn't tied to a product yet, so there is nothing to edit here."];
+
+    /// <summary>
     /// Lists this entry can be made to stand for, the first of them being "none" - see
     /// TaskListChoice.NoList. A group list gathers other lists through entries that point at them.
     /// </summary>
@@ -159,9 +189,10 @@ public sealed partial class TaskItemEditor : ObservableObject
 
     public static TaskItemEditor For(
         TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
-        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions = null)
+        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions = null,
+        TaskItemShelfProduct? shelf = null)
     {
-        var editor = Build(item, translations, linkedEvent, lists, suggestions);
+        var editor = Build(item, translations, linkedEvent, lists, suggestions, shelf);
         if (suggestions is not null)
         {
             suggestions.Offers(NameSuggestionKind.TaskItemDescription);
@@ -174,7 +205,7 @@ public sealed partial class TaskItemEditor : ObservableObject
 
     private static TaskItemEditor Build(
         TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
-        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions)
+        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions, TaskItemShelfProduct? shelf)
     {
         var editor = new TaskItemEditor(item, translations)
         {
@@ -182,6 +213,7 @@ public sealed partial class TaskItemEditor : ObservableObject
             Channels = NotificationChannelChoice.All(translations),
             Kinds = TaskItemKindChoice.All(translations),
             Event = TaskItemEventForm.For(linkedEvent, translations),
+            Shelf = shelf,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkableTaskLists = lists,
             ChosenLinkedTaskList = lists.FirstOrDefault(choice => choice.ServerId == item.LinkedTaskListId)
@@ -219,7 +251,10 @@ public sealed partial class TaskItemEditor : ObservableObject
     public string? WhatIsMissing
         => RemindDaily && !HasDailyReminderTime
             ? _translations["A daily reminder needs a time to arrive at."]
-            : IsCalendarEntry ? Event.WhatIsMissing : null;
+            : IsCalendarEntry ? Event.WhatIsMissing
+            : IsShelfEntry && !Shelf!.Product.CanSave
+                ? _translations["This errand's product needs a name and an amount."]
+                : null;
 
     public bool HasSomethingMissing => WhatIsMissing is not null;
 
@@ -309,6 +344,9 @@ public sealed partial class TaskItemEditor : ObservableObject
     {
         OnPropertyChanged(nameof(IsCalendarEntry));
         OnPropertyChanged(nameof(CanSayWhereItHappens));
+        OnPropertyChanged(nameof(IsShelfEntry));
+        OnPropertyChanged(nameof(HasNoProductToEdit));
+        OnPropertyChanged(nameof(WhereTheProductLives));
         OnPropertyChanged(nameof(WhatIsMissing));
         OnPropertyChanged(nameof(HasSomethingMissing));
         OnPropertyChanged(nameof(CanSave));

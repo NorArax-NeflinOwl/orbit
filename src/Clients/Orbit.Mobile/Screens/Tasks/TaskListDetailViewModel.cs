@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Inventory;
@@ -32,6 +33,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly LocalTaskListRepository _taskLists;
     private readonly LocalCalendarEventRepository _calendarEvents;
     private readonly CalendarClient _calendarClient;
+    private readonly LocalWarehouseRepository _warehouses;
+    private readonly WarehouseSynchronizer _warehouseSynchronizer;
+    private readonly InventoryClient _inventoryClient;
     private readonly IPlacePicker _placePicker;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly TasksClient _tasksClient;
@@ -91,12 +95,17 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
         TasksClient tasksClient, CalendarClient calendarClient, EditLock editLock,
         INetworkStatus networkStatus, StockCheckPanel stockCheck,
-        LocalCalendarEventRepository calendarEvents, IPlacePicker placePicker,
+        LocalCalendarEventRepository calendarEvents, LocalWarehouseRepository warehouses,
+        WarehouseSynchronizer warehouseSynchronizer, InventoryClient inventoryClient,
+        IPlacePicker placePicker,
         PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
         NameSuggestions titleSuggestions)
     {
         _taskLists = taskLists;
         _calendarClient = calendarClient;
+        _warehouses = warehouses;
+        _warehouseSynchronizer = warehouseSynchronizer;
+        _inventoryClient = inventoryClient;
         _calendarEvents = calendarEvents;
         _placePicker = placePicker;
         _synchronizer = synchronizer;
@@ -234,7 +243,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         if (row is not null && CanEdit)
         {
             BeingEdited = TaskItemEditor.For(
-                row.Item, _translations, AppointmentFor(row.Item), LinkTargets, _nameSuggestions);
+                row.Item, _translations, AppointmentFor(row.Item), LinkTargets, _nameSuggestions,
+                ShelfProductFor(row.Item));
             MoveTarget = null;
             OnPropertyChanged(nameof(CanMoveItem));
         }
@@ -331,6 +341,42 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// answer for an entry whose event this phone has not synced yet, which opens the form on today
     /// rather than on nothing - the event itself is not lost, since the id still travels untouched.
     /// </summary>
+    /// <summary>
+    /// The product behind each Inventory entry, by the shelf item's id, together with the warehouse it
+    /// sits on. Read from this phone's own copy rather than asked for: the whole point of the link is
+    /// that the row already knows which product it means, and a correction has to be possible offline
+    /// the same as every other edit on this screen.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, ShelfProductLocation> _shelfProducts =
+        new Dictionary<Guid, ShelfProductLocation>();
+
+    /// <summary>Where one product lives, so a change made here knows which warehouse to go back to.</summary>
+    private sealed record ShelfProductLocation(Guid WarehouseLocalId, string WarehouseName, WarehouseItemDto Product);
+
+    private async Task ShowWhatItsErrandsAreAboutAsync(CancellationToken cancellationToken)
+    {
+        var byProductId = new Dictionary<Guid, ShelfProductLocation>();
+        foreach (var warehouse in await _warehouses.GetAllAsync(cancellationToken))
+        {
+            // A product still waiting to be pushed has no id yet, so nothing can be pointing at it.
+            foreach (var product in warehouse.Items.Where(product => product.Id is not null))
+            {
+                byProductId[product.Id!.Value] = new(warehouse.LocalId, warehouse.Name, product);
+            }
+        }
+
+        _shelfProducts = byProductId;
+    }
+
+    /// <summary>
+    /// The product an errand is about, ready to edit, or null when this phone has not got it - a
+    /// warehouse somebody stopped sharing, or one not synced yet. The entry still opens either way.
+    /// </summary>
+    private TaskItemShelfProduct? ShelfProductFor(TaskItemDto item)
+        => item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found)
+            ? TaskItemShelfProduct.For(found.WarehouseLocalId, found.WarehouseName, found.Product, _translations)
+            : null;
+
     private CalendarEventDetailsDto? AppointmentFor(TaskItemDto item)
         => item.LinkedCalendarEventId is { } eventId && _appointments.TryGetValue(eventId, out var details)
             ? details
@@ -378,9 +424,80 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             edited = withItsAppointment;
         }
 
+        var shelf = editor.IsShelfEntry ? editor.Shelf : null;
         BeingEdited = null;
         await SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
+
+        if (shelf is not null)
+        {
+            await SaveTheShelfAsync(shelf, cancellationToken);
+        }
     }
+
+    /// <summary>
+    /// Writes a corrected product back to the warehouse it lives on, then asks that warehouse to work
+    /// out its restock list again - a corrected amount can settle an errand or raise one, and a list
+    /// still saying the old thing makes the correction look like it did not take.
+    ///
+    /// After the task list is saved rather than before, and it does not stop the save if it fails: the
+    /// shelf is a second thing this screen touches, not the thing it is for. That is the order Orbit.Web
+    /// settles on too, and the opposite of the calendar's - an appointment has to exist before the entry
+    /// can name it, while a product already exists and is only being corrected.
+    /// </summary>
+    private async Task SaveTheShelfAsync(TaskItemShelfProduct shelf, CancellationToken cancellationToken)
+    {
+        if (await _warehouses.FindAsync(shelf.WarehouseLocalId, cancellationToken) is not { } warehouse)
+        {
+            return;
+        }
+
+        var corrected = shelf.Product.ToDto();
+        var outcome = await _warehouses.UpdateAsync(
+            shelf.WarehouseLocalId,
+            new WarehouseContent(
+                warehouse.Name,
+                [.. warehouse.Items.Select(product => product.Id == corrected.Id ? corrected : product)],
+                warehouse.IsPrivate),
+            cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations[ShelfRefusalMessage];
+            return;
+        }
+
+        // Pushed here rather than left for whenever somebody next opens the warehouse: the correction is
+        // to a shelf this screen is not otherwise about, so nothing else would carry it up, and a
+        // restock list rebuilt before the new amount arrives would be rebuilt from the old one.
+        await _warehouseSynchronizer.SynchroniseAsync(cancellationToken);
+        await RefreshTheRestockListAsync(warehouse.ServerId, cancellationToken);
+        await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Best effort, and deliberately quiet: the correction is already saved on this phone and on its way
+    /// up, and a restock list that is one sync behind rights itself. Saying "couldn't reach Orbit" about
+    /// a change that did land would be the wrong thing to tell somebody.
+    /// </summary>
+    private async Task RefreshTheRestockListAsync(Guid? warehouseServerId, CancellationToken cancellationToken)
+    {
+        if (warehouseServerId is not { } serverId)
+        {
+            return;
+        }
+
+        try
+        {
+            await _inventoryClient.RefreshRestockListAsync(serverId, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string ShelfRefusalMessage =
+        "The list was saved, but the shelf couldn't be updated. Open the warehouse and check it.";
 
     /// <summary>
     /// Brings a Calendar entry's appointment into being, or into step, and hands back the entry carrying
@@ -619,6 +736,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _isShowingWhatIsStored = false;
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
+        await ShowWhatItsErrandsAreAboutAsync(cancellationToken);
         // Sealed with a key this device cannot open, so there is nothing here to change: the readable
         // fields are empty, and saving would replace the sealed list with an empty one.
         if (taskList.IsSealed)

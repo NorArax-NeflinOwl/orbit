@@ -154,6 +154,21 @@
                     </VerticalStackLayout>
                 </VerticalStackLayout>
 
+                <!-- An errand about a product opens the product itself, so correcting an amount does
+                     not mean leaving the list and finding the warehouse again. The same form the
+                     warehouse screen shows, and saving here saves it there - see TaskItemShelfProduct. -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShelfEntry}">
+                    <Label Text="{Binding WhereTheProductLives}" FontSize="12" LineBreakMode="WordWrap"
+                           Style="{StaticResource SubtleLabel}" />
+                    <controls:ShelfProductFields BindingContext="{Binding Shelf.Product}" />
+                </VerticalStackLayout>
+
+                <!-- An errand whose product this phone has not got - a warehouse no longer shared, or
+                     one not synced yet. Said, rather than left as an empty form that looks broken. -->
+                <Label Text="{Binding NoProductMessage}"
+                       IsVisible="{Binding HasNoProductToEdit}" FontSize="12" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}" />
+
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Label Grid.Column="0" Text="{controls:Translate 'Due date'}" VerticalOptions="Center" />
                     <Switch Grid.Column="1" IsToggled="{Binding HasDueDate}" VerticalOptions="Center" />
