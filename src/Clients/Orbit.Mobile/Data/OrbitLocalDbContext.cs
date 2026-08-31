@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -171,7 +172,7 @@ public sealed class OrbitLocalDbContext : DbContext
     /// </summary>
     private static readonly ValueConverter<IReadOnlyList<NoteContentLineDto>, string> ContentConverter = new(
         content => JsonSerializer.Serialize(content, LocalStoreSerializerContext.Default.IReadOnlyListNoteContentLineDto),
-        stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListNoteContentLineDto) ?? new List<NoteContentLineDto>());
+        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListNoteContentLineDto));
 
     /// <summary>
     /// Without this EF compares the converted strings by reference and never notices an edit, so a note
@@ -188,7 +189,7 @@ public sealed class OrbitLocalDbContext : DbContext
     /// </summary>
     private static readonly ValueConverter<IReadOnlyList<TaskItemDto>, string> ItemsConverter = new(
         items => JsonSerializer.Serialize(items, LocalStoreSerializerContext.Default.IReadOnlyListTaskItemDto),
-        stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListTaskItemDto) ?? new List<TaskItemDto>());
+        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListTaskItemDto));
 
     /// <summary>Without this an edited item list is compared by reference and saved unchanged.</summary>
     private static readonly ValueComparer<IReadOnlyList<TaskItemDto>> ItemsComparer = new(
@@ -202,12 +203,7 @@ public sealed class OrbitLocalDbContext : DbContext
     /// </summary>
     private static readonly ValueConverter<IReadOnlyList<string>, string> LinesConverter = new(
         lines => JsonSerializer.Serialize(lines, LocalStoreSerializerContext.Default.IReadOnlyListString),
-        // Blank is read as "none", not as broken JSON. A column added by a migration is backfilled with
-        // that migration's default, and an empty string is the default EF picks for TEXT - which threw
-        // on every existing row until this, and took the screen reading them down with it.
-        stored => stored.Length == 0
-            ? new List<string>()
-            : JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListString) ?? new List<string>());
+        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListString));
 
     /// <summary>Without this a changed snapshot is compared by reference and saved unchanged.</summary>
     private static readonly ValueComparer<IReadOnlyList<string>> LinesComparer = new(
@@ -218,7 +214,7 @@ public sealed class OrbitLocalDbContext : DbContext
     /// <summary>A group's membership, in one column - nothing ever queries a single member.</summary>
     private static readonly ValueConverter<IReadOnlyList<LocalChatGroupMember>, string> MembersConverter = new(
         members => JsonSerializer.Serialize(members, LocalStoreSerializerContext.Default.IReadOnlyListLocalChatGroupMember),
-        stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListLocalChatGroupMember) ?? new List<LocalChatGroupMember>());
+        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListLocalChatGroupMember));
 
     /// <summary>Without this a changed membership is compared by reference and saved unchanged.</summary>
     private static readonly ValueComparer<IReadOnlyList<LocalChatGroupMember>> MembersComparer = new(
@@ -229,13 +225,25 @@ public sealed class OrbitLocalDbContext : DbContext
     /// <summary>What a warehouse holds, in one column - nothing ever queries a single item.</summary>
     private static readonly ValueConverter<IReadOnlyList<WarehouseItemDto>, string> WarehouseItemsConverter = new(
         items => JsonSerializer.Serialize(items, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto),
-        stored => JsonSerializer.Deserialize(stored, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto) ?? new List<WarehouseItemDto>());
+        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto));
 
     /// <summary>Without this an edited item list is compared by reference and saved unchanged.</summary>
     private static readonly ValueComparer<IReadOnlyList<WarehouseItemDto>> WarehouseItemsComparer = new(
         (left, right) => left!.SequenceEqual(right!),
         items => items.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
         items => items.ToList());
+
+    /// <summary>
+    /// Reads one of the JSON list columns above, treating a blank column as "none" rather than as
+    /// broken JSON.
+    ///
+    /// That case is not hypothetical. A column added by a migration is backfilled with that migration's
+    /// default, and the default EF picks for TEXT is an empty string - which threw on the first read of
+    /// every row that existed before the migration ran, and took the screen reading them down with it.
+    /// It happened once here already (see BlankListColumnTests); every list column now survives it.
+    /// </summary>
+    private static IReadOnlyList<TItem> ReadList<TItem>(string stored, JsonTypeInfo<IReadOnlyList<TItem>> typeInfo)
+        => stored.Length == 0 ? [] : JsonSerializer.Deserialize(stored, typeInfo) ?? [];
 
     /// <summary>
     /// Everything stored here is UTC - the server sends UTC and the app stamps UTC - so the offset

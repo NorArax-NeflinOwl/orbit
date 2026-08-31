@@ -46,14 +46,22 @@
         </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="2" Spacing="6" IsVisible="{Binding IsShowingList}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <!-- Gated on CanEdit like every other control on this page. It was the one that was not, so a
+                 list somebody else can change offered a box to type into and an Add that could only
+                 refuse - the outer stack asks whether an item is being edited, which is a different
+                 question from whether this list may be. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
                 <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemDescription}"
                        ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
             </Grid>
 
-            <!-- Under the box an errand is written in, which on a phone is where they are actually typed. -->
-            <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+            <!-- Under the box an errand is written in, which on a phone is where they are actually typed.
+                 Wrapped because the panel's own BindingContext would decide its IsVisible too - the same
+                 reason the stock-check panel below is wrapped. -->
+            <VerticalStackLayout IsVisible="{Binding CanEdit}">
+                <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
 
         <CollectionView Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
