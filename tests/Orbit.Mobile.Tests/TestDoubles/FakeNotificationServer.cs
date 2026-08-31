@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Sync;
 using Orbit.Contracts.PushNotifications;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
@@ -75,6 +76,14 @@ internal sealed class FakeNotificationServer : HttpMessageHandler
             }
 
             return Json(Settings);
+        }
+
+        // The delta a phone keeps its own copy from. Everything held, every time: what matters to a test
+        // is what the client does with an answer, not that the "since" arithmetic is reproduced here.
+        if (path.EndsWith("/notifications/changes", StringComparison.Ordinal))
+        {
+            return Json(new ChangeFeedDto<NotificationEntryDto>(
+                _entries, [], DateTimeOffset.UtcNow.UtcDateTime.ToString("O")));
         }
 
         if (path.EndsWith("/notifications/history", StringComparison.Ordinal))

@@ -34,6 +34,17 @@ internal sealed class InMemoryNotificationEntryRepository : INotificationEntryRe
                 .Take(take)
                 .ToList());
 
+    public Task<IReadOnlyList<NotificationEntry>> GetChangedSinceAsync(
+        Guid userId, DateTimeOffset since, int take, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<NotificationEntry>>(
+            _entries.Where(entry => entry.UserId == userId
+                    && (entry.CreatedAtUtc > since
+                        || entry.ReadAtUtc > since
+                        || entry.DismissedAtUtc > since))
+                .OrderByDescending(entry => entry.CreatedAtUtc)
+                .Take(take)
+                .ToList());
+
     public Task DismissAllAsync(Guid userId, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
         foreach (var entry in _entries.Where(entry => entry.UserId == userId))

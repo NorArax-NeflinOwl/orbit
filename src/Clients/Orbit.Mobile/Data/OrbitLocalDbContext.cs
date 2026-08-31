@@ -46,6 +46,9 @@ public sealed class OrbitLocalDbContext : DbContext
     /// <summary>What this account may use - see LocalPermission.</summary>
     public DbSet<LocalPermission> Permissions => Set<LocalPermission>();
 
+    /// <summary>The in-app notification feed, as this phone holds it - see LocalNotification.</summary>
+    public DbSet<LocalNotification> Notifications => Set<LocalNotification>();
+
     /// <summary>Appointments made here that the server has not named yet - see PendingCalendarLink.</summary>
     public DbSet<PendingCalendarLink> PendingCalendarLinks => Set<PendingCalendarLink>();
 
@@ -81,6 +84,9 @@ public sealed class OrbitLocalDbContext : DbContext
                 .HasConversion(ItemsConverter)
                 .Metadata.SetValueComparer(ItemsComparer);
         });
+
+        // The server's id is the only id a notification has - nothing on a phone raises one.
+        modelBuilder.Entity<LocalNotification>(notification => notification.HasKey(entity => entity.Id));
 
         // One event stands for one entry, so the event is the key - see PendingCalendarLink for why
         // it cannot be the entry: an entry made offline has no id until the server gives it one.

@@ -10,6 +10,7 @@ using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.Crypto;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 using Orbit.Mobile.Localization;
@@ -126,16 +127,35 @@ public sealed class NotificationFeedScreenTests
         Assert.False(screen.HasMessage);
     }
 
+    /// <summary>
+    /// What replaced "the feed is out of reach": it is this phone's feed now, so it shows what it holds
+    /// and says nothing alarming. The old behaviour was an empty screen and an error on a train, for a
+    /// list the phone had already been told about.
+    /// </summary>
     [Fact]
-    public async Task Being_out_of_reach_says_so()
+    public async Task Being_out_of_reach_shows_what_the_phone_already_holds()
     {
         using var context = new FeedContext();
-        context.Server.IsUnreachable = true;
+        context.Server.Add("A task is overdue", "/tasks/1");
         var screen = context.Open();
-
         await screen.LoadCommand.ExecuteAsync(null);
 
-        Assert.Contains("out of reach", screen.Message);
+        context.Server.IsUnreachable = true;
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("A task is overdue", Assert.Single(screen.Rows).Title);
+        Assert.False(screen.HasMessage);
+    }
+
+    /// <summary>And the actions on it are not offered, rather than offered and refused.</summary>
+    [Fact]
+    public void Reading_and_clearing_are_not_offered_without_a_connection()
+    {
+        using var context = new FeedContext();
+        var screen = context.Open(Connections.Offline);
+
+        Assert.True(screen.Connection.IsNotMet);
+        Assert.NotEmpty(screen.Connection.Explanation);
     }
 
     [Fact]
@@ -194,10 +214,15 @@ public sealed class NotificationFeedScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
-        public NotificationFeedViewModel Open()
+        public NotificationFeedViewModel Open(ConnectionRequirement? connection = null)
             => new(
-                new NotificationsClient(Server.ToHttpClient()), _opener,
-                new Translations(new InMemoryLanguageStore()), Navigator);
+                new NotificationsClient(Server.ToHttpClient()),
+                new LocalNotificationRepository(_localStore),
+                new NotificationSynchronizer(
+                    _localStore, new NotificationsClient(Server.ToHttpClient()), TimeProvider.System,
+                    new SyncGate(), NullLogger<NotificationSynchronizer>.Instance),
+                _opener, new Translations(new InMemoryLanguageStore()), Navigator,
+                connection ?? Connections.Online);
 
         public async Task<Guid> AddKnownContactAsync(string displayName)
         {

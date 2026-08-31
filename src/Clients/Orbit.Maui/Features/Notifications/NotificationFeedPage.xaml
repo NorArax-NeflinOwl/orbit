@@ -31,9 +31,11 @@
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                 <Button Grid.Column="0" Text="{controls:Translate 'Mark all read'}" FontSize="12" Padding="6,4"
                         LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        IsEnabled="{Binding Connection.IsMet}"
                         Command="{Binding MarkEverythingReadCommand}" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" FontSize="12" Padding="6,4"
                         LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                        IsEnabled="{Binding Connection.IsMet}"
                         Command="{Binding ClearCommand}" />
                 <Button Grid.Column="2" Text="{Binding ShowEverythingLabel}" FontSize="12" Padding="6,4"
                         LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
