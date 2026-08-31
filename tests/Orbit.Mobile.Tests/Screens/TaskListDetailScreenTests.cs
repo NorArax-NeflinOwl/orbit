@@ -861,6 +861,41 @@ public sealed class TaskListDetailScreenTests
         Assert.Null(screen.BeingEdited.WhatIsMissing);
     }
 
+    /// <summary>
+    /// An errand about a shelf item opened and saved on the phone stays that errand. It used to come
+    /// back a plain checklist entry, because the kind picker offered two of the three kinds and fell
+    /// back to the first - and TaskItem drops LinkedInventoryItemId for any kind but Inventory, so the
+    /// errand was cut loose from the product it was about, permanently and without a word.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_about_a_shelf_item_is_still_one_after_the_phone_saves_it()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Pantry");
+        var product = await context.AddInventoryErrandAsync(screen, "Restock: Flour");
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var saved = context.Stored().Items.Single();
+        Assert.Equal(nameof(TaskItemKind.Inventory), saved.Kind);
+        Assert.Equal(product, saved.LinkedInventoryItemId);
+    }
+
+    [Fact]
+    public async Task The_kind_of_an_errand_is_shown_for_what_it_is()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Pantry");
+        await context.AddInventoryErrandAsync(screen, "Restock: Flour");
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+
+        Assert.Equal(nameof(TaskItemKind.Inventory), screen.BeingEdited!.ChosenKind!.Value);
+    }
+
     /// <summary>Whoever is signed in - only its identity matters, as the key is kept per account.</summary>
     private static readonly Guid Owner = Guid.Parse("11111111-0000-4000-8000-000000000001");
 
@@ -905,6 +940,28 @@ public sealed class TaskListDetailScreenTests
 
         /// <summary>What this account has already named - see NameSuggestions. Empty unless a test fills it.</summary>
         public FakeSuggestionsServer SuggestionsServer { get; } = new();
+
+        /// <summary>
+        /// An errand about one product on a shelf, as the restock machinery makes one. Written straight
+        /// into the store: the phone has no way to link an entry to a shelf item itself.
+        /// </summary>
+        public async Task<Guid> AddInventoryErrandAsync(TaskListDetailViewModel screen, string description)
+        {
+            screen.NewItemDescription = description;
+            await screen.AddItemCommand.ExecuteAsync(null);
+
+            var product = Guid.NewGuid();
+            await using var dbContext = _localStore.CreateDbContext();
+            var stored = dbContext.TaskLists.Single();
+            stored.Items = [.. stored.Items.Select(item => item with
+            {
+                Kind = nameof(TaskItemKind.Inventory),
+                LinkedInventoryItemId = product
+            })];
+
+            await dbContext.SaveChangesAsync();
+            return product;
+        }
 
         /// <summary>
         /// An entry reminded daily at exactly midnight, which is what "nobody chose an hour" looks like

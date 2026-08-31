@@ -218,11 +218,16 @@ public sealed class TaskListSynchronizer
     /// The kind, the place and the event it belongs to travel with it for the same reason: left off,
     /// every push from the phone turned an appointment set on the web back into a plain errand with
     /// nowhere to be.
+    ///
+    /// The shelf item is the same story and worse. TaskItem keeps LinkedInventoryItemId only for an
+    /// Inventory entry and drops it otherwise, so a push that carried neither the link nor the kind cut
+    /// a restock errand loose from the product it was about - on any save of any list holding one,
+    /// without the reader touching the errand at all.
     /// </summary>
     private static IReadOnlyList<TaskItemRequest> ToRequests(IReadOnlyList<TaskItemDto> items)
         => items.Select(item => new TaskItemRequest(
             item.Description, item.Id == Guid.Empty ? null : item.Id, item.DueDateUtc, item.IsCompleted,
             item.LinkedTaskListId, item.OverdueNotificationChannel, item.RemindDaily,
             item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
-            item.Kind, item.Location, item.LinkedCalendarEventId)).ToList();
+            item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId)).ToList();
 }

@@ -15,7 +15,12 @@ public sealed record TaskItemKindChoice(string Value, string Name)
         =>
         [
             new(nameof(TaskItemKind.Checklist), translations["Checklist"]),
-            new(nameof(TaskItemKind.Calendar), translations["Calendar"])
+            new(nameof(TaskItemKind.Calendar), translations["Calendar"]),
+            // Offered because it has to round-trip, not only because it can be chosen. Left out, an
+            // errand about a shelf item opened here fell back to Checklist, and saving it wrote that
+            // back - at which point TaskItem drops LinkedInventoryItemId for any kind but Inventory and
+            // the errand is cut loose from the product it was about, permanently.
+            new(nameof(TaskItemKind.Inventory), translations["Inventory"])
         ];
 
     /// <summary>The one whose wire value this is, or the first - a stored value is always one of them.</summary>

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Web;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
 
@@ -265,7 +266,11 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         => items.Select(item => new TaskItemDto(
             item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
             item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-            item.DailyReminderTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId)).ToList();
+            item.DailyReminderTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId,
+            // Kept only for an Inventory entry, which is TaskItem's own rule - a fake that kept it for
+            // every kind would let a client sending the wrong kind pass, and the real server would cut
+            // the errand loose from its product.
+            item.Kind == nameof(TaskItemKind.Inventory) ? item.LinkedInventoryItemId : null)).ToList();
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 
