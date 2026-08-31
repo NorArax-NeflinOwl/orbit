@@ -21,6 +21,7 @@
 @inject AccentColorService AccentColorService
 @inject DevicePreferences DevicePreferences
 @inject PresenceService Presence
+@inject LiveUpdatesConnection LiveUpdates
 @inject UserPermissionState Permissions
 @inject Translations T
 @inject NavigationManager NavigationManager
@@ -296,6 +297,9 @@
     private bool _isBannerVisible;
     private DateTimeOffset? _lastBannerShownAtUtc;
     private PeriodicTimer? _notificationPollTimer;
+
+    /// <summary>Whether this layout has already attached to the shared connection - it is never recreated across a sign-in.</summary>
+    private bool _isSubscribedToLiveUpdates;
     private CancellationTokenSource? _notificationPollCancellation;
 
     /// <summary>
@@ -304,7 +308,19 @@
     /// minimum gap are per-user settings (see BannerMinimumGap/BannerVisibleDuration below), so this
     /// poll cadence is only a floor on how quickly a new entry can be noticed, not on banner pacing.
     /// </summary>
+    /// <summary>
+    /// How often to ask when nothing is announcing changes - an old proxy, a blocked WebSocket, a
+    /// server without the hub. Unchanged from what it always was, because this is the case where
+    /// nothing about the app is different.
+    /// </summary>
     private static readonly TimeSpan NotificationPollInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// How often to ask while the live connection is up. Not never: an announcement is best-effort and
+    /// a few things still change without one - a notification cleared from another device, settings
+    /// edited on the Options page - so this is the net underneath, not the mechanism.
+    /// </summary>
+    private static readonly TimeSpan ConnectedNotificationPollInterval = TimeSpan.FromSeconds(60);
 
     private TimeSpan BannerMinimumGap => TimeSpan.FromSeconds(_notificationSettings.BannerMinimumGapSeconds);
     private TimeSpan BannerVisibleDuration => TimeSpan.FromSeconds(_notificationSettings.BannerVisibleSeconds);
@@ -357,6 +373,58 @@
         await StartPresenceAndPermissionsIfAuthenticatedAsync();
         await RefreshNotificationStateIfAuthenticatedAsync();
         StartNotificationPoll();
+        await StartLiveUpdatesIfAuthenticatedAsync();
+    }
+
+    /// <summary>
+    /// Opens the shared live connection and slows the poll to match. Subscribed before starting, so an
+    /// announcement that arrives during the handshake is not missed.
+    /// </summary>
+    private async Task StartLiveUpdatesIfAuthenticatedAsync()
+    {
+        if (!_isAuthenticated || _isSubscribedToLiveUpdates)
+        {
+            return;
+        }
+
+        _isSubscribedToLiveUpdates = true;
+        LiveUpdates.NotificationsChanged += OnNotificationsAnnounced;
+        LiveUpdates.ConnectionStateChanged += OnLiveConnectionStateChanged;
+        await LiveUpdates.StartAsync();
+        ApplyNotificationPollInterval();
+    }
+
+    /// <summary>
+    /// Runs the same tick the timer runs. Through InvokeAsync because this arrives on the connection's
+    /// own callback, not on the renderer's dispatcher, and touching component state from there corrupts
+    /// the render tree in ways that surface somewhere else entirely.
+    /// </summary>
+    private void OnNotificationsAnnounced()
+        => _ = InvokeAsync(async () =>
+        {
+            await NotificationPollTickAsync();
+            StateHasChanged();
+        });
+
+    private void OnLiveConnectionStateChanged()
+        => _ = InvokeAsync(() =>
+        {
+            ApplyNotificationPollInterval();
+            return Task.CompletedTask;
+        });
+
+    /// <summary>
+    /// The timer keeps running either way - only how often it fires changes, so a connection that drops
+    /// puts the old pace back on its own rather than leaving the panel stale until a reload.
+    /// </summary>
+    private void ApplyNotificationPollInterval()
+    {
+        if (_notificationPollTimer is not null)
+        {
+            _notificationPollTimer.Period = LiveUpdates.IsConnected
+                ? ConnectedNotificationPollInterval
+                : NotificationPollInterval;
+        }
     }
 
     /// <summary>
@@ -950,6 +1018,9 @@
         NotificationFeedState.Clear();
         StopSessionHeartbeat();
         StopNotificationPoll();
+        // Closed rather than left open: it is authenticated as the account that just left, and whoever
+        // signs in next would otherwise inherit a connection announcing somebody else's changes.
+        await StopLiveUpdatesAsync();
         await AuthApiClient.LogoutAsync();
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
         NavigationManager.NavigateTo("/login");
@@ -972,8 +1043,31 @@
         };
     }
 
+    private async Task StopLiveUpdatesAsync()
+    {
+        if (!_isSubscribedToLiveUpdates)
+        {
+            return;
+        }
+
+        _isSubscribedToLiveUpdates = false;
+        LiveUpdates.NotificationsChanged -= OnNotificationsAnnounced;
+        LiveUpdates.ConnectionStateChanged -= OnLiveConnectionStateChanged;
+        await LiveUpdates.StopAsync();
+        ApplyNotificationPollInterval();
+    }
+
     public void Dispose()
     {
+        // Unsubscribed, but not closed. The connection outlives this layout - it belongs to the app,
+        // and the pages that share it are still using it.
+        if (_isSubscribedToLiveUpdates)
+        {
+            _isSubscribedToLiveUpdates = false;
+            LiveUpdates.NotificationsChanged -= OnNotificationsAnnounced;
+            LiveUpdates.ConnectionStateChanged -= OnLiveConnectionStateChanged;
+        }
+
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
         NavigationManager.LocationChanged -= OnLocationChanged;
         T.Changed -= OnLanguageChanged;

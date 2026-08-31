@@ -330,6 +330,29 @@ Deliberately not there: a language switch (it is in the avatar menu, where the r
 settings are), and anything that has to be fetched. A footer that waits on a request is a footer that
 sometimes is not there.
 
+## What the live connection still leaves undone
+
+The web client now hears about chat, notifications and presence instead of asking - see
+[Functionality — Live updates](functionality.md#live-updates). Three things were deliberately left out
+of that change rather than missed.
+
+- **The phone still polls.** `Orbit.Maui` has its own session lifecycle - an app that gets suspended,
+  loses a network and comes back on another one - which the browser's reconnect story does not describe.
+  It also has offline queues underneath it, so a connection that comes back has more to reconcile than a
+  tab does. Worth its own change, in its own session, rather than a second half bolted onto this one.
+- **Edits and deletions are only found by the slow poll.** A message being edited or removed announces
+  nothing, so it surfaces within twenty seconds instead of instantly. Adding it is a one-line publish in
+  each of `EditMessageCommandHandler`, `EditGroupMessageCommandHandler` and `DeleteMessageCommandHandler`
+  - left out only to keep the first change to the paths that carried the visible cost.
+- **Somebody going *away* can never be announced.** It happens by time passing, with nothing calling
+  anything, so there is no moment at which the server could say so (see `UserPresence.StatusAt`). Making
+  it instant would mean the server tracking timers per connected account and announcing on expiry - real
+  work, for a transition nobody is usually watching. The slow poll resolves it, and that is the reason
+  the slow poll exists.
+
+Scaling `orbit-api` past one replica needs a backplane before any of this survives it - see
+[Azure setup](azure-setup.md#5-confirm-ingress).
+
 ## Smaller identified follow-ups
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

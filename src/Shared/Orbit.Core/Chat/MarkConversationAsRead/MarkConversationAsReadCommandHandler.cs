@@ -1,13 +1,17 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.MarkConversationAsRead;
 
 public sealed class MarkConversationAsReadCommandHandler : IRequestHandler<MarkConversationAsReadCommand, bool>
 {
     private readonly IChatMessageRepository _chatMessageRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public MarkConversationAsReadCommandHandler(IChatMessageRepository chatMessageRepository)
+    public MarkConversationAsReadCommandHandler(
+        IChatMessageRepository chatMessageRepository, ILiveUpdatePublisher liveUpdatePublisher)
     {
+        _liveUpdatePublisher = liveUpdatePublisher;
         _chatMessageRepository = chatMessageRepository;
     }
 
@@ -19,6 +23,10 @@ public sealed class MarkConversationAsReadCommandHandler : IRequestHandler<MarkC
     {
         await _chatMessageRepository.MarkConversationAsReadAsync(
             request.ReaderUserId, request.OtherUserId, DateTimeOffset.UtcNow, cancellationToken);
+
+        // The read receipt is the other party's news, not the reader's - without this the tick that
+        // says "seen" would be the one thing still waiting on a poll.
+        await _liveUpdatePublisher.ChatChangedAsync(request.OtherUserId, cancellationToken);
         return true;
     }
 }

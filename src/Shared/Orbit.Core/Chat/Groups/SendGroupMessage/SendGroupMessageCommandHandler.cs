@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.Groups.SendGroupMessage;
 
@@ -6,9 +7,14 @@ public sealed class SendGroupMessageCommandHandler : IRequestHandler<SendGroupMe
 {
     private readonly IChatGroupRepository _chatGroupRepository;
     private readonly IChatMessageRepository _chatMessageRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public SendGroupMessageCommandHandler(IChatGroupRepository chatGroupRepository, IChatMessageRepository chatMessageRepository)
+    public SendGroupMessageCommandHandler(
+        IChatGroupRepository chatGroupRepository,
+        IChatMessageRepository chatMessageRepository,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
+        _liveUpdatePublisher = liveUpdatePublisher;
         _chatGroupRepository = chatGroupRepository;
         _chatMessageRepository = chatMessageRepository;
     }
@@ -54,6 +60,10 @@ public sealed class SendGroupMessageCommandHandler : IRequestHandler<SendGroupMe
         // contact's row. Without it a group only ever sorted by the day it was made.
         group.MarkMessagePosted();
         await _chatGroupRepository.UpdateAsync(group, cancellationToken);
+
+        // The sender included: their own other devices are showing this group too.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. group.Members.Select(member => member.UserId)], cancellationToken);
 
         return true;
     }

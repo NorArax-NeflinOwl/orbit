@@ -1,3 +1,4 @@
+using Orbit.Core.LiveUpdates;
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Notifications;
 using Xunit;
@@ -7,8 +8,13 @@ namespace Orbit.Api.Tests.Notifications;
 public sealed class NotificationRecorderTests
 {
     private static NotificationRecorder CreateRecorder(
-        InMemoryNotificationSettingsRepository? settingsRepository = null, InMemoryNotificationEntryRepository? entryRepository = null)
-        => new(settingsRepository ?? new InMemoryNotificationSettingsRepository(), entryRepository ?? new InMemoryNotificationEntryRepository());
+        InMemoryNotificationSettingsRepository? settingsRepository = null,
+        InMemoryNotificationEntryRepository? entryRepository = null,
+        ILiveUpdatePublisher? liveUpdatePublisher = null)
+        => new(
+            settingsRepository ?? new InMemoryNotificationSettingsRepository(),
+            entryRepository ?? new InMemoryNotificationEntryRepository(),
+            liveUpdatePublisher ?? new SilentLiveUpdatePublisher());
 
     [Fact]
     public async Task RecordAndFilterAsync_records_a_feed_entry_and_allows_every_requested_channel_by_default()
@@ -69,5 +75,43 @@ public sealed class NotificationRecorderTests
         Assert.Equal(NotificationChannel.None, result.AllowedChannel);
         Assert.True(result.EntryRecorded);
         Assert.Single(await entryRepository.GetRecentAsync(userId, 10, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Announced from the recorder rather than from each trigger, so the panel updates without waiting
+    /// on the next poll - and so a notification source added later gets it without having to remember.
+    /// </summary>
+    [Fact]
+    public async Task Recording_an_entry_tells_the_person_it_is_for()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var recorder = CreateRecorder(liveUpdatePublisher: announcements);
+        var userId = Guid.NewGuid();
+
+        await recorder.RecordAndFilterAsync(
+            userId, NotificationChannel.Push, NotificationEntryKind.ChatMessage, new PushNotificationPayload("Title", "Body", ""), CancellationToken.None);
+
+        Assert.Equal([userId], announcements.NotificationsToldAbout);
+    }
+
+    /// <summary>
+    /// Nothing was written down, so there is nothing to go and read. Announcing anyway would send every
+    /// client that turned notifications off on a fetch that can only ever come back with what it already had.
+    /// </summary>
+    [Fact]
+    public async Task Nothing_is_announced_when_the_account_turned_notifications_off()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var settingsRepository = new InMemoryNotificationSettingsRepository();
+        var userId = Guid.NewGuid();
+        var settings = NotificationSettings.Default(userId);
+        settings.Update(allowNotifications: false, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true, allowShareNotifications: false, BannerTiming.Default, NotificationSettings.DefaultRetentionDays);
+        await settingsRepository.UpsertAsync(settings, CancellationToken.None);
+        var recorder = CreateRecorder(settingsRepository: settingsRepository, liveUpdatePublisher: announcements);
+
+        await recorder.RecordAndFilterAsync(
+            userId, NotificationChannel.Push, NotificationEntryKind.ChatMessage, new PushNotificationPayload("Title", "Body", ""), CancellationToken.None);
+
+        Assert.Empty(announcements.NotificationsToldAbout);
     }
 }

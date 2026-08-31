@@ -5,6 +5,7 @@ using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Inventory.ExpiryReminders;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.OverdueNotifications;
@@ -117,7 +118,7 @@ public sealed class NotificationWordingTests
 
             var notifier = new SharedItemNotifier(
                 settingsRepository,
-                new NotificationRecorder(settingsRepository, entryRepository),
+                new NotificationRecorder(settingsRepository, entryRepository, new SilentLiveUpdatePublisher()),
                 new PushNotificationDispatcher(
                     new InMemoryPushSubscriptionRepository(), [], NullLogger<PushNotificationDispatcher>.Instance),
                 userRepository);

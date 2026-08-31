@@ -1,3 +1,5 @@
+using Orbit.Api.LiveUpdates;
+using Orbit.Core.LiveUpdates;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -107,6 +109,7 @@ try
             .AllowAnyMethod());
     });
 
+    builder.Services.AddOrbitLiveUpdates();
     builder.Services.AddOrbitCore();
     builder.Services.AddOrbitData(builder.Configuration);
     builder.Services.AddOrbitHealthChecks(builder.Configuration);
@@ -198,6 +201,27 @@ try
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SigningKey)),
                 ClockSkew = TimeSpan.FromSeconds(30)
+            };
+
+            // A browser cannot put an Authorization header on a WebSocket handshake - the WebSocket API
+            // has no way to set one - so SignalR passes the token in the query string instead, and this
+            // is what reads it. Scoped to the hub's own path deliberately: a token in a URL is a token
+            // in access logs and in anything that records one, so nowhere else in this API accepts a
+            // credential that way. See nginx-app-locations.conf, which stops logging the query string
+            // for this one path for the same reason.
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var token = context.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(token)
+                        && context.HttpContext.Request.Path.StartsWithSegments(LiveUpdateMessages.Path))
+                    {
+                        context.Token = token;
+                    }
+
+                    return Task.CompletedTask;
+                }
             };
         });
     builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
@@ -307,6 +331,7 @@ try
     app.MapPublicShareEndpoints();
     app.MapTransferEndpoints();
     app.MapHealthEndpoints();
+    app.MapHub<LiveUpdatesHub>(LiveUpdateMessages.Path);
 
     app.Run();
 }

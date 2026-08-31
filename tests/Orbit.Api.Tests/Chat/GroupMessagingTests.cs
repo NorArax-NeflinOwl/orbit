@@ -1,5 +1,6 @@
 using Orbit.Api.Tests.TestDoubles;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Users;
 using Orbit.Core.Notifications;
 using Orbit.Core.Abstractions;
@@ -205,7 +206,7 @@ public sealed class GroupMessagingTests
 
         var added = await new AddChatGroupMemberCommandHandler(
                 groupRepository, new InMemoryChatGroupAnnouncementRepository(), contactRepository, userRepository,
-                new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository),
+                new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository, new SilentLiveUpdatePublisher()),
                 new PushNotificationDispatcher(
                     new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
                     NullLogger<PushNotificationDispatcher>.Instance))
@@ -426,7 +427,7 @@ public sealed class GroupMessagingTests
         }
 
         public Task<bool> SendAsync(Guid senderId, IReadOnlyList<Guid> recipientIds)
-            => new SendGroupMessageCommandHandler(GroupRepository, MessageRepository)
+            => new SendGroupMessageCommandHandler(GroupRepository, MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(
                     new SendGroupMessageCommand(
                         senderId, GroupId, recipientIds.Select(id => new GroupMessageCopy(id, $"cipher-for-{id}", "nonce")).ToList()),
@@ -443,14 +444,14 @@ public sealed class GroupMessagingTests
         public Task<bool> AddMemberAsync(Guid actorId, Guid userId)
             => new AddChatGroupMemberCommandHandler(
                     GroupRepository, AnnouncementRepository, ContactRepository, UserRepository,
-                    new NotificationRecorder(new InMemoryNotificationSettingsRepository(), NotificationEntryRepository),
+                    new NotificationRecorder(new InMemoryNotificationSettingsRepository(), NotificationEntryRepository, new SilentLiveUpdatePublisher()),
                     new PushNotificationDispatcher(
                         new InMemoryPushSubscriptionRepository(), [PushSender], NullLogger<PushNotificationDispatcher>.Instance))
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
 
 
         public Task MarkReadAsync(Guid readerId)
-            => new MarkGroupConversationAsReadCommandHandler(GroupRepository, MessageRepository)
+            => new MarkGroupConversationAsReadCommandHandler(GroupRepository, MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(new MarkGroupConversationAsReadCommand(readerId, GroupId), CancellationToken.None);
 
         public Task<IReadOnlyList<GroupMessageReceipt>> ReceiptsAsync(Guid callerId, Guid groupMessageId)

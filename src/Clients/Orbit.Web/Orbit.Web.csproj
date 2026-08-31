@@ -12,6 +12,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.10" />
+    <!-- The client half of the live connection (see LiveUpdatesConnection). Not part of the framework
+         reference the way the server half is, so it is a package here and not in Orbit.Api. -->
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.10" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />

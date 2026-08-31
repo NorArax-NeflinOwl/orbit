@@ -2,6 +2,7 @@ using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.GetReadReceipt;
 using Orbit.Core.Chat.MarkConversationAsRead;
+using Orbit.Core.LiveUpdates;
 using Xunit;
 
 namespace Orbit.Api.Tests.Chat;
@@ -30,7 +31,7 @@ public sealed class GetReadReceiptQueryHandlerTests
         var recipientId = Guid.NewGuid();
         var message = ChatMessage.Create(senderId, recipientId, "ciphertext", "nonce");
         await repository.AddAsync(message, CancellationToken.None);
-        var markAsReadHandler = new MarkConversationAsReadCommandHandler(repository);
+        var markAsReadHandler = new MarkConversationAsReadCommandHandler(repository, new SilentLiveUpdatePublisher());
         await markAsReadHandler.HandleAsync(new MarkConversationAsReadCommand(recipientId, senderId), CancellationToken.None);
         var handler = new GetReadReceiptQueryHandler(repository);
 
