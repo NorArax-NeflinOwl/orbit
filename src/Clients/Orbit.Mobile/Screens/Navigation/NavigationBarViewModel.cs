@@ -35,6 +35,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly LocalStoreReset _localStore;
     private readonly UserPermissions _permissions;
     private readonly SyncState _syncState;
+    private readonly EverythingSynchronizer _synchronizer;
+    private readonly INetworkStatus _networkStatus;
     private readonly MobileVersionGate _versionGate;
     private readonly IScreenNavigator _navigator;
 
@@ -96,7 +98,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
-        MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator)
+        MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator,
+        EverythingSynchronizer synchronizer, INetworkStatus networkStatus)
     {
         _serverVersion = serverVersion;
         _sessionStore = sessionStore;
@@ -107,6 +110,9 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         _localStore = localStore;
         _permissions = permissions;
         _syncState = syncState;
+        _synchronizer = synchronizer;
+        _networkStatus = networkStatus;
+        _networkStatus.Changed += (_, _) => ShowWhetherToOfferReconnecting();
         _versionGate = versionGate;
 
         _navigator = navigator;
@@ -116,6 +122,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         ShowPresence();
         ShowPermissions();
         ShowSyncState();
+        ShowWhetherToOfferReconnecting();
     }
 
     private void OnPresenceChanged(object? sender, EventArgs e) => ShowPresence();
@@ -126,6 +133,16 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     private void ShowSyncState()
     {
+        // A phone with no network says so, whatever the last sync happened to conclude. Otherwise the
+        // row reads "Synced" next to a button offering to reconnect, which is two answers to one
+        // question - and "Synced" is the wrong one: it was true when it was said and is not now.
+        if (!_networkStatus.IsOnline)
+        {
+            SyncLabel = _translations["No connection"];
+            IsSyncing = false;
+            return;
+        }
+
         SyncLabel = _syncState.Condition switch
         {
             SyncCondition.Syncing => _translations["Syncing…"],
@@ -202,6 +219,35 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         catch (OperationCanceledException)
         {
         }
+    }
+
+    /// <summary>
+    /// Whether to offer trying again. Only while the phone believes it is offline: online there is
+    /// nothing to reconnect, and a button that is always there invites tapping at a working app.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canReconnect;
+
+    /// <summary>
+    /// Tries the server again, now, rather than waiting for whatever would have tried next.
+    ///
+    /// It cannot put the phone back on a network - no app can - so what it actually does is attempt the
+    /// work that being offline prevented. That is the useful half: a phone whose connection came back
+    /// without the system noticing, or one behind a portal that has just been signed into, is in step
+    /// again afterwards, and the corner says so instead of "No connection" until something else asks.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReconnectAsync(CancellationToken cancellationToken)
+    {
+        await _synchronizer.SynchroniseAsync(cancellationToken);
+        await _permissions.RefreshAsync(cancellationToken);
+        ShowWhetherToOfferReconnecting();
+    }
+
+    private void ShowWhetherToOfferReconnecting()
+    {
+        CanReconnect = !_networkStatus.IsOnline;
+        ShowSyncState();
     }
 
     [RelayCommand]

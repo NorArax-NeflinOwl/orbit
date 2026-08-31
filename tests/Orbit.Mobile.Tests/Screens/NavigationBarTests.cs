@@ -233,6 +233,63 @@ public sealed class NavigationBarTests
         Assert.Equal("Synced", bar.SyncLabel);
     }
 
+    /// <summary>
+    /// The way back when a phone loses its connection: try again now, rather than wait for whatever
+    /// would have tried next. Offered only while it is needed - a button that is always there invites
+    /// tapping at a working app.
+    /// </summary>
+    [Fact]
+    public void Reconnecting_is_offered_only_while_the_phone_is_offline()
+    {
+        var context = new BarContext("Ala");
+        context.Network.Becomes(false);
+        var bar = context.Open();
+
+        Assert.True(bar.CanReconnect);
+
+        context.Network.Becomes(true);
+        Assert.False(bar.CanReconnect);
+    }
+
+    /// <summary>
+    /// The row and the button have to agree. "Synced" beside an offer to reconnect is two answers to one
+    /// question, and the reassuring one is the wrong one: it was true when it was said and is not now.
+    /// </summary>
+    [Fact]
+    public void An_offline_phone_says_so_rather_than_that_it_is_in_step()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+        context.Network.Becomes(false);
+
+        Assert.Contains("connection", bar.SyncLabel);
+        Assert.False(bar.IsSyncing);
+    }
+
+    [Fact]
+    public void An_online_phone_is_not_offered_it_at_all()
+    {
+        var context = new BarContext("Ala");
+
+        Assert.False(context.Open().CanReconnect);
+    }
+
+    /// <summary>
+    /// It cannot put a phone back on a network - no app can - so what it must not do is throw when the
+    /// attempt fails, which is the ordinary case for a button that only appears when things are broken.
+    /// </summary>
+    [Fact]
+    public async Task Reconnecting_where_nobody_answers_is_not_an_error()
+    {
+        var context = new BarContext("Ala");
+        context.Network.Becomes(false);
+        var bar = context.Open();
+
+        await bar.ReconnectCommand.ExecuteAsync(null);
+
+        Assert.True(bar.CanReconnect);
+    }
+
     private sealed class BarContext
     {
         private readonly SessionStore _sessionStore;
@@ -246,6 +303,9 @@ public sealed class NavigationBarTests
         public FakeNotificationServer Server { get; } = new();
 
         public RecordingScreenNavigator Navigator { get; } = new();
+
+        /// <summary>Whether the phone is on a network, which is what decides the Reconnect button.</summary>
+        public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
         /// <summary>Whether the app is in step, which the bar now says beside the name in its menu.</summary>
         public SyncState SyncState { get; } = new(
@@ -281,7 +341,11 @@ public sealed class NavigationBarTests
                 // Unreachable too: the About row asks for the server's version and leaves it unsaid when
                 // nobody answers, which is the ordinary case on a phone.
                 new ServerVersionClient(StubHttpMessageHandler.Unreachable().ToHttpClient()),
-                Navigator);
+                Navigator,
+                Synchronizers.AgainstNobody(
+                    LocalStore, new ChatRepository(LocalStore, TimeProvider.System),
+                    UnlockedPermissions.For(LocalStore), _sessionStore),
+                Network);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

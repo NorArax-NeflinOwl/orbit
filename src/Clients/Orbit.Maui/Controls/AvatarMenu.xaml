@@ -8,6 +8,12 @@
     x:DataType="screens:NavigationBarViewModel"
     IsVisible="{Binding IsMenuOpen}">
 
+    <ContentView.Resources>
+        <!-- A circular arrow, the refresh glyph every mobile app uses - drawn rather than shipped as an
+             image so it takes the accent colour and the theme with it. -->
+        <x:String x:Key="ReconnectIcon">M10,3.2 A6.8,6.8 0 1 1 3.6,7.9 L1.6,7.2 A8.9,8.9 0 1 0 10,1.1 Z M10,0 L14,3.2 L10,6.4 Z</x:String>
+    </ContentView.Resources>
+
     <!-- The avatar's menu, as Orbit.Web's dropdown: who you are, then the things that hang off the
          account. Anchored under the avatar rather than centred, so it reads as belonging to it. -->
     <!-- Placed last on a page and spanning its rows, so it covers everything. Invisible when closed,
@@ -33,7 +39,23 @@
                      bottom-left corner of every screen; it is a fact about the account, so it lives
                      with the account. -->
                 <VerticalStackLayout Spacing="2">
-                    <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" Text="{Binding DisplayName}" FontAttributes="Bold"
+                               LineBreakMode="TailTruncation" VerticalOptions="Center" />
+
+                        <!-- Only while the phone believes it is offline: online there is nothing to
+                             reconnect, and a button that is always there invites tapping at a working
+                             app. An icon rather than a word, beside the name it belongs to. -->
+                        <Grid Grid.Column="1" WidthRequest="32" HeightRequest="32"
+                              IsVisible="{Binding CanReconnect}">
+                            <Path Data="{StaticResource ReconnectIcon}" InputTransparent="True"
+                                  Fill="{DynamicResource Accent}" HeightRequest="18" WidthRequest="18"
+                                  Aspect="Uniform" HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Button BackgroundColor="Transparent" Command="{Binding ReconnectCommand}"
+                                    SemanticProperties.Description="{controls:Translate 'Reconnect'}" />
+                        </Grid>
+                    </Grid>
+
                     <HorizontalStackLayout Spacing="6">
                         <ActivityIndicator IsRunning="{Binding IsSyncing}" IsVisible="{Binding IsSyncing}"
                                            HeightRequest="10" WidthRequest="10" VerticalOptions="Center" />
