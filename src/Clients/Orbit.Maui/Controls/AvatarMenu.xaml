@@ -136,7 +136,15 @@
 
                 <VerticalStackLayout Spacing="2" IsVisible="{Binding IsAboutExpanded}">
                     <Label Text="{Binding AboutCopyright}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                    <Label Text="{Binding AboutVersion}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <!-- Tapped, it grows the rest of the commit hash - the same thing the web footer
+                         does, and for the same reason: the short form is what anybody reads, the whole
+                         one is what a checkout takes. -->
+                    <Label Text="{Binding AboutVersion}" FontSize="12" LineBreakMode="CharacterWrap"
+                           Style="{StaticResource SubtleLabel}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ShowTheWholeCommitCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
                     <!-- Tapped rather than shown as a URL: the licence is a document to read, and the
                          address of it is not the information anybody came for. -->
                     <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"

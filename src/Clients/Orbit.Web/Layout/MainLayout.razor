@@ -214,7 +214,13 @@
         <footer class="app-footer">
             <span>@OrbitRelease.Copyright</span>
             <span class="app-footer-separator">·</span>
-            <span>@T.Format("Version {0}", OrbitRelease.Version)</span>
+            @* Pressed, it grows the rest of the hash. The short form is what anybody reads; the whole
+               one is what a `git checkout` takes, and asking for it should not mean going somewhere
+               else to find it. *@
+            <button type="button" class="app-footer-version" title="@(T["Show the whole commit"])"
+                    @onclick="() => _isVersionExpanded = !_isVersionExpanded">
+                @(_isVersionExpanded ? _version.Full : _version.Short)
+            </button>
             <span class="app-footer-separator">·</span>
             <a href="@OrbitRelease.LicenseUrl" target="_blank" rel="noopener">@T[OrbitRelease.LicenseName]</a>
         </footer>
@@ -222,6 +228,15 @@
 </div>
 
 @code {
+    /// <summary>
+    /// This build, read off this assembly - see OrbitVersion. Not the shared project's: the number is
+    /// per client, and Orbit.Core is compiled into three of them.
+    /// </summary>
+    private static readonly OrbitVersion _version = OrbitVersion.ReadFrom(typeof(MainLayout).Assembly);
+
+    /// <summary>Whether the footer is showing the whole commit hash rather than the first seven of it.</summary>
+    private bool _isVersionExpanded;
+
     private const string SidebarCollapsedStorageKey = "orbit.sidebarCollapsed";
 
 

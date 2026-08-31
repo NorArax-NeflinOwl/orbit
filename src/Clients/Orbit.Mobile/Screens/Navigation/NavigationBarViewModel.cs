@@ -308,7 +308,28 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     public string AboutCopyright => OrbitRelease.Copyright;
 
-    public string AboutVersion => _translations.Format("Version {0}", OrbitRelease.Version);
+    /// <summary>
+    /// This build, read off this assembly rather than off Orbit.Core's - the number is per client, and
+    /// the shared project is compiled into three of them. See OrbitVersion.
+    /// </summary>
+    private static readonly OrbitVersion Build = OrbitVersion.ReadFrom(typeof(NavigationBarViewModel).Assembly);
+
+    /// <summary>Whether the row is showing the whole commit hash rather than the first seven of it.</summary>
+    [ObservableProperty]
+    private bool _isWholeCommitShown;
+
+    public string AboutVersion => IsWholeCommitShown ? Build.Full : Build.Short;
+
+    /// <summary>
+    /// Tapping the version grows the rest of the hash. The short form is what anybody reads; the whole
+    /// one is what a `git checkout` takes, and asking for it should not mean going somewhere else.
+    /// </summary>
+    [RelayCommand]
+    private void ShowTheWholeCommit()
+    {
+        IsWholeCommitShown = !IsWholeCommitShown;
+        OnPropertyChanged(nameof(AboutVersion));
+    }
 
     public string LicenseName => _translations[OrbitRelease.LicenseName];
 

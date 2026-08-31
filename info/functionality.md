@@ -1149,6 +1149,33 @@ are untouched by anything typed there** - they are what the Google Maps link and
 from, and the name is only what the place is called. The event editor offers the map's own address back
 for somebody who renamed a place and then wanted the street after all.
 
+### Which build this is
+
+The footer says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of the hash - the short form
+is what anybody reads, the whole one is what a `git checkout` takes, and asking for it should not mean
+going somewhere else. The phone's **About** row says the same thing and behaves the same way when tapped.
+
+**Nobody maintains the number.** The patch is the count of distinct days on which a commit touched that
+project (`ci/compute-version.sh`): a day with five commits counts once, a day whose commits went nowhere
+near the project does not count at all, and the same commit always numbers itself the same. There is no
+file to forget to bump and no two builds of one commit that disagree. The series - the `0.1` of `0.1.17` -
+is the one number decided by hand, in `Directory.Build.props`, because it is what says a release is a
+different thing rather than the next of the same.
+
+It is counted **per project**, which is the point of counting it at all: a day that changed the phone and
+not the web client raises one and not the other. Each client counts the shared projects it compiles as
+its own, since a change to `Orbit.Core` is a change to every app built from it.
+
+The number is stamped into the assembly at build time as its informational version and read back at
+runtime (`OrbitVersion`), each client reading **its own** assembly. A build nobody stamped - a local
+`dotnet run`, a local `docker compose build` - says `0.0.0-dev` rather than inventing a number that looks
+real, because this is the string somebody pastes into a bug report.
+
+The Android release carries it twice over: `-p:InformationalVersion` for the About row, and the file name
+itself - **`orbit-android-0_1_32v.apk`**, so a download says which build it is without anybody opening
+it. It is also published under the fixed `orbit-android.apk` the download page links to, so that one
+address keeps working without the page being edited every release.
+
 ### Names you have already used
 
 The four fields where the same thing gets typed twenty ways - a task list's title, a task item, a
