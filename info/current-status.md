@@ -84,15 +84,29 @@ with an outbox and delta pull, end-to-end-encrypted chat against the same test v
 uses, tasks, calendar, inventory, group chat, and location sharing. Private notes, task lists and
 warehouses are read and written here too, sealed under the account's own key and kept sealed in the
 local store as well — see [Functionality](functionality.md#private-notes-and-task-lists). A restock
-list settles its finished errands when the phone opens it, as a browser does, the names already in the
-account are offered under a product's name and an errand's description, and an admin can hand a group's
-past to somebody they have just added. Of the browser's rebuilt item controls it has the expiry asked
-as a length, the daily reminder's missing hour, and the Inventory kind - which it now round-trips
-rather than silently rewriting to Checklist and cutting a restock errand loose from its product. The
-shelf item that entry carries on the web, and the calendar entry carrying its event's form, are still
-browser-only. Of phase 7, the in-app feed,
-notification settings, deep links from a notification, and uploadable diagnostic logs are built; push
-*delivery* is not (below). Phase 8 — widgets, Live Activities, accessibility — has not been started.
+list settles its finished errands when the phone opens it, as a browser does, and an admin can hand a
+group's past to somebody they have just added. The names already in the account are offered under all
+four fields the browser offers them under — a product's name, an errand's description, a list's title
+and a warehouse's name — each field with its own set, since a title and the box below it are on screen
+together.
+
+The browser's rebuilt item controls are all here now: the expiry asked as a length, the daily
+reminder's missing hour, and the Inventory kind, which round-trips rather than silently rewriting to
+Checklist and cutting a restock errand loose from its product. So are the two entries that carry
+something bigger than themselves. A **Calendar** entry is the appointment rather than a pointer at one:
+it carries the event's own form, and saving the entry is what puts the event in the calendar — the one
+thing on that screen which needs a connection, since the entry has to carry an id the server issued,
+and which says so rather than saving a link to nothing. An **Inventory** errand opens the product it is
+about, through the same form the warehouse screen shows, and saving writes the correction back to the
+shelf and rebuilds that warehouse's restock list; it also says which shelf it is about and which other
+list is asking for the same product, both as something to tap. Unlike the calendar half this one works
+offline, because the product already exists and is only being corrected.
+
+Of phase 7, the in-app feed, notification settings, deep links from a notification, and uploadable
+diagnostic logs are built — and **push is delivered on Android**: the app obtains an FCM registration
+token, registers it on every sign-in, and a notification the server raises arrives in the tray and taps
+through to the screen it names. A push arriving while the app is in front of somebody still shows
+nothing. Phase 8 — widgets, Live Activities, accessibility — has not been started.
 
 **Android is the verified head.** It has been driven on an emulator and a device: signing in, syncing
 each feature both ways, chatting, and sharing. iOS was verified on a simulator at phase 1 and not
@@ -101,11 +115,16 @@ developer account and signing key.
 
 ## Not yet implemented
 
-- **Push delivered to a phone.** The server sends through Firebase, and the app asks Android for
-  permission — but it cannot yet obtain the FCM registration token that says where to deliver, which
-  needs the Firebase SDK in the app and a `google-services.json` for this application id. Until both
-  exist, `PhonePushNotifications` answers `NotAvailableHere` rather than registering a device the
-  server would then count as reachable. Browser push works and is unaffected.
+- **Push delivered to an iPhone.** Android delivers (above). iOS cannot: FCM reaches it through APNs,
+  which needs an auth key uploaded to the Firebase console, and `PhonePushNotifications` there still
+  answers `NotAvailableHere` rather than registering a device the server would then count as
+  reachable. A push that arrives while the app is in front of somebody shows nothing on either
+  platform. Browser push works and is unaffected.
+- **Google sign-in and maps depend on configuration that is not in the repository.** Each mobile head
+  needs its own OAuth client id set on the server (`GOOGLE_ANDROID_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID`)
+  or its Google button is hidden, and the Android map needs a Maps SDK key merged into the manifest or
+  the map screen says it has none. Both are deployment values kept out of git — see `secrets/README.md`
+  for where they live and which Google project each belongs to.
 - **iOS beyond phase 1 — deferred.** The head is written and everything in `Orbit.Mobile` is shared
   with it, but nothing built since phase 1 has been run there. It is blocked on an Apple developer
   account and a signing key rather than on the work: without them the head cannot be produced at all.

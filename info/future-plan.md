@@ -21,9 +21,10 @@ forward on trust.
   [Orbit.Maui — Plan](orbit-maui-plan.md) for the design it was built to. Android is the verified
   head; iOS has not been run since phase 1, and desktop has not been started at all.
 
-  What is left of it: push delivered to a phone (blocked on a Firebase registration for this
-  application id), the iOS head beyond phase 1 (deferred — no Apple developer account or signing
-  key), and phase 8 — widgets, Live Activities, accessibility. Remaining design decisions are in
+  What is left of it: the iOS head beyond phase 1 (deferred — no Apple developer account or signing
+  key, which also blocks push there), a push that arrives while the app is in front of somebody, and
+  phase 8 — widgets, Live Activities, accessibility. Push to an Android phone is delivered as of
+  2026-08-31 and no longer on this list. Remaining design decisions are in
   [§12](orbit-maui-plan.md#12-open-questions); the local database staying unencrypted and iOS being
   deferred are both settled there.
 - **Writing to a real Google Calendar.** `Orbit.GoogleIntegration` (`src/Server`) holds the ID-token

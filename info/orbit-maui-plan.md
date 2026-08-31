@@ -2,8 +2,10 @@
 
 **`Orbit.Maui`**: one .NET MAUI project producing both the iOS and Android apps, carrying every
 feature the Blazor web client (`src/Clients/Orbit.Web`) has today, **plus offline operation** and two
-mechanisms the web client has no need for (§7, §8). **iPhone 15 Pro is the target device**; Android is
-the second platform.
+mechanisms the web client has no need for (§7, §8). **iPhone 15 Pro was named as the target device**;
+in practice **Android is the platform being built and verified**, and iOS stopped after phase 1 for
+want of an Apple developer account — see §12. Everything below still holds for the day it resumes:
+`Orbit.Mobile` is shared with the iOS head, and nothing has been removed for it.
 
 This document is the plan **and** the running record of the work: §10 marks each phase as it lands, and
 §13 says what exists today. It is not a description of something unbuilt.
@@ -96,6 +98,11 @@ If moving to Windows is genuinely on the table, that alone settles §1 in MAUI's
 "iPhone 15 Pro exactly" is read here as **the reference device**: it defines the baseline capabilities
 the app may assume, the screen it is designed against, and the only device tested during development.
 
+**In practice it has never been tested on.** iOS stopped after phase 1 (§12), so the device this
+section describes is an intention rather than a record; what has actually been driven is an Android
+emulator, with API 29 as the floor and API 36 as the everyday target. The table below is what to
+design against when iOS resumes, not what anything has been checked on.
+
 | | |
 | --- | --- |
 | Display | 6.1", 2556×1179 at 460 ppi, Super Retina XDR |
@@ -136,7 +143,7 @@ each maps onto, since that is what Orbit.Maui actually consumes.
 | Group chat: create, members, roles, messages | `/api/chat/groups/*` | One ciphertext copy per member |
 | Contacts and user search | `/api/chat/contacts`, `/api/users/search` | |
 | Location: record own, share with contacts, view shared | `/api/users/me/location*` | |
-| Push notifications | `/api/push/*` | **Web Push only today** — see §4.2 |
+| Push notifications | `/api/push/*` | Three transports: Web Push, FCM (Android, delivering), APNs — see §4.2 |
 | In-app notification feed, settings, read state | `/api/notifications/*` | |
 | Public share links | `/api/share-links/*`, `/api/public/*` | |
 | Export / import | `/api/transfer/*` | |
@@ -236,33 +243,42 @@ backup can never be opened by anyone again, including its owner. So the gate cal
 
 ### 4.2 Push notifications: Web Push, APNs, and FCM are three different things
 
-This is the largest server-side change the mobile client forces, and going cross-platform makes it
-three transports rather than two.
+This was the largest server-side change the mobile client forced, and going cross-platform made it
+three transports rather than two. It is done; what follows is kept as the record of what the problem
+was and what was decided, because the shape of the answer is not obvious from the code alone.
 
-What exists: `IPushNotificationSender` is properly transport-agnostic (`Orbit.Core.Notifications`), so
-the domain layer is ready for more implementations. Good.
+What already existed: `IPushNotificationSender` was properly transport-agnostic
+(`Orbit.Core.Notifications`), so the domain layer was ready for more implementations.
 
-What does not: the stored subscription is Web-Push-shaped all the way down. `PushSubscriptionEntity`
-holds `Endpoint`, `P256dhBase64`, `AuthBase64` — a browser endpoint URL and its two encryption
+What did not: the stored subscription was Web-Push-shaped all the way down. `PushSubscriptionEntity`
+held `Endpoint`, `P256dhBase64`, `AuthBase64` — a browser endpoint URL and its two encryption
 parameters. An APNs registration is a **device token plus a topic**, and an FCM one is a registration
 token; neither fits those columns in any honest way.
 
-Required work, server-side:
+Required work, server-side — **all four built**:
 
-1. Add a platform discriminator to the push subscription (domain type, entity, migration) and make
-   the token/endpoint fields shaped per platform rather than assuming Web Push.
-2. Add an `ApnsPushNotificationSender` (APNs auth key `.p8`, key id, team id, bundle id) and, for
-   Android, an FCM sender — each implementing `IPushNotificationSender`, following the existing
-   `VapidSettings` pattern, and staying silent-but-warning when unconfigured exactly as
-   `VapidPushNotificationSender` does today.
-3. Teach `PushNotificationDispatcher` to route each subscription to the sender for its platform, and
-   keep the existing expired-subscription pruning working for each transport's own "gone" response
-   (APNs `Unregistered`, FCM `UNREGISTERED`).
-4. Decide how `PushNotificationPayload` (`{title, body, url}` today) maps onto each envelope,
-   including what `url` means when the target is an app route rather than a web path.
+1. ~~Add a platform discriminator to the push subscription~~ — `PushSubscriptions` carries
+   `DevicePlatform`, `DeviceToken` and `Transport` beside the Web Push columns, so a row says which
+   kind of registration it is rather than being assumed.
+2. ~~Add an APNs sender and an FCM sender~~ — `FirebasePushNotificationSender` covers both, since FCM
+   reaches iOS through APNs underneath; it is silent-but-warning when unconfigured, as
+   `VapidPushNotificationSender` is. There is no separate `ApnsPushNotificationSender` and the plan
+   was wrong to expect one: a second Apple integration would only duplicate what Firebase already does.
+3. ~~Teach `PushNotificationDispatcher` to route by platform~~ — built, pruning included.
+4. ~~Decide how `PushNotificationPayload` maps onto each envelope~~ — the message carries a
+   `notification` block for the tray and `data.url` for the tap target, with the same `url` repeated
+   inside `apns.payload` because Android reads it from `data` and iOS from the aps payload's custom
+   fields.
 
-None of this is exotic, but it is a schema change plus two integrations, and it should be scoped and
-merged **before** the mobile client needs it rather than alongside.
+**Android delivers end to end** (2026-08-31): `Xamarin.Firebase.Messaging` plus a `google-services.json`
+processed at build time gives the app an FCM registration token, it registers on every sign-in, and a
+notification raised by the server arrives in the tray and taps through to the screen it names. No
+`FirebaseMessagingService` is needed for that: the server sends a `notification` block, so Android draws
+it while the app is backgrounded and puts `data.url` in the intent, which `MainActivity` already reads.
+A push arriving while the app is **in front of somebody** still shows nothing — that path is unhandled,
+and is the one piece of §4.2 left on Android.
+
+iOS is unstarted here for the reason §12 gives, and §4.2.1 below is what will bite when it resumes.
 
 ### 4.2.1 The iOS push failure nothing can detect
 
@@ -286,10 +302,18 @@ being unconfigured entirely - but not this.
 `ValidationSettings { Audience = [ClientId] }`. A mobile app has its **own** OAuth client id per
 platform, so tokens it obtains will fail that check.
 
-Small, contained server change: allow a set of accepted audiences (web, iOS, and later Android)
-rather than one. Worth doing carefully — the comment on that line correctly notes that the audience
-check is the security-critical part, so widening it must stay an explicit allowlist and never become
-"accept any audience".
+~~Small, contained server change: allow a set of accepted audiences~~ — **built.**
+`GoogleAuthSettings` holds `ClientId`, `IosClientId` and `AndroidClientId`, and
+`GoogleIdentityVerifier` validates against `AcceptedClientIds`. It stayed an explicit allowlist, which
+was the security-critical part: an id that is not configured is not accepted, rather than the check
+widening to "any audience".
+
+**A configured id is what makes the button exist.** `client-flags` hands each client its own id, and a
+head with none hides the Google button rather than offering one that could only ever fail — so an
+unset `GOOGLE_ANDROID_CLIENT_ID` looks exactly like a deployment that does not offer Google sign-in,
+and a *wrongly* set one is refused by Orbit.Api rather than by Google, which reads as a bad password.
+Both are configuration mistakes with no error message pointing at them, which is why the ids belong in
+the deployment checklist rather than in someone's memory.
 
 **Configuration.** Client ids are not secrets — the existing comment says so, and a mobile client id
 ships inside the app binary regardless. Even so, this repo deliberately keeps the *value* out of
@@ -619,8 +643,8 @@ phase behind it, mostly for free apart from the platform-specific work.
 | **3. Crypto spine** (built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
 | **4. The content features** (built) | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
 | **5. The rest of chat** (built) | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
-| **6. Location and maps** (sharing built) | Geolocation, maps, recording, sharing, viewing shared | Location parity |
-| **7. Notifications and diagnostics** | APNs/FCM registration, notification settings, in-app feed, deep links, **file logging and upload (§8)** | A push taps through to the right screen; a user can send a log |
+| **6. Location and maps** (built) | Geolocation, maps, recording, sharing, viewing shared | Location parity |
+| **7. Notifications and diagnostics** (built on Android) | APNs/FCM registration, notification settings, in-app feed, deep links, **file logging and upload (§8)** | A push taps through to the right screen; a user can send a log |
 | **8. Platform polish** | Live Activities and the Dynamic Island location share, Action Button, widgets, accessibility, localisation | Ready for review |
 
 Two things changed shape once offline became a requirement:
@@ -636,6 +660,15 @@ Two things changed shape once offline became a requirement:
 Phase 0 is genuinely blocking for 2, 3 and 7, and should start immediately; phase 1 can run alongside
 it. The iPhone-15-Pro-specific work in §9 deliberately lands last — it needs the Mac most and benefits
 least from being started early.
+
+**How the phases actually ran.** iOS did not lead: it stopped after phase 1 for want of an Apple
+developer account (§12), and Android carried phases 2 to 7. Phase 6's "done when" is met on Android —
+the map renders, a position is recorded and reverse-geocoded, and it can be shared and stopped — with
+the Google Maps key being deployment configuration rather than code (see `secrets/README.md`). Phase 7
+is met on Android too, including a real push arriving in the tray; what is left of it there is a push
+that arrives while the app is in front of somebody, which today shows nothing.
+
+Phase 8 has not started, and most of §9 is iOS-only, so it is blocked on the same thing iOS is.
 
 ## 11. Risks
 
@@ -751,4 +784,8 @@ resources.
 survived relaunch from the Keychain, notes loaded through the token handler, and an out-of-date build
 stopped on the splash screen — including with the server switched off entirely, from the cached
 verdict, which is the rule in §7 that matters most. Nothing since has been checked there: phases 2-7
-were built and driven on Android, from a Windows machine that cannot build the head at all.
+were built and driven on Android.
+
+The machine moved. Early phases were written on Windows, which can build the Android head and not the
+iOS one; the work is now on a Mac, which can build both — so what still blocks iOS is the Apple
+developer account and signing key of §12, and no longer the hardware.
