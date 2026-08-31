@@ -34,22 +34,34 @@
                         Style="{StaticResource LinkButton}" Command="{Binding ShowTodayCommand}" />
             </Grid>
 
-            <!-- Which of the two the grid is showing. The one not showing goes quiet, the way the days
-                 either side of the month do - bold alone is too fine a difference at this size to read. -->
+            <!-- Which of the three is showing, the same three the browser offers. The ones not showing
+                 go quiet, the way the days either side of the month do - bold alone is too fine a
+                 difference at this size to read. -->
             <HorizontalStackLayout Spacing="14" HorizontalOptions="Center">
-                <Button Text="{controls:Translate 'Month'}" FontSize="13" Padding="4,0"
-                        Style="{StaticResource LinkButton}" Command="{Binding ShowMonthCommand}">
+                <Button Text="{controls:Translate 'Day'}" FontSize="13" Padding="4,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowDayCommand}"
+                        Opacity="0.4">
                     <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingYear}" Value="True">
-                            <Setter Property="Opacity" Value="0.4" />
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingDay}" Value="True">
+                            <Setter Property="Opacity" Value="1" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="{controls:Translate 'Month'}" FontSize="13" Padding="4,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowMonthCommand}"
+                        Opacity="0.4">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingMonth}" Value="True">
+                            <Setter Property="Opacity" Value="1" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
                 <Button Text="{controls:Translate 'Year'}" FontSize="13" Padding="4,0"
-                        Style="{StaticResource LinkButton}" Command="{Binding ShowYearCommand}">
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowYearCommand}"
+                        Opacity="0.4">
                     <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingMonth}" Value="True">
-                            <Setter Property="Opacity" Value="0.4" />
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingYear}" Value="True">
+                            <Setter Property="Opacity" Value="1" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>

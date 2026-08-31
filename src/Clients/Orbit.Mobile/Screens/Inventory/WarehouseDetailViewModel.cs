@@ -75,9 +75,10 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         SharePanel share, IScreenNavigator navigator,
         InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
         NameSuggestions nameSuggestions, NameSuggestions warehouseNameSuggestions,
-        INetworkStatus networkStatus)
+        INetworkStatus networkStatus, RestockListSettingsPanel restockList)
     {
         _networkStatus = networkStatus;
+        RestockList = restockList;
         _warehouses = warehouses;
         _synchronizer = synchronizer;
         _translations = translations;
@@ -416,6 +417,8 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
         HasHistory = (await _warehouses.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         _items = warehouse.Items;
+        // What this shelf's restock list asks for, and when - see RestockListSettingsPanel.
+        await RestockList.ShowFor(warehouse.ServerId, cancellationToken);
 
         // Sealed with a key this device cannot open - see TaskListDetailViewModel for the same guard
         // and why saving one anyway is worse than not offering to.
@@ -644,4 +647,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     /// <summary>This thing's own history, opened from this thing - see CopyHistoryViewModel.</summary>
     [RelayCommand]
     private void GoToHistory() => _navigator.ShowCopyHistory(CopyKind.Warehouse, _localId);
+
+    /// <summary>How this warehouse's restock list is built - see <see cref="RestockListSettingsPanel"/>.</summary>
+    public RestockListSettingsPanel RestockList { get; }
 }

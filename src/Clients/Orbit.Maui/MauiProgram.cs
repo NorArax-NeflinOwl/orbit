@@ -344,6 +344,7 @@ public static class MauiProgram
 		services.AddTransient<InventoryPage>();
 		services.AddTransient<InventoryViewModel>();
 		services.AddTransient<WarehouseDetailPage>();
+		services.AddTransient<RestockListSettingsPanel>();
 		services.AddTransient<WarehouseDetailViewModel>();
 		services.AddTransient<NotificationFeedPage>();
 		services.AddTransient<Features.Update.UpdatePage>();

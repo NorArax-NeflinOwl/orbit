@@ -316,6 +316,11 @@ public static class PolishTranslations
             "Nie można połączyć się z Orbitem, żeby sprawdzić, kto jeszcze to edytuje. Spróbuj ponownie, gdy wrócisz online.",
         ["That is no longer here."] = "Tego już tu nie ma.",
 
+        // What rebuilding a warehouse's restock list moved, and what it needs - see the phone's
+        // RestockListSettingsPanel, which shows the settings Orbit.Web has had all along.
+        ["Added {0}, removed {1}."] = "Dodano {0}, usunięto {1}.",
+        ["The restock list needs a connection."] = "Lista uzupełnień wymaga połączenia.",
+
         // What the phone tells itself, in the notification feed - see LocalNotification.IsRaisedHere.
         // One whole sentence per kind, because Polish declines what was refused or copied.
         ["A change couldn't be saved"] = "Nie udało się zapisać zmiany",

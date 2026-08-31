@@ -324,6 +324,9 @@ public sealed class CalendarScreenTests
     {
         private readonly LocalStore _localStore = new();
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-15T10:00:00Z"));
+
+        /// <summary>The day the screen calls today, which is the fake clock's rather than the machine's.</summary>
+        public DateTime Today => _clock.GetUtcNow().LocalDateTime.Date;
         private readonly FakeCalendarServer _server;
         private readonly LocalCalendarEventRepository _events;
         private readonly LocalTaskListRepository _taskLists;
@@ -394,5 +397,78 @@ public sealed class CalendarScreenTests
             _server.Dispose();
             _localStore.Dispose();
         }
+    }
+
+    /// <summary>
+    /// The browser's third view, which the phone had no way to reach: a month grid whose days could be
+    /// tapped is not the same as being able to ask for today. Somebody looking for "just today" had to
+    /// find it in the grid first.
+    /// </summary>
+    [Fact]
+    public async Task One_day_can_be_asked_for_on_its_own()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+
+        await screen.ShowDayCommand.ExecuteAsync(null);
+
+        Assert.True(screen.IsShowingDay);
+        Assert.False(screen.IsShowingMonth);
+        Assert.Equal(context.Today, screen.SelectedDay);
+    }
+
+    /// <summary>It opens on whichever day was chosen in the grid, not on today regardless.</summary>
+    [Fact]
+    public async Task The_day_view_opens_on_the_day_that_was_chosen()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        var chosen = screen.Days.First(day => day.IsInMonth);
+        await screen.ChooseDayCommand.ExecuteAsync(chosen);
+
+        await screen.ShowDayCommand.ExecuteAsync(null);
+
+        Assert.Equal(chosen.Date, screen.SelectedDay);
+    }
+
+    /// <summary>
+    /// A step means one of whatever is on screen. Stepping a whole month while showing one day read as
+    /// the arrows being broken.
+    /// </summary>
+    [Fact]
+    public async Task Stepping_in_the_day_view_moves_by_a_day()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        await screen.ShowDayCommand.ExecuteAsync(null);
+
+        await screen.ShowLaterCommand.ExecuteAsync(null);
+
+        Assert.Equal(context.Today.AddDays(1), screen.SelectedDay);
+    }
+
+    [Fact]
+    public async Task Stepping_in_the_month_view_still_moves_by_a_month()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        var wasShowing = screen.Month;
+
+        await screen.ShowLaterCommand.ExecuteAsync(null);
+
+        Assert.Equal(wasShowing.AddMonths(1).Month, screen.Month.Month);
+    }
+
+    [Fact]
+    public async Task Going_back_to_the_month_leaves_the_day_view()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        await screen.ShowDayCommand.ExecuteAsync(null);
+
+        await screen.ShowMonthCommand.ExecuteAsync(null);
+
+        Assert.True(screen.IsShowingMonth);
+        Assert.False(screen.IsShowingDay);
     }
 }

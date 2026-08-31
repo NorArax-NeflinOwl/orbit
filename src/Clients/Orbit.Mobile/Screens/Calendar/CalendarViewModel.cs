@@ -94,19 +94,32 @@ public sealed partial class CalendarViewModel : ObservableObject
     private DateTime? _selectedDay;
 
     /// <summary>
-    /// Whether the year overview is showing in place of the month grid. Orbit.Web switches between day,
-    /// month and year; here the day is the month grid with one of its days chosen, so this is the whole
-    /// of the switch.
+    /// How much of the calendar is showing - the same three the browser switches between, and now the
+    /// same three here. The phone had two: a month grid whose days could be tapped, and a year. The day
+    /// was reachable but never a place you could go, so "just today" meant finding today in a grid.
     /// </summary>
     [ObservableProperty]
-    private bool _isShowingYear;
+    private CalendarViewMode _viewMode = CalendarViewMode.Month;
 
-    /// <summary>What the header says above the grid: a month, or a year when the year is showing.</summary>
+    /// <summary>What the header says above the grid: the day, the month, or the year that is showing.</summary>
     public string PeriodLabel
-        => IsShowingYear ? CalendarYear.Describe(Month.Year) : CalendarMonth.Describe(Month, _translations);
+        => ViewMode switch
+        {
+            CalendarViewMode.Year => CalendarYear.Describe(Month.Year),
+            CalendarViewMode.Day => (SelectedDay ?? Month).ToString("d MMMM yyyy", _translations.DisplayCulture),
+            _ => CalendarMonth.Describe(Month, _translations)
+        };
 
-    public bool IsShowingMonth => !IsShowingYear;
+    public bool IsShowingYear => ViewMode is CalendarViewMode.Year;
 
+    public bool IsShowingMonth => ViewMode is CalendarViewMode.Month;
+
+    public bool IsShowingDay => ViewMode is CalendarViewMode.Day;
+
+    /// <summary>
+    /// Whether one day's worth is what the list beneath is showing - true in Day mode, and true in Month
+    /// mode once a day has been tapped, which is how the phone has always narrowed a month.
+    /// </summary>
     public bool IsShowingOneDay => SelectedDay is not null;
 
     /// <summary>A step back through whatever is on screen: a month, or a year when the year is showing.</summary>
@@ -118,8 +131,31 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     private Task StepAsync(int direction, CancellationToken cancellationToken)
     {
-        Month = IsShowingYear ? Month.AddYears(direction) : Month.AddMonths(direction);
+        // A step means one of whatever is on screen: a day in the day view, a month in the month grid,
+        // a year in the overview. Stepping a month while showing one day was the old behaviour and read
+        // as the arrows being broken.
+        if (ViewMode is CalendarViewMode.Day)
+        {
+            SelectedDay = (SelectedDay ?? Month).AddDays(direction);
+            Month = SelectedDay.Value;
+            return ShowStoredEventsAsync(cancellationToken);
+        }
+
+        Month = ViewMode is CalendarViewMode.Year ? Month.AddYears(direction) : Month.AddMonths(direction);
         SelectedDay = null;
+        return ShowStoredEventsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// One day on its own - the browser's Day view, which the phone had no way to reach. Opens on
+    /// whichever day was chosen in the grid, or today when none was.
+    /// </summary>
+    [RelayCommand]
+    private Task ShowDayAsync(CancellationToken cancellationToken)
+    {
+        SelectedDay ??= _timeProvider.GetUtcNow().LocalDateTime.Date;
+        Month = SelectedDay.Value;
+        ViewMode = CalendarViewMode.Day;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -127,7 +163,7 @@ public sealed partial class CalendarViewModel : ObservableObject
     [RelayCommand]
     private Task ShowYearAsync(CancellationToken cancellationToken)
     {
-        IsShowingYear = true;
+        ViewMode = CalendarViewMode.Year;
         SelectedDay = null;
         return ShowStoredEventsAsync(cancellationToken);
     }
@@ -135,7 +171,7 @@ public sealed partial class CalendarViewModel : ObservableObject
     [RelayCommand]
     private Task ShowMonthAsync(CancellationToken cancellationToken)
     {
-        IsShowingYear = false;
+        ViewMode = CalendarViewMode.Month;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -149,7 +185,7 @@ public sealed partial class CalendarViewModel : ObservableObject
         }
 
         Month = month.Month;
-        IsShowingYear = false;
+        ViewMode = CalendarViewMode.Month;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -159,7 +195,7 @@ public sealed partial class CalendarViewModel : ObservableObject
     {
         Month = _timeProvider.GetUtcNow().LocalDateTime.Date;
         SelectedDay = null;
-        IsShowingYear = false;
+        ViewMode = CalendarViewMode.Month;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -177,7 +213,7 @@ public sealed partial class CalendarViewModel : ObservableObject
 
         SelectedDay = SelectedDay == day.Date ? null : day.Date;
         Month = day.Date;
-        IsShowingYear = false;
+        ViewMode = CalendarViewMode.Month;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -337,15 +373,17 @@ public sealed partial class CalendarViewModel : ObservableObject
             return date == chosen.Date;
         }
 
-        return IsShowingYear
+        return ViewMode is CalendarViewMode.Year
             ? date.Year == Month.Year
             : date.Month == Month.Month && date.Year == Month.Year;
     }
 
-    partial void OnIsShowingYearChanged(bool value)
+    partial void OnViewModeChanged(CalendarViewMode value)
     {
         OnPropertyChanged(nameof(PeriodLabel));
         OnPropertyChanged(nameof(IsShowingMonth));
+        OnPropertyChanged(nameof(IsShowingYear));
+        OnPropertyChanged(nameof(IsShowingDay));
     }
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)

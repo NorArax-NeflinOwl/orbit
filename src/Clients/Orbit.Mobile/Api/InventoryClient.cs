@@ -82,6 +82,37 @@ public sealed class InventoryClient : ILockableItems
     }
 
     /// <summary>
+    /// How this warehouse's restock list is built, and when it comes round. Null when the warehouse is
+    /// not this reader's to look at - a share can be read without carrying the settings behind it.
+    /// </summary>
+    public async Task<RestockListSettingsDto?> GetRestockListSettingsAsync(
+        Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync(
+            $"api/warehouses/{warehouseId}/restock-list/settings", cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RestockListSettingsDto>(cancellationToken);
+    }
+
+    /// <summary>Saves the settings and rebuilds the list to match, answering what that moved.</summary>
+    public async Task<RestockRefreshResultDto> SaveRestockListSettingsAsync(
+        Guid warehouseId, RestockListSettingsDto settings, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync(
+            $"api/warehouses/{warehouseId}/restock-list/settings", settings, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RestockRefreshResultDto>(cancellationToken)
+            ?? new RestockRefreshResultDto(0, 0);
+    }
+
+    /// <summary>
     /// Rebuilds this warehouse's restock list against what is on its shelves now and the settings it
     /// carries - what somebody asks for when the world changed rather than the list. Answers with what
     /// moved.

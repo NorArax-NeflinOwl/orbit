@@ -67,6 +67,24 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             return Json(RestockRefresh);
         }
 
+        // api/warehouses/{id}/restock-list/settings - how that list is built, and when it comes round.
+        if (path.EndsWith("/restock-list/settings", StringComparison.Ordinal))
+        {
+            if (RestockSettings is null)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            if (request.Method == HttpMethod.Put)
+            {
+                RestockSettings = await request.Content!.ReadFromJsonAsync<RestockListSettingsDto>(cancellationToken);
+                RestockSettingsSaved++;
+                return Json(RestockRefresh);
+            }
+
+            return Json(RestockSettings);
+        }
+
         if (path.EndsWith("/lock", StringComparison.Ordinal))
         {
             return new HttpResponseMessage(HttpStatusCode.NoContent);
@@ -100,6 +118,15 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     public RestockRefreshResultDto RestockRefresh { get; set; } = new(0, 0);
 
     public int RestockRefreshesAsked { get; private set; }
+
+    /// <summary>
+    /// How a warehouse's restock list is built here. Null stands for a warehouse whose settings this
+    /// reader may not see, which is what the API answers with a 404.
+    /// </summary>
+    public RestockListSettingsDto? RestockSettings { get; set; } =
+        new(OnlyLinkedWithDueDate: false, new TimeOnly(9, 0));
+
+    public int RestockSettingsSaved { get; private set; }
 
     private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
