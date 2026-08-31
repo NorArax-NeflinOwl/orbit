@@ -268,6 +268,9 @@ public static class MauiProgram
 		services.AddHttpClient<DiagnosticsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
+		// No authorization handler, like the gate above: which build the server is, is the answer to
+		// "what am I talking to" - exactly the question somebody has when they cannot sign in.
+		services.AddHttpClient<ServerVersionClient>(client => client.BaseAddress = apiSettings.BaseAddress);
 	}
 
 	private static void RegisterScreens(IServiceCollection services)

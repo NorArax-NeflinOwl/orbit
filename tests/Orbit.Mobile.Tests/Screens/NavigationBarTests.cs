@@ -278,6 +278,9 @@ public sealed class NavigationBarTests
                     // Unreachable on purpose: the bar reads what is remembered and asks nobody.
                     StubHttpMessageHandler.Unreachable().ToHttpClient(), Versions,
                     NullLogger<MobileVersionGate>.Instance),
+                // Unreachable too: the About row asks for the server's version and leaves it unsaid when
+                // nobody answers, which is the ordinary case on a phone.
+                new ServerVersionClient(StubHttpMessageHandler.Unreachable().ToHttpClient()),
                 Navigator);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(

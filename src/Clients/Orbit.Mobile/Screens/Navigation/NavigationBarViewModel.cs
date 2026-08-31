@@ -96,8 +96,9 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
-        MobileVersionGate versionGate, IScreenNavigator navigator)
+        MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator)
     {
+        _serverVersion = serverVersion;
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
         _authenticationClient = authenticationClient;
@@ -304,11 +305,77 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private bool _isAboutExpanded;
 
     [RelayCommand]
-    private void ToggleAbout() => IsAboutExpanded = !IsAboutExpanded;
+    private async Task ToggleAboutAsync()
+    {
+        IsAboutExpanded = !IsAboutExpanded;
+        if (IsAboutExpanded)
+        {
+            await ReadTheServerVersionAsync();
+        }
+    }
 
     public string AboutCopyright => OrbitRelease.Copyright;
 
-    public string AboutVersion => _translations.Format("Version {0}", OrbitRelease.Version);
+    /// <summary>
+    /// This build, read off this assembly rather than off Orbit.Core's - the number is per client, and
+    /// the shared project is compiled into three of them. See OrbitVersion.
+    /// </summary>
+    private static readonly OrbitVersion Build = OrbitVersion.ReadFrom(typeof(NavigationBarViewModel).Assembly);
+
+    private readonly ServerVersionClient _serverVersion;
+
+    /// <summary>
+    /// Which build of the server this app is talking to, once it has been asked. Empty until then and
+    /// when it cannot be reached - see ServerVersionClient, and ServerVersionDto for why the two versions
+    /// are worth showing separately.
+    /// </summary>
+    [ObservableProperty]
+    private string _aboutServerVersion = string.Empty;
+
+    public bool HasServerVersion => AboutServerVersion.Length > 0;
+
+    /// <summary>
+    /// Asked when the About row is opened rather than at startup: it is one line in a menu, and paying
+    /// for it on every launch would be paying for something most launches never show.
+    /// </summary>
+    private async Task ReadTheServerVersionAsync()
+    {
+        if (HasServerVersion || await _serverVersion.GetAsync() is not { } server)
+        {
+            return;
+        }
+
+        AboutServerVersion = server.CommitHash.Length == 0
+            ? $"api ver:{server.Version}"
+            : $"api ver:{server.Version}+gitHash:{Shorten(server.CommitHash)}";
+        OnPropertyChanged(nameof(HasServerVersion));
+    }
+
+    private static string Shorten(string commitHash) => commitHash.Length > 7 ? commitHash[..7] : commitHash;
+
+    /// <summary>Whether the row is showing the whole commit hash rather than the first seven of it.</summary>
+    [ObservableProperty]
+    private bool _isWholeCommitShown;
+
+    public string AboutVersion => IsWholeCommitShown ? Build.Full : Build.Short;
+
+    /// <summary>
+    /// Whether tapping the version does anything. False in a released build, where the commit is not
+    /// part of what the app says about itself - see OrbitVersion.
+    /// </summary>
+    public bool CanShowTheWholeCommit => Build.CanShowTheWholeCommit;
+
+    /// <summary>
+    /// Tapping the version grows the rest of the hash while debugging. The short form is what anybody
+    /// reads; the whole one is what a `git checkout` takes, and asking for it should not mean going
+    /// somewhere else.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanShowTheWholeCommit))]
+    private void ShowTheWholeCommit()
+    {
+        IsWholeCommitShown = !IsWholeCommitShown;
+        OnPropertyChanged(nameof(AboutVersion));
+    }
 
     public string LicenseName => _translations[OrbitRelease.LicenseName];
 

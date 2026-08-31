@@ -1191,12 +1191,58 @@ are untouched by anything typed there** - they are what the Google Maps link and
 from, and the name is only what the place is called. The event editor offers the map's own address back
 for somebody who renamed a place and then wanted the street after all.
 
-
 **The phone had already landed here**, by a different route. It has no map pin to move: a place there is
 the phone's own position, taken on purpose, and its calendar screen has always filled the name only when
 the box was empty. Its task entries carry a name and no point at all, so the map's answer has nowhere
 else to go and must land in the name - which is why the picker asks before answering rather than writing
 on every tap. What was missing was only saying so, which the screen now does.
+
+### Which build this is
+
+The footer says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of the hash - the short form
+is what anybody reads, the whole one is what a `git checkout` takes, and asking for it should not mean
+going somewhere else. The phone's **About** row says the same thing and behaves the same way when tapped.
+
+**The hash is only there while debugging.** A released build says `ver:0.1.17` and stops: nothing to
+press, and nothing that looks pressable. The number is what somebody reporting a problem needs and what
+the update gate compares; which commit it was cut from is a question for whoever has the repository, and
+a released build has no reason to volunteer detail about its own insides. The rule lives in one place
+(`OrbitVersion.IsADebugBuild`) and travels as a value, so both answers can be tested rather than only
+whichever one the test run happened to compile.
+
+**Both versions are shown, the client's and the server's**, because they can differ:
+
+- The pipeline deploys `orbit-api` and `orbit-web` from one commit but **rolls each back on its own**, so
+  an API that fails its health check leaves the web client new and the server old.
+- A browser holding a cached Blazor client is the same drift by another route.
+- The phone is released separately and updated whenever its owner chooses - which is the whole reason the
+  version gate exists.
+
+So the footer and the About row carry a second entry, `api ver:0.1.17+gitHash:…`, read from
+`GET /api/config/version`. A released **server** sends no hash at all rather than sending one the client
+then hides: what is not sent cannot be read off the wire. When the server cannot be reached the entry is
+simply absent - an offline footer knows nothing about it and should not guess.
+
+**Nobody maintains the number.** The patch is the count of distinct days on which a commit touched that
+project (`ci/compute-version.sh`): a day with five commits counts once, a day whose commits went nowhere
+near the project does not count at all, and the same commit always numbers itself the same. There is no
+file to forget to bump and no two builds of one commit that disagree. The series - the `0.1` of `0.1.17` -
+is the one number decided by hand, in `Directory.Build.props`, because it is what says a release is a
+different thing rather than the next of the same.
+
+It is counted **per project**, which is the point of counting it at all: a day that changed the phone and
+not the web client raises one and not the other. Each client counts the shared projects it compiles as
+its own, since a change to `Orbit.Core` is a change to every app built from it.
+
+The number is stamped into the assembly at build time as its informational version and read back at
+runtime (`OrbitVersion`), each client reading **its own** assembly. A build nobody stamped - a local
+`dotnet run`, a local `docker compose build` - says `0.0.0-dev` rather than inventing a number that looks
+real, because this is the string somebody pastes into a bug report.
+
+The Android release carries it twice over: `-p:InformationalVersion` for the About row, and the file name
+itself - **`orbit-android-0_1_32v.apk`**, so a download says which build it is without anybody opening
+it. It is also published under the fixed `orbit-android.apk` the download page links to, so that one
+address keeps working without the page being edited every release.
 
 ### Names you have already used
 

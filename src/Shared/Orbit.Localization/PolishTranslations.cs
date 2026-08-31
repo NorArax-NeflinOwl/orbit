@@ -137,6 +137,8 @@ public static class PolishTranslations
         ["The restock list already asks for exactly what it should."] = "Lista uzupełnień prosi dokładnie o to, o co powinna.",
         ["Restock list updated: {0} added, {1} removed."] = "Lista uzupełnień zaktualizowana: dodano {0}, usunięto {1}.",
         ["That didn't work. Try again."] = "Nie udało się. Spróbuj ponownie.",
+        ["api {0}"] = "api {0}",
+        ["Show the whole commit"] = "Pokaż pełny hash commita",
         ["Version {0}"] = "Wersja {0}",
         ["All Rights Reserved"] = "Wszelkie prawa zastrzeżone",
         ["About"] = "O aplikacji",

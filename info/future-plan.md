@@ -254,17 +254,18 @@ since been closed; what is left is recorded below with the same honesty about wh
 
 The footer at the bottom of every page - and the phone's About row, which says the same three things -
 currently carries the copyright year, the version, and a link to the licence
-(`OrbitRelease`, one constant both clients read so the number somebody sees cannot disagree between
-them). That is the smallest honest version of it. What it is missing, roughly in the order it would be
+(`OrbitRelease` for the copyright and the licence, `OrbitVersion` for the build - see
+[Functionality](functionality.md#which-build-this-is)). What it is missing, roughly in the order it would be
 worth adding:
 
-- **The build, not just the version.** `0.1.0` names a release; it does not say which build of it is
-  running. A short commit SHA stamped in at build time - `0.1.0+a1b2c3d` - is what turns "it does this
-  on my machine" into a specific thing to check out. It costs one `<SourceRevisionId>` in the pipeline,
-  and it is the single most useful addition here.
+- ~~**The build, not just the version.**~~ Done: the footer reads `ver:0.1.17+gitHash:51536f3`, and
+  pressing it grows the rest of the hash - see
+  [Functionality](functionality.md#which-build-this-is). The number is no longer maintained by hand
+  either; it is counted from the history, one per day on which a commit touched that project.
 - **When it was deployed.** The year is a constant maintained by hand, which is honest but coarse: it
   answers "roughly when was this written", not "is what I am looking at the thing that was merged this
-  morning". A build timestamp answers the second, and the second is the question people actually ask.
+  morning". A build timestamp answers the second, and the second is the question people actually ask -
+  though the commit hash now answers most of what it was wanted for.
 - **A link to what changed.** The version means nothing to somebody who has not been reading the
   commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
   number worth showing at all.

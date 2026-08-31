@@ -17,9 +17,15 @@ COPY src/Shared/Orbit.Core/ src/Shared/Orbit.Core/
 COPY src/Shared/Orbit.Localization/ src/Shared/Orbit.Localization/
 COPY src/Clients/Orbit.Web/ src/Clients/Orbit.Web/
 
+# What this build calls itself, worked out by the pipeline from the history - see ci/compute-version.sh.
+# Empty for a local `docker compose build`, which is honest: nothing counted the days, so the footer
+# says 0.0.0-dev rather than a number that looks real. See Orbit.Core's OrbitVersion.
+ARG ORBIT_VERSION=
+
 RUN dotnet publish src/Clients/Orbit.Web/Orbit.Web.csproj \
     --configuration Release \
     --no-restore \
+    ${ORBIT_VERSION:+-p:InformationalVersion="$ORBIT_VERSION"} \
     --output /app/publish
 
 # Blazor WebAssembly ships as static files; there's no .NET runtime to host it, so the final image

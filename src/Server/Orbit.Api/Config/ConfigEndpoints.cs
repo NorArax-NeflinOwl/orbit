@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Orbit.Contracts.Config;
+using Orbit.Core;
 using Orbit.Core.Mobile;
 using Orbit.GoogleIntegration;
 
@@ -27,6 +28,21 @@ public static class ConfigEndpoints
                     .FirstOrDefault() ?? string.Empty,
                 googleAuthSettings.CurrentValue.AndroidClientId,
                 googleAuthSettings.CurrentValue.IosClientId)));
+
+        // Which build of the server this is, for the client's footer and the phone's About row. The two
+        // can differ - see ServerVersionDto - so a client showing only its own version answers "which
+        // Orbit is this" with half the truth.
+        //
+        // Unauthenticated like the rest of this group: it is the answer to "what am I talking to", which
+        // is exactly the question somebody has when they cannot sign in.
+        app.MapGet("/api/config/version", () =>
+        {
+            var version = OrbitVersion.ReadFrom(typeof(ConfigEndpoints).Assembly);
+            // The hash is left out of a released server's answer rather than being sent and hidden by
+            // whoever asked: what is not sent cannot be read off the wire.
+            return Results.Ok(new ServerVersionDto(
+                version.Version, version.ShowsTheCommit ? version.CommitHash : string.Empty));
+        });
 
         // Deliberately unauthenticated, like the endpoint above: a build too old to sign in still has to
         // be able to find out that it must update. The app caches the answer so it can decide offline -

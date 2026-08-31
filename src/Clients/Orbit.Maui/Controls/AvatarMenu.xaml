@@ -130,15 +130,28 @@
                      default, like Status and Language above. -->
                 <Grid>
                     <Label Text="{controls:Translate 'About'}" />
-                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutCommand}"
+                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutAsyncCommand}"
                             SemanticProperties.Description="{controls:Translate 'About'}" />
                 </Grid>
 
                 <VerticalStackLayout Spacing="2" IsVisible="{Binding IsAboutExpanded}">
                     <Label Text="{Binding AboutCopyright}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                    <Label Text="{Binding AboutVersion}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <!-- Tapped, it grows the rest of the commit hash - the same thing the web footer
+                         does, and for the same reason: the short form is what anybody reads, the whole
+                         one is what a checkout takes. -->
+                    <Label Text="{Binding AboutVersion}" FontSize="12" LineBreakMode="CharacterWrap"
+                           Style="{StaticResource SubtleLabel}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ShowTheWholeCommitCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
                     <!-- Tapped rather than shown as a URL: the licence is a document to read, and the
                          address of it is not the information anybody came for. -->
+                    <!-- The server's own build, beside the app's. The two drift by design here: the
+                         phone is updated whenever its owner chooses. Hidden while the server has not
+                         answered - an offline About row should say nothing about it rather than guess. -->
+                    <Label Text="{Binding AboutServerVersion}" IsVisible="{Binding HasServerVersion}"
+                           FontSize="12" LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
                     <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"
                            TextDecorations="Underline" Style="{StaticResource SubtleLabel}">
                         <Label.GestureRecognizers>

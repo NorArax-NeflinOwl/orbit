@@ -41,7 +41,11 @@
 
 		<!-- ApplicationDisplayVersion is the SemVer the version gate compares against, and
 		ApplicationVersion the monotonic build number stores order by - see info/orbit-maui-plan.md's
-		"Forced update". Both are read at runtime by AppVersion rather than duplicated in code. -->
+		"Forced update". Both are read at runtime by AppVersion rather than duplicated in code.
+
+		What is written here is only what a local build gets. A release passes the real number in
+		(-p:ApplicationDisplayVersion), worked out from the history by ci/compute-version.sh - see
+		info/functionality.md's "Which build this is". -->
 		<ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 

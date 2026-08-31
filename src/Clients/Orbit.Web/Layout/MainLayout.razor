@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @using System.Globalization
+@using Orbit.Contracts.Config
 @using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Permissions
@@ -214,7 +215,29 @@
         <footer class="app-footer">
             <span>@OrbitRelease.Copyright</span>
             <span class="app-footer-separator">·</span>
-            <span>@T.Format("Version {0}", OrbitRelease.Version)</span>
+            @* Pressed, it grows the rest of the hash - while debugging. A released build says the
+               number and nothing more, so there is nothing to press and it is drawn as the text it is
+               rather than as a button that would do nothing. See OrbitVersion. *@
+            @if (_version.CanShowTheWholeCommit)
+            {
+                <button type="button" class="app-footer-version" title="@(T["Show the whole commit"])"
+                        @onclick="() => _isVersionExpanded = !_isVersionExpanded">
+                    @(_isVersionExpanded ? _version.Full : _version.Short)
+                </button>
+            }
+            else
+            {
+                <span>@_version.Short</span>
+            }
+            @* The server's own build, beside the client's. The two can differ - the pipeline rolls each
+               app back on its own, and a browser can be holding a cached client - so showing only one
+               answers "which Orbit is this" with half the truth. Absent when the server cannot be
+               reached, which is honest: an offline footer knows nothing about it. *@
+            @if (_serverVersion is { } server)
+            {
+                <span class="app-footer-separator">·</span>
+                <span>@T.Format("api {0}", ServerVersionText(server))</span>
+            }
             <span class="app-footer-separator">·</span>
             <a href="@OrbitRelease.LicenseUrl" target="_blank" rel="noopener">@T[OrbitRelease.LicenseName]</a>
         </footer>
@@ -222,6 +245,34 @@
 </div>
 
 @code {
+    /// <summary>
+    /// This build, read off this assembly - see OrbitVersion. Not the shared project's: the number is
+    /// per client, and Orbit.Core is compiled into three of them.
+    /// </summary>
+    private static readonly OrbitVersion _version = OrbitVersion.ReadFrom(typeof(MainLayout).Assembly);
+
+    /// <summary>Whether the footer is showing the whole commit hash rather than the first seven of it.</summary>
+    private bool _isVersionExpanded;
+
+    /// <summary>Which build of the server this client is talking to, once it has been asked - see ServerVersionDto.</summary>
+    private ServerVersionDto? _serverVersion;
+
+    /// <summary>
+    /// The server's version as the footer says it. It follows the same expand as the client's, because
+    /// pressing one and having the other stay short would read as a bug rather than as two facts.
+    /// A released server sends no hash at all, so there is simply nothing to grow.
+    /// </summary>
+    private string ServerVersionText(ServerVersionDto server)
+    {
+        if (server.CommitHash.Length == 0)
+        {
+            return $"ver:{server.Version}";
+        }
+
+        var hash = _isVersionExpanded || server.CommitHash.Length <= 7 ? server.CommitHash : server.CommitHash[..7];
+        return $"ver:{server.Version}+gitHash:{hash}";
+    }
+
     private const string SidebarCollapsedStorageKey = "orbit.sidebarCollapsed";
 
 
@@ -289,6 +340,9 @@
         // Syncs ThemeService.Current to whatever index.html's inline anti-flash script already applied
         // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
         // theme applies to the login/register pages too.
+        // The footer says which server this is talking to. Asked once, and a failure leaves it unsaid
+        // rather than stopping the layout - see GetServerVersionAsync.
+        _serverVersion = await ClientFlagsApiClient.GetServerVersionAsync();
         await ThemeService.InitializeAsync();
         await AccentColorService.InitializeAsync();
         await DevicePreferences.InitializeAsync();
