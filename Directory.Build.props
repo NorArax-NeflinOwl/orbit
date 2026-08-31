@@ -1,14 +1,9 @@
 <Project>
 
-  <!-- The version series every project in this repository shares, "major.minor". The patch is not
-       written down anywhere: it is counted from the history by ci/compute-version.sh - one per day on
-       which a commit touched that project - so nobody has to remember to raise it, and two builds of
-       the same commit always number themselves the same.
-
-       Bumping this line is how a release becomes a different thing rather than the next of the same. -->
-  <PropertyGroup>
-    <OrbitVersionSeries>0.2</OrbitVersionSeries>
-  </PropertyGroup>
+  <!-- The two numbers somebody decides, kept in a file of their own so that changing anything else here
+       does not look like a version bump - see version.props, and ci/compute-version.sh, which counts the
+       third number from the commits made since that file last changed. -->
+  <Import Project="version.props" />
 
   <!-- A warning nobody has to act on is a warning nobody reads, and eight of them had accumulated
        unnoticed - a possible null dereference among them. They fail the build now, which is only
