@@ -176,7 +176,28 @@ az containerapp revision restart -n orbit-api -g Orbit --revision <latest-revisi
 Changing which secret an env var *points to* (or adding/removing an env var) does create a new
 revision automatically, which picks up the current secret value on its own.
 
-### 3. Confirm database backups
+### 3. Allow the pg_trgm extension
+
+Orbit's name suggestions are a trigram search, so a migration runs `CREATE EXTENSION pg_trgm`. Flexible
+Server refuses that unless the extension is on the server's own allowlist - and because `Program.cs`
+applies migrations at startup, a server that refuses it is a server the API cannot start against.
+
+Nothing in CI will find this first: the smoke test runs against a plain `postgres:18-alpine`, where the
+extension needs no permission.
+
+```bash
+az postgres flexible-server parameter show \
+  --resource-group Orbit --server-name <server> --name azure.extensions --query value -o tsv
+```
+
+If `PG_TRGM` is not in that list, add it - keeping whatever is already there - and restart the server:
+
+```bash
+az postgres flexible-server parameter set \
+  --resource-group Orbit --server-name <server> --name azure.extensions --value PG_TRGM
+```
+
+### 4. Confirm database backups
 
 Flexible Server enables automated backups by default (7-day retention, locally redundant) - worth
 confirming rather than assuming, especially given the SQLite incident already cost this project one
@@ -204,7 +225,7 @@ To restore from a backup (point-in-time restore, within the retention window), s
 - it creates a new server from the backup rather than restoring in place, so restoring is itself an
 exercise in re-pointing `ConnectionStrings__Orbit` at the new server once it's ready.
 
-### 4. Confirm ingress
+### 5. Confirm ingress
 
 | | orbit-api | orbit-web |
 |---|---|---|
@@ -217,7 +238,7 @@ az containerapp ingress show -n orbit-api -g Orbit
 az containerapp ingress show -n orbit-web -g Orbit
 ```
 
-### 5. Where the phone apps are downloaded from
+### 6. Where the phone apps are downloaded from
 
 Optional, and only needed once there is a build to hand out. `/download` in the web client offers
 whatever [`MobileDownloads`](../src/Clients/Orbit.Web/wwwroot/appsettings.json) names, and says nothing

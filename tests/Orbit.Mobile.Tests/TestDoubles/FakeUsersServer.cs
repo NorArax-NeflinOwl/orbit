@@ -69,7 +69,7 @@ internal sealed class FakeUsersServer : HttpMessageHandler
 
         // Asked by the account screen's Google row, which is absent unless a client id comes back -
         // see GoogleAccountLink. GoogleAccountLinkTests is where the offered case is exercised.
-        if (request.RequestUri.AbsolutePath.EndsWith("/config/client-flags", StringComparison.Ordinal))
+        if (request.RequestUri!.AbsolutePath.EndsWith("/config/client-flags", StringComparison.Ordinal))
         {
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {

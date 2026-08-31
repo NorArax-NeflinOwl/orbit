@@ -5,12 +5,14 @@ rest of the documentation already flags as "not implemented yet," a deliberate f
 cut, or an identified follow-up. It is not a committed roadmap with dates — it is the current honest
 picture of what's left.
 
-**Last checked against the code on 2026-08-30.** A plan is only worth reading if it describes the
-present. This pass closed four testing gaps rather than only re-reading them - the browser-side
-encryption, both notification senders, and the auth rate limiter all have tests now - and added the two
-planned features `current-status.md` had been linking here for and not finding. Anything below that
-says "not started" or "no coverage" was checked against the repository on that date rather than carried
-forward on trust.
+**Last checked against the code on 2026-08-31.** A plan is only worth reading if it describes the
+present. Anything below that says "not started" or "no coverage" was checked against the repository on
+that date rather than carried forward on trust.
+
+Since the last pass: the version is counted from the history rather than maintained by hand, the tasks
+page reads three ways, a restock errand edits the shelf it names, a calendar entry is the appointment
+rather than a pointer at one, and the build refuses to finish on a warning. What that pass found and did
+**not** fix is in [Known scope cuts and rough edges](#known-scope-cuts-and-rough-edges) below.
 
 ## Planned features
 
@@ -112,6 +114,36 @@ None of this is required for what Orbit does today, which is why it is here rath
 
 Explicitly called out in the functionality documentation as deliberate limitations of this first
 version, so they aren't mistaken for oversights:
+
+- **`pg_trgm` may not be allowed on the deployed database, and nothing would find out until it is too
+  late.** The name-suggestion migration runs `CREATE EXTENSION pg_trgm`. Azure Database for PostgreSQL
+  Flexible Server only permits extensions listed in its `azure.extensions` server parameter, and
+  `Program.cs` applies migrations at startup without catching anything - so a server that has not been
+  told to allow it would fail to start, the revision would never turn healthy, and the deploy would roll
+  back. **CI cannot catch this**: the smoke test runs against a plain `postgres:18-alpine`, where the
+  extension needs no permission. Check with
+  `az postgres flexible-server parameter show --resource-group Orbit --server-name <name> --name azure.extensions`
+  before the next deploy, and record the answer in [Azure setup](azure-setup.md).
+- **The forced-update gate has nothing to compare against.** `MobileVersion:Android:LatestVersion` is
+  empty, and no workflow sets it - so a release computes a new version and never tells the server about
+  it, and the gate can never answer "there is a newer build". Setting it is enough to make the soft
+  notice work; `MinimumSupportedVersion` is the one that blocks, and while this is a prototype it should
+  stay empty.
+- **Two flaky tests remain, in the same family.** Six tests assert that a timestamp strictly advanced
+  between two real-clock reads, which on a fast machine can land on the same tick.
+  `NotificationChangeFeedTests` was fixed by stamping its records at a fixed point in the past;
+  `ChatGroupLastMessageTimeTests.Posting_a_message_moves_it_forward`,
+  `LinkTaskListToWarehouseCommandHandlerTests` (two), `GenerateWarehouseFromTaskListCommandHandlerTests`
+  and `RestockCompletionTests.Finishing_the_list_says_the_list_changed` still have the shape.
+
+  Worth saying plainly: this is not only a test problem. The change feed gates on `UpdatedAtUtc > since`,
+  so two changes inside one tick are genuinely indistinguishable to a syncing client, and the second
+  would never be delivered. Rare, and real.
+- **`NoteDetailScreenTests.Turning_private_off_puts_the_words_back_where_the_server_can_read_them` fails
+  about once in ten full-suite runs** and has never been reproduced in isolation - roughly fifty targeted
+  runs, including under artificial CPU load, all passed. So it needs the whole suite in flight, which
+  points at test parallelism rather than at the note-sealing logic itself. Not fixed, because a fix that
+  cannot be shown to work is a fix that hides the problem.
 
 - **Chat has no per-message forward secrecy.** A single shared AES-GCM key is derived per user pair
   instead of a rotating scheme like Signal's Double Ratchet — compromising one derived key exposes
@@ -222,7 +254,7 @@ since been closed; what is left is recorded below with the same honesty about wh
   Terraform) under a new `infra/` folder, covering at minimum the two Container Apps' full
   configuration (env vars referencing Key Vault secrets rather than plain Container App secrets,
   ingress settings, scaling), the Container Apps Environment, and the PostgreSQL Flexible Server
-  (SKU, storage, backup retention - see [Azure setup](azure-setup.md#3-confirm-database-backups)).
+  (SKU, storage, backup retention - see [Azure setup](azure-setup.md#4-confirm-database-backups)).
   `.github/workflows/main_orbit.yml` would gain an `az deployment group create` step using that
   template, so an infrastructure change goes through the same PR review as a code change instead of
   being invisible until someone happens to `az containerapp show` and finds it. This is a genuinely
