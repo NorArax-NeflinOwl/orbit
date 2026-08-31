@@ -43,7 +43,8 @@ public sealed partial class ContactsViewModel : ObservableObject
     public ContactsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, UsersClient usersClient,
         ChatSynchronizer synchronizer, OwnEncryptionKeyProvider encryptionKeyProvider,
-        Translations translations, UserPermissions permissions, IScreenNavigator navigator)
+        Translations translations, UserPermissions permissions, IScreenNavigator navigator,
+        ConnectionRequirement connection)
     {
         _chatRepository = chatRepository;
         _chatClient = chatClient;
@@ -53,6 +54,7 @@ public sealed partial class ContactsViewModel : ObservableObject
         _translations = translations;
         _permissions = permissions;
         _navigator = navigator;
+        Connection = connection;
     }
 
     /// <summary>
@@ -68,6 +70,13 @@ public sealed partial class ContactsViewModel : ObservableObject
     public ObservableCollection<LocalContact> Contacts { get; } = [];
 
     public bool HasMessage => Message.Length > 0;
+
+    /// <summary>
+    /// Finding somebody new is the one thing here that cannot be answered from this phone: there
+    /// is no local copy of everybody who has an Orbit account, and there should not be. The rest of
+    /// the screen - the contacts already known - reads offline like everything else.
+    /// </summary>
+    public ConnectionRequirement Connection { get; }
 
     public bool HasFoundSomebody => FoundPerson is not null;
 

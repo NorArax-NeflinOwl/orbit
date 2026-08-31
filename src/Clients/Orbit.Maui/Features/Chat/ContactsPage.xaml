@@ -38,7 +38,8 @@
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'Email address or login'}"
                    Text="{Binding SearchQuery}" Keyboard="Email"
                    ReturnType="Search" ReturnCommand="{Binding SearchCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Find'}" Command="{Binding SearchCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Find'}" IsEnabled="{Binding Connection.IsMet}"
+                    Command="{Binding SearchCommand}" />
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasFoundSomebody}">

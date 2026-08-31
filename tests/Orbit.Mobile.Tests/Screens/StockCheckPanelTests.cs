@@ -248,7 +248,7 @@ public sealed class StockCheckPanelTests
         {
             var panel = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()), _warehouses,
-                new Translations(new InMemoryLanguageStore()));
+                new Translations(new InMemoryLanguageStore()), Connections.Online);
 
             await panel.ShowAsync(new LocalTaskList
             {

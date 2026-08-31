@@ -99,6 +99,7 @@ public static class PolishTranslations
         ["Use the address from the map"] = "Użyj adresu z mapy",
         ["What this is about"] = "Czego to dotyczy",
         ["This errand's product needs a name and an amount."] = "Produkt tego sprawunku potrzebuje nazwy i ilości.",
+        ["This needs a connection. It will work again once you're back online."] = "To wymaga połączenia. Zadziała ponownie, gdy wrócisz online.",
         ["offline"] = "offline",
         ["online"] = "online",
         ["Saved on this phone - the appointment reaches the calendar when you're back online."] = "Zapisano na tym telefonie — wydarzenie trafi do kalendarza po powrocie połączenia.",

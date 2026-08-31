@@ -24,7 +24,6 @@ public sealed partial class AccountViewModel : ObservableObject
 {
     private readonly AccountClient _accountClient;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
-    private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
     private readonly Translations _translations;
     private readonly UsersClient _usersClient;
@@ -104,7 +103,7 @@ public sealed partial class AccountViewModel : ObservableObject
     private bool _isRedeemingCode;
 
     public AccountViewModel(
-        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
+        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, ConnectionRequirement connection,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
         UserPermissions permissions, IThemeStore themes, IAccentColorStore accents, TransferClient transfer,
         LocalStoreReset localStore,
@@ -113,7 +112,7 @@ public sealed partial class AccountViewModel : ObservableObject
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
-        _networkStatus = networkStatus;
+        Connection = connection;
         _sessionStore = sessionStore;
         _translations = translations;
         _usersClient = usersClient;
@@ -322,10 +321,13 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public bool HasPermissionMessage => PermissionMessage.Length > 0;
 
-    /// <summary>Everything on this screen is unavailable offline, so the whole form reflects one flag.</summary>
-    public bool IsOnline => _networkStatus.IsOnline;
-
-    public bool IsOffline => !IsOnline;
+    /// <summary>
+    /// Everything on this screen needs the server - a username has to be checked for being free, a
+    /// password change has to be proved against the old one - so the whole form reflects one answer.
+    /// Held as an object rather than read from the network each time, because the answer changes while
+    /// somebody is filling the form in and the buttons have to follow it.
+    /// </summary>
+    public ConnectionRequirement Connection { get; }
 
     public bool HasMessage => Message.Length > 0;
 
@@ -338,9 +340,6 @@ public sealed partial class AccountViewModel : ObservableObject
         }
 
         await ShowAccountAsync();
-
-        OnPropertyChanged(nameof(IsOnline));
-        OnPropertyChanged(nameof(IsOffline));
 
         await _permissions.EnsureLoadedAsync();
         ShowPermissions();
@@ -423,7 +422,7 @@ public sealed partial class AccountViewModel : ObservableObject
         }
     }
 
-    private bool CanRedeemCode => PermissionCode.Trim().Length > 0 && !IsRedeemingCode && IsOnline;
+    private bool CanRedeemCode => PermissionCode.Trim().Length > 0 && !IsRedeemingCode && Connection.IsMet;
 
     private void ShowPermissions()
     {

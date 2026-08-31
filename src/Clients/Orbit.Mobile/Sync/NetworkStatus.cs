@@ -10,4 +10,11 @@ namespace Orbit.Mobile.Sync;
 public interface INetworkStatus
 {
     bool IsOnline { get; }
+
+    /// <summary>
+    /// Raised when the answer changes. A screen that greys out what needs a connection has to hear about
+    /// it: an action left disabled after the connection came back is as wrong as one offered while it
+    /// could only fail, and nobody thinks to leave the screen and come back.
+    /// </summary>
+    event EventHandler? Changed;
 }

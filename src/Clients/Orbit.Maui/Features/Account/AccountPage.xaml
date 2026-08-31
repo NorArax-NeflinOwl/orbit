@@ -135,13 +135,13 @@
 
             <!-- One statement for the whole screen: none of this can happen without the server. -->
             <Label Text="{controls:Translate 'Changing your username, email address or password needs a connection to Orbit. None of it is saved to send later.'}"
-                   IsVisible="{Binding IsOffline}"
+                   IsVisible="{Binding Connection.IsNotMet}"
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
 
-            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Login'}" Style="{StaticResource FieldLabel}" />
                 <!-- See RegisterPage for why this is not the default text keyboard. -->
                 <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
@@ -149,7 +149,7 @@
                 <Button Text="{controls:Translate 'Change username'}" Command="{Binding ChangeUserNameCommand}" />
             </VerticalStackLayout>
 
-            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Email address'}" Style="{StaticResource FieldLabel}" />
                 <!-- The address in use today and whether anybody has stood behind it, which Orbit.Web
                      shows above this same form. Read from the server rather than the session - see
@@ -165,7 +165,7 @@
             <!-- Directly above the password form, as Orbit.Web has it: the warning below says "set one
                  below before disconnecting", and that has to be true of this screen too. Absent where
                  the deployment has no Google client id for this app - see GoogleAccountLink. -->
-            <VerticalStackLayout IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
+            <VerticalStackLayout IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
                 <VerticalStackLayout Spacing="8"
                                      BindingContext="{Binding GoogleLink}" x:DataType="screens:GoogleAccountLink"
                                      IsVisible="{Binding IsOffered}">
@@ -185,7 +185,7 @@
                 </VerticalStackLayout>
             </VerticalStackLayout>
 
-            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}">
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Password'}" Style="{StaticResource FieldLabel}" />
                 <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />
                 <Entry Placeholder="{controls:Translate 'New password'}" Text="{Binding NewPassword}" IsPassword="True" />
@@ -199,13 +199,13 @@
                 <Label Text="{controls:Translate 'Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed.'}"
                        FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Button Text="{controls:Translate 'Export everything'}" HorizontalOptions="Start"
-                        IsEnabled="{Binding IsOnline}" Command="{Binding ExportCommand}" />
+                        IsEnabled="{Binding Connection.IsMet}" Command="{Binding ExportCommand}" />
 
                 <Label Text="{controls:Translate 'Import'}" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
                 <Label Text="{controls:Translate 'Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies.'}"
                        FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Button x:Name="ImportButton" Text="{controls:Translate 'Import'}" HorizontalOptions="Start"
-                        IsEnabled="{Binding IsOnline}" Clicked="OnImportClicked" />
+                        IsEnabled="{Binding Connection.IsMet}" Clicked="OnImportClicked" />
 
                 <Label Text="{Binding TransferMessage}" IsVisible="{Binding HasTransferMessage}"
                        FontSize="12" LineBreakMode="WordWrap"
@@ -216,7 +216,7 @@
                  quiet DestructiveButton the per-item deletes use, and asks for the password again on its
                  own line - see AccountViewModel.DeleteAccountPassword. The confirmation itself is the
                  page's job: it is a platform prompt. -->
-            <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsOnline}" IsVisible="{Binding IsShowingAccount}" Margin="0,8,0,0">
+            <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}" Margin="0,8,0,0">
                 <Label Text="{controls:Translate 'Delete account'}" Style="{StaticResource FieldLabel}" />
                 <Label Text="{controls:Translate 'Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.'}"
                        FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />

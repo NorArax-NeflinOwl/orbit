@@ -5,6 +5,7 @@ using Orbit.Mobile.Chat;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Tests.Chat;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 
@@ -307,9 +308,25 @@ public sealed class SharePanelTests
         await context.Repository.StoreContactsAsync([context.Server.Contacts[index]]);
     }
 
+    /// <summary>
+    /// Every button on this panel needs the server - a share is an offer somebody else has to accept,
+    /// and a link is a token only the server mints - so none is offered while there is nobody to ask.
+    /// Said before the tap rather than after, which is the whole point.
+    /// </summary>
+    [Fact]
+    public void Nothing_on_the_panel_is_offered_without_a_connection()
+    {
+        using var context = new ChatContext();
+        using var shares = new FakeShareServer();
+        var panel = Build(context, shares, connection: Connections.Offline);
+
+        Assert.True(panel.Connection.IsNotMet);
+        Assert.NotEmpty(panel.Connection.Explanation);
+    }
+
     private static SharePanel Build(
         ChatContext context, FakeShareServer shares, Orbit.Mobile.Permissions.UserPermissions? permissions = null,
-        FakePublicShareServer? links = null)
+        FakePublicShareServer? links = null, ConnectionRequirement? connection = null)
     {
         var http = shares.ToHttpClient();
 
@@ -321,6 +338,7 @@ public sealed class SharePanelTests
                 context.Sender),
             new PublicShareClient((links ?? new FakePublicShareServer()).ToHttpClient()),
             permissions ?? UnlockedPermissions.For(new LocalStore()),
-            new Translations(new InMemoryLanguageStore()));
+            new Translations(new InMemoryLanguageStore()),
+            connection ?? Connections.Online);
     }
 }

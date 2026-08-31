@@ -30,6 +30,13 @@ public sealed partial class SharePanel : ObservableObject
     private readonly SharedItemSharing _sharing;
     private readonly PublicShareClient _links;
     private readonly UserPermissions _permissions;
+
+    /// <summary>
+    /// Every button on this panel needs the server - a share is an offer somebody else has to be
+    /// able to accept, and a link is a token only the server can mint. So they are disabled while
+    /// there is no connection rather than offered and refused.
+    /// </summary>
+    public ConnectionRequirement Connection { get; }
     private readonly Translations _translations;
 
     private SharedItemKind _kind;
@@ -53,13 +60,15 @@ public sealed partial class SharePanel : ObservableObject
 
     public SharePanel(
         ChatRepository chatRepository, ChatSynchronizer synchronizer, SharedItemSharing sharing,
-        PublicShareClient links, UserPermissions permissions, Translations translations)
+        PublicShareClient links, UserPermissions permissions, Translations translations,
+        ConnectionRequirement connection)
     {
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _sharing = sharing;
         _links = links;
         _permissions = permissions;
+        Connection = connection;
         _translations = translations;
         AccessLevels = [.. Enum.GetValues<ShareAccessLevel>().Select(level => new AccessLevelChoice(level, Describe(level)))];
         AccessLevel = AccessLevels[0];

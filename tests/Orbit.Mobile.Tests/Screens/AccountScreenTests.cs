@@ -371,7 +371,7 @@ public sealed class AccountScreenTests
                     new EncryptionKeyClient(new FakeEncryptionKeyServer().ToHttpClient()),
                     _sessionStore,
                     Microsoft.Extensions.Logging.Abstractions.NullLogger<OwnEncryptionKeyProvider>.Instance),
-                FixedNetworkStatus.Online,
+                Connections.Online,
                 _sessionStore,
                 new Translations(new InMemoryLanguageStore()),
                 new UsersClient(_users.ToHttpClient()),

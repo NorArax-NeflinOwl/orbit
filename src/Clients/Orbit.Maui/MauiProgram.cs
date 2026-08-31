@@ -106,6 +106,9 @@ public static class MauiProgram
 		services.AddDbContextFactory<OrbitLocalDbContext>(options => options.UseSqlite(LocalDatabase.ConnectionString));
 		services.AddSingleton(TimeProvider.System);
 		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
+		// Transient: each screen binds its own, and one that outlived its screen would keep it alive
+		// through the connectivity subscription.
+		services.AddTransient<ConnectionRequirement>();
 		// Shared, because the synchronisers are transient and the thing being guarded is the database.
 		services.AddSingleton<SyncGate>();
 		// One instance: it reads the key this device already holds and nothing else - no network, no state

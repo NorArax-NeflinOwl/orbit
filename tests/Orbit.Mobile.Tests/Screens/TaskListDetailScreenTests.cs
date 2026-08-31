@@ -1304,7 +1304,7 @@ public sealed class TaskListDetailScreenTests
                 NullLogger<WarehouseSynchronizer>.Instance);
             StockCheck = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()),
-                Shelves, new Translations(new InMemoryLanguageStore()));
+                Shelves, new Translations(new InMemoryLanguageStore()), Connections.Online);
             CalendarEvents = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
             Synchronizer = new TaskListSynchronizer(
                 _localStore, new TasksClient(Server.ToHttpClient()), _clock, new SyncGate(),

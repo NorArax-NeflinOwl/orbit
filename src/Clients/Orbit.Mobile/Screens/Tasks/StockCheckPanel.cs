@@ -43,12 +43,14 @@ public sealed partial class StockCheckPanel : ObservableObject
     private Guid? _taskListServerId;
 
     public StockCheckPanel(
-        TasksClient tasks, InventoryClient inventory, LocalWarehouseRepository warehouses, Translations translations)
+        TasksClient tasks, InventoryClient inventory, LocalWarehouseRepository warehouses,
+        Translations translations, ConnectionRequirement connection)
     {
         _tasks = tasks;
         _inventory = inventory;
         _warehouses = warehouses;
         _translations = translations;
+        Connection = connection;
     }
 
     /// <summary>
@@ -80,6 +82,12 @@ public sealed partial class StockCheckPanel : ObservableObject
     private string _message = string.Empty;
 
     public bool HasMessage => Message.Length > 0;
+
+    /// <summary>
+    /// Both questions this panel asks - can this list be done from the shelves, and what should be
+    /// restocked - are worked out by the server against stock it holds. Neither can be answered here.
+    /// </summary>
+    public ConnectionRequirement Connection { get; }
 
     /// <summary>Raised when the panel has changed something the screen has to re-read - see GenerateInventory.</summary>
     public event EventHandler? Changed;
