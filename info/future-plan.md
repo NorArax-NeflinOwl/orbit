@@ -150,7 +150,15 @@ version, so they aren't mistaken for oversights:
 
   Not only a test problem, and this is the part worth keeping in view: the change feed gates on
   `UpdatedAtUtc > since`, so two changes inside one tick are genuinely indistinguishable to a syncing
-  client and the second is never delivered. Rare, and real.
+  client and the second is never delivered.
+
+  **Decided on 2026-08-31: not worth fixing at this scale.** Two changes to the same row inside one tick
+  needs either two people editing the same thing in the same instant or a script; with one person and a
+  handful of accounts it is theoretical. Recorded rather than dropped because the answer depends entirely
+  on that scale - the day Orbit has concurrent editors or a bulk import, it stops being theoretical, and
+  whoever hits it should find this rather than rediscover it. The fix, when it is wanted, is a stamp that
+  cannot go backwards or sideways: keep the last one issued per row and step forward a tick when the
+  clock has not moved.
 
 - **Chat has no per-message forward secrecy.** A single shared AES-GCM key is derived per user pair
   instead of a rotating scheme like Signal's Double Ratchet — compromising one derived key exposes
