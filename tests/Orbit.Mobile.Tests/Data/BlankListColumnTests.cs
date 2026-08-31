@@ -60,7 +60,15 @@ public sealed class BlankListColumnTests
     private static void Blank(LocalStore localStore, string table, string column, Guid localId)
     {
         using var dbContext = localStore.CreateDbContext();
+
+        // EF1002 warns that an interpolated string reaches the SQL unprotected, and it is right about the
+        // shape. What it cannot see is that only the *identifiers* are interpolated here - and a table or
+        // column name cannot be a parameter in any SQL dialect, so there is no version of this that
+        // parameterises them. Both come from the two call sites above as literals; the one value that
+        // varies, the id, goes through {0} as a real parameter.
+#pragma warning disable EF1002
         dbContext.Database.ExecuteSqlRaw(
             $"UPDATE \"{table}\" SET \"{column}\" = '' WHERE \"LocalId\" = {{0}}", localId);
+#pragma warning restore EF1002
     }
 }

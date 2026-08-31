@@ -7,7 +7,7 @@
 
        Bumping this line is how a release becomes a different thing rather than the next of the same. -->
   <PropertyGroup>
-    <OrbitVersionSeries>0.1</OrbitVersionSeries>
+    <OrbitVersionSeries>0.2</OrbitVersionSeries>
   </PropertyGroup>
 
   <!-- A warning nobody has to act on is a warning nobody reads, and eight of them had accumulated
@@ -19,6 +19,14 @@
        Release build - which is what CI and every image build use - that has to stay clean. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Except the phone head, which nothing here can build: it needs the MAUI workloads and an Android
+       SDK, so whether it compiles warning-free is not something this change was able to find out.
+       Turning warnings into errors for it would be betting the Android release on an answer nobody has.
+       Lift this once somebody has built it clean. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Orbit.Maui'">
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
 </Project>

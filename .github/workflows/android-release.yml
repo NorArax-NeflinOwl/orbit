@@ -278,3 +278,21 @@ jobs:
               --overwrite
             echo "Published to https://${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ vars.DOWNLOADS_CONTAINER }}/$name"
           done
+
+      # Telling the server what was just released, which is the half that was missing: the app asks
+      # GET /api/config/mobile-version on startup and compares itself against MobileVersion:Android:
+      # LatestVersion, so a release nobody records is a release no phone is told about - the update row
+      # in the avatar menu simply never lights up.
+      #
+      # Only LatestVersion, deliberately. MinimumSupportedVersion is the one that *blocks* an app, and
+      # while Orbit is a prototype every build should keep working - see MobileVersionPolicy, where the
+      # two verdicts are UpdateAvailable and UpdateRequired.
+      - name: Tell the server this is the newest Android build
+        if: vars.API_CONTAINER_APP_RESOURCE_GROUP != ''
+        run: |
+          az containerapp update \
+            --name orbit-api \
+            --resource-group "${{ vars.API_CONTAINER_APP_RESOURCE_GROUP }}" \
+            --set-env-vars "MobileVersion__Android__LatestVersion=${{ steps.version.outputs.value }}"
+          echo "orbit-api now offers ${{ steps.version.outputs.value }} as the newest Android build."
+

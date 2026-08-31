@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # What version a project is at, and which commit it was built from.
 #
-# The patch number is the count of distinct days on which a commit touched that project. Nobody
-# maintains it: it is a function of the history, so the same commit always numbers itself the same, two
-# builds of it agree, and there is no file anybody can forget to bump. A day with five commits counts
-# once, and a day whose commits went nowhere near this project does not count at all - which is the
-# whole point of asking per project.
+# The patch number is the count of distinct days on which a commit touched that project **since the
+# series was last changed**. Nobody maintains it: it is a function of the history, so the same commit
+# always numbers itself the same, two builds of it agree, and there is no file anybody can forget to
+# bump. A day with five commits counts once, and a day whose commits went nowhere near this project does
+# not count at all - which is the whole point of asking per project.
+#
+# Counting from the series bump rather than from the beginning of history is what makes the patch mean
+# what SemVer says it means: raising the series to 0.2 starts that series at 0.2.0 rather than carrying
+# a count from the 0.1 line into it.
 #
 # Needs the full history. A shallow checkout (actions/checkout's default) can only see one commit and
 # would number every build 0.1.1 - the script refuses rather than printing that.
@@ -42,9 +46,15 @@ if [ "$(git -C "$repository_root" rev-parse --is-shallow-repository)" = "true" ]
     exit 1
 fi
 
+# Where this series began: the last commit that changed the series itself. Everything before it belongs
+# to a previous line and is not counted. A repository whose Directory.Build.props has never changed -
+# which cannot happen once it exists, but is worth not crashing on - counts from the beginning.
+series_started_at=$(git -C "$repository_root" log --format=%H -1 -- Directory.Build.props)
+range=${series_started_at:+$series_started_at..}
+
 # Authored dates rather than committer dates: a rebase moves the second and would renumber history that
 # has already shipped.
-days=$(git -C "$repository_root" log --format=%ad --date=short -- "${paths[@]}" | sort -u | grep -c .)
+days=$(git -C "$repository_root" log --format=%ad --date=short ${range} -- "${paths[@]}" | sort -u | grep -c . || true)
 
 echo "version=$series.$days"
 echo "commit=$(git -C "$repository_root" rev-parse HEAD)"
