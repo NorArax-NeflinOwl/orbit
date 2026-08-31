@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Notes;
@@ -91,6 +92,7 @@ public sealed class Note
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(title, content, isPrivate);
+        StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "note's title");
         var now = DateTimeOffset.UtcNow;
         return new Note(
             Guid.NewGuid(), userId, title, content, isPrivate, encryptedContent, now, now,
@@ -141,6 +143,7 @@ public sealed class Note
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(title, content, isPrivate);
+        StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "note's title");
         (Title, Content, IsPrivate, EncryptedContent) = ReadableOrSealed(title, content, isPrivate, encryptedContent);
         Priority = priority;
         UpdatedAtUtc = DateTimeOffset.UtcNow;

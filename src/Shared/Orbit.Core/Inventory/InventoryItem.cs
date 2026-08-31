@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Notifications;
 
 namespace Orbit.Core.Inventory;
@@ -79,6 +80,7 @@ public sealed class InventoryItem
         Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, int position = 0)
     {
+        EnsureTheWordsFit(name, productType, category);
         var now = DateTimeOffset.UtcNow;
         return new InventoryItem(
             Guid.NewGuid(), warehouseId, name, productType, category, quantity, minimumQuantity, unit, expiryDate,
@@ -129,6 +131,7 @@ public sealed class InventoryItem
         string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel)
     {
+        EnsureTheWordsFit(name, productType, category);
         Name = name;
         ProductType = productType;
         Category = category;
@@ -138,6 +141,14 @@ public sealed class InventoryItem
         ExpiryDate = expiryDate;
         ExpiryNotificationChannel = expiryNotificationChannel;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>What a shelf item may be called and classified as - see StoredTextLimits.</summary>
+    private static void EnsureTheWordsFit(string name, string productType, string category)
+    {
+        StoredTextLimits.OrRefuse(name, StoredTextLimits.Title, "shelf item's name");
+        StoredTextLimits.OrRefuse(productType, StoredTextLimits.ProductType, "shelf item's type");
+        StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "shelf item's category");
     }
 
     public void SetPendingRestockTask(Guid taskListId, Guid taskItemId)

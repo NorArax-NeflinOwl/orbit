@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Tasks;
@@ -113,6 +114,7 @@ public sealed class TaskList
         bool isPinned = false)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
+        StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "task list's title");
         var now = DateTimeOffset.UtcNow;
         return new TaskList(
             Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, now, now,
@@ -164,6 +166,7 @@ public sealed class TaskList
         ItemPriority priority)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
+        StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "task list's title");
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(Items);

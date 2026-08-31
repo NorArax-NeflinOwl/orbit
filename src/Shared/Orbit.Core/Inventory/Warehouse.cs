@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Inventory;
@@ -79,6 +80,7 @@ public sealed class Warehouse
 
     public static Warehouse Create(Guid userId, string name, bool isPrivate = false, EncryptedPayload? encryptedContent = null)
     {
+        StoredTextLimits.OrRefuse(name, StoredTextLimits.Title, "warehouse's name");
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         var now = DateTimeOffset.UtcNow;
         return new Warehouse(
@@ -115,6 +117,7 @@ public sealed class Warehouse
     /// </summary>
     public void Update(string name, bool isPrivate, EncryptedPayload? encryptedContent)
     {
+        StoredTextLimits.OrRefuse(name, StoredTextLimits.Title, "warehouse's name");
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Name, IsPrivate, EncryptedContent) = ReadableOrSealed(name, isPrivate, encryptedContent);
         UpdatedAtUtc = DateTimeOffset.UtcNow;

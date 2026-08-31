@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Chat.Groups;
@@ -48,6 +49,7 @@ public sealed class ChatGroup
     /// <summary>The creator is the first admin - a group with nobody able to manage it would be stuck from the start.</summary>
     public static ChatGroup Create(Guid createdByUserId, string name)
     {
+        StoredTextLimits.OrRefuse(name, StoredTextLimits.GroupName, "group's name");
         var trimmedName = name.Trim();
         if (trimmedName.Length == 0)
         {
