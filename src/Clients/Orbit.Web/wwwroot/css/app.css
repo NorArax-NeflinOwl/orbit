@@ -1862,6 +1862,22 @@ input.note-editor-title {
     color: var(--accent);
 }
 
+/* The version, which is pressable to reveal the rest of the hash. Looks like the text beside it: it is
+   a fact that happens to expand, not a button somebody is being invited to press. */
+.app-footer-version {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    word-break: break-all;
+}
+
+.app-footer-version:hover {
+    color: var(--accent);
+}
+
 .app-footer-separator {
     opacity: 0.5;
 }

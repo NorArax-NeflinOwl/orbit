@@ -4,16 +4,13 @@ namespace Orbit.Core;
 /// What Orbit says about itself: which build this is, when it was made, and under what licence.
 ///
 /// One place because it is shown in several - the web client's footer and the phone's About entry - and
-/// three copies of a version number is three chances for the one somebody reads to be wrong. The phone
-/// head's ApplicationDisplayVersion has to match <see cref="Version"/>: it is the value the version gate
-/// compares against, so a build that disagrees with this is a build that reports itself wrongly to the
-/// server (see Orbit.Core.Mobile.MobileVersionPolicy).
+/// two copies of a copyright line is two chances for the one somebody reads to be wrong.
+///
+/// The version is deliberately not here: it is different per project and decided by the build, not by
+/// anybody editing a file - see <see cref="OrbitVersion"/>.
 /// </summary>
 public static class OrbitRelease
 {
-    /// <summary>SemVer, matching Orbit.Maui's ApplicationDisplayVersion.</summary>
-    public const string Version = "0.1.0";
-
     /// <summary>
     /// The year this build was made, for the copyright line. A constant rather than DateTime.Now.Year:
     /// a footer that silently rolls over on New Year's Eve is claiming a build was made in a year it

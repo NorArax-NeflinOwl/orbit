@@ -198,6 +198,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # The whole history, because the version is counted from it - see ci/compute-version.sh. The
+          # default shallow checkout can see one commit and would number every build 0.1.1.
+          fetch-depth: 0
+
+      # What this build calls itself, per project: the patch is the number of days on which a commit
+      # touched that project, so nobody maintains it and the same commit always numbers itself the same.
+      - name: Work out the version
+        id: version
+        run: |
+          ci/compute-version.sh web | sed 's/^version=/web=/;s/^commit=/commit=/' >> "$GITHUB_OUTPUT"
+          ci/compute-version.sh api | sed -n 's/^version=/api=/p' >> "$GITHUB_OUTPUT"
+          echo "web $(ci/compute-version.sh web | head -1 | cut -d= -f2), api $(ci/compute-version.sh api | head -1 | cut -d= -f2)"
 
       # OIDC login: Azure exchanges GitHub's short-lived token for an access token. No client secret
       # is ever generated, stored, or rotated. Reuses the same identity (identity-orbit) and secrets
@@ -262,6 +275,7 @@ jobs:
             --tag ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }} \
             --tag ${{ env.registryLoginServer }}/orbit-api:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
+            --build-arg ORBIT_VERSION="${{ steps.version.outputs.api }}+${{ steps.version.outputs.commit }}" \
             .
 
       - name: Build orbit-web image
@@ -271,6 +285,7 @@ jobs:
             --tag ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }} \
             --tag ${{ env.registryLoginServer }}/orbit-web:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
+            --build-arg ORBIT_VERSION="${{ steps.version.outputs.web }}+${{ steps.version.outputs.commit }}" \
             .
 
       # Runs the freshly built orbit-api image for real, against a real PostgreSQL, before it ever
