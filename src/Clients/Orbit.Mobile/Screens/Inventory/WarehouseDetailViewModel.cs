@@ -30,6 +30,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly PrivateContentSealer _privateContent;
     private readonly NameSuggestions _nameSuggestions;
+    private readonly NameSuggestions _warehouseNameSuggestions;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -70,7 +71,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
         InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
-        NameSuggestions nameSuggestions)
+        NameSuggestions nameSuggestions, NameSuggestions warehouseNameSuggestions)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
@@ -81,6 +82,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         _privateContent = privateContent;
         _nameSuggestions = nameSuggestions;
         OfferNamesToTheQuickAddBox();
+        _warehouseNameSuggestions = warehouseNameSuggestions;
+        _warehouseNameSuggestions.Offers(NameSuggestionKind.WarehouseName);
+        _warehouseNameSuggestions.Takes = name => Name = name;
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _anyProductType = translations["Any type"];
@@ -385,6 +389,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
 
         Name = warehouse.Name;
+        // Taken as already looked up, so opening a warehouse does not offer completions of its own name
+        // and warn that it duplicates itself - see NameSuggestions.StartsAt.
+        _warehouseNameSuggestions.StartsAt(warehouse.Name);
         _isShowingWhatIsStored = true;
         IsPrivate = warehouse.IsPrivate;
         _isShowingWhatIsStored = false;
@@ -547,6 +554,13 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     /// </summary>
     public NameSuggestions Suggestions => _nameSuggestions;
 
+    /// <summary>
+    /// Warehouse names this account already has, offered under the name field. Its own instance rather
+    /// than the one above: the name and the quick-add box are on screen together, and one instance
+    /// serves one field - see NameSuggestions.Takes.
+    /// </summary>
+    public NameSuggestions WarehouseNameSuggestions => _warehouseNameSuggestions;
+
     private void OfferNamesToTheQuickAddBox()
     {
         _nameSuggestions.Forget();
@@ -563,6 +577,8 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         AddItemCommand.NotifyCanExecuteChanged();
         Suggestions.ShowFor(value);
     }
+
+    partial void OnNameChanged(string value) => WarehouseNameSuggestions.ShowFor(value);
 
     /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
     [ObservableProperty]

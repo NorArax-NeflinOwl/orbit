@@ -20,6 +20,9 @@ internal sealed class FakeSuggestionsServer : HttpMessageHandler
     /// <summary>What was last asked for, so a test can prove nothing is asked before it should be.</summary>
     public string? LastQuery { get; private set; }
 
+    /// <summary>Which field the last lookup was for - what tells a title's strip from an item's.</summary>
+    public string? LastKind { get; private set; }
+
     public int Lookups { get; private set; }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -30,8 +33,10 @@ internal sealed class FakeSuggestionsServer : HttpMessageHandler
         }
 
         Lookups++;
-        var query = HttpUtility.ParseQueryString(request.RequestUri!.Query)["query"] ?? string.Empty;
+        var parameters = HttpUtility.ParseQueryString(request.RequestUri!.Query);
+        var query = parameters["query"] ?? string.Empty;
         LastQuery = query;
+        LastKind = parameters["kind"];
 
         var found = Names
             .Where(name => name.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))

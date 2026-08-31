@@ -11,6 +11,8 @@ using Orbit.Mobile.Data;
 using Orbit.Mobile.Screens.Tasks;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
+using Orbit.Contracts.Suggestions;
+using Orbit.Core.Suggestions;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 using Orbit.Mobile.Localization;
@@ -66,6 +68,68 @@ public sealed class TaskListDetailScreenTests
         Assert.Equal("Push", entry.OverdueNotificationChannel);
         Assert.Equal("Push", entry.DailyReminderNotificationChannel);
         Assert.False(entry.RemindDaily);
+    }
+
+    /// <summary>
+    /// Orbit.Web offers names under all four fields; the phone only had the two item ones, so a title
+    /// was the one place a reader could quietly make the same list twice.
+    /// </summary>
+    [Fact]
+    public async Task Titles_already_in_use_are_offered_under_the_title()
+    {
+        using var context = new ScreenContext();
+        context.SuggestionsServer.Names.Add(new NameSuggestionDto("Groceries, weekly", 0.4));
+        var screen = context.OpenTaskList("Untitled");
+
+        screen.Title = "Groc";
+
+        await WaitUntil(() => screen.TitleSuggestions.Names.Count > 0);
+        Assert.Equal(["Groceries, weekly"], screen.TitleSuggestions.Names);
+        Assert.Equal(nameof(NameSuggestionKind.TaskListTitle), context.SuggestionsServer.LastKind);
+    }
+
+    /// <summary>
+    /// Two fields, two strips: the title and the box an errand is written in are on screen together, so
+    /// one shared set of names would put a title under the wrong box.
+    /// </summary>
+    [Fact]
+    public async Task Typing_a_title_leaves_the_entry_box_below_it_alone()
+    {
+        using var context = new ScreenContext();
+        context.SuggestionsServer.Names.Add(new NameSuggestionDto("Groceries, weekly", 0.4));
+        var screen = context.OpenTaskList("Untitled");
+
+        screen.Title = "Groc";
+
+        await WaitUntil(() => screen.TitleSuggestions.Names.Count > 0);
+        Assert.Empty(screen.Suggestions.Names);
+    }
+
+    /// <summary>Opening a list must not warn that its own title duplicates itself - see NameSuggestions.StartsAt.</summary>
+    [Fact]
+    public async Task Opening_a_list_does_not_call_its_own_title_a_duplicate()
+    {
+        using var context = new ScreenContext();
+        context.SuggestionsServer.Names.Add(new NameSuggestionDto("Groceries", 0.9));
+
+        var screen = context.OpenTaskList("Groceries");
+
+        await Task.Delay(SettleTime);
+        Assert.Empty(screen.TitleSuggestions.Names);
+        Assert.Equal(string.Empty, screen.TitleSuggestions.DuplicateWarning);
+    }
+
+    /// <summary>Comfortably past the 150ms the lookup waits for the typing to stop.</summary>
+    private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(600);
+
+    private static async Task WaitUntil(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 40 && !condition(); attempt++)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.True(condition(), "The suggestions never arrived.");
     }
 
     [Fact]
@@ -1037,7 +1101,8 @@ public sealed class TaskListDetailScreenTests
                 _taskLists, Synchronizer, new Translations(new InMemoryLanguageStore()), _clock,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
                 new TasksClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), FixedNetworkStatus.Online,
-                StockCheck, CalendarEvents, PlacePicker, _privateContent, Suggestions.Offering(SuggestionsServer));
+                StockCheck, CalendarEvents, PlacePicker, _privateContent,
+                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer));
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;

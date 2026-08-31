@@ -17,7 +17,8 @@
 
         <!-- The list's own name, and the things it can do that are not "tick something off" - the two
              Orbit.Web keeps in its overflow menu. -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="4">
+        <VerticalStackLayout Grid.Row="0" Spacing="6">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
             <Entry Grid.Column="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold"
                    IsReadOnly="{Binding IsReadOnly}" Placeholder="{controls:Translate 'Untitled'}"
                    ReturnType="Done" ReturnCommand="{Binding SaveListCommand}" />
@@ -26,6 +27,11 @@
                     TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowListMenuCommand, x:DataType=tasks:TaskListDetailPage}" />
         </Grid>
+
+            <!-- Titles already in use, offered as this one is typed - its own strip, because the box
+                 below is a different field and is on screen at the same time. -->
+            <controls:NameSuggestionChips BindingContext="{Binding TitleSuggestions}" />
+        </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"

@@ -38,6 +38,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly INetworkStatus _networkStatus;
     private readonly PrivateContentSealer _privateContent;
     private readonly NameSuggestions _nameSuggestions;
+    private readonly NameSuggestions _titleSuggestions;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
@@ -82,7 +83,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
         TasksClient tasksClient, EditLock editLock, INetworkStatus networkStatus, StockCheckPanel stockCheck,
         LocalCalendarEventRepository calendarEvents, IPlacePicker placePicker,
-        PrivateContentSealer privateContent, NameSuggestions nameSuggestions)
+        PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
+        NameSuggestions titleSuggestions)
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
@@ -98,6 +100,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _networkStatus = networkStatus;
         _privateContent = privateContent;
         _nameSuggestions = nameSuggestions;
+        _titleSuggestions = titleSuggestions;
+        _titleSuggestions.Offers(NameSuggestionKind.TaskListTitle);
+        _titleSuggestions.Takes = title => Title = title;
         OfferNamesToTheQuickAddBox();
         StockCheck = stockCheck;
         // Generating a warehouse or pointing at a different one changes the list itself, so the screen
@@ -521,6 +526,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         Title = taskList.Title;
+        // Taken as already looked up, so opening a list does not offer completions of its own title and
+        // warn that it duplicates itself - see NameSuggestions.StartsAt.
+        _titleSuggestions.StartsAt(taskList.Title);
         _serverId = taskList.ServerId;
         // A private list is offered to nobody: the server holds no readable copy to hand over, which is
         // what makes it private - the same line Orbit.Web's editor draws.
@@ -605,6 +613,13 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <inheritdoc cref="Inventory.WarehouseDetailViewModel.Suggestions"/>
     public NameSuggestions Suggestions => _nameSuggestions;
 
+    /// <summary>
+    /// Titles this account already has, offered under the title field. Its own instance rather than the
+    /// one above: both fields are on screen at once here, and one instance serves one field - see
+    /// NameSuggestions.Takes. Orbit.Web arrives at the same place by putting one component per field.
+    /// </summary>
+    public NameSuggestions TitleSuggestions => _titleSuggestions;
+
     private void OfferNamesToTheQuickAddBox()
     {
         _nameSuggestions.Forget();
@@ -676,6 +691,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         AddItemCommand.NotifyCanExecuteChanged();
         Suggestions.ShowFor(value);
     }
+
+    partial void OnTitleChanged(string value) => TitleSuggestions.ShowFor(value);
 
     /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
     [ObservableProperty]

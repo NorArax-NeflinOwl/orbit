@@ -9,6 +9,8 @@ using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
+using Orbit.Contracts.Suggestions;
+using Orbit.Core.Suggestions;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 using Orbit.Mobile.Chat;
@@ -35,6 +37,54 @@ public sealed class WarehouseDetailScreenTests
         Assert.Contains("Bag", row.Detail);
         Assert.Contains("Kitchen", row.Detail);
         Assert.Contains("5", row.Detail);
+    }
+
+    /// <summary>
+    /// Orbit.Web offers names under all four fields; the phone only had the two item ones, so the
+    /// warehouse's own name was a place a reader could quietly make the same storage twice.
+    /// </summary>
+    [Fact]
+    public async Task Warehouse_names_already_in_use_are_offered_under_the_name()
+    {
+        using var context = new ScreenContext();
+        context.SuggestionsServer.Names.Add(new NameSuggestionDto("Kitchen, upstairs", 0.4));
+        var warehouse = await context.AddWarehouseAsync();
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.Name = "Kitc";
+
+        await WaitUntil(() => screen.WarehouseNameSuggestions.Names.Count > 0);
+        Assert.Equal(["Kitchen, upstairs"], screen.WarehouseNameSuggestions.Names);
+        Assert.Equal(nameof(NameSuggestionKind.WarehouseName), context.SuggestionsServer.LastKind);
+        Assert.Empty(screen.Suggestions.Names);
+    }
+
+    /// <summary>Opening a warehouse must not warn that its own name duplicates itself.</summary>
+    [Fact]
+    public async Task Opening_a_warehouse_does_not_call_its_own_name_a_duplicate()
+    {
+        using var context = new ScreenContext();
+        context.SuggestionsServer.Names.Add(new NameSuggestionDto("Kitchen", 0.9));
+        var warehouse = await context.AddWarehouseAsync();
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        await Task.Delay(SettleTime);
+        Assert.Empty(screen.WarehouseNameSuggestions.Names);
+        Assert.Equal(string.Empty, screen.WarehouseNameSuggestions.DuplicateWarning);
+    }
+
+    /// <summary>Comfortably past the 150ms the lookup waits for the typing to stop.</summary>
+    private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(600);
+
+    private static async Task WaitUntil(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 40 && !condition(); attempt++)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.True(condition(), "The suggestions never arrived.");
     }
 
     /// <summary>The whole reason to set a minimum, and the same test Orbit.Web's editor makes.</summary>
@@ -655,7 +705,7 @@ public sealed class WarehouseDetailScreenTests
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
                 Navigator,
                 new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), _privateContent,
-                Suggestions.Offering(SuggestionsServer));
+                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);
