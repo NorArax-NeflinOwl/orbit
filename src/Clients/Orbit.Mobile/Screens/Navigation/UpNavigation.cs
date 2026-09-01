@@ -21,6 +21,7 @@ public sealed class UpNavigation
     private static readonly IReadOnlyDictionary<Screen, Screen> Parents = new Dictionary<Screen, Screen>
     {
         [Screen.Register] = Screen.SignIn,
+        [Screen.PasswordReset] = Screen.SignIn,
         [Screen.Notes] = Screen.Dashboard,
         [Screen.Tasks] = Screen.Dashboard,
         [Screen.Note] = Screen.Notes,

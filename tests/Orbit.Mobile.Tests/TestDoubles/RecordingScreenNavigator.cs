@@ -33,6 +33,8 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowRegister() => _destinations.Add(nameof(ShowRegister));
 
+    public void ShowPasswordReset() => _destinations.Add(nameof(ShowPasswordReset));
+
     public void ShowAccount() => _destinations.Add(nameof(ShowAccount));
 
     public void ShowChatKeyGate() => _destinations.Add(nameof(ShowChatKeyGate));

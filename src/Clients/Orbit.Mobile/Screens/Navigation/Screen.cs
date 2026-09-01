@@ -13,6 +13,9 @@ public enum Screen
     Startup,
     SignIn,
     Register,
+
+    /// <summary>Getting back in without the password - see PasswordResetViewModel.</summary>
+    PasswordReset,
     Dashboard,
     Notes,
     Note,

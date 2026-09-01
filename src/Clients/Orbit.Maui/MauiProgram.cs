@@ -315,6 +315,8 @@ public static class MauiProgram
 		services.AddTransient<SignInViewModel>();
 		services.AddTransient<RegisterPage>();
 		services.AddTransient<RegisterViewModel>();
+		services.AddTransient<PasswordResetPage>();
+		services.AddTransient<PasswordResetViewModel>();
 		services.AddTransient<AccountPage>();
 		services.AddTransient<AccountViewModel>();
 		services.AddTransient<ChatKeyGatePage>();

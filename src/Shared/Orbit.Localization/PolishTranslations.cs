@@ -326,6 +326,21 @@ public static class PolishTranslations
         ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
         // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
         ["Dismiss"] = "Odrzuć",
+        // ---- Getting back in without the password - see PasswordResetViewModel. ----
+        ["Forgotten your password?"] = "Nie pamiętasz hasła?",
+        ["Forgotten password"] = "Nie pamiętam hasła",
+        ["Enter the account, and Orbit emails a code to the address it was registered with."] =
+            "Podaj konto, a Orbit wyśle kod na adres, na który zostało założone.",
+        ["Getting back into an account needs a connection to Orbit."] =
+            "Odzyskanie konta wymaga połączenia z Orbitem.",
+        ["Send a code"] = "Wyślij kod",
+        ["A new password starts your chat over: messages sealed with the old one stay unreadable, because Orbit never had their key."] =
+            "Nowe hasło zaczyna czat od nowa: wiadomości zapieczętowane starym pozostaną nie do odczytania, bo Orbit nigdy nie miał do nich klucza.",
+        ["Set the new password"] = "Ustaw nowe hasło",
+        ["Back to signing in"] = "Wróć do logowania",
+        ["If that account exists, a code is on its way to the address it was registered with."] =
+            "Jeśli takie konto istnieje, kod jest już w drodze na adres, na który je założono.",
+        ["Password changed. Sign in with the new one."] = "Hasło zmienione. Zaloguj się nowym.",
         // ---- The notification settings the phone obeys and could not set - see NotificationSettingsViewModel. ----
         ["Banner while Orbit is open"] = "Baner, gdy Orbit jest otwarty",
         ["Shows what arrived at the top of the screen instead of only in the tray."] =

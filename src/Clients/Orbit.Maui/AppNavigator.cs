@@ -52,6 +52,8 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowRegister() => ShowAsRoot<RegisterPage>(Screen.Register);
 
+	public void ShowPasswordReset() => ShowAsRoot<PasswordResetPage>(Screen.PasswordReset);
+
 	public void ShowAccount() => ShowAsRoot<AccountPage>(Screen.Account);
 
 	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>(Screen.ChatKeyGate);

@@ -26,6 +26,18 @@ Google) shows "too many attempts, wait a minute" rather than the generic "an err
 it used to — which was both wrong and the worst possible advice, since trying again is what keeps the
 window shut.
 
+**Forgetting the password.** `POST /api/auth/password-reset` (`emailOrUserName`) emails a code to the
+address the account was registered with, and `POST /api/auth/password-reset/confirm`
+(`emailOrUserName`, `code`, `newPassword`) sets the new one. The phone offers this from its sign-in
+screen — "Forgotten your password?" — as a screen of its own: ask for a code, then type the new
+password twice, since there is nothing to check it against and a typo would lock the account a second
+time with the code already spent. Whatever the account turns out to be, the answer is the same
+conditional sentence: the request must not become a way of testing whether somebody has an Orbit
+account. Nothing is signed in afterwards, because the chat key is wrapped with the password that is
+gone — what replaces it is decided at the chat key gate, with the warning that messages sealed under
+the old password stay unreadable. **Orbit.Web still reaches the same flow only from its chat password
+gate, which is behind signing in**; giving `Login.razor` the same entry point is outstanding.
+
 `token` is a short-lived JWT (15 minutes by default, `Jwt:ExpiryMinutes`). `refreshToken` is a
 long-lived (30 days), single-use, opaque value: `POST /api/auth/refresh` (`refreshToken`) exchanges it
 for a new `{ token, refreshToken, ... }` pair and revokes the one that was redeemed, so a leaked refresh

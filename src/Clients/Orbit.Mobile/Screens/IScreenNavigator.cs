@@ -16,6 +16,12 @@ public interface IScreenNavigator
 
     void ShowRegister();
 
+    /// <summary>
+    /// Asking for a code and setting a new password, for somebody who cannot get past the sign-in
+    /// screen - see PasswordResetViewModel.
+    /// </summary>
+    void ShowPasswordReset();
+
     void ShowAccount();
 
     void ShowChatKeyGate();

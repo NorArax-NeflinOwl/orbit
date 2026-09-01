@@ -56,18 +56,23 @@ public sealed class OrbitTodayWidget : AppWidgetProvider
         context.SendBroadcast(refresh);
     }
 
-    public override void OnUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds)
-        => Draw(context, appWidgetIds);
+    public override void OnUpdate(Context? context, AppWidgetManager? appWidgetManager, int[]? appWidgetIds)
+    {
+        if (context is not null && appWidgetIds is not null)
+        {
+            Draw(context, appWidgetIds);
+        }
+    }
 
     /// <summary>
     /// Orbit's own refresh, which names no widget - it is asked for when something changed, not about a
     /// particular card - so it redraws all of them.
     /// </summary>
-    public override void OnReceive(Context context, Intent? intent)
+    public override void OnReceive(Context? context, Intent? intent)
     {
         base.OnReceive(context, intent);
 
-        if (intent?.Action == RefreshAction)
+        if (context is not null && intent?.Action == RefreshAction)
         {
             Draw(context, Placed(context));
         }
@@ -111,7 +116,9 @@ public sealed class OrbitTodayWidget : AppWidgetProvider
             }
             finally
             {
-                pending.Finish();
+                // Told the broadcast is over. Without it Android holds the process alive until it times
+                // the receiver out, which it then reports as a stall.
+                pending?.Finish();
             }
         });
     }

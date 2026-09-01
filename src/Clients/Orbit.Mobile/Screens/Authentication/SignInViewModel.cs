@@ -137,5 +137,12 @@ public sealed partial class SignInViewModel : ObservableObject
     [RelayCommand]
     private void GoToRegister() => _navigator.ShowRegister();
 
+    /// <summary>
+    /// For somebody who cannot get past this screen at all - see PasswordResetViewModel. Until it was
+    /// offered here, the reset flow existed but was reachable only from behind signing in.
+    /// </summary>
+    [RelayCommand]
+    private void GoToPasswordReset() => _navigator.ShowPasswordReset();
+
     partial void OnErrorMessageChanged(string value) => OnPropertyChanged(nameof(HasError));
 }
