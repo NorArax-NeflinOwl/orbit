@@ -4363,3 +4363,38 @@ input.note-editor-title {
 .icon-btn.page-action-primary:disabled {
     color: var(--text-muted);
 }
+
+/* Two task lists to a row, and one on a narrow screen. Wider than the single column a page of notes
+   wants, because a task card carries its items underneath and two of those side by side still read -
+   but not the three-or-more a free-flowing grid would give on a wide monitor, where a card becomes a
+   column too narrow for the lines inside it. */
+.task-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .task-card-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* The checklist row is no longer a <label>, so its text needs to look and behave like the control it
+   now is: the way into the entry, beside the checkbox that ticks it off. */
+.check-row-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.check-row-text:hover {
+    text-decoration: underline;
+}

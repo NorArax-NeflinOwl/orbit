@@ -234,10 +234,12 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
+        // The name opens the checklist; the menu is where the rest of a card's actions live. Two
+        // ways in, and neither of them a button repeating what the heading already does.
+        Assert.Single(cut.FindAll(".item-card-name"));
+
         OpenTheCardMenu(cut);
-        var actions = cut.Find(".item-card-menu").TextContent;
-        Assert.Contains("Open checklist", actions);
-        Assert.Contains("Edit", actions);
+        Assert.Contains("Edit", cut.Find(".item-card-menu").TextContent);
     }
 
     [Fact]
@@ -248,8 +250,7 @@ public sealed class TasksTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        OpenTheCardMenu(cut);
-        cut.FindAll(".item-card-menu button").First(button => button.TextContent.Contains("Open checklist")).Click();
+        cut.Find(".item-card-name").Click();
 
         // "/tasks/{id}" is the shallow level, wherever somebody arrives from; the deep editor lives one
         // named click further on, so nothing lands there by default.
@@ -301,8 +302,8 @@ public sealed class TasksTests : OrbitTestContext
 
         cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Shared")).Click();
 
-        Assert.Contains("From Bob", cut.Find(".card-grid").InnerHtml);
-        Assert.DoesNotContain("Kitchen", cut.Find(".card-grid").InnerHtml);
+        Assert.Contains("From Bob", cut.Find(".task-card-grid").InnerHtml);
+        Assert.DoesNotContain("Kitchen", cut.Find(".task-card-grid").InnerHtml);
     }
 
     [Fact]
@@ -332,10 +333,10 @@ public sealed class TasksTests : OrbitTestContext
         // One row, and the one worth having: what is still to be done. The heading and the buttons stay.
         var row = Assert.Single(cut.FindAll(".task-preview-row"));
         Assert.Contains("Fit worktop", row.TextContent);
-        Assert.DoesNotContain("Tile", cut.Find(".card-grid").InnerHtml);
+        Assert.DoesNotContain("Tile", cut.Find(".task-card-grid").InnerHtml);
         Assert.Contains("Kitchen", cut.Find(".item-card-name").TextContent);
         OpenTheCardMenu(cut);
-        Assert.Contains("Open checklist", cut.Find(".item-card-menu").TextContent);
+        Assert.Contains("Edit", cut.Find(".item-card-menu").TextContent);
     }
 
     [Fact]
@@ -410,7 +411,7 @@ public sealed class TasksTests : OrbitTestContext
         cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Overdue")).Click();
 
         Assert.Contains("Kitchen", cut.Markup);
-        Assert.DoesNotContain("Garden", cut.Find(".card-grid").InnerHtml);
+        Assert.DoesNotContain("Garden", cut.Find(".task-card-grid").InnerHtml);
     }
 
     [Fact]

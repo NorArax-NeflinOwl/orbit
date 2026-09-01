@@ -16,12 +16,17 @@
 <PageTitle>@T["Orbit — Tasks"]</PageTitle>
 
 <div class="page-header">
-    <div>
+    @* The one thing this page is for, left of what the page is called - the same plus every list
+       carries, in the same place. *@
+    <div class="page-heading">
+        <button type="button" class="icon-btn page-add" title="@(T["Add task list"])"
+                aria-label="@(T["Add task list"])" @onclick="GoToAddTaskList">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
         <h1>@T["Tasks"]</h1>
-        <p class="page-subtitle">@T["Every list you own or someone shared with you."]</p>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn-primary" @onclick="GoToAddTaskList">@T["Add task list"]</button>
         @* The order these cards come in is something a reader sets once and then reads by, so it lives
            behind the menu rather than in a control taking up the top of every visit. Stays open while
            they try one order and then another - see OverflowMenu.StaysOpen. *@
@@ -83,7 +88,7 @@ else
         <p class="empty-hint">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
     }
 
-    <div class="card-grid">
+    <div class="task-card-grid">
         @foreach (var taskList in VisibleTaskLists)
         {
             <div @key="taskList.Id" class="@(_cardOrder.IsDragging(taskList) ? "dragging" : "")"
@@ -115,7 +120,6 @@ else
                     </Pin>
                     <Menu>
                         <OverflowMenu>
-                            <button type="button" class="avatar-dropdown-item" @onclick="() => GoToChecklist(taskList.Id)">@T["Open checklist"]</button>
                             <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
                             <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
                         </OverflowMenu>
