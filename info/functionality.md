@@ -1687,9 +1687,15 @@ in a rare case.
 
 | | Announced | Still only found by the slow poll |
 |---|---|---|
-| Chat | a message sent, a group message, a read receipt, a conversation approved | an edit or deletion, a group somebody added you to |
-| Notifications | anything recorded in the feed, from any trigger | one cleared or read on another device |
+| Chat | a message sent or edited or deleted, in a conversation or a group; a read receipt; a conversation approved; a group made, joined, left, or a role changed in one; history shared with a new member | nothing that changes what is on screen |
+| Notifications | anything recorded in the feed, from any trigger; and anything read or cleared, so this account's other devices hear it | a change to the notification settings themselves |
 | Presence | somebody arriving, somebody choosing "do not disturb" | somebody ageing to away or offline |
+
+Who each one goes to is the part worth stating, because getting it wrong is invisible: an announcement
+sent to the wrong account raises nothing anywhere, and the client that needed it simply falls back to
+its slow poll. Two are easy to get backwards. A **read receipt** is the *other* party's news - the
+reader already knows they read it. A **removal from a group** goes to the person removed as well as to
+the people left, because otherwise the group stays in their list and they will write to it.
 
 Presence keeps its old rule exactly: the beat stops while the tab is in the background, because a tab
 left open behind thirty others is not somebody there to answer. The connection staying open does **not**

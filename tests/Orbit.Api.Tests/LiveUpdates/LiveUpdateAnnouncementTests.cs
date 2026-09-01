@@ -1,9 +1,14 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Chat.DeleteMessage;
+using Orbit.Core.Chat.EditMessage;
+using Orbit.Core.Chat.Groups.CreateChatGroup;
+using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.Groups;
 using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
 using Orbit.Core.Chat.MarkConversationAsRead;
+using Orbit.Core.Notifications.ClearNotifications;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Xunit;
@@ -159,5 +164,109 @@ public sealed class LiveUpdateAnnouncementTests
         await contacts.EnsureContactAsync(user.Id, contactUserId, DateTimeOffset.UtcNow, CancellationToken.None);
 
         return (users, contacts, contactUserId);
+    }
+
+    /// <summary>An edit is the recipient's news - they are reading words that just changed under them.</summary>
+    [Fact]
+    public async Task Editing_a_message_tells_both_sides()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var senderId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var messages = new InMemoryChatMessageRepository();
+        var message = ChatMessage.Create(senderId, recipientId, "ciphertext", "nonce");
+        await messages.AddAsync(message, CancellationToken.None);
+        var handler = new EditMessageCommandHandler(messages, announcements);
+
+        await handler.HandleAsync(
+            new EditMessageCommand(message.Id, senderId, "reworded", "nonce"), CancellationToken.None);
+
+        Assert.Equal([recipientId, senderId], announcements.ChatToldAbout);
+    }
+
+    /// <summary>
+    /// And so is a deletion. A message that vanishes with nobody told stays on the other person's
+    /// screen until their slow poll - and they will answer something that is no longer there.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_a_message_tells_both_sides()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var senderId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var messages = new InMemoryChatMessageRepository();
+        var message = ChatMessage.Create(senderId, recipientId, "ciphertext", "nonce");
+        await messages.AddAsync(message, CancellationToken.None);
+        var handler = new DeleteChatMessageCommandHandler(
+            messages, new InMemoryChatGroupRepository(), announcements);
+
+        await handler.HandleAsync(new DeleteChatMessageCommand(senderId, message.Id), CancellationToken.None);
+
+        Assert.Equal([recipientId, senderId], announcements.ChatToldAbout);
+    }
+
+    /// <summary>
+    /// The person removed is told as well as the people left. Their conversation list still shows the
+    /// group otherwise, and a group somebody has been removed from is one they will try to write to.
+    /// </summary>
+    [Fact]
+    public async Task Removing_somebody_tells_them_as_well_as_the_group()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var adminId = Guid.NewGuid();
+        var removedId = Guid.NewGuid();
+        var stayingId = Guid.NewGuid();
+        var group = ChatGroup.Create(adminId, "Weekend trip");
+        group.AddMember(adminId, removedId);
+        group.AddMember(adminId, stayingId);
+        var groups = new InMemoryChatGroupRepository();
+        await groups.AddAsync(group, CancellationToken.None);
+        var handler = new RemoveChatGroupMemberCommandHandler(groups, announcements);
+
+        await handler.HandleAsync(
+            new RemoveChatGroupMemberCommand(adminId, group.Id, removedId), CancellationToken.None);
+
+        Assert.Contains(removedId, announcements.ChatToldAbout);
+        Assert.Contains(stayingId, announcements.ChatToldAbout);
+        Assert.Contains(adminId, announcements.ChatToldAbout);
+    }
+
+    /// <summary>
+    /// A group appears in everybody's list at once and nobody but its creator asked for it, so the
+    /// rest have no reason to be looking.
+    /// </summary>
+    [Fact]
+    public async Task Making_a_group_tells_everybody_put_in_it()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var creatorId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var contacts = new InMemoryContactRepository();
+        await contacts.EnsureContactAsync(creatorId, memberId, DateTimeOffset.UtcNow, CancellationToken.None);
+        var handler = new CreateChatGroupCommandHandler(
+            new InMemoryChatGroupRepository(), contacts, announcements);
+
+        await handler.HandleAsync(
+            new CreateChatGroupCommand(creatorId, "Weekend trip", [memberId]), CancellationToken.None);
+
+        Assert.Contains(creatorId, announcements.ChatToldAbout);
+        Assert.Contains(memberId, announcements.ChatToldAbout);
+    }
+
+    /// <summary>
+    /// Clearing the panel is the reader's own doing, so the news is for their other devices - a badge
+    /// cleared on a phone should not stay lit on the laptop.
+    /// </summary>
+    [Fact]
+    public async Task Clearing_the_panel_tells_this_accounts_other_devices()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var userId = Guid.NewGuid();
+        var handler = new ClearNotificationsCommandHandler(
+            new InMemoryNotificationEntryRepository(), announcements);
+
+        await handler.HandleAsync(new ClearNotificationsCommand(userId), CancellationToken.None);
+
+        Assert.Equal([userId], announcements.NotificationsToldAbout);
     }
 }

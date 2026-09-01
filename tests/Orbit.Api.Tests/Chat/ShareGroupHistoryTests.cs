@@ -244,7 +244,8 @@ public sealed class ShareGroupHistoryTests
                     new NotificationRecorder(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository(), new SilentLiveUpdatePublisher()),
                     new PushNotificationDispatcher(
                         new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
-                        NullLogger<PushNotificationDispatcher>.Instance))
+                        NullLogger<PushNotificationDispatcher>.Instance),
+                    new SilentLiveUpdatePublisher())
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
 
         /// <summary>
@@ -258,7 +259,7 @@ public sealed class ShareGroupHistoryTests
                 .Select(message => message.GroupMessageId!.Value)
                 .ToList();
 
-            return await new ShareGroupHistoryCommandHandler(GroupRepository, MessageRepository, AnnouncementRepository)
+            return await new ShareGroupHistoryCommandHandler(GroupRepository, MessageRepository, AnnouncementRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(
                     new ShareGroupHistoryCommand(
                         actorId, GroupId, recipientId,

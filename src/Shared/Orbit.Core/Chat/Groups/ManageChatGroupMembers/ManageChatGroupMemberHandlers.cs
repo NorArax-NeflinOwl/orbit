@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Users;
 
@@ -18,12 +19,15 @@ public sealed class AddChatGroupMemberCommandHandler : IRequestHandler<AddChatGr
     private readonly IUserRepository _userRepository;
     private readonly NotificationRecorder _notificationRecorder;
     private readonly PushNotificationDispatcher _pushNotificationDispatcher;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
     public AddChatGroupMemberCommandHandler(
         IChatGroupRepository chatGroupRepository, IChatGroupAnnouncementRepository chatGroupAnnouncementRepository,
         IContactRepository contactRepository, IUserRepository userRepository,
-        NotificationRecorder notificationRecorder, PushNotificationDispatcher pushNotificationDispatcher)
+        NotificationRecorder notificationRecorder, PushNotificationDispatcher pushNotificationDispatcher,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
+        _liveUpdatePublisher = liveUpdatePublisher;
         _chatGroupRepository = chatGroupRepository;
         _chatGroupAnnouncementRepository = chatGroupAnnouncementRepository;
         _contactRepository = contactRepository;
@@ -65,6 +69,11 @@ public sealed class AddChatGroupMemberCommandHandler : IRequestHandler<AddChatGr
             ChatGroupAnnouncement.MemberJoined(group.Id, request.UserId, request.ActorUserId), cancellationToken);
 
         await NotifyAddedMemberAsync(request, group, cancellationToken);
+
+        // Everyone in it now, the newcomer included: their conversation list has gained a group, and
+        // everybody else's has gained a reader and a line saying so.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. group.Members.Select(member => member.UserId)], cancellationToken);
         return true;
     }
 
@@ -98,10 +107,13 @@ public sealed class AddChatGroupMemberCommandHandler : IRequestHandler<AddChatGr
 public sealed class RemoveChatGroupMemberCommandHandler : IRequestHandler<RemoveChatGroupMemberCommand, bool>
 {
     private readonly IChatGroupRepository _chatGroupRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public RemoveChatGroupMemberCommandHandler(IChatGroupRepository chatGroupRepository)
+    public RemoveChatGroupMemberCommandHandler(
+        IChatGroupRepository chatGroupRepository, ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatGroupRepository = chatGroupRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<bool> HandleAsync(RemoveChatGroupMemberCommand request, CancellationToken cancellationToken)
@@ -114,15 +126,21 @@ public sealed class RemoveChatGroupMemberCommandHandler : IRequestHandler<Remove
 
         group.RemoveMember(request.ActorUserId, request.UserId);
 
+        // Told to whoever is left *and* to the person removed: their list has lost a group, and a group
+        // that silently stays on screen is one they will try to write to.
+        var toTell = group.Members.Select(member => member.UserId).Append(request.UserId).Distinct().ToList();
+
         // The last person out empties the group, and an empty group is not something to keep - the same
         // tidy-up DeleteAccountCommandHandler does after RemoveDeletedAccount, for the same reason.
         if (group.IsEmpty)
         {
             await _chatGroupRepository.DeleteAsync(group.Id, cancellationToken);
+            await _liveUpdatePublisher.ChatChangedAsync(toTell, cancellationToken);
             return true;
         }
 
         await _chatGroupRepository.UpdateAsync(group, cancellationToken);
+        await _liveUpdatePublisher.ChatChangedAsync(toTell, cancellationToken);
         return true;
     }
 }
@@ -130,10 +148,13 @@ public sealed class RemoveChatGroupMemberCommandHandler : IRequestHandler<Remove
 public sealed class ChangeChatGroupMemberRoleCommandHandler : IRequestHandler<ChangeChatGroupMemberRoleCommand, bool>
 {
     private readonly IChatGroupRepository _chatGroupRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public ChangeChatGroupMemberRoleCommandHandler(IChatGroupRepository chatGroupRepository)
+    public ChangeChatGroupMemberRoleCommandHandler(
+        IChatGroupRepository chatGroupRepository, ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatGroupRepository = chatGroupRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<bool> HandleAsync(ChangeChatGroupMemberRoleCommand request, CancellationToken cancellationToken)
@@ -146,6 +167,11 @@ public sealed class ChangeChatGroupMemberRoleCommandHandler : IRequestHandler<Ch
 
         group.ChangeRole(request.ActorUserId, request.UserId, request.Role);
         await _chatGroupRepository.UpdateAsync(group, cancellationToken);
+
+        // What somebody may do in the group just changed, and the buttons offered to them are drawn
+        // from it - so the person it happened to most of all.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. group.Members.Select(member => member.UserId)], cancellationToken);
         return true;
     }
 }

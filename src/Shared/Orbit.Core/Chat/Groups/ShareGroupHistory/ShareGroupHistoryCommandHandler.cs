@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.Groups.ShareGroupHistory;
 
@@ -12,14 +13,17 @@ public sealed class ShareGroupHistoryCommandHandler : IRequestHandler<ShareGroup
     private readonly IChatGroupRepository _chatGroupRepository;
     private readonly IChatMessageRepository _chatMessageRepository;
     private readonly IChatGroupAnnouncementRepository _chatGroupAnnouncementRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
     public ShareGroupHistoryCommandHandler(
         IChatGroupRepository chatGroupRepository, IChatMessageRepository chatMessageRepository,
-        IChatGroupAnnouncementRepository chatGroupAnnouncementRepository)
+        IChatGroupAnnouncementRepository chatGroupAnnouncementRepository,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatGroupRepository = chatGroupRepository;
         _chatMessageRepository = chatMessageRepository;
         _chatGroupAnnouncementRepository = chatGroupAnnouncementRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<int> HandleAsync(ShareGroupHistoryCommand request, CancellationToken cancellationToken)
@@ -54,6 +58,12 @@ public sealed class ShareGroupHistoryCommandHandler : IRequestHandler<ShareGroup
         }
 
         await AnnounceHistorySharedAsync(request, cancellationToken);
+
+        // The recipient above all - a conversation that was empty a moment ago now has its history in
+        // it - and the rest of the group, whose thread has gained a line saying it was shared.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. group.Members.Select(member => member.UserId).Append(request.RecipientUserId).Distinct()],
+            cancellationToken);
         return written;
     }
 
