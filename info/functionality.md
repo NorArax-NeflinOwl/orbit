@@ -891,6 +891,16 @@ All of it lives behind the screen's three-dot menu, along with Edit and the two 
 none of it is what somebody came to this screen to do. The menu stays open while the settings are being
 tried and closes behind the entries that act.
 
+**The phone offers the same three orders**, behind the list's own three-dot menu, with the one in force
+marked - a menu of three with no answer among them leaves the reader guessing what they are looking at.
+The menu is offered on every list, not only on the ones priced against a shelf: a single long list is
+exactly where reading it off alphabetically helps. Moving an entry up or down disappears from its menu
+while the list is read in any other order, since "up" would move it in an arrangement nobody can see.
+The order is kept per list on the device (`ChecklistReading`, the phone's preferences, the same category
+as the dashboard's pins) and never reaches what is saved: what goes back to the server is always the list
+as it was arranged. Flattening a tree is still the browser's alone - see
+[the follow-ups](future-plan.md#smaller-identified-follow-ups).
+
 ### Arranging a list by hand
 
 In the deep editor each item carries a drag handle, and dropping one where another sits puts it there.
@@ -924,6 +934,11 @@ names already waiting are left alone. The panel carries a menu of its own: wheth
 all, and what order it lists things in - its own order, A to Z, Z to A, or shortfalls first, which is
 the only part of the table anybody has to act on. Both are remembered as they are set rather than
 waiting for "Save view", since a panel somebody puts away every visit has already been answered about.
+
+**The phone folds the same panel and offers the same four orders**: its heading and its chevron both put
+it away, and its own menu holds the orders. The warehouse it is measured against stays at the card's foot
+rather than inside the fold - it is how the panel gets linked in the first place, so unreachable while
+folded would mean unreachable before it has anything to fold.
 
 `POST /api/tasks/{id}/stock-check/reconciliation` is the other half, and what "recalculate against the
 inventory" does. It runs in both directions. What the warehouse already covers is crossed off - counted
