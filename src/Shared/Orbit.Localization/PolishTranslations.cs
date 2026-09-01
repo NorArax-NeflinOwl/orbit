@@ -680,7 +680,6 @@ public static class PolishTranslations
         ["Remove location"] = "Usuń miejsce",
         ["Pick a point on the map to set an address"] = "Wskaż punkt na mapie, aby ustawić adres",
         ["Show tasks in year view"] = "Pokaż zadania w widoku roku",
-        ["Notification when the event is created"] = "Powiadomienie przy utworzeniu wydarzenia",
         ["Notification as the event approaches"] = "Powiadomienie przed wydarzeniem",
         ["This event was shared by"] = "To wydarzenie udostępnił",
         ["Checklist item"] = "Pozycja listy",
