@@ -288,6 +288,17 @@ public sealed class UsersApiClient
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// Refuses what somebody is sharing with this account - the other end of
+    /// <see cref="StopSharingLocationAsync"/>, and the same row. Nothing stops them starting again; this
+    /// is not a block, it is a refusal of what is on the map now.
+    /// </summary>
+    public async Task StopReceivingLocationAsync(Guid sharerUserId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/users/me/location/shared-with-me/{sharerUserId}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     /// <summary>Ends sharing with everyone at once.</summary>
     public async Task StopSharingLocationWithEveryoneAsync(CancellationToken cancellationToken = default)
     {

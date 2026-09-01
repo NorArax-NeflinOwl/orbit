@@ -10,6 +10,7 @@ using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
+using Orbit.Core.Location.StopReceivingLocation;
 using Orbit.Core.Location.StopSharingLocation;
 using Orbit.Core.Location.ShareLocation;
 using Orbit.Core.Location;
@@ -140,6 +141,17 @@ public static class UserEndpoints
         locationSharing.MapDelete("/shares", async (ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             await dispatcher.SendAsync(new StopSharingLocationCommand(GetUserId(user), RecipientUserId: null), cancellationToken);
+            return Results.NoContent();
+        });
+
+        // The same row, ended from the other side. A share is an arrangement between two people, and
+        // only the sharer could end it - which left a recipient with somebody's live position on their
+        // map and nothing to do about it but ask. Deletes rather than hides: the position is gone.
+        locationSharing.MapDelete("/shared-with-me/{sharerUserId:guid}", async (
+            Guid sharerUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            await dispatcher.SendAsync(
+                new StopReceivingLocationCommand(GetUserId(user), sharerUserId), cancellationToken);
             return Results.NoContent();
         });
 

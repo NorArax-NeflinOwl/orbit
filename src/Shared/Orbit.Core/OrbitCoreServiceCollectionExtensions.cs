@@ -120,6 +120,7 @@ using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
+using Orbit.Core.Location.StopReceivingLocation;
 using Orbit.Core.Location.StopSharingLocation;
 using Orbit.Core.Location.ShareLocation;
 using Orbit.Core.Location;
@@ -259,6 +260,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // Sharing a position with one contact, encrypted for them - see SharedLocation.
         services.AddScoped<IRequestHandler<ShareLocationCommand, bool>, ShareLocationCommandHandler>();
         services.AddScoped<IRequestHandler<StopSharingLocationCommand, bool>, StopSharingLocationCommandHandler>();
+        services.AddScoped<IRequestHandler<StopReceivingLocationCommand, bool>, StopReceivingLocationCommandHandler>();
         services.AddScoped<IRequestHandler<GetSharedLocationsQuery, IReadOnlyList<SharedLocation>>, GetSharedLocationsQueryHandler>();
         services.AddScoped<IRequestHandler<GetOwnLocationSharesQuery, IReadOnlyList<SharedLocation>>, GetOwnLocationSharesQueryHandler>();
 

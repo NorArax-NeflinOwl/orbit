@@ -155,10 +155,6 @@ public static class PolishTranslations
         ["Could not leave that group. Check your connection and try again."] = "Nie udało się opuścić grupy. Sprawdź połączenie i spróbuj ponownie.",
         ["Private note"] = "Notatka prywatna",
         ["Something happened here"] = "Coś się tu wydarzyło",
-        ["Plan something here"] = "Zaplanuj tu coś",
-        ["What happens here?"] = "Co się tu dzieje?",
-        ["An event in the calendar"] = "Wydarzenie w kalendarzu",
-        ["A task list starting here"] = "Lista zadań zaczynająca się tutaj",
         ["This place goes to the event in the calendar, pin and all."] = "To miejsce trafia do wydarzenia w kalendarzu, razem z pinezką.",
         ["Point at this place on the map so the calendar knows where it is - a name on its own stays on the entry."] = "Wskaż to miejsce na mapie, aby kalendarz wiedział, gdzie ono jest - sama nazwa zostaje przy pozycji.",
         ["\"{0}\" already has an event in the calendar, so its type can't be changed. Detach it from the event first, then decide what to do with the event itself."] = "„{0}” ma już wydarzenie w kalendarzu, więc nie można zmienić jego typu. Najpierw odłącz je od wydarzenia, potem zdecyduj, co zrobić z samym wydarzeniem.",
@@ -602,11 +598,22 @@ public static class PolishTranslations
         ["Email address or login"] = "Adres e-mail lub login",
 
         // ---- Map ----
+        ["Where you are, who you are sharing it with, and who is sharing theirs."] =
+            "Gdzie jesteś, komu to udostępniasz i kto udostępnia swoje położenie Tobie.",
+        ["Start recording"] = "Zacznij zapisywać",
+        ["Stop recording"] = "Przestań zapisywać",
         ["Share where you are"] = "Udostępnij swoje położenie",
+        ["You are sharing with"] = "Udostępniasz",
+        ["Sharing with you"] = "Udostępniają Tobie",
+        ["Nobody yet."] = "Na razie nikt.",
         ["Send once"] = "Wyślij raz",
         ["Keep sharing"] = "Udostępniaj na bieżąco",
+        // Still said by the phone's own map screen - see Orbit.Maui's MapPage.xaml.
         ["Stop"] = "Zatrzymaj",
-        ["Forget it"] = "Usuń je",
+        ["Stop receiving"] = "Przestań odbierać",
+        ["Search for a place"] = "Szukaj miejsca",
+        ["Nothing found for that. Try fewer words."] = "Nic nie znaleziono. Spróbuj krótszej frazy.",
+        ["Make an event here?"] = "Utworzyć tu wydarzenie?",
         ["Orbit isn't allowed to use your location. Turn it on in Options first."] =
             "Orbit nie ma zgody na korzystanie z Twojego położenia. Włącz ją najpierw w Opcjach.",
 
@@ -638,6 +645,7 @@ public static class PolishTranslations
         ["Location"] = "Położenie",
         ["Use my location"] = "Korzystaj z mojego położenia",
         ["Debugger"] = "Debugger",
+        ["Debug logs"] = "Logi diagnostyczne",
         ["What Orbit reports about itself - the Debugger settings, the captured log, and the detail behind an error."] =
             "To, co Orbit mówi o sobie samym — ustawienia debuggera, zapisany log i szczegóły błędu.",
         ["Off"] = "Wyłączone",
@@ -1108,7 +1116,6 @@ public static class PolishTranslations
         ["Show names"] = "Pokaż nazwy",
         ["(shared)"] = "(udostępnione)",
         ["Demote"] = "Odbierz uprawnienia",
-        ["Record where I am"] = "Zapisz, gdzie jestem",
         ["Update to where I am now"] = "Zaktualizuj na moje obecne położenie",
         ["Recorded location"] = "Zapisane położenie",
         ["Preparing…"] = "Przygotowywanie…",
