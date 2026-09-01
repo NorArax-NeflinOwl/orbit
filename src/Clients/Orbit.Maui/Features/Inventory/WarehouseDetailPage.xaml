@@ -25,6 +25,12 @@
             <!-- Warehouse names already in use, offered as this one is typed - its own strip, because
                  the box below is a different field and is on screen at the same time. -->
             <controls:NameSuggestionChips BindingContext="{Binding WarehouseNameSuggestions}" />
+
+            <!-- What this holds, under its name - see the same field on TaskListDetailPage. -->
+            <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" AutoSize="TextChanges"
+                    IsVisible="{Binding IsNotPrivate}" FontSize="14" MinimumHeightRequest="0"
+                    Placeholder="{controls:Translate 'What is it for?'}"
+                    SemanticProperties.Description="{controls:Translate 'Description'}" />
         </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">

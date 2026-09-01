@@ -22,6 +22,13 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState, ICopyableFor
 
     public string Title { get; set; } = string.Empty;
 
+    /// <summary>
+    /// What the list is about, under its title - see TaskDto.Description. Empty for one nobody
+    /// described, and always empty for a private one: the server blanks it there rather than storing in
+    /// the clear what the title is sealed to hide (see Orbit.Core.Tasks.TaskList.Update).
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
+
     public IReadOnlyList<TaskItemDto> Items { get; set; } = [];
 
     public bool IsCompleted { get; set; }

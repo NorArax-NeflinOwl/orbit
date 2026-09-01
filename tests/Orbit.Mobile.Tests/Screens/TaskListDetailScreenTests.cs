@@ -90,6 +90,46 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// What the list is for, under its name - the field Orbit.Web gained on 2026-09-01 and the phone
+    /// had nowhere to put. It is sent on every save rather than left unsaid: null means "not provided"
+    /// on the way in, so a description cleared here would have come back at the next pull.
+    /// </summary>
+    [Fact]
+    public async Task A_list_can_say_what_it_is_for()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+
+        screen.Description = "The weekly shop, and nothing else.";
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        Assert.Equal("The weekly shop, and nothing else.", context.Server.TaskLists.Single().Description);
+
+        screen.Description = string.Empty;
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        Assert.Empty(context.Server.TaskLists.Single().Description);
+    }
+
+    /// <summary>
+    /// A private list keeps none: its title is sealed, and a description stored in the clear beside it
+    /// would say in the open what the sealing is for. The server blanks it as well - this only agrees.
+    /// </summary>
+    [Fact]
+    public async Task A_private_list_is_not_asked_what_it_is_for()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var screen = context.OpenTaskList("Doctor");
+
+        screen.Description = "Prescriptions";
+        screen.IsPrivate = true;
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsNotPrivate);
+        Assert.Empty(context.Server.TaskLists.Single().Description);
+    }
+
+    /// <summary>
     /// Two fields, two strips: the title and the box an errand is written in are on screen together, so
     /// one shared set of names would put a title under the wrong box.
     /// </summary>

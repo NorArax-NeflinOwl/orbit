@@ -17,8 +17,13 @@ namespace Orbit.Mobile.Data;
 /// renamed the list from a phone.
 /// </param>
 /// <param name="IsPrivate"><inheritdoc cref="NoteContent.IsPrivate" path="/summary"/></param>
+/// <param name="Description">
+/// What the list is about, under its title. Blanked for a private list, as the server blanks it - see
+/// LocalTaskList.Description.
+/// </param>
 public sealed record TaskListContent(
-    string Title, IReadOnlyList<TaskItemDto> Items, bool IsGroup, string Priority, bool IsPrivate = false);
+    string Title, IReadOnlyList<TaskItemDto> Items, bool IsGroup, string Priority, bool IsPrivate = false,
+    string Description = "");
 
 /// <summary>
 /// Every read and write a screen performs on task lists. The same shape as
@@ -225,6 +230,7 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         if (!content.IsPrivate)
         {
             taskList.Title = content.Title;
+            taskList.Description = content.Description;
             taskList.Items = items;
             taskList.EncryptedCiphertext = null;
             taskList.EncryptedNonce = null;
@@ -237,6 +243,10 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
             SealedContentSerializerContext.Default.SealedTaskList);
 
         taskList.Title = string.Empty;
+        // Blanked rather than sealed: there is nowhere sealed to put it (see SealedTaskList), and the
+        // server blanks it for a private list too - a description stored in the clear beside a sealed
+        // title would say in the open what the title was sealed to hide.
+        taskList.Description = string.Empty;
         taskList.Items = [];
         taskList.EncryptedCiphertext = sealedContent.Ciphertext;
         taskList.EncryptedNonce = sealedContent.Nonce;

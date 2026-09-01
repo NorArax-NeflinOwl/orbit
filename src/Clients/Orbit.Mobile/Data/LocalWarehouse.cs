@@ -22,6 +22,9 @@ public sealed class LocalWarehouse : ISharedState, ICopyableForEditing
 
     public string Name { get; set; } = string.Empty;
 
+    /// <inheritdoc cref="LocalTaskList.Description"/>
+    public string Description { get; set; } = string.Empty;
+
     public IReadOnlyList<WarehouseItemDto> Items { get; set; } = [];
 
     public bool IsPrivate { get; set; }

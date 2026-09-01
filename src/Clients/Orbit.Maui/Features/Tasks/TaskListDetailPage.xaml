@@ -32,6 +32,14 @@
             <!-- Titles already in use, offered as this one is typed - its own strip, because the box
                  below is a different field and is on screen at the same time. -->
             <controls:NameSuggestionChips BindingContext="{Binding TitleSuggestions}" />
+
+            <!-- What the list is for, under its name and with no label of its own: it is the rest of the
+                 sentence the title starts, which is how Orbit.Web draws the pair - see its
+                 TitledDescription. Absent on a private list, which the server keeps none for. -->
+            <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" AutoSize="TextChanges"
+                    IsVisible="{Binding IsNotPrivate}" FontSize="14" MinimumHeightRequest="0"
+                    Placeholder="{controls:Translate 'What is it for?'}"
+                    SemanticProperties.Description="{controls:Translate 'Description'}" />
         </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">

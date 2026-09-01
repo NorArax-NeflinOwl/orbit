@@ -213,7 +213,10 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // Stored as the real endpoint stores it: a private list's title and entries are only here,
             // so a fake that dropped it would answer the next pull with an empty list.
             EncryptedContent = body.EncryptedContent,
-            Priority = body.Priority
+            Priority = body.Priority,
+            // As the real endpoint stores it: null means "not provided", and a private list keeps none
+            // at all - see Orbit.Core.Tasks.TaskList.
+            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty
         };
         return Json(created.Id, HttpStatusCode.Created);
     }
@@ -239,6 +242,11 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             IsPrivate = body.IsPrivate,
             EncryptedContent = body.EncryptedContent,
             Priority = body.Priority,
+            // <inheritdoc cref="CreateAsync"/> - and null here keeps what was stored rather than
+            // clearing it, which is the whole point of the field being nullable.
+            Description = body.IsPrivate
+                ? string.Empty
+                : body.Description ?? existing.Description,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 

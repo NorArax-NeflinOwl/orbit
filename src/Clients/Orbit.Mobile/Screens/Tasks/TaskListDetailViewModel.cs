@@ -64,6 +64,19 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _title = string.Empty;
 
+    /// <summary>
+    /// What the list is about, under its title - the same field Orbit.Web draws as one control with the
+    /// title above it. Empty for a private list, where the server keeps none.
+    /// </summary>
+    [ObservableProperty]
+    private string _description = string.Empty;
+
+    /// <summary>
+    /// Whether a description is worth offering at all: a private list keeps none, because a
+    /// description stored in the clear would say in the open what the name is sealed to hide.
+    /// </summary>
+    public bool IsNotPrivate => !IsPrivate;
+
     [ObservableProperty]
     private string _newItemDescription = string.Empty;
 
@@ -746,7 +759,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         try
         {
             outcome = await _taskLists.UpdateAsync(
-                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate), cancellationToken);
+                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description),
+                cancellationToken);
         }
         catch (EncryptionKeyLockedException)
         {
@@ -775,6 +789,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         Title = taskList.Title;
+        Description = taskList.Description;
         // Taken as already looked up, so opening a list does not offer completions of its own title and
         // warn that it duplicates itself - see NameSuggestions.StartsAt.
         _titleSuggestions.StartsAt(taskList.Title);
@@ -905,6 +920,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <inheritdoc cref="OnIsGroupChanged"/>
     partial void OnIsPrivateChanged(bool value)
     {
+        OnPropertyChanged(nameof(IsNotPrivate));
+
         if (!_isShowingWhatIsStored)
         {
             SaveListCommand.Execute(null);

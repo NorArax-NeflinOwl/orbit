@@ -135,7 +135,12 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         // dropped either would un-seal a private warehouse on the next sync - and read as the phone
         // having lost it. A private warehouse's name is only in that payload.
         var created = AddWarehouse(body!.Name, isPrivate: body.IsPrivate);
-        _warehouses[created.Id] = created with { EncryptedContent = body.EncryptedContent };
+        _warehouses[created.Id] = created with
+        {
+            EncryptedContent = body.EncryptedContent,
+            // As the real endpoint stores it - see FakeTasksServer for the same two rules.
+            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty
+        };
         return Json(created.Id, HttpStatusCode.Created);
     }
 
@@ -152,7 +157,8 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         _warehouses[id] = existing with
         {
             Name = body!.Name, UpdatedAtUtc = now, IsPrivate = body.IsPrivate,
-            EncryptedContent = body.EncryptedContent
+            EncryptedContent = body.EncryptedContent,
+            Description = body.IsPrivate ? string.Empty : body.Description ?? existing.Description
         };
 
         // A save carries the whole intended list: anything missing from it is gone, and an item that

@@ -12,8 +12,9 @@ namespace Orbit.Mobile.Data;
 /// change made to one is obvious in the others.
 /// </summary>
 /// <param name="IsPrivate"><inheritdoc cref="NoteContent.IsPrivate" path="/summary"/></param>
+/// <param name="Description"><inheritdoc cref="TaskListContent.Description" path="/summary"/></param>
 public sealed record WarehouseContent(
-    string Name, IReadOnlyList<WarehouseItemDto> Items, bool IsPrivate = false);
+    string Name, IReadOnlyList<WarehouseItemDto> Items, bool IsPrivate = false, string Description = "");
 
 /// <summary>
 /// Every read and write a screen performs on warehouses - the same shape as the other three, including
@@ -200,6 +201,7 @@ public sealed class LocalWarehouseRepository : ICopyReviewStore
         if (!content.IsPrivate)
         {
             warehouse.Name = content.Name;
+            warehouse.Description = content.Description;
             warehouse.Items = content.Items;
             warehouse.EncryptedCiphertext = null;
             warehouse.EncryptedNonce = null;
@@ -212,6 +214,8 @@ public sealed class LocalWarehouseRepository : ICopyReviewStore
             SealedContentSerializerContext.Default.SealedWarehouse);
 
         warehouse.Name = string.Empty;
+        // Blanked rather than sealed, as a task list's is - see LocalTaskListRepository.
+        warehouse.Description = string.Empty;
         warehouse.Items = [];
         warehouse.EncryptedCiphertext = sealedContent.Ciphertext;
         warehouse.EncryptedNonce = sealedContent.Nonce;

@@ -140,6 +140,23 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
+    /// What the warehouse holds, under its name - the same field a task list gained, and for the same
+    /// reason: it is the rest of the sentence the name starts. A private one keeps none.
+    /// </summary>
+    [Fact]
+    public async Task A_warehouse_can_say_what_it_is_for()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync();
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.Description = "Dry goods, and the freezer in the garage.";
+        await screen.RenameCommand.ExecuteAsync(null);
+
+        Assert.Equal("Dry goods, and the freezer in the garage.", context.Stored().Description);
+    }
+
+    /// <summary>
     /// A different question from the minimum: that one asks when there is too little of something, this
     /// one asks for it every round however much there is - see InventoryItem.BelongsOnTheRestockList.
     /// Added to the web on 2026-09-01; the phone could neither see nor set it.

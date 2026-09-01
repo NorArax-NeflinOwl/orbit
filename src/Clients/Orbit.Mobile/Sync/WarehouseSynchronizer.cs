@@ -97,7 +97,8 @@ public sealed class WarehouseSynchronizer
         // warehouse's name is in EncryptedContent and its readable fields are empty, which is how the
         // row is already stored - see LocalWarehouseRepository.
         warehouse.ServerId = await _inventoryClient.CreateAsync(
-            new SaveWarehouseRequest(warehouse.Name, [], warehouse.IsPrivate, warehouse.EncryptedContent),
+            new SaveWarehouseRequest(
+                warehouse.Name, [], warehouse.IsPrivate, warehouse.EncryptedContent, warehouse.Description),
             cancellationToken);
         warehouse.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -113,7 +114,11 @@ public sealed class WarehouseSynchronizer
 
         var outcome = await _inventoryClient.UpdateAsync(
             serverId,
-            new SaveWarehouseRequest(warehouse.Name, warehouse.Items, warehouse.IsPrivate, warehouse.EncryptedContent),
+            // Said rather than left out, for the reason CreateTaskRequest gives: null keeps what is
+            // stored, so a description cleared here would come back at the next pull.
+            new SaveWarehouseRequest(
+                warehouse.Name, warehouse.Items, warehouse.IsPrivate, warehouse.EncryptedContent,
+                warehouse.Description),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
@@ -196,6 +201,7 @@ public sealed class WarehouseSynchronizer
     private void CopyInto(LocalWarehouse warehouse, WarehouseDto incoming)
     {
         warehouse.Name = incoming.Name;
+        warehouse.Description = incoming.Description;
         warehouse.IsPrivate = incoming.IsPrivate;
         warehouse.EncryptedCiphertext = incoming.EncryptedContent?.Ciphertext;
         warehouse.EncryptedNonce = incoming.EncryptedContent?.Nonce;
