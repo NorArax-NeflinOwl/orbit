@@ -5,9 +5,10 @@
    cards, a task list's items, a warehouse's shelf.
 
    Two ways to the same move. Dragging is the quick one and needs a mouse: browsers raise no drag events
-   for a finger, so on a narrow screen this whole control is hidden (see .row-reorder in app.css) rather
-   than left there doing nothing when pressed. The two buttons are the other way, and they are what a
-   keyboard has always lacked - a handle you can only drag is a handle only a mouse can use.
+   for a finger, so on a narrow screen the handle is hidden (see .drag-handle in app.css's mobile block)
+   rather than left there doing nothing when pressed - and the two buttons beside it stay, because they
+   work anywhere. They are also what a keyboard has always lacked: a handle you can only drag is a
+   handle only a mouse can use.
 
    A move that would fall off either end is disabled rather than absent: a row appearing and vanishing
    as it travels up a list is harder to follow than one whose button greys out at the top. *@

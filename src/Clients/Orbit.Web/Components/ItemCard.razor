@@ -7,8 +7,9 @@
    a card carries beyond that is what differs between them.
 
        [handle][pin][action][name .................][collapse][menu]
-       [tags .....................................][extras]
+       [tags .....................................................]
        [description, or the list of what is on it]
+       [.......................extras.............................]
 
    Everything except the name is optional, and each part is left out rather than rendered empty: a
    handle appears only where the order can actually be changed, a collapse button only where there is
@@ -55,16 +56,10 @@
         }
     </div>
 
-    @if (Tags is not null || Extras is not null)
+    @if (Tags is not null)
     {
-        @* One row for both, so a card with many tags and a counter keeps the counter at the end of it
-           rather than pushed onto a line of its own. *@
         <div class="item-card-meta">
             <span class="item-card-tags">@Tags</span>
-            @if (Extras is not null)
-            {
-                <span class="item-card-extras">@Extras</span>
-            }
         </div>
     }
 
@@ -87,6 +82,15 @@
              @onclick="OnBodySelected" @onkeydown="OpenOnEnterOrSpaceAsync">
             @Body
         </div>
+    }
+
+    @* What the card says about itself rather than about its subject - when it last changed, how many
+       things are on it. At the foot and centred: it used to sit at the end of the tag row, where a
+       card with no tags left it floating against the right margin looking like something that had
+       lost its line. *@
+    @if (Extras is not null)
+    {
+        <div class="item-card-footer">@Extras</div>
     }
 </article>
 
@@ -122,7 +126,10 @@
     /// <summary>Whatever this card is labelled with. Wraps onto further lines when it does not fit.</summary>
     [Parameter] public RenderFragment? Tags { get; set; }
 
-    /// <summary>Anything that belongs beside the tags but always at the end - a "3/7 done" count, say.</summary>
+    /// <summary>
+    /// What the card says about itself: when it last changed, how many things are on it. Rendered in a
+    /// footer of its own, centred, below everything else.
+    /// </summary>
     [Parameter] public RenderFragment? Extras { get; set; }
 
     /// <summary>A description, or the list of what is on this card.</summary>

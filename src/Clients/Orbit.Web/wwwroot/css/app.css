@@ -451,6 +451,11 @@ input.note-editor-title {
     gap: 2px;
     flex: 1;
     min-width: 0;
+    /* Measured against itself rather than the window: what decides whether the labels fit is the room
+       left after the logo, the notifications button and the avatar have taken theirs, and that is this
+       element's width. A viewport breakpoint guesses at it and is wrong on any window where those
+       change size. */
+    container-type: inline-size;
     /* Scrolls sideways rather than wrapping to a second row: the bar is a fixed strip, and a bar that
        grows a line taller moves the whole page down with it. */
     overflow-x: auto;
@@ -1133,22 +1138,16 @@ input.note-editor-title {
     font-weight: 600;
 }
 
-@media (max-width: 680px) {
-    /* Icons only. Six labelled destinations do not fit beside an avatar on a phone, and what happened
-       instead was worse than crowding: the row scrolled sideways, so the first entry sat half off the
-       left edge and the wordmark was cut to "shboard". An icon each fits, and the title attribute
-       still names them. */
+/* Icons only, once the bar itself is too narrow to name them. Labelled destinations crowding an avatar
+   did something worse than look tight: the row scrolled sideways, so the first entry sat half off the
+   left edge and the wordmark was cut to "shboard". The title attribute still names each one. */
+@container (max-width: 32rem) {
     .nav-item .label {
         display: none;
     }
+}
 
-    /* The logo is already the way back to the dashboard, and it is the leftmost thing in the bar - so
-       a Dashboard entry beside it is the same destination twice, spending one of the few slots a phone
-       has on a duplicate. */
-    .nav-item-dashboard {
-        display: none;
-    }
-
+@media (max-width: 680px) {
     /* The bar is the same shape here as anywhere else now - only tighter, and without the wordmark,
        which is the first thing to go when the row has to hold six destinations and an avatar. */
     .topbar {
@@ -1199,9 +1198,13 @@ input.note-editor-title {
 
 /* Dashboard.razor: one card per item type (notes/tasks/events/chats/contacts). Three across on
    desktop; the mobile media query below narrows this to two, then one on very small phones. */
+/* As many columns as there is room for, never narrower than a card can usefully be. auto-fill with a
+   minimum does the choosing, so the count follows the window rather than a list of breakpoints that
+   has to be kept in step with it: one column on a phone, two on a small window, three or more once
+   the screen is wide - and four on a very wide one, which a fixed three never gave. */
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
     gap: 20px;
 }
 
@@ -1391,17 +1394,7 @@ input.note-editor-title {
     background: var(--accent);
 }
 
-@media (max-width: 680px) {
-    .card-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
 
-@media (max-width: 480px) {
-    .card-grid {
-        grid-template-columns: 1fr;
-    }
-}
 
 /* Chat.razor: contact list (left) + active thread (right); on mobile the list becomes an off-canvas
    drawer instead of stacking above the thread, since a whole conversation's worth of vertical space
@@ -4207,13 +4200,23 @@ input.note-editor-title {
     cursor: default;
 }
 
-/* Below the breakpoint every other surface uses, arranging by hand is not offered at all. Dragging is
-   the only thing the handle can do and browsers raise no drag events for a finger, so it sat there
-   doing nothing when pressed - a control that cannot work is worse than no control, because nothing
-   on screen says which of the two it is. An arrangement made elsewhere is still read here. */
+/* On a phone the handle goes and the two buttons stay. Dragging is the only thing the handle can do
+   and browsers raise no drag events for a finger, so it sat there doing nothing when pressed - but
+   the buttons work anywhere, and hiding the whole control took the one way of arranging a list on the
+   device most likely to be reading it. They also sit side by side rather than stacked: a column of
+   two twelve-pixel buttons is a smaller target than a thumb, and the row has width to spare here. */
 @media (max-width: 680px) {
-    .row-reorder {
+    .drag-handle {
         display: none;
+    }
+
+    .row-reorder-buttons {
+        flex-direction: row;
+        gap: 2px;
+    }
+
+    .row-reorder-button {
+        padding: 6px 8px;
     }
 }
 
@@ -4313,13 +4316,15 @@ input.note-editor-title {
     min-width: 0;
 }
 
-/* Always last, however many tags there are, so a counter is where the eye already expects it. */
-.item-card-extras {
+/* The card's own footnote - when it last changed, how much is on it. Centred, and separated from the
+   body by a hairline so it reads as being about the card rather than as one more line of it. */
+.item-card-footer {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex: 0 0 auto;
-    margin-left: auto;
+    justify-content: center;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
     color: var(--text-secondary);
     font-size: 12.5px;
 }
@@ -4503,4 +4508,10 @@ span.calendar-task-chip {
    row that already holds tags. */
 .item-card-accented {
     border-left: 4px solid var(--item-card-accent, var(--accent));
+}
+
+/* The mark that opens the footer, sized to the text beside it rather than to the bar's copy. */
+.app-footer-mark {
+    flex: 0 0 auto;
+    vertical-align: middle;
 }
