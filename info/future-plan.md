@@ -336,10 +336,13 @@ The web client now hears about chat, notifications and presence instead of askin
 [Functionality — Live updates](functionality.md#live-updates). Three things were deliberately left out
 of that change rather than missed.
 
-- **The phone still polls.** `Orbit.Maui` has its own session lifecycle - an app that gets suspended,
-  loses a network and comes back on another one - which the browser's reconnect story does not describe.
-  It also has offline queues underneath it, so a connection that comes back has more to reconcile than a
-  tab does. Worth its own change, in its own session, rather than a second half bolted onto this one.
+- ~~**The phone still polls.**~~ Done, in its own change as this said it should be. The phone holds the
+  same connection and only while the app is in front, started and stopped with the window: a socket held
+  open behind a locked screen is one Android drops in Doze anyway, and what it would have carried is what
+  push already delivers. Its chat polls slow to thirty seconds while it is up and snap back when it
+  drops, the unread badge and the feed hear about changes instead of waiting for the next screen, and the
+  presence heartbeat goes over the connection when there is one. It does not listen for
+  `PresenceChanged`: the phone shows nobody else's presence yet.
 - **Edits and deletions are only found by the slow poll.** A message being edited or removed announces
   nothing, so it surfaces within twenty seconds instead of instantly. Adding it is a one-line publish in
   each of `EditMessageCommandHandler`, `EditGroupMessageCommandHandler` and `DeleteMessageCommandHandler`
