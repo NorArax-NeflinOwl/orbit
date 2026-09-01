@@ -4686,6 +4686,30 @@ input.note-editor-title {
     background: var(--bg-subtle);
 }
 
+/* Looking for one entry among every list - see Tasks.razor. Full width, because what is typed here is
+   a phrase rather than a word, and it sits above the chips it narrows alongside. */
+.task-search {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.task-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* "Every one of them" rather than "any of them", offered only once a second category is chosen. */
+.task-category-rule {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
 /* A list of cards. Its own rule rather than reusing .card-grid, which lays tiles out in columns. */
 .item-card-list {
     display: flex;

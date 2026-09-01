@@ -66,6 +66,45 @@ else if (_taskLists.Count == 0)
 }
 else
 {
+    @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
+       from an entry, and the categories entries are filed under. Both narrow to lists that still hold
+       something worth reading, and the cards then show what matched rather than their first few rows -
+       a list shown for a match nobody can see reads as a bug. *@
+    <div class="task-search">
+        <input type="search" value="@_itemFilter.Search"
+               @oninput="changeArgs => _itemFilter.Search = changeArgs.Value?.ToString() ?? string.Empty"
+               placeholder="@(T["Find an entry on any list"])" aria-label="@(T["Find an entry on any list"])" />
+        @if (_itemFilter.IsActive)
+        {
+            <button type="button" class="btn-secondary" @onclick="_itemFilter.Clear">@T["Clear"]</button>
+        }
+    </div>
+
+    @if (KnownCategories.Count > 0)
+    {
+        <div class="list-controls">
+            <div class="list-filters">
+                @foreach (var category in KnownCategories)
+                {
+                    <button type="button" class="filter-chip @(_itemFilter.IsChosen(category) ? "on" : "")"
+                            @onclick="() => _itemFilter.Toggle(category)">
+                        @category <span class="filter-chip-count">@CountEntriesIn(category)</span>
+                    </button>
+                }
+            </div>
+            @* Only worth asking once two are chosen: with one, "any of them" and "all of them" are the
+               same question. *@
+            @if (_itemFilter.Categories.Count > 1)
+            {
+                <label class="task-category-rule">
+                    <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
+                           @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
+                    @T["Entries in every chosen category"]
+                </label>
+            }
+        </div>
+    }
+
     <div class="list-controls">
         <div class="list-filters">
             @* "All" is a filter like the rest rather than a way of clearing them, so there is always
@@ -85,7 +124,16 @@ else
 
     @if (VisibleTaskLists.Count == 0)
     {
-        <p class="empty-hint">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
+        @* Which of the two narrowed everything away, since they say different things about what to do
+           next: a chip is changed by pressing another one, a search by typing something else. *@
+        @if (_itemFilter.IsActive)
+        {
+            <p class="empty-hint">@T["Nothing on any list matches that."]</p>
+        }
+        else
+        {
+            <p class="empty-hint">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
+        }
     }
 
     <div class="task-card-grid">
@@ -182,8 +230,10 @@ else
                     </CollapsedBody>
                     <Body>
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
-                   checklist view one click away for working through it. *@
-                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList))))
+                   checklist view one click away for working through it. What is previewed narrows with
+                   the page - see EntriesToShow. *@
+                @{ var entries = EntriesToShow(taskList); }
+                @foreach (var item in entries.Take(RowsToShow(entries.Count, PreviewLimitFor(taskList))))
                 {
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
@@ -220,10 +270,10 @@ else
                         }
                     }
                 }
-                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList)))
+                @if (entries.Count > RowsToShow(entries.Count, PreviewLimitFor(taskList)))
                 {
                     <div class="list-row">
-                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList)))</span>
+                        <span class="row-meta">@T.Format("and {0} more…", entries.Count - RowsToShow(entries.Count, PreviewLimitFor(taskList)))</span>
                     </div>
                 }
                 @if (taskList.Items.Count == 0)
@@ -239,6 +289,29 @@ else
 
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;
+
+    /// <summary>What the reader is looking for among the entries themselves - see TaskItemFilter.</summary>
+    private readonly TaskItemFilter _itemFilter = new();
+
+    /// <summary>Every category anything on this page is filed under, in the order a reader reads them.</summary>
+    private IReadOnlyList<string> KnownCategories
+        => [.. (_taskLists ?? [])
+            .SelectMany(taskList => taskList.Items.SelectMany(item => item.AllCategories))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
+
+    /// <summary>How many entries carry a category, which is what makes a chip worth pressing or not.</summary>
+    private int CountEntriesIn(string category)
+        => (_taskLists ?? [])
+            .SelectMany(taskList => taskList.Items)
+            .Count(item => item.AllCategories.Contains(category, StringComparer.CurrentCultureIgnoreCase));
+
+    /// <summary>
+    /// The entries a card shows: what matched while something is being looked for, and simply what is
+    /// on the list otherwise.
+    /// </summary>
+    private IReadOnlyList<TaskItemDto> EntriesToShow(TaskDto taskList)
+        => _itemFilter.IsActive ? [.. taskList.Items.Where(_itemFilter.Matches)] : taskList.Items;
 
     /// <summary>What the chips offer, in the order a list moves through its statuses - with "shared" after them, since it is about where a list came from rather than how far along it is.</summary>
     private static readonly TaskListFilter[] SelectableFilters =
@@ -260,7 +333,9 @@ else
     {
         get
         {
-            var visible = (_taskLists ?? []).Where(taskList => Matches(taskList, _filter)).ToList();
+            var visible = (_taskLists ?? [])
+                .Where(taskList => Matches(taskList, _filter) && _itemFilter.HasAMatch(taskList))
+                .ToList();
             return Sort(visible, Arrangement);
         }
     }

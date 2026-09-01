@@ -223,6 +223,35 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.NotNull(_lastSavedJson);
     }
 
+    /// <summary>
+    /// One box holding as many as apply, like a shelf item's category - see CategoryText for why they
+    /// are typed on one line rather than through a control of their own.
+    /// </summary>
+    [Fact]
+    public void What_an_entry_is_about_is_typed_on_one_line_and_saved_as_several()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find("input[list=taskItemCategories]").Change("shopping, Car ,shopping");
+        ClickButtonSaying(cut, "Save");
+
+        // Trimmed, and the repeat dropped - the same tidying the domain does, done here so what is on
+        // screen is what will be stored.
+        Assert.Contains("\"categories\":[\"shopping\",\"Car\"]", _lastSavedJson);
+    }
+
+    [Fact]
+    public void An_entry_already_filed_shows_what_it_is_filed_under()
+    {
+        RegisterApiClients(AnItem() with { Categories = ["shopping", "car"] });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        Assert.Equal("shopping, car", cut.Find("input[list=taskItemCategories]").GetAttribute("value"));
+    }
+
     [Fact]
     public void What_the_list_is_for_is_shown_under_its_title()
     {
