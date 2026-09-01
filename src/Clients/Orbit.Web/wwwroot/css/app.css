@@ -3344,17 +3344,20 @@ input.note-editor-title {
     overflow-y: auto;
 }
 
-/* What the page is called, with the one control that is about the page rather than about a row in it. */
-.map-panel-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-}
-
+/* What the page is called. */
 .map-panel-head h1 {
     font-size: 26px;
     margin: 0;
+}
+
+/* The one control that is about the page rather than about a row in it, on a line of its own under the
+   name - see MapPage.razor. Beside the name it shared a row with a description that changes length,
+   which put it a different distance from the heading at every width. */
+.map-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: -4px;
 }
 
 .map-panel-section {
