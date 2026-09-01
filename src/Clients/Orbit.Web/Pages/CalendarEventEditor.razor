@@ -27,7 +27,15 @@
 
 <PageTitle>@(IsNewEvent ? T["New event"] : T["Edit event"])</PageTitle>
 
-<h1>@(IsNewEvent ? T["New event"] : T["Edit event"])</h1>
+<div class="page-header">
+    <div class="page-heading">
+        <h1>@(IsNewEvent ? T["New event"] : T["Edit event"])</h1>
+    </div>
+    @if (!_isLoading)
+    {
+        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@_isSaving" />
+    }
+</div>
 
 @if (_isLoading)
 {
@@ -87,9 +95,9 @@ else
         </fieldset>
     }
 
+    @* Saving and cancelling are at the head of the page now - see EditorActions. Deleting is not one of
+       the two and stays here, at the end of the thing it destroys. *@
     <div class="form-actions">
-        <button type="submit" class="btn-primary" disabled="@_isSaving">@T["Save"]</button>
-        <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
         @if (!IsNewEvent && _canEditContent)
         {
             @* Deleting from here, not only from the calendar page: opening an event to look at it and

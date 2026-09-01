@@ -32,23 +32,27 @@
     <div>
         <h1>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</h1>
     </div>
-    @* Only for a list that exists: nothing here can act on one that has never been saved. *@
-    @if (!IsNewTaskList && Id is { } menuTaskListId)
+    @if (!_isLoading)
     {
-        <div class="page-header-actions">
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
-                        @onclick="() => GenerateInventoryAsync(menuTaskListId)">
-                    @T["Generate inventory"]
-                </button>
-                @* Nothing to recalculate until there is a warehouse to recalculate against. *@
-                <button type="button" class="avatar-dropdown-item"
-                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId is null)"
-                        @onclick="() => RecalculateAsync(menuTaskListId)">
-                    @T["Recalculate against the inventory"]
-                </button>
-            </OverflowMenu>
-        </div>
+        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync"
+                       SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
+            @* Only for a list that exists: nothing in the menu can act on one that has never been saved. *@
+            @if (!IsNewTaskList && Id is { } menuTaskListId)
+            {
+                <OverflowMenu>
+                    <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
+                            @onclick="() => GenerateInventoryAsync(menuTaskListId)">
+                        @T["Generate inventory"]
+                    </button>
+                    @* Nothing to recalculate until there is a warehouse to recalculate against. *@
+                    <button type="button" class="avatar-dropdown-item"
+                            disabled="@(_isWorkingOnInventory || _linkedWarehouseId is null)"
+                            @onclick="() => RecalculateAsync(menuTaskListId)">
+                        @T["Recalculate against the inventory"]
+                    </button>
+                </OverflowMenu>
+            }
+        </EditorActions>
     }
 </div>
 
@@ -337,10 +341,6 @@ else
         {
             <p class="error">@_saveErrorMessage</p>
         }
-        <div class="form-actions">
-            <button type="button" class="btn-primary" @onclick="SaveAsync">@T["Save"]</button>
-            <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
-        </div>
     </fieldset>
     </EditForm>
 

@@ -29,23 +29,10 @@
             <span class="form-hint">@T["Write something in it."]</span>
         }
     </div>
-    @* At the far edge rather than beside the name: on a phone the two sat wherever the title happened
-       to end, which moves as the title changes, and the thumb reaching them is on the right. *@
-    <div class="page-header-actions">
-        @if (!_isLoading && !_isSharedReadOnly && _lockedByUserName is null)
-        {
-            <button type="button" class="icon-btn page-action-primary" title="@(T["Save"])" aria-label="@(T["Save"])"
-                    disabled="@(!HasSomethingToSave || _isSaving)" @onclick="SaveAsync">
-                <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
-                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9" /></svg>
-            </button>
-            <button type="button" class="icon-btn" title="@(T["Cancel"])" aria-label="@(T["Cancel"])"
-                    @onclick="CancelAsync">
-                <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
-                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 5 10 10M15 5 5 15" /></svg>
-            </button>
-        }
-    </div>
+    @if (!_isLoading && !_isSharedReadOnly && _lockedByUserName is null)
+    {
+        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@(!HasSomethingToSave || _isSaving)" />
+    }
 </div>
 
 @if (_isLoading)

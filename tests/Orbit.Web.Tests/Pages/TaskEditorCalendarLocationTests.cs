@@ -236,10 +236,19 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
     }
 
     private static void ClickButtonSaying(IRenderedComponent<TaskEditor> cut, string label)
-        => cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal)).Click();
+        => ButtonSaying(cut, label).Click();
+
+    /// <summary>
+    /// A button by what it says - its words, or the name it carries for a screen reader, since an
+    /// editor's Save and Cancel are icons now (see EditorActions.razor).
+    /// </summary>
+    private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
+        => cut.FindAll("button").First(button =>
+            button.TextContent.Contains(label, StringComparison.Ordinal)
+                || string.Equals(button.GetAttribute("aria-label"), label, StringComparison.Ordinal));
 
     private static void Save(IRenderedComponent<TaskEditor> cut)
-        => cut.FindAll("button").First(button => button.TextContent.Contains("Save", StringComparison.Ordinal)).Click();
+        => ButtonSaying(cut, "Save").Click();
 
     /// <summary>
     /// A calendar entry needs a day before it can be saved at all (see WhatIsWrongWithTheItems), so

@@ -282,7 +282,7 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         var cut = RenderComponent<CalendarEventEditor>();
 
         cut.Find("#linkToTaskListSelect").Change(taskListId.ToString());
-        cut.Find("button[type=submit]").Click();
+        ClickSave(cut);
 
         Assert.Equal($"/api/tasks/{taskListId}/items/calendar-event", _linkedToPath);
         Assert.Equal(SavedEventId, _linkedEventId);
@@ -295,7 +295,7 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         RegisterChatApiClient([]);
         var cut = RenderComponent<CalendarEventEditor>();
 
-        cut.Find("button[type=submit]").Click();
+        ClickSave(cut);
 
         Assert.Null(_linkedToPath);
     }
@@ -317,6 +317,12 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
 
         Assert.Equal(taskListId.ToString(), cut.Find("#linkToTaskListSelect").GetAttribute("value"));
     }
+
+    /// <summary>Save is an icon at the head of the page now - see EditorActions.razor.</summary>
+    private static void ClickSave(IRenderedFragment cut)
+        => cut.FindAll("button")
+            .First(button => string.Equals(button.GetAttribute("aria-label"), "Save", StringComparison.Ordinal))
+            .Click();
 
     private static CalendarEventDto AnEventCalled(Guid id, string title)
         => new(

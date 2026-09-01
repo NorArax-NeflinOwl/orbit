@@ -4732,6 +4732,25 @@ input.note-editor-title {
     padding: 0;
 }
 
+/* An editor's own two actions - see EditorActions.razor. Twice the size of an ordinary icon button and
+   drawn with an edge like .page-add's: these are what the page is for, and at 30px without one they
+   read as an afterthought next to the form they act on. */
+.icon-btn.page-action {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.icon-btn.page-action.page-action-primary {
+    border-color: var(--accent);
+}
+
+/* Nothing to save yet, so the edge stops claiming there is. */
+.icon-btn.page-action.page-action-primary:disabled {
+    border-color: var(--border);
+}
+
 /* The affirmative one of the two actions in a page heading, so Save reads as the one to press. */
 .icon-btn.page-action-primary {
     color: var(--accent);
