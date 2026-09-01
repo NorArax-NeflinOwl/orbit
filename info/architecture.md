@@ -150,10 +150,12 @@ that broke `azure/login`'s OIDC federation the one time it was tried.
 `.github/workflows/main_orbit.yml` runs on every push to `main` and on every pull request into it (and
 can be triggered manually). Its
 `test` job restores, builds (`Release` configuration), and runs the full test suite
-(`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs
-`ci/verify-browser-crypto.mjs` — the one part of the client no .NET test can reach, since
-`wwwroot/js/e2eeChat.js` is Web Crypto and IndexedDB and bUnit executes neither. Every later job
-depends on this one, so a failure here stops the deploy before an image is built.
+(`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
+parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are made
+of: `ci/verify-browser-crypto.mjs` for `wwwroot/js/e2eeChat.js` (Web Crypto and IndexedDB) and
+`ci/verify-push-notifications.mjs` for `wwwroot/service-worker.js` and `wwwroot/js/pushNotifications.js`
+(a registered service worker receiving real push events, and the Notification and Push APIs). Every
+later job depends on this one, so a failure here stops the deploy before an image is built.
 
 **The pull request trigger was removed once and put back.** It went because every minute is billed on a
 private repository and a day of ordinary work exhausted the allowance, stopping Actions outright; it

@@ -233,12 +233,17 @@ since been closed; what is left is recorded below with the same honesty about wh
   sharing a key, the password-wrapped backup and its restore, and the key surviving a reload. It runs in
   the `test` job on every pull request, not only on a deploy - a change that quietly weakens the
   encryption is not something to find out about afterwards.
-- **The chat thread, `PushNotificationManager`, `pushNotifications.js` and `service-worker.js` still
-  have no coverage.** These are the parts of the same entry that the browser harness does not reach:
-  notification permission prompts, the push subscription lifecycle and the service worker's own
-  activation are all things a headless browser can be made to do, but each needs a permission grant and
-  a registered worker rather than a module import, which is a different and larger harness than the one
-  now in place. The chat thread itself is a polling component whose interesting behaviour is timing.
+- ~~**`PushNotificationManager`, `pushNotifications.js` and `service-worker.js` have no coverage.**~~
+  Closed the same way, by `ci/verify-push-notifications.mjs`. It registers the real worker, grants the
+  permission, and delivers real push events through Chrome DevTools' `ServiceWorker.deliverPushMessage`,
+  which turned out to be the piece that made this reachable at all: what a headless browser cannot be
+  made to do is receive a push from a push service, and this side-steps that entirely by handing the
+  worker the payload directly. Ten checks, covering what is shown for a good payload and for the three
+  bad ones a push service can still deliver. The C# half is `PushNotificationManagerTests`. Two things
+  are still out of reach and are named in the script: `notificationclick`, since nothing outside the
+  operating system can click a system notification, and subscribing for real, which needs a push service.
+- **The chat thread still has no coverage.** It is a polling component whose interesting behaviour is
+  timing.
 - ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
   billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
   now costs a fraction of what it did. The android job looks before it builds and does nothing when

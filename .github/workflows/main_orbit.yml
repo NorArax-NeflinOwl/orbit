@@ -90,13 +90,20 @@ jobs:
       # in a real browser instead. It sits in this job rather than beside the boot check further down,
       # so a change that quietly weakens the encryption stops the deploy at the same gate a failing unit
       # test does, before an image is ever built.
-      - name: Install a browser to run the client's crypto in
+      - name: Install a browser to run the client's own JavaScript in
         run: |
           npm install --no-save playwright@1
           npx playwright install --with-deps chromium
 
       - name: Verify the browser-side encryption
         run: node ci/verify-browser-crypto.mjs
+
+      # The same argument for the other two files no .NET test reaches: service-worker.js only ever runs
+      # inside a registered service worker handling a real push event, and pushNotifications.js is the
+      # Notification and Push APIs. A push that silently shows nothing looks exactly like a push that was
+      # never sent, so this is not a failure anybody would report.
+      - name: Verify push notifications in a browser
+        run: node ci/verify-push-notifications.mjs
 
   android:
     # The Android app head, which Orbit.sln cannot carry and so the job above never touches. That

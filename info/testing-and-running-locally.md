@@ -126,13 +126,14 @@ and what closing them would take:
   which is checked by hand in a browser: the message on screen and the `Warning` it writes to this
   browser's own log. Rendering that page under bUnit means standing up seventeen injected services and
   the browser crypto behind them.
-- The chat thread, `PushNotificationManager`, and
-  `wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — browser notification permission
-  handling and the push subscription/service worker lifecycle have no automated coverage. Each needs a
-  permission grant and a registered worker rather than a module import, which is a larger harness than
-  the crypto one below. The chat thread's interesting behaviour is timing.
+- `notificationclick` in `wwwroot/service-worker.js` — whether clicking a notification reuses an open
+  Orbit tab or opens a new one. Nothing outside the operating system can raise a real click on a system
+  notification, and Chrome DevTools has no command for it either, so this one branch is checked by hand.
+  The rest of that file, and of `pushNotifications.js`, is covered — see below.
+- The chat thread, whose interesting behaviour is timing: it is a polling component.
 
-What used to be on this list and no longer is: the `/api/auth/*` rate limiter
+What used to be on this list and no longer is: push notifications end to end
+(`ci/verify-push-notifications.mjs` and `PushNotificationManagerTests`, below), the `/api/auth/*` rate limiter
 (`AuthRateLimiterTests`, against the very policies `Program.cs` installs), sending through
 `SmtpEmailSender` and `VapidPushNotificationSender` (`SmtpEmailSenderTests` against a loopback SMTP
 listener, `VapidPushNotificationSenderTests` against a stub transport), and `wwwroot/js/e2eeChat.js` —
@@ -157,6 +158,32 @@ Running it by hand needs the browser installed once:
 ```bash
 npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-browser-crypto.mjs
 ```
+
+### Push notifications, in a real browser
+
+`ci/verify-push-notifications.mjs` does the same for the other two files bUnit cannot reach:
+`wwwroot/service-worker.js` only ever runs inside a registered service worker handling a push event, and
+`wwwroot/js/pushNotifications.js` is the Notification and Push APIs. The push events are delivered for
+real, through Chrome DevTools' `ServiceWorker.deliverPushMessage`, so it is the registered worker being
+exercised and not a copy of its source with a fake `self` around it.
+
+Ten checks: a full payload showing the right title, body and link; a data-less push and a malformed one
+each still showing something rather than nothing; a payload with no `url` still leading somewhere;
+`isSupported` and `getPermissionState` agreeing with the browser they are asked about; nothing invented
+for a browser that never subscribed or has nothing to unsubscribe; and a refused permission answering
+with no subscription rather than half of one.
+
+It launches the full Chromium rather than Playwright's default headless shell, which has no notification
+service at all and reports `Notification.permission` as `denied` whatever is granted. Both are installed
+by the same command:
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-push-notifications.mjs
+```
+
+What happens on the C# side of that — no VAPID key meaning the browser is never prompted, a refusal
+registering nothing, and what reaches `/api/push` when somebody does say yes — is
+`PushNotificationManagerTests`, against a stub standing in for the module above.
 
 ## Running locally
 
