@@ -551,6 +551,29 @@ public sealed class DashboardScreenTests
     }
 
     /// <summary>
+    /// A card's heading is the way into the section it summarises, as it is on Orbit.Web: the dashboard
+    /// shows the few most relevant rows, and the rest of them are one tap away.
+    /// </summary>
+    [Theory]
+    [InlineData(DashboardCardKind.Notes, "ShowNotes")]
+    [InlineData(DashboardCardKind.Tasks, "ShowTasks")]
+    [InlineData(DashboardCardKind.Upcoming, "ShowCalendar")]
+    [InlineData(DashboardCardKind.Groups, "ShowGroups")]
+    [InlineData(DashboardCardKind.RecentChats, "ShowContacts")]
+    [InlineData(DashboardCardKind.Contacts, "ShowContacts")]
+    [InlineData(DashboardCardKind.SharedLocations, "ShowMap")]
+    public void A_cards_heading_opens_its_section(DashboardCardKind kind, string expectedDestination)
+    {
+        using var context = new DashboardContext();
+        var screen = context.Open();
+
+        screen.OpenSectionCommand.Execute(
+            new DashboardCard(kind, "Whatever it is called", "1", []));
+
+        Assert.Equal(expectedDestination, context.Navigator.LastDestination);
+    }
+
+    /// <summary>
     /// Only the cards whose items can be narrowed get a menu. Chats and contacts hold things with
     /// neither a pin nor a priority, so offering one would open an empty sheet.
     /// </summary>

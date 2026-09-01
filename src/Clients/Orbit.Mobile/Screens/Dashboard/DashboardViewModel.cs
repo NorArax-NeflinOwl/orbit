@@ -429,6 +429,39 @@ public sealed partial class DashboardViewModel : ObservableObject
         HasNothing = Cards.Count == 0;
     }
 
+    /// <summary>
+    /// Opens the section a card is a way into, which is what its heading is for - the dashboard shows
+    /// the few most relevant rows and the section itself has the rest. The same destinations Orbit.Web's
+    /// card headings lead to; the two chat cards both lead to Contacts there, because that page holds
+    /// the chats and the directory as tabs.
+    /// </summary>
+    [RelayCommand]
+    private void OpenSection(DashboardCard? card)
+    {
+        switch (card?.Kind)
+        {
+            case DashboardCardKind.Notes:
+                _navigator.ShowNotes();
+                break;
+            case DashboardCardKind.Tasks:
+                _navigator.ShowTasks();
+                break;
+            case DashboardCardKind.Upcoming:
+                _navigator.ShowCalendar();
+                break;
+            case DashboardCardKind.Groups:
+                _navigator.ShowGroups();
+                break;
+            case DashboardCardKind.RecentChats:
+            case DashboardCardKind.Contacts:
+                _navigator.ShowContacts();
+                break;
+            case DashboardCardKind.SharedLocations:
+                _navigator.ShowMap();
+                break;
+        }
+    }
+
     /// <summary>Keeps a card at the top of this page on this device, or lets it back down.</summary>
     [RelayCommand]
     private void TogglePin(DashboardCard? card)

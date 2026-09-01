@@ -42,8 +42,15 @@
                              Fill="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
                 </HorizontalStackLayout>
 
-                <Label x:Name="NameLabel" Grid.Column="1" FontSize="17" FontAttributes="Bold"
-                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                <Grid Grid.Column="1">
+                    <Label x:Name="NameLabel" FontSize="17" FontAttributes="Bold"
+                           VerticalOptions="Center" LineBreakMode="TailTruncation" />
+
+                    <!-- The name on its own opens what the card is a way into, where the card holds
+                         entries with targets of their own and pressing the whole block would take the
+                         press away from them - the dashboard's columns. See NameCommand. -->
+                    <Button x:Name="NameButton" BackgroundColor="Transparent" IsVisible="False" />
+                </Grid>
 
                 <HorizontalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
                     <!-- Folding a card to its heading, where there is something underneath to fold. -->

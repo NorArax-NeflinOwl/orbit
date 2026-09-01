@@ -22,6 +22,16 @@ public partial class ItemCard : ContentView
 	public static readonly BindableProperty OpenCommandParameterProperty = BindableProperty.Create(
 		nameof(OpenCommandParameter), typeof(object), typeof(ItemCard), propertyChanged: OnOpenChanged);
 
+	/// <summary>
+	/// What the name opens, for a card whose body is a list of things that open elsewhere - Orbit.Web's
+	/// OnNameSelected. Where the whole card is the target instead, use OpenCommand.
+	/// </summary>
+	public static readonly BindableProperty NameCommandProperty = BindableProperty.Create(
+		nameof(NameCommand), typeof(ICommand), typeof(ItemCard), propertyChanged: OnNameOpensChanged);
+
+	public static readonly BindableProperty NameCommandParameterProperty = BindableProperty.Create(
+		nameof(NameCommandParameter), typeof(object), typeof(ItemCard), propertyChanged: OnNameOpensChanged);
+
 	/// <summary>Something happened here that this reader has not seen - see the mark in the markup.</summary>
 	public static readonly BindableProperty HasUnseenActionProperty = BindableProperty.Create(
 		nameof(HasUnseenAction), typeof(bool), typeof(ItemCard), false, propertyChanged: OnUnseenChanged);
@@ -72,6 +82,18 @@ public partial class ItemCard : ContentView
 	{
 		get => (bool)GetValue(HasUnseenActionProperty);
 		set => SetValue(HasUnseenActionProperty, value);
+	}
+
+	public ICommand? NameCommand
+	{
+		get => (ICommand?)GetValue(NameCommandProperty);
+		set => SetValue(NameCommandProperty, value);
+	}
+
+	public object? NameCommandParameter
+	{
+		get => GetValue(NameCommandParameterProperty);
+		set => SetValue(NameCommandParameterProperty, value);
 	}
 
 	/// <summary>Moving the card up or down, where the order is the reader's to set.</summary>
@@ -130,6 +152,15 @@ public partial class ItemCard : ContentView
 		card.SayWhatItOpens();
 	}
 
+	private static void OnNameOpensChanged(BindableObject bindable, object oldValue, object newValue)
+	{
+		var card = (ItemCard)bindable;
+		card.NameButton.Command = card.NameCommand;
+		card.NameButton.CommandParameter = card.NameCommandParameter;
+		card.NameButton.IsVisible = card.NameCommand is not null;
+		card.SayWhatItOpens();
+	}
+
 	private static void OnUnseenChanged(BindableObject bindable, object oldValue, object newValue)
 		=> ((ItemCard)bindable).ActionMark.IsVisible = newValue is true;
 
@@ -146,7 +177,11 @@ public partial class ItemCard : ContentView
 	/// The invisible button over the card carries the name, or a screen reader lands on a control with
 	/// nothing to say - see SpokenNameTests, which is why every control here has something.
 	/// </summary>
-	private void SayWhatItOpens() => SemanticProperties.SetDescription(OpenButton, Name);
+	private void SayWhatItOpens()
+	{
+		SemanticProperties.SetDescription(OpenButton, Name);
+		SemanticProperties.SetDescription(NameButton, Name);
+	}
 
 	private static void Fill(BindableObject bindable, string host, object? content)
 	{
