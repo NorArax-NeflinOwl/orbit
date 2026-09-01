@@ -510,9 +510,10 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Priority = ChosenPriority.Value
         };
 
-        if (await _events.UpdateAsync(_localId, details, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline)
+        var outcome = await _events.UpdateAsync(_localId, details, cancellationToken);
+        if (outcome.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -534,9 +535,10 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteAsync(CancellationToken cancellationToken)
     {
-        if (await _events.DeleteAsync(_localId, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline)
+        var deletion = await _events.DeleteAsync(_localId, cancellationToken);
+        if (deletion.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = deletion.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -624,8 +626,10 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         // Said in the same words the row on the list before it used - being told it cannot be
         // changed, without being told why, leaves a screen that simply looks broken.
         ReadOnlyReason = OfflineEditExplanation.For(
-            OfflineEditPolicy.Evaluate(calendarEvent, _networkStatus), hasUnsentChanges: false, _translations);
-        IsCopyOffered = IsReadOnly && calendarEvent.CopyOfLocalId is null;
+            calendarEvent, OfflineEditPolicy.Evaluate(calendarEvent, _networkStatus), hasUnsentChanges: false,
+            _translations);
+        // A copy is for editing offline what could be edited online - see TaskListDetailViewModel.
+        IsCopyOffered = IsReadOnly && calendarEvent.CopyOfLocalId is null && SharedItemAccess.AllowsEditing(calendarEvent);
 
         if (!IsReadOnly && calendarEvent.ServerId is { } lockedServerId)
         {

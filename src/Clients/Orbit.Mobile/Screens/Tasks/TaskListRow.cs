@@ -52,7 +52,7 @@ public sealed record TaskListRow(
             taskList.LocalId, taskList.IsSealed ? hiddenTitle : translations.Written(taskList.Title), itemCount, completedCount, taskList.IsPinned,
             taskList.UpdatedAtUtc, hasUnsentChanges, refusal,
             Describe(itemCount, completedCount, translations),
-            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
+            OfflineEditExplanation.For(taskList, refusal, hasUnsentChanges, translations),
             TaskListView.Describe(taskList.Status, translations),
             next is { } thing ? translations.Written(thing.Description) : string.Empty,
             next is { OnList: { } onList } ? translations.Written(onList) : string.Empty,

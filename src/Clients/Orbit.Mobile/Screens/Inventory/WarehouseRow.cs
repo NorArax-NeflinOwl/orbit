@@ -23,7 +23,7 @@ public sealed record WarehouseRow(
             warehouse.LocalId, warehouse.IsSealed ? hiddenName : warehouse.Name, warehouse.Items.Count,
             hasUnsentChanges, refusal,
             translations.Format("Items: {0}", warehouse.Items.Count),
-            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
+            OfflineEditExplanation.For(warehouse, refusal, hasUnsentChanges, translations),
             IsHidden: warehouse.IsPrivate && !privateItemsAreUnlocked, HiddenName: hiddenName,
             IsCopy: warehouse.CopyOfLocalId is not null);
     }

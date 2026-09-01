@@ -179,9 +179,10 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteAsync(CancellationToken cancellationToken)
     {
-        if (await _notes.DeleteAsync(_localId, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline)
+        var deletion = await _notes.DeleteAsync(_localId, cancellationToken);
+        if (deletion.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = deletion.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -216,11 +217,11 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     {
         try
         {
-            if (await _notes.UpdateAsync(
-                    _localId, new NoteContent(Title.Trim(), lines, _priority, IsPrivate), cancellationToken)
-                is LocalWriteOutcome.RefusedWhileOffline)
+            var outcome = await _notes.UpdateAsync(
+                _localId, new NoteContent(Title.Trim(), lines, _priority, IsPrivate), cancellationToken);
+            if (outcome.WasRefused())
             {
-                Status = _translations[RefusalMessage];
+                Status = outcome.Explain(RefusalMessage, _translations);
                 return;
             }
         }
@@ -287,8 +288,17 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
         IsReadOnly = !await _notes.CanEditAsync(_localId, cancellationToken);
-        ReadOnlyReason = IsReadOnly ? _translations[RefusalMessage] : string.Empty;
-        IsCopyOffered = IsReadOnly && note.CopyOfLocalId is null;
+        // Which of the two reasons it is decides what the reader can do about it: waiting for a
+        // connection helps with one and never with the other - see SharedItemAccess.
+        var sharedToRead = SharedItemAccess.WhyItCannotBeEdited(note, _translations);
+        ReadOnlyReason = string.Empty;
+        if (IsReadOnly)
+        {
+            ReadOnlyReason = sharedToRead.Length > 0 ? sharedToRead : _translations[RefusalMessage];
+        }
+        // A copy is for editing offline what could be edited online, so there is nothing to take one of
+        // when the share itself does not permit editing.
+        IsCopyOffered = IsReadOnly && note.CopyOfLocalId is null && SharedItemAccess.AllowsEditing(note);
 
         if (IsReadOnly || note.ServerId is not { } serverId)
         {

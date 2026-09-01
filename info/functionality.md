@@ -192,7 +192,17 @@ Every share carries an **access level**, chosen when the share is offered: `Read
 underlying int value doubles as a rank: `ReadOnly < Share < CanEdit`). Only `CanEdit` unlocks actually
 editing the item — `UpdateNoteCommandHandler`/`UpdateTaskListCommandHandler`/`UpdateCalendarEventCommandHandler`
 all return "not found" for an update attempt by a grantee whose access level is `ReadOnly` *or* `Share`,
-and the Blazor editor pages disable their form (via a `<fieldset disabled>`) for the same grantees.
+and the Blazor editor pages disable their form (via a `<fieldset disabled>`) for the same grantees. **The
+phone does the same as of 2026-09-01, and did not before**: it asked only whether an offline edit was
+safe (`OfflineEditPolicy`) and never what the share allowed, so anything shared read-only opened as an
+ordinary editable screen the moment the phone was online. The edit was applied locally, queued, refused
+by the server, and given up on minutes later - work disappearing with nothing on the way saying why.
+`SharedItemAccess` (`Orbit.Mobile.Sync`) is the missing half: the four detail screens open read-only and
+say so, the four repositories refuse the write rather than queue it, and a copy-for-editing is not
+offered, since a copy of something shared to read could never be kept over the original. Both clients
+read the rules from `ShareAccess` in `Orbit.Core` rather than comparing strings - `EditOnly` permits
+editing too, and a check written as `== "CanEdit"` calls an editor a reader. Deleting is untouched on
+both: for a grantee it means taking the item off their own list, which is theirs to do.
 
 Every editor page shows a "shared by {name}" banner on any item the current user doesn't own, regardless
 of access level — not just the restricted ones — with the wording adapting to what the current access

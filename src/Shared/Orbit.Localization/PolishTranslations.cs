@@ -326,6 +326,9 @@ public static class PolishTranslations
         ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
         // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
         ["Dismiss"] = "Odrzuć",
+        // ---- Shared without permission to edit - see SharedItemAccess. ----
+        ["Shared with you to read. Ask whoever shared it if you need to change it."] =
+            "Udostępnione Ci do odczytu. Poproś osobę, która udostępniła, jeśli musisz to zmienić.",
         // ---- A public link opened in the app rather than a browser - see SharedLinkViewModel. ----
         ["Shared with a link"] = "Udostępnione linkiem",
         ["This link couldn't be opened. Try again."] = "Nie udało się otworzyć tego linku. Spróbuj ponownie.",
