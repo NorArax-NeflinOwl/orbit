@@ -81,7 +81,7 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         RegisterApiClients(Item("Dentist"));
         var cut = Render();
         ExpandTheOnlyItem(cut);
-        ClickButtonSaying(cut, "Show map");
+        OpenTheMap(cut);
 
         var overlay = cut.FindComponent<Web.Components.LocationPickerOverlay>();
         await cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122));
@@ -107,7 +107,7 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         RegisterApiClients(Item("Dentist", location: "Wejście od podwórza"));
         var cut = Render();
         ExpandTheOnlyItem(cut);
-        ClickButtonSaying(cut, "Show map");
+        OpenTheMap(cut);
 
         var overlay = cut.FindComponent<Web.Components.LocationPickerOverlay>();
         await cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122));
@@ -142,6 +142,100 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
     private static void ExpandTheOnlyItem(IRenderedComponent<TaskEditor> cut)
         => cut.Find(".editor-item-toggle").Click();
 
+    /// <summary>The map button carries an icon rather than words, so it is found by what it is for.</summary>
+    private static void OpenTheMap(IRenderedComponent<TaskEditor> cut) => MapButtonsIn(cut).Single().Click();
+
+    private static IReadOnlyList<AngleSharp.Dom.IElement> MapButtonsIn(IRenderedComponent<TaskEditor> cut)
+        => [.. cut.FindAll("button").Where(button => button.GetAttribute("aria-label") == "Pick on map")];
+
+
+    /// <summary>
+    /// A calendar entry now asks everything the calendar's own editor asks, and all of it has to reach
+    /// the event - the entry is the event, so a field the form offers and the save drops is a field
+    /// that quietly does nothing. Colour, priority and the repeat rule are checked together here
+    /// because they travel together, through one mapping.
+    /// </summary>
+    [Fact]
+    public void Everything_the_entry_says_about_the_event_reaches_it()
+    {
+        RegisterApiClients(Item("Dentist"));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        SayWhenItHappens(cut);
+
+        cut.Find("#item0Priority").Change("High");
+        // Repeating, four times, every three weeks.
+        cut.FindAll("input[type=checkbox]").Single(box => box.ParentElement!.TextContent.Contains("Recurring event")).Change(true);
+        cut.Find("#item0Frequency").Change("Weekly");
+        cut.Find("#item0Every").Change("3");
+        cut.Find("#item0RepeatCount").Change("4");
+        cut.FindAll("input[type=checkbox]").Single(box => box.ParentElement!.TextContent.Contains("Also when it starts")).Change(true);
+        Save(cut);
+
+        var details = Assert.Single(_created).Details;
+        Assert.Equal("High", details.Priority);
+        Assert.True(details.NotifyAtStart);
+        Assert.NotNull(details.Recurrence);
+        Assert.Equal("Weekly", details.Recurrence.Frequency);
+        Assert.Equal(3, details.Recurrence.IntervalCount);
+        Assert.Equal(4, details.Recurrence.OccurrenceCount);
+    }
+
+    /// <summary>The entry's own words are what the event is called - not a second title box.</summary>
+    [Fact]
+    public void The_entrys_own_words_are_the_events_title()
+    {
+        RegisterApiClients(Item("Dentist"));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        SayWhenItHappens(cut);
+
+        Save(cut);
+
+        Assert.Equal("Dentist", Assert.Single(_created).Details.Title);
+    }
+
+    /// <summary>
+    /// Opening a list whose entry already has an event must read every field of it back. The save that
+    /// follows sends the whole event, so a field this misses is a field the next save erases - which is
+    /// how a place set in the calendar was once wiped by somebody editing an unrelated entry.
+    /// </summary>
+    [Fact]
+    public void An_entrys_existing_event_is_read_back_whole()
+    {
+        _existingEvents =
+        [
+            new CalendarEventDto(
+                EventId,
+                new CalendarEventDetailsDto(
+                    "Dentist", "Upper left", null, "#ff0000",
+                    new DateTimeOffset(2026, 3, 9, 8, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 3, 9, 9, 0, 0, TimeSpan.Zero),
+                    IsAllDay: false,
+                    new RecurrenceDto("Monthly", 2, UntilUtc: null, OccurrenceCount: 5),
+                    Guests: [], ReminderMinutesBeforeStart: [30],
+                    CreationNotificationChannel: "None", ReminderNotificationChannel: "Email",
+                    Priority: "High", NotifyAtStart: true),
+                DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+                IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit",
+                OriginalOwnerUserId: null, IsSharedWithOthers: false)
+        ];
+        RegisterApiClients(Item("Dentist", linkedCalendarEventId: EventId));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        Save(cut);
+
+        var details = Assert.Single(_updated).Details;
+        Assert.Equal("Upper left", details.Description);
+        Assert.Equal("#ff0000", details.Color);
+        Assert.Equal("High", details.Priority);
+        Assert.True(details.NotifyAtStart);
+        Assert.Equal([30], details.ReminderMinutesBeforeStart);
+        Assert.Equal(5, details.Recurrence!.OccurrenceCount);
+        Assert.Equal(2, details.Recurrence.IntervalCount);
+    }
+
     private static void ClickButtonSaying(IRenderedComponent<TaskEditor> cut, string label)
         => cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal)).Click();
 
@@ -154,7 +248,7 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
     /// </summary>
     private static void SayWhenItHappens(IRenderedComponent<TaskEditor> cut)
         => cut.FindAll(".date-field-input")
-            .First(field => field.GetAttribute("aria-label") == "Starts")
+            .First(field => field.GetAttribute("aria-label") == "Start")
             .Change("09.03.2026");
 
     private static TaskItemDto Item(

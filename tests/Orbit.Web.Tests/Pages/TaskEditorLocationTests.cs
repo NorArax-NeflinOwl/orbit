@@ -49,7 +49,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         Assert.DoesNotContain("Where this happens", cut.Markup);
-        Assert.DoesNotContain("Show map", cut.Markup);
+        Assert.Empty(MapButtonsIn(cut));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         Assert.Contains("Where this happens", cut.Markup);
-        Assert.Contains("Show map", cut.Markup);
+        Assert.Single(MapButtonsIn(cut));
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        ClickButtonSaying(cut, "Show map");
+        OpenTheMap(cut);
 
         Assert.Single(cut.FindAll(".map-overlay"));
         Assert.Contains("Click the map to drop a pin.", cut.Markup);
@@ -127,7 +127,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         RegisterApiClients(Item("Dentist", kind: "Calendar"));
         var cut = Render();
         ExpandTheOnlyItem(cut);
-        ClickButtonSaying(cut, "Show map");
+        OpenTheMap(cut);
 
         var overlay = cut.FindComponent<Web.Components.LocationPickerOverlay>();
         await cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122));
@@ -144,7 +144,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         RegisterApiClients(Item("Dentist", kind: "Calendar", location: "Przychodnia"));
         var cut = Render();
         ExpandTheOnlyItem(cut);
-        ClickButtonSaying(cut, "Show map");
+        OpenTheMap(cut);
 
         var overlay = cut.FindComponent<Web.Components.LocationPickerOverlay>();
         await cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122));
@@ -160,12 +160,17 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     private static void ExpandTheOnlyItem(IRenderedComponent<TaskEditor> cut)
         => cut.Find(".editor-item-toggle").Click();
 
+    /// <summary>The map button carries an icon rather than words, so it is found by what it is for.</summary>
+    private static void OpenTheMap(IRenderedComponent<TaskEditor> cut) => MapButtonsIn(cut).Single().Click();
+
+    private static IReadOnlyList<AngleSharp.Dom.IElement> MapButtonsIn(IRenderedComponent<TaskEditor> cut)
+        => [.. cut.FindAll("button").Where(button => button.GetAttribute("aria-label") == "Pick on map")];
+
     private static void ClickButtonSaying(IRenderedComponent<TaskEditor> cut, string label)
         => cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal)).Click();
 
     private static AngleSharp.Dom.IElement LocationBoxOf(IRenderedComponent<TaskEditor> cut)
-        => cut.FindAll(".editor-item-details input")
-            .First(box => box.GetAttribute("placeholder") == "Where this happens");
+        => cut.Find(".event-fields-location");
 
     private static TaskItemDto Item(
         string description, string kind, string location = "", Guid? linkedCalendarEventId = null)
