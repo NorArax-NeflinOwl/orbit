@@ -4700,3 +4700,54 @@ textarea.editor-item-main {
     line-height: 1.5;
     color: var(--text-secondary);
 }
+
+/* The event form, drawn once for the calendar's own editor and for a task list's calendar entry - see
+   EventFields.razor. Rows rather than a grid: each row is one question, and a question that has to
+   wrap wraps within its own row instead of pushing the next one sideways. */
+.event-fields > fieldset {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* A description is prose, so it gets the whole row and grows with what is written. */
+.event-fields-description {
+    width: 100%;
+    field-sizing: content;
+    min-height: 3em;
+    max-height: 40vh;
+    resize: vertical;
+}
+
+/* An address is the long field on its row; the map button beside it is an icon and takes what it needs. */
+.event-fields-location {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+/* "Every 2 weeks", "4 times" - a number nobody types more than three digits into. */
+.event-fields-number {
+    width: 6rem;
+}
+
+.event-fields-guests {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.event-fields-guests li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* What a guest was invited as, beside their name and quieter than it - the name is who, this is only
+   what they may do. */
+.event-fields-guest-access {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+}

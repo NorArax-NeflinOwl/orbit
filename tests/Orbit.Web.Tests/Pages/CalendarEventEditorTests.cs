@@ -165,23 +165,26 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         // A new event used to arrive with no reminder and both channels set to None, so creating one
         // without opening either dropdown could never notify anybody - which reads, fairly, as event
         // reminders being broken. Tasks and inventory items have defaulted to Push all along.
-        var reminderSelect = cut.Find("#reminderRows select");
+        var reminderSelect = cut.Find(".reminder-row select");
         Assert.Equal("10", reminderSelect.GetAttribute("value"));
 
-        var reminderChannel = cut.Find("#reminderChannelSelect");
+        var reminderChannel = cut.Find("#eventReminderChannel");
         Assert.Equal("Push", reminderChannel.GetAttribute("value"));
     }
 
     [Fact]
-    public void A_reminder_can_be_asked_for_at_the_moment_the_event_begins()
+    public void Being_told_when_the_event_begins_is_asked_for_as_its_own_question()
     {
         RegisterChatApiClient([]);
 
         var cut = RenderComponent<CalendarEventEditor>();
 
-        // The wording for a zero lead time already existed ("starts now"); the picker was the only
-        // place it could not be chosen, so an event beginning went unannounced.
-        Assert.Contains("When it starts", cut.Find("#reminderRows select").InnerHtml);
+        // It used to be a zero-minute entry in the reminder picker. It is a checkbox now: "tell me it
+        // has started" is a different question from "tell me it is coming", and a reminders table with
+        // a "0 minutes before" row in it reads as a mistake. Off by default - see EventFormModel.
+        var checkbox = cut.FindAll("input[type=checkbox]")
+            .Single(box => box.ParentElement!.TextContent.Contains("Also when it starts"));
+        Assert.False(checkbox.HasAttribute("checked"));
     }
 
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)
@@ -250,8 +253,7 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     }
 
     private static AngleSharp.Dom.IElement LocationBoxOf(IRenderedComponent<CalendarEventEditor> cut)
-        => cut.FindAll("input").First(box =>
-            box.GetAttribute("placeholder") == "Pick a point on the map, or type what to call this place");
+        => cut.Find(".event-fields-location");
 
     [Fact]
     public void A_new_event_opened_without_the_map_has_no_place()
