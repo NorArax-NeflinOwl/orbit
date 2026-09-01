@@ -59,7 +59,7 @@ public static class CalendarOccurrences
     private static EventRecurrence? RuleOf(RecurrenceDto? recurrence)
         => recurrence is not null
             && Enum.TryParse<RecurrenceFrequency>(recurrence.Frequency, ignoreCase: true, out var frequency)
-            ? new EventRecurrence(frequency, recurrence.IntervalCount, recurrence.UntilUtc)
+            ? new EventRecurrence(frequency, recurrence.IntervalCount, recurrence.UntilUtc, recurrence.OccurrenceCount)
             : null;
 
     /// <summary>

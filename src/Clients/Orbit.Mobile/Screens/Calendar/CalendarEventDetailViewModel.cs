@@ -140,6 +140,21 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [ObservableProperty]
     private DateTime _recurrenceUntil = DateTime.Today;
 
+    /// <summary>
+    /// The other way of saying when to stop: after so many occurrences, counting the first. Zero means
+    /// no limit of this kind, which is what the web's empty box means. Both may be set, and whichever
+    /// comes first wins - the rule is Orbit.Core's, see CalendarEventOccurrenceGenerator.
+    /// </summary>
+    [ObservableProperty]
+    private int _recurrenceCount;
+
+    /// <summary>
+    /// Whether the event says so as it begins, as well as beforehand. A different question from the
+    /// reminders above it: those say it is coming, this says it has started.
+    /// </summary>
+    [ObservableProperty]
+    private bool _notifyAtStart;
+
     /// <summary>The frequencies, for the picker - in Orbit.Core's own order.</summary>
     public IReadOnlyList<RecurrenceChoice> Frequencies { get; private set; } = [];
 
@@ -429,7 +444,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
                 TimeZoneInfo.Local.GetUtcOffset(RecurrenceUntil.Date)).ToUniversalTime()
             : (DateTimeOffset?)null;
 
-        return new RecurrenceDto(RecurrenceFrequency, Math.Max(1, RecurrenceIntervalCount), until);
+        return new RecurrenceDto(
+            RecurrenceFrequency, Math.Max(1, RecurrenceIntervalCount), until,
+            RecurrenceCount > 0 ? RecurrenceCount : null);
     }
 
     /// <summary>
@@ -503,6 +520,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             StartUtc = ChosenStartUtc,
             EndUtc = ChosenEndUtc,
             IsAllDay = IsAllDay,
+            NotifyAtStart = NotifyAtStart,
             Priority = ChosenPriority.Value
         };
 
@@ -605,6 +623,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         RecurrenceIntervalCount = calendarEvent.Details.Recurrence?.IntervalCount ?? 1;
         RecurrenceEnds = calendarEvent.Details.Recurrence?.UntilUtc is not null;
         RecurrenceUntil = calendarEvent.Details.Recurrence?.UntilUtc?.ToLocalTime().Date ?? DateTime.Today;
+        RecurrenceCount = calendarEvent.Details.Recurrence?.OccurrenceCount ?? 0;
+        NotifyAtStart = calendarEvent.Details.NotifyAtStart;
         OnPropertyChanged(nameof(ChosenFrequency));
 
         LocationAddress = calendarEvent.Details.Location?.Address ?? string.Empty;

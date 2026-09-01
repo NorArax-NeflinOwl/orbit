@@ -123,6 +123,14 @@
                 <DatePicker Date="{Binding RecurrenceUntil}" IsVisible="{Binding RecurrenceEnds}"
                             IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}"
                         SemanticProperties.Description="{controls:Translate 'Repeat until (optional)'}" />
+
+                <!-- The other way of saying when to stop. Both may be given, and whichever comes first
+                     wins - the rule is Orbit.Core's, see CalendarEventOccurrenceGenerator. Zero is the
+                     empty box on the web: no limit of this kind. -->
+                <Label Text="{controls:Translate 'Repeat how many times'}" Style="{StaticResource FieldLabel}" />
+                <Entry Text="{Binding RecurrenceCount}" Keyboard="Numeric" IsReadOnly="{Binding IsReadOnly}"
+                       Placeholder="{controls:Translate 'no limit'}"
+                       ReturnType="Done" ReturnCommand="{Binding SaveCommand}" />
             </VerticalStackLayout>
 
             <!-- What is set, then what can be added. Picking from the list adds it: an "add" button
@@ -245,6 +253,16 @@
             <Button Text="{Binding ReminderChannel.Name}" HorizontalOptions="Start" FontSize="13" Padding="12,6"
                     IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}"
                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseReminderChannelCommand, x:DataType=calendar:CalendarEventDetailPage}" />
+
+            <!-- A different question from the reminders above: those say it is coming, this says it has
+                 begun. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Grid.Column="0" Text="{controls:Translate 'Also when it starts'}" VerticalOptions="Center"
+                       LineBreakMode="WordWrap" />
+                <Switch Grid.Column="1" IsToggled="{Binding NotifyAtStart}" IsEnabled="{Binding CanEdit}"
+                        VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Also when it starts'}" />
+            </Grid>
 
             <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveCommand}" />
 
