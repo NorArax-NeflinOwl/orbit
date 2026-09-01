@@ -8,9 +8,11 @@ Run the whole suite with:
 dotnet test Orbit.sln
 ```
 
-This also runs automatically in CI on every push to `main` — but **not** on pull requests, so running it
-yourself before opening one is the only check a branch gets. See
-[Architecture — Continuous integration](architecture.md#continuous-integration) for why.
+This also runs automatically in CI, on every push to `main` and on every pull request into it - so a
+branch is checked before it lands rather than after. Documentation-only branches are skipped, and a
+pull request run is cancelled by the next push to the same branch. See
+[Architecture — Continuous integration](architecture.md#continuous-integration) for what that costs and
+why it is affordable now when it was not before.
 
 ### `tests/Orbit.Api.Tests`
 

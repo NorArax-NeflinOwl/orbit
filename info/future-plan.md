@@ -236,12 +236,12 @@ since been closed; what is left is recorded below with the same honesty about wh
   activation are all things a headless browser can be made to do, but each needs a permission grant and
   a registered worker rather than a module import, which is a different and larger harness than the one
   now in place. The chat thread itself is a polling component whose interesting behaviour is timing.
-- **Nothing runs on a pull request.** `main_orbit.yml` is triggered by a push to `main`, deliberately -
-  its own header weighs billed runner minutes against a branch going unchecked until it lands, and
-  production stays covered because the deploy job needs the test job. It is still worth naming here: a
-  branch is tested by whoever remembers to run `dotnet test` on it. If the minutes ever stop being the
-  binding constraint, a `pull_request` trigger on the `test` job alone is the cheapest thing to add
-  back.
+- ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
+  billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
+  now costs a fraction of what it did. The android job looks before it builds and does nothing when
+  nothing it builds from changed, a pull request run is cancelled by the next push to the same branch,
+  and documentation-only branches are skipped outright. The deploy job stays out of it either way -
+  guarded on the event as well as gated on the suite.
 - **What Google actually does with an "Add to Google Calendar" link.** The URL is built and pinned by
   `GoogleLinkTests` - the shape of the dates, the RRULE, what is escaped - but whether Google renders
   a pre-filled event form from it has only ever been checked by reading its documentation. Opening
