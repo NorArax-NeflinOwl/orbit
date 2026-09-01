@@ -204,20 +204,20 @@
             </svg>
             <span>@OrbitRelease.Copyright</span>
             <span class="app-footer-separator">·</span>
-            @* Pressed, it grows the rest of the hash. A build carrying no commit - a local `docker
-               compose build`, which nothing numbered - says the number and nothing more, so there is
-               nothing to press and it is drawn as the text it is rather than as a button that would do
-               nothing. See OrbitVersion. *@
-            @if (_version.CanShowTheWholeCommit)
+            @* Pressed, it grows the rest of the hash. There is nothing to press for a reader who is not
+               shown the commit at all, or for a build carrying none - a local `docker compose build`,
+               which nothing numbered - and it is then drawn as the text it is rather than as a button
+               that would do nothing. See OrbitVersion. *@
+            @if (ShownVersion.CanShowTheWholeCommit)
             {
                 <button type="button" class="app-footer-version" title="@(T["Show the whole commit"])"
                         @onclick="() => _isVersionExpanded = !_isVersionExpanded">
-                    @(_isVersionExpanded ? _version.Full : _version.Short)
+                    @(_isVersionExpanded ? ShownVersion.Full : ShownVersion.Short)
                 </button>
             }
             else
             {
-                <span>@_version.Short</span>
+                <span>@ShownVersion.Short</span>
             }
             @* The server's own build, beside the client's. The two can differ - the pipeline rolls each
                app back on its own, and a browser can be holding a cached client - so showing only one
@@ -244,6 +244,15 @@
     /// </summary>
     private static readonly OrbitVersion _version = OrbitVersion.ReadFrom(typeof(MainLayout).Assembly);
 
+    /// <summary>
+    /// This build as the footer says it. Which commit it came from is detail about Orbit's own inside,
+    /// so it is said to the accounts that have been given Orbit's inside and to nobody else - see
+    /// ApplicationPermission.Debug. The server applies the same rule to its own version, and there by
+    /// leaving the hash out of the answer rather than sending it to be hidden.
+    /// </summary>
+    private OrbitVersion ShownVersion
+        => Permissions.Has(ApplicationPermission.Debug) ? _version : _version.WithoutTheCommit();
+
     /// <summary>Whether the footer is showing the whole commit hash rather than the first seven of it.</summary>
     private bool _isVersionExpanded;
 
@@ -253,11 +262,14 @@
     /// <summary>
     /// The server's version as the footer says it. It follows the same expand as the client's, because
     /// pressing one and having the other stay short would read as a bug rather than as two facts.
-    /// A server built without a commit stamped on it sends no hash, so there is simply nothing to grow.
+    ///
+    /// A server that will not show this reader its commit sends no hash, so there is usually nothing to
+    /// grow - and the permission is checked here as well, so an older server that still sends one to
+    /// everybody does not get to say more than this client would.
     /// </summary>
     private string ServerVersionText(ServerVersionDto server)
     {
-        if (server.CommitHash.Length == 0)
+        if (server.CommitHash.Length == 0 || !Permissions.Has(ApplicationPermission.Debug))
         {
             return $"ver:{server.Version}";
         }
@@ -577,6 +589,10 @@
 
         await Presence.StartAsync();
         await Permissions.RefreshAsync();
+        // Asked again now that there is somebody to ask as: how much of its version the server answers
+        // with depends on what this account may see - see ConfigEndpoints.
+        ClientFlagsApiClient.ForgetTheServerVersion();
+        _serverVersion = await ClientFlagsApiClient.GetServerVersionAsync();
     }
 
     /// <summary>

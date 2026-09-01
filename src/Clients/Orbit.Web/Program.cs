@@ -92,7 +92,11 @@ builder.Services.AddHttpClient<PushNotificationApiClient>(httpClient => httpClie
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<NotificationsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
-builder.Services.AddHttpClient<ClientFlagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress));
+// Carries the token, unlike the unauthenticated calls it also makes: the server decides how much of its
+// own version to answer with from what the caller is allowed to see - see ConfigEndpoints. Without a
+// token the same endpoints still answer, which is what keeps the sign-in page able to read them.
+builder.Services.AddHttpClient<ClientFlagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 // Carries the token handler like the rest: making and revoking a link needs the owner's session, and
 // the reader's half of this client works with or without one.
 builder.Services.AddHttpClient<PublicShareApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))

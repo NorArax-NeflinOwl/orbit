@@ -66,6 +66,33 @@ public sealed class OrbitVersionTests
         Assert.True(version.CanShowTheWholeCommit);
     }
 
+    /// <summary>
+    /// What a reader who has not been shown Orbit's internals sees. Dropped rather than hidden by
+    /// whoever draws it, so every form agrees: the number is text, and nothing offers a press that
+    /// would reveal something this reader is not being shown.
+    /// </summary>
+    [Fact]
+    public void Without_the_commit_a_build_says_the_number_and_stops()
+    {
+        var version = AStampedBuild().WithoutTheCommit();
+
+        Assert.Equal("ver:0.1.32", version.Short);
+        Assert.Equal(version.Short, version.Full);
+        Assert.False(version.CanShowTheWholeCommit);
+        Assert.Equal(string.Empty, version.CommitHash);
+    }
+
+    /// <summary>The build itself is untouched: what changes is only the copy being drawn.</summary>
+    [Fact]
+    public void Dropping_the_commit_leaves_the_build_it_was_taken_from_alone()
+    {
+        var version = AStampedBuild();
+
+        version.WithoutTheCommit();
+
+        Assert.Equal("51536f360a130d98b3b631da81dce22e38c0903a", version.CommitHash);
+    }
+
     [Fact]
     public void A_number_with_no_commit_behind_it_still_reads_as_a_version()
     {

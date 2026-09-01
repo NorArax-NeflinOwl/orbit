@@ -16,10 +16,14 @@ namespace Orbit.Core;
 /// </summary>
 /// <param name="Version">"0.1.17", or <see cref="Unknown"/>'s value for a build nobody stamped.</param>
 /// <param name="CommitHash">
-/// The full hash, or empty when there is none to show. Said out loud wherever there is one, whatever
-/// configuration the build was made in: Orbit runs on a test environment, the hash is the thing a bug
-/// report needs in order to be answerable, and a build that knows which commit it is and refuses to say
-/// so is indistinguishable from one that does not know.
+/// The full hash, or empty when there is none to show. Read off the build whatever configuration it was
+/// made in - a Release build knows which commit it is, and pretending otherwise made the deployed
+/// footer unable to answer the one question the hash exists for.
+///
+/// Who is shown it is a separate question, and not this type's: it is detail about Orbit's own inside,
+/// so it goes to the accounts holding <c>ApplicationPermission.Debug</c> and to nobody else. Both ends
+/// apply that rule - the server leaves it out of its answer (see ConfigEndpoints), and the footer drops
+/// it from the client's own version with <see cref="WithoutTheCommit"/>.
 /// </param>
 public sealed record OrbitVersion(string Version, string CommitHash)
 {
@@ -45,6 +49,14 @@ public sealed record OrbitVersion(string Version, string CommitHash)
 
     /// <summary>What a press reveals: the same, with the whole hash - which is what a `git checkout` takes.</summary>
     public string Full => Describe(CommitHash);
+
+    /// <summary>
+    /// The same build, with nothing to say about which commit it came from - what a reader who has not
+    /// been shown Orbit's internals sees. Dropped rather than hidden by whoever is drawing it, so
+    /// <see cref="Short"/>, <see cref="Full"/> and <see cref="CanShowTheWholeCommit"/> all agree: the
+    /// number is text rather than something that looks pressable and then does nothing.
+    /// </summary>
+    public OrbitVersion WithoutTheCommit() => this with { CommitHash = string.Empty };
 
     private string Describe(string hash) => hash.Length == 0 ? $"ver:{Version}" : $"ver:{Version}+gitHash:{hash}";
 
