@@ -67,10 +67,11 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             await _taskRepository.UpdateAsync(taskList, cancellationToken);
         }
 
-        // Crossing off a restock errand says the shelf was filled and the errand is over - see
-        // RestockCompletion, which tops the shelf up and takes the entry off the list, and which does
-        // nothing at all for the ordinary lists this handler mostly saves.
-        await _restockCompletion.ReconcileAsync(request.Id, cancellationToken);
+        // Crossing off a restock errand says the shelf was filled, so the shelf is filled - but the
+        // entry stays, crossed off, rather than disappearing under the finger that just tapped it. The
+        // checklist asks for a refresh a few minutes later and that is what clears it. Does nothing at
+        // all for the ordinary lists this handler mostly saves.
+        await _restockCompletion.TopUpFinishedAsync(request.Id, cancellationToken);
 
         return EditOutcome.Success;
     }

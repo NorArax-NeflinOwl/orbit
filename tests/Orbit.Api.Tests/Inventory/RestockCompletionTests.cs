@@ -200,8 +200,38 @@ public sealed class RestockCompletionTests
 
         Assert.Equal(Orbit.Core.Abstractions.EditOutcomeKind.Success, outcome.Kind);
         Assert.Equal(5, (await ShelfItemAsync(warehouseId)).Quantity);
-        // And the same save took the finished errand off the list.
-        Assert.DoesNotContain((await TaskListAsync(taskListId)).Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
+
+        // And the errand stays, crossed off. It used to go in the same breath, so a row answered a tap
+        // by vanishing - and a tap on the wrong row could not be undone by untapping it, because there
+        // was nothing left to untap. The checklist asks for a refresh a few minutes later, and that is
+        // what clears it; see RestockCompletion.TopUpFinishedAsync.
+        var errand = Assert.Single(
+            (await TaskListAsync(taskListId)).Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
+        Assert.True(errand.IsCompleted);
+    }
+
+    /// <summary>
+    /// And the refresh is what settles it - the same run that used to happen on the save, now asked for
+    /// once the reader has had a moment to notice a mistake.
+    /// </summary>
+    [Fact]
+    public async Task The_refresh_afterwards_is_what_takes_the_finished_errand_off_the_list()
+    {
+        var (warehouseId, taskListId, _) = await ALowItemWithItsErrandAsync();
+        var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
+        var ticked = taskList!.Items
+            .Select(item => TaskItem.FromPersistence(
+                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListId,
+                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
+                item.DailyReminderTimeOfDay))
+            .ToList();
+        taskList.Update(taskList.Title, ticked, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
+        await _context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
+
+        await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
+
+        Assert.DoesNotContain(
+            (await TaskListAsync(taskListId)).Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
     }
 
     [Fact]

@@ -49,7 +49,24 @@ public sealed class RestockCompletion
     /// That is what lets it run both when the list is saved and when it is opened, which is how a list
     /// that accumulated crossed-off errands before this existed heals itself.
     /// </summary>
-    public async Task<RestockOutcome> ReconcileAsync(Guid taskListId, CancellationToken cancellationToken)
+    public Task<RestockOutcome> ReconcileAsync(Guid taskListId, CancellationToken cancellationToken)
+        => SettleAsync(taskListId, takeFinishedOffTheList: true, cancellationToken);
+
+    /// <summary>
+    /// The shelf half on its own: finished errands top their shelf items up, and then stay on the list,
+    /// crossed off.
+    ///
+    /// This is what an ordinary save does. Crossing something off used to take it away in the same
+    /// breath, so a row answered a tap by vanishing - and a tap on the wrong row could not be undone by
+    /// untapping it, because there was nothing left to untap. The entry now stays until a refresh
+    /// clears it, which the checklist asks for a few minutes later: long enough to notice a mistake,
+    /// short enough that the list still tidies itself without anybody thinking about it.
+    /// </summary>
+    public Task<RestockOutcome> TopUpFinishedAsync(Guid taskListId, CancellationToken cancellationToken)
+        => SettleAsync(taskListId, takeFinishedOffTheList: false, cancellationToken);
+
+    private async Task<RestockOutcome> SettleAsync(
+        Guid taskListId, bool takeFinishedOffTheList, CancellationToken cancellationToken)
     {
         if (await _managedTaskListRepository.GetWarehouseIdAsync(taskListId, cancellationToken) is not { } warehouseId)
         {
@@ -94,12 +111,19 @@ public sealed class RestockCompletion
 
             // The entry is about to stop existing, so the item must stop pointing at it - otherwise the
             // next time this product goes low, EnsureRestockTaskAsync looks for an entry that is gone.
-            if (shelfItem.PendingRestockTaskItemId == errand.Id)
+            // While it is only being topped up the entry is still there, and the link with it: cutting
+            // it early would let a second errand for the same product appear beside the first.
+            if (takeFinishedOffTheList && shelfItem.PendingRestockTaskItemId == errand.Id)
             {
                 shelfItem.ClearPendingRestockTask();
             }
 
             await _inventoryRepository.UpdateAsync(shelfItem, cancellationToken);
+        }
+
+        if (!takeFinishedOffTheList)
+        {
+            return new RestockOutcome(toppedUp, Removed: 0);
         }
 
         taskList.Update(

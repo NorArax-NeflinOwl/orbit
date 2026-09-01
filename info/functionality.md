@@ -1120,8 +1120,16 @@ because it is no longer something missing: a list that accumulates permanently c
 list that stops being read. The shelf item's pointer to the entry is cleared at the same time, or the
 next time that product went low Orbit would look up an entry that no longer exists.
 
+**The two halves no longer happen in the same breath.** The shelf fills on the save
+(`TopUpFinishedAsync`); the errand leaves on a refresh a few minutes later, which the checklist asks
+for five minutes after the last tick. Removing it immediately meant a row answered a tap by vanishing,
+and a tap on the wrong row could not be undone by untapping it - there was nothing left to untap. The
+delay measures from the *last* tick rather than each one, because somebody working down a list ticks
+six things in a minute and does not need six refreshes; it is also when they have stopped, and might
+look back.
+
 `RestockCompletion.ReconcileAsync` does all of it, and is safe to run twice - which is what lets it run
-in two places. It runs **on save**, so ticking an errand settles it, and again **when the list is
+in two places. It runs on that refresh, and again **when the list is
 opened** (`POST /api/tasks/{id}/restocking/reconcile`, asked for by `TaskListChecklist.razor` and by the
 phone's `TaskListDetailViewModel`), which is what clears errands that were ticked off before Orbit did
 any of this. Both clients ask, and on opening rather than on ticking: a list that settled itself in a
