@@ -121,11 +121,18 @@ else
                 <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync"
                         @onclick:stopPropagation="true">
                     <option value="">@T["Not measured against a warehouse"]</option>
-                    @foreach (var warehouse in _warehouses)
+                    @* One list per warehouse: a shelf measured against two has two answers to "is there
+                       enough", and each check would report a shortfall the other had accounted for. The
+                       ones already spoken for are left out rather than offered and then refused. *@
+                    @foreach (var warehouse in _warehouses.Where(CanBeMeasuredAgainst))
                     {
                         <option value="@warehouse.Id">@warehouse.Name</option>
                     }
                 </select>
+                @if (_warehouseMessage is not null)
+                {
+                    <span class="row-meta">@_warehouseMessage</span>
+                }
             </Extras>
             @* Only what order things are listed in. Show/Hide left: the card's own name and its
                collapse do that now, so the menu row was a third way to say the same thing. *@
@@ -762,6 +769,14 @@ else
         {
             _warehouses = await InventoryApiClient.GetWarehousesAsync();
             _linkedWarehouseId = _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty;
+            // Which shelves some other list already measures, so the picker does not offer one the
+            // server would turn away - see LinkTaskListToWarehouseCommandHandler.
+            _warehousesTakenByAnotherList =
+            [
+                .. (await TasksApiClient.GetTaskListsAsync())
+                    .Where(taskList => taskList.Id != Id && taskList.LinkedWarehouseId is not null)
+                    .Select(taskList => taskList.LinkedWarehouseId!.Value)
+            ];
             _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
         }
         catch (HttpRequestException exception)
@@ -772,11 +787,21 @@ else
         }
     }
 
+    /// <summary>Every warehouse some other list of this account's already measures - see the picker.</summary>
+    private HashSet<Guid> _warehousesTakenByAnotherList = [];
+
+    /// <summary>What the picker says back when a choice did not take. Null while nothing needs saying.</summary>
+    private string? _warehouseMessage;
+
+    private bool CanBeMeasuredAgainst(WarehouseDto warehouse)
+        => !_warehousesTakenByAnotherList.Contains(warehouse.Id);
+
     private async Task OnWarehouseChangedAsync(ChangeEventArgs args)
     {
         var chosen = args.Value?.ToString();
         _linkedWarehouseId = chosen ?? string.Empty;
         _shortfallMessage = null;
+        _warehouseMessage = null;
         Guid? warehouseId = Guid.TryParse(chosen, out var parsed) ? parsed : null;
         Logger.LogInformation("User measured task list {TaskListId} against warehouse {WarehouseId}", Id, warehouseId);
 
@@ -784,6 +809,13 @@ else
         {
             if (!await TasksApiClient.LinkWarehouseAsync(Id, warehouseId))
             {
+                // The picker leaves out what is already spoken for, so this is a shelf that was taken
+                // between the page loading and the choice being made. Said out loud rather than left as
+                // a select that snaps back for no visible reason.
+                _warehouseMessage = T["That storage is already measured against another list."];
+                _linkedWarehouseId = _sections.Count > 0
+                    ? _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty
+                    : string.Empty;
                 return;
             }
 
@@ -792,6 +824,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to measure task list {TaskListId} against a warehouse", Id);
+            _warehouseMessage = T["Couldn't measure this list against that storage. Try again."];
         }
     }
 

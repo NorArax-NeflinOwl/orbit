@@ -96,18 +96,6 @@ public sealed class TasksApiClient
     }
 
     /// <summary>
-    /// Brings this list and the warehouse it is measured against back into step: what the shelf covers
-    /// is crossed off, and what the shelf holds but no list mentions is added. Answers what moved.
-    /// </summary>
-    public async Task<StockReconciliationResultDto> ReconcileWithStockAsync(Guid taskListId, CancellationToken cancellationToken = default)
-    {
-        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/stock-check/reconciliation", content: null, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<StockReconciliationResultDto>(cancellationToken);
-        return result ?? new StockReconciliationResultDto(0, 0);
-    }
-
-    /// <summary>
     /// Says the whole restock list is done: crosses off what is left of it and brings its warehouse up
     /// to the levels it is meant to hold. Answers how many shelf items moved.
     /// </summary>

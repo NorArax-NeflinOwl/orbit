@@ -7,12 +7,16 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using System.Text.Json;
+using Orbit.Contracts.Notes;
+using Orbit.Web.Components;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -110,11 +114,13 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A restock errand typed by hand has nothing to say what it is about, and until it does the shelf
-    /// fields have nothing to edit. The picker is how it says so - see TaskEditor's ShelfPicker.
+    /// An entry of this kind names something the work needs, and naming it is the whole of it: the shelf
+    /// is built from these names rather than picked from an existing one - see
+    /// GenerateWarehouseFromTaskListCommandHandler. A picker for an existing product had the
+    /// relationship backwards.
     /// </summary>
     [Fact]
-    public void An_inventory_entry_is_asked_which_product_on_which_shelf()
+    public void An_inventory_entry_names_a_thing_rather_than_pointing_at_one()
     {
         RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
         var cut = Render();
@@ -122,7 +128,33 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         var details = cut.Find(".editor-item-details").TextContent;
-        Assert.Contains("Warehouse", details);
+        Assert.DoesNotContain("Warehouse", details);
+        Assert.Contains("becomes a product", details);
+    }
+
+    /// <summary>
+    /// A calendar entry can invite people whether the list it is on has been saved yet or not. The
+    /// contacts used to be read only alongside an existing list, so a Calendar entry on a brand new one
+    /// said there was nobody to invite - which is not the same thing as having no contacts.
+    /// </summary>
+    [Fact]
+    public void A_calendar_entry_on_a_new_list_can_still_invite_somebody()
+    {
+        RegisterApiClients(AnItem());
+        // No id: a list being made rather than one being edited, which is where the contacts went
+        // unread.
+        var cut = RenderComponent<TaskEditor>();
+
+        ClickButtonSaying(cut, "Add item");
+        if (cut.FindAll(".editor-item-details").Count == 0)
+        {
+            cut.Find(".editor-item-toggle").Click();
+        }
+
+        cut.FindAll("select").First(box => box.QuerySelectorAll("option").Any(
+            option => option.TextContent.Trim() == "Calendar")).Change(nameof(TaskItemKind.Calendar));
+
+        Assert.NotEmpty(cut.FindAll("#guestContactSelect"));
     }
 
     /// <summary>
@@ -198,8 +230,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
         var cut = Render();
 
-        Assert.Equal("Errands", cut.Find(".titled-description-title").GetAttribute("value"));
-        Assert.Equal("Things to pick up on the way home", cut.Find(".titled-description-body").GetAttribute("value"));
+        Assert.Equal(["Errands", "Things to pick up on the way home"], WhatTheFieldHolds(cut));
     }
 
     /// <summary>
@@ -212,7 +243,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         RegisterApiClients(AnItem());
         var cut = Render();
 
-        cut.Find(".titled-description-body").Input("Only what the shop is out of");
+        WriteIntoTheField(cut, "Errands", "Only what the shop is out of");
         ClickButtonSaying(cut, "Save");
 
         Assert.NotNull(_lastSavedJson);
@@ -270,6 +301,24 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.DoesNotContain(chosen, offeredAfterwards);
     }
 
+    /// <summary>
+    /// The name and what is under it, as the one field they are written in holds them - see
+    /// TitledDescription. Read through the surface rather than off the DOM: it is contenteditable driven
+    /// from JS, which a test renderer has none of.
+    /// </summary>
+    private static string[] WhatTheFieldHolds(IRenderedFragment cut)
+        => [.. cut.FindComponent<ChecklistTextEditor>().Instance.Lines.Select(line => line.Text)];
+
+    /// <summary>What that field reports after somebody types into it, called the way its own JS calls it.</summary>
+    private static void WriteIntoTheField(IRenderedFragment cut, params string[] lines)
+    {
+        var editor = cut.FindComponent<ChecklistTextEditor>().Instance;
+        var written = lines.Select(line => new NoteContentLineDto(line, IsChecklistItem: false, IsChecked: false));
+        cut.InvokeAsync(() => editor.OnLinesChangedFromJs(
+            JsonSerializer.Serialize(written, new JsonSerializerOptions(JsonSerializerDefaults.Web))))
+            .GetAwaiter().GetResult();
+    }
+
     private IRenderedComponent<TaskEditor> Render()
         => RenderComponent<TaskEditor>(parameters => parameters.Add(editor => editor.Id, TaskListId));
 
@@ -311,6 +360,19 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
                 return Json(new NotificationSettingsDto(
                     true, true, true, true, ShowExceptionDetails: false,
                     BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5));
+            }
+
+            // Somebody a calendar entry could invite, so "no contacts" in the guest picker means the
+            // page did not ask rather than that there was nobody to ask about.
+            if (path.EndsWith("/chat/contacts", StringComparison.Ordinal))
+            {
+                return Json(new[]
+                {
+                    new ContactDto(
+                        Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key",
+                        DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false,
+                        IsPendingApprovalFromOtherParty: false)
+                });
             }
 
             // The references route answers what shelf items this list's errands are about; these lists

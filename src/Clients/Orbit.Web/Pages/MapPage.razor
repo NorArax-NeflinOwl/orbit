@@ -37,12 +37,16 @@ else
 <div class="map-page">
     <div class="map-panel">
         <div class="map-panel-head">
-            <div>
-                <h1>@T["Map"]</h1>
-                <p class="page-subtitle">@T["Where you are, who you are sharing it with, and who is sharing theirs."]</p>
-            </div>
-            @* Recording is a state rather than two buttons: it is either on or it is not, and the menu
-               says which by offering the other one. *@
+            <h1>@T["Map"]</h1>
+            <p class="page-subtitle">@T["Where you are, who you are sharing it with, and who is sharing theirs."]</p>
+        </div>
+
+        @* Under the name rather than beside it, and directly above whatever the page says back - what
+           was pressed and what came of it then read as one thing instead of as opposite corners.
+
+           Recording is a state rather than two buttons: it is either on or it is not, and the menu says
+           which by offering the other one. *@
+        <div class="map-panel-actions">
             <OverflowMenu>
                 @if (_location is null)
                 {
