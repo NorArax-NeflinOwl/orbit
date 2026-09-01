@@ -299,6 +299,40 @@ public sealed class NoteDetailScreenTests
         Assert.True(screen.IsCopyOffered);
     }
 
+    /// <summary>
+    /// Online, and still read-only: this is not the offline policy but what the owner allowed. Found by
+    /// opening a note claimed from a public link, which is granted ReadOnly and nothing more - it opened
+    /// as an ordinary editable screen, and the edit was lost minutes later when the server refused it.
+    /// </summary>
+    [Fact]
+    public async Task A_note_shared_to_read_is_read_only_even_with_a_connection()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteSharedToReadAsync("Somebody else's note", "milk");
+
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.True(screen.IsReadOnly);
+        // And said as something no connection will fix, unlike the offline refusals.
+        Assert.Contains("Ask whoever shared it", screen.ReadOnlyReason);
+        Assert.DoesNotContain("online", screen.ReadOnlyReason);
+    }
+
+    /// <summary>
+    /// A copy is the way out of a refusal that will pass. This one does not pass, and a copy of it could
+    /// never be kept over the original - the server would refuse that too.
+    /// </summary>
+    [Fact]
+    public async Task A_note_shared_to_read_is_not_offered_a_copy_to_edit()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteSharedToReadAsync("Somebody else's note", "milk");
+
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.False(screen.IsCopyOffered);
+    }
+
     [Fact]
     public async Task A_note_that_can_be_changed_is_not_asked_about_at_all()
     {
@@ -433,6 +467,19 @@ public sealed class NoteDetailScreenTests
             var note = await AddNoteAsync(title, lines);
             await using var dbContext = _localStore.CreateDbContext();
             dbContext.Notes.Single(candidate => candidate.LocalId == note.LocalId).IsShared = true;
+            await dbContext.SaveChangesAsync();
+            return note;
+        }
+
+        /// <summary>
+        /// One shared in without permission to change it - what a public link grants, and what the
+        /// screen used to open as an ordinary editable note.
+        /// </summary>
+        public async Task<LocalNote> AddNoteSharedToReadAsync(string title, params string[] lines)
+        {
+            var note = await AddSharedNoteAsync(title, lines);
+            await using var dbContext = _localStore.CreateDbContext();
+            dbContext.Notes.Single(candidate => candidate.LocalId == note.LocalId).AccessLevel = "ReadOnly";
             await dbContext.SaveChangesAsync();
             return note;
         }

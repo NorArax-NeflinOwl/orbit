@@ -66,4 +66,9 @@ RUN apk add --no-cache openssl
 COPY src/Clients/Orbit.Web/generate-certificate.sh /docker-entrypoint.d/10-generate-certificate.sh
 RUN chmod +x /docker-entrypoint.d/10-generate-certificate.sh
 
+# What lets a phone open Orbit's own links in the app rather than in a browser - see the script for
+# what Android does with it and what happens when the deployment has not set a fingerprint.
+COPY src/Clients/Orbit.Web/write-android-app-links.sh /docker-entrypoint.d/20-write-android-app-links.sh
+RUN chmod +x /docker-entrypoint.d/20-write-android-app-links.sh
+
 EXPOSE 80 443

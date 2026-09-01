@@ -19,4 +19,12 @@
          the choice properly means giving inputs a drawable of their own. See App.ApplyAccent for the
          colours everything Orbit draws itself does follow. -->
     <color name="colorAccent">#7260CB</color>
+    <!-- The home screen widget, which cannot follow the theme chosen inside Orbit: a widget is drawn by
+         the launcher in its own process, long after the app has been put down, and all it knows is the
+         system's night mode. These are Orbit's own surface and text colours, so it matches the app for
+         the reader whose phone and app agree - see values-night for the other half, and
+         OrbitTodayWidget for what is drawn with them. -->
+    <color name="orbitWidgetBackground">#FFFFFF</color>
+    <color name="orbitWidgetText">#1C1C1E</color>
+    <color name="orbitWidgetSubtleText">#6C6C70</color>
 </resources>

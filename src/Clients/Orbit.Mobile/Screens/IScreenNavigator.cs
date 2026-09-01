@@ -16,6 +16,12 @@ public interface IScreenNavigator
 
     void ShowRegister();
 
+    /// <summary>
+    /// Asking for a code and setting a new password, for somebody who cannot get past the sign-in
+    /// screen - see PasswordResetViewModel.
+    /// </summary>
+    void ShowPasswordReset();
+
     void ShowAccount();
 
     void ShowChatKeyGate();
@@ -75,10 +81,15 @@ public interface IScreenNavigator
     /// <summary>What happened while the reader was elsewhere - see NotificationFeedViewModel.</summary>
     void ShowNotifications();
 
+    /// <summary>
+    /// What is behind a public link somebody followed into the app, named by the token in it - see
+    /// SharedLinkViewModel.
+    /// </summary>
+    void ShowSharedLink(string token);
+
     /// <summary>Where a newer Orbit comes from - see UpdateViewModel.</summary>
     void ShowUpdate();
 
-    /// <summary>What Orbit is allowed to interrupt the reader with - see NotificationSettingsViewModel.</summary>
     /// <summary>The app's own log, and the one way it leaves the phone - see DiagnosticsViewModel.</summary>
     void ShowDiagnostics();
 }

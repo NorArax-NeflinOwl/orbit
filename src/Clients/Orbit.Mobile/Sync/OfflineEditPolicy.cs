@@ -1,15 +1,19 @@
 namespace Orbit.Mobile.Sync;
 
 /// <summary>
-/// The two facts that decide whether something may be changed offline: whether it reached this user
-/// through somebody else's share, and whether they shared it out to somebody else. Every syncable thing
-/// that can be shared answers both, which is why the policy takes this rather than one entity type.
+/// What the two sharing rules are asked of: whether it reached this user through somebody else's share,
+/// what that share allows, and whether they shared it out to somebody else. Every syncable thing that
+/// can be shared answers all three, which is why the rules take this rather than one entity type - see
+/// <see cref="OfflineEditPolicy"/> and <see cref="SharedItemAccess"/>.
 /// </summary>
 public interface ISharedState
 {
     bool IsShared { get; }
 
     bool IsSharedWithOthers { get; }
+
+    /// <summary>A <see cref="Orbit.Core.Abstractions.ShareAccessLevel"/> by name, as the server stores it.</summary>
+    string AccessLevel { get; }
 }
 
 /// <summary>Why a note cannot be changed right now, or <see cref="None"/> when it can.</summary>

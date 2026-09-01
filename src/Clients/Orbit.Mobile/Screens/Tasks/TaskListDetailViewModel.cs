@@ -577,7 +577,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private async Task CorrectTheShelfAsync(TaskItemShelfProduct shelf, CancellationToken cancellationToken)
     {
-        if (await _shelfCorrection.ApplyAsync(shelf, cancellationToken) is ShelfCorrectionOutcome.RefusedWhileOffline)
+        if (await _shelfCorrection.ApplyAsync(shelf, cancellationToken) is ShelfCorrectionOutcome.Refused)
         {
             Status = _translations[ShelfRefusalMessage];
             return;
@@ -719,9 +719,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private async Task DeleteListAsync(CancellationToken cancellationToken)
     {
         var outcome = await _taskLists.DeleteAsync(_localId, cancellationToken);
-        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        if (outcome.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -756,9 +756,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             return;
         }
 
-        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        if (outcome.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -823,8 +823,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             // Said in the same words the row on the list before it used - being told it cannot be
             // changed, without being told why, leaves a screen that simply looks broken.
             ReadOnlyReason = OfflineEditExplanation.For(
-                OfflineEditPolicy.Evaluate(taskList, _networkStatus), hasUnsentChanges: false, _translations);
-            IsCopyOffered = IsReadOnly && taskList.CopyOfLocalId is null;
+                taskList, OfflineEditPolicy.Evaluate(taskList, _networkStatus), hasUnsentChanges: false, _translations);
+            // A copy is for editing offline what could be edited online, so there is nothing to take one
+            // of when the share itself does not permit editing.
+            IsCopyOffered = IsReadOnly && taskList.CopyOfLocalId is null && SharedItemAccess.AllowsEditing(taskList);
         }
 
         if (!IsReadOnly && taskList.ServerId is { } lockedServerId)

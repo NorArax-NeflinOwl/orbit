@@ -81,7 +81,33 @@
 		  dotnet publish src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -c Release \
 		    -p:OrbitApiBaseAddress=https://orbit-web.example.azurecontainerapps.io/ -->
 		<OrbitApiBaseAddress Condition="'$(OrbitApiBaseAddress)' == ''"></OrbitApiBaseAddress>
+
+		<!-- The host public share links are served from, which is what lets Android hand one to Orbit
+		instead of opening a browser (see MainActivity's intent filter and info/functionality.md's
+		"A link opened on a phone"). It is the deployment's own address with the scheme taken off, so a
+		release build needs nothing extra; a build that was told no address gets a name that can never
+		resolve, because a filter with no host would offer Orbit for every link on the phone.
+
+		Overridable on its own for the case the two differ - a deployment serving the client from one
+		host and its links from another. -->
+		<OrbitShareLinkHost Condition="'$(OrbitShareLinkHost)' == '' and '$(OrbitApiBaseAddress)' != ''">$(OrbitApiBaseAddress.Replace('https://', '').Replace('http://', '').TrimEnd('/'))</OrbitShareLinkHost>
+		<OrbitShareLinkHost Condition="'$(OrbitShareLinkHost)' == ''">orbit.invalid</OrbitShareLinkHost>
 	</PropertyGroup>
+
+	<!-- Written rather than configured, because an intent filter is an attribute and an attribute takes
+	compile-time constants only. The generated constant is the one place the host reaches the manifest
+	from. -->
+	<Target Name="WriteOrbitShareLinkHost" BeforeTargets="BeforeCompile"
+			Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<PropertyGroup>
+			<_OrbitShareLinkHostFile>$(IntermediateOutputPath)OrbitShareLinks.g.cs</_OrbitShareLinkHostFile>
+		</PropertyGroup>
+		<WriteLinesToFile File="$(_OrbitShareLinkHostFile)" Overwrite="true" WriteOnlyWhenDifferent="true"
+						  Lines="namespace Orbit.Maui%3B;;/// &lt;summary&gt;Generated from OrbitShareLinkHost - see Orbit.Maui.csproj.&lt;/summary&gt;;internal static class OrbitShareLinks;{;    public const string Host = &quot;$(OrbitShareLinkHost)&quot;%3B;}" />
+		<ItemGroup>
+			<Compile Include="$(_OrbitShareLinkHostFile)" />
+		</ItemGroup>
+	</Target>
 
 	<ItemGroup>
 		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">

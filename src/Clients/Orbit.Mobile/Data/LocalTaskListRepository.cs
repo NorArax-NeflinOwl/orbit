@@ -132,7 +132,7 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         var taskList = await dbContext.TaskLists.AsNoTracking()
             .FirstOrDefaultAsync(list => list.LocalId == localId, cancellationToken);
 
-        return taskList is not null && OfflineEditPolicy.IsAllowed(taskList, _networkStatus);
+        return taskList is not null && SharedItemAccess.AllowsEditing(taskList) && OfflineEditPolicy.IsAllowed(taskList, _networkStatus);
     }
 
     /// <summary>Which lists still have changes waiting to go out, so the screen can mark them.</summary>
@@ -181,6 +181,11 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         if (await dbContext.TaskLists.FirstOrDefaultAsync(list => list.LocalId == localId, cancellationToken) is not { } taskList)
         {
             return LocalWriteOutcome.NotFound;
+        }
+
+        if (!SharedItemAccess.AllowsEditing(taskList))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
         }
 
         if (!OfflineEditPolicy.IsAllowed(taskList, _networkStatus))
@@ -377,6 +382,11 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
                 candidate => candidate.LocalId == originalLocalId, cancellationToken) is not { } original)
         {
             return LocalWriteOutcome.NotFound;
+        }
+
+        if (!SharedItemAccess.AllowsEditing(original))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
         }
 
         if (!OfflineEditPolicy.IsAllowed(original, _networkStatus))

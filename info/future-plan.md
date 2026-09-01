@@ -24,8 +24,16 @@ rather than a pointer at one, and the build refuses to finish on a warning. What
   head; iOS has not been run since phase 1, and desktop has not been started at all.
 
   What is left of it: the iOS head beyond phase 1 (deferred — no Apple developer account or signing
-  key, which also blocks push there), a push that arrives while the app is in front of somebody, and
-  phase 8 — widgets, Live Activities, accessibility. Push to an Android phone is delivered as of
+  key, which also blocks push there) and phase 8's iOS half — Live Activities, the Dynamic Island, the
+  Action Button. Phase 8 is done on Android: every switch, picker, date or time picker and checkbox
+  names itself to a screen reader and a test fails on one that does not, and the home screen widget is
+  built and driven on a device (see
+  [Functionality](functionality.md#the-home-screen-widget-android)).
+  A push
+  arriving while the app is in front of somebody now shows a banner on the navigation bar, which is
+  where the browser shows its own; it honours `AllowMobileBanner` and the two settings that pace it,
+  all three of which existed for this and had no reader on the phone — and, since 2026-09-01, no way to
+  be set from it either: the phone's own banner was configured only from a browser. Push to an Android phone is delivered as of
   2026-08-31 and no longer on this list. Remaining design decisions are in
   [§12](orbit-maui-plan.md#12-open-questions); the local database staying unencrypted and iOS being
   deferred are both settled there.
@@ -228,18 +236,23 @@ since been closed; what is left is recorded below with the same honesty about wh
   sharing a key, the password-wrapped backup and its restore, and the key surviving a reload. It runs in
   the `test` job on every pull request, not only on a deploy - a change that quietly weakens the
   encryption is not something to find out about afterwards.
-- **The chat thread, `PushNotificationManager`, `pushNotifications.js` and `service-worker.js` still
-  have no coverage.** These are the parts of the same entry that the browser harness does not reach:
-  notification permission prompts, the push subscription lifecycle and the service worker's own
-  activation are all things a headless browser can be made to do, but each needs a permission grant and
-  a registered worker rather than a module import, which is a different and larger harness than the one
-  now in place. The chat thread itself is a polling component whose interesting behaviour is timing.
-- **Nothing runs on a pull request.** `main_orbit.yml` is triggered by a push to `main`, deliberately -
-  its own header weighs billed runner minutes against a branch going unchecked until it lands, and
-  production stays covered because the deploy job needs the test job. It is still worth naming here: a
-  branch is tested by whoever remembers to run `dotnet test` on it. If the minutes ever stop being the
-  binding constraint, a `pull_request` trigger on the `test` job alone is the cheapest thing to add
-  back.
+- ~~**`PushNotificationManager`, `pushNotifications.js` and `service-worker.js` have no coverage.**~~
+  Closed the same way, by `ci/verify-push-notifications.mjs`. It registers the real worker, grants the
+  permission, and delivers real push events through Chrome DevTools' `ServiceWorker.deliverPushMessage`,
+  which turned out to be the piece that made this reachable at all: what a headless browser cannot be
+  made to do is receive a push from a push service, and this side-steps that entirely by handing the
+  worker the payload directly. Ten checks, covering what is shown for a good payload and for the three
+  bad ones a push service can still deliver. The C# half is `PushNotificationManagerTests`. Two things
+  are still out of reach and are named in the script: `notificationclick`, since nothing outside the
+  operating system can click a system notification, and subscribing for real, which needs a push service.
+- **The chat thread still has no coverage.** It is a polling component whose interesting behaviour is
+  timing.
+- ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
+  billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
+  now costs a fraction of what it did. The android job looks before it builds and does nothing when
+  nothing it builds from changed, a pull request run is cancelled by the next push to the same branch,
+  and documentation-only branches are skipped outright. The deploy job stays out of it either way -
+  guarded on the event as well as gated on the suite.
 - **What Google actually does with an "Add to Google Calendar" link.** The URL is built and pinned by
   `GoogleLinkTests` - the shape of the dates, the RRULE, what is escaped - but whether Google renders
   a pre-filled event form from it has only ever been checked by reading its documentation. Opening

@@ -25,7 +25,7 @@ public sealed record CalendarEventRow(
             calendarEvent.LocalId, details.Title, details.StartUtc, details.EndUtc, details.IsAllDay,
             hasUnsentChanges, refusal,
             Describe(details.StartUtc, details.EndUtc, details.IsAllDay, translations),
-            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
+            OfflineEditExplanation.For(calendarEvent, refusal, hasUnsentChanges, translations),
             IsCopy: calendarEvent.CopyOfLocalId is not null);
     }
 

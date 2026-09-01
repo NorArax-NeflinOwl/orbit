@@ -50,7 +50,7 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
         var calendarEvent = await dbContext.CalendarEvents.AsNoTracking()
             .FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken);
 
-        return calendarEvent is not null && OfflineEditPolicy.IsAllowed(calendarEvent, _networkStatus);
+        return calendarEvent is not null && SharedItemAccess.AllowsEditing(calendarEvent) && OfflineEditPolicy.IsAllowed(calendarEvent, _networkStatus);
     }
 
     public async Task<IReadOnlySet<Guid>> GetPendingLocalIdsAsync(CancellationToken cancellationToken = default)
@@ -146,6 +146,11 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
                 candidate => candidate.LocalId == localId, cancellationToken) is not { } calendarEvent)
         {
             return LocalWriteOutcome.NotFound;
+        }
+
+        if (!SharedItemAccess.AllowsEditing(calendarEvent))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
         }
 
         if (!OfflineEditPolicy.IsAllowed(calendarEvent, _networkStatus))
@@ -278,6 +283,11 @@ public sealed class LocalCalendarEventRepository : ICopyReviewStore
                 candidate => candidate.LocalId == originalLocalId, cancellationToken) is not { } original)
         {
             return LocalWriteOutcome.NotFound;
+        }
+
+        if (!SharedItemAccess.AllowsEditing(original))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
         }
 
         if (!OfflineEditPolicy.IsAllowed(original, _networkStatus))
