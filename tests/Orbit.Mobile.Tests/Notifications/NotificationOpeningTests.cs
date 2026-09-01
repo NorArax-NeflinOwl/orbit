@@ -103,16 +103,51 @@ public sealed class NotificationOpeningTests
         Assert.Equal(groupId, context.Navigator.LastGroup!.Id);
     }
 
+    /// <summary>
+    /// The list, by the id the screen is opened with. The path names it by its server id and every
+    /// screen on the phone takes the local one - handing the navigator what the path said opened a
+    /// detail screen for a list that does not exist here, with no title, no entries and nothing saying
+    /// why. Nothing failed and nothing was logged; it just looked like an empty list.
+    /// </summary>
     [Fact]
     public async Task A_task_reminder_opens_the_list_it_is_about()
     {
         using var context = new OpeningContext();
-        var taskListId = Guid.NewGuid();
+        var taskList = await context.AddKnownTaskListAsync("Shopping");
 
-        var outcome = await context.Opener.OpenAsync($"/tasks/{taskListId}");
+        var outcome = await context.Opener.OpenAsync($"/tasks/{taskList.ServerId}");
 
         Assert.Equal(NotificationOpenOutcome.Opened, outcome);
-        Assert.Equal(taskListId, context.Navigator.LastTaskListId);
+        Assert.Equal(taskList.LocalId, context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>
+    /// The same race as a first message: sharing a list notifies the other person straight away, which
+    /// is before their phone has pulled anything down.
+    /// </summary>
+    [Fact]
+    public async Task A_list_shared_a_moment_ago_is_pulled_rather_than_refused()
+    {
+        using var context = new OpeningContext();
+        var serverId = context.AddTaskListOnTheServerOnly("Weekend jobs");
+
+        var outcome = await context.Opener.OpenAsync($"/tasks/{serverId}");
+
+        Assert.Equal(NotificationOpenOutcome.Opened, outcome);
+        Assert.NotNull(context.Navigator.LastTaskListId);
+        Assert.NotEqual(serverId, context.Navigator.LastTaskListId);
+    }
+
+    [Fact]
+    public async Task A_list_the_phone_cannot_fetch_says_so_rather_than_opening_an_empty_screen()
+    {
+        using var context = new OpeningContext();
+        context.GoOffline();
+
+        var outcome = await context.Opener.OpenAsync($"/tasks/{Guid.NewGuid()}");
+
+        Assert.Equal(NotificationOpenOutcome.NotOnThisPhoneYet, outcome);
+        Assert.Empty(context.Navigator.Destinations);
     }
 
     [Theory]
@@ -148,6 +183,9 @@ public sealed class NotificationOpeningTests
         private readonly FakeUsersServer _users = new();
         private readonly ChatRepository _repository;
         private readonly ChatSynchronizer _synchronizer;
+        private readonly FakeTasksServer _tasksServer;
+        private readonly LocalTaskListRepository _taskLists;
+        private readonly TaskListSynchronizer _taskListSynchronizer;
         private readonly Guid _ownUserId = Guid.NewGuid();
 
         public OpeningContext()
@@ -176,7 +214,16 @@ public sealed class NotificationOpeningTests
             _synchronizer = new ChatSynchronizer(
                 _repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
 
-            Opener = new NotificationOpener(_repository, _synchronizer, usersClient, new PendingNotificationTap(), Navigator);
+            _tasksServer = new FakeTasksServer(_clock);
+            _taskLists = new LocalTaskListRepository(
+                _localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+            _taskListSynchronizer = new TaskListSynchronizer(
+                _localStore, new TasksClient(_tasksServer.ToHttpClient()), _clock, new SyncGate(),
+                NullLogger<TaskListSynchronizer>.Instance);
+
+            Opener = new NotificationOpener(
+                _repository, _synchronizer, usersClient, _taskLists, _taskListSynchronizer,
+                new PendingNotificationTap(), Navigator);
         }
 
         public NotificationOpener Opener { get; }
@@ -187,7 +234,19 @@ public sealed class NotificationOpeningTests
         {
             _chatServer.IsUnreachable = true;
             _users.IsUnreachable = true;
+            _tasksServer.IsUnreachable = true;
         }
+
+        /// <summary>A list this phone has already pulled down, as it is stored here.</summary>
+        public async Task<LocalTaskList> AddKnownTaskListAsync(string title)
+        {
+            var serverId = AddTaskListOnTheServerOnly(title);
+            await _taskListSynchronizer.SynchroniseAsync();
+            return (await _taskLists.GetAllAsync()).Single(taskList => taskList.ServerId == serverId);
+        }
+
+        /// <summary>A list the server knows about and this phone does not - the notification arrives first.</summary>
+        public Guid AddTaskListOnTheServerOnly(string title) => _tasksServer.AddTaskList(title, isShared: true).Id;
 
         /// <summary>Somebody this phone has already pulled into its contact list.</summary>
         public async Task<Guid> AddKnownContactAsync(string displayName)

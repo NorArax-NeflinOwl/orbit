@@ -20,6 +20,23 @@ namespace Orbit.Mobile.Tests.TestDoubles;
 /// </summary>
 internal static class Openers
 {
+    /// <summary>
+    /// The stored task lists an opener reads to turn a notification's server id into the local one every
+    /// screen is opened by - see NotificationOpener.
+    /// </summary>
+    public static LocalTaskListRepository TaskListsIn(LocalStore localStore)
+        => new(localStore, TimeProvider.System, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+
+    /// <summary>
+    /// The task list half for a test that is not about task lists. Its server cannot be reached, so a
+    /// path naming a list this phone has never pulled answers "not on this phone yet" rather than
+    /// depending on a fake nobody in that test set up.
+    /// </summary>
+    public static TaskListSynchronizer NoTaskListServer(LocalStore localStore)
+        => new(
+            localStore, new TasksClient(StubHttpMessageHandler.Unreachable().ToHttpClient()),
+            TimeProvider.System, new SyncGate(), NullLogger<TaskListSynchronizer>.Instance);
+
     public static NotificationOpener AgainstNobody(LocalStore localStore, IScreenNavigator navigator)
     {
         var nobody = StubHttpMessageHandler.Unreachable().ToHttpClient();
@@ -40,6 +57,7 @@ internal static class Openers
         return new NotificationOpener(
             chat,
             new ChatSynchronizer(chat, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance),
-            usersClient, new PendingNotificationTap(), navigator);
+            usersClient, TaskListsIn(localStore), NoTaskListServer(localStore),
+            new PendingNotificationTap(), navigator);
     }
 }

@@ -78,7 +78,6 @@ public interface IScreenNavigator
     /// <summary>Where a newer Orbit comes from - see UpdateViewModel.</summary>
     void ShowUpdate();
 
-    /// <summary>What Orbit is allowed to interrupt the reader with - see NotificationSettingsViewModel.</summary>
     /// <summary>The app's own log, and the one way it leaves the phone - see DiagnosticsViewModel.</summary>
     void ShowDiagnostics();
 }

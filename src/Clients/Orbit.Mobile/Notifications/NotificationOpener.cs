@@ -33,22 +33,30 @@ public enum NotificationOpenOutcome
 ///   has been a conversation, but a shared note notifies with the same /chat/{userId} path - so
 ///   refreshing forever would never find them. They are looked up by id instead, which is what
 ///   LocalContact.ForSomebodyNotYetSpokenTo exists for.
+///
+/// A task list is the same shape of problem for a different reason: the path names it by its server id
+/// and every screen on this phone is opened by the local one.
 /// </summary>
 public sealed class NotificationOpener
 {
     private readonly ChatRepository _chatRepository;
     private readonly ChatSynchronizer _synchronizer;
     private readonly UsersClient _usersClient;
+    private readonly LocalTaskListRepository _taskLists;
+    private readonly TaskListSynchronizer _taskListSynchronizer;
     private readonly PendingNotificationTap _pendingTap;
     private readonly IScreenNavigator _navigator;
 
     public NotificationOpener(
         ChatRepository chatRepository, ChatSynchronizer synchronizer, UsersClient usersClient,
+        LocalTaskListRepository taskLists, TaskListSynchronizer taskListSynchronizer,
         PendingNotificationTap pendingTap, IScreenNavigator navigator)
     {
         _chatRepository = chatRepository;
         _synchronizer = synchronizer;
         _usersClient = usersClient;
+        _taskLists = taskLists;
+        _taskListSynchronizer = taskListSynchronizer;
         _pendingTap = pendingTap;
         _navigator = navigator;
     }
@@ -84,9 +92,8 @@ public sealed class NotificationOpener
             case NotificationTarget.GroupConversation:
                 return await OpenGroupAsync(destination.Id, cancellationToken);
 
-            case NotificationTarget.TaskList when destination.Id is { } taskListId:
-                _navigator.ShowTaskList(taskListId);
-                return NotificationOpenOutcome.Opened;
+            case NotificationTarget.TaskList:
+                return await OpenTaskListAsync(destination.Id, cancellationToken);
 
             case NotificationTarget.Calendar:
                 _navigator.ShowCalendar();
@@ -128,6 +135,42 @@ public sealed class NotificationOpener
         _navigator.ShowConversation(contact);
         return NotificationOpenOutcome.Opened;
     }
+
+    /// <summary>
+    /// The path names the list by its server id and the screen is opened by its local one - two ids for
+    /// the same list, and passing the wrong one opened a detail screen for a list this phone does not
+    /// have: no title, no entries, and nothing on it saying why.
+    ///
+    /// The retry is the same case as a first message: a list shared with somebody notifies them
+    /// immediately, which is before any sync has pulled it down.
+    /// </summary>
+    private async Task<NotificationOpenOutcome> OpenTaskListAsync(
+        Guid? taskListServerId, CancellationToken cancellationToken)
+    {
+        if (taskListServerId is not { } serverId)
+        {
+            return NotificationOpenOutcome.NowhereToGo;
+        }
+
+        var taskList = await FindTaskListAsync(serverId, cancellationToken)
+            ?? await RefreshThenFindTaskListAsync(serverId, cancellationToken);
+        if (taskList is null)
+        {
+            return NotificationOpenOutcome.NotOnThisPhoneYet;
+        }
+
+        _navigator.ShowTaskList(taskList.LocalId);
+        return NotificationOpenOutcome.Opened;
+    }
+
+    private async Task<LocalTaskList?> FindTaskListAsync(Guid serverId, CancellationToken cancellationToken)
+        => (await _taskLists.GetAllAsync(cancellationToken))
+            .FirstOrDefault(taskList => taskList.ServerId == serverId);
+
+    private async Task<LocalTaskList?> RefreshThenFindTaskListAsync(Guid serverId, CancellationToken cancellationToken)
+        => (await _taskListSynchronizer.SynchroniseAsync(cancellationToken)).ReachedTheServer
+            ? await FindTaskListAsync(serverId, cancellationToken)
+            : null;
 
     private async Task<NotificationOpenOutcome> OpenGroupAsync(Guid? groupId, CancellationToken cancellationToken)
     {
