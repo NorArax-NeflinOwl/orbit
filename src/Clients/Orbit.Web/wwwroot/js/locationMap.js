@@ -53,7 +53,7 @@ export async function showLocations(elementId, points) {
         map.fitBounds(points.map(point => [point.latitude, point.longitude]), { padding: [40, 40] });
     }
 
-    // Later size changes - a window resize, the sidebar collapsing - still need the map told about them.
+    // Later size changes - a window resize, a panel opening - still need the map told about them.
     const resizeObserver = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resizeObserver.observe(element);
 

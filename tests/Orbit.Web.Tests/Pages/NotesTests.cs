@@ -43,7 +43,7 @@ public sealed class NotesTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Notes>();
 
-        var titles = cut.FindAll(".note-row-title").Select(element => element.TextContent.Trim()).ToList();
+        var titles = cut.FindAll(".item-card-name").Select(element => element.TextContent.Trim()).ToList();
         Assert.Equal(["Ideas", "Shopping"], titles);
     }
 
@@ -77,7 +77,7 @@ public sealed class NotesTests : OrbitTestContext
 
         // The first line, not the whole note glued together - a preview that prints everything is not a
         // preview, and made every card in the list a different height.
-        var preview = cut.Find("li p").TextContent;
+        var preview = cut.Find(".item-card-body p").TextContent;
         Assert.Contains("Milk", preview);
         Assert.DoesNotContain("Coffee", preview);
         Assert.Contains("+2 more", preview);
@@ -94,8 +94,8 @@ public sealed class NotesTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Notes>();
 
         // The same mark a task list preview uses, so a ticked-off line reads as ticked off here too.
-        Assert.Contains("✓", cut.Find("li p").TextContent);
-        Assert.Contains("completed", cut.Find("li p").ClassName);
+        Assert.Contains("✓", cut.Find(".item-card-body p").TextContent);
+        Assert.Contains("completed", cut.Find(".item-card-body p").ClassName);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public sealed class NotesTests : OrbitTestContext
 
         Assert.Contains("Empty one", cut.Markup);
         // Nothing written yet means no preview line at all, rather than an empty one holding space open.
-        Assert.Empty(cut.FindAll("li p"));
+        Assert.Empty(cut.FindAll(".item-card-body p"));
     }
 
     [Fact]
@@ -117,6 +117,7 @@ public sealed class NotesTests : OrbitTestContext
         RegisterNotesApiClient([note]);
         var cut = RenderComponent<Web.Pages.Notes>();
 
+        OpenTheCardMenu(cut);
         FindButton(cut, "Edit").Click();
 
         Assert.EndsWith($"/notes/{note.Id}", Services.GetRequiredService<NavigationManager>().Uri);
@@ -128,7 +129,7 @@ public sealed class NotesTests : OrbitTestContext
         RegisterNotesApiClient([]);
         var cut = RenderComponent<Web.Pages.Notes>();
 
-        FindButton(cut, "Add note").Click();
+        cut.Find(".page-add").Click();
 
         Assert.EndsWith("/notes/new", Services.GetRequiredService<NavigationManager>().Uri);
     }
@@ -140,6 +141,7 @@ public sealed class NotesTests : OrbitTestContext
         RegisterNotesApiClient([note], confirmDeletion: true);
         var cut = RenderComponent<Web.Pages.Notes>();
 
+        OpenTheCardMenu(cut);
         FindButton(cut, "Delete").Click();
 
         Assert.DoesNotContain("Shopping", cut.Markup);
@@ -152,6 +154,7 @@ public sealed class NotesTests : OrbitTestContext
         RegisterNotesApiClient([Note("Shopping")], confirmDeletion: false);
         var cut = RenderComponent<Web.Pages.Notes>();
 
+        OpenTheCardMenu(cut);
         FindButton(cut, "Delete").Click();
 
         // Nothing asked of the server, and nothing removed from the page - a declined confirmation has
@@ -174,6 +177,13 @@ public sealed class NotesTests : OrbitTestContext
 
     private static IElement FindButton(IRenderedFragment cut, string text)
         => cut.FindAll("button").First(button => button.TextContent.Trim() == text);
+
+    /// <summary>
+    /// Edit and Delete live in each card's overflow menu now, which has to be opened before they
+    /// exist - see ItemCard's Menu slot and OverflowMenu.
+    /// </summary>
+    private static void OpenTheCardMenu(IRenderedFragment cut)
+        => cut.FindAll(".overflow-menu-trigger").First().Click();
 
     private void RegisterNotesApiClient(
         IReadOnlyList<NoteDto>? notes, bool confirmDeletion = true, HttpStatusCode statusCode = HttpStatusCode.OK)

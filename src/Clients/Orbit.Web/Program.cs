@@ -64,7 +64,7 @@ builder.Services.AddTransient<AuthorizationMessageHandler>();
 // so both injection sites resolve to the same instance. Singleton for the same reason as TokenStore
 // above: AuthorizationMessageHandler calls NotifyAuthenticationStateChanged() on this when a request's
 // access and refresh tokens both turn out to be dead (see its class comment) - a Scoped registration
-// meant that call landed on a throwaway instance nothing was subscribed to, so MainLayout's sidebar
+// meant that call landed on a throwaway instance nothing was subscribed to, so MainLayout's top bar
 // never found out the session had ended until something else (a manual login/logout, or the
 // session-expiry heartbeat below, both of which run in the app's real scope) eventually noticed too.
 builder.Services.AddSingleton<OrbitAuthenticationStateProvider>();

@@ -11,12 +11,16 @@
 <PageTitle>@T["Orbit — Notes"]</PageTitle>
 
 <div class="page-header">
-    <div>
+    @* The one thing this page is for, left of what the page is called. An icon rather than a labelled
+       button: "Add note" on a page headed "Notes" spends a quarter of the row saying what the plus
+       already says, and it is in the same place on every list. *@
+    <div class="page-heading">
+        <button type="button" class="icon-btn page-add" title="@(T["Add note"])" aria-label="@(T["Add note"])"
+                @onclick="GoToAddNote">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
         <h1>@T["Notes"]</h1>
-        <p class="page-subtitle">@T["Everything you have written down, and anything shared with you."]</p>
-    </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-primary" @onclick="GoToAddNote">@T["Add note"]</button>
     </div>
 </div>
 
@@ -35,45 +39,62 @@ else if (_notes.Count == 0)
 }
 else
 {
-    <ul>
+    <div class="item-card-list">
         @foreach (var note in Ordered(_notes))
         {
-            <li class="note-row @(note.IsPinned ? "note-row-pinned" : "")">
-                <div class="note-row-heading">
-                    <strong class="note-row-title">@note.Title</strong>
-                    @* Only for a note you own: pinning moves it on its owner's page, so a recipient
-                       pinning a note shared with them would be rearranging someone else's list. *@
+            <ItemCard Name="@NameOf(note)"
+                      OnNameSelected="() => GoToEditNote(note.Id)"
+                      OnBodySelected="@(note.IsPrivate ? default(EventCallback) : EventCallback.Factory.Create(this, () => GoToEditNote(note.Id)))"
+                      ExtraClass="@(note.IsPinned ? "item-card-pinned" : null)">
+                @* Only for a note you own: pinning moves it on its owner's page, so a recipient
+                   pinning a note shared with them would be rearranging someone else's list. *@
+                <Pin>
                     @if (!note.IsShared)
                     {
                         <PinButton IsPinned="note.IsPinned" OnPinnedChanged="pinned => SetPinnedAsync(note, pinned)" />
                     }
-                </div>
-                @* One line, not the whole note - enough to recognise which note this is, with the
-                   editor one click away for reading it. A checklist line shows whether it is done, the
-                   same mark the task list preview uses. *@
-                @if (FirstLine(note) is { } firstLine)
-                {
-                    <p class="note-preview-line @(firstLine.IsChecklistItem && firstLine.IsChecked ? "completed" : "")">
-                        @if (firstLine.IsChecklistItem)
-                        {
-                            <span class="task-preview-mark">@(firstLine.IsChecked ? "✓" : "")</span>
-                        }
-                        <span class="note-preview-text">@firstLine.Text</span>
-                        @if (note.Content.Count > 1)
-                        {
-                            <span class="row-meta">@T.Format("+{0} more", note.Content.Count - 1)</span>
-                        }
-                    </p>
-                }
-                <small>@T["Created:"] @note.CreatedAtUtc.LocalDateTime</small><br>
-                <small>@T["Last updated:"] @note.UpdatedAtUtc.LocalDateTime</small><br>
-                <button @onclick="() => GoToEditNote(note.Id)">@T["Edit"]</button>
-                @* Somebody else's note is not this reader's to delete: pressing this takes it off their
-                   list and leaves the owner's alone, so it says that rather than "Delete". *@
-                <button disabled="@(_deletingNoteId == note.Id)" @onclick="() => DeleteNoteAsync(note)">@(note.IsShared ? T["Remove from my list"] : T["Delete"])</button>
-            </li>
+                </Pin>
+                <Menu>
+                    <OverflowMenu>
+                        <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditNote(note.Id)">
+                            @T["Edit"]
+                        </button>
+                        @* Somebody else's note is not this reader's to delete: pressing this takes it
+                           off their list and leaves the owner's alone, so it says that rather than
+                           "Delete". *@
+                        <button type="button" class="avatar-dropdown-item" disabled="@(_deletingNoteId == note.Id)"
+                                @onclick="() => DeleteNoteAsync(note)">
+                            @(note.IsShared ? T["Remove from my list"] : T["Delete"])
+                        </button>
+                    </OverflowMenu>
+                </Menu>
+                <Extras>
+                    @* When, in as few words as it takes. "Created" is gone: a note is read by when it
+                       last changed, and two timestamps on a row this size is one more than anybody
+                       reads. *@
+                    <span>@WhenLastChanged(note.UpdatedAtUtc)</span>
+                </Extras>
+                <Body>
+                    @* A private note is sealed - the server holds no readable line of it, and the key
+                       is not on this page. Its name stands for it here and the editor opens it. *@
+                    @if (!note.IsPrivate && FirstLine(note) is { } firstLine)
+                    {
+                        <p class="note-preview-line @(firstLine.IsChecklistItem && firstLine.IsChecked ? "completed" : "")">
+                            @if (firstLine.IsChecklistItem)
+                            {
+                                <span class="task-preview-mark">@(firstLine.IsChecked ? "✓" : "")</span>
+                            }
+                            <span class="note-preview-text">@firstLine.Text</span>
+                            @if (note.Content.Count > 1)
+                            {
+                                <span class="row-meta">@T.Format("+{0} more", note.Content.Count - 1)</span>
+                            }
+                        </p>
+                    }
+                </Body>
+            </ItemCard>
         }
-    </ul>
+    </div>
 }
 
 @code {
@@ -90,6 +111,32 @@ else
     /// </summary>
     private static NoteContentLineDto? FirstLine(NoteDto note)
         => note.Content.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line.Text));
+
+    /// <summary>
+    /// What to call a note in the list. A private one travels with its title empty - the real one is
+    /// sealed inside its payload, which this page holds no key for - so it is named for what it is
+    /// rather than shown as a blank row.
+    /// </summary>
+    private string NameOf(NoteDto note)
+        => note.IsPrivate || string.IsNullOrWhiteSpace(note.Title) ? T["Private note"] : note.Title;
+
+    /// <summary>
+    /// When it last changed, said the way somebody would say it. Within the last week the weekday is
+    /// enough and reads faster than a date; past that a weekday is ambiguous - "Tuesday" could be any
+    /// of them - so it becomes a date.
+    /// </summary>
+    private string WhenLastChanged(DateTimeOffset updatedAtUtc)
+    {
+        var when = updatedAtUtc.LocalDateTime;
+        var daysAgo = (DateTime.Now.Date - when.Date).Days;
+        return daysAgo switch
+        {
+            0 => T["Today"],
+            1 => T["Yesterday"],
+            < 7 and > 0 => when.ToString("dddd", T.DisplayCulture),
+            _ => when.ToString("d", T.DisplayCulture)
+        };
+    }
 
     protected override async Task OnInitializedAsync()
     {
