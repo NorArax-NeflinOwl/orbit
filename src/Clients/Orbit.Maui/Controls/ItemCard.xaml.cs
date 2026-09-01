@@ -26,6 +26,12 @@ public partial class ItemCard : ContentView
 	public static readonly BindableProperty HasUnseenActionProperty = BindableProperty.Create(
 		nameof(HasUnseenAction), typeof(bool), typeof(ItemCard), false, propertyChanged: OnUnseenChanged);
 
+	public static readonly BindableProperty HandleProperty = BindableProperty.Create(
+		nameof(Handle), typeof(View), typeof(ItemCard), propertyChanged: (card, _, value) => Fill(card, "HandleHost", value));
+
+	public static readonly BindableProperty CollapseProperty = BindableProperty.Create(
+		nameof(Collapse), typeof(View), typeof(ItemCard), propertyChanged: (card, _, value) => Fill(card, "CollapseHost", value));
+
 	public static readonly BindableProperty PinProperty = BindableProperty.Create(
 		nameof(Pin), typeof(View), typeof(ItemCard), propertyChanged: (card, _, value) => Fill(card, "PinHost", value));
 
@@ -66,6 +72,20 @@ public partial class ItemCard : ContentView
 	{
 		get => (bool)GetValue(HasUnseenActionProperty);
 		set => SetValue(HasUnseenActionProperty, value);
+	}
+
+	/// <summary>Moving the card up or down, where the order is the reader's to set.</summary>
+	public View? Handle
+	{
+		get => (View?)GetValue(HandleProperty);
+		set => SetValue(HandleProperty, value);
+	}
+
+	/// <summary>Folding the card down to its heading, where there is a body to fold away.</summary>
+	public View? Collapse
+	{
+		get => (View?)GetValue(CollapseProperty);
+		set => SetValue(CollapseProperty, value);
 	}
 
 	/// <summary>Keeping this card at the top of its list, where that is the reader's to decide.</summary>

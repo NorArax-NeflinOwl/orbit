@@ -9,7 +9,7 @@
          is always in the same place, the menu is always in the same corner, and what a card carries
          beyond that is what differs between them.
 
-             [pin][action][name .....................................][menu]
+             [handle][pin][action][name ....................][collapse][menu]
              [tags .................................................]
              [body, or what is on it]
              [.........................extras.......................]
@@ -30,7 +30,9 @@
                  name in the list to the right of it. They carry their own margins instead. -->
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
-                    <ContentView x:Name="PinHost" VerticalOptions="Center" />
+                    <!-- Where the order can actually be changed, and nowhere else. -->
+                    <ContentView x:Name="HandleHost" IsVisible="False" VerticalOptions="Center" />
+                    <ContentView x:Name="PinHost" IsVisible="False" VerticalOptions="Center" />
 
                     <!-- Something happened here that the reader has not seen. Before the name because
                          that is where the eye already is reading down a list, and it is about this card
@@ -43,12 +45,18 @@
                 <Label x:Name="NameLabel" Grid.Column="1" FontSize="17" FontAttributes="Bold"
                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
 
-                <ContentView x:Name="MenuHost" Grid.Column="2" VerticalOptions="Center" />
+                <HorizontalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
+                    <!-- Folding a card to its heading, where there is something underneath to fold. -->
+                    <ContentView x:Name="CollapseHost" IsVisible="False" VerticalOptions="Center" />
+                    <ContentView x:Name="MenuHost" IsVisible="False" VerticalOptions="Center" />
+                </HorizontalStackLayout>
             </Grid>
 
-            <ContentView x:Name="TagsHost" />
-            <ContentView x:Name="BodyHost" />
-            <ContentView x:Name="ExtrasHost" />
+            <!-- Every slot starts hidden: what nobody fills is not drawn, and an empty one still
+                 took its spacing - see Fill, which turns a slot back on with what goes in it. -->
+            <ContentView x:Name="TagsHost" IsVisible="False" />
+            <ContentView x:Name="BodyHost" IsVisible="False" />
+            <ContentView x:Name="ExtrasHost" IsVisible="False" />
 
             <!-- The whole card opens what it names, rather than only the words: on a card this size the
                  block is the target, and asking somebody to hit a word is the difference between one tap
