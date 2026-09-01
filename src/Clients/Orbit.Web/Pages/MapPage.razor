@@ -639,6 +639,12 @@ else
         {
             // The circuit is already gone, so there is no map left to tear down.
         }
+        catch (ObjectDisposedException)
+        {
+            // The page was left while this was still running - DisposeAsync got to the module first.
+            // Both mean the same thing here, and taking the renderer down over a map that is already
+            // gone is worse than either.
+        }
     }
 
 
