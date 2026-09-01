@@ -654,11 +654,29 @@
     private bool _hasGoogleExtras;
 
     private string GoogleCalendarLinkFor(CalendarEventDto calendarEvent)
-        => GoogleCalendarEventLink.ForEvent(
-            calendarEvent.Details.Title, calendarEvent.Details.StartUtc, calendarEvent.Details.EndUtc,
-            calendarEvent.Details.IsAllDay, calendarEvent.Details.Description,
-            calendarEvent.Details.Location is { } location ? FormatLocation(location) : null,
-            calendarEvent.Details.Recurrence);
+    {
+        var details = calendarEvent.Details;
+        return GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent(details.Title, details.StartUtc, details.EndUtc)
+        {
+            IsAllDay = details.IsAllDay,
+            Description = details.Description,
+            Location = details.Location is { } location ? FormatLocation(location) : null,
+            Recurrence = details.Recurrence,
+            TaskListTitle = TheEntryBehind(calendarEvent) is { } entry ? Written(entry.TaskListTitle) : null,
+            GuestEmailAddresses = GoogleGuestAddresses(details.Guests),
+            ReminderMinutesBeforeStart = details.ReminderMinutesBeforeStart,
+            NotifyAtStart = details.NotifyAtStart
+        });
+    }
+
+    /// <summary>
+    /// The guests Google can actually invite. An address Google has not verified is one it cannot match
+    /// to an account, so the invitation would go nowhere - see ContactDto.HasGoogleVerifiedEmail.
+    /// </summary>
+    private IReadOnlyList<string> GoogleGuestAddresses(IReadOnlyList<Guid> guests)
+        => [.. _contacts
+            .Where(contact => contact.HasGoogleVerifiedEmail && guests.Contains(contact.UserId))
+            .Select(contact => contact.Email)];
 
     private string FormatLocation(EventLocationDto location)
         => string.IsNullOrWhiteSpace(location.Address)

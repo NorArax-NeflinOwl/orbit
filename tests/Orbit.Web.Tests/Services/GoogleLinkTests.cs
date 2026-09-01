@@ -17,7 +17,7 @@ public sealed class GoogleLinkTests
     [Fact]
     public void An_event_link_carries_the_title_and_both_instants()
     {
-        var link = GoogleCalendarEventLink.ForEvent("Dentist", TenAm, TenAm.AddHours(1));
+        var link = GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent("Dentist", TenAm, TenAm.AddHours(1)));
 
         // Google's template links accept exactly this shape and silently ignore anything else.
         Assert.Contains("text=Dentist", link);
@@ -31,7 +31,7 @@ public sealed class GoogleLinkTests
         // unchanged would move the event by the offset.
         var warsawMorning = new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.FromHours(2));
 
-        var link = GoogleCalendarEventLink.ForEvent("Dentist", warsawMorning, warsawMorning.AddHours(1));
+        var link = GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent("Dentist", warsawMorning, warsawMorning.AddHours(1)));
 
         Assert.Contains("dates=20260901T080000Z/20260901T090000Z", link);
     }
@@ -48,7 +48,7 @@ public sealed class GoogleLinkTests
     public void An_all_day_event_uses_dates_and_an_exclusive_end()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Holiday", LocalMidnightOn(1), LocalMidnightOn(1), isAllDay: true);
+            new GoogleCalendarEvent("Holiday", LocalMidnightOn(1), LocalMidnightOn(1)) { IsAllDay = true });
 
         // Google reads the end of an all-day range as exclusive, so a single day is written as 1st/2nd -
         // passing the same date twice would produce an event of no length.
@@ -65,7 +65,7 @@ public sealed class GoogleLinkTests
     public void An_all_day_event_spanning_days_covers_the_same_days_the_grid_draws()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Trip", LocalMidnightOn(1), LocalMidnightOn(4), isAllDay: true);
+            new GoogleCalendarEvent("Trip", LocalMidnightOn(1), LocalMidnightOn(4)) { IsAllDay = true });
 
         Assert.Contains("dates=20260901/20260905", link);
     }
@@ -81,7 +81,7 @@ public sealed class GoogleLinkTests
     public void The_link_covers_exactly_the_days_the_grid_puts_it_on(int firstDay, int lastDay)
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Trip", LocalMidnightOn(firstDay), LocalMidnightOn(lastDay), isAllDay: true);
+            new GoogleCalendarEvent("Trip", LocalMidnightOn(firstDay), LocalMidnightOn(lastDay)) { IsAllDay = true });
 
         // What the grid draws: every day from the first to the last, the last included.
         var daysDrawn = lastDay - firstDay + 1;
@@ -105,7 +105,7 @@ public sealed class GoogleLinkTests
     public void An_all_day_event_falls_on_the_day_the_reader_chose()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Holiday", LocalMidnightOn(14), LocalMidnightOn(14), isAllDay: true);
+            new GoogleCalendarEvent("Holiday", LocalMidnightOn(14), LocalMidnightOn(14)) { IsAllDay = true });
 
         Assert.Contains("dates=20260914/20260915", link);
     }
@@ -119,7 +119,7 @@ public sealed class GoogleLinkTests
     {
         var midnight = LocalMidnightOn(14);
 
-        var link = GoogleCalendarEventLink.ForEvent("Dentist", midnight, midnight.AddHours(1));
+        var link = GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent("Dentist", midnight, midnight.AddHours(1)));
 
         Assert.Contains($"dates={midnight.UtcDateTime:yyyyMMdd'T'HHmmss}Z/", link);
     }
@@ -128,8 +128,11 @@ public sealed class GoogleLinkTests
     public void Everything_that_goes_into_a_link_is_escaped()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Coffee & cake", TenAm, TenAm.AddHours(1),
-            description: "Bring the tickets?", location: "Rynek Główny 1, Kraków");
+            new GoogleCalendarEvent("Coffee & cake", TenAm, TenAm.AddHours(1))
+            {
+                Description = "Bring the tickets?",
+                Location = "Rynek Główny 1, Kraków"
+            });
 
         // An unescaped & would end the title and invent a parameter; a raw ? or space breaks the URL.
         Assert.DoesNotContain("text=Coffee & cake", link);
@@ -141,7 +144,7 @@ public sealed class GoogleLinkTests
     [Fact]
     public void An_event_link_leaves_out_details_and_location_when_there_are_none()
     {
-        var link = GoogleCalendarEventLink.ForEvent("Dentist", TenAm, TenAm.AddHours(1));
+        var link = GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent("Dentist", TenAm, TenAm.AddHours(1)));
 
         Assert.DoesNotContain("details=", link);
         Assert.DoesNotContain("location=", link);
@@ -209,7 +212,7 @@ public sealed class GoogleLinkTests
     public void A_repeating_event_carries_its_rule()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Standup", TenAm, TenAm.AddMinutes(15), recurrence: new RecurrenceDto("Daily", 1, null));
+            new GoogleCalendarEvent("Standup", TenAm, TenAm.AddMinutes(15)) { Recurrence = new RecurrenceDto("Daily", 1, null) });
 
         // Google reads an iCalendar RRULE here; anything it does not recognise it drops silently, which
         // is why the shape matters more than usual.
@@ -220,7 +223,7 @@ public sealed class GoogleLinkTests
     public void An_interval_of_one_is_left_unsaid()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Standup", TenAm, TenAm.AddMinutes(15), recurrence: new RecurrenceDto("Weekly", 1, null));
+            new GoogleCalendarEvent("Standup", TenAm, TenAm.AddMinutes(15)) { Recurrence = new RecurrenceDto("Weekly", 1, null) });
 
         // INTERVAL=1 is the default, so saying it adds length and nothing else.
         Assert.DoesNotContain("INTERVAL", link, StringComparison.OrdinalIgnoreCase);
@@ -230,7 +233,7 @@ public sealed class GoogleLinkTests
     public void Every_other_week_says_so()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Retro", TenAm, TenAm.AddHours(1), recurrence: new RecurrenceDto("Weekly", 2, null));
+            new GoogleCalendarEvent("Retro", TenAm, TenAm.AddHours(1)) { Recurrence = new RecurrenceDto("Weekly", 2, null) });
 
         Assert.Contains("FREQ%3dWEEKLY%3bINTERVAL%3d2", link, StringComparison.OrdinalIgnoreCase);
     }
@@ -240,7 +243,7 @@ public sealed class GoogleLinkTests
     {
         var until = new DateTimeOffset(2026, 12, 31, 23, 0, 0, TimeSpan.FromHours(2));
         var link = GoogleCalendarEventLink.ForEvent(
-            "Course", TenAm, TenAm.AddHours(1), recurrence: new RecurrenceDto("Monthly", 1, until));
+            new GoogleCalendarEvent("Course", TenAm, TenAm.AddHours(1)) { Recurrence = new RecurrenceDto("Monthly", 1, until) });
 
         // 23:00 in Warsaw is 21:00 UTC - handing Google the local time would end the series two hours late.
         Assert.Contains("UNTIL%3d20261231T210000Z", link, StringComparison.OrdinalIgnoreCase);
@@ -249,7 +252,7 @@ public sealed class GoogleLinkTests
     [Fact]
     public void An_event_that_does_not_repeat_says_nothing_about_repeating()
     {
-        var link = GoogleCalendarEventLink.ForEvent("Dentist", TenAm, TenAm.AddHours(1));
+        var link = GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent("Dentist", TenAm, TenAm.AddHours(1)));
 
         Assert.DoesNotContain("recur", link, StringComparison.OrdinalIgnoreCase);
     }
@@ -258,7 +261,7 @@ public sealed class GoogleLinkTests
     public void A_frequency_this_version_does_not_know_is_left_out_rather_than_guessed()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Something", TenAm, TenAm.AddHours(1), recurrence: new RecurrenceDto("Fortnightly", 1, null));
+            new GoogleCalendarEvent("Something", TenAm, TenAm.AddHours(1)) { Recurrence = new RecurrenceDto("Fortnightly", 1, null) });
 
         // A rule Google cannot parse makes it drop the recurrence silently; one occurrence is a better
         // wrong answer than a link that opens an empty form.
@@ -267,12 +270,85 @@ public sealed class GoogleLinkTests
     }
 
     [Fact]
-    public void Guests_are_left_out_of_the_link()
+    public void An_event_with_no_guests_says_nothing_about_guests()
     {
-        var link = GoogleCalendarEventLink.ForEvent("Dinner", TenAm, TenAm.AddHours(2), description: "With the team");
+        var link = GoogleCalendarEventLink.ForEvent(
+            new GoogleCalendarEvent("Dinner", TenAm, TenAm.AddHours(2)) { Description = "With the team" });
 
-        // Google takes guests as "&add=<address>", which would put other people's email addresses into
-        // a URL to save them a step they can do in Google's own form.
         Assert.DoesNotContain("add=", link, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Guests_travel_as_one_add_each()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            new GoogleCalendarEvent("Dinner", TenAm, TenAm.AddHours(2))
+            {
+                GuestEmailAddresses = ["anna@example.com", "bea@example.com"]
+            });
+
+        Assert.Contains("add=anna%40example.com", link, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("add=bea%40example.com", link, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Only_the_first_line_of_a_name_can_be_the_title()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            new GoogleCalendarEvent("Dentist\nBring the x-rays\nSecond floor", TenAm, TenAm.AddHours(1)));
+
+        // Google's title is one line. The rest is not dropped - it goes where a multi-line thing can
+        // live, which is the description.
+        Assert.Contains("text=Dentist&", link);
+        Assert.Contains("Bring+the+x-rays", link);
+        Assert.Contains("Second+floor", link);
+    }
+
+    [Fact]
+    public void A_names_extra_lines_come_before_the_description()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            new GoogleCalendarEvent("Dentist\nBring the x-rays", TenAm, TenAm.AddHours(1)) { Description = "Ask about the bill" });
+
+        var details = link.Split("details=")[1].Split('&')[0];
+        Assert.True(
+            details.IndexOf("Bring", StringComparison.OrdinalIgnoreCase)
+                < details.IndexOf("Ask", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void An_appointment_a_list_raised_says_which_list()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            new GoogleCalendarEvent("Dentist", TenAm, TenAm.AddHours(1)) { TaskListTitle = "Health" });
+
+        // In a calendar full of other people's events, "Dentist" on its own does not say where it came
+        // from - see LinkCalendarEventToTaskListCommand.
+        Assert.Contains("text=Health+-+Dentist", link);
+    }
+
+    [Fact]
+    public void Reminders_travel_as_words_because_a_template_link_has_no_field_for_them()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            new GoogleCalendarEvent("Dentist", TenAm, TenAm.AddHours(1))
+            {
+                ReminderMinutesBeforeStart = [30, 1440],
+                NotifyAtStart = true
+            });
+
+        // Google's own form takes no reminders, so what Orbit would have sent is said in the
+        // description rather than lost on the way over.
+        Assert.Contains("30+min+before", link);
+        Assert.Contains("1+days+before", link);
+        Assert.Contains("at+the+start", link);
+    }
+
+    [Fact]
+    public void An_event_nobody_asked_to_be_reminded_of_says_nothing_about_reminders()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent("Dentist", TenAm, TenAm.AddHours(1)));
+
+        Assert.DoesNotContain("reminder", link, StringComparison.OrdinalIgnoreCase);
     }
 }

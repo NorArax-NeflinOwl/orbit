@@ -155,9 +155,33 @@ else
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     private string GoogleCalendarLinkFor(CalendarEventDetailsDto details)
-        => GoogleCalendarEventLink.ForEvent(
-            details.Title, details.StartUtc, details.EndUtc, details.IsAllDay, details.Description,
-            details.Location is { } location ? LocationLabel(location) : null, details.Recurrence);
+        => GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent(details.Title, details.StartUtc, details.EndUtc)
+        {
+            IsAllDay = details.IsAllDay,
+            Description = details.Description,
+            Location = details.Location is { } location ? LocationLabel(location) : null,
+            Recurrence = details.Recurrence,
+            TaskListTitle = TheListThisEventIsOn() is { } taskList ? Written(taskList.Title) : null,
+            GuestEmailAddresses = GoogleGuestAddresses(details.Guests),
+            ReminderMinutesBeforeStart = details.ReminderMinutesBeforeStart,
+            NotifyAtStart = details.NotifyAtStart
+        });
+
+    /// <summary>The list holding an entry that points at this event, if any - see LinkCalendarEventToTaskListCommand.</summary>
+    private TaskDto? TheListThisEventIsOn()
+        => Id is { } calendarEventId
+            ? _linkableTaskLists.FirstOrDefault(taskList =>
+                taskList.Items.Any(item => item.LinkedCalendarEventId == calendarEventId))
+            : null;
+
+    /// <summary>
+    /// The guests Google can actually invite. An address Google has not verified is one it cannot
+    /// match to an account, so the invitation would go nowhere - see ContactDto.HasGoogleVerifiedEmail.
+    /// </summary>
+    private IReadOnlyList<string> GoogleGuestAddresses(IReadOnlyList<Guid> guests)
+        => [.. _contacts
+            .Where(contact => contact.HasGoogleVerifiedEmail && guests.Contains(contact.UserId))
+            .Select(contact => contact.Email)];
 
     /// <summary>What Google should show as the place: the address when there is one, coordinates otherwise.</summary>
     private static string LocationLabel(EventLocationDto location)
@@ -267,6 +291,9 @@ else
             try
             {
                 _linkableTaskLists = [.. (await TasksApiClient.GetTaskListsAsync()).Where(CanTakeAnEntry)];
+                // Whichever list already holds an entry for this event, so reopening it shows the link
+                // that exists rather than "No list" - which read as the choice never having been saved.
+                _linkToTaskListId = TheListThisEventIsOn()?.Id.ToString() ?? string.Empty;
             }
             catch (HttpRequestException exception)
             {

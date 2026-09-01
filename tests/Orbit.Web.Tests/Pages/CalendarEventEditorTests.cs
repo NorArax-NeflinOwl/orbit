@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
+using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
@@ -51,6 +52,17 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
                 return JsonResponse(SavedEventId);
             }
 
+            if (_existingEvent is { } existingEvent && path == $"/api/calendar-events/{existingEvent.Id}")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(existingEvent) };
+            }
+
+            // The edit lock an existing event takes on opening - nobody else holds it here.
+            if (path.EndsWith("/lock", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(_taskListsJson, Encoding.UTF8, "application/json")
@@ -62,6 +74,10 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         Services.AddSingleton(new CalendarApiClient(writes));
         Services.AddSingleton(new TasksApiClient(writes));
         Services.AddSingleton(new GeocodingApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
+        // Only an existing event draws the share link, and only to ask whether one exists yet.
+        Services.AddSingleton(new PublicShareApiClient(new HttpClient(
+            new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound)))
+        { BaseAddress = new Uri("https://example.test/") }));
         // CalendarEventEditor.razor fetches notification settings on init - a real (if unreachable)
         // HttpClient like CalendarApiClient/GeocodingApiClient above use would work too (the call is
         // caught and logged, not fatal), but the actual DNS/connect attempt takes real wall-clock time
@@ -225,6 +241,9 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     private string? _linkedToPath;
     private Guid? _linkedEventId;
 
+    /// <summary>The event this editor is opened on, when a test opens one rather than starting a new one.</summary>
+    private CalendarEventDto? _existingEvent;
+
     private static Guid ReadTheLinkedEventId(HttpRequestMessage request)
     {
         var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
@@ -236,12 +255,19 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     /// A list the picker can offer: not private, and not held through a read-only share - the two the
     /// editor narrows by, because either would be refused by the server.
     /// </summary>
-    private static string OneTaskListCalled(Guid id, string title)
-        => "[{\"id\":\"" + id + "\",\"title\":\"" + title + "\",\"items\":[],\"isCompleted\":false,"
+    private static string OneTaskListCalled(Guid id, string title, Guid? holdingAnEntryFor = null)
+        => "[{\"id\":\"" + id + "\",\"title\":\"" + title + "\",\"items\":[" + EntryFor(holdingAnEntryFor) + "],\"isCompleted\":false,"
             + "\"isGroup\":false,\"isPrivate\":false,\"encryptedContent\":null,"
             + "\"createdAtUtc\":\"2026-08-01T10:00:00+00:00\",\"updatedAtUtc\":\"2026-08-01T10:00:00+00:00\","
             + "\"isShared\":false,\"sharedByUserName\":null,\"accessLevel\":\"CanEdit\","
             + "\"originalOwnerUserId\":null,\"description\":\"\"}]";
+
+    /// <summary>An entry of the kind LinkCalendarEventToTaskListCommand appends: it points at an event and holds no copy of it.</summary>
+    private static string EntryFor(Guid? calendarEventId)
+        => calendarEventId is not { } eventId
+            ? string.Empty
+            : "{\"id\":\"" + Guid.NewGuid() + "\",\"description\":\"Dentist\",\"isCompleted\":false,"
+                + "\"dueDateUtc\":null,\"kind\":\"Calendar\",\"linkedCalendarEventId\":\"" + eventId + "\"}";
 
     /// <summary>
     /// An event can be put on a task list from here, which gives the list an entry pointing at the
@@ -273,6 +299,34 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
 
         Assert.Null(_linkedToPath);
     }
+
+    /// <summary>
+    /// Reopening an event that is already on a list shows that list, rather than "No list" - which read
+    /// as the link never having been saved, since nothing else on the page says it was.
+    /// </summary>
+    [Fact]
+    public void An_event_already_on_a_list_opens_with_that_list_chosen()
+    {
+        var taskListId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+        _taskListsJson = OneTaskListCalled(taskListId, "Errands", holdingAnEntryFor: eventId);
+        _existingEvent = AnEventCalled(eventId, "Dentist");
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        Assert.Equal(taskListId.ToString(), cut.Find("#linkToTaskListSelect").GetAttribute("value"));
+    }
+
+    private static CalendarEventDto AnEventCalled(Guid id, string title)
+        => new(
+            id,
+            new CalendarEventDetailsDto(
+                title, null, null, null, new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 9, 1, 11, 0, 0, TimeSpan.Zero), IsAllDay: false, Recurrence: null,
+                Guests: [], ReminderMinutesBeforeStart: [], ReminderNotificationChannel: "None"),
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null,
+            AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
     /// <summary>An account with no lists is offered no picker, rather than an empty one.</summary>
     [Fact]
