@@ -663,8 +663,12 @@ list back.
 The domain type behind this is named `TaskList`, not `Task`: `Orbit.Core.Tasks.Task` would collide with
 `System.Threading.Tasks.Task`, which every async method in the codebase returns.
 
-An item can instead reference another of the user's task lists via `linkedTaskListId`, rather than
-being independently completable. A linked item's `isCompleted` is entirely derived — it follows the
+An item can instead reference other task lists of the user's - `linkedTaskListIds`, with
+`linkedTaskListId` repeating the first of them for a client that has not learned about the plural yet -
+rather than being independently completable. **The phone offers all of them as of 2026-09-01**: the
+picker says what to add next rather than what is already there, each list it stands for is listed with a
+way off, and a save sends the whole set. It carried them from the first sync but showed only the first,
+so the rest were lost to whichever phone touched the entry next. A linked item's `isCompleted` is entirely derived — it follows the
 referenced list's own completion (true only once every item on that list is checked off) and is
 resolved live on every read (`LinkedTaskCompletionResolver`), the same "never trust the persisted
 completion column, always recompute it" approach `TaskList.IsCompleted` already uses, extended

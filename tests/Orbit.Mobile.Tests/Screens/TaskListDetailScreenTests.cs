@@ -877,19 +877,60 @@ public sealed class TaskListDetailScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items.Single());
+        // Choosing from the picker adds a list rather than replacing what is there, and the picker
+        // clears itself: it says what to add next, not what the entry already stands for.
         screen.BeingEdited!.ChosenLinkedTaskList =
             screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        Assert.Null(screen.BeingEdited.ChosenLinkedTaskList);
         await screen.SaveItemCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
 
         var shopping = context.Server.TaskLists.Single(list => list.Title == "Shopping");
         var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
-        Assert.Equal(shopping.Id, Assert.Single(thisWeek.Items).LinkedTaskListId);
+        Assert.Equal([shopping.Id], Assert.Single(thisWeek.Items).AllLinkedTaskListIds);
     }
 
     /// <summary>
-    /// And can stop standing for it. Pointing at nothing is what most entries do, so the picker offers
-    /// it rather than making "linked" a one-way door.
+    /// One entry, several lists - what the web gained on 2026-09-01. The phone carried them from the
+    /// first sync but showed one and would have sent one back, so the second list was lost to whichever
+    /// phone touched the entry next.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_stand_for_several_lists()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        context.OpenTaskList("Chemist");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The errands";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+        editor.ChosenLinkedTaskList = editor.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        editor.ChosenLinkedTaskList = editor.LinkableTaskLists.Single(choice => choice.Name == "Chemist");
+
+        Assert.Equal(["Shopping", "Chemist"], editor.LinkedTaskLists.Select(linked => linked.Name));
+        // And what it already stands for is not offered again.
+        Assert.DoesNotContain(editor.LinkableTaskListsLeft, choice => choice.Name == "Shopping");
+
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
+        Assert.Equal(2, Assert.Single(thisWeek.Items).AllLinkedTaskListIds.Count);
+
+        // And they are still both there when the entry is opened again.
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        Assert.Equal(["Shopping", "Chemist"], screen.BeingEdited!.LinkedTaskLists.Select(linked => linked.Name));
+    }
+
+    /// <summary>
+    /// And can stop standing for it - one list at a time, since it may stand for several. Taking the
+    /// last one off leaves an ordinary entry, which is what most of them are.
     /// </summary>
     [Fact]
     public async Task An_entry_can_stop_standing_for_a_list()
@@ -909,15 +950,16 @@ public sealed class TaskListDetailScreenTests
 
         await screen.LoadCommand.ExecuteAsync(null);
         screen.EditItemCommand.Execute(screen.Items.Single());
-        Assert.Equal("Shopping", screen.BeingEdited!.ChosenLinkedTaskList?.Name);
+        var linked = Assert.Single(screen.BeingEdited!.LinkedTaskLists);
+        Assert.Equal("Shopping", linked.Name);
 
-        screen.BeingEdited.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.ServerId is null);
+        screen.BeingEdited.UnlinkCommand.Execute(linked);
+        Assert.False(screen.BeingEdited.IsALinkToOtherLists);
         await screen.SaveItemCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
 
         var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
-        Assert.Null(Assert.Single(thisWeek.Items).LinkedTaskListId);
+        Assert.Empty(Assert.Single(thisWeek.Items).AllLinkedTaskListIds);
     }
 
     /// <summary>One list is nothing to point at, so the picker is not offered at all.</summary>

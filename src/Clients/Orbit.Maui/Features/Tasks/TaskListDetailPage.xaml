@@ -280,10 +280,31 @@
                  unlike moving: it is a fact about the entry, and it is saved with it. -->
             <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanBeLinked}">
                 <Label Text="{controls:Translate 'Link to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                <Picker ItemsSource="{Binding BeingEdited.LinkableTaskLists}"
+                <!-- The picker says what to add next rather than what is already there: one entry may
+                     stand for several lists, and choosing adds one and clears the picker. -->
+                <Picker ItemsSource="{Binding BeingEdited.LinkableTaskListsLeft}"
                         SelectedItem="{Binding BeingEdited.ChosenLinkedTaskList}"
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
                         SemanticProperties.Description="{controls:Translate 'Link to list'}" />
+
+                <!-- What it stands for now, each with a way off. Orbit.Web draws the same pair. -->
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.LinkedTaskLists}"
+                                     IsVisible="{Binding BeingEdited.IsALinkToOtherLists}" Spacing="2">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:TaskListChoice">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"
+                                       LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="1" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
+                                        BackgroundColor="Transparent"
+                                        SemanticProperties.Description="{controls:Translate 'Remove'}"
+                                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                        Command="{Binding ViewModel.BeingEdited.UnlinkCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
             </VerticalStackLayout>
 
             <!-- Outside the entry's own form, because moving is a change to two lists rather than to

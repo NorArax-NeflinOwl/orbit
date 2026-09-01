@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Localization;
@@ -120,14 +121,61 @@ public sealed partial class TaskItemEditor : ObservableObject
     public IReadOnlyList<TaskListChoice> LinkableTaskLists { get; private init; } = [];
 
     /// <summary>
-    /// The list this entry stands for, or the "none" choice. An entry that points somewhere is ticked
-    /// by that list rather than by hand, which is why the tick is left to the list it names.
+    /// The picker's own value: what to add next, or the "none" choice. Choosing a list adds it to
+    /// <see cref="LinkedTaskLists"/> rather than replacing what is there - one entry often stands for
+    /// several lists, which is what the web gained on 2026-09-01 and the phone could only carry.
     /// </summary>
     [ObservableProperty]
     private TaskListChoice? _chosenLinkedTaskList;
 
+    /// <summary>
+    /// Every list this entry stands for, in the order they were added. An entry that points somewhere is
+    /// ticked by the lists it names rather than by hand, which is why the tick is left to them.
+    /// </summary>
+    public ObservableCollection<TaskListChoice> LinkedTaskLists { get; } = [];
+
+    /// <summary>What the picker offers: the lists this entry does not already stand for.</summary>
+    public IReadOnlyList<TaskListChoice> LinkableTaskListsLeft
+        => [.. LinkableTaskLists.Where(choice =>
+            choice.ServerId is null || LinkedTaskLists.All(linked => linked.ServerId != choice.ServerId))];
+
+    /// <summary>Whether anything is named at all, which is what the row of names hangs off.</summary>
+    public bool IsALinkToOtherLists => LinkedTaskLists.Count > 0;
+
     /// <summary>Nothing to point at is nothing to offer - a phone with one list needs no picker.</summary>
     public bool CanBeLinked => LinkableTaskLists.Count > 1;
+
+    /// <summary>
+    /// Adds the list the picker names, and then clears the picker: it says what to add next rather than
+    /// what is already there, so leaving a chosen list in it would read as a fourth entry in the row.
+    /// </summary>
+    partial void OnChosenLinkedTaskListChanged(TaskListChoice? value)
+    {
+        if (value?.ServerId is null || LinkedTaskLists.Any(linked => linked.ServerId == value.ServerId))
+        {
+            return;
+        }
+
+        LinkedTaskLists.Add(value);
+        ChosenLinkedTaskList = null;
+        SayWhatItStandsFor();
+    }
+
+    /// <summary>Takes one list off the entry. The others stay: it may stand for several.</summary>
+    [RelayCommand]
+    private void Unlink(TaskListChoice? linked)
+    {
+        if (linked is not null && LinkedTaskLists.Remove(linked))
+        {
+            SayWhatItStandsFor();
+        }
+    }
+
+    private void SayWhatItStandsFor()
+    {
+        OnPropertyChanged(nameof(IsALinkToOtherLists));
+        OnPropertyChanged(nameof(LinkableTaskListsLeft));
+    }
 
     private readonly TaskItemDto _item;
 
@@ -227,8 +275,6 @@ public sealed partial class TaskItemEditor : ObservableObject
             Shelf = shelf,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkableTaskLists = lists,
-            ChosenLinkedTaskList = lists.FirstOrDefault(choice => choice.ServerId == item.AllLinkedTaskListIds.FirstOrDefault())
-                ?? lists.FirstOrDefault(),
             Kind = item.Kind,
             // From the appointment when there is one, because that is where the place lives once the two
             // are linked - and from the entry when there is not, which is how an unlinked one holds it.
@@ -250,6 +296,15 @@ public sealed partial class TaskItemEditor : ObservableObject
                 ? DefaultReminderTime
                 : item.DailyReminderTimeOfDay.ToTimeSpan()
         };
+
+        // What it already stands for, in the order the entry names them. Set after the initialiser
+        // because the collection is the editor's own rather than something assigned to it.
+        foreach (var linked in item.AllLinkedTaskListIds
+            .Select(id => lists.FirstOrDefault(choice => choice.ServerId == id))
+            .OfType<TaskListChoice>())
+        {
+            editor.LinkedTaskLists.Add(linked);
+        }
 
         // The Save button answers to the appointment as well as to the entry - see TaskItemEventForm.
         editor.Event.Missing = editor.SayWhatTheFormShows;
@@ -294,10 +349,10 @@ public sealed partial class TaskItemEditor : ObservableObject
             // alone therefore keeps every one of them - the phone must not throw away what it cannot
             // show. Actually choosing a different list is taken at its word: the entry then stands for
             // that one and no others.
+            // The new field only: the old single one carries just the first list, so a save from this
+            // phone would quietly drop the rest of an entry standing for several.
             LinkedTaskListId = null,
-            LinkedTaskListIds = ChosenLinkedTaskList?.ServerId == _item.AllLinkedTaskListIds.FirstOrDefault()
-                ? _item.AllLinkedTaskListIds
-                : ChosenLinkedTaskList?.ServerId is { } chosenTaskListId ? [chosenTaskListId] : [],
+            LinkedTaskListIds = [.. LinkedTaskLists.Select(linked => linked.ServerId!.Value)],
             Description = Description.Trim(),
             // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
             // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,
