@@ -26,6 +26,7 @@ public partial class TaskListDetailPage : ContentPage
 		ShowItemMenuCommand = new Command<TaskItemRow>(item => _ = ShowItemMenuAsync(item));
 		ShowListMenuCommand = new Command(() => _ = ShowListMenuAsync());
 		ChooseWarehouseCommand = new Command(() => _ = ChooseWarehouseAsync());
+		ChooseStockOrderCommand = new Command(() => _ = ChooseStockOrderAsync());
 
 		InitializeComponent();
 		BindingContext = viewModel;
@@ -39,6 +40,28 @@ public partial class TaskListDetailPage : ContentPage
 
 	/// <summary>Which shelf this list's work is measured against - see StockCheckPanel.</summary>
 	public ICommand ChooseWarehouseCommand { get; }
+
+	/// <summary>What order that panel lists what the work needs in - the same four Orbit.Web offers.</summary>
+	public ICommand ChooseStockOrderCommand { get; }
+
+	private async Task ChooseStockOrderAsync()
+	{
+		var names = new Dictionary<string, StockCheckOrder>
+		{
+			[_translations["In list order"]] = StockCheckOrder.AsCounted,
+			[_translations["A to Z"]] = StockCheckOrder.Alphabetical,
+			[_translations["Z to A"]] = StockCheckOrder.ReverseAlphabetical,
+			[_translations["Short first"]] = StockCheckOrder.ShortFirst
+		};
+
+		var chosen = await DisplayActionSheet(
+			_translations["Sort"], _translations["Cancel"], destruction: null, [.. names.Keys]);
+
+		if (chosen is not null && names.TryGetValue(chosen, out var order))
+		{
+			_viewModel.StockCheck.Order = order;
+		}
+	}
 
 	private async Task ChooseWarehouseAsync()
 	{

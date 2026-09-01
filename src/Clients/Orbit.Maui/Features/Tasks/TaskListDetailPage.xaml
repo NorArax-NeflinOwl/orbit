@@ -353,18 +353,76 @@
             </Grid>
 
             <!-- "Can this be done?" - what this list's work costs against a warehouse, as Orbit.Web's
-                 task list page asks it. Only a group list gathers enough work to be worth counting. -->
-            <Border Style="{StaticResource CardBorder}" Padding="18,14"
-                    BindingContext="{Binding StockCheck}" x:DataType="screens:StockCheckPanel"
-                    IsVisible="{Binding IsOffered}">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="{controls:Translate 'Can this be done?'}" Style="{StaticResource CardTitle}" />
+                 task list page asks it. Only a group list gathers enough work to be worth counting.
 
-                    <!-- Both questions here are the server's to answer, so neither is offered while there
-                         is nobody to ask - see ConnectionRequirement. -->
-                    <Label Text="{Binding Connection.Explanation}" IsVisible="{Binding Connection.IsNotMet}"
-                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                 The same card everything else is drawn with, folded by its heading: the question is
+                 about a shelf, which is not what somebody working through the list is looking at. -->
+            <controls:ItemCard BindingContext="{Binding StockCheck}" x:DataType="screens:StockCheckPanel"
+                               IsVisible="{Binding IsOffered}"
+                               Name="{controls:Translate 'Can this be done?'}"
+                               NameCommand="{Binding ToggleFoldCommand}">
+                <controls:ItemCard.Collapse>
+                    <Button Text="{Binding FoldGlyph}" SemanticProperties.Description="{Binding FoldDescription}"
+                            FontSize="12" Padding="2,0" WidthRequest="44" VerticalOptions="Center"
+                            Style="{StaticResource LinkButton}" Command="{Binding ToggleFoldCommand}" />
+                </controls:ItemCard.Collapse>
 
+                <controls:ItemCard.Menu>
+                    <!-- What order the rows are read in, as Orbit.Web keeps it behind this card's own
+                         menu. An action sheet rather than a panel - one choice, then done. -->
+                    <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'Sort'}" FontSize="18" Padding="8,0"
+                            HeightRequest="32" WidthRequest="36" Style="{StaticResource LinkButton}"
+                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseStockOrderCommand, x:DataType=tasks:TaskListDetailPage}" />
+                </controls:ItemCard.Menu>
+
+                <controls:ItemCard.Body>
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsNotFolded}">
+                        <!-- Both questions here are the server's to answer, so neither is offered while there
+                             is nobody to ask - see ConnectionRequirement. -->
+                        <Label Text="{Binding Connection.Explanation}" IsVisible="{Binding Connection.IsNotMet}"
+                               FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+                        <Label Text="{Binding Summary}" IsVisible="{Binding HasSummary}" FontSize="13"
+                               LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Requirements}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="screens:StockRequirementRow">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10" Padding="0,6">
+                                        <Label Grid.Column="0" Text="{Binding Name}" FontSize="13"
+                                               LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                        <Label Grid.Column="1" Text="{Binding Required}" FontSize="13"
+                                               WidthRequest="40" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                        <Label Grid.Column="2" Text="{Binding Available}" FontSize="13"
+                                               WidthRequest="40" HorizontalTextAlignment="End" VerticalOptions="Center"
+                                               Style="{StaticResource SubtleLabel}" />
+                                        <!-- Only what is short is written in the last column, and only that
+                                             column is coloured - a row that is covered says nothing. -->
+                                        <Label Grid.Column="3" Text="{Binding Missing}" FontSize="13"
+                                               WidthRequest="40" HorizontalTextAlignment="End" VerticalOptions="Center"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                        <Button Text="{controls:Translate 'Add what is missing to the restock list'}"
+                                IsEnabled="{Binding Connection.IsMet}"
+                                IsVisible="{Binding IsShortOfSomething}" HorizontalOptions="Start"
+                                FontSize="12" Padding="12,6" LineBreakMode="WordWrap"
+                                Command="{Binding RaiseShortfallsCommand}" />
+
+                        <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
+                               LineBreakMode="WordWrap"
+                               TextColor="{DynamicResource Accent}" />
+                    </VerticalStackLayout>
+                </controls:ItemCard.Body>
+
+                <!-- Which shelf this is counted against, at the foot rather than inside the body: it is
+                     how the panel gets linked in the first place, and unreachable while folded would
+                     mean unreachable before it has anything to fold. -->
+                <controls:ItemCard.Extras>
                     <!-- A sheet rather than a picker, for the reason the event editor's three are:
                          iOS docks a picker's wheel at the bottom of the screen, which here covers the
                          sharing links and the way back. -->
@@ -372,43 +430,8 @@
                             FontSize="13" Padding="12,6" Style="{StaticResource SecondaryButton}"
                             IsEnabled="{Binding Connection.IsMet}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseWarehouseCommand, x:DataType=tasks:TaskListDetailPage}" />
-
-                    <Label Text="{Binding Summary}" IsVisible="{Binding HasSummary}" FontSize="13"
-                           LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-
-                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Requirements}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="screens:StockRequirementRow">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10" Padding="0,6">
-                                    <Label Grid.Column="0" Text="{Binding Name}" FontSize="13"
-                                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                                    <Label Grid.Column="1" Text="{Binding Required}" FontSize="13"
-                                           WidthRequest="40" HorizontalTextAlignment="End" VerticalOptions="Center" />
-                                    <Label Grid.Column="2" Text="{Binding Available}" FontSize="13"
-                                           WidthRequest="40" HorizontalTextAlignment="End" VerticalOptions="Center"
-                                           Style="{StaticResource SubtleLabel}" />
-                                    <!-- Only what is short is written in the last column, and only that
-                                         column is coloured - a row that is covered says nothing. -->
-                                    <Label Grid.Column="3" Text="{Binding Missing}" FontSize="13"
-                                           WidthRequest="40" HorizontalTextAlignment="End" VerticalOptions="Center"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
-                                </Grid>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-
-                    <Button Text="{controls:Translate 'Add what is missing to the restock list'}"
-                            IsEnabled="{Binding Connection.IsMet}"
-                            IsVisible="{Binding IsShortOfSomething}" HorizontalOptions="Start"
-                            FontSize="12" Padding="12,6" LineBreakMode="WordWrap"
-                            Command="{Binding RaiseShortfallsCommand}" />
-
-                    <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
-                           LineBreakMode="WordWrap"
-                           TextColor="{DynamicResource Accent}" />
-                </VerticalStackLayout>
-            </Border>
+                </controls:ItemCard.Extras>
+            </controls:ItemCard>
 
             <!-- The panel hides itself for a private list, as Orbit.Web's editor hides it: there is no
                  readable copy on the server to hand anybody - see SharePanel.CanShare. -->
