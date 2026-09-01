@@ -707,10 +707,12 @@ the Google Maps key being deployment configuration rather than code (see `secret
 is met on Android too: a real push arrives in the tray, and one that arrives while the app is in front
 of somebody now shows as a banner in the app rather than nothing at all.
 
-Phase 8 has started on Android, from the end that needed no device: every control on both heads names
-itself to a screen reader, and both are localised through the same `Orbit.Localization` the web client
-uses. What is left of it there is widgets. The rest — Live Activities, the Dynamic Island, the Action
-Button — is iOS-only, as is most of §9, so it is blocked on the same thing iOS is.
+Phase 8 is met on Android: every control on both heads names itself to a screen reader, both are
+localised through the same `Orbit.Localization` the web client uses, and the home screen widget is
+built and driven on a device — the day, what is still ahead in it, and a tap that lands on the right
+screen (see [Functionality](functionality.md#the-home-screen-widget-android)). The rest of the phase —
+Live Activities, the Dynamic Island, the Action Button — is iOS-only, as is most of §9, so it is
+blocked on the same thing iOS is.
 
 ## 11. Risks
 

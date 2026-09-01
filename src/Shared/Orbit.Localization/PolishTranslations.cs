@@ -326,6 +326,10 @@ public static class PolishTranslations
         ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
         // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
         ["Dismiss"] = "Odrzuć",
+        // ---- The home screen widget - see TodayAtAGlance. ----
+        ["Nothing left today"] = "Nic już na dziś",
+        ["Open Orbit to see your day"] = "Otwórz Orbita, żeby zobaczyć swój dzień",
+        ["{0} more"] = "jeszcze {0}",
         ["Saved, but that place could not be found - use your location to keep a point for it."] =
             "Zapisano, ale nie udało się znaleźć tego miejsca - użyj swojej lokalizacji, żeby zapisać punkt.",
         ["Saved, but that place could not be found - open the map and point at it to keep it."] =

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shown by the launcher's widget picker, before Orbit has run at all - which is why it is here rather
+     than in the app's own dictionary (Orbit.Localization). Android picks the language from the phone's
+     settings; values-pl carries the Polish. -->
+<resources>
+    <string name="orbit_widget_description">Today\'s appointments and what is due</string>
+</resources>

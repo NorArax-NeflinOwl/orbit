@@ -35,6 +35,7 @@ stated scope.
 | Two-way Google Calendar sync | Not started | [Future Plan](future-plan.md#what-real-google-calendar-sync-would-take) |
 | Mobile client (`Orbit.Maui`, iOS + Android) | Implemented — Android verified on a device, iOS unverified | [Orbit.Maui — Plan](orbit-maui-plan.md) |
 | Push delivery to a phone | Implemented on Android, in the tray and in front of you; not on iOS — see below | [Orbit.Maui — Plan](orbit-maui-plan.md#42-push-notifications-web-push-apns-and-fcm-are-three-different-things) |
+| Home screen widget | Implemented on Android and driven on a device; nothing on iOS | [Functionality](functionality.md#the-home-screen-widget-android) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Name suggestions and duplicate warnings while typing | Implemented | [Functionality](functionality.md#names-you-have-already-used) |
 | Choosing what a warehouse's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |

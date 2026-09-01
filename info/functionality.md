@@ -1850,3 +1850,37 @@ environment-driven flag, the same shape as the existing VAPID public-key endpoin
 never be talked out of via a stored per-account preference. Options.razor's own "Diagnostics" section
 (the "Show exceptions" switch) is likewise only rendered at all when the server reports it's not running
 in Production.
+
+## The home screen widget (Android)
+
+A 3 × 2 widget showing the day and the few things still ahead in it: today's appointments that have
+not finished, and what falls due today and is not done, in the order they happen. Four lines fit;
+anything past that is counted rather than dropped ("2 more"). Tapping a line opens Orbit on it - an
+appointment on the calendar, an errand on the list it is ticked off on - through the same paths a
+tapped notification travels (`NotificationDestination`), so there is one way into the app from
+outside it rather than two.
+
+What it shows is `TodayAtAGlance` (`Orbit.Mobile.Widgets`), which is where the rules live and is
+covered by tests; `OrbitTodayWidget` (`Orbit.Maui/Platforms/Android`) is the drawing. Two rules are
+about the home screen specifically rather than copied from any screen:
+
+- **Nothing private is ever named.** A widget is on show to whoever is holding the phone, and on most
+  Androids to whoever can see the lock screen, with no unlocking in between. The gate that guards
+  private items inside the app (see [Private notes and task lists](#private-notes-and-task-lists)) has
+  no equivalent out there, so private lists are left off rather than hidden behind it.
+- **A phone nobody is signed in on shows no day at all**, only "Open Orbit to see your day". Signing
+  out clears the session but leaves the local database, so a widget reading it would go on showing the
+  previous account's day to the next person holding the phone.
+
+None of the app is running when the widget is drawn: the launcher asks for it in a broadcast that can
+arrive with no MAUI application, no service container and no session in memory. It reads the local
+database itself, through the secure store and the database file - the two things that outlive the app
+being closed - rather than a snapshot the app left behind, because "today" has a different answer every
+midnight and a snapshot taken at nine in the evening is wrong by morning. Android redraws it every half
+hour, which is what makes it right after midnight without the app being opened at all, and Orbit asks
+for a redraw itself whenever it is put down, which is the update carrying whatever just changed.
+
+It follows the system's light or dark mode rather than the theme chosen inside Orbit: a widget is drawn
+in the launcher's process, and the app's own choice is not something it can see.
+
+There is no iOS counterpart yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.
