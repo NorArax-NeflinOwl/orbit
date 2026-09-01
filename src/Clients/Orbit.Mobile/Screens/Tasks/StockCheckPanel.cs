@@ -349,7 +349,12 @@ public sealed partial class StockCheckPanel : ObservableObject
             return;
         }
 
-        _reading.Write(_taskListLocalId, new ChecklistReading(IsFolded, Order));
+        // Read first: the screen around this panel writes the same record - see ChecklistReading.
+        _reading.Write(_taskListLocalId, _reading.Read(_taskListLocalId) with
+        {
+            IsStockCheckFolded = IsFolded,
+            StockOrder = Order
+        });
     }
 
     partial void OnSummaryChanged(string value) => OnPropertyChanged(nameof(HasSummary));

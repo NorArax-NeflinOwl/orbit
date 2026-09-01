@@ -30,6 +30,18 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class TaskListDetailScreenTests
 {
+    private static IEnumerable<string> Descriptions(TaskListDetailViewModel screen)
+        => screen.Items.Select(item => item.Description);
+
+    private static async Task AddAsync(TaskListDetailViewModel screen, params string[] descriptions)
+    {
+        foreach (var description in descriptions)
+        {
+            screen.NewItemDescription = description;
+            await screen.AddItemCommand.ExecuteAsync(null);
+        }
+    }
+
     [Fact]
     public async Task Ticking_an_entry_just_added_keeps_the_id_the_server_gave_it()
     {
@@ -49,6 +61,97 @@ public sealed class TaskListDetailScreenTests
         var entry = Assert.Single(context.Server.TaskLists.Single().Items);
         Assert.Equal(entryId, entry.Id);
         Assert.True(entry.IsCompleted);
+    }
+
+    /// <summary>
+    /// The three orders Orbit.Web reads a checklist in. Alphabetical is by what each entry says, which
+    /// is how a shopping list gets read off in a shop.
+    /// </summary>
+    [Fact]
+    public async Task The_entries_are_read_in_the_chosen_order()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Milk", "Apples", "Bread");
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(item => item.Description == "Apples"));
+
+        Assert.Equal(["Milk", "Apples", "Bread"], Descriptions(screen));
+
+        screen.ItemOrder = ChecklistOrder.Alphabetical;
+        Assert.Equal(["Apples", "Bread", "Milk"], Descriptions(screen));
+
+        // What is left to do first, then what is done, each alphabetically.
+        screen.ItemOrder = ChecklistOrder.UndoneFirst;
+        Assert.Equal(["Bread", "Milk", "Apples"], Descriptions(screen));
+
+        screen.ItemOrder = ChecklistOrder.AsArranged;
+        Assert.Equal(["Milk", "Apples", "Bread"], Descriptions(screen));
+    }
+
+    /// <summary>
+    /// The order is how one person reads one list, so what is saved goes back arranged as it was - a
+    /// sort that reached the save would rewrite everybody else's copy of the list.
+    /// </summary>
+    [Fact]
+    public async Task Reading_it_in_another_order_does_not_rearrange_the_list()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Milk", "Apples");
+
+        screen.ItemOrder = ChecklistOrder.Alphabetical;
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            ["Milk", "Apples"],
+            context.Server.TaskLists.Single().Items.Select(item => item.Description));
+    }
+
+    /// <summary>
+    /// Moving an entry is only offered in the arranged order: anywhere else "up" would move it in an
+    /// arrangement nobody can see, and the entry would stay exactly where it is on screen.
+    /// </summary>
+    [Fact]
+    public void Rearranging_is_offered_only_while_the_list_is_read_as_arranged()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+
+        Assert.True(screen.CanBeRearranged);
+
+        screen.ItemOrder = ChecklistOrder.Alphabetical;
+
+        Assert.False(screen.CanBeRearranged);
+    }
+
+    [Fact]
+    public async Task The_chosen_order_is_remembered_for_that_list()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Milk");
+
+        screen.ItemOrder = ChecklistOrder.UndoneFirst;
+
+        Assert.Equal(ChecklistOrder.UndoneFirst, context.Reading.Read(context.OpenedListId).Order);
+    }
+
+    /// <summary>
+    /// Two parts of this screen write the one record. Each has to read it first, or folding the panel
+    /// would put the entries back in the order nobody asked for - see ChecklistReading.
+    /// </summary>
+    [Fact]
+    public void Folding_the_stock_check_leaves_the_chosen_order_alone()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        screen.ItemOrder = ChecklistOrder.Alphabetical;
+
+        screen.StockCheck.ToggleFoldCommand.Execute(null);
+
+        var reading = context.Reading.Read(context.OpenedListId);
+        Assert.Equal(ChecklistOrder.Alphabetical, reading.Order);
+        Assert.True(reading.IsStockCheckFolded);
     }
 
     /// <summary>
@@ -1455,6 +1558,9 @@ public sealed class TaskListDetailScreenTests
         private readonly LocalStore _localStore = new();
         /// <summary>The list OpenTaskList last made, so a helper can reach it behind the screen.</summary>
         private Guid _openedListId;
+
+        /// <summary>Which list is open, for a test that asks what was remembered about it.</summary>
+        public Guid OpenedListId => _openedListId;
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         private readonly LocalTaskListRepository _taskLists;
 
@@ -1473,8 +1579,7 @@ public sealed class TaskListDetailScreenTests
                 NullLogger<WarehouseSynchronizer>.Instance);
             StockCheck = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()),
-                Shelves, new Translations(new InMemoryLanguageStore()), Connections.Online,
-                new InMemoryChecklistReadingStore());
+                Shelves, new Translations(new InMemoryLanguageStore()), Connections.Online, Reading);
             CalendarEvents = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
             Synchronizer = new TaskListSynchronizer(
                 _localStore, new TasksClient(Server.ToHttpClient()), _clock, new SyncGate(),
@@ -1597,6 +1702,12 @@ public sealed class TaskListDetailScreenTests
         /// </summary>
         public PlaceSearch Places { get; } = new(StubHttpMessageHandler.Unreachable().ToHttpClient());
 
+        /// <summary>
+        /// How this reader reads this list - shared with the stock check panel, as it is on the device,
+        /// so a test can check the two do not write over each other.
+        /// </summary>
+        public InMemoryChecklistReadingStore Reading { get; } = new();
+
         public TaskListDetailViewModel OpenTaskList(string title)
         {
             var created = _taskLists.CreateAsync(title, []).GetAwaiter().GetResult();
@@ -1610,7 +1721,7 @@ public sealed class TaskListDetailScreenTests
                     CalendarEvents, new CalendarClient(CalendarServer.ToHttpClient()), Network, Places),
                 new ShelfCorrection(Shelves, ShelfSynchronizer, new InventoryClient(Warehouses.ToHttpClient())),
                 PlacePicker, _privateContent,
-                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer));
+                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer), Reading);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             _openedListId = created.LocalId;

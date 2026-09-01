@@ -21,18 +21,20 @@ public sealed class PreferencesChecklistReadingStore : IChecklistReadingStore
 	public ChecklistReading Read(Guid taskListLocalId)
 	{
 		var saved = _preferences.Get<string?>(KeyOf(taskListLocalId), null);
-		if (saved is null || saved.Split(',') is not [var folded, var order])
+		if (saved is null || saved.Split(',') is not [var order, var folded, var stockOrder])
 		{
 			return ChecklistReading.Default;
 		}
 
 		return new ChecklistReading(
+			Enum.TryParse<ChecklistOrder>(order, out var itemOrder) ? itemOrder : ChecklistOrder.AsArranged,
 			bool.TryParse(folded, out var isFolded) && isFolded,
-			Enum.TryParse<StockCheckOrder>(order, out var stockOrder) ? stockOrder : StockCheckOrder.AsCounted);
+			Enum.TryParse<StockCheckOrder>(stockOrder, out var stockCheckOrder) ? stockCheckOrder : StockCheckOrder.AsCounted);
 	}
 
 	public void Write(Guid taskListLocalId, ChecklistReading reading)
-		=> _preferences.Set(KeyOf(taskListLocalId), $"{reading.IsStockCheckFolded},{reading.StockOrder}");
+		=> _preferences.Set(
+			KeyOf(taskListLocalId), $"{reading.Order},{reading.IsStockCheckFolded},{reading.StockOrder}");
 
 	/// <summary>One key per list: a list deleted takes its own preference with it and nothing else.</summary>
 	private static string KeyOf(Guid taskListLocalId) => KeyPrefix + taskListLocalId.ToString("N");
