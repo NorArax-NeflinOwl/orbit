@@ -117,6 +117,9 @@ event deleted on one side. One-way is the sensible first step.
 does: retries, backoff, and somewhere for the user to see that a sync did not go through.
 
 None of this is required for what Orbit does today, which is why it is here rather than in the code.
+The task-by-task version of it - what maps onto what, which of Orbit's expectations the API narrows
+rather than meets, and what has to be decided before any of it starts - is in
+[google-calendar-api-plan.md](google-calendar-api-plan.md).
 
 ## Known scope cuts and rough edges
 
