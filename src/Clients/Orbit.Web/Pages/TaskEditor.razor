@@ -618,6 +618,13 @@ else
                 Logger.LogWarning(exception, "Failed to load notification settings");
             }
 
+            // Who a calendar entry on this list can invite. Read for a list being made as well as for one
+            // being edited: it used to be fetched only alongside an existing list, so a Calendar entry on
+            // a brand new list said there was nobody to invite and offered no picker - which is not the
+            // same thing as having no contacts. Answers empty rather than throwing for an account that
+            // has not unlocked chat, so there is nothing to guard here - see GetContactsAsync.
+            _contacts = await ChatApiClient.GetContactsAsync();
+
             // Populates the "link to another list" dropdown - excludes the list being edited itself, since
             // an item can't link to the list it belongs to (see TaskListLinkValidator on the API side).
             var allTaskLists = await TasksApiClient.GetTaskListsAsync();
@@ -706,7 +713,6 @@ else
                     }
                 }
 
-                _contacts = await ChatApiClient.GetContactsAsync();
             }
             else
             {

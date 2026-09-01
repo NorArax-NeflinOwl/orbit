@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
@@ -123,6 +124,31 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
         var details = cut.Find(".editor-item-details").TextContent;
         Assert.Contains("Warehouse", details);
+    }
+
+    /// <summary>
+    /// A calendar entry can invite people whether the list it is on has been saved yet or not. The
+    /// contacts used to be read only alongside an existing list, so a Calendar entry on a brand new one
+    /// said there was nobody to invite - which is not the same thing as having no contacts.
+    /// </summary>
+    [Fact]
+    public void A_calendar_entry_on_a_new_list_can_still_invite_somebody()
+    {
+        RegisterApiClients(AnItem());
+        // No id: a list being made rather than one being edited, which is where the contacts went
+        // unread.
+        var cut = RenderComponent<TaskEditor>();
+
+        ClickButtonSaying(cut, "Add item");
+        if (cut.FindAll(".editor-item-details").Count == 0)
+        {
+            cut.Find(".editor-item-toggle").Click();
+        }
+
+        cut.FindAll("select").First(box => box.QuerySelectorAll("option").Any(
+            option => option.TextContent.Trim() == "Calendar")).Change(nameof(TaskItemKind.Calendar));
+
+        Assert.NotEmpty(cut.FindAll("#guestContactSelect"));
     }
 
     /// <summary>
@@ -311,6 +337,19 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
                 return Json(new NotificationSettingsDto(
                     true, true, true, true, ShowExceptionDetails: false,
                     BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5));
+            }
+
+            // Somebody a calendar entry could invite, so "no contacts" in the guest picker means the
+            // page did not ask rather than that there was nobody to ask about.
+            if (path.EndsWith("/chat/contacts", StringComparison.Ordinal))
+            {
+                return Json(new[]
+                {
+                    new ContactDto(
+                        Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key",
+                        DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false,
+                        IsPendingApprovalFromOtherParty: false)
+                });
             }
 
             // The references route answers what shelf items this list's errands are about; these lists
