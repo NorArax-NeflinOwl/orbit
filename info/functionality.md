@@ -1687,7 +1687,7 @@ in a rare case.
 
 | | Announced | Still only found by the slow poll |
 |---|---|---|
-| Chat | a message sent, a group message, a read receipt, a conversation approved | an edit or deletion, a group somebody added you to |
+| Chat | a message sent, a group message, an edit, a deletion, a read receipt, a conversation approved | a group somebody added you to |
 | Notifications | anything recorded in the feed, from any trigger | one cleared or read on another device |
 | Presence | somebody arriving, somebody choosing "do not disturb" | somebody ageing to away or offline |
 

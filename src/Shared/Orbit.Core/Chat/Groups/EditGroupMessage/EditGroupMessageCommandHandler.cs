@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.Groups.EditGroupMessage;
 
@@ -10,10 +11,13 @@ namespace Orbit.Core.Chat.Groups.EditGroupMessage;
 public sealed class EditGroupMessageCommandHandler : IRequestHandler<EditGroupMessageCommand, bool>
 {
     private readonly IChatMessageRepository _chatMessageRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public EditGroupMessageCommandHandler(IChatMessageRepository chatMessageRepository)
+    public EditGroupMessageCommandHandler(
+        IChatMessageRepository chatMessageRepository, ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatMessageRepository = chatMessageRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<bool> HandleAsync(EditGroupMessageCommand request, CancellationToken cancellationToken)
@@ -38,6 +42,12 @@ public sealed class EditGroupMessageCommandHandler : IRequestHandler<EditGroupMe
             await _chatMessageRepository.UpdateContentAsync(
                 copy.Id, replacement.CiphertextBase64, replacement.NonceBase64, editedAtUtc, cancellationToken);
         }
+
+        // Everybody holding a copy, which is the audience the posting itself reached. Taken from the
+        // copies rather than from the group's membership: a copy is exactly who was written to, and a
+        // member who joined afterwards has nothing here to be told about.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. copies.Select(copy => copy.RecipientUserId).Distinct()], cancellationToken);
 
         return true;
     }

@@ -1,5 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Chat.Groups;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.DeleteMessage;
 
@@ -16,11 +17,15 @@ public sealed class DeleteChatMessageCommandHandler : IRequestHandler<DeleteChat
 {
     private readonly IChatMessageRepository _chatMessageRepository;
     private readonly IChatGroupRepository _chatGroupRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public DeleteChatMessageCommandHandler(IChatMessageRepository chatMessageRepository, IChatGroupRepository chatGroupRepository)
+    public DeleteChatMessageCommandHandler(
+        IChatMessageRepository chatMessageRepository, IChatGroupRepository chatGroupRepository,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatMessageRepository = chatMessageRepository;
         _chatGroupRepository = chatGroupRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<bool> HandleAsync(DeleteChatMessageCommand request, CancellationToken cancellationToken)
@@ -39,6 +44,9 @@ public sealed class DeleteChatMessageCommandHandler : IRequestHandler<DeleteChat
             }
 
             await _chatMessageRepository.DeleteAsync(message.Id, cancellationToken);
+            await _liveUpdatePublisher.ChatChangedAsync(
+                [message.RecipientUserId, message.SenderUserId], cancellationToken);
+
             return true;
         }
 
@@ -50,7 +58,17 @@ public sealed class DeleteChatMessageCommandHandler : IRequestHandler<DeleteChat
 
         // Every copy of the same posting goes, so the message leaves the group rather than one member's
         // view of it - see ChatMessage.GroupMessageId.
+        var copies = await _chatMessageRepository.GetGroupMessageCopiesAsync(
+            message.GroupMessageId!.Value, cancellationToken);
+
         await _chatMessageRepository.DeleteGroupMessageAsync(message.GroupMessageId!.Value, cancellationToken);
+
+        // Read before the delete, because afterwards there is nothing left to say who held a copy. The
+        // announcement itself has to come after: a client answering it must not find the message still
+        // there and put it straight back on screen.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. copies.Select(copy => copy.RecipientUserId).Distinct()], cancellationToken);
+
         return true;
     }
 }

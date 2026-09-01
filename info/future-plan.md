@@ -343,10 +343,12 @@ of that change rather than missed.
   drops, the unread badge and the feed hear about changes instead of waiting for the next screen, and the
   presence heartbeat goes over the connection when there is one. It does not listen for
   `PresenceChanged`: the phone shows nobody else's presence yet.
-- **Edits and deletions are only found by the slow poll.** A message being edited or removed announces
-  nothing, so it surfaces within twenty seconds instead of instantly. Adding it is a one-line publish in
-  each of `EditMessageCommandHandler`, `EditGroupMessageCommandHandler` and `DeleteMessageCommandHandler`
-  - left out only to keep the first change to the paths that carried the visible cost.
+- ~~**Edits and deletions are only found by the slow poll.**~~ Done. `EditMessageCommandHandler`,
+  `EditGroupMessageCommandHandler` and `DeleteChatMessageCommandHandler` announce like sending does.
+  Deleting a group message reads who held a copy *before* the delete - afterwards there is nothing left
+  to say - and announces *after* it, so a client answering cannot find the message still there and put
+  it straight back on screen. A refused edit announces nothing: re-reading a conversation that did not
+  change is work done for a request that was turned down.
 - **Somebody going *away* can never be announced.** It happens by time passing, with nothing calling
   anything, so there is no moment at which the server could say so (see `UserPresence.StatusAt`). Making
   it instant would mean the server tracking timers per connected account and announcing on expiry - real

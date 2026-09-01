@@ -459,7 +459,7 @@ public sealed class GroupMessagingTests
                 .HandleAsync(new GetGroupMessageReceiptsQuery(callerId, GroupId, groupMessageId), CancellationToken.None);
 
         public Task<bool> EditAsync(Guid actorId, Guid groupMessageId, IReadOnlyList<Guid> recipientIds, string newText)
-            => new EditGroupMessageCommandHandler(MessageRepository)
+            => new EditGroupMessageCommandHandler(MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(
                     new EditGroupMessageCommand(
                         actorId, groupMessageId,
@@ -467,7 +467,7 @@ public sealed class GroupMessagingTests
                     CancellationToken.None);
 
         public Task<bool> DeleteAsync(Guid actorId, Guid messageId)
-            => new DeleteChatMessageCommandHandler(MessageRepository, GroupRepository)
+            => new DeleteChatMessageCommandHandler(MessageRepository, GroupRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(new DeleteChatMessageCommand(actorId, messageId), CancellationToken.None);
     }
 }

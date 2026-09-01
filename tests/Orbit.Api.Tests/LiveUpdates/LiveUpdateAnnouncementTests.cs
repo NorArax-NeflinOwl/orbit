@@ -1,6 +1,8 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
+using Orbit.Core.Chat.DeleteMessage;
+using Orbit.Core.Chat.EditMessage;
 using Orbit.Core.Chat.Groups;
 using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
 using Orbit.Core.Chat.MarkConversationAsRead;
@@ -159,5 +161,94 @@ public sealed class LiveUpdateAnnouncementTests
         await contacts.EnsureContactAsync(user.Id, contactUserId, DateTimeOffset.UtcNow, CancellationToken.None);
 
         return (users, contacts, contactUserId);
+    }
+
+    /// <summary>
+    /// Editing was the last thing in a conversation that changed without saying so. It surfaced within
+    /// twenty seconds, which reads as the other person having typed the correction slowly - and the
+    /// words on screen are wrong for that whole time, which is worse than a message arriving late.
+    /// </summary>
+    [Fact]
+    public async Task Editing_a_message_tells_both_parties()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var messages = new InMemoryChatMessageRepository();
+        var senderId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var message = ChatMessage.Create(senderId, recipientId, "first", "nonce");
+        await messages.AddAsync(message, CancellationToken.None);
+
+        await new EditMessageCommandHandler(messages, announcements).HandleAsync(
+            new EditMessageCommand(message.Id, senderId, "second", "nonce"), CancellationToken.None);
+
+        // Both, for the reason sending already gives: the sender may be reading this on another device.
+        // Ordered on both sides: who is told is the point, and the order they are told in is not.
+        Assert.Equal(new[] { recipientId, senderId }.Order(), announcements.ChatToldAbout.Order());
+    }
+
+    /// <summary>
+    /// A refused edit announces nothing. Somebody else's client re-reading a conversation that did not
+    /// change is work done for a request that was turned down.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_nobody_was_allowed_to_make_tells_nobody()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var messages = new InMemoryChatMessageRepository();
+        var message = ChatMessage.Create(Guid.NewGuid(), Guid.NewGuid(), "first", "nonce");
+        await messages.AddAsync(message, CancellationToken.None);
+
+        await new EditMessageCommandHandler(messages, announcements).HandleAsync(
+            new EditMessageCommand(message.Id, Guid.NewGuid(), "second", "nonce"), CancellationToken.None);
+
+        Assert.Empty(announcements.ChatToldAbout);
+    }
+
+    [Fact]
+    public async Task Deleting_a_message_tells_both_parties()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var messages = new InMemoryChatMessageRepository();
+        var senderId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var message = ChatMessage.Create(senderId, recipientId, "gone", "nonce");
+        await messages.AddAsync(message, CancellationToken.None);
+
+        await new DeleteChatMessageCommandHandler(
+                messages, new InMemoryChatGroupRepository(), announcements)
+            .HandleAsync(new DeleteChatMessageCommand(senderId, message.Id), CancellationToken.None);
+
+        Assert.Equal(new[] { recipientId, senderId }.Order(), announcements.ChatToldAbout.Order());
+    }
+
+    /// <summary>
+    /// Who held a copy is read before the delete, because afterwards there is nothing left to say. The
+    /// announcement still goes out after it, so a client answering cannot find the message still there
+    /// and put it straight back on screen.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_a_group_message_tells_everybody_who_held_a_copy()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var messages = new InMemoryChatMessageRepository();
+        var groups = new InMemoryChatGroupRepository();
+        var senderId = Guid.NewGuid();
+        var otherMemberId = Guid.NewGuid();
+        var group = ChatGroup.Create(senderId, "Saturday");
+        group.AddMember(senderId, otherMemberId);
+        await groups.AddAsync(group, CancellationToken.None);
+
+        var groupMessageId = Guid.NewGuid();
+        var sentAtUtc = DateTimeOffset.UtcNow;
+        var mine = ChatMessage.CreateForGroup(group.Id, groupMessageId, senderId, senderId, "a", "nonce", sentAtUtc);
+        await messages.AddAsync(mine, CancellationToken.None);
+        await messages.AddAsync(
+            ChatMessage.CreateForGroup(group.Id, groupMessageId, senderId, otherMemberId, "b", "nonce", sentAtUtc),
+            CancellationToken.None);
+
+        await new DeleteChatMessageCommandHandler(messages, groups, announcements)
+            .HandleAsync(new DeleteChatMessageCommand(senderId, mine.Id), CancellationToken.None);
+
+        Assert.Equal(new[] { senderId, otherMemberId }.Order(), announcements.ChatToldAbout.Order());
     }
 }
