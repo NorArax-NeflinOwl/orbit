@@ -31,10 +31,14 @@ public static class GoogleCalendarEventLink
         // anywhere east of Greenwich that instant belongs to the previous UTC day - and a holiday on the
         // 14th was handed to Google as the 13th. A timed event has no such problem: it goes as an
         // instant, and the Z tells Google exactly which one.
-        var startsOn = startUtc.ToLocalTime().Date;
-        var endsOn = endUtc.ToLocalTime().Date;
+        //
+        // The day after the last one, always. Orbit's own end date is the last day the event covers -
+        // that is what the calendar draws, see CalendarGridBuilder.OccursOnDate, which includes it - and
+        // Google's is the first day it does not. A trip from the 14th to the 16th is three days in the
+        // grid and has to be three in the link: 14th to the 17th. Passing a multi-day end through
+        // unchanged, as this did, made every such event a day short of what the grid showed.
         var dates = isAllDay
-            ? $"{FormatDate(startUtc)}/{FormatDate(endsOn > startsOn ? endUtc : endUtc.AddDays(1))}"
+            ? $"{FormatDate(startUtc)}/{FormatDate(endUtc.AddDays(1))}"
             : $"{FormatInstant(startUtc)}/{FormatInstant(endUtc)}";
 
         var url = $"{TemplateUrl}&text={Encode(title)}&dates={dates}";

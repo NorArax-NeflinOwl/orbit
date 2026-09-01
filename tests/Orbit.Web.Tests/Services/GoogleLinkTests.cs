@@ -55,13 +55,45 @@ public sealed class GoogleLinkTests
         Assert.Contains("dates=20260901/20260902", link);
     }
 
+    /// <summary>
+    /// Orbit's end date is the last day the event covers - that is what the calendar draws, see
+    /// CalendarGridBuilder.OccursOnDate, which includes it - and Google's is the first day it does not.
+    /// A trip from the 1st to the 4th is four days in the grid, so it has to be four in the link.
+    /// Passing a multi-day end through unchanged made every such event a day short of what Orbit showed.
+    /// </summary>
     [Fact]
-    public void An_all_day_event_spanning_days_keeps_its_own_end()
+    public void An_all_day_event_spanning_days_covers_the_same_days_the_grid_draws()
     {
         var link = GoogleCalendarEventLink.ForEvent(
             "Trip", LocalMidnightOn(1), LocalMidnightOn(4), isAllDay: true);
 
-        Assert.Contains("dates=20260901/20260904", link);
+        Assert.Contains("dates=20260901/20260905", link);
+    }
+
+    /// <summary>
+    /// Said as the two agreeing rather than as a string: the days the grid puts the event on, and the
+    /// days Google's half-open range covers, have to be the same set.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(1, 2)]
+    [InlineData(14, 16)]
+    public void The_link_covers_exactly_the_days_the_grid_puts_it_on(int firstDay, int lastDay)
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            "Trip", LocalMidnightOn(firstDay), LocalMidnightOn(lastDay), isAllDay: true);
+
+        // What the grid draws: every day from the first to the last, the last included.
+        var daysDrawn = lastDay - firstDay + 1;
+        // What the link says: Google's end is the first day not covered, so the span is the difference.
+        var googleEnd = DaysInTheLink(link).End;
+        Assert.Equal(daysDrawn, googleEnd - firstDay);
+    }
+
+    private static (int Start, int End) DaysInTheLink(string link)
+    {
+        var range = link.Split("dates=")[1].Split('&')[0].Split('/');
+        return (int.Parse(range[0][6..], CultureInfo.InvariantCulture), int.Parse(range[1][6..], CultureInfo.InvariantCulture));
     }
 
     /// <summary>
