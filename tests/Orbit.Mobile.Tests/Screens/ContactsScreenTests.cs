@@ -246,7 +246,7 @@ public sealed class ContactsScreenTests
                     Repository, _chatClient, directoryReader, _encryptionKeyProvider,
                     NullLogger<EncryptedChatMessageEditor>.Instance),
                 new MessageForwarder(sender), Acceptance, Repository, _synchronizer, _chatClient,
-                new Translations(new InMemoryLanguageStore()), Navigator);
+                new Translations(new InMemoryLanguageStore()), Navigator, new AnnouncedLiveUpdates());
             screen.Open(contact);
             return screen;
         }

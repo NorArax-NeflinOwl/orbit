@@ -370,6 +370,25 @@ public sealed class NavigationBarTests
         Assert.False(bar.IsMenuOpen);
     }
 
+    /// <summary>
+    /// The badge is the one thing on this bar that changes because of somebody else, so it is the one
+    /// thing worth being told about. Before this it waited for the next screen to be opened.
+    /// </summary>
+    [Fact]
+    public async Task The_unread_badge_catches_up_when_the_feed_is_announced()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+        await bar.LoadCommand.ExecuteAsync(null);
+        Assert.False(bar.HasUnread);
+
+        context.Server.Add("New message", "/map");
+        context.LiveUpdates.AnnounceNotifications();
+        await Task.Delay(50);
+
+        Assert.True(bar.HasUnread);
+    }
+
     private sealed class BarContext
     {
         private readonly SessionStore _sessionStore;
@@ -379,6 +398,9 @@ public sealed class NavigationBarTests
                 new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", displayName)));
 
         public LocalStore LocalStore { get; } = new();
+
+        /// <summary>Announcements without a hub, so a test can say the feed changed - see ILiveUpdates.</summary>
+        public AnnouncedLiveUpdates LiveUpdates { get; } = new();
 
         /// <summary>
         /// One of the four the bar counts copies from - see NavigationBarViewModel's copy stores. Notes
@@ -461,7 +483,8 @@ public sealed class NavigationBarTests
                     LocalStore, new ChatRepository(LocalStore, TimeProvider.System),
                     UnlockedPermissions.For(LocalStore), _sessionStore),
                 Network,
-                [Notes]);
+                [Notes],
+                LiveUpdates);
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

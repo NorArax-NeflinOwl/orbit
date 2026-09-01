@@ -17,7 +17,7 @@ namespace Orbit.Mobile.Screens.Chat;
 /// shown per message and the fan-out happens when it goes out rather than when it is typed (see
 /// info/orbit-maui-plan.md §5.5).
 /// </summary>
-public sealed partial class GroupConversationViewModel : ObservableObject
+public sealed partial class GroupConversationViewModel : ObservableObject, IDisposable
 {
     private readonly EncryptedChatMessageReader _reader;
     private readonly EncryptedChatMessageSender _sender;
@@ -33,6 +33,12 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     /// returns the whole history each time, so each tick costs more than it does there.
     /// </summary>
     private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(10);
+
+    /// <inheritdoc cref="ConversationViewModel"/>
+    private static readonly TimeSpan ConnectedPollingInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>What says a message arrived, so this screen can read once instead of every ten seconds.</summary>
+    private readonly Live.ILiveUpdates _liveUpdates;
 
     private LocalChatGroup? _group;
     private CancellationTokenSource? _polling;
@@ -76,8 +82,10 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     public GroupConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         ChatRepository chatRepository, ChatSynchronizer synchronizer, ChatClient chatClient,
-        Translations translations, IScreenNavigator navigator)
+        Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates)
     {
+        _liveUpdates = liveUpdates;
+        _liveUpdates.ChatChanged += OnSomethingChanged;
         _reader = reader;
         _sender = sender;
         _editor = editor;
@@ -372,12 +380,17 @@ public sealed partial class GroupConversationViewModel : ObservableObject
 
     private async Task PollAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(PollingInterval);
+        // Slower while something is announcing changes, and back to the old pace the moment it stops -
+        // see ILiveUpdates. Not switched off entirely: an announcement is best-effort, and a chat that
+        // silently stopped updating because one was dropped is a far worse bug than one that takes half
+        // a minute in a rare case.
+        using var timer = new PeriodicTimer(_liveUpdates.IsConnected ? ConnectedPollingInterval : PollingInterval);
 
         try
         {
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
+                timer.Period = _liveUpdates.IsConnected ? ConnectedPollingInterval : PollingInterval;
                 await SynchroniseAsync(cancellationToken, showProgress: false);
             }
         }
@@ -529,4 +542,15 @@ public sealed partial class GroupConversationViewModel : ObservableObject
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
+
+    /// <inheritdoc cref="ConversationViewModel.OnSomethingChanged"/>
+    private void OnSomethingChanged()
+    {
+        if (_polling is { IsCancellationRequested: false } polling)
+        {
+            _ = SynchroniseAsync(polling.Token, showProgress: false);
+        }
+    }
+
+    public void Dispose() => _liveUpdates.ChatChanged -= OnSomethingChanged;
 }

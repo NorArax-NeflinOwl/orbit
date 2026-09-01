@@ -1,5 +1,6 @@
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Notifications;
+using Orbit.Mobile.Live;
 using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Security;
@@ -96,9 +97,18 @@ public partial class App : Application
 			// And this account stops being shown as present. Going quiet is how that works - the server
 			// ages a silent account out on its own - so stopping is the whole mechanism.
 			_services.GetRequiredService<PresenceReporter>().Stop();
+
+			// The live connection goes with it. A socket held open behind a locked screen is one Android
+			// drops in Doze anyway, and what it would have carried is what push already delivers - see
+			// LiveUpdatesConnection.
+			_ = _services.GetRequiredService<LiveUpdatesConnection>().StopAsync();
 		};
 
-		window.Activated += (_, _) => _services.GetRequiredService<PresenceReporter>().Start();
+		window.Activated += (_, _) =>
+		{
+			_services.GetRequiredService<PresenceReporter>().Start();
+			_ = _services.GetRequiredService<LiveUpdatesConnection>().StartAsync();
+		};
 
 		return window;
 	}
