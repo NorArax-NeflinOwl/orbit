@@ -67,15 +67,24 @@
                 {
                     @if (thing.Event is { } calendarEvent)
                     {
+                        @* An event a task list made is opened as that entry rather than as the event: the
+                           list is where it is worked from, and the full event form is a different thing
+                           from ticking a step off. The entry itself is not listed - see _listedDueTasks. *@
                         <ItemCard Name="@calendarEvent.Details.Title"
-                        OnNameSelected="() => GoToEditEvent(calendarEvent.Id)"
-                        OnBodySelected="() => GoToEditEvent(calendarEvent.Id)"
+                        OnNameSelected="() => OpenTheEvent(calendarEvent)"
+                        OnBodySelected="() => OpenTheEvent(calendarEvent)"
                         AccentColour="@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? null : calendarEvent.Details.Color)"
                         IsCollapsed="@(!IsEventExpanded(calendarEvent.Id))"
                         OnCollapseToggled="@(HasDetails(calendarEvent.Details) ? EventCallback.Factory.Create(this, () => ToggleEventExpanded(calendarEvent.Id)) : default)">
                         <Tags>
                             @* Which kind of thing this is, now that both kinds share one list. *@
                             <span class="card-badge card-badge-event">@T["Event"]</span>
+                            @* And which list it belongs to, where one made it. The entry used to carry
+                               this and the event did not, so folding the two into one card lost it. *@
+                            @if (TheEntryBehind(calendarEvent) is { } entry)
+                            {
+                                <span class="card-badge">@Written(entry.TaskListTitle)</span>
+                            }
                             @if (calendarEvent.IsShared)
                             {
                                 <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
@@ -246,9 +255,14 @@
         get
         {
             var (from, toExclusive) = _viewState.ListedPeriod();
+            // An entry tied to an event is that event, so the list shows one of them rather than the
+            // same appointment twice, one card under the other. The grids have always done this - see
+            // CalendarGridBuilder.DueTasksOnDate - and the list beside them had not.
+            var listedEventIds = _listedEvents.Select(calendarEvent => calendarEvent.Id).ToHashSet();
             return [.. (_dueTasks ?? [])
                 .Where(dueTask => DateOnly.FromDateTime(dueTask.DueDateUtc.LocalDateTime) is var due
                     && due >= from && due < toExclusive)
+                .Where(dueTask => dueTask.LinkedCalendarEventId is not { } eventId || !listedEventIds.Contains(eventId))
                 .OrderBy(dueTask => dueTask.DueDateUtc)];
         }
     }
@@ -369,6 +383,36 @@
     /// - the checklist is the right landing for something to tick off and the wrong one for something
     /// you have to get to. Everything else opens as the list, at the shallow level.
     /// </summary>
+    /// <summary>
+    /// The task entry this event is, when a task list made it. Read from the lists themselves rather
+    /// than from the due tasks: an appointment on a list carries no due date of its own - the event says
+    /// when it is - so it is not among them at all.
+    /// </summary>
+    private DueTaskDto? TheEntryBehind(CalendarEventDto calendarEvent)
+        => _taskLists
+            .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
+            .Where(pair => pair.item.LinkedCalendarEventId == calendarEvent.Id)
+            .Select(pair => new DueTaskDto(
+                pair.taskList.Id, pair.item.Id, pair.taskList.Title, pair.item.Description,
+                pair.item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.item.IsCompleted,
+                HasPlace(pair.item), pair.item.LinkedCalendarEventId))
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Where an event leads from this list: to the entry that made it where there is one, and to the
+    /// event's own form otherwise.
+    /// </summary>
+    private void OpenTheEvent(CalendarEventDto calendarEvent)
+    {
+        if (TheEntryBehind(calendarEvent) is { } entry)
+        {
+            GoToDueTask(entry);
+            return;
+        }
+
+        GoToEditEvent(calendarEvent.Id);
+    }
+
     private void GoToDueTask(DueTaskDto dueTask)
     {
         if (dueTask.HasPlace)
