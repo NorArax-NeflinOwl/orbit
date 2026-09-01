@@ -85,6 +85,55 @@ public sealed class ContactsArchiveTests : OrbitTestContext
         Assert.Contains(_requestedPaths, path => path.EndsWith("/archived", StringComparison.Ordinal));
     }
 
+
+    /// <summary>
+    /// The archive is where somebody has already decided they are done with a conversation, so it is
+    /// where the two endings are offered: emptying it, and - for a group - walking out of it.
+    /// </summary>
+    [Fact]
+    public void The_archive_offers_the_two_ways_of_being_done_with_a_conversation()
+    {
+        Register(contacts: [Contact("Anna", isArchived: true)], groups: [Group("Wyjazd", isArchived: true)]);
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+        OpenTheArchiveTab(cut);
+
+        // A menu's items exist only while it is open, so each row is opened in turn. The person's row
+        // comes first, the group's after it.
+        cut.FindAll(".person-row .overflow-menu-trigger").First().Click();
+        Assert.Contains("Delete chat history", cut.Markup);
+
+        cut.FindAll(".person-row .overflow-menu-trigger").Last().Click();
+        Assert.Contains("Leave and delete chat history", cut.Markup);
+    }
+
+    [Fact]
+    public void Emptying_a_conversation_tells_the_server()
+    {
+        Register(contacts: [Contact("Anna", isArchived: true)]);
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+        OpenTheArchiveTab(cut);
+        cut.Find(".person-row .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item").Single(item => item.TextContent.Contains("Delete chat history")).Click();
+
+        Assert.Contains(_requestedPaths, path => path.EndsWith("/messages", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Leaving_a_group_tells_the_server()
+    {
+        Register(contacts: [], groups: [Group("Wyjazd", isArchived: true)]);
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+        OpenTheArchiveTab(cut);
+        cut.Find(".person-row .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item")
+            .Single(item => item.TextContent.Contains("Leave and delete chat history")).Click();
+
+        Assert.Contains(_requestedPaths, path => path.EndsWith("/membership", StringComparison.Ordinal));
+    }
+
     private void OpenTheArchiveTab(IRenderedComponent<Web.Pages.Contacts> cut)
         => cut.FindAll(".contacts-tab").Single(tab => tab.TextContent.Contains("Archive")).Click();
 

@@ -15,4 +15,10 @@ public sealed class ContactEntity
 
     /// <summary>Put away by the owner of this row - see Orbit.Core.Chat.Contact.IsArchived.</summary>
     public bool IsArchived { get; set; }
+
+    /// <summary>
+    /// Where this owner's view of the conversation begins, if they have ever cleared it - see
+    /// Orbit.Core.Chat.Contact.HistoryClearedAtUtc. Null means from the beginning.
+    /// </summary>
+    public DateTimeOffset? HistoryClearedAtUtc { get; set; }
 }

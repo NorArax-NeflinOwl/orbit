@@ -244,6 +244,26 @@ public sealed class ChatApiClient
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// Empties a one-to-one conversation for this reader. The other party keeps every word of it, and
+    /// writing again starts the conversation up where it left off - see ClearConversationHistoryCommand.
+    /// </summary>
+    public async Task ClearConversationHistoryAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/chat/conversations/{otherUserId}/messages", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Walks out of a group and deletes this reader's copies of what was said in it. One call, because
+    /// leaving and still holding every message is a state nobody asks for.
+    /// </summary>
+    public async Task LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/chat/groups/{groupId}/membership", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     /// <summary>The same for a group, and equally only for this reader - nobody else's list moves.</summary>
     public async Task SetGroupArchivedAsync(Guid groupId, bool isArchived, CancellationToken cancellationToken = default)
     {

@@ -20,4 +20,14 @@ public interface IContactRepository
     /// knows: archiving is a fact about one side's own list.
     /// </summary>
     Task<bool> SetArchivedAsync(Guid ownerUserId, Guid contactUserId, bool isArchived, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Moves this reader's own start of the conversation to clearedAtUtc - see
+    /// <see cref="Contact.ClearHistory"/>. Answers false when they have no row for that person.
+    /// </summary>
+    Task<bool> ClearHistoryAsync(
+        Guid ownerUserId, Guid contactUserId, DateTimeOffset clearedAtUtc, CancellationToken cancellationToken);
+
+    /// <summary>One reader's row for one other person, or null - what the conversation reads to know where it begins.</summary>
+    Task<Contact?> FindAsync(Guid ownerUserId, Guid contactUserId, CancellationToken cancellationToken);
 }

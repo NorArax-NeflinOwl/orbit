@@ -26,6 +26,14 @@ public interface IChatMessageRepository
     /// <summary>Removes every per-recipient copy of one group posting - see ChatMessage.GroupMessageId.</summary>
     Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Removes the copies of a group's messages that are addressed to one member - what that member
+    /// takes with them when they leave. Only their own copies: a group message is encrypted separately
+    /// for each member, so this takes nothing away from anybody else. Copies that member sent to others
+    /// stay, because those are the others' to read.
+    /// </summary>
+    Task DeleteGroupCopiesForAsync(Guid groupId, Guid recipientUserId, CancellationToken cancellationToken);
+
     /// <summary>Looks up a single message by id, or null if it doesn't exist - used by EditMessageCommandHandler to check who sent it before allowing an edit.</summary>
     Task<ChatMessage?> GetByIdAsync(Guid messageId, CancellationToken cancellationToken);
 

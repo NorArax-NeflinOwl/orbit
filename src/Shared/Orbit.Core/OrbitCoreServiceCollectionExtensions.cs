@@ -14,6 +14,8 @@ using Orbit.Core.Calendar.ReleaseCalendarEventLock;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
+using Orbit.Core.Chat.ClearConversationHistory;
+using Orbit.Core.Chat.Groups.LeaveChatGroup;
 using Orbit.Core.Chat.Groups.SetGroupArchived;
 using Orbit.Core.Chat.SetConversationArchived;
 using Orbit.Core.Chat;
@@ -358,6 +360,8 @@ public static class OrbitCoreServiceCollectionExtensions
 
         services.AddScoped<IRequestHandler<SetConversationArchivedCommand, bool>, SetConversationArchivedCommandHandler>();
         services.AddScoped<IRequestHandler<SetGroupArchivedCommand, bool>, SetGroupArchivedCommandHandler>();
+        services.AddScoped<IRequestHandler<ClearConversationHistoryCommand, bool>, ClearConversationHistoryCommandHandler>();
+        services.AddScoped<IRequestHandler<LeaveChatGroupCommand, bool>, LeaveChatGroupCommandHandler>();
 
         services.AddScoped<Dispatcher>();
         services.AddScoped<IDispatcher>(provider => new LoggingDispatcher(

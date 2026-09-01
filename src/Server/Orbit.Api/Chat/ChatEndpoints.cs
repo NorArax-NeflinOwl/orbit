@@ -1,3 +1,5 @@
+using Orbit.Core.Chat.ClearConversationHistory;
+using Orbit.Core.Chat.Groups.LeaveChatGroup;
 using Orbit.Core.Chat.Groups.SetGroupArchived;
 using Orbit.Core.Chat.SetConversationArchived;
 using System.IdentityModel.Tokens.Jwt;
@@ -97,6 +99,17 @@ public static class ChatEndpoints
             return changed ? Results.NoContent() : Results.NotFound();
         });
 
+        // Emptying a conversation, for the caller only. A DELETE on the messages rather than on the
+        // conversation, because the conversation itself stays: the other party keeps every word, and
+        // writing again starts it up where it left off - see ClearConversationHistoryCommand.
+        chat.MapDelete("/conversations/{otherUserId:guid}/messages", async (
+            Guid otherUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var cleared = await dispatcher.SendAsync(
+                new ClearConversationHistoryCommand(GetUserId(user), otherUserId), cancellationToken);
+            return cleared ? Results.NoContent() : Results.NotFound();
+        });
+
         chat.MapGet("/conversations/{otherUserId:guid}/access", async (
             Guid otherUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -192,6 +205,18 @@ public static class ChatEndpoints
             var changed = await dispatcher.SendAsync(
                 new SetGroupArchivedCommand(GetUserId(user), groupId, request.IsArchived), cancellationToken);
             return changed ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Leaving a group and taking your copies of what was said in it with you. One endpoint for
+        // both, because leaving and still holding every message is a state nobody asks for - see
+        // LeaveChatGroupCommand. Separate from removing a member: that one is an admin acting on
+        // somebody else, and it is refused for anybody but an admin.
+        groups.MapDelete("/{groupId:guid}/membership", async (
+            Guid groupId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var left = await dispatcher.SendAsync(
+                new LeaveChatGroupCommand(GetUserId(user), groupId), cancellationToken);
+            return left ? Results.NoContent() : Results.NotFound();
         });
 
         groups.MapGet("/{groupId:guid}/messages", async (

@@ -146,6 +146,9 @@ else
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => OpenContactInfo(contact.UserId)">@T["Info"]</button>
                                 <button type="button" class="avatar-dropdown-item"
                                         @onclick="() => SetContactArchivedAsync(contact.UserId, false)">@T["Put back"]</button>
+                                @* Empties it for this reader only - the other party keeps theirs. *@
+                                <button type="button" class="avatar-dropdown-item"
+                                        @onclick="() => ClearTheHistoryAsync(contact.UserId)">@T["Delete chat history"]</button>
                             </OverflowMenu>
                         </Menu>
                     </PersonRow>
@@ -160,6 +163,11 @@ else
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => OpenGroup(group.Id)">@T["Info"]</button>
                                 <button type="button" class="avatar-dropdown-item"
                                         @onclick="() => SetGroupArchivedAsync(group.Id, false)">@T["Put back"]</button>
+                                @* Leaving takes this reader's copies of the group's messages with it -
+                                   the two are one action, because leaving and still holding every
+                                   message is a state nobody asks for. *@
+                                <button type="button" class="avatar-dropdown-item"
+                                        @onclick="() => LeaveTheGroupAsync(group.Id)">@T["Leave and delete chat history"]</button>
                             </OverflowMenu>
                         </Menu>
                     </PersonRow>
@@ -311,6 +319,43 @@ else
             _loadError = isArchived
                 ? T["Could not put that away. Check your connection and try again."]
                 : T["Could not put that back. Check your connection and try again."];
+            return;
+        }
+
+        await LoadContactsAsync();
+    }
+
+    /// <summary>
+    /// Empties a conversation on this reader's side. Asked for from the archive, where somebody has
+    /// already decided they are done with it - and reported out loud when it fails, because a list that
+    /// looks unchanged reads as a click that never registered.
+    /// </summary>
+    private async Task ClearTheHistoryAsync(Guid otherUserId)
+    {
+        try
+        {
+            await ChatApiClient.ClearConversationHistoryAsync(otherUserId);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to clear a conversation's history");
+            _loadError = T["Could not delete that chat history. Check your connection and try again."];
+            return;
+        }
+
+        await LoadContactsAsync();
+    }
+
+    private async Task LeaveTheGroupAsync(Guid groupId)
+    {
+        try
+        {
+            await ChatApiClient.LeaveGroupAsync(groupId);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to leave a group");
+            _loadError = T["Could not leave that group. Check your connection and try again."];
             return;
         }
 

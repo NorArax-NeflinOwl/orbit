@@ -228,12 +228,6 @@
                     Style="{StaticResource SecondaryButton}"
                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseReminderCommand, x:DataType=calendar:CalendarEventDetailPage}" />
 
-            <Label Text="{controls:Translate 'Notification when the event is created'}"
-                   Style="{StaticResource FieldLabel}" />
-            <Button Text="{Binding CreationChannel.Name}" HorizontalOptions="Start" FontSize="13" Padding="12,6"
-                    IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}"
-                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseCreationChannelCommand, x:DataType=calendar:CalendarEventDetailPage}" />
-
             <Label Text="{controls:Translate 'Notification as the event approaches'}"
                    Style="{StaticResource FieldLabel}" />
             <Button Text="{Binding ReminderChannel.Name}" HorizontalOptions="Start" FontSize="13" Padding="12,6"

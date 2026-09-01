@@ -49,11 +49,7 @@ public sealed class ContactRepository : IContactRepository
     public async Task<bool> SetArchivedAsync(
         Guid ownerUserId, Guid contactUserId, bool isArchived, CancellationToken cancellationToken)
     {
-        var entity = await _dbContext.Contacts
-            .FirstOrDefaultAsync(
-                contact => contact.OwnerUserId == ownerUserId && contact.ContactUserId == contactUserId,
-                cancellationToken);
-
+        var entity = await FindEntityAsync(ownerUserId, contactUserId, cancellationToken);
         if (entity is null)
         {
             return false;
@@ -64,10 +60,45 @@ public sealed class ContactRepository : IContactRepository
         return true;
     }
 
+    public async Task<bool> ClearHistoryAsync(
+        Guid ownerUserId, Guid contactUserId, DateTimeOffset clearedAtUtc, CancellationToken cancellationToken)
+    {
+        var entity = await FindEntityAsync(ownerUserId, contactUserId, cancellationToken);
+        if (entity is null)
+        {
+            return false;
+        }
+
+        // Forward only, matching Contact.ClearHistory: clearing twice must not uncover what the first
+        // clearing hid.
+        if (entity.HistoryClearedAtUtc is null || clearedAtUtc > entity.HistoryClearedAtUtc)
+        {
+            entity.HistoryClearedAtUtc = clearedAtUtc;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return true;
+    }
+
+    public async Task<Contact?> FindAsync(Guid ownerUserId, Guid contactUserId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Contacts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                contact => contact.OwnerUserId == ownerUserId && contact.ContactUserId == contactUserId,
+                cancellationToken);
+        return entity is null ? null : ToDomain(entity);
+    }
+
+    private Task<ContactEntity?> FindEntityAsync(Guid ownerUserId, Guid contactUserId, CancellationToken cancellationToken)
+        => _dbContext.Contacts.FirstOrDefaultAsync(
+            contact => contact.OwnerUserId == ownerUserId && contact.ContactUserId == contactUserId,
+            cancellationToken);
+
     private static Contact ToDomain(ContactEntity entity)
         => Contact.FromPersistence(
             entity.Id, entity.OwnerUserId, entity.ContactUserId, entity.CreatedAtUtc, entity.LastMessageAtUtc,
-            entity.IsArchived);
+            entity.IsArchived, entity.HistoryClearedAtUtc);
 
     private static ContactEntity ToEntity(Contact contact)
         => new()
@@ -77,6 +108,7 @@ public sealed class ContactRepository : IContactRepository
             ContactUserId = contact.ContactUserId,
             CreatedAtUtc = contact.CreatedAtUtc,
             LastMessageAtUtc = contact.LastMessageAtUtc,
-            IsArchived = contact.IsArchived
+            IsArchived = contact.IsArchived,
+            HistoryClearedAtUtc = contact.HistoryClearedAtUtc
         };
 }

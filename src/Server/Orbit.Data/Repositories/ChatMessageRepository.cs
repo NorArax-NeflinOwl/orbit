@@ -66,6 +66,18 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         await _dbContext.ChatMessages.Where(message => message.Id == messageId).ExecuteDeleteAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// The copies of this group's messages addressed to one member, and only those - what they take
+    /// with them when they leave. Copies addressed to anybody else stay, including ones this member
+    /// sent: those are the others' to read.
+    /// </summary>
+    public async Task DeleteGroupCopiesForAsync(Guid groupId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        await _dbContext.ChatMessages
+            .Where(message => message.GroupId == groupId && message.RecipientUserId == recipientUserId)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
     public async Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken)
     {
         await _dbContext.ChatMessages.Where(message => message.GroupMessageId == groupMessageId).ExecuteDeleteAsync(cancellationToken);
