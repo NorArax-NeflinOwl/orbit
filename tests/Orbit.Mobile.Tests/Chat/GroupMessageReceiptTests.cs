@@ -111,7 +111,8 @@ public sealed class GroupMessageReceiptTests
     {
         var screen = new GroupConversationViewModel(
             context.Reader, context.Sender, context.Editor, context.Repository, context.Synchronizer,
-            context.ChatClient, new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator());
+            context.ChatClient, new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator(),
+            context.LiveUpdates);
 
         await context.Synchronizer.SynchroniseGroupsAsync();
         var stored = (await context.Repository.GetGroupsAsync()).Single(candidate => candidate.Id == groupId);

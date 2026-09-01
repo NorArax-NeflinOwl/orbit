@@ -1,5 +1,6 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Chat.ApproveConversation;
+using Orbit.Core.LiveUpdates;
 using Xunit;
 
 namespace Orbit.Api.Tests.Chat;
@@ -13,7 +14,7 @@ public sealed class ApproveConversationCommandHandlerTests
         var initiatorId = Guid.NewGuid();
         var otherPartyId = Guid.NewGuid();
         await repository.EnsureCreatedAsync(initiatorId, otherPartyId, CancellationToken.None);
-        var handler = new ApproveConversationCommandHandler(repository);
+        var handler = new ApproveConversationCommandHandler(repository, new SilentLiveUpdatePublisher());
 
         var approved = await handler.HandleAsync(new ApproveConversationCommand(otherPartyId, initiatorId), CancellationToken.None);
 
@@ -25,7 +26,7 @@ public sealed class ApproveConversationCommandHandlerTests
     [Fact]
     public async Task HandleAsync_returns_false_when_no_conversation_has_been_started_yet()
     {
-        var handler = new ApproveConversationCommandHandler(new InMemoryChatConversationAccessRepository());
+        var handler = new ApproveConversationCommandHandler(new InMemoryChatConversationAccessRepository(), new SilentLiveUpdatePublisher());
 
         var approved = await handler.HandleAsync(new ApproveConversationCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
@@ -39,7 +40,7 @@ public sealed class ApproveConversationCommandHandlerTests
         var initiatorId = Guid.NewGuid();
         var otherPartyId = Guid.NewGuid();
         await repository.EnsureCreatedAsync(initiatorId, otherPartyId, CancellationToken.None);
-        var handler = new ApproveConversationCommandHandler(repository);
+        var handler = new ApproveConversationCommandHandler(repository, new SilentLiveUpdatePublisher());
 
         var approved = await handler.HandleAsync(new ApproveConversationCommand(initiatorId, otherPartyId), CancellationToken.None);
 

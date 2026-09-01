@@ -11,7 +11,11 @@ namespace Orbit.Web.Services;
 /// is therefore the mechanism, not a failure - the server ages a silent account from available to away
 /// to offline on its own (see Orbit.Core.Users.UserPresence).
 /// </summary>
-public sealed class PresenceService(UsersApiClient usersApiClient, IJSRuntime jsRuntime, ILogger<PresenceService> logger) : IDisposable
+public sealed class PresenceService(
+    UsersApiClient usersApiClient,
+    LiveUpdatesConnection liveUpdates,
+    IJSRuntime jsRuntime,
+    ILogger<PresenceService> logger) : IDisposable
 {
     /// <summary>
     /// Comfortably shorter than UserPresence.AwayAfter, so somebody sitting at the page never flickers
@@ -111,6 +115,17 @@ public sealed class PresenceService(UsersApiClient usersApiClient, IJSRuntime js
             await using var module = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/presence.js");
             if (!await module.InvokeAsync<bool>("isPageVisible"))
             {
+                return;
+            }
+
+            // Over the live connection when there is one: a frame on a socket that is already open,
+            // instead of a request that carries headers, a token and a TLS handshake three times a
+            // minute. The HTTP call is what happens when there is no connection, which is also what
+            // happened before there was one - so nothing about presence behaves differently, it just
+            // costs less when it can.
+            if (liveUpdates.IsConnected)
+            {
+                await liveUpdates.ReportPresenceAsync(true);
                 return;
             }
 

@@ -28,6 +28,7 @@ stated scope.
 | Push notifications | Implemented | [Functionality — Push notifications](functionality.md#push-notifications) |
 | In-app notification feed, badge, and banner | Implemented | [Functionality — In-app notifications](functionality.md#in-app-notifications) |
 | Blazor WebAssembly web client | Implemented | [Architecture](architecture.md#orbitweb) |
+| Live updates over a WebSocket (chat, notifications, presence) | Implemented on both clients; the phone holds the connection only while it is in front, and push covers the rest | [Functionality — Live updates](functionality.md#live-updates) |
 | Recording your own location and seeing it on a map | Implemented | [Functionality](functionality.md#the-map-and-the-location-behind-it) |
 | Sharing a location with another user | Implemented | [Functionality](functionality.md#sharing-a-position-with-a-contact) |
 | Google Calendar and Maps links (verified/Google accounts) | Implemented | [Functionality](functionality.md#handing-something-off-to-google) |

@@ -6,6 +6,37 @@ using Orbit.Mobile.Screens.Calendar;
 namespace Orbit.Mobile.Screens.Tasks;
 
 /// <summary>
+/// Where an appointment happens: what it is called, and where that is. Both or neither - an address
+/// without a point cannot be stored on an event (see EventLocationDto), and a point with no name still
+/// can.
+///
+/// Its own small type rather than three loose values threaded through two shapes: the name and the pair
+/// of coordinates only ever travel together, and the rule about what makes a saveable place belongs
+/// with them.
+/// </summary>
+public sealed record EventPlace(string Name = "", double? Latitude = null, double? Longitude = null)
+{
+    /// <summary>Nowhere - what an entry that says nothing about where it happens sends.</summary>
+    public static EventPlace Nowhere { get; } = new();
+
+    /// <summary>
+    /// Whether this can actually be saved. A name somebody typed and nothing else cannot: the caller
+    /// looks it up first, and says so when the lookup finds nothing - see EntryAppointment.
+    /// </summary>
+    public bool CanBeSaved => Latitude is not null && Longitude is not null;
+
+    public EventLocationDto? ToDto()
+        => Latitude is { } latitude && Longitude is { } longitude
+            ? new EventLocationDto(Name.Trim() is { Length: > 0 } named ? named : null, latitude, longitude)
+            : null;
+
+    public EventLocationRequest? ToRequest()
+        => Latitude is { } latitude && Longitude is { } longitude
+            ? new EventLocationRequest(Name.Trim() is { Length: > 0 } named ? named : null, latitude, longitude)
+            : null;
+}
+
+/// <summary>
 /// The appointment a Calendar entry is, while somebody is writing it.
 ///
 /// A Calendar entry no longer points at an event made elsewhere - it <b>is</b> the event, and saving the
@@ -47,10 +78,6 @@ public sealed partial class TaskItemEventForm : ObservableObject
         var end = details.EndUtc.ToLocalTime();
 
         form.Description = details.Description ?? string.Empty;
-        // Kept, not shown. This screen has no map to offer, so it cannot set a place - but an event
-        // made on the web can already have one, and sending nothing back was erasing it every time
-        // somebody edited the entry's day or its colour from a phone.
-        form.PlaceItAlreadyHad = details.Location;
         form.StartDate = start.Date;
         form.StartTime = start.TimeOfDay;
         // An all-day event ends at midnight after its last day, so the day a reader would name is the
@@ -140,23 +167,11 @@ public sealed partial class TaskItemEventForm : ObservableObject
     /// in the types the wire and the store each use for a place and a recurrence, and this one sets
     /// neither to anything but null.
     /// </summary>
-    /// <summary>
-    /// The place this event already had when it was opened, carried untouched so that saving from a
-    /// phone gives it back. Nothing here can change it: setting a place needs a map, and this screen
-    /// has none - which is exactly why it must not be the thing that removes one.
-    /// </summary>
-    public EventLocationDto? PlaceItAlreadyHad { get; private set; }
-
-    private EventLocationRequest? PlaceToSendBack()
-        => PlaceItAlreadyHad is { } place
-            ? new EventLocationRequest(place.Address, place.Latitude, place.Longitude)
-            : null;
-
-    public CalendarEventDetailsDto ToDetails(string title)
+    public CalendarEventDetailsDto ToDetails(string title, EventPlace place)
         => new(
             title,
             string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
-            PlaceItAlreadyHad,
+            place.ToDto(),
             Colour,
             StartsAtUtc,
             EndsAtUtc,
@@ -171,11 +186,14 @@ public sealed partial class TaskItemEventForm : ObservableObject
     /// The appointment in the shape the calendar takes. <paramref name="title"/> is the entry's own
     /// words: an entry and its appointment are one thing, so they cannot be named separately.
     /// </summary>
-    public CalendarEventDetailsRequest ToRequest(string title)
+    public CalendarEventDetailsRequest ToRequest(string title, EventPlace place)
         => new(
             title,
             string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
-            PlaceToSendBack(),
+            // The place goes on the appointment, not on the entry. An entry tied to an event keeps no
+            // place of its own - see Orbit.Core's TaskItem.WhereItHappens - and on a phone every
+            // calendar entry is tied to one, so leaving the name on the entry threw it away on save.
+            place.ToRequest(),
             Colour,
             StartsAtUtc,
             EndsAtUtc,

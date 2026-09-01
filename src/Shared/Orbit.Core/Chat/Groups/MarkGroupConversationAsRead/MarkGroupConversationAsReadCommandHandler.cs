@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
 
@@ -7,10 +8,14 @@ public sealed class MarkGroupConversationAsReadCommandHandler
 {
     private readonly IChatGroupRepository _chatGroupRepository;
     private readonly IChatMessageRepository _chatMessageRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
     public MarkGroupConversationAsReadCommandHandler(
-        IChatGroupRepository chatGroupRepository, IChatMessageRepository chatMessageRepository)
+        IChatGroupRepository chatGroupRepository,
+        IChatMessageRepository chatMessageRepository,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
+        _liveUpdatePublisher = liveUpdatePublisher;
         _chatGroupRepository = chatGroupRepository;
         _chatMessageRepository = chatMessageRepository;
     }
@@ -29,6 +34,11 @@ public sealed class MarkGroupConversationAsReadCommandHandler
 
         await _chatMessageRepository.MarkGroupConversationAsReadAsync(
             request.ReaderUserId, request.GroupId, DateTimeOffset.UtcNow, cancellationToken);
+
+        // Everyone else in the group, who are the ones showing receipts for what they sent.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. group.Members.Select(member => member.UserId).Where(userId => userId != request.ReaderUserId)],
+            cancellationToken);
         return true;
     }
 }

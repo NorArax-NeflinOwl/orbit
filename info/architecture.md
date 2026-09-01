@@ -14,6 +14,10 @@ An ASP.NET Core minimal API exposing:
   minute per client IP.
 - `/api/notes`, `/api/tasks`, `/api/calendar-events`, `/api/users`, `/api/chat`, `/api/push` — all
   require a valid JWT and are scoped to the caller's own data.
+- `/api/live` — a SignalR hub the web client holds open so it can be told what changed instead of
+  polling for it. Announcements only, never content; see
+  [Functionality — Live updates](functionality.md#live-updates). Authenticated from the query string,
+  because a browser cannot put a header on a WebSocket handshake, and only on this path.
 - `/health*` endpoints — liveness, readiness, and a full report covering the database, disk space,
   external services, and background services.
 

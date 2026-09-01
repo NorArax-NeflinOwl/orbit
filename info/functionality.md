@@ -1659,6 +1659,98 @@ The three triggers:
   that links to another task list (see [Tasks](#tasks) above) is excluded from this check, since its true
   completion depends on the list it links to, not its own stored (always-false) completion flag.
 
+## Live updates
+
+The web client holds one WebSocket open to the API and is told when something changed, instead of
+asking. It replaced polling that ran **four requests a second per open chat** (a message read, a
+conversation's approval state, a read receipt, and every tenth tick the whole contact roster), a
+notification poll every ten seconds, and a presence heartbeat every twenty.
+
+**What travels over it is an announcement, never the thing that changed.** The server says "your chat
+changed" and the client answers with the same API call its timer used to make. This is the design, not
+a shortcut:
+
+- Chat messages are end-to-end encrypted. A connection that carried content would need a plaintext the
+  server does not have, so the announcement carries none and the server stays exactly as ignorant as it
+  was.
+- Nothing new is readable. The client fetches over the endpoints it already used, behind the guards
+  those already have — the hub adds no read path of its own.
+- A dropped announcement costs a delay, never a message. The answer to every announcement is "read
+  again from the cursor you already hold", so hearing it late, twice, or not at all is harmless.
+
+**The polls are still there, and deliberately so.** They slow down while the connection is up (chat 1s →
+20s, notifications 10s → 60s) and snap back the moment it drops. Announcements are best-effort, and a few
+things genuinely have no moment to announce — most notably somebody going *away*, which happens by time
+passing with nothing calling anything (see `UserPresence.StatusAt`). A chat that silently stopped
+updating because one announcement was lost would be a far worse bug than one that takes twenty seconds
+in a rare case.
+
+| | Announced | Still only found by the slow poll |
+|---|---|---|
+| Chat | a message sent, a group message, a read receipt, a conversation approved | an edit or deletion, a group somebody added you to |
+| Notifications | anything recorded in the feed, from any trigger | one cleared or read on another device |
+| Presence | somebody arriving, somebody choosing "do not disturb" | somebody ageing to away or offline |
+
+Presence keeps its old rule exactly: the beat stops while the tab is in the background, because a tab
+left open behind thirty others is not somebody there to answer. The connection staying open does **not**
+on its own keep an account looking available — the client reports being at the keyboard, and declining to
+report is what lets the account age.
+
+**The phone holds the same connection, and only while it is in front.** Started and stopped with the
+window, the way its presence heartbeat already was: a socket held open behind a locked screen is one
+Android drops in Doze anyway, and what it would have carried is exactly what push already delivers. So
+the connection speeds up the app somebody is looking at, and push covers the app they are not. Its chat
+polls slow from 5s and 10s to 30s while it is up and snap back when it drops; the unread badge and the
+notification feed hear about the feed changing instead of waiting for the next screen to be opened; and
+the presence heartbeat goes over the connection when there is one — a frame instead of a handshake and a
+round trip every twenty seconds — falling back to the request when there is not.
+
+The phone does not listen for `PresenceChanged`: it shows nobody else's presence yet, so there would be
+nothing to redraw.
+
+### How it is put together
+
+| Piece | Where | What it is for |
+|---|---|---|
+| `ILiveUpdatePublisher` | `Orbit.Core.LiveUpdates` | What the domain calls. Knows nothing about WebSockets — the same separation `IPushNotificationSender` gives push. |
+| `SilentLiveUpdatePublisher` | `Orbit.Core.LiveUpdates` | The default, so every call site can announce unconditionally. |
+| `LiveUpdatesHub` | `Orbit.Api.LiveUpdates` | The connection. Almost empty: the only thing coming *up* it is presence. |
+| `SignalRLiveUpdatePublisher` | `Orbit.Api.LiveUpdates` | Delivers announcements, swallowing its own failures — a sent message must not fail because a socket was reconnecting. |
+| `SubjectClaimUserIdProvider` | `Orbit.Api.LiveUpdates` | Which account a connection belongs to. |
+| `LiveUpdatesConnection` | `Orbit.Web.Services` | One connection for the whole app; pages subscribe while they are on screen. |
+
+**Two things here fail silently, and both have tests of their own.**
+
+The first is the claim a connection is keyed on. SignalR looks for `ClaimTypes.NameIdentifier`; Orbit's
+tokens carry the account in `sub` and keep it there (`MapInboundClaims = false`). Read the wrong one and
+every announcement is addressed to nobody — no exception, no log, just an app that quietly polls exactly
+as it did before.
+
+The second is nginx. A WebSocket handshake is an HTTP/1.1 `Upgrade`, and nginx proxies as HTTP/1.0
+unless told otherwise, which strips it. SignalR survives that by falling back to long polling, so
+leaving `proxy_http_version 1.1` out does not break anything visible: the live connection simply never
+happens. Both configs carry it, and both go through the same `/api/` location the phone uses.
+
+### The access token in the URL
+
+A browser cannot put an `Authorization` header on a WebSocket handshake — the WebSocket API has no way
+to set one — so the token goes in the query string, which is what SignalR does and what `OnMessageReceived`
+reads. It is accepted **only** on the hub's own path; nowhere else in the API takes a credential that
+way.
+
+A token in a URL is a token in access logs, so nginx stops logging the query string for that one path
+(`map $uri $orbit_logged_request`). Everything else still logs what it asked for.
+
+### Before this scales past one replica
+
+`orbit-api` runs at `max-replicas 1`, and the hub's delivery depends on it. SignalR keeps its connection
+registry in the process's own memory, so with two replicas an announcement raised on one reaches only the
+clients connected to that one — the rest hear nothing and fall back to their slow poll. Nothing errors.
+
+Raising `max-replicas` therefore needs a backplane (Azure SignalR Service, or Redis) added at the same
+time. There is also a cost consequence worth knowing: `orbit-web` is set to scale to zero when idle, and
+a client holding a connection open is not idle, so it will stop scaling to zero once this is in use.
+
 ## In-app notifications
 
 Every push/email trigger above (the three under [Push notifications](#push-notifications), plus a

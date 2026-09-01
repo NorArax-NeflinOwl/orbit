@@ -47,8 +47,11 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     public NotificationFeedViewModel(
         NotificationsClient notificationsClient, LocalNotificationRepository notifications,
         NotificationSynchronizer synchronizer, NotificationOpener opener, Translations translations,
-        IScreenNavigator navigator, ConnectionRequirement connection)
+        IScreenNavigator navigator, ConnectionRequirement connection, Live.ILiveUpdates liveUpdates)
     {
+        // Read again when something says there is something to read, rather than only when this screen
+        // is opened - see ILiveUpdates.
+        liveUpdates.NotificationsChanged += () => _ = ShowFeedAsync(CancellationToken.None);
         _notificationsClient = notificationsClient;
         _notifications = notifications;
         _synchronizer = synchronizer;

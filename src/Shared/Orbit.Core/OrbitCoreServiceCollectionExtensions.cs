@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
@@ -50,6 +51,7 @@ using Orbit.Core.Inventory.GetWarehouses;
 using Orbit.Core.Inventory.GetWarehouseShareStatus;
 using Orbit.Core.Inventory.ShareWarehouse;
 using Orbit.Core.Inventory.UpdateWarehouse;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notes;
 using Orbit.Core.Permissions;
 using Orbit.Core.Permissions.GetUserPermissions;
@@ -346,6 +348,11 @@ public static class OrbitCoreServiceCollectionExtensions
         // must be scoped too - used by Orbit.Api's InventoryExpiryReminderBackgroundService, not
         // through IDispatcher, for the same reason as OverdueTaskNotificationScheduler above.
         services.AddScoped<InventoryExpiryReminderScheduler>();
+
+        // Announcing a change is unconditional at every call site, so something always has to be here.
+        // A host that has a live connection to announce over replaces this - see Orbit.Api's
+        // AddOrbitLiveUpdates - and TryAdd rather than Add is what lets it, by registering first.
+        services.TryAddSingleton<ILiveUpdatePublisher, SilentLiveUpdatePublisher>();
 
         services.AddScoped<Dispatcher>();
         services.AddScoped<IDispatcher>(provider => new LoggingDispatcher(

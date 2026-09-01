@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.MarkConversationAsRead;
+using Orbit.Core.LiveUpdates;
 using Xunit;
 
 namespace Orbit.Api.Tests.Chat;
@@ -15,7 +16,7 @@ public sealed class MarkConversationAsReadCommandHandlerTests
         var otherPartyId = Guid.NewGuid();
         var message = ChatMessage.Create(otherPartyId, readerId, "ciphertext", "nonce");
         await repository.AddAsync(message, CancellationToken.None);
-        var handler = new MarkConversationAsReadCommandHandler(repository);
+        var handler = new MarkConversationAsReadCommandHandler(repository, new SilentLiveUpdatePublisher());
 
         var result = await handler.HandleAsync(new MarkConversationAsReadCommand(readerId, otherPartyId), CancellationToken.None);
 
@@ -32,7 +33,7 @@ public sealed class MarkConversationAsReadCommandHandlerTests
         var otherPartyId = Guid.NewGuid();
         var ownMessage = ChatMessage.Create(readerId, otherPartyId, "ciphertext", "nonce");
         await repository.AddAsync(ownMessage, CancellationToken.None);
-        var handler = new MarkConversationAsReadCommandHandler(repository);
+        var handler = new MarkConversationAsReadCommandHandler(repository, new SilentLiveUpdatePublisher());
 
         await handler.HandleAsync(new MarkConversationAsReadCommand(readerId, otherPartyId), CancellationToken.None);
 
@@ -43,7 +44,7 @@ public sealed class MarkConversationAsReadCommandHandlerTests
     [Fact]
     public async Task HandleAsync_succeeds_even_when_there_is_nothing_to_mark()
     {
-        var handler = new MarkConversationAsReadCommandHandler(new InMemoryChatMessageRepository());
+        var handler = new MarkConversationAsReadCommandHandler(new InMemoryChatMessageRepository(), new SilentLiveUpdatePublisher());
 
         var result = await handler.HandleAsync(
             new MarkConversationAsReadCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);

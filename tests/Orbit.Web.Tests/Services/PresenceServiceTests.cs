@@ -73,6 +73,17 @@ public sealed class PresenceServiceTests
         };
         // The heartbeat is never started here: these tests are about the choice, and StartAsync would
         // put a timer and a JS import between the assertion and what it is about.
-        return new PresenceService(new UsersApiClient(httpClient), new StubJSRuntime(), NullLogger<PresenceService>.Instance);
+        // A connection that is never started, so IsConnected is false throughout - which is the branch
+        // these tests are about: presence over HTTP, exactly as it worked before there was a hub, and
+        // as it still works wherever a live connection cannot be made.
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        var liveUpdates = new LiveUpdatesConnection(
+            tokenStore,
+            new TokenRefreshService(tokenStore, httpClient),
+            "https://example.test/",
+            NullLogger<LiveUpdatesConnection>.Instance);
+
+        return new PresenceService(
+            new UsersApiClient(httpClient), liveUpdates, new StubJSRuntime(), NullLogger<PresenceService>.Instance);
     }
 }

@@ -321,6 +321,10 @@ public static class PolishTranslations
         ["Orbit can't be reached to check who else is editing. Try this again once you're back online."] =
             "Nie można połączyć się z Orbitem, żeby sprawdzić, kto jeszcze to edytuje. Spróbuj ponownie, gdy wrócisz online.",
         ["That is no longer here."] = "Tego już tu nie ma.",
+        ["Saved, but that place could not be found - use your location to keep a point for it."] =
+            "Zapisano, ale nie udało się znaleźć tego miejsca - użyj swojej lokalizacji, żeby zapisać punkt.",
+        ["Saved, but that place could not be found - open the map and point at it to keep it."] =
+            "Zapisano, ale nie udało się znaleźć tego miejsca - otwórz mapę i wskaż je, żeby je zachować.",
 
         // What rebuilding a warehouse's restock list moved, and what it needs - see the phone's
         // RestockListSettingsPanel, which shows the settings Orbit.Web has had all along.

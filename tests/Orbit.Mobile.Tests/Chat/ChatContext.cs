@@ -19,6 +19,9 @@ namespace Orbit.Mobile.Tests.Chat;
 /// </summary>
 internal sealed class ChatContext : IDisposable
 {
+    /// <summary>Announcements without a hub, so a test can say a message arrived - see ILiveUpdates.</summary>
+    public AnnouncedLiveUpdates LiveUpdates { get; } = new();
+
     private readonly LocalStore _localStore = new();
 
     public ChatContext()
@@ -136,7 +139,7 @@ internal sealed class ChatContext : IDisposable
                 new NotesClient(Server.ToHttpClient()), new TasksClient(Server.ToHttpClient()),
                 new CalendarClient(Server.ToHttpClient()), new InventoryClient(Server.ToHttpClient())),
             Repository, Synchronizer, ChatClient,
-            new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator());
+            new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator(), LiveUpdates);
 
         screen.Open(LocalContact.ForSomebodyNotYetSpokenTo(
             OtherUserId, "bob", "Bob", OtherPublicKeyBase64));

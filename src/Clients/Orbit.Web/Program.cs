@@ -115,6 +115,14 @@ builder.Services.AddScoped<AccentColorService>();
 builder.Services.AddScoped<ChosenPlace>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<DashboardCardPreferences>();
+// Scoped for the same reason PresenceService below is: in WebAssembly there is one scope for the life
+// of the app, so this is the one connection every page shares. It takes the API's address rather than
+// an HttpClient - a hub connection is not an HTTP call and does not go through the message handlers.
+builder.Services.AddScoped(services => new LiveUpdatesConnection(
+    services.GetRequiredService<TokenStore>(),
+    services.GetRequiredService<TokenRefreshService>(),
+    apiBaseAddress,
+    services.GetRequiredService<ILogger<LiveUpdatesConnection>>()));
 builder.Services.AddScoped<PresenceService>();
 // Asked by the chat poll before every tick - see PageVisibility for why polling behind thirty other
 // tabs is waste rather than diligence.

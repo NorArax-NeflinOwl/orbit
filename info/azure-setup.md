@@ -242,6 +242,17 @@ az containerapp ingress show -n orbit-api -g Orbit
 az containerapp ingress show -n orbit-web -g Orbit
 ```
 
+**Raising `max-replicas` on `orbit-api` needs a backplane at the same time.** The live-update hub (see
+[Functionality — Live updates](functionality.md#live-updates)) keeps its registry of who is connected in
+the process's own memory. With two replicas, an announcement raised on one reaches only the clients
+connected to that one; everybody else hears nothing and falls back to their slow poll. Nothing errors,
+nothing appears in a log, and the only symptom is that the app is slower for some people than for others.
+Scaling out means adding Azure SignalR Service or a Redis backplane in the same change.
+
+**`orbit-web` will stop scaling to zero.** A client holding a WebSocket open is not idle, so the
+scale-to-zero rule above no longer fires while anybody has Orbit open. The cold start goes away with it;
+the cost does not.
+
 ### 6. Let a release record itself as the newest build
 
 The Android release workflow tells `orbit-api` what it just published, so the app's update row lights up

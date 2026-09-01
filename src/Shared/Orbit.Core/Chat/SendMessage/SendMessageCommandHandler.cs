@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Users;
 
@@ -12,6 +13,7 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
     private readonly IChatConversationAccessRepository _chatConversationAccessRepository;
     private readonly PushNotificationDispatcher _pushNotificationDispatcher;
     private readonly NotificationRecorder _notificationRecorder;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
     public SendMessageCommandHandler(
         IUserRepository userRepository,
@@ -19,8 +21,10 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
         IContactRepository contactRepository,
         IChatConversationAccessRepository chatConversationAccessRepository,
         PushNotificationDispatcher pushNotificationDispatcher,
-        NotificationRecorder notificationRecorder)
+        NotificationRecorder notificationRecorder,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
+        _liveUpdatePublisher = liveUpdatePublisher;
         _userRepository = userRepository;
         _chatMessageRepository = chatMessageRepository;
         _contactRepository = contactRepository;
@@ -64,6 +68,11 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
         {
             await NotifyRecipientAsync(request, cancellationToken);
         }
+
+        // Both of them, not only the recipient: somebody with Orbit open on a laptop and a phone sent
+        // this from one of them, and the other is showing the same conversation without it.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [request.RecipientUserId, request.SenderUserId], cancellationToken);
 
         return SendMessageResult.Success(message);
     }

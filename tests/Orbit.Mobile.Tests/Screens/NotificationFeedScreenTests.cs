@@ -172,6 +172,25 @@ public sealed class NotificationFeedScreenTests
         Assert.Contains("signing in", screen.Message);
     }
 
+    /// <summary>
+    /// The feed reads again when something says there is something to read, rather than only when it is
+    /// opened - which is what makes a message arriving while it is on screen appear at all.
+    /// </summary>
+    [Fact]
+    public async Task The_feed_reads_again_when_it_is_announced()
+    {
+        using var context = new FeedContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.Empty(screen.Rows);
+
+        context.Server.Add("New message", "/map");
+        context.LiveUpdates.AnnounceNotifications();
+        await Task.Delay(50);
+
+        Assert.NotEmpty(screen.Rows);
+    }
+
     private sealed class FeedContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -214,6 +233,9 @@ public sealed class NotificationFeedScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>Announcements without a hub, so a test can say the feed changed - see ILiveUpdates.</summary>
+        public AnnouncedLiveUpdates LiveUpdates { get; } = new();
+
         public NotificationFeedViewModel Open(ConnectionRequirement? connection = null)
             => new(
                 new NotificationsClient(Server.ToHttpClient()),
@@ -222,7 +244,7 @@ public sealed class NotificationFeedScreenTests
                     _localStore, new NotificationsClient(Server.ToHttpClient()), TimeProvider.System,
                     new SyncGate(), NullLogger<NotificationSynchronizer>.Instance),
                 _opener, new Translations(new InMemoryLanguageStore()), Navigator,
-                connection ?? Connections.Online);
+                connection ?? Connections.Online, LiveUpdates);
 
         public async Task<Guid> AddKnownContactAsync(string displayName)
         {

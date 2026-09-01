@@ -10,6 +10,7 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<GroupConversation> Logger
 @inject Translations T
+@inject LiveUpdatesConnection LiveUpdates
 
 @* A conversation with several people, drawn as the same thread a conversation with one person is. It
    used to be a page of its own, which made a group chat look and behave like a different feature - see
@@ -194,6 +195,9 @@
     /// <summary>How often the thread looks for what other people have written - the one-to-one thread's own interval.</summary>
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 
+    /// <summary>The slow net under the live connection, matching Chat.razor's - see the comment there.</summary>
+    private static readonly TimeSpan ConnectedPollInterval = TimeSpan.FromSeconds(20);
+
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
 
@@ -239,6 +243,17 @@
         return joined + " · " + shared;
     }
 
+    /// <summary>
+    /// Subscribed here rather than in OnParametersSetAsync, which runs again every time the parent
+    /// re-renders: attaching there would add a second handler for the same component, and every
+    /// announcement would then be read twice.
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        LiveUpdates.ChatChanged += OnChatAnnounced;
+        LiveUpdates.ConnectionStateChanged += OnLiveConnectionStateChanged;
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (Group.Id == _loadedGroupId)
@@ -267,9 +282,36 @@
     {
         StopPolling();
         _pollCancellation = new CancellationTokenSource();
-        _pollTimer = new PeriodicTimer(PollInterval);
+        _pollTimer = new PeriodicTimer(LiveUpdates.IsConnected ? ConnectedPollInterval : PollInterval);
         _ = PollAsync(_pollCancellation.Token);
     }
+
+    /// <summary>
+    /// Reads once because something said there is something to read. Through InvokeAsync for the same
+    /// reason Chat.razor does it: this arrives on the connection's callback, not the renderer's.
+    /// </summary>
+    private void OnChatAnnounced()
+        => _ = InvokeAsync(async () =>
+        {
+            if (!await PageVisibility.IsPageVisibleAsync())
+            {
+                return;
+            }
+
+            await ReadAnythingNewAsync();
+            StateHasChanged();
+        });
+
+    private void OnLiveConnectionStateChanged()
+        => _ = InvokeAsync(() =>
+        {
+            if (_pollTimer is not null)
+            {
+                _pollTimer.Period = LiveUpdates.IsConnected ? ConnectedPollInterval : PollInterval;
+            }
+
+            return Task.CompletedTask;
+        });
 
     private void StopPolling()
     {
@@ -537,5 +579,10 @@
         }
     }
 
-    public void Dispose() => StopPolling();
+    public void Dispose()
+    {
+        LiveUpdates.ChatChanged -= OnChatAnnounced;
+        LiveUpdates.ConnectionStateChanged -= OnLiveConnectionStateChanged;
+        StopPolling();
+    }
 }

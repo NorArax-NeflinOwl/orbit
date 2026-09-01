@@ -24,6 +24,13 @@ public sealed class PresenceReporter : IDisposable
     /// </summary>
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(20);
 
+    /// <summary>
+    /// The live connection, when there is one. A heartbeat over a connection already open costs a frame;
+    /// as a request of its own it costs a handshake and a round trip every twenty seconds - which is the
+    /// whole reason the hub takes presence at all. Falls back to the request when there is no connection.
+    /// </summary>
+    private readonly Live.ILiveUpdates _liveUpdates;
+
     private readonly Presence _presence;
     private readonly UsersClient _usersClient;
     private readonly SessionStore _sessionStore;
@@ -44,8 +51,9 @@ public sealed class PresenceReporter : IDisposable
 
     public PresenceReporter(
         Presence presence, UsersClient usersClient, SessionStore sessionStore, ILogger<PresenceReporter> logger,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider, Live.ILiveUpdates liveUpdates)
     {
+        _liveUpdates = liveUpdates;
         _presence = presence;
         _usersClient = usersClient;
         _sessionStore = sessionStore;
@@ -127,7 +135,12 @@ public sealed class PresenceReporter : IDisposable
                         await ReportChoiceAsync();
                     }
 
-                    await _usersClient.SendPresenceHeartbeatAsync(cancellationToken);
+                    // Over the live connection when there is one, which is the cheaper half of what
+                    // that connection is for - and as the request it always was when there is not.
+                    if (!await _liveUpdates.TryReportPresenceAsync(isAtTheKeyboard: true))
+                    {
+                        await _usersClient.SendPresenceHeartbeatAsync(cancellationToken);
+                    }
                 }
             }
             while (await timer.WaitForNextTickAsync(cancellationToken));
