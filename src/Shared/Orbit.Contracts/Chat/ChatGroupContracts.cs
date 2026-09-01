@@ -10,7 +10,9 @@ namespace Orbit.Contracts.Chat;
 /// </param>
 public sealed record ChatGroupDto(
     Guid Id, string Name, Guid CreatedByUserId, DateTimeOffset CreatedAtUtc, string OwnRole,
-    IReadOnlyList<ChatGroupMemberDto> Members, DateTimeOffset LastMessageAtUtc = default);
+    IReadOnlyList<ChatGroupMemberDto> Members, DateTimeOffset LastMessageAtUtc = default,
+    /// <summary>Put away by the reader asking - per member, so it says nothing about anybody else.</summary>
+    bool IsArchived = false);
 
 public sealed record ChatGroupMemberDto(Guid UserId, string Role, DateTimeOffset JoinedAtUtc);
 

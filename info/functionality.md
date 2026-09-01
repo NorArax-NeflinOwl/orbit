@@ -1673,6 +1673,23 @@ The three triggers:
   that links to another task list (see [Tasks](#tasks) above) is excluded from this check, since its true
   completion depends on the list it links to, not its own stored (always-false) completion flag.
 
+## Saying nothing about a field
+
+Descriptions on a task list and a warehouse, and a shelf item's regular-check flag, are all optional on
+the way in: **null means "not provided" and keeps what is stored; an empty string, or false, means the
+caller really said so.**
+
+This exists because a save replaces what it touches wholesale and the two clients learn about a field at
+different times - the browser deploys with the server, the phone whenever somebody installs it. Without
+the distinction, an older phone returning a row it does not fully understand would erase a description
+written on the web, which is the shape of bug this codebase has already had three times (a calendar
+entry's place, the phone's event place, and every entry's kind when a checklist box was ticked).
+
+The cost is one distinction to keep in mind. What it buys is that the two clients never have to ship in
+lockstep for a new field to be safe.
+
+On the way **out** these fields are always sent, so a reader never has to guess.
+
 ## Live updates
 
 The web client holds one WebSocket open to the API and is told when something changed, instead of

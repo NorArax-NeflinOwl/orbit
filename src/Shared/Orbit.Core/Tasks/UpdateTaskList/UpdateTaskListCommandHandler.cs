@@ -53,8 +53,12 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             await _taskRepository.GetHoldingItemsAsync(
                 taskList.UserId, request.Id, [.. request.Items.Select(item => item.Id)], cancellationToken));
 
+        // A caller that said nothing about the description keeps the one that is stored. That is what
+        // lets a client which has not learned about the field - the phone, an older tab - go on saving
+        // lists without erasing what was written somewhere else.
         taskList.Update(
-            request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority);
+            request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority,
+            request.Description ?? taskList.Description);
 
         // One save when another list had to be renamed too, so a failure cannot leave two entries
         // claiming one id in the database - the state this exists to prevent.

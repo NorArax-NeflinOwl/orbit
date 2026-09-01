@@ -15,4 +15,14 @@ public sealed record WarehouseItemDto(
     /// <summary>Serialized Orbit.Core.Inventory.InventoryUnit - what the two amounts above are counted in.</summary>
     string Unit,
     DateTimeOffset? ExpiryDate,
-    string ExpiryNotificationChannel);
+    string ExpiryNotificationChannel,
+    /// <summary>
+    /// Something to look at every round rather than only when it runs low - see
+    /// Orbit.Core.Inventory.InventoryItem.IsCheckedRegularly.
+    ///
+    /// <b>Null on the way in means "not provided", and leaves whatever is stored alone.</b> This DTO is
+    /// both what the server sends and what a save sends back, so a client that has not learned about
+    /// the flag yet returns the item without it - and must not thereby turn it off. On the way out it
+    /// is always set.
+    /// </summary>
+    bool? IsCheckedRegularly = null);

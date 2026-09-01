@@ -76,7 +76,9 @@ public static class InventoryEndpoints
                     "A warehouse is created with a name and filled afterwards - send its items to PUT /api/warehouses/{id} instead.");
             }
 
-            var id = await dispatcher.SendAsync(new CreateWarehouseCommand(GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
+            var id = await dispatcher.SendAsync(new CreateWarehouseCommand(
+                    GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent),
+                    request.Description), cancellationToken);
             return Results.Created($"/api/warehouses/{id}", id);
         });
 
@@ -86,7 +88,7 @@ public static class InventoryEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateWarehouseCommand(
                     GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items),
-                    request.IsPrivate, ToDomainPayload(request.EncryptedContent)),
+                    request.IsPrivate, ToDomainPayload(request.EncryptedContent), request.Description),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -211,7 +213,8 @@ public static class InventoryEndpoints
             warehouse.IsShared ? warehouse.UserId : null,
             warehouse.IsPrivate,
             ToDto(warehouse.EncryptedContent),
-            warehouse.IsSharedWithOthers);
+            warehouse.IsSharedWithOthers,
+            warehouse.Description);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>
@@ -226,7 +229,8 @@ public static class InventoryEndpoints
             .Select(item => new WarehouseItemInput(
                 item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
                 UnitOf(item), item.ExpiryDate,
-                RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel")))
+                RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel"),
+                item.IsCheckedRegularly))
             .ToList();
 
     /// <summary>
@@ -246,7 +250,8 @@ public static class InventoryEndpoints
         => new(
             item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
             item.Unit.ToString(), item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum,
-            item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc);
+            item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc,
+            item.IsCheckedRegularly);
 
     private static IResult ToApiResult(EditOutcome outcome)
         => outcome.Kind switch

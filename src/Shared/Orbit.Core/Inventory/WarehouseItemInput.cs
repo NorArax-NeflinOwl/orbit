@@ -10,4 +10,9 @@ namespace Orbit.Core.Inventory;
 /// </summary>
 public sealed record WarehouseItemInput(
     Guid? Id, string Name, string ProductType, string Category, decimal Quantity, decimal? MinimumQuantity,
-    InventoryUnit Unit, DateTimeOffset? ExpiryDate, NotificationChannel ExpiryNotificationChannel);
+    InventoryUnit Unit, DateTimeOffset? ExpiryDate, NotificationChannel ExpiryNotificationChannel,
+    /// <summary>
+    /// Null leaves the stored flag alone - see WarehouseItemDto. A save is the whole list, so a client
+    /// that does not know about the flag returns each item without it, and must not thereby clear it.
+    /// </summary>
+    bool? IsCheckedRegularly = null);

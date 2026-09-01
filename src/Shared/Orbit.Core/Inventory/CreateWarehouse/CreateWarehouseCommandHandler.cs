@@ -13,7 +13,9 @@ public sealed class CreateWarehouseCommandHandler : IRequestHandler<CreateWareho
 
     public async Task<Guid> HandleAsync(CreateWarehouseCommand request, CancellationToken cancellationToken)
     {
-        var warehouse = Warehouse.Create(request.UserId, request.Name, request.IsPrivate, request.EncryptedContent);
+        var warehouse = Warehouse.Create(
+            request.UserId, request.Name, request.IsPrivate, request.EncryptedContent,
+            request.Description ?? string.Empty);
         await _warehouseRepository.AddAsync(warehouse, cancellationToken);
         return warehouse.Id;
     }
