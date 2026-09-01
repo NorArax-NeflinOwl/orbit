@@ -29,6 +29,12 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
 
     /// <summary>Only to say why this is read-only, in the same words the calendar's own rows use.</summary>
     private readonly INetworkStatus _networkStatus;
+
+    /// <summary>
+    /// Where a place somebody typed actually is. An event stores a point first, so a name alone cannot
+    /// be saved - see TryFindTheTypedPlaceAsync.
+    /// </summary>
+    private readonly Orbit.Mobile.Location.PlaceSearch _places;
     private readonly CalendarEventSynchronizer _synchronizer;
     private readonly CalendarClient _calendarClient;
     private readonly EditLock _editLock;
@@ -199,8 +205,10 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
         CalendarClient calendarClient, EditLock editLock, IDeviceLocation deviceLocation,
-        ChatRepository contacts, GoogleIntegrationAccess google, INetworkStatus networkStatus)
+        ChatRepository contacts, GoogleIntegrationAccess google, INetworkStatus networkStatus,
+        Orbit.Mobile.Location.PlaceSearch places)
     {
+        _places = places;
         _networkStatus = networkStatus;
         _events = events;
         _synchronizer = synchronizer;
@@ -427,11 +435,52 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         return new RecurrenceDto(RecurrenceFrequency, Math.Max(1, RecurrenceIntervalCount), until);
     }
 
+    /// <summary>
+    /// Where this happens, in the shape an event can store - a point first, with the name beside it.
+    ///
+    /// A name typed with no point behind it is looked up before this is asked, so that typing a place
+    /// and saving keeps it. Without that step the box invited a name and the save quietly dropped it:
+    /// the only way to attach a point was "Use my location", which answers a different question.
+    /// </summary>
     private EventLocationDto? LocationOrNothing()
         => _locationLatitude is { } latitude && _locationLongitude is { } longitude
             ? new EventLocationDto(
                 LocationAddress.Trim() is { Length: > 0 } address ? address : null, latitude, longitude)
             : null;
+
+    /// <summary>
+    /// Finds where a typed place is, when somebody typed one and no point is known yet. Leaves a name
+    /// nothing could be found for alone and answers false, so the save can say the place was not kept
+    /// rather than emptying the box on the next open.
+    /// </summary>
+    private async Task<bool> TryFindTheTypedPlaceAsync(CancellationToken cancellationToken)
+    {
+        if (LocationAddress.Trim() is not { Length: > 0 } typed || _locationLatitude is not null)
+        {
+            return true;
+        }
+
+        try
+        {
+            if (await _places.SearchAsync(typed, limit: 1, cancellationToken) is not [var found, ..])
+            {
+                return false;
+            }
+
+            _locationLatitude = found.Latitude;
+            _locationLongitude = found.Longitude;
+            OnPropertyChanged(nameof(HasLocation));
+            OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
+            OnPropertyChanged(nameof(LocationDirectionsUrl));
+            OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
+            return true;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            // Nothing to look it up with. Said out loud by the caller rather than dropped in silence.
+            return false;
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync(CancellationToken cancellationToken)
@@ -440,6 +489,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         {
             return;
         }
+
+        // Before the event is built, because a name with no point behind it cannot be stored on one.
+        var placeWasFound = await TryFindTheTypedPlaceAsync(cancellationToken);
 
         var details = current with
         {
@@ -466,7 +518,18 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
 
         await ShowStoredEventAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
+
+        // After the sync, which reports on itself: said first, this would be wiped by it and the reader
+        // would never learn the place did not stick.
+        if (!placeWasFound)
+        {
+            Status = _translations[PlaceNotFoundMessage];
+        }
     }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string PlaceNotFoundMessage =
+        "Saved, but that place could not be found - use your location to keep a point for it.";
 
     [RelayCommand]
     private async Task DeleteAsync(CancellationToken cancellationToken)

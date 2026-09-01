@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Microsoft.EntityFrameworkCore;
 using Orbit.Data.Entities;
 
@@ -69,7 +70,7 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<NoteEntity>(entity =>
         {
             entity.HasKey(note => note.Id);
-            entity.Property(note => note.Title).IsRequired().HasMaxLength(200);
+            entity.Property(note => note.Title).IsRequired().HasMaxLength(StoredTextLimits.Title);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(note => note.LockedByUserName).HasMaxLength(64);
             // Every note query is scoped to a single user's notes; this is the index that makes those
@@ -92,7 +93,7 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<TaskEntity>(entity =>
         {
             entity.HasKey(task => task.Id);
-            entity.Property(task => task.Title).IsRequired().HasMaxLength(200);
+            entity.Property(task => task.Title).IsRequired().HasMaxLength(StoredTextLimits.Title);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(task => task.LockedByUserName).HasMaxLength(64);
             // Every task list query is scoped to a single user's task lists; this is the index that
@@ -111,23 +112,23 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<TaskItemEntity>(entity =>
         {
             entity.HasKey(item => item.Id);
-            entity.Property(item => item.Description).IsRequired().HasMaxLength(500);
+            entity.Property(item => item.Description).IsRequired().HasMaxLength(StoredTextLimits.TaskDescription);
             entity.Property(item => item.OverdueNotificationChannel).HasMaxLength(20);
             entity.Property(item => item.DailyReminderNotificationChannel).HasMaxLength(20);
             // Every entry written before kinds existed is the ordinary sort, and has nowhere to be.
             entity.Property(item => item.Kind).IsRequired().HasMaxLength(20)
                 .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
             // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
-            entity.Property(item => item.Location).IsRequired().HasMaxLength(300).HasDefaultValue(string.Empty);
+            entity.Property(item => item.Location).IsRequired().HasMaxLength(StoredTextLimits.Address).HasDefaultValue(string.Empty);
         });
 
         modelBuilder.Entity<CalendarEventEntity>(entity =>
         {
             entity.HasKey(calendarEvent => calendarEvent.Id);
-            entity.Property(calendarEvent => calendarEvent.Title).IsRequired().HasMaxLength(200);
-            entity.Property(calendarEvent => calendarEvent.Description).HasMaxLength(2000);
-            entity.Property(calendarEvent => calendarEvent.LocationAddress).HasMaxLength(300);
-            entity.Property(calendarEvent => calendarEvent.Color).HasMaxLength(20);
+            entity.Property(calendarEvent => calendarEvent.Title).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            entity.Property(calendarEvent => calendarEvent.Description).HasMaxLength(StoredTextLimits.EventDescription);
+            entity.Property(calendarEvent => calendarEvent.LocationAddress).HasMaxLength(StoredTextLimits.Address);
+            entity.Property(calendarEvent => calendarEvent.Color).HasMaxLength(StoredTextLimits.Color);
             entity.Property(calendarEvent => calendarEvent.RecurrenceFrequency).HasMaxLength(20);
             entity.Property(calendarEvent => calendarEvent.CreationNotificationChannel).HasMaxLength(20);
             entity.Property(calendarEvent => calendarEvent.ReminderNotificationChannel).HasMaxLength(20);
@@ -173,8 +174,8 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(user => user.Id);
             entity.Property(user => user.Email).IsRequired().HasMaxLength(320);
-            entity.Property(user => user.UserName).IsRequired().HasMaxLength(64);
-            entity.Property(user => user.DisplayName).IsRequired().HasMaxLength(200);
+            entity.Property(user => user.UserName).IsRequired().HasMaxLength(StoredTextLimits.UserName);
+            entity.Property(user => user.DisplayName).IsRequired().HasMaxLength(StoredTextLimits.DisplayName);
             // Nullable: a Google account has no password until it sets one.
             entity.Property(user => user.GoogleSubjectId).HasMaxLength(64);
             // Signing in with Google looks an account up by subject, so this is the index that makes it fast.
@@ -281,7 +282,7 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<ChatGroupEntity>(entity =>
         {
             entity.HasKey(group => group.Id);
-            entity.Property(group => group.Name).IsRequired().HasMaxLength(120);
+            entity.Property(group => group.Name).IsRequired().HasMaxLength(StoredTextLimits.GroupName);
 
             // Members are only ever read and written through their group (see ChatGroupRepository), so
             // this navigation is all EF Core needs to know about them; the DbSet exists only so the
@@ -369,9 +370,9 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<InventoryItemEntity>(entity =>
         {
             entity.HasKey(item => item.Id);
-            entity.Property(item => item.Name).IsRequired().HasMaxLength(200);
-            entity.Property(item => item.ProductType).HasMaxLength(100);
-            entity.Property(item => item.Category).HasMaxLength(100);
+            entity.Property(item => item.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            entity.Property(item => item.ProductType).HasMaxLength(StoredTextLimits.ProductType);
+            entity.Property(item => item.Category).HasMaxLength(StoredTextLimits.Category);
             entity.Property(item => item.ExpiryNotificationChannel).HasMaxLength(20);
             // Every inventory query is scoped to a single warehouse's items; this is the index that
             // makes those lookups fast instead of scanning the whole table.
@@ -381,7 +382,7 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<WarehouseEntity>(entity =>
         {
             entity.HasKey(warehouse => warehouse.Id);
-            entity.Property(warehouse => warehouse.Name).IsRequired().HasMaxLength(200);
+            entity.Property(warehouse => warehouse.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(warehouse => warehouse.LockedByUserName).HasMaxLength(64);
             // Listing a user's own warehouses is the most common warehouse query.

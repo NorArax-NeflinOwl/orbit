@@ -538,6 +538,33 @@ follows: a position is not something to be able to push at a stranger who never 
 The Map page shows the viewer's own position and everyone sharing with them on **one** map, framed to fit
 them all.
 
+### Planning something at a place
+
+The map is where people already go to point at somewhere, so it is also where pointing at somewhere and
+making something of it belongs. **Plan something here** opens the same `LocationPickerOverlay` the task
+editor uses - a pin, or an address search - and confirming one asks a single question: is this an event,
+or a task list?
+
+The question is asked rather than guessed. An appointment and an errand at the same address are
+different things, and only the person pointing at it knows which they meant. Answering takes them to the
+form they chose with the place already filled in:
+
+- **An event in the calendar** opens `/calendar/new` with the address and its pin set.
+- **A task list starting here** opens `/tasks/new` with one entry already standing at that place - a
+  calendar entry, because it is the only kind that has anywhere to be, and open, because an entry whose
+  place is filled in and whose day is not is not finished.
+
+Either way the **pin** travels, not only the address: the calendar keeps places as coordinates with a
+label (see [`EventLocation`](#the-place-is-stored-once)), so an address on its own could not be shown on
+a map or turned into a Google Maps link.
+
+The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
+would write where somebody is going into their browser history and into anything that later reads a URL,
+and a place is exactly the kind of thing that should not be sitting in a link somebody might paste.
+Nothing about it needs to survive a reload - it is a handover between two screens, a second apart - and
+it is **taken** rather than read, so coming back to a new event or a new list later starts empty instead
+of at somewhere the reader looked at once and has no memory of choosing.
+
 ## Handing something off to Google
 
 An account that has **confirmed its email address or connected Google** is offered links that carry
@@ -658,8 +685,27 @@ and reverse-geocodes it into an address. Over the page because a map needs room 
 none. Nothing is written back until the pin is confirmed: the overlay asks "Use this place?" with the
 address it found, and only a yes replaces what the box held — a stray click on a map must not silently
 rewrite an address somebody typed. The map opens where the box already points, when that address can be
-found (`GeocodingApiClient.FindPlaceAsync`). Only the address is stored; the item keeps no coordinates,
-which is why the pin has to become words before it is worth anything.
+found (`GeocodingApiClient.FindPlaceAsync`).
+
+**A confirmed pin keeps its position, not only its name.** The overlay hands back a `PickedPlace` -
+where it is as well as what it is called - and the editor keeps both. The words are still the reader's
+to choose (confirming a pin fills an empty box and leaves a name they wrote alone), but the position is
+what the calendar needs: a `EventLocation` is coordinates with an optional label, so an address on its
+own cannot be shown on a map or turned into a Google Maps link.
+
+This used to be the other way round - the overlay reverse-geocoded the pin and then discarded where it
+was - and the consequences reached further than the pin. A calendar entry's event was created with no
+place at all, and worse, an entry that *already had* an event sent "no place" back on every save, so
+editing a task list's colour or its day erased a location somebody had set in the calendar. The web
+editor now reads the linked event's location into the form along with every other field it already read
+back, and the phone - which has no map to offer and so cannot set a place - carries the one it loaded
+through untouched rather than writing a blank over it (`TaskItemEventForm.PlaceItAlreadyHad`).
+
+**A name nobody pointed at stays a name.** Typing "the back entrance" and never opening the map leaves
+the entry with a label and the event with no place, and the editor says so under the box rather than
+letting it go nowhere quietly. Orbit does not look coordinates up for it: `SearchPlacesAsync` exists
+precisely because "Długa 4" is a real address in a dozen towns, and silently taking the first match
+would put the appointment in the wrong one. The calendar's own event editor refuses in the same way.
 
 **A place can be named as well as pointed at.** The overlay carries an address search
 (`GeocodingApiClient.SearchPlacesAsync`), which is the way that works when somebody knows the address
@@ -1612,6 +1658,98 @@ The three triggers:
   eligible for exactly one notification for as long as it remains overdue and unnotified. A task item
   that links to another task list (see [Tasks](#tasks) above) is excluded from this check, since its true
   completion depends on the list it links to, not its own stored (always-false) completion flag.
+
+## Live updates
+
+The web client holds one WebSocket open to the API and is told when something changed, instead of
+asking. It replaced polling that ran **four requests a second per open chat** (a message read, a
+conversation's approval state, a read receipt, and every tenth tick the whole contact roster), a
+notification poll every ten seconds, and a presence heartbeat every twenty.
+
+**What travels over it is an announcement, never the thing that changed.** The server says "your chat
+changed" and the client answers with the same API call its timer used to make. This is the design, not
+a shortcut:
+
+- Chat messages are end-to-end encrypted. A connection that carried content would need a plaintext the
+  server does not have, so the announcement carries none and the server stays exactly as ignorant as it
+  was.
+- Nothing new is readable. The client fetches over the endpoints it already used, behind the guards
+  those already have — the hub adds no read path of its own.
+- A dropped announcement costs a delay, never a message. The answer to every announcement is "read
+  again from the cursor you already hold", so hearing it late, twice, or not at all is harmless.
+
+**The polls are still there, and deliberately so.** They slow down while the connection is up (chat 1s →
+20s, notifications 10s → 60s) and snap back the moment it drops. Announcements are best-effort, and a few
+things genuinely have no moment to announce — most notably somebody going *away*, which happens by time
+passing with nothing calling anything (see `UserPresence.StatusAt`). A chat that silently stopped
+updating because one announcement was lost would be a far worse bug than one that takes twenty seconds
+in a rare case.
+
+| | Announced | Still only found by the slow poll |
+|---|---|---|
+| Chat | a message sent, a group message, a read receipt, a conversation approved | an edit or deletion, a group somebody added you to |
+| Notifications | anything recorded in the feed, from any trigger | one cleared or read on another device |
+| Presence | somebody arriving, somebody choosing "do not disturb" | somebody ageing to away or offline |
+
+Presence keeps its old rule exactly: the beat stops while the tab is in the background, because a tab
+left open behind thirty others is not somebody there to answer. The connection staying open does **not**
+on its own keep an account looking available — the client reports being at the keyboard, and declining to
+report is what lets the account age.
+
+**The phone holds the same connection, and only while it is in front.** Started and stopped with the
+window, the way its presence heartbeat already was: a socket held open behind a locked screen is one
+Android drops in Doze anyway, and what it would have carried is exactly what push already delivers. So
+the connection speeds up the app somebody is looking at, and push covers the app they are not. Its chat
+polls slow from 5s and 10s to 30s while it is up and snap back when it drops; the unread badge and the
+notification feed hear about the feed changing instead of waiting for the next screen to be opened; and
+the presence heartbeat goes over the connection when there is one — a frame instead of a handshake and a
+round trip every twenty seconds — falling back to the request when there is not.
+
+The phone does not listen for `PresenceChanged`: it shows nobody else's presence yet, so there would be
+nothing to redraw.
+
+### How it is put together
+
+| Piece | Where | What it is for |
+|---|---|---|
+| `ILiveUpdatePublisher` | `Orbit.Core.LiveUpdates` | What the domain calls. Knows nothing about WebSockets — the same separation `IPushNotificationSender` gives push. |
+| `SilentLiveUpdatePublisher` | `Orbit.Core.LiveUpdates` | The default, so every call site can announce unconditionally. |
+| `LiveUpdatesHub` | `Orbit.Api.LiveUpdates` | The connection. Almost empty: the only thing coming *up* it is presence. |
+| `SignalRLiveUpdatePublisher` | `Orbit.Api.LiveUpdates` | Delivers announcements, swallowing its own failures — a sent message must not fail because a socket was reconnecting. |
+| `SubjectClaimUserIdProvider` | `Orbit.Api.LiveUpdates` | Which account a connection belongs to. |
+| `LiveUpdatesConnection` | `Orbit.Web.Services` | One connection for the whole app; pages subscribe while they are on screen. |
+
+**Two things here fail silently, and both have tests of their own.**
+
+The first is the claim a connection is keyed on. SignalR looks for `ClaimTypes.NameIdentifier`; Orbit's
+tokens carry the account in `sub` and keep it there (`MapInboundClaims = false`). Read the wrong one and
+every announcement is addressed to nobody — no exception, no log, just an app that quietly polls exactly
+as it did before.
+
+The second is nginx. A WebSocket handshake is an HTTP/1.1 `Upgrade`, and nginx proxies as HTTP/1.0
+unless told otherwise, which strips it. SignalR survives that by falling back to long polling, so
+leaving `proxy_http_version 1.1` out does not break anything visible: the live connection simply never
+happens. Both configs carry it, and both go through the same `/api/` location the phone uses.
+
+### The access token in the URL
+
+A browser cannot put an `Authorization` header on a WebSocket handshake — the WebSocket API has no way
+to set one — so the token goes in the query string, which is what SignalR does and what `OnMessageReceived`
+reads. It is accepted **only** on the hub's own path; nowhere else in the API takes a credential that
+way.
+
+A token in a URL is a token in access logs, so nginx stops logging the query string for that one path
+(`map $uri $orbit_logged_request`). Everything else still logs what it asked for.
+
+### Before this scales past one replica
+
+`orbit-api` runs at `max-replicas 1`, and the hub's delivery depends on it. SignalR keeps its connection
+registry in the process's own memory, so with two replicas an announcement raised on one reaches only the
+clients connected to that one — the rest hear nothing and fall back to their slow poll. Nothing errors.
+
+Raising `max-replicas` therefore needs a backplane (Azure SignalR Service, or Redis) added at the same
+time. There is also a cost consequence worth knowing: `orbit-web` is set to scale to zero when idle, and
+a client holding a connection open is not idle, so it will stop scaling to zero once this is in use.
 
 ## In-app notifications
 

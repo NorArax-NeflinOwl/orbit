@@ -84,6 +84,10 @@ else
         {
             <div class="card @(DashboardPins.IsPinned("notes") ? "card-pinned" : "")">
                 <div class="card-header"><button type="button" class="card-title card-title-button" title="@(T["Open"])" @onclick='() => NavigationManager.NavigateTo("/notes")'>@T["Notes"]</button><span class="card-header-end"><span class="card-count">@NotesToShow.Count</span><PinButton IsPinned='DashboardPins.IsPinned("notes")' OnPinnedChanged='pinned => SetCardPinnedAsync("notes", pinned)' /><CardFilterMenu Filter='CardPreferences.FilterFor("notes")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("notes", filter)' /></span></div>
+                @if (NotesToShow.Count == 0)
+                {
+                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                }
                 @foreach (var note in NotesToShow)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToEditNote(note.Id)">
@@ -99,6 +103,10 @@ else
         {
             <div class="card @(DashboardPins.IsPinned("tasks") ? "card-pinned" : "")">
                 <div class="card-header"><button type="button" class="card-title card-title-button" title="@(T["Open"])" @onclick='() => NavigationManager.NavigateTo("/tasks")'>@T["Tasks"]</button><span class="card-header-end"><span class="card-count">@T.Format("{0} lists", TaskListsToShow.Count)</span><PinButton IsPinned='DashboardPins.IsPinned("tasks")' OnPinnedChanged='pinned => SetCardPinnedAsync("tasks", pinned)' /><CardFilterMenu Filter='CardPreferences.FilterFor("tasks")' Options="PinnableOptions" FilterChanged='filter => SetCardFilterAsync("tasks", filter)' /></span></div>
+                @if (TaskListsToShow.Count == 0)
+                {
+                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                }
                 @foreach (var taskList in TaskListsToShow)
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => GoToTaskList(taskList.Id)">
@@ -118,10 +126,22 @@ else
             </div>
         }
 
-        @if (UpcomingToShow.Count > 0 && CardPreferences.IsVisible("upcoming"))
+        @* Worked out once here rather than read twice below: expanding every recurring event is the
+           expensive part of this page, and the card needs both "is anything coming up at all" and
+           "what survives the filter". *@
+        @{ var everythingUpcoming = Upcoming().ToList(); }
+        @* Gated on the first of those, not the second. Gating on the filter was the bug: choosing
+           "High" with nothing high coming up removed the whole card, and the filter menu lives in its
+           header - so the choice could not be undone from the page that made it. All three cards
+           follow the same rule now. *@
+        @if (everythingUpcoming.Count > 0 && CardPreferences.IsVisible("upcoming"))
         {
             <div class="card @(DashboardPins.IsPinned("upcoming") ? "card-pinned" : "")">
                 <div class="card-header"><button type="button" class="card-title card-title-button" title="@(T["Open"])" @onclick='() => NavigationManager.NavigateTo("/calendar")'>@T["Upcoming"]</button><span class="card-header-end"><span class="card-count">@UpcomingToShow.Count</span><PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' /><CardFilterMenu Filter='CardPreferences.FilterFor("upcoming")' Options="PriorityOptions" FilterChanged='filter => SetCardFilterAsync("upcoming", filter)' /></span></div>
+                @if (UpcomingToShow.Count == 0)
+                {
+                    <p class="empty-hint">@T["Nothing here matches the filter. Change it above to see the rest."]</p>
+                }
                 @foreach (var entry in UpcomingToShow.Take(6))
                 {
                     <button type="button" class="list-row list-row-button" @onclick="() => NavigationManager.NavigateTo(entry.Url)">

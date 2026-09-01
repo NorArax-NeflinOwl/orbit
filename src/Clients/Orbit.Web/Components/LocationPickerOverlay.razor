@@ -70,8 +70,8 @@
     /// <summary>Where the thing being edited already is, so the map opens there rather than at nothing.</summary>
     [Parameter] public string Address { get; set; } = string.Empty;
 
-    /// <summary>The address of the confirmed pin. Raised once, and only on a confirmation.</summary>
-    [Parameter] public EventCallback<string> OnPicked { get; set; }
+    /// <summary>The confirmed pin - where it is, and what that place is called. Raised once, and only on a confirmation.</summary>
+    [Parameter] public EventCallback<PickedPlace> OnPicked { get; set; }
 
     [Parameter] public EventCallback OnCancelled { get; set; }
 
@@ -82,6 +82,14 @@
 
     /// <summary>Where the pin is, in words - null until one is dropped, which is what asks the question.</summary>
     private string? _pickedAddress;
+
+    /// <summary>
+    /// Where the pin actually is. Carried alongside the words rather than thrown away once an address
+    /// comes back: an address on its own cannot be put on a map, and dropping a pin is precisely what
+    /// somebody does when they cannot name the street.
+    /// </summary>
+    private double _pickedLatitude;
+    private double _pickedLongitude;
 
     private bool _isLookingUpTheAddress;
 
@@ -124,10 +132,13 @@
     {
         _isLookingUpTheAddress = true;
         _pickedAddress = null;
+        _pickedLatitude = latitude;
+        _pickedLongitude = longitude;
         StateHasChanged();
 
-        // Words, not coordinates: a task item stores only an address, so a pin has to be turned into one
-        // before it is worth anything here.
+        // Words as well as the position, not instead of it. The words are what the reader is shown and
+        // asked to confirm; the position is what the calendar needs, and reverse geocoding it to a
+        // street and then discarding where it was is how a confirmed pin used to arrive as nothing.
         _pickedAddress = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude) ?? string.Empty;
         _isLookingUpTheAddress = false;
         StateHasChanged();
@@ -171,6 +182,8 @@
     {
         _matches = [];
         _pickedAddress = place.Name;
+        _pickedLatitude = place.Latitude;
+        _pickedLongitude = place.Longitude;
         if (_mapPickerModule is null)
         {
             return;
@@ -195,7 +208,7 @@
         }
 
         await DisposeMapAsync();
-        await OnPicked.InvokeAsync(address);
+        await OnPicked.InvokeAsync(new PickedPlace(address, _pickedLatitude, _pickedLongitude));
     }
 
     private async Task CancelAsync()

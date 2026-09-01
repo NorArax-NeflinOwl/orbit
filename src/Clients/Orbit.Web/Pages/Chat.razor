@@ -33,6 +33,7 @@
 @inject ILogger<Chat> Logger
 @inject UserPermissionState Permissions
 @inject Translations T
+@inject LiveUpdatesConnection LiveUpdates
 
 <PageTitle>@T["Orbit — Chat"]</PageTitle>
 
@@ -581,6 +582,9 @@ else
         // MainLayout's poll owns the unread set; subscribing keeps this contact list's badges in step
         // with the avatar's without a second poll of its own.
         NotificationFeedState.Changed += OnNotificationFeedChanged;
+        // The connection itself is opened by MainLayout and shared; this page only listens while it is here.
+        LiveUpdates.ChatChanged += OnChatAnnounced;
+        LiveUpdates.ConnectionStateChanged += OnLiveConnectionStateChanged;
 
         try
         {
@@ -1037,12 +1041,61 @@ else
     }
 
 
+    /// <summary>
+    /// How often to ask when nothing announces changes - what this page always did, and still does on a
+    /// network or a proxy that will not carry a live connection.
+    /// </summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// How often to ask while the live connection is up. A message, a receipt and an approval are all
+    /// announced now, so this is only the net under the things that are not: a group somebody added
+    /// this account to, a contact whose presence aged out of "available" by nothing happening at all.
+    ///
+    /// Not removed entirely, and that is the point of keeping it slow rather than deleting it: an
+    /// announcement is best-effort, and a chat that silently stopped updating because one was dropped
+    /// would be a far worse bug than one that takes twenty seconds in a rare case.
+    /// </summary>
+    private static readonly TimeSpan ConnectedPollInterval = TimeSpan.FromSeconds(20);
+
     private void StartPolling()
     {
         _pollCancellation = new CancellationTokenSource();
-        _pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        _pollTimer = new PeriodicTimer(LiveUpdates.IsConnected ? ConnectedPollInterval : PollInterval);
         _ = PollAsync(_pollCancellation.Token);
     }
+
+    /// <summary>
+    /// Reads once, now, because something said there is something to read. Through InvokeAsync because
+    /// this arrives on the connection's callback rather than the renderer's dispatcher - touching
+    /// component state from there corrupts the render tree, and the damage surfaces on an unrelated page.
+    /// </summary>
+    private void OnChatAnnounced()
+        => _ = InvokeAsync(async () =>
+        {
+            // The same rule the timer follows: nothing is read behind thirty other tabs. An
+            // announcement for a page nobody is looking at is still not a reason to fetch.
+            if (!await PageVisibility.IsPageVisibleAsync())
+            {
+                return;
+            }
+
+            await PollOnceAsync();
+            StateHasChanged();
+        });
+
+    private void OnLiveConnectionStateChanged()
+        => _ = InvokeAsync(() =>
+        {
+            // Only the pace changes - the loop itself keeps running, so a dropped connection puts the
+            // old responsiveness back without this page having to notice or restart anything.
+            if (_pollTimer is not null)
+            {
+                _pollTimer.Period = LiveUpdates.IsConnected ? ConnectedPollInterval : PollInterval;
+            }
+
+            return Task.CompletedTask;
+        });
 
     private void StopPolling()
     {
@@ -1673,6 +1726,8 @@ else
     public async ValueTask DisposeAsync()
     {
         NotificationFeedState.Changed -= OnNotificationFeedChanged;
+        LiveUpdates.ChatChanged -= OnChatAnnounced;
+        LiveUpdates.ConnectionStateChanged -= OnLiveConnectionStateChanged;
         StopPolling();
         await DetachScrollObserverAsync();
         _scrollObserverReference?.Dispose();

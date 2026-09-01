@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Users;
 using Xunit;
@@ -135,7 +136,7 @@ public sealed class SharedItemNotifierTests
 
             _notifier = new SharedItemNotifier(
                 _settingsRepository,
-                new NotificationRecorder(_settingsRepository, _entryRepository),
+                new NotificationRecorder(_settingsRepository, _entryRepository, new SilentLiveUpdatePublisher()),
                 new PushNotificationDispatcher(_pushSubscriptionRepository, [PushNotificationSender], NullLogger<PushNotificationDispatcher>.Instance),
                 _userRepository);
         }

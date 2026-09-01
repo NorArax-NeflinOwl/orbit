@@ -27,8 +27,9 @@ public sealed partial class CalendarViewModel : ObservableObject
     [ObservableProperty]
     private string _newEventTitle = string.Empty;
 
+    /// <summary>Set from the injected clock in the constructor - see there.</summary>
     [ObservableProperty]
-    private DateTime _newEventDate = DateTime.Today;
+    private DateTime _newEventDate;
 
     [ObservableProperty]
     private TimeSpan _newEventTime = new(9, 0, 0);
@@ -49,6 +50,15 @@ public sealed partial class CalendarViewModel : ObservableObject
         _syncState = syncState;
         _navigator = navigator;
         _translations = translations;
+
+        // Both of these are "today", and today is whatever the injected clock says - not what the
+        // machine says. Assigned here rather than where the fields are declared, because a field
+        // initialiser runs before the constructor and so cannot reach the clock; reaching for
+        // DateTime.Today there instead meant this screen was the one part of the calendar that ignored
+        // the clock it was given, and it decided the only thing that matters: which month opens.
+        var today = _timeProvider.GetUtcNow().LocalDateTime.Date;
+        _month = today;
+        _newEventDate = today;
     }
 
     public ObservableCollection<CalendarEventRow> Events { get; } = [];
@@ -82,9 +92,12 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     public IReadOnlyList<string> WeekdayNames => CalendarMonth.WeekdayNames(_translations);
 
-    /// <summary>Which month the grid is showing, which is not necessarily the month containing today.</summary>
+    /// <summary>
+    /// Which month the grid is showing, which is not necessarily the month containing today. Starts at
+    /// the month the injected clock is in - set in the constructor, see there.
+    /// </summary>
     [ObservableProperty]
-    private DateTime _month = DateTime.Today;
+    private DateTime _month;
 
     /// <summary>
     /// The day the list beneath the grid is showing, or null for the whole month. Null rather than

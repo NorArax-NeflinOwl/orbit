@@ -109,8 +109,20 @@ builder.Services.AddScoped<PrivateContentSealer>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
 builder.Services.AddScoped<AccentColorService>();
+// Holds a place between the map and the form it is handed to - see ChosenPlace on why it is not a
+// query string. Scoped, which in WebAssembly means one for the life of the app, so the page that picks
+// it up is the same one the map handed it to.
+builder.Services.AddScoped<ChosenPlace>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<DashboardCardPreferences>();
+// Scoped for the same reason PresenceService below is: in WebAssembly there is one scope for the life
+// of the app, so this is the one connection every page shares. It takes the API's address rather than
+// an HttpClient - a hub connection is not an HTTP call and does not go through the message handlers.
+builder.Services.AddScoped(services => new LiveUpdatesConnection(
+    services.GetRequiredService<TokenStore>(),
+    services.GetRequiredService<TokenRefreshService>(),
+    apiBaseAddress,
+    services.GetRequiredService<ILogger<LiveUpdatesConnection>>()));
 builder.Services.AddScoped<PresenceService>();
 // Asked by the chat poll before every tick - see PageVisibility for why polling behind thirty other
 // tabs is waste rather than diligence.

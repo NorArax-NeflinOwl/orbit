@@ -517,6 +517,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         if (picked.Outcome is PickedPlaceOutcome.Chosen)
         {
             editor.Location = picked.Address;
+            // And where the pin was, which is what the appointment actually stores - see EventPlace.
+            editor.LocationLatitude = picked.Latitude;
+            editor.LocationLongitude = picked.Longitude;
         }
     }
 
@@ -529,28 +532,38 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         var edited = editor.ToDto();
+
+        // What the appointment has to say, kept until the list is written: saving the list reports on
+        // its own sync afterwards, and setting this first meant the reader never saw it.
+        string? saidAboutTheAppointment = null;
         if (edited.Kind == nameof(TaskItemKind.Calendar))
         {
             var appointment = await _entryAppointment.SaveAsync(editor, edited, _localId, cancellationToken);
-            Status = appointment.Outcome switch
-            {
-                AppointmentOutcome.Refused => _translations[AppointmentRefusalMessage],
-                AppointmentOutcome.QueuedOnThisPhone => _translations[AppointmentQueuedMessage],
-                _ => Status
-            };
 
             // Nothing made the appointment, so the entry must not be saved pointing at one.
             if (appointment.Entry is not { } withItsAppointment)
             {
+                Status = _translations[AppointmentRefusalMessage];
                 return;
             }
 
             edited = withItsAppointment;
+            saidAboutTheAppointment = appointment switch
+            {
+                { PlaceWasNotSaved: true } => _translations[PlaceNotFoundMessage],
+                { Outcome: AppointmentOutcome.QueuedOnThisPhone } => _translations[AppointmentQueuedMessage],
+                _ => null
+            };
         }
 
         var shelf = editor.IsShelfEntry ? editor.Shelf : null;
         BeingEdited = null;
         await SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
+
+        if (saidAboutTheAppointment is { } said)
+        {
+            Status = said;
+        }
 
         if (shelf is not null)
         {
@@ -580,6 +593,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string AppointmentRefusalMessage =
         "Somebody else can change this appointment, and Orbit can't be reached to check. It stays as it was until you're back online.";
+
+    /// <inheritdoc cref="AppointmentRefusalMessage"/>
+    private const string PlaceNotFoundMessage =
+        "Saved, but that place could not be found - open the map and point at it to keep it.";
 
     /// <inheritdoc cref="AppointmentRefusalMessage"/>
     private const string AppointmentQueuedMessage =

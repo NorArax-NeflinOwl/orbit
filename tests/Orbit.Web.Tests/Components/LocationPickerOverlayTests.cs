@@ -56,7 +56,7 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
     {
         RegisterGeocoding("Długa 4, Warszawa");
         string? reported = null;
-        var cut = Render(onPicked: address => reported = address);
+        var cut = Render(onPicked: place => reported = place.Address);
         await DropAPinAsync(cut);
 
         cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Yes")).Click();
@@ -83,7 +83,7 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
         RegisterGeocoding("Długa 4, Warszawa");
         string? reported = null;
         var cancelled = false;
-        var cut = Render(onPicked: address => reported = address, onCancelled: () => cancelled = true);
+        var cut = Render(onPicked: place => reported = place.Address, onCancelled: () => cancelled = true);
         await DropAPinAsync(cut);
 
         cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Cancel")).Click();
@@ -164,7 +164,7 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
         // a second lookup could answer differently.
         RegisterGeocoding("Somewhere else entirely", searchBody: TwoMatches);
         string? reported = null;
-        var cut = Render(onPicked: address => reported = address);
+        var cut = Render(onPicked: place => reported = place.Address);
         SearchFor(cut, "Długa 4");
         cut.FindAll(".map-overlay-match").First(match => match.TextContent.Contains("Warszawa")).Click();
 
@@ -223,10 +223,10 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
         cut.FindAll(".map-overlay-search button").First().Click();
     }
     private IRenderedComponent<LocationPickerOverlay> Render(
-        Action<string>? onPicked = null, Action? onCancelled = null)
+        Action<PickedPlace>? onPicked = null, Action? onCancelled = null)
         => RenderComponent<LocationPickerOverlay>(parameters => parameters
             .Add(overlay => overlay.Address, "Warszawa")
-            .Add(overlay => overlay.OnPicked, address => onPicked?.Invoke(address))
+            .Add(overlay => overlay.OnPicked, place => onPicked?.Invoke(place))
             .Add(overlay => overlay.OnCancelled, () => onCancelled?.Invoke()));
 
     /// <summary>What mapPicker.js does when somebody clicks the map.</summary>

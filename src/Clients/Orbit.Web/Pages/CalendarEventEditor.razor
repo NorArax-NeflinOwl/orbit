@@ -19,6 +19,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
+@inject ChosenPlace ChosenPlace
 @inject ILogger<CalendarEventEditor> Logger
 @inject Translations T
 
@@ -425,6 +426,15 @@ else
             catch (HttpRequestException exception)
             {
                 Logger.LogWarning(exception, "Failed to load notification settings");
+            }
+
+            // A place chosen on the map, if this editor was opened from there. Taken rather than read,
+            // so returning to a new event later starts empty instead of somewhere you looked at once.
+            if (IsNewEvent && ChosenPlace.Take() is { } place)
+            {
+                _formModel.LocationAddress = place.Address;
+                _formModel.LocationLatitude = place.Latitude;
+                _formModel.LocationLongitude = place.Longitude;
             }
 
             if (Id is { } eventId)

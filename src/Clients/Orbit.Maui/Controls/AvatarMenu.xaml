@@ -172,7 +172,7 @@
                      default, like Status and Language above. -->
                 <Grid>
                     <Label Text="{controls:Translate 'About'}" />
-                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutAsyncCommand}"
+                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutCommand}"
                             SemanticProperties.Description="{controls:Translate 'About'}" />
                 </Grid>
 

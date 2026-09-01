@@ -330,6 +330,32 @@ Deliberately not there: a language switch (it is in the avatar menu, where the r
 settings are), and anything that has to be fetched. A footer that waits on a request is a footer that
 sometimes is not there.
 
+## What the live connection still leaves undone
+
+The web client now hears about chat, notifications and presence instead of asking - see
+[Functionality — Live updates](functionality.md#live-updates). Three things were deliberately left out
+of that change rather than missed.
+
+- ~~**The phone still polls.**~~ Done, in its own change as this said it should be. The phone holds the
+  same connection and only while the app is in front, started and stopped with the window: a socket held
+  open behind a locked screen is one Android drops in Doze anyway, and what it would have carried is what
+  push already delivers. Its chat polls slow to thirty seconds while it is up and snap back when it
+  drops, the unread badge and the feed hear about changes instead of waiting for the next screen, and the
+  presence heartbeat goes over the connection when there is one. It does not listen for
+  `PresenceChanged`: the phone shows nobody else's presence yet.
+- **Edits and deletions are only found by the slow poll.** A message being edited or removed announces
+  nothing, so it surfaces within twenty seconds instead of instantly. Adding it is a one-line publish in
+  each of `EditMessageCommandHandler`, `EditGroupMessageCommandHandler` and `DeleteMessageCommandHandler`
+  - left out only to keep the first change to the paths that carried the visible cost.
+- **Somebody going *away* can never be announced.** It happens by time passing, with nothing calling
+  anything, so there is no moment at which the server could say so (see `UserPresence.StatusAt`). Making
+  it instant would mean the server tracking timers per connected account and announcing on expiry - real
+  work, for a transition nobody is usually watching. The slow poll resolves it, and that is the reason
+  the slow poll exists.
+
+Scaling `orbit-api` past one replica needs a backplane before any of this survives it - see
+[Azure setup](azure-setup.md#5-confirm-ingress).
+
 ## Smaller identified follow-ups
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

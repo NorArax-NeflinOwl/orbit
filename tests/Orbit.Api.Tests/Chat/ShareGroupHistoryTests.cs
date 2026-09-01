@@ -9,6 +9,7 @@ using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
 using Orbit.Core.Chat.Groups.SendGroupMessage;
 using Orbit.Core.Chat.Groups.ShareGroupHistory;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Xunit;
 
@@ -231,7 +232,7 @@ public sealed class ShareGroupHistoryTests
         }
 
         public Task<bool> SendAsync(Guid senderId, IReadOnlyList<Guid> recipientIds)
-            => new SendGroupMessageCommandHandler(GroupRepository, MessageRepository)
+            => new SendGroupMessageCommandHandler(GroupRepository, MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(
                     new SendGroupMessageCommand(
                         senderId, GroupId, recipientIds.Select(id => new GroupMessageCopy(id, $"cipher-for-{id}", "nonce")).ToList()),
@@ -240,7 +241,7 @@ public sealed class ShareGroupHistoryTests
         public Task<bool> AddMemberAsync(Guid actorId, Guid userId)
             => new AddChatGroupMemberCommandHandler(
                     GroupRepository, AnnouncementRepository, ContactRepository, UserRepository,
-                    new NotificationRecorder(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository()),
+                    new NotificationRecorder(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository(), new SilentLiveUpdatePublisher()),
                     new PushNotificationDispatcher(
                         new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
                         NullLogger<PushNotificationDispatcher>.Instance))
@@ -277,7 +278,7 @@ public sealed class ShareGroupHistoryTests
                 .HandleAsync(new GetGroupAnnouncementsQuery(callerId, GroupId), CancellationToken.None);
 
         public Task MarkReadAsync(Guid readerId)
-            => new MarkGroupConversationAsReadCommandHandler(GroupRepository, MessageRepository)
+            => new MarkGroupConversationAsReadCommandHandler(GroupRepository, MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(new MarkGroupConversationAsReadCommand(readerId, GroupId), CancellationToken.None);
     }
 }

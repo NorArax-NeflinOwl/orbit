@@ -30,6 +30,24 @@ public sealed class CalendarScreenTests
         Assert.Equal("August 2026", screen.PeriodLabel);
     }
 
+    /// <summary>
+    /// Which month opens comes from the clock the screen was given, not from the machine's.
+    ///
+    /// It did not, and the whole of this class was quietly resting on the two agreeing: the fixtures
+    /// are pinned to August 2026 through a FakeTimeProvider, while the grid opened on DateTime.Today.
+    /// That held for as long as the machine happened to be in that month and then failed everywhere at
+    /// once, on the 1st of September - thirteen tests, none of them about the clock.
+    /// </summary>
+    [Fact]
+    public async Task The_month_that_opens_is_the_clocks_and_not_the_machines()
+    {
+        using var context = new ScreenContext("2027-03-09T10:00:00Z");
+
+        var screen = await context.OpenAsync();
+
+        Assert.Equal("March 2027", screen.PeriodLabel);
+    }
+
     [Fact]
     public async Task The_year_shows_twelve_months_and_says_which_year()
     {
@@ -323,7 +341,7 @@ public sealed class CalendarScreenTests
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
-        private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-15T10:00:00Z"));
+        private readonly FakeTimeProvider _clock;
 
         /// <summary>The day the screen calls today, which is the fake clock's rather than the machine's.</summary>
         public DateTime Today => _clock.GetUtcNow().LocalDateTime.Date;
@@ -332,8 +350,14 @@ public sealed class CalendarScreenTests
         private readonly LocalTaskListRepository _taskLists;
         private readonly CalendarEventSynchronizer _synchronizer;
 
-        public ScreenContext()
+        /// <param name="now">
+        /// What the screen is to call now. Every test but one leaves it at the day this class was
+        /// written around; the exception passes a different one to show the screen follows the clock it
+        /// is given rather than the machine's.
+        /// </param>
+        public ScreenContext(string now = "2026-08-15T10:00:00Z")
         {
+            _clock = new FakeTimeProvider(DateTimeOffset.Parse(now));
             _server = new FakeCalendarServer(_clock);
             _events = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());

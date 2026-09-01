@@ -419,6 +419,27 @@ public sealed class CalendarEventDetailScreenTests
 
     private static Translations English() => new(new InMemoryLanguageStore());
 
+    /// <summary>
+    /// Typing a place and saving used to lose it: an event stores a point first, and the only way to
+    /// attach one was "Use my location" - which answers where the phone is, not where the appointment
+    /// happens. The name is looked up now, and a name nothing can be found for is reported rather than
+    /// silently emptied on the next open.
+    /// </summary>
+    [Fact]
+    public async Task A_place_that_cannot_be_found_is_reported_rather_than_dropped_in_silence()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.LocationAddress = "somewhere nobody can find";
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasStatus);
+        Assert.False(screen.HasLocation);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -489,6 +510,13 @@ public sealed class CalendarEventDetailScreenTests
         /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
+        /// <summary>
+        /// Where a typed place turns out to be. Unreachable by default - a third-party lookup is not
+        /// something a test should depend on, and "nothing could be found" is the case worth checking.
+        /// </summary>
+        public Orbit.Mobile.Location.PlaceSearch Places { get; } =
+            new(StubHttpMessageHandler.Unreachable().ToHttpClient());
+
         public async Task<CalendarEventDetailViewModel> OpenAsync(Guid localId)
         {
             var screen = new CalendarEventDetailViewModel(
@@ -500,7 +528,7 @@ public sealed class CalendarEventDetailScreenTests
                 Here, Contacts,
                 new GoogleIntegrationAccess(new AccountClient(
                     _users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests())),
-                Network);
+                Network, Places);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

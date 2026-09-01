@@ -3,6 +3,7 @@ using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.CreateCalendarEvent;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Users;
 using Xunit;
@@ -142,7 +143,7 @@ public sealed class CreateCalendarEventCommandHandlerTests
             emailSender ?? new RecordingEmailSender(),
             new PushNotificationDispatcher(new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
                 NullLogger<PushNotificationDispatcher>.Instance),
-            new NotificationRecorder(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository()),
+            new NotificationRecorder(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository(), new SilentLiveUpdatePublisher()),
             NullLogger<CreateCalendarEventCommandHandler>.Instance);
 
     /// <summary>Simulates a transient SMTP failure to verify creation stays successful despite it.</summary>
