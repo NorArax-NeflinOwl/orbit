@@ -1,3 +1,4 @@
+using Orbit.Web.Components;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -191,6 +192,12 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
+            // Creating a new list answers with its id, not with a list of lists like the fallback below.
+            if (request.Method == HttpMethod.Post && path == "/api/tasks")
+            {
+                return Ok(Guid.NewGuid());
+            }
+
             if (path.Contains("/notifications", StringComparison.Ordinal))
             {
                 return Ok(new NotificationSettingsDto(
@@ -332,4 +339,60 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
                 IsAllDay: false, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+
+    /// <summary>
+    /// Opened from the map: a new list starts on one calendar entry already standing at the place that
+    /// was pointed at. The place is why they came, so it is filled in and the entry is open - what is
+    /// missing is the day, which the map cannot know.
+    /// </summary>
+    [Fact]
+    public void A_new_list_opened_from_the_map_starts_at_that_place()
+    {
+        RegisterApiClients(Item("unused"));
+        Services.GetRequiredService<ChosenPlace>().Hold(new PickedPlace("Długa 4, Warszawa", 52.2497, 21.0122));
+
+        var cut = RenderComponent<TaskEditor>();
+
+        var entry = Assert.Single(cut.FindAll(".editor-item-details"));
+        Assert.Equal("Długa 4, Warszawa", LocationBoxIn(entry).GetAttribute("value"));
+        // A calendar entry, because it is the only kind that has anywhere to be.
+        Assert.Equal(
+            nameof(Orbit.Core.Tasks.TaskItemKind.Calendar),
+            entry.QuerySelector("select")!.GetAttribute("value") ?? SelectedOptionIn(entry));
+    }
+
+    /// <summary>
+    /// And the pin travels with it, so saving makes an event at that place rather than one labelled
+    /// with its name - which is the whole reason the map handed over coordinates at all.
+    /// </summary>
+    [Fact]
+    public void The_pin_from_the_map_reaches_the_event_that_list_creates()
+    {
+        RegisterApiClients(Item("unused"));
+        Services.GetRequiredService<ChosenPlace>().Hold(new PickedPlace("Długa 4, Warszawa", 52.2497, 21.0122));
+        var cut = RenderComponent<TaskEditor>();
+        cut.Find(".editor-item-details input").Change("Dentist");
+        SayWhenItHappens(cut);
+
+        Save(cut);
+
+        var location = Assert.Single(_created).Details.Location;
+        Assert.NotNull(location);
+        Assert.Equal(52.2497, location.Latitude, precision: 4);
+    }
+
+    /// <summary>A new list opened the ordinary way is still empty.</summary>
+    [Fact]
+    public void A_new_list_opened_without_the_map_starts_empty()
+    {
+        RegisterApiClients(Item("unused"));
+
+        Assert.Empty(RenderComponent<TaskEditor>().FindAll(".editor-item-details"));
+    }
+
+    private static AngleSharp.Dom.IElement LocationBoxIn(AngleSharp.Dom.IElement entry)
+        => entry.QuerySelectorAll("input").First(box => box.GetAttribute("placeholder") == "Where this happens");
+
+    private static string SelectedOptionIn(AngleSharp.Dom.IElement entry)
+        => entry.QuerySelector("option[selected]")?.GetAttribute("value") ?? "";
 }

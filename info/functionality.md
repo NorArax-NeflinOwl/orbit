@@ -538,6 +538,33 @@ follows: a position is not something to be able to push at a stranger who never 
 The Map page shows the viewer's own position and everyone sharing with them on **one** map, framed to fit
 them all.
 
+### Planning something at a place
+
+The map is where people already go to point at somewhere, so it is also where pointing at somewhere and
+making something of it belongs. **Plan something here** opens the same `LocationPickerOverlay` the task
+editor uses - a pin, or an address search - and confirming one asks a single question: is this an event,
+or a task list?
+
+The question is asked rather than guessed. An appointment and an errand at the same address are
+different things, and only the person pointing at it knows which they meant. Answering takes them to the
+form they chose with the place already filled in:
+
+- **An event in the calendar** opens `/calendar/new` with the address and its pin set.
+- **A task list starting here** opens `/tasks/new` with one entry already standing at that place - a
+  calendar entry, because it is the only kind that has anywhere to be, and open, because an entry whose
+  place is filled in and whose day is not is not finished.
+
+Either way the **pin** travels, not only the address: the calendar keeps places as coordinates with a
+label (see [`EventLocation`](#the-place-is-stored-once)), so an address on its own could not be shown on
+a map or turned into a Google Maps link.
+
+The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
+would write where somebody is going into their browser history and into anything that later reads a URL,
+and a place is exactly the kind of thing that should not be sitting in a link somebody might paste.
+Nothing about it needs to survive a reload - it is a handover between two screens, a second apart - and
+it is **taken** rather than read, so coming back to a new event or a new list later starts empty instead
+of at somewhere the reader looked at once and has no memory of choosing.
+
 ## Handing something off to Google
 
 An account that has **confirmed its email address or connected Google** is offered links that carry

@@ -109,6 +109,10 @@ builder.Services.AddScoped<PrivateContentSealer>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
 builder.Services.AddScoped<AccentColorService>();
+// Holds a place between the map and the form it is handed to - see ChosenPlace on why it is not a
+// query string. Scoped, which in WebAssembly means one for the life of the app, so the page that picks
+// it up is the same one the map handed it to.
+builder.Services.AddScoped<ChosenPlace>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<DashboardCardPreferences>();
 builder.Services.AddScoped<PresenceService>();

@@ -24,6 +24,7 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<TaskEditor> Logger
 @inject Translations T
+@inject ChosenPlace ChosenPlace
 
 <PageTitle>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</PageTitle>
 
@@ -674,6 +675,7 @@ else
             else
             {
                 Logger.LogInformation("Task list editor opened for a new task list");
+                StartFromTheChosenPlaceIfThereIsOne();
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -688,6 +690,33 @@ else
         await LoadInventoryFieldsAsync();
         ReadTheEventsBack();
         _isLoading = false;
+    }
+
+    /// <summary>
+    /// Opens a new list on one calendar entry already standing at the place somebody pointed at, when
+    /// the map sent them here (see ChosenPlace and MapPage). The place is the whole reason they came,
+    /// so the entry is a calendar one - the only kind that has anywhere to be - and it opens expanded,
+    /// because an entry whose place is filled in and whose day is not is not finished.
+    ///
+    /// Taken rather than read, so coming back to a new list later starts blank.
+    /// </summary>
+    private void StartFromTheChosenPlaceIfThereIsOne()
+    {
+        if (ChosenPlace.Take() is not { } place)
+        {
+            return;
+        }
+
+        var entry = new TaskItemFormModel
+        {
+            Kind = nameof(TaskItemKind.Calendar),
+            Location = place.Address,
+            LocationLatitude = place.Latitude,
+            LocationLongitude = place.Longitude
+        };
+
+        _formModel.Items.Add(entry);
+        _expandedItem = entry;
     }
 
     private bool IsExpanded(TaskItemFormModel item) => ReferenceEquals(_expandedItem, item);

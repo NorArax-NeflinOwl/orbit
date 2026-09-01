@@ -1,3 +1,4 @@
+using Orbit.Web.Components;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -210,5 +211,53 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         Services.AddSingleton(new GoogleIntegrationAccess(
             new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
             NullLogger<GoogleIntegrationAccess>.Instance));
+    }
+
+    /// <summary>
+    /// Opened from the map: the place somebody pointed at is already in the box, with its pin, so they
+    /// are asked only for what the map cannot know - what it is and when.
+    /// </summary>
+    [Fact]
+    public void A_place_chosen_on_the_map_is_already_filled_in()
+    {
+        RegisterChatApiClient([]);
+        Services.GetRequiredService<ChosenPlace>().Hold(new PickedPlace("Długa 4, Warszawa", 52.2497, 21.0122));
+
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        Assert.Equal("Długa 4, Warszawa", LocationBoxOf(cut).GetAttribute("value"));
+        // The pin, not only its name: without it the calendar has a label rather than a place. Asserted
+        // through the control that only exists once one is set, rather than the printed coordinates,
+        // which are formatted in whatever culture the page is running in.
+        Assert.Contains("Remove location", cut.Markup);
+    }
+
+    /// <summary>
+    /// Handed over once. Coming back to a new event later must start empty rather than at somewhere
+    /// looked at yesterday - which is why ChosenPlace is taken rather than read.
+    /// </summary>
+    [Fact]
+    public void The_chosen_place_is_only_used_once()
+    {
+        RegisterChatApiClient([]);
+        var chosen = Services.GetRequiredService<ChosenPlace>();
+        chosen.Hold(new PickedPlace("Długa 4, Warszawa", 52.2497, 21.0122));
+
+        RenderComponent<CalendarEventEditor>();
+
+        Assert.False(chosen.IsWaiting);
+        Assert.Empty(LocationBoxOf(RenderComponent<CalendarEventEditor>()).GetAttribute("value")!);
+    }
+
+    private static AngleSharp.Dom.IElement LocationBoxOf(IRenderedComponent<CalendarEventEditor> cut)
+        => cut.FindAll("input").First(box =>
+            box.GetAttribute("placeholder") == "Pick a point on the map, or type what to call this place");
+
+    [Fact]
+    public void A_new_event_opened_without_the_map_has_no_place()
+    {
+        RegisterChatApiClient([]);
+
+        Assert.Empty(LocationBoxOf(RenderComponent<CalendarEventEditor>()).GetAttribute("value")!);
     }
 }

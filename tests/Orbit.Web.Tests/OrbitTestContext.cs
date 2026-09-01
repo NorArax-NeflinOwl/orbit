@@ -21,6 +21,9 @@ public abstract class OrbitTestContext : TestContext
     {
         Services.AddSingleton(new Translations(new StubJSRuntime()));
         Services.AddSingleton(SuggestingNothing());
+        // Empty, which is what every page sees unless the map sent somebody to it - the same reason
+        // Translations is here. A test about the handover puts a place in it first.
+        Services.AddSingleton(new ChosenPlace());
     }
 
     /// <summary>
