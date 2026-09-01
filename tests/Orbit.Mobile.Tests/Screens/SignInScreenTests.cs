@@ -22,6 +22,13 @@ namespace Orbit.Mobile.Tests.Screens;
 public sealed class SignInScreenTests
 {
     /// <summary>
+    /// What the reader types in. Named for the same reason the reset screen's fixtures are: a literal
+    /// beside a field called Password is what a secret scanner looks for, and it cannot tell a test from
+    /// a credential somebody pasted.
+    /// </summary>
+    private const string Typed = "sourdough-and-thunder";
+
+    /// <summary>
     /// A deployment with no client id for this app cannot ask Google anything, so the screen must not
     /// offer to - a button that opens a sheet ending in an error is worse than no button. The same rule
     /// Orbit.Web applies when the server sends none.
@@ -94,7 +101,7 @@ public sealed class SignInScreenTests
         context.PendingTap.Record("/calendar");
 
         screen.EmailOrUserName = "someone@orbit.example";
-        screen.Password = "a-password";
+        screen.Password = Typed;
         await screen.SignInCommand.ExecuteAsync(null);
 
         Assert.Equal("ShowCalendar", context.Navigator.LastDestination);
@@ -107,7 +114,7 @@ public sealed class SignInScreenTests
         var screen = context.Open();
 
         screen.EmailOrUserName = "someone@orbit.example";
-        screen.Password = "a-password";
+        screen.Password = Typed;
         await screen.SignInCommand.ExecuteAsync(null);
 
         Assert.Equal("ShowDashboard", context.Navigator.LastDestination);
