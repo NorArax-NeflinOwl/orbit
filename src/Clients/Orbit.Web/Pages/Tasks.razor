@@ -93,8 +93,12 @@ else
         {
             <div @key="taskList.Id" class="@(_cardOrder.IsDragging(taskList) ? "dragging" : "")"
                  @ondragover:preventDefault="true" @ondrop="() => DropCardOnAsync(taskList)">
+                @* The rows of what is on the list open it as well as its name does: they sit above the
+                   overlay that makes the rest of the card pressable, so without OnBodySelected the one
+                   part of the card a reader actually points at was the one part that did nothing. *@
                 <ItemCard Name="@Written(taskList.Title)"
                           OnNameSelected="() => GoToChecklist(taskList.Id)"
+                          OnBodySelected="() => GoToChecklist(taskList.Id)"
                           HasUnseenAction="@(UnreadCountFor(taskList) > 0)"
                           IsCollapsed="Arrangement.IsCollapsed(taskList.Id)"
                           OnCollapseToggled="() => ToggleCollapsedAsync(taskList)"

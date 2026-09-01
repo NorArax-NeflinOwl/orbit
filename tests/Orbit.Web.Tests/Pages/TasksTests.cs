@@ -276,6 +276,24 @@ public sealed class TasksTests : OrbitTestContext
         Assert.EndsWith($"/tasks/{taskList.Id}/edit", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// The rows of what is on a list are the part of the card a reader points at, and they sit above
+    /// the overlay that makes the rest of it pressable - so pressing them has to open the list itself,
+    /// the way the dashboard's rows do. They used to be the one dead area on the card.
+    /// </summary>
+    [Fact]
+    public void Pressing_what_is_on_a_list_opens_the_list()
+    {
+        var taskList = TaskList("Kitchen", Item("Paint walls"));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".item-card-body .task-preview-row").Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+    }
+
     [Fact]
     public void An_account_with_no_lists_gets_a_hint_instead_of_an_empty_grid()
     {
