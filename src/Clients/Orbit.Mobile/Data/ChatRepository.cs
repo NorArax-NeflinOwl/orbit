@@ -49,7 +49,8 @@ public sealed class ChatRepository
             LastMessageAtUtc = contact.LastMessageAtUtc,
             RequiresApprovalFromCurrentUser = contact.RequiresApprovalFromCurrentUser,
             IsPendingApprovalFromOtherParty = contact.IsPendingApprovalFromOtherParty,
-            PresenceStatus = contact.PresenceStatus
+            PresenceStatus = contact.PresenceStatus,
+            IsArchived = contact.IsArchived
         }));
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -104,6 +105,19 @@ public sealed class ChatRepository
             .Where(message => message.OtherUserId == otherUserId)
             .OrderBy(message => message.SentAtUtc)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Drops what this phone had cached of one conversation, after the server was told to empty it -
+    /// see ChatClient.ClearConversationHistoryAsync. Without this the words would still be here: a pull
+    /// only ever adds, and the server has nothing left to send that would take them away.
+    /// </summary>
+    public async Task DeleteConversationAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await dbContext.ChatMessages
+            .Where(message => message.OtherUserId == otherUserId && message.GroupId == null)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     /// <summary>

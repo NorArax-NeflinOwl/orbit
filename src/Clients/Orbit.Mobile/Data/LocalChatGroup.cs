@@ -13,6 +13,9 @@ public sealed class LocalChatGroup
     /// <summary>The signed-in user's own role, "Admin" or "Member" - what the screen may offer.</summary>
     public string OwnRole { get; set; } = string.Empty;
 
+    /// <inheritdoc cref="LocalContact.IsArchived"/>
+    public bool IsArchived { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     /// <summary>

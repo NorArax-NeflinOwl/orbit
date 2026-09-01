@@ -145,6 +145,72 @@ public sealed class ChatClient
     /// anything they try to send - see SendMessageCommandHandler - so this is what unblocks replying.
     /// </summary>
     /// <returns>False when there is no such request to approve, which a stale screen can produce.</returns>
+    /// <summary>
+    /// Puts a conversation away on this reader's list, or brings it back. One-sided and told to nobody:
+    /// the other party's list has its own row and its own answer - see info/functionality.md's "Putting
+    /// a conversation away". False when the server has no such conversation for this account.
+    /// </summary>
+    public Task<bool> SetConversationArchivedAsync(
+        Guid otherUserId, bool isArchived, CancellationToken cancellationToken = default)
+        => PutArchivedAsync($"api/chat/conversations/{otherUserId}/archived", isArchived, cancellationToken);
+
+    /// <summary>
+    /// The same for a group, and the flag lives on this reader's membership rather than on the group -
+    /// so tidying your own list cannot take the group off anybody else's, and it needs no rank.
+    /// </summary>
+    public Task<bool> SetGroupArchivedAsync(Guid groupId, bool isArchived, CancellationToken cancellationToken = default)
+        => PutArchivedAsync($"api/chat/groups/{groupId}/archived", isArchived, cancellationToken);
+
+    private async Task<bool> PutArchivedAsync(string path, bool isArchived, CancellationToken cancellationToken)
+    {
+        using var response = await _httpClient.PutAsJsonAsync(
+            path, new SetArchivedRequest(isArchived), cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>
+    /// Empties a conversation on this reader's side only. The other party keeps theirs: the server
+    /// records where this reader's history begins rather than deleting anybody's messages.
+    /// </summary>
+    public async Task<bool> ClearConversationHistoryAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync(
+            $"api/chat/conversations/{otherUserId}/messages", cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>
+    /// Leaves a group. A different thing from putting it away: what is posted afterwards no longer
+    /// arrives, and the rest of the group sees somebody go.
+    /// </summary>
+    public async Task<bool> LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync(
+            $"api/chat/groups/{groupId}/membership", cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
     public async Task<bool> ApproveConversationAsync(Guid otherUserId, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsync(

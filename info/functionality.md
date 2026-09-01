@@ -1716,6 +1716,12 @@ The change is announced to that account's **other devices** only (see
 [Live updates](#live-updates)): a conversation put away on a phone should not still be in the way on
 the laptop, and nobody else's screen changed.
 
+**The phone offers all three as of 2026-09-01.** Each list - people, groups - carries its own switch to
+what has been put away, shown only once something is there, and each row's menu offers putting it away,
+bringing it back, and the thing that is not reversible: emptying a conversation, or leaving a group,
+each behind a question first. Emptying also drops what the phone had cached, because a pull only ever
+adds and the server has nothing left to send that would take those words away.
+
 ## Saying nothing about a field
 
 Descriptions on a task list and a warehouse, and a shelf item's regular-check flag, are all optional on
