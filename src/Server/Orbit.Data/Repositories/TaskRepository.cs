@@ -20,7 +20,7 @@ public sealed class TaskRepository : ITaskRepository
     {
         var query = _dbContext.Tasks
             .AsNoTracking()
-            .Include(task => task.Items)
+            .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Where(task => task.UserId == userId);
 
         // Narrowed in the database when the caller only wants what changed. A client catching up asks
@@ -42,7 +42,7 @@ public sealed class TaskRepository : ITaskRepository
     {
         var entity = await _dbContext.Tasks
             .AsNoTracking()
-            .Include(task => task.Items)
+            .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -58,7 +58,7 @@ public sealed class TaskRepository : ITaskRepository
 
         var entities = await _dbContext.Tasks
             .AsNoTracking()
-            .Include(task => task.Items)
+            .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Where(task => task.UserId == userId
                 && task.Id != exceptListId
                 && task.Items.Any(item => itemIds.Contains(item.Id)))
@@ -99,6 +99,7 @@ public sealed class TaskRepository : ITaskRepository
     {
         var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
         entity.Title = taskList.Title;
+        entity.Description = taskList.Description;
         entity.IsCompleted = taskList.IsCompleted;
         entity.IsGroup = taskList.IsGroup;
         entity.Priority = taskList.Priority.ToString();
@@ -166,7 +167,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.LockedByUserName,
             entity.LockExpiresAtUtc,
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
-            entity.IsPinned, entity.LinkedWarehouseId);
+            entity.IsPinned, entity.LinkedWarehouseId, entity.Description);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -174,7 +175,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.Description,
             entity.DueDateUtc,
             entity.IsCompleted,
-            entity.LinkedTaskListId,
+            [.. entity.LinkedTaskLists.OrderBy(link => link.Position).Select(link => link.LinkedTaskListId)],
             Enum.Parse<NotificationChannel>(entity.OverdueNotificationChannel, ignoreCase: true),
             entity.RemindDaily,
             Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
@@ -188,6 +189,7 @@ public sealed class TaskRepository : ITaskRepository
             Id = taskList.Id,
             UserId = taskList.UserId,
             Title = taskList.Title,
+            Description = taskList.Description,
             IsCompleted = taskList.IsCompleted,
             IsGroup = taskList.IsGroup,
             Priority = taskList.Priority.ToString(),
@@ -213,7 +215,13 @@ public sealed class TaskRepository : ITaskRepository
             Description = item.Description,
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
-            LinkedTaskListId = item.LinkedTaskListId,
+            LinkedTaskLists = [.. item.LinkedTaskListIds.Select((linkedId, linkPosition) =>
+                new TaskItemTaskListLinkEntity
+                {
+                    TaskItemId = item.Id,
+                    LinkedTaskListId = linkedId,
+                    Position = linkPosition
+                })],
             OverdueNotificationChannel = item.OverdueNotificationChannel.ToString(),
             RemindDaily = item.RemindDaily,
             DailyReminderNotificationChannel = item.DailyReminderNotificationChannel.ToString(),

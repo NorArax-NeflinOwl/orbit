@@ -13,10 +13,6 @@ namespace Orbit.Core.Calendar;
 /// from the user's current profile when displayed (see GetCalendarEventByIdQueryHandler's callers), the
 /// same way ContactSummary resolves a contact's profile rather than caching it.
 /// </param>
-/// <param name="CreationNotificationChannel">
-/// Which channel(s), if any, get the "event created" notification sent once, immediately, when the
-/// event is first saved - see EventCreationEmailContent/EventCreationPushContent.
-/// </param>
 /// <param name="ReminderNotificationChannel">
 /// Which channel(s), if any, get the "event is approaching" notification sent as each entry in
 /// <paramref name="ReminderMinutesBeforeStart"/> comes due - see
@@ -35,7 +31,24 @@ public sealed record CalendarEventDetails(
     EventRecurrence? Recurrence,
     IReadOnlyList<Guid> Guests,
     IReadOnlyList<int> ReminderMinutesBeforeStart,
-    NotificationChannel CreationNotificationChannel,
     NotificationChannel ReminderNotificationChannel,
     /// <summary>How much this event matters - see ItemPriority. Defaulted, so every existing caller reads as Normal.</summary>
-    ItemPriority Priority = ItemPriority.Normal);
+    ItemPriority Priority = ItemPriority.Normal,
+    /// <summary>
+    /// Whether to say something when the event actually begins, as well as beforehand. Kept as its own
+    /// flag rather than as a zero in <paramref name="ReminderMinutesBeforeStart"/>: it is a different
+    /// question - "tell me it has started" against "tell me it is coming" - and a reminders table with
+    /// a "0 minutes before" row in it reads as a mistake.
+    /// </summary>
+    bool NotifyAtStart = false)
+{
+    /// <summary>
+    /// The lead times the scheduler actually works from. A notification at the start is a reminder zero
+    /// minutes before it, so it is folded in here rather than given a path of its own - one due-time
+    /// rule, one already-sent record, one place to be wrong.
+    /// </summary>
+    public IReadOnlyList<int> ReminderLeadTimesMinutes
+        => NotifyAtStart && !ReminderMinutesBeforeStart.Contains(0)
+            ? [.. ReminderMinutesBeforeStart, 0]
+            : ReminderMinutesBeforeStart;
+}

@@ -41,7 +41,7 @@ public sealed record NoteListItem(
 
         return new(
             note.LocalId, note.IsSealed ? hiddenTitle : note.Title, note.UpdatedAtUtc, hasUnsentChanges, refusal,
-            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
+            OfflineEditExplanation.For(note, refusal, hasUnsentChanges, translations),
             translations.Format(
                 "Updated {0}", note.UpdatedAtUtc.ToLocalTime().ToString("g", translations.DisplayCulture)),
             note.IsPinned, note.IsShared,

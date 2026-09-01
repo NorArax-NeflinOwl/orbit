@@ -405,6 +405,17 @@ input.note-editor-title {
     min-height: 100vh;
 }
 
+/* Every page's content sits inside this, and it needs room on both sides: with only the narrow-screen
+   rule below, a wide window drew cards flush against the glass on the left and the right. The width is
+   capped as well - a dashboard stretched across a very wide monitor puts its three columns so far
+   apart that reading across a row becomes a head movement. */
+.main-content {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 24px 32px 40px 32px;
+}
+
 .topbar {
     display: flex;
     align-items: center;
@@ -451,6 +462,11 @@ input.note-editor-title {
     gap: 2px;
     flex: 1;
     min-width: 0;
+    /* Measured against itself rather than the window: what decides whether the labels fit is the room
+       left after the logo, the notifications button and the avatar have taken theirs, and that is this
+       element's width. A viewport breakpoint guesses at it and is wrong on any window where those
+       change size. */
+    container-type: inline-size;
     /* Scrolls sideways rather than wrapping to a second row: the bar is a fixed strip, and a bar that
        grows a line taller moves the whole page down with it. */
     overflow-x: auto;
@@ -1133,6 +1149,15 @@ input.note-editor-title {
     font-weight: 600;
 }
 
+/* Icons only, once the bar itself is too narrow to name them. Labelled destinations crowding an avatar
+   did something worse than look tight: the row scrolled sideways, so the first entry sat half off the
+   left edge and the wordmark was cut to "shboard". The title attribute still names each one. */
+@container (max-width: 32rem) {
+    .nav-item .label {
+        display: none;
+    }
+}
+
 @media (max-width: 680px) {
     /* The bar is the same shape here as anywhere else now - only tighter, and without the wordmark,
        which is the first thing to go when the row has to hold six destinations and an avatar. */
@@ -1184,15 +1209,24 @@ input.note-editor-title {
 
 /* Dashboard.razor: one card per item type (notes/tasks/events/chats/contacts). Three across on
    desktop; the mobile media query below narrows this to two, then one on very small phones. */
+/* As many columns as there is room for, never narrower than a card can usefully be. auto-fill with a
+   minimum does the choosing, so the count follows the window rather than a list of breakpoints that
+   has to be kept in step with it: one column on a phone, two on a small window, three or more once
+   the screen is wide - and four on a very wide one, which a fixed three never gave. */
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
     gap: 20px;
 }
 
 /* Pinned cards come first. Done with grid order rather than by reordering the markup, so the cards stay
-   where they are written and a pin only changes where they land. */
-.card-pinned {
+   where they are written and a pin only changes where they land. Scoped to this grid: the lists that
+   also mark a pinned card are already sorted pinned-first by the page that builds them.
+
+   It reads .item-card-pinned because that is what the shared card carries - the old .card-pinned this
+   rule named stopped existing when the dashboard moved onto ItemCard, and the pin quietly stopped
+   moving anything. */
+.card-grid > .item-card-pinned {
     order: -1;
 }
 
@@ -1376,17 +1410,7 @@ input.note-editor-title {
     background: var(--accent);
 }
 
-@media (max-width: 680px) {
-    .card-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
 
-@media (max-width: 480px) {
-    .card-grid {
-        grid-template-columns: 1fr;
-    }
-}
 
 /* Chat.razor: contact list (left) + active thread (right); on mobile the list becomes an off-canvas
    drawer instead of stacking above the thread, since a whole conversation's worth of vertical space
@@ -3063,9 +3087,19 @@ input.note-editor-title {
         flex-wrap: wrap;
     }
 
+    /* Stays on the first line with the checkbox and the name. It used to be given the full width,
+       which put the one control that opens the entry on a line of its own underneath - so the row
+       read as two rows, and the button looked like it belonged to whatever came next. The badges
+       inside it may still wrap; the button is what has to stay put. */
     .editor-item-summary > .editor-item-aside {
-        width: 100%;
-        justify-content: space-between;
+        margin-left: auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    /* Free to shrink, so the aside beside it always has somewhere to sit. */
+    .editor-item-summary > .editor-item-main {
+        flex: 1 1 8rem;
     }
 }
 
@@ -4182,13 +4216,23 @@ input.note-editor-title {
     cursor: default;
 }
 
-/* Below the breakpoint every other surface uses, arranging by hand is not offered at all. Dragging is
-   the only thing the handle can do and browsers raise no drag events for a finger, so it sat there
-   doing nothing when pressed - a control that cannot work is worse than no control, because nothing
-   on screen says which of the two it is. An arrangement made elsewhere is still read here. */
+/* On a phone the handle goes and the two buttons stay. Dragging is the only thing the handle can do
+   and browsers raise no drag events for a finger, so it sat there doing nothing when pressed - but
+   the buttons work anywhere, and hiding the whole control took the one way of arranging a list on the
+   device most likely to be reading it. They also sit side by side rather than stacked: a column of
+   two twelve-pixel buttons is a smaller target than a thumb, and the row has width to spare here. */
 @media (max-width: 680px) {
-    .row-reorder {
+    .drag-handle {
         display: none;
+    }
+
+    .row-reorder-buttons {
+        flex-direction: row;
+        gap: 2px;
+    }
+
+    .row-reorder-button {
+        padding: 6px 8px;
     }
 }
 
@@ -4288,13 +4332,15 @@ input.note-editor-title {
     min-width: 0;
 }
 
-/* Always last, however many tags there are, so a counter is where the eye already expects it. */
-.item-card-extras {
+/* The card's own footnote - when it last changed, how much is on it. Centred, and separated from the
+   body by a hairline so it reads as being about the card rather than as one more line of it. */
+.item-card-footer {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex: 0 0 auto;
-    margin-left: auto;
+    justify-content: center;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
     color: var(--text-secondary);
     font-size: 12.5px;
 }
@@ -4464,4 +4510,283 @@ span.calendar-task-chip {
     overflow: hidden;
     overflow-wrap: anywhere;
     line-height: 1.25;
+}
+
+/* When something last changed, sitting with the tags rather than against the right margin - see
+   Notes.razor. Quieter than a tag, because it is context rather than a label. */
+.item-card-when {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+}
+
+/* A card that stands for something with a colour of its own - see ItemCard's AccentColour. The edge
+   carries it, which is legible at a glance down a list; a dot beside the name was one more thing in a
+   row that already holds tags. */
+.item-card-accented {
+    border-left: 4px solid var(--item-card-accent, var(--accent));
+}
+
+/* The mark that opens the footer, sized to the text beside it rather than to the bar's copy. */
+.app-footer-mark {
+    flex: 0 0 auto;
+    vertical-align: middle;
+}
+
+/* Contacts.razor: the search takes the row, because it is what the page is for before there is
+   anybody on it. */
+.contacts-search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.contacts-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.contacts-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.contacts-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.contacts-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+.contacts-tab.chosen {
+    background: var(--accent-subtle);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.contacts-tab-count {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+}
+
+/* PersonRow.razor: a list of people or groups - see the component for why it is not an ItemCard. */
+.person-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.person-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 10px;
+}
+
+.person-row:hover {
+    background: var(--bg-subtle);
+}
+
+.person-row-pin,
+.person-row-menu {
+    flex: 0 0 auto;
+}
+
+/* Before the face rather than on it - a count drawn on an avatar reads as being about the person. */
+.person-row-action {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.person-row-open {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.person-row-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.person-row-name {
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.person-row-subtitle {
+    color: var(--text-tertiary);
+    font-size: 12.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.person-row.unread .person-row-name {
+    color: var(--text-primary);
+}
+
+/* A task entry's own words, in a text area that starts at one line and grows with what is written.
+   field-sizing does the growing where the browser supports it; the min-height keeps it a one-line box
+   everywhere else rather than the browser's default two or three. */
+textarea.editor-item-main {
+    field-sizing: content;
+    min-height: 2.25rem;
+    resize: vertical;
+    font: inherit;
+    line-height: 1.4;
+}
+
+/* A title and what it is for, written as one thing - see TitledDescription.razor. One outline around
+   the pair, and none of its own around either box, so it reads as a single field rather than as a
+   field and a setting under it. */
+.titled-description {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.titled-description:focus-within {
+    border-color: var(--accent);
+}
+
+.titled-description-title,
+.titled-description-body {
+    width: 100%;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.titled-description-title:focus,
+.titled-description-body:focus {
+    outline: none;
+}
+
+.titled-description-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* Grows with what is written. The rows="1" in the markup is the floor for browsers without
+   field-sizing, where it would otherwise open as an empty four-line box under a one-line title. */
+.titled-description-body {
+    field-sizing: content;
+    min-height: 1.5em;
+    max-height: 40vh;
+    resize: none;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* The event form, drawn once for the calendar's own editor and for a task list's calendar entry - see
+   EventFields.razor. Rows rather than a grid: each row is one question, and a question that has to
+   wrap wraps within its own row instead of pushing the next one sideways. */
+.event-fields > fieldset {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* A description is prose, so it gets the whole row and grows with what is written. */
+.event-fields-description {
+    width: 100%;
+    field-sizing: content;
+    min-height: 3em;
+    max-height: 40vh;
+    resize: vertical;
+}
+
+/* An address is the long field on its row; the map button beside it is an icon and takes what it needs. */
+.event-fields-location {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+/* "Every 2 weeks", "4 times" - a number nobody types more than three digits into. */
+.event-fields-number {
+    width: 6rem;
+}
+
+.event-fields-guests {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.event-fields-guests li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* What a guest was invited as, beside their name and quieter than it - the name is who, this is only
+   what they may do. */
+.event-fields-guest-access {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+}
+
+/* The lists one entry stands for, each with a way to take it off again. A row of chips rather than a
+   multi-select: what matters is reading which lists these are, and a multi-select shows that only
+   while it is open. */
+.linked-list-chips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.linked-list-chips li {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 4px 3px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px;
 }

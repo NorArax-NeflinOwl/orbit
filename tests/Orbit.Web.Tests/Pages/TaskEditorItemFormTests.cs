@@ -20,7 +20,8 @@ namespace Orbit.Web.Tests.Pages;
 /// <summary>
 /// What an entry's form offers, which now depends on what the entry is. The row itself reports - what it
 /// says, when it is due, what kind it is - and everything editable waits behind the toggle, because a
-/// list of thirty items was thirty rows of boxes.
+/// list of thirty items was thirty rows of boxes. The list's own title and description are here too:
+/// they sit at the top of the same form.
 /// </summary>
 public sealed class TaskEditorItemFormTests : OrbitTestContext
 {
@@ -85,7 +86,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         var details = cut.Find(".editor-item-details").TextContent;
-        Assert.Contains("Link to list", details);
+        Assert.Contains("Stands for these lists", details);
         Assert.Contains("Overdue notification", details);
         Assert.Contains("Remind daily", details);
     }
@@ -127,6 +128,85 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.NotNull(_lastSavedJson);
     }
 
+    [Fact]
+    public void What_the_list_is_for_is_shown_under_its_title()
+    {
+        RegisterApiClients(AnItem());
+
+        var cut = Render();
+
+        Assert.Equal("Errands", cut.Find(".titled-description-title").GetAttribute("value"));
+        Assert.Equal("Things to pick up on the way home", cut.Find(".titled-description-body").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// A field the form shows but does not send back looks saved and is gone on the next load. The save
+    /// builds a fresh request object, which is exactly where this app has lost fields before.
+    /// </summary>
+    [Fact]
+    public void And_goes_back_with_the_save()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        cut.Find(".titled-description-body").Input("Only what the shop is out of");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        Assert.Contains("Only what the shop is out of", _lastSavedJson);
+    }
+
+
+    /// <summary>
+    /// An entry can be pointed at several lists, and every one of them has to reach the save. The
+    /// picker adds one at a time and the chosen ones are listed underneath, so the reader can see what
+    /// the entry stands for without opening a dropdown.
+    /// </summary>
+    [Fact]
+    public void An_entry_can_be_made_to_stand_for_two_lists_and_both_are_saved()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        var picker = cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists");
+        var choices = picker.QuerySelectorAll("option")
+            .Select(option => option.GetAttribute("value"))
+            .Where(value => !string.IsNullOrEmpty(value))
+            .Take(2)
+            .ToList();
+        Assert.Equal(2, choices.Count);
+
+        picker.Change(choices[0]);
+        cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists").Change(choices[1]);
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        Assert.Contains(choices[0]!, _lastSavedJson);
+        Assert.Contains(choices[1]!, _lastSavedJson);
+    }
+
+    /// <summary>A list already named is not offered again - that would be offering to say it twice.</summary>
+    [Fact]
+    public void A_list_it_already_stands_for_is_not_offered_again()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        var picker = cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Stands for these lists");
+        var chosen = picker.QuerySelectorAll("option")
+            .Select(option => option.GetAttribute("value"))
+            .First(value => !string.IsNullOrEmpty(value));
+        picker.Change(chosen);
+
+        var offeredAfterwards = cut.FindAll("select")
+            .Single(box => box.GetAttribute("aria-label") == "Stands for these lists")
+            .QuerySelectorAll("option")
+            .Select(option => option.GetAttribute("value"));
+        Assert.DoesNotContain(chosen, offeredAfterwards);
+    }
+
     private IRenderedComponent<TaskEditor> Render()
         => RenderComponent<TaskEditor>(parameters => parameters.Add(editor => editor.Id, TaskListId));
 
@@ -150,7 +230,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var taskList = new TaskDto(
             TaskListId, "Errands", [item], IsCompleted: false, IsGroup: false, IsPrivate: false,
             EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
+            Description: "Things to pick up on the way home");
 
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -183,9 +264,11 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
+            // Two other lists as well, so the "stands for these lists" picker has something to offer -
+            // it never offers the list being edited, which would be a link to itself.
             return path.EndsWith($"/{TaskListId}", StringComparison.Ordinal)
                 ? JsonOf(taskList)
-                : JsonOf(new[] { taskList });
+                : JsonOf(new[] { taskList, AnotherTaskList("Kitchen"), AnotherTaskList("Bathroom") });
         }))
         {
             BaseAddress = new Uri("https://example.test/")
@@ -198,6 +281,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Services.AddSingleton(new PublicShareApiClient(httpClient));
         Services.AddSingleton(new InventoryApiClient(httpClient));
     }
+
+    private static TaskDto AnotherTaskList(string title)
+        => new(
+            Guid.NewGuid(), title, [], IsCompleted: false, IsGroup: false, IsPrivate: false,
+            EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
     private static HttpResponseMessage Json(object body)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(body) };

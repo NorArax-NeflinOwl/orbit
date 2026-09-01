@@ -1,0 +1,48 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What a list or a warehouse is called, and what it is for, written as one thing.
+
+   Two boxes stacked with two labels made the description look like a setting somebody had to decide
+   about. It is not - it is the rest of the sentence the title starts, and most lists never need one.
+   So: one block, the title drawn as a heading, the description as ordinary text under it, and no
+   second label. The note editor arrived at the same shape from the other direction - see
+   .note-editor-titled in app.css. *@
+<div class="titled-description">
+    <input id="@TitleId" class="titled-description-title" type="text" value="@Title"
+           placeholder="@TitlePlaceholder" aria-label="@TitleLabel"
+           @oninput="args => TitleChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty)" />
+    @* Grows with what is written rather than scrolling inside four lines: somebody typing the third
+       sentence should be able to see the first two. *@
+    <textarea class="titled-description-body" rows="1" value="@Description"
+              placeholder="@(DescriptionPlaceholder ?? T["What is this for? (optional)"])"
+              aria-label="@(T["Description"])"
+              @oninput="args => DescriptionChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty)"></textarea>
+    @Suggestions
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    [Parameter] public EventCallback<string> TitleChanged { get; set; }
+
+    [Parameter, EditorRequired] public string Description { get; set; } = string.Empty;
+
+    [Parameter] public EventCallback<string> DescriptionChanged { get; set; }
+
+    /// <summary>
+    /// What the title is called on this page - "Title" for a list, "Name" for a warehouse. Read out
+    /// rather than shown: the field is a heading, and a heading with a label above it is two headings.
+    /// </summary>
+    [Parameter, EditorRequired] public string TitleLabel { get; set; } = string.Empty;
+
+    [Parameter] public string? TitlePlaceholder { get; set; }
+
+    [Parameter] public string? DescriptionPlaceholder { get; set; }
+
+    /// <summary>For a page that puts something under the pair - the name suggestions, so far.</summary>
+    [Parameter] public RenderFragment? Suggestions { get; set; }
+
+    /// <summary>Only where something else needs to point at the title box.</summary>
+    [Parameter] public string? TitleId { get; set; }
+}

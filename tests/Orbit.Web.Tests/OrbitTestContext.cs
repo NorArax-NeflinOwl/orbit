@@ -24,6 +24,18 @@ public abstract class OrbitTestContext : TestContext
         // Empty, which is what every page sees unless the map sent somebody to it - the same reason
         // Translations is here. A test about the handover puts a place in it first.
         Services.AddSingleton(new ChosenPlace());
+        // The inventory page reads the order this reader put their warehouses in. StubJSRuntime is
+        // the one that answers localStorage, and it starts empty - so nothing is arranged, which is
+        // the right answer for a test that has not arranged anything.
+        Services.AddSingleton(new WarehouseArrangement(new StubJSRuntime()));
+        // The contacts page reads which conversations this reader keeps at the top. Same storage, same
+        // empty start - nothing is pinned until a test pins something.
+        Services.AddSingleton(new ConversationPins(new StubJSRuntime()));
+        // Every overflow menu asks JS to place it inside the viewport when it opens - see
+        // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
+        // nothing; without it any test that opens a menu fails on the interop call rather than on
+        // whatever it was about.
+        JSInterop.SetupModule("./js/menuAnchor.js").SetupVoid("anchorToTrigger", _ => true).SetVoidResult();
     }
 
     /// <summary>

@@ -68,9 +68,11 @@
                      only answer is "any" leads nowhere. Searching by name is always offered: a name is
                      typed, and every item has one. -->
                 <Picker Title="{controls:Translate 'Product type'}" IsVisible="{Binding CanNarrowByProductType}"
-                        ItemsSource="{Binding ProductTypes}" SelectedItem="{Binding ChosenProductType}" />
+                        ItemsSource="{Binding ProductTypes}" SelectedItem="{Binding ChosenProductType}"
+                        SemanticProperties.Description="{controls:Translate 'Private'}" />
                 <Picker Title="{controls:Translate 'Category'}" IsVisible="{Binding CanNarrowByCategory}"
-                        ItemsSource="{Binding Categories}" SelectedItem="{Binding ChosenCategory}" />
+                        ItemsSource="{Binding Categories}" SelectedItem="{Binding ChosenCategory}"
+                        SemanticProperties.Description="{controls:Translate 'Private'}" />
                 <Entry Placeholder="{controls:Translate 'Item name'}" Text="{Binding SearchedName}"
                        ClearButtonVisibility="WhileEditing" ReturnType="Search" />
             </VerticalStackLayout>

@@ -33,4 +33,27 @@ internal sealed class InMemoryContactRepository : IContactRepository
 
         return Task.CompletedTask;
     }
+
+    public Task<bool> SetArchivedAsync(
+        Guid ownerUserId, Guid contactUserId, bool isArchived, CancellationToken cancellationToken)
+    {
+        var contact = Find(ownerUserId, contactUserId);
+        contact?.SetArchived(isArchived);
+        return Task.FromResult(contact is not null);
+    }
+
+    public Task<bool> ClearHistoryAsync(
+        Guid ownerUserId, Guid contactUserId, DateTimeOffset clearedAtUtc, CancellationToken cancellationToken)
+    {
+        var contact = Find(ownerUserId, contactUserId);
+        contact?.ClearHistory(clearedAtUtc);
+        return Task.FromResult(contact is not null);
+    }
+
+    public Task<Contact?> FindAsync(Guid ownerUserId, Guid contactUserId, CancellationToken cancellationToken)
+        => Task.FromResult(Find(ownerUserId, contactUserId));
+
+    private Contact? Find(Guid ownerUserId, Guid contactUserId)
+        => _contacts.FirstOrDefault(
+            existing => existing.OwnerUserId == ownerUserId && existing.ContactUserId == contactUserId);
 }

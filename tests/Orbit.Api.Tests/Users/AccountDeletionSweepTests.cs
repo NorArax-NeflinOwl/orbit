@@ -109,7 +109,7 @@ public sealed class AccountDeletionSweepTests : IDisposable
         var now = DateTimeOffset.UtcNow;
         _dbContext.Notes.Add(new NoteEntity { Id = Guid.NewGuid(), UserId = userId, Title = "Note", ContentJson = "[]", CreatedAtUtc = now, UpdatedAtUtc = now });
         _dbContext.Tasks.Add(new TaskEntity { Id = Guid.NewGuid(), UserId = userId, Title = "Tasks", CreatedAtUtc = now, UpdatedAtUtc = now });
-        _dbContext.CalendarEvents.Add(new CalendarEventEntity { Id = Guid.NewGuid(), UserId = userId, Title = "Event", StartUtc = now, EndUtc = now, CreatedAtUtc = now, UpdatedAtUtc = now, Color = "#fff", CreationNotificationChannel = "None", ReminderNotificationChannel = "None", RemindersJson = "[]", GuestsJson = "[]" });
+        _dbContext.CalendarEvents.Add(new CalendarEventEntity { Id = Guid.NewGuid(), UserId = userId, Title = "Event", StartUtc = now, EndUtc = now, CreatedAtUtc = now, UpdatedAtUtc = now, Color = "#fff", ReminderNotificationChannel = "None", RemindersJson = "[]", GuestsJson = "[]" });
         _dbContext.Warehouses.Add(new WarehouseEntity { Id = Guid.NewGuid(), UserId = userId, Name = "Store", CreatedAtUtc = now, UpdatedAtUtc = now });
         _dbContext.RefreshTokens.Add(new RefreshTokenEntity { Id = Guid.NewGuid(), UserId = userId, TokenHash = Guid.NewGuid().ToString("N"), ExpiresAtUtc = now, CreatedAtUtc = now });
         _dbContext.PushSubscriptions.Add(new PushSubscriptionEntity { Id = Guid.NewGuid(), UserId = userId, Endpoint = $"https://push.example/{userId}", P256dhBase64 = "k", AuthBase64 = "a", CreatedAtUtc = now });

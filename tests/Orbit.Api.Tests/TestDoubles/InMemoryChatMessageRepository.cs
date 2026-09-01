@@ -104,6 +104,12 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         _messages.RemoveAll(message => message.GroupMessageId == groupMessageId);
         return Task.CompletedTask;
     }
+
+    public Task DeleteGroupCopiesForAsync(Guid groupId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        _messages.RemoveAll(message => message.GroupId == groupId && message.RecipientUserId == recipientUserId);
+        return Task.CompletedTask;
+    }
     public Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(
         Guid readerUserId, CancellationToken cancellationToken)
     {

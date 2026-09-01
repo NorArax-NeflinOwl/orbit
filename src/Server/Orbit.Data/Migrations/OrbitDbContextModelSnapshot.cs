@@ -36,11 +36,6 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("CreationNotificationChannel")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -75,6 +70,9 @@ namespace Orbit.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<bool>("NotifyAtStart")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -87,6 +85,9 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<int?>("RecurrenceIntervalCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RecurrenceOccurrenceCount")
                         .HasColumnType("integer");
 
                     b.Property<DateTimeOffset?>("RecurrenceUntilUtc")
@@ -242,6 +243,9 @@ namespace Orbit.Data.Migrations
                     b.Property<Guid>("GroupId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTimeOffset>("JoinedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -328,6 +332,12 @@ namespace Orbit.Data.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("HistoryClearedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset>("LastMessageAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -471,6 +481,9 @@ namespace Orbit.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("IsCheckedRegularly")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal?>("MinimumQuantity")
                         .HasColumnType("numeric");
@@ -972,6 +985,13 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasDefaultValue("");
+
                     b.Property<string>("EncryptedCiphertext")
                         .HasColumnType("text");
 
@@ -1050,8 +1070,8 @@ namespace Orbit.Data.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<DateTimeOffset?>("DueDateUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1070,9 +1090,6 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("LinkedInventoryItemId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("LinkedTaskListId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Location")
@@ -1107,6 +1124,24 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("TaskId");
 
                     b.ToTable("TaskItemEntity");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.TaskItemTaskListLinkEntity", b =>
+                {
+                    b.Property<Guid>("TaskItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LinkedTaskListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TaskItemId", "LinkedTaskListId");
+
+                    b.HasIndex("LinkedTaskListId");
+
+                    b.ToTable("TaskItemTaskListLinkEntity");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskOverdueNotificationDeliveryEntity", b =>
@@ -1315,6 +1350,13 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasDefaultValue("");
+
                     b.Property<string>("EncryptedCiphertext")
                         .HasColumnType("text");
 
@@ -1420,6 +1462,15 @@ namespace Orbit.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.TaskItemTaskListLinkEntity", b =>
+                {
+                    b.HasOne("Orbit.Data.Entities.TaskItemEntity", null)
+                        .WithMany("LinkedTaskLists")
+                        .HasForeignKey("TaskItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupEntity", b =>
                 {
                     b.Navigation("Members");
@@ -1428,6 +1479,11 @@ namespace Orbit.Data.Migrations
             modelBuilder.Entity("Orbit.Data.Entities.TaskEntity", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.TaskItemEntity", b =>
+                {
+                    b.Navigation("LinkedTaskLists");
                 });
 #pragma warning restore 612, 618
         }

@@ -24,7 +24,7 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
             // No !IsCompleted here on purpose: a finished item is due again tomorrow, and is reopened
             // by ReopenAsync when its reminder fires.
-            where item.RemindDaily && item.LinkedTaskListId == null
+            where item.RemindDaily && !item.LinkedTaskLists.Any()
                 && item.DailyReminderNotificationChannel != "None"
             select new
             {

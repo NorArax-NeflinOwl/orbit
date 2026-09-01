@@ -1,5 +1,7 @@
 @using Orbit.Web.Services
+@implements IAsyncDisposable
 @inject Translations T
+@inject IJSRuntime JSRuntime
 
 @* The extra actions a screen has but does not want in its main row - the same three-dot menu the chat
    uses for a message, so the gesture means the same thing wherever it appears. *@
@@ -16,7 +18,7 @@
         @* Closing on any click inside is deliberate: every entry here is an action, and a menu that
            stayed open behind the thing it just started would be in the way of reading the result. A
            menu of settings is the exception - closing after each one would make changing two a chore. *@
-        <div class="overflow-menu-dropdown" @onclick="OnClickInside">
+        <div class="overflow-menu-dropdown" @ref="_dropdown" @onclick="OnClickInside">
             @ChildContent
         </div>
     }
@@ -30,6 +32,56 @@
     [Parameter] public bool StaysOpen { get; set; }
 
     private bool _isOpen;
+
+    /// <summary>The panel itself, so JS can measure it and place it - see menuAnchor.js.</summary>
+    private ElementReference _dropdown;
+
+    private IJSObjectReference? _anchoring;
+
+    /// <summary>
+    /// Puts the panel where it fits. Left to CSS it hung from the trigger's right edge, which is off
+    /// the screen whenever the trigger is near the left of a narrow one - a card's menu at the top of
+    /// a phone opened half outside the window. menuAnchor.js measures both and clamps the result to
+    /// the viewport; it was written for exactly this and nothing was calling it.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_isOpen)
+        {
+            return;
+        }
+
+        try
+        {
+            _anchoring ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/menuAnchor.js");
+            await _anchoring.InvokeVoidAsync("anchorToTrigger", _dropdown, ".overflow-menu-trigger");
+        }
+        catch (JSException)
+        {
+            // The menu is still usable where CSS put it; this only improves where that is.
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away mid-open.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_anchoring is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _anchoring.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Nothing left to release.
+        }
+    }
 
     /// <summary>
     /// Shuts the menu from outside it. For a menu that mostly holds settings - and so stays open - but

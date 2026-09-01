@@ -107,7 +107,7 @@ public sealed class RestockListRefresh
     {
         if (!settings.OnlyLinkedWithDueDate)
         {
-            return [.. shelf.Where(item => item.IsBelowMinimum).Select(item => item.Id)];
+            return [.. shelf.Where(item => item.BelongsOnTheRestockList).Select(item => item.Id)];
         }
 
         var onThisShelf = shelf.Select(item => item.Id).ToHashSet();
@@ -197,7 +197,7 @@ public sealed class RestockListRefresh
             }
 
             items[index] = TaskItem.FromPersistence(
-                item.Id, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+                item.Id, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListIds,
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
                 settings.RefreshTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId,
                 item.LinkedInventoryItemId);

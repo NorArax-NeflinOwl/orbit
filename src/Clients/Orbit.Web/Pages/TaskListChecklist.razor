@@ -5,6 +5,7 @@
 
    The second route is what every link written before that was true still says. Kept so a bookmark, or a
    push notification already sitting on somebody's phone, lands here rather than nowhere. *@
+@implements IDisposable
 @page "/tasks/{Id:guid}"
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
@@ -270,9 +271,12 @@ else
                                 }
                             </span>
                         }
-                        @if (item.LinkedTaskListId is { } linkedTaskListId)
+                        @if (item.AllLinkedTaskListIds.Count > 0)
                         {
-                            <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitle(linkedTaskListId))</span>
+                            @* Every list it stands for, named: "follows Kitchen, Bathroom" says what
+                               the row is waiting on, where "follows another list" says only that it is
+                               waiting. *@
+                            <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitles(item))</span>
                         }
                         else if (item.DueDateUtc is { } dueDate)
                         {
@@ -345,7 +349,7 @@ else
     /// </summary>
     private IReadOnlyList<FlatChecklistEntry> _flatItems =>
         [.. _sections.SelectMany(section => section.TaskList.Items
-            .Where(item => item.LinkedTaskListId is null)
+            .Where(item => item.AllLinkedTaskListIds.Count == 0)
             .Select(item => new FlatChecklistEntry(section, item)))];
 
     /// <summary>
@@ -431,7 +435,7 @@ else
             return;
         }
 
-        foreach (var memberId in taskList.Items.Select(item => item.LinkedTaskListId).OfType<Guid>())
+        foreach (var memberId in taskList.Items.SelectMany(item => item.AllLinkedTaskListIds))
         {
             if (_allTaskLists.FirstOrDefault(candidate => candidate.Id == memberId) is { } member)
             {
@@ -446,7 +450,14 @@ else
     /// checkbox that can be seen but not moved.
     /// </summary>
     private static bool IsItemLocked(ChecklistSection section, TaskItemDto item)
-        => item.LinkedTaskListId is not null || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+        => item.AllLinkedTaskListIds.Count > 0 || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+
+    /// <summary>
+    /// The lists an entry stands for, named and joined - an entry naming three of them is one step, and
+    /// saying so takes naming all three.
+    /// </summary>
+    private string LinkedTaskListTitles(TaskItemDto item)
+        => string.Join(", ", item.AllLinkedTaskListIds.Select(LinkedTaskListTitle));
 
     private string LinkedTaskListTitle(Guid linkedTaskListId)
         => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId) is { } linked
@@ -622,17 +633,13 @@ else
         }
 
         var toggledIndex = taskList.Items.ToList().IndexOf(item);
+        // Everything as it already is, with one item's completion changed - see TaskItemRequest.From on
+        // why the fields are not listed here.
         var items = taskList.Items
-            .Select((existingItem, index) => new TaskItemRequest(
-                existingItem.Description,
-                existingItem.Id,
-                existingItem.DueDateUtc,
-                index == toggledIndex ? isCompleted : existingItem.IsCompleted,
-                existingItem.LinkedTaskListId,
-                existingItem.OverdueNotificationChannel,
-                existingItem.RemindDaily,
-                existingItem.DailyReminderNotificationChannel,
-                existingItem.DailyReminderTimeOfDay))
+            .Select((existingItem, index) => TaskItemRequest.From(existingItem) with
+            {
+                IsCompleted = index == toggledIndex ? isCompleted : existingItem.IsCompleted
+            })
             .ToList();
 
         try
@@ -662,6 +669,59 @@ else
         // Reloads even after a failure, so a checkbox that didn't save snaps back to what the server
         // actually holds - and after a success, so a group's linked items pick up their new completion.
         await LoadAsync();
+
+        TidyTheRestockListShortly();
+    }
+
+    /// <summary>How long a crossed-off restock errand stays on the list before a refresh clears it.</summary>
+    private static readonly TimeSpan RestockTidyDelay = TimeSpan.FromMinutes(5);
+
+    /// <summary>The pending tidy-up, while one is waiting - restarted by each tick, cancelled on leaving.</summary>
+    private CancellationTokenSource? _restockTidy;
+
+    /// <summary>
+    /// Asks for the refresh that takes finished errands off the restock list, a few minutes from now.
+    ///
+    /// Crossing one off used to remove it in the same breath, so a row answered a tap by vanishing -
+    /// and a tap on the wrong row could not be undone by untapping it, because there was nothing left
+    /// to untap. The shelf is still filled at once (see RestockCompletion.TopUpFinishedAsync); only
+    /// the tidying waits.
+    ///
+    /// Restarted on every tick rather than queued once per tick: somebody working down a list ticks
+    /// six things in a minute, and six refreshes would be five more than the list needs. The wait
+    /// therefore measures from the last one, which is also when they have stopped and might look back.
+    /// </summary>
+    private void TidyTheRestockListShortly()
+    {
+        _restockTidy?.Cancel();
+        _restockTidy?.Dispose();
+        _restockTidy = new CancellationTokenSource();
+        var waiting = _restockTidy.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(RestockTidyDelay, waiting);
+                await InvokeAsync(RefreshFromTheWarehouseAsync);
+            }
+            catch (OperationCanceledException)
+            {
+                // Another tick came in, or the page went away. Either way this one is not wanted.
+            }
+            catch (Exception exception)
+            {
+                // Nothing here is worth interrupting somebody over: the list is correct as it stands,
+                // it just has crossed-off rows still on it, and the next refresh settles them.
+                Logger.LogWarning(exception, "The restock list could not be tidied up after a delay");
+            }
+        }, waiting);
+    }
+
+    public void Dispose()
+    {
+        _restockTidy?.Cancel();
+        _restockTidy?.Dispose();
     }
 
     private void GoToDeepEditor()

@@ -118,7 +118,7 @@ public sealed class LocalWarehouseRepository : ICopyReviewStore
         var warehouse = await dbContext.Warehouses.AsNoTracking()
             .FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken);
 
-        return warehouse is not null && OfflineEditPolicy.IsAllowed(warehouse, _networkStatus);
+        return warehouse is not null && SharedItemAccess.AllowsEditing(warehouse) && OfflineEditPolicy.IsAllowed(warehouse, _networkStatus);
     }
 
     public async Task<IReadOnlySet<Guid>> GetPendingLocalIdsAsync(CancellationToken cancellationToken = default)
@@ -164,6 +164,11 @@ public sealed class LocalWarehouseRepository : ICopyReviewStore
                 candidate => candidate.LocalId == localId, cancellationToken) is not { } warehouse)
         {
             return LocalWriteOutcome.NotFound;
+        }
+
+        if (!SharedItemAccess.AllowsEditing(warehouse))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
         }
 
         if (!OfflineEditPolicy.IsAllowed(warehouse, _networkStatus))
@@ -318,6 +323,11 @@ public sealed class LocalWarehouseRepository : ICopyReviewStore
                 candidate => candidate.LocalId == originalLocalId, cancellationToken) is not { } original)
         {
             return LocalWriteOutcome.NotFound;
+        }
+
+        if (!SharedItemAccess.AllowsEditing(original))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
         }
 
         if (!OfflineEditPolicy.IsAllowed(original, _networkStatus))

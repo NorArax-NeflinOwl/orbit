@@ -13,4 +13,6 @@ namespace Orbit.Core.Inventory.UpdateWarehouse;
 [ClientAction(ClientActionCategory.Edit)]
 public sealed record UpdateWarehouseCommand(
     Guid UserId, Guid WarehouseId, string Name, IReadOnlyList<WarehouseItemInput> Items,
-    bool IsPrivate, EncryptedPayload? EncryptedContent) : IRequest<EditOutcome>;
+    bool IsPrivate, EncryptedPayload? EncryptedContent,
+    /// <summary>Null leaves the stored description alone - see SaveWarehouseRequest.</summary>
+    string? Description = null) : IRequest<EditOutcome>;

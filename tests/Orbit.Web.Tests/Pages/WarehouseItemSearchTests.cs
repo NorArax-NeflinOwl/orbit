@@ -162,7 +162,7 @@ public sealed class WarehouseItemSearchTests : OrbitTestContext
         cut.FindAll(".warehouse-search button").First(button => button.TextContent.Contains("Clear")).Click();
 
         Assert.Empty(cut.FindAll(".warehouse-search-results"));
-        Assert.Equal(2, cut.FindAll(".warehouse-card").Count);
+        Assert.Equal(2, cut.FindAll(".item-card").Count);
     }
 
     [Fact]

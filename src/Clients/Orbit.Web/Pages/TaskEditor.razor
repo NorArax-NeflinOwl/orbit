@@ -88,13 +88,17 @@ else
     <EditForm Model="_formModel" OnValidSubmit="AddItem" class="editor-form">
     <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
         <div class="field">
-            <label>@T["Title"]</label>
-            @* oninput as well as the default onchange, so the suggestions below see the title as it is
-               being typed rather than only once the field is left. *@
-            <InputText @bind-Value="_formModel.Title"
-                       @oninput="args => _formModel.Title = args.Value?.ToString() ?? string.Empty" />
-            <NameSuggestions Kind="NameSuggestionKind.TaskListTitle" Value="_formModel.Title"
-                             OnChosen="chosen => _formModel.Title = chosen" />
+            @* Typed rather than committed on leaving the field, so the suggestions underneath keep up
+               with what is being written. *@
+            <TitledDescription Title="@_formModel.Title" TitleChanged="value => _formModel.Title = value"
+                               Description="@_formModel.Description"
+                               DescriptionChanged="value => _formModel.Description = value"
+                               TitleLabel="@(T["Title"])" TitlePlaceholder="@(T["Title"])">
+                <Suggestions>
+                    <NameSuggestions Kind="NameSuggestionKind.TaskListTitle" Value="_formModel.Title"
+                                     OnChosen="chosen => _formModel.Title = chosen" />
+                </Suggestions>
+            </TitledDescription>
         </div>
 
         <h2>@T["Items"]</h2>
@@ -110,7 +114,7 @@ else
                 <ReorderControls OnDragStart="() => _itemOrder.Start(item)" OnDragEnd="_itemOrder.Finish"
                                  OnMoveUp="() => MoveItem(item, -1)" OnMoveDown="() => MoveItem(item, 1)"
                                  CanMoveUp="CanMoveItem(item, -1)" CanMoveDown="CanMoveItem(item, 1)" />
-                    @if (string.IsNullOrEmpty(item.LinkedTaskListId))
+                    @if (!item.IsALinkToOtherLists)
                     {
                         <InputCheckbox @bind-Value="item.IsCompleted" title="@(T["Completed"])" />
                     }
@@ -121,9 +125,13 @@ else
                     }
                     @* Reassigned on every row, so it holds the last one by the time the loop ends - which
                        is the row Add item just appended, and the one the cursor belongs in. *@
-                    <InputText class="editor-item-main" @ref="_lastItemDescription" @bind-Value="item.Description"
-                               placeholder="@(T["Item description"])"
-                               @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty" />
+                    @* A text area rather than a single-line box: an entry is allowed to be a sentence
+                       or two, and one that scrolled sideways inside a one-line field could not be read
+                       back without dragging through it. It starts one line tall and grows with what is
+                       written - see .editor-item-main in app.css. *@
+                    <textarea class="editor-item-main" @ref="_lastItemDescription" rows="1"
+                              placeholder="@(T["Item description"])" value="@item.Description"
+                              @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty"></textarea>
                     <NameSuggestions Kind="NameSuggestionKind.TaskItemDescription" Value="item.Description"
                                      OnChosen="chosen => item.Description = chosen" />
                     <span class="editor-item-aside">
@@ -179,58 +187,20 @@ else
                            be linked by hand. See SaveTheCalendarAsync. *@
                         @if (item.Kind == nameof(TaskItemKind.Calendar))
                         {
-                            <label>@T["Description"]<InputText @bind-Value="item.EventDescription"
-                                                               placeholder="@(T["What this is about"])" />
-                            </label>
-                            <label>@T["Starts"]<DateField @bind-Value="item.EventStartDate" AriaLabel="@(T["Starts"])" />
-                            </label>
-                            @if (!item.EventIsAllDay)
-                            {
-                                <label>@T["Start time"]<TimeField @bind-Value="item.EventStartTime" AriaLabel="@(T["Start time"])" />
-                                </label>
-                            }
-                            <label>@T["Ends"]<DateField @bind-Value="item.EventEndDate" AriaLabel="@(T["Ends"])" />
-                            </label>
-                            @if (!item.EventIsAllDay)
-                            {
-                                <label>@T["End time"]<TimeField @bind-Value="item.EventEndTime" AriaLabel="@(T["End time"])" />
-                                </label>
-                            }
-                            <label>
-                                <InputCheckbox @bind-Value="item.EventIsAllDay" />@T["All-day event"]</label>
-                            <label>@T["Repeats"]<select @bind="item.EventRecurrence">
-                                    <option value="None">@T["Does not repeat"]</option>
-                                    <option value="Daily">@T["Daily"]</option>
-                                    <option value="Weekly">@T["Weekly"]</option>
-                                    <option value="Monthly">@T["Monthly"]</option>
-                                </select>
-                            </label>
-                            <label>@T["Remind before"]<InputText @bind-Value="item.EventReminderMinutes"
-                                                                 placeholder="@(T["minutes"])" />
-                            </label>
-                            <label>@T["Color"]<input type="color" @bind="item.EventColor" /></label>
-                            <label>@T["Location"]<InputText @bind-Value="item.Location"
-                                                            placeholder="@(T["Where this happens"])" />
-                            </label>
-                            @* The name is the reader's to write. Confirming a pin fills an empty box
-                               and leaves a name they chose alone - see UseThePickedPlace. *@
+                            @* The event form itself, the same control the calendar's own editor uses -
+                               see EventFields.razor. The entry's own words are the event's title, so
+                               there is no title box here. *@
                             <span class="field-break"></span>
-                            <small>@T["The name is yours to write - the pin below keeps its exact position either way."]</small>
-                            @* Typing an address is one way; pointing at it is the other, and the
-                               one that works when nobody knows what the street is called. *@
-                            <button type="button" class="btn-secondary" @onclick="() => OpenTheMapFor(item)">@T["Show map"]</button>
+                            <EventFields Model="item.Event" NotificationSettings="_notificationSettings"
+                                         OnMapRequested="() => OpenTheMapFor(item)"
+                                         IdPrefix="@($"item{_formModel.Items.IndexOf(item)}")"
+                                         CanInviteGuests="true" Contacts="_contacts"
+                                         CanGrantEditOnly="true" CanGrantCanEdit="true"
+                                         GuestDisplayName="GuestName"
+                                         GuestAccessLabel="userId => GuestAccessLabelFor(item, userId)"
+                                         OnGuestAdded="invitation => InviteToTheEvent(item, invitation)"
+                                         OnGuestRemoved="userId => UninviteFromTheEvent(item, userId)" />
                             <span class="field-break"></span>
-                            @* Which of these is true depends on whether a pin was ever confirmed, and
-                               the difference matters: only a pinned place can travel to the event, so
-                               saying so is what stops a typed name quietly going nowhere. *@
-                            @if (item.LocationLatitude is not null)
-                            {
-                                <small>@T["This place goes to the event in the calendar, pin and all."]</small>
-                            }
-                            else if (item.Location.Trim().Length > 0)
-                            {
-                                <small>@T["Point at this place on the map so the calendar knows where it is - a name on its own stays on the entry."]</small>
-                            }
 
                             @if (!string.IsNullOrEmpty(item.LinkedCalendarEventId))
                             {
@@ -250,36 +220,8 @@ else
                         {
                             @if (InventoryFieldsFor(item) is { } product)
                             {
-                                <label>@T["Item name"]<InputText @bind-Value="product.Name" placeholder="@(T["Item name"])" />
-                                </label>
-                                <label title="@(T["How much of it there is"])">@T["Amount"]
-                                    <InputNumber TValue="decimal" @bind-Value="product.Quantity" step="0.01" />
-                                </label>
-                                <label title="@(T["Restock once the amount drops below this"])">@T["Min"]
-                                    <InputNumber TValue="decimal?" @bind-Value="product.MinimumQuantity" step="0.01" />
-                                </label>
-                                <label title="@(T["What this is counted in"])">@T["Unit"]
-                                    <select @bind="product.Unit" aria-label="@(T["Unit"])">
-                                        @foreach (var option in InventoryUnitOption.All)
-                                        {
-                                            <option value="@option.Value" title="@T[option.Name]">@T[option.ShortName]</option>
-                                        }
-                                    </select>
-                                </label>
-                                <label>@T["Product type"]<InputText @bind-Value="product.ProductType" placeholder="@(T["Product type"])" />
-                                </label>
-                                <label>@T["Category"]<InputText @bind-Value="product.Category" placeholder="@(T["Category"])" />
-                                </label>
-                                <label>@T["Expires in"]<ExpiresInField Value="product.ExpiryDate"
-                                                                      ValueChanged="expiresOn => product.ExpiryDate = expiresOn" />
-                                </label>
-                                <label>@T["Expiry notification"]<select @bind="product.ExpiryNotificationChannel">
-                                        @foreach (var option in NotificationChannelOption.All)
-                                        {
-                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                                        }
-                                    </select>
-                                </label>
+                                <InventoryFields Model="product.Product" NotificationSettings="_notificationSettings"
+                                                 ShowNameAndAmounts="true" />
                                 <span class="field-break"></span>
                                 <small>@T.Format("On the shelf in {0}. Saving this list saves the change there too.", product.WarehouseName)</small>
                             }
@@ -291,14 +233,35 @@ else
                         }
                         else if (item.Kind == nameof(TaskItemKind.Checklist))
                         {
-                            <label>@T["Link to list"]<select @bind="item.LinkedTaskListId">
-                                    <option value="">@T["None"]</option>
-                                    @foreach (var linkableTaskList in _linkableTaskLists)
+                            @* An entry can stand for several lists - "the flat is ready" is the kitchen
+                               and the bathroom and the hall. Written as one step rather than three
+                               entries saying the same thing, and done only when all of them are. *@
+                            <span class="field-break"></span>
+                            <label>@T["Stands for these lists"]
+                                <select value="" @onchange="args => LinkToTheList(item, args.Value)"
+                                        aria-label="@(T["Stands for these lists"])">
+                                    <option value="">@(item.IsALinkToOtherLists ? T["Add another…"] : T["None"])</option>
+                                    @foreach (var linkableTaskList in LinkableListsFor(item))
                                     {
                                         <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
                                     }
                                 </select>
                             </label>
+                            @if (item.IsALinkToOtherLists)
+                            {
+                                <span class="field-break"></span>
+                                <ul class="linked-list-chips">
+                                    @foreach (var linkedId in item.LinkedTaskListIds)
+                                    {
+                                        <li>
+                                            <span>@Written(TitleOfTaskList(linkedId))</span>
+                                            <button type="button" class="icon-btn" title="@(T["Remove"])"
+                                                    aria-label="@(T["Remove"])"
+                                                    @onclick="() => UnlinkFromTheList(item, linkedId)">✕</button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
                             <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
                                     @foreach (var option in NotificationChannelOption.All)
                                     {
@@ -324,10 +287,10 @@ else
                                 <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
                                 </label>
                             }
-                            @if (!string.IsNullOrEmpty(item.LinkedTaskListId))
+                            @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
-                                <small>@T["Completion follows the linked list, so it can't be ticked by hand."]</small>
+                                <small>@T["Completion follows the linked lists, so it can't be ticked by hand."]</small>
                             }
                         }
                         @if (_moveErrorMessage is not null && item.Id is { } movedItemId && _moveErrorMessageForItemId == movedItemId)
@@ -536,6 +499,35 @@ else
     /// <summary>The lists an item may link to - see TaskListLinkCycle for what is left out and why.</summary>
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
 
+    /// <summary>
+    /// The lists this entry could still be pointed at: every linkable one it does not already name.
+    /// Offering a list it already stands for would be offering to say the same thing twice.
+    /// </summary>
+    private IReadOnlyList<TaskDto> LinkableListsFor(TaskItemFormModel item)
+        => [.. _linkableTaskLists.Where(candidate => !item.LinkedTaskListIds.Contains(candidate.Id))];
+
+    private static void LinkToTheList(TaskItemFormModel item, object? chosenValue)
+    {
+        if (Guid.TryParse(chosenValue?.ToString(), out var taskListId) && !item.LinkedTaskListIds.Contains(taskListId))
+        {
+            item.LinkedTaskListIds.Add(taskListId);
+        }
+    }
+
+    private static void UnlinkFromTheList(TaskItemFormModel item, Guid taskListId)
+        => item.LinkedTaskListIds.Remove(taskListId);
+
+    /// <summary>
+    /// What a linked list is called. A list this reader can no longer see - shared and then unshared,
+    /// say - is named by its id rather than left blank: a row saying nothing looks like a bug, and the
+    /// id is at least something to recognise it by after a save fails.
+    /// </summary>
+    private string TitleOfTaskList(Guid taskListId)
+        => _linkableTaskLists.FirstOrDefault(candidate => candidate.Id == taskListId)?.Title
+            ?? _moveTargetTaskLists.FirstOrDefault(candidate => candidate.Id == taskListId)?.Title
+            ?? taskListId.ToString();
+
+
     /// <summary>The lists a row may be moved to, which is any but this one.</summary>
     private IReadOnlyList<TaskDto> _moveTargetTaskLists = [];
     private bool _isShared;
@@ -626,6 +618,7 @@ else
                     _formModel = new TaskListFormModel
                     {
                         Title = taskList.Title,
+                        Description = taskList.Description,
                         IsGroup = taskList.IsGroup,
                         IsPrivate = taskList.IsPrivate,
                         Priority = taskList.Priority,
@@ -639,13 +632,12 @@ else
                                 IsCompleted = item.IsCompleted,
                                 Kind = item.Kind,
                                 Location = item.Location,
+                                LinkedInventoryItemId = item.LinkedInventoryItemId,
                                 LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
-                                LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty,
+                                LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
                                 RemindDaily = item.RemindDaily,
                                 DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
-                                EventDescription = string.Empty,
-                                EventRecurrence = "None",
                                 // Midnight reads as "never set". The wire carries a plain TimeOnly and so
                                 // cannot say "none"; an entry reminded daily at exactly 00:00 is far more
                                 // likely to be one nobody chose an hour for than one somebody wanted at
@@ -819,30 +811,12 @@ else
             }
 
             var details = linked.Details;
-            var startsAt = details.StartUtc.ToLocalTime();
-            var endsAt = details.EndUtc.ToLocalTime();
 
-            item.EventDescription = details.Description ?? string.Empty;
-            item.EventStartDate = DateOnly.FromDateTime(startsAt.DateTime);
-            item.EventStartTime = TimeOnly.FromDateTime(startsAt.DateTime);
-            item.EventEndDate = DateOnly.FromDateTime(endsAt.DateTime);
-            item.EventEndTime = TimeOnly.FromDateTime(endsAt.DateTime);
-            item.EventIsAllDay = details.IsAllDay;
-            item.EventColor = details.Color ?? item.EventColor;
-            item.EventRecurrence = details.Recurrence?.Frequency ?? "None";
-            item.EventReminderMinutes = details.ReminderMinutesBeforeStart.Count > 0
-                ? details.ReminderMinutesBeforeStart[0].ToString()
-                : string.Empty;
-
-            // The place too. Every other field of the event is read back here so that saving puts the
-            // two in step; leaving this one out meant every save sent no place at all, and an entry
-            // whose event had one had it erased by somebody editing something else entirely.
-            if (details.Location is { } place)
-            {
-                item.Location = place.Address ?? string.Empty;
-                item.LocationLatitude = place.Latitude;
-                item.LocationLongitude = place.Longitude;
-            }
+            // Every field, through the one mapping the calendar's own editor uses. Field by field is
+            // how the place went missing once already: each save then sent whatever the incomplete
+            // copy held, and an entry whose event had a place had it erased by somebody editing
+            // something else entirely.
+            item.Event = EventFormModel.FromDto(details);
         }
     }
 
@@ -864,12 +838,14 @@ else
                 if (Guid.TryParse(item.LinkedCalendarEventId, out var eventId))
                 {
                     await CalendarApiClient.UpdateCalendarEventAsync(eventId, new UpdateCalendarEventRequest(details));
+                    await InviteTheGuestsAsync(item, eventId);
                     continue;
                 }
 
                 var created = await CalendarApiClient.CreateCalendarEventAsync(new CreateCalendarEventRequest(details));
                 item.LinkedCalendarEventId = created.ToString();
                 Logger.LogInformation("A task entry created calendar event {EventId}", created);
+                await InviteTheGuestsAsync(item, created);
             }
             catch (HttpRequestException exception)
             {
@@ -882,60 +858,82 @@ else
         return true;
     }
 
-    /// <summary>The entry, said in the shape the calendar takes. Its own words are the event's title.</summary>
-    private static CalendarEventDetailsRequest EventDetailsFor(TaskItemFormModel item)
-        => new(
-            item.Description,
-            string.IsNullOrWhiteSpace(item.EventDescription) ? null : item.EventDescription,
-            LocationFor(item),
-            item.EventColor,
-            EventStartUtc(item) ?? DateTimeOffset.UtcNow,
-            EventEndUtc(item) ?? EventStartUtc(item) ?? DateTimeOffset.UtcNow,
-            item.EventIsAllDay,
-            RecurrenceFor(item),
-            Guests: [],
-            RemindersFor(item),
-            CreationNotificationChannel: "None",
-            ReminderNotificationChannel: "Push");
+    /// <summary>
+    /// Who has been invited to which entry's event, and as what, while the list is being written. Held
+    /// here rather than on the entry because it is not the entry's business: an invitation is a share,
+    /// and a share needs an event id, which a new event does not have until it is saved.
+    /// </summary>
+    private readonly Dictionary<TaskItemFormModel, List<(Guid UserId, string AccessLevel)>> _invitationsByItem = [];
 
     /// <summary>
-    /// Where the entry happens, in the shape the calendar keeps places in: coordinates, with the words
-    /// as their label (see EventLocation). A name nobody has pointed at on the map has no coordinates
-    /// and cannot become one - Orbit will not pick a match for it silently, because "Długa 4" is a real
-    /// address in a dozen towns. The entry keeps the name, and the editor says what the map would add.
+    /// The control has already put the guest on the event; this records what they were invited as, so
+    /// the share can be sent once the event exists.
     /// </summary>
-    private static EventLocationRequest? LocationFor(TaskItemFormModel item)
-        => item.LocationLatitude is { } latitude && item.LocationLongitude is { } longitude
-            ? new EventLocationRequest(
-                string.IsNullOrWhiteSpace(item.Location) ? null : item.Location.Trim(), latitude, longitude)
-            : null;
-
-    private static RecurrenceRequest? RecurrenceFor(TaskItemFormModel item)
-        => item.EventRecurrence is "None" or "" ? null : new RecurrenceRequest(item.EventRecurrence, 1, UntilUtc: null);
-
-    private static IReadOnlyList<int> RemindersFor(TaskItemFormModel item)
-        => int.TryParse(item.EventReminderMinutes, out var minutes) && minutes > 0 ? [minutes] : [];
-
-    /// <summary>
-    /// Midnight local when no time was given, which is what an all-day event means and what a date on
-    /// its own reads as.
-    /// </summary>
-    private static DateTimeOffset? EventStartUtc(TaskItemFormModel item)
-        => ToUtc(item.EventStartDate, item.EventIsAllDay ? null : item.EventStartTime);
-
-    private static DateTimeOffset? EventEndUtc(TaskItemFormModel item)
-        => ToUtc(item.EventEndDate ?? item.EventStartDate, item.EventIsAllDay ? null : item.EventEndTime);
-
-    private static DateTimeOffset? ToUtc(DateOnly? date, TimeOnly? time)
+    private void InviteToTheEvent(TaskItemFormModel item, (Guid UserId, string AccessLevel) invitation)
     {
-        if (date is not { } day)
+        if (!_invitationsByItem.TryGetValue(item, out var invitations))
         {
-            return null;
+            invitations = [];
+            _invitationsByItem[item] = invitations;
         }
 
-        var local = day.ToDateTime(time ?? TimeOnly.MinValue, DateTimeKind.Local);
-        return new DateTimeOffset(local).ToUniversalTime();
+        invitations.Add(invitation);
     }
+
+    private void UninviteFromTheEvent(TaskItemFormModel item, Guid userId)
+    {
+        if (_invitationsByItem.TryGetValue(item, out var invitations))
+        {
+            invitations.RemoveAll(invitation => invitation.UserId == userId);
+        }
+    }
+
+    private string GuestAccessLabelFor(TaskItemFormModel item, Guid userId)
+        => _invitationsByItem.TryGetValue(item, out var invitations)
+            && invitations.FirstOrDefault(invitation => invitation.UserId == userId) is { AccessLevel: { } level }
+            ? level
+            : string.Empty;
+
+    /// <summary>What to call a guest - their login, or the raw id if they are no longer a contact.</summary>
+    private string GuestName(Guid userId)
+        => _contacts.FirstOrDefault(contact => contact.UserId == userId)?.UserName ?? userId.ToString();
+
+    /// <summary>
+    /// Sends the shares this session's invitations mean, now that the event has an id. A failure here
+    /// does not undo the save: the event is real and the entry points at it, and the guest simply was
+    /// not invited - which is why it is said out loud rather than logged and forgotten.
+    /// </summary>
+    private async Task InviteTheGuestsAsync(TaskItemFormModel item, Guid calendarEventId)
+    {
+        if (!_invitationsByItem.TryGetValue(item, out var invitations) || invitations.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var (userId, accessLevel) in invitations)
+        {
+            try
+            {
+                await CalendarApiClient.ShareCalendarEventAsync(calendarEventId, userId, accessLevel);
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogWarning(exception, "Couldn't invite a guest to a task entry's event");
+                _saveErrorMessage = T.Format("{0} couldn't be invited to \"{1}\".", GuestName(userId), item.Description);
+            }
+        }
+
+        invitations.Clear();
+    }
+
+    /// <summary>
+    /// The entry, said in the shape the calendar takes. Its own words are the event's title, and
+    /// everything else comes from the same model and the same mapping the calendar's own editor uses -
+    /// see EventFormModel.ToRequest.
+    /// </summary>
+    private static CalendarEventDetailsRequest EventDetailsFor(TaskItemFormModel item)
+        => item.Event.ToRequest(item.Description);
+
 
     /// <summary>
     /// Writes back whatever was changed on the shelf, one warehouse at a time, and then rebuilds each
@@ -963,10 +961,15 @@ else
                     continue;
                 }
 
-                var edited = byWarehouse.ToDictionary(product => product.Id);
+                // Every product reached from an errand is one already on the shelf, so it has an id;
+                // the shared model allows none because the warehouse editor can add a row that has
+                // not been saved yet.
+                var edited = byWarehouse
+                    .Where(entry => entry.Product.Id is not null)
+                    .ToDictionary(entry => entry.Product.Id!.Value);
                 var items = shelf
                     .Select(product => edited.TryGetValue(product.Id, out var changed)
-                        ? changed.ToDto()
+                        ? changed.Product.ToDto()
                         : new WarehouseItemDto(
                             product.Id, product.Name, product.ProductType, product.Category, product.Quantity,
                             product.MinimumQuantity, product.Unit, product.ExpiryDate, product.ExpiryNotificationChannel))
@@ -984,39 +987,17 @@ else
         }
     }
 
-    /// <summary>One shelf item while it is being edited from a task list, plus where it lives.</summary>
-    private sealed class InventoryFieldsFormModel
+    /// <summary>
+    /// One shelf item while it is being edited from a task list, and which warehouse it belongs to.
+    /// The item itself is the model the warehouse editor uses, so both screens offer the same fields -
+    /// see InventoryFields.razor.
+    /// </summary>
+    /// <param name="WarehouseName">Shown to say where the change will land, and nothing else.</param>
+    private sealed record InventoryFieldsFormModel(
+        Guid WarehouseId, string WarehouseName, InventoryItemFormModel Product)
     {
-        public Guid Id { get; init; }
-        public Guid WarehouseId { get; init; }
-        public string WarehouseName { get; init; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string ProductType { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
-        public decimal Quantity { get; set; }
-        public decimal? MinimumQuantity { get; set; }
-        public string Unit { get; set; } = InventoryUnitOption.Default.Value;
-        public DateTimeOffset? ExpiryDate { get; set; }
-        public string ExpiryNotificationChannel { get; set; } = NotificationChannelOption.All[0].Value;
-
         public static InventoryFieldsFormModel From(InventoryItemDto product, Guid warehouseId, string warehouseName)
-            => new()
-            {
-                Id = product.Id,
-                WarehouseId = warehouseId,
-                WarehouseName = warehouseName,
-                Name = product.Name,
-                ProductType = product.ProductType,
-                Category = product.Category,
-                Quantity = product.Quantity,
-                MinimumQuantity = product.MinimumQuantity,
-                Unit = InventoryUnitOption.For(product.Unit).Value,
-                ExpiryDate = product.ExpiryDate,
-                ExpiryNotificationChannel = product.ExpiryNotificationChannel
-            };
-
-        public WarehouseItemDto ToDto()
-            => new(Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit, ExpiryDate, ExpiryNotificationChannel);
+            => new(warehouseId, warehouseName, InventoryItemFormModel.FromDto(product));
     }
 
     /// <summary>
@@ -1047,7 +1028,7 @@ else
         }
 
         var withoutWhenItHappens = _formModel.Items.FirstOrDefault(item =>
-            item.Kind == nameof(TaskItemKind.Calendar) && item.EventStartDate is null);
+            item.Kind == nameof(TaskItemKind.Calendar) && item.Event.StartDate is null);
         if (withoutWhenItHappens is not null)
         {
             return T.Format("\"{0}\" is a calendar entry, so it needs a day to happen on.", withoutWhenItHappens.Description);
@@ -1065,7 +1046,10 @@ else
     /// that is bound to fail, and the calendar's own editor does the same.
     /// </summary>
     private static bool EventEndsBeforeItStarts(TaskItemFormModel item)
-        => EventStartUtc(item) is { } startsAt && EventEndUtc(item) is { } endsAt && endsAt < startsAt;
+    {
+        var details = item.Event.ToRequest(item.Description);
+        return details.EndUtc < details.StartUtc;
+    }
 
     /// <summary>
     /// Stops an entry being this event's, without touching the event. Whoever made it decides what
@@ -1177,7 +1161,7 @@ else
     /// The description box of the last row on the form - see where it is assigned. Held so a row added
     /// with Enter can be typed into straight away, which is the whole point of adding it that way.
     /// </summary>
-    private InputText? _lastItemDescription;
+    private ElementReference? _lastItemDescription;
     private bool _isWaitingToFocusTheNewItem;
 
     /// <summary>
@@ -1186,7 +1170,7 @@ else
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_isWaitingToFocusTheNewItem || _lastItemDescription?.Element is not { } element)
+        if (!_isWaitingToFocusTheNewItem || _lastItemDescription is not { } element)
         {
             return;
         }
@@ -1308,14 +1292,18 @@ else
                 item.Id,
                 ToDueDateUtc(item),
                 item.IsCompleted,
-                ToLinkedTaskListId(item),
+                // The old single field goes out empty: this client speaks the new one, and sending both
+                // would make the server pick between two answers.
+                LinkedTaskListId: null,
                 item.OverdueNotificationChannel,
                 item.RemindDaily,
                 item.DailyReminderNotificationChannel,
                 item.DailyReminderTimeOfDay ?? default,
                 item.Kind,
                 item.Location,
-                ToLinkedCalendarEventId(item)))
+                ToLinkedCalendarEventId(item),
+                item.LinkedInventoryItemId,
+                item.LinkedTaskListIds))
             .ToList();
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
@@ -1328,14 +1316,14 @@ else
             {
                 var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority));
+                    Priority: _formModel.Priority, Description: _formModel.Description));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
             {
                 var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority));
+                    Priority: _formModel.Priority, Description: _formModel.Description));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -1531,12 +1519,13 @@ else
             ? new DateTimeOffset(dueDate.ToDateTime(item.DueTime ?? TimeOnly.MinValue, DateTimeKind.Local)).ToUniversalTime()
             : null;
 
-    private static Guid? ToLinkedTaskListId(TaskItemFormModel item)
-        => string.IsNullOrEmpty(item.LinkedTaskListId) ? null : Guid.Parse(item.LinkedTaskListId);
-
     private sealed class TaskListFormModel
     {
         public string Title { get; set; } = string.Empty;
+
+        /// <summary>What this list is for, written under its title. Usually empty.</summary>
+        public string Description { get; set; } = string.Empty;
+
         public bool IsGroup { get; set; }
 
         /// <summary>One of "Low", "Normal", "High" - kept as the wire's own string so the form binds straight to it.</summary>
@@ -1559,51 +1548,72 @@ else
         /// <summary>"Checklist" or "Calendar", kept as the wire's own string so the form binds straight to it.</summary>
         public string Kind { get; set; } = nameof(TaskItemKind.Checklist);
 
-        /// <summary>Where a calendar entry happens. Held even while the kind or the event link say otherwise, so switching back and forth in one sitting doesn't lose what was typed - the server drops it on save.</summary>
-        public string Location { get; set; } = string.Empty;
+        /// <summary>
+        /// Where a calendar entry happens. The event's own field rather than a second copy of it: the
+        /// entry stores the words, the event stores the words and the pin, and keeping two of them is
+        /// how the pin went missing. Held even while the kind says otherwise, so switching back and
+        /// forth in one sitting doesn't lose what was typed - the server drops it on save.
+        /// </summary>
+        public string Location
+        {
+            get => Event.LocationAddress;
+            set => Event.LocationAddress = value;
+        }
+
+        /// <summary>
+        /// The shelf item an inventory errand is about. Nothing on this screen sets it - it is made
+        /// when the errand is - but it has to be carried, because a save replaces the list wholesale.
+        /// Leaving it out cut every restock errand loose from its product on any save of the list.
+        /// </summary>
+        public Guid? LinkedInventoryItemId { get; set; }
 
         /// <summary>
         /// Where <see cref="Location"/> actually is, once somebody has said so on the map. Null until
         /// then: a name typed into the box is a label, and Orbit does not guess coordinates for one -
         /// see GeocodingApiClient.SearchPlacesAsync on why taking the first match silently is wrong.
         /// </summary>
-        public double? LocationLatitude { get; set; }
-        public double? LocationLongitude { get; set; }
+        public double? LocationLatitude
+        {
+            get => Event.LocationLatitude;
+            set => Event.LocationLatitude = value;
+        }
+
+        public double? LocationLongitude
+        {
+            get => Event.LocationLongitude;
+            set => Event.LocationLongitude = value;
+        }
 
         /// <summary>The calendar event this entry is the same appointment as. Empty for none.</summary>
         public string LinkedCalendarEventId { get; set; } = string.Empty;
 
-        public string LinkedTaskListId { get; set; } = string.Empty;
-        public string OverdueNotificationChannel { get; set; } = "Push";
+        /// <summary>
+        /// The lists this entry stands for, in the order somebody added them. Empty for ordinary work.
+        /// Several because a step is often more than one list - see TaskItem.LinkedTaskListIds.
+        /// </summary>
+        public List<Guid> LinkedTaskListIds { get; set; } = [];
+
+        /// <summary>Whether this entry points at other lists rather than being work of its own.</summary>
+        public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
+        /// <summary>
+        /// The banner by default - which is not silence: every notification is written into the in-app
+        /// feed whatever the channel says (see NotificationRecorder). A new entry therefore says
+        /// something on screen and nothing on anybody's phone until asked, which is the quieter
+        /// default and the one a list of thirty errands needs.
+        /// </summary>
+        public string OverdueNotificationChannel { get; set; } = "None";
         public bool RemindDaily { get; set; }
         public string DailyReminderNotificationChannel { get; set; } = "Push";
         /// <summary>Optional here, though the request is not: an empty box is midnight, which is what an unanswered "what time?" has always meant on this form.</summary>
         public TimeOnly? DailyReminderTimeOfDay { get; set; }
 
         /// <summary>
-        /// The event this entry is, while somebody is writing it. A Calendar entry no longer points at
-        /// an event somebody made elsewhere - it is the event, and saving the list is what brings it
-        /// into being. These fields are the event form's, kept here so switching kinds back and forth in
+        /// The event this entry is, while somebody is writing it. A Calendar entry does not point at an
+        /// event somebody made elsewhere - it is the event, and saving the list is what brings it into
+        /// being. The same model the calendar's own editor fills in, so the two forms cannot ask for
+        /// different things; kept even while the kind says otherwise, so switching back and forth in
         /// one sitting does not lose what was typed.
         /// </summary>
-        public string EventDescription { get; set; } = string.Empty;
-
-        public DateOnly? EventStartDate { get; set; }
-
-        public TimeOnly? EventStartTime { get; set; }
-
-        public DateOnly? EventEndDate { get; set; }
-
-        public TimeOnly? EventEndTime { get; set; }
-
-        public bool EventIsAllDay { get; set; }
-
-        public string EventColor { get; set; } = "#7c6cf0";
-
-        /// <summary>How long before it starts to say so, in minutes. Empty for no reminder.</summary>
-        public string EventReminderMinutes { get; set; } = string.Empty;
-
-        /// <summary>"None", "Daily", "Weekly" or "Monthly" - see RecurrenceFrequency.</summary>
-        public string EventRecurrence { get; set; } = "None";
+        public EventFormModel Event { get; set; } = new() { Color = "#7c6cf0" };
     }
 }

@@ -17,7 +17,7 @@ public sealed class GetConversationQueryHandlerTests
         await repository.AddAsync(first, CancellationToken.None);
         var second = ChatMessage.Create(userBId, userAId, "second", "nonce");
         await repository.AddAsync(second, CancellationToken.None);
-        var handler = new GetConversationQueryHandler(repository);
+        var handler = new GetConversationQueryHandler(repository, new InMemoryContactRepository());
 
         var messages = await handler.HandleAsync(new GetConversationQuery(userAId, userBId, null), CancellationToken.None);
 
@@ -29,7 +29,7 @@ public sealed class GetConversationQueryHandlerTests
     {
         var repository = new InMemoryChatMessageRepository();
         await repository.AddAsync(ChatMessage.Create(Guid.NewGuid(), Guid.NewGuid(), "unrelated", "nonce"), CancellationToken.None);
-        var handler = new GetConversationQueryHandler(repository);
+        var handler = new GetConversationQueryHandler(repository, new InMemoryContactRepository());
 
         var messages = await handler.HandleAsync(
             new GetConversationQuery(Guid.NewGuid(), Guid.NewGuid(), null), CancellationToken.None);
@@ -45,7 +45,7 @@ public sealed class GetConversationQueryHandlerTests
         var userBId = Guid.NewGuid();
         var older = ChatMessage.Create(userAId, userBId, "older", "nonce");
         await repository.AddAsync(older, CancellationToken.None);
-        var handler = new GetConversationQueryHandler(repository);
+        var handler = new GetConversationQueryHandler(repository, new InMemoryContactRepository());
 
         var messages = await handler.HandleAsync(
             new GetConversationQuery(userAId, userBId, older.SentAtUtc), CancellationToken.None);

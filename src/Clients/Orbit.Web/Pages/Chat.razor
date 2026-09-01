@@ -249,14 +249,17 @@ else
                                         </p>
                                         @if (canEdit || canForward)
                                         {
-                                            <div class="chat-bubble-menu">
+                                            <div class="chat-bubble-menu"
+                                                 @onfocusout="CloseTheMessageMenuIfFocusLeftAsync"
+                                                 @onfocusin="() => _menuKeptFocus = true">
                                                 <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
                                                         @onclick="() => ToggleMessageMenu(message.Id)" @onclick:stopPropagation="true">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
                                                 </button>
                                                 @if (_openMessageMenuId == message.Id)
                                                 {
-                                                    <div class="chat-bubble-menu-dropdown" @onclick:stopPropagation="true">
+                                                    <div class="chat-bubble-menu-dropdown" @ref="_openMenuElement"
+                                                         @onclick:stopPropagation="true">
                                                         @if (canEdit)
                                                         {
                                                             <button type="button" class="avatar-dropdown-item" @onclick="() => StartEdit(message)">@T["Edit"]</button>
@@ -270,7 +273,8 @@ else
                                                 }
                                                 @if (_forwardingMessageId == message.Id)
                                                 {
-                                                    <div class="chat-bubble-menu-dropdown chat-forward-picker" @onclick:stopPropagation="true">
+                                                    <div class="chat-bubble-menu-dropdown chat-forward-picker" @ref="_openMenuElement"
+                                                         @onclick:stopPropagation="true">
                                                         <div class="chat-forward-picker-title">@T["Forward to…"]</div>
                                                         @foreach (var forwardTarget in _forwardableContacts)
                                                         {
@@ -283,7 +287,6 @@ else
                                                         {
                                                             <span class="chat-forward-picker-empty">@T["No other chats yet."]</span>
                                                         }
-                                                        <button type="button" class="avatar-dropdown-item" @onclick="CancelForward">@T["Cancel"]</button>
                                                     </div>
                                                 }
                                             </div>
@@ -783,6 +786,7 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await EnsureScrollObserverAsync();
+        await AnchorTheOpenMenuAsync();
 
         // Loading a conversation renders several times before the messages themselves arrive (the awaits
         // in LoadConversationForCurrentUserAsync each trigger one). Scrolling an empty list would do
@@ -796,6 +800,35 @@ else
 
         _scrollToNewestOnNextRender = false;
         await ScrollMessageListToBottomAsync();
+    }
+
+    /// <summary>
+    /// Puts an open message menu where it fits. It hangs off a bubble inside a scrolling list, so left
+    /// to CSS it opened downwards into - and behind - the composer, losing half its entries to it.
+    /// menuAnchor.js measures the trigger and the panel and flips it above when there is no room
+    /// below, which is what it was written for.
+    /// </summary>
+    private async Task AnchorTheOpenMenuAsync()
+    {
+        if (_openMessageMenuId is null && _forwardingMessageId is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _menuAnchoring ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/menuAnchor.js");
+            await _menuAnchoring.InvokeVoidAsync(
+                "anchorToTrigger", _openMenuElement, ".chat-bubble-menu-trigger");
+        }
+        catch (JSException)
+        {
+            // The menu is still usable where CSS put it; this only improves where that is.
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away mid-open.
+        }
     }
 
     /// <summary>
@@ -879,6 +912,36 @@ else
     {
         _isContactListCollapsed = !_isContactListCollapsed;
         await Panels.SetOpenAsync(PanelPreferences.Panel.ChatConversationList, !_isContactListCollapsed);
+    }
+
+    /// <summary>
+    /// The open panel, so it can be placed inside the window - see menuAnchor.js. Only one is ever
+    /// rendered, so this always holds the one on screen rather than the last message's.
+    /// </summary>
+    private ElementReference _openMenuElement;
+
+    private IJSObjectReference? _menuAnchoring;
+
+    /// <summary>Set by focus arriving anywhere inside the menu, and read by the focusout below.</summary>
+    private bool _menuKeptFocus;
+
+    /// <summary>
+    /// Closes the menu once focus has actually left it, rather than on the way between its own
+    /// entries. focusout fires before the matching focusin, so this waits a turn and then asks whether
+    /// anything inside took the focus in between.
+    /// </summary>
+    private async Task CloseTheMessageMenuIfFocusLeftAsync()
+    {
+        _menuKeptFocus = false;
+        await Task.Yield();
+
+        if (_menuKeptFocus)
+        {
+            return;
+        }
+
+        CloseMessageMenu();
+        StateHasChanged();
     }
 
     private void ToggleMessageMenu(Guid messageId) => _openMessageMenuId = _openMessageMenuId == messageId ? null : messageId;

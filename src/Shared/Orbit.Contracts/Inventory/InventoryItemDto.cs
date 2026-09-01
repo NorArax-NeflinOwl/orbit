@@ -14,4 +14,9 @@ public sealed record InventoryItemDto(
     bool IsBelowMinimum,
     bool HasPendingRestockTask,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    /// <summary>
+    /// Something to look at every round rather than only when it runs low - see
+    /// Orbit.Core.Inventory.InventoryItem.IsCheckedRegularly.
+    /// </summary>
+    bool IsCheckedRegularly = false);

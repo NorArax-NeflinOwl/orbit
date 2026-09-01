@@ -16,6 +16,15 @@ public sealed class TaskList
     /// <summary>Empty for a private list - its real title is inside <see cref="EncryptedContent"/>.</summary>
     public string Title { get; private set; }
 
+    /// <summary>
+    /// What the list is about, under its title - the second and further lines of the one field the
+    /// editor offers, the way a note is written. Empty for a list nobody described.
+    ///
+    /// Sealed with the rest when the list is private: it goes into the same encrypted payload the
+    /// title and the items do, so a private list leaves nothing readable behind here either.
+    /// </summary>
+    public string Description { get; private set; } = string.Empty;
+
     /// <summary>Empty for a private list - its real items are inside <see cref="EncryptedContent"/>.</summary>
     public IReadOnlyList<TaskItem> Items { get; private set; }
 
@@ -111,14 +120,18 @@ public sealed class TaskList
     public static TaskList Create(
         Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
         bool isPrivate = false, EncryptedPayload? encryptedContent = null, ItemPriority priority = ItemPriority.Normal,
-        bool isPinned = false)
+        bool isPinned = false, string description = "")
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "task list's title");
+        StoredTextLimits.OrRefuse(description, StoredTextLimits.EventDescription, "task list's description");
         var now = DateTimeOffset.UtcNow;
         return new TaskList(
             Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, now, now,
-            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null)
+        {
+            Description = description
+        };
     }
 
     /// <summary>
@@ -131,11 +144,12 @@ public sealed class TaskList
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        ItemPriority priority, bool isPinned, Guid? linkedWarehouseId = null)
+        ItemPriority priority, bool isPinned, Guid? linkedWarehouseId = null, string description = "")
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
         taskList.LinkedWarehouseId = linkedWarehouseId;
+        taskList.Description = description;
         return taskList;
     }
 
@@ -163,11 +177,14 @@ public sealed class TaskList
     /// </summary>
     public void Update(
         string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
-        ItemPriority priority)
+        ItemPriority priority, string description = "")
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "task list's title");
+        StoredTextLimits.OrRefuse(description, StoredTextLimits.EventDescription, "task list's description");
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
+        // Sealed alongside the title, so a private list keeps nothing readable here either.
+        Description = isPrivate ? string.Empty : description;
         IsGroup = isGroup;
         IsCompleted = ComputeIsCompleted(Items);
         Priority = priority;

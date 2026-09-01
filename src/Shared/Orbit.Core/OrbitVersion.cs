@@ -37,8 +37,10 @@ public sealed record OrbitVersion(string Version, string CommitHash, bool ShowsT
 #endif
 
     /// <summary>
-    /// What a local `dotnet run` says. Deliberately not "0.1.0": a made-up number that looks real is
-    /// worse than one that says it is not, and this is the string somebody pastes into a bug report.
+    /// What a local `dotnet run` says, before any commit is read off it. Deliberately not "0.1.0": a
+    /// made-up number that looks real is worse than one that says it is not, and this is the string
+    /// somebody pastes into a bug report. <see cref="ReadFrom"/> keeps whatever commit was stamped
+    /// alongside it.
     /// </summary>
     public static readonly OrbitVersion Unknown = new("0.0.0-dev", string.Empty, IsADebugBuild);
 
@@ -86,9 +88,13 @@ public sealed record OrbitVersion(string Version, string CommitHash, bool ShowsT
         var commitHash = separator < 0 ? string.Empty : stamped[(separator + 1)..];
 
         // "1.0.0" is what the SDK writes when nobody said otherwise, and it is not a version this
-        // repository ever ships - see Directory.Build.props.
+        // repository ever ships - see Directory.Build.props. The number is discarded; the commit is
+        // not. The SDK stamps the real HEAD beside its own default, and that hash is the whole point
+        // of the line while debugging: nobody compares "0.0.0-dev" against anything, they are asking
+        // which code is running. Dropping it with the number left a Debug build showing no hash and a
+        // footer that could not be opened - the one case the hash exists for.
         return version is "1.0.0" or ""
-            ? Unknown
+            ? Unknown with { CommitHash = commitHash }
             : new OrbitVersion(version, commitHash, IsADebugBuild);
     }
 }

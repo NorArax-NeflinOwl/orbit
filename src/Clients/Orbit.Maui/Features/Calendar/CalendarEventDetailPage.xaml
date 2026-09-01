@@ -65,14 +65,19 @@
             <!-- Two dates, not one: the end used to be taken from the start, so an event spanning days
                  was quietly shortened the first time anybody edited it. -->
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <DatePicker Grid.Column="0" Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}" />
-                <DatePicker Grid.Column="1" Date="{Binding EndDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}" />
+                <!-- Which is which. Two date pickers both announcing "When" leave a reader who cannot
+                     see them no way to tell the start from the end. -->
+                <DatePicker Grid.Column="0" Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}"
+                            SemanticProperties.Description="{controls:Translate 'Starts'}" />
+                <DatePicker Grid.Column="1" Date="{Binding EndDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}"
+                            SemanticProperties.Description="{controls:Translate 'Ends'}" />
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Label Grid.Column="0" Text="{controls:Translate 'All day'}" VerticalOptions="Center" />
                 <Switch Grid.Column="1" IsToggled="{Binding IsAllDay}" IsEnabled="{Binding CanEdit}"
-                        VerticalOptions="Center" />
+                        VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'All day'}" />
             </Grid>
 
             <!-- Hidden rather than disabled for an all-day event: there is no time to show, and a greyed
@@ -83,22 +88,26 @@
                         <Setter Property="IsVisible" Value="False" />
                     </DataTrigger>
                 </Grid.Triggers>
-                <TimePicker Grid.Column="0" Time="{Binding StartTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}" />
-                <TimePicker Grid.Column="1" Time="{Binding EndTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}" />
+                <TimePicker Grid.Column="0" Time="{Binding StartTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}"
+                            SemanticProperties.Description="{controls:Translate 'Starts'}" />
+                <TimePicker Grid.Column="1" Time="{Binding EndTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}"
+                            SemanticProperties.Description="{controls:Translate 'Ends'}" />
             </Grid>
 
             <!-- Whether it repeats, and how. The three frequencies are Orbit.Core's own. -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Label Grid.Column="0" Text="{controls:Translate 'Recurring event'}" VerticalOptions="Center" />
                 <Switch Grid.Column="1" IsToggled="{Binding IsRecurring}" IsEnabled="{Binding CanEdit}"
-                        VerticalOptions="Center" />
+                        VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Recurring event'}" />
             </Grid>
 
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsRecurring}">
                 <Label Text="{controls:Translate 'Frequency'}" Style="{StaticResource FieldLabel}" />
                 <Picker ItemsSource="{Binding Frequencies}" SelectedItem="{Binding ChosenFrequency}"
                         IsEnabled="{Binding CanEdit}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=screens:RecurrenceChoice}" />
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:RecurrenceChoice}"
+                        SemanticProperties.Description="{controls:Translate 'Frequency'}" />
 
                 <Label Text="{controls:Translate 'Every'}" Style="{StaticResource FieldLabel}" />
                 <Entry Text="{Binding RecurrenceIntervalCount}" Keyboard="Numeric"
@@ -108,10 +117,12 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Repeat until (optional)'}"
                            VerticalOptions="Center" LineBreakMode="WordWrap" />
                     <Switch Grid.Column="1" IsToggled="{Binding RecurrenceEnds}" IsEnabled="{Binding CanEdit}"
-                            VerticalOptions="Center" />
+                            VerticalOptions="Center"
+                            SemanticProperties.Description="{controls:Translate 'Repeat until (optional)'}" />
                 </Grid>
                 <DatePicker Date="{Binding RecurrenceUntil}" IsVisible="{Binding RecurrenceEnds}"
-                            IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}" />
+                            IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}"
+                        SemanticProperties.Description="{controls:Translate 'Repeat until (optional)'}" />
             </VerticalStackLayout>
 
             <!-- What is set, then what can be added. Picking from the list adds it: an "add" button
@@ -126,7 +137,8 @@
                 <Label Grid.Column="0" Text="{controls:Translate 'Priority'}" VerticalOptions="Center" />
                 <Picker Grid.Column="1" WidthRequest="160" ItemsSource="{Binding Priorities}"
                         SelectedItem="{Binding ChosenPriority}" IsEnabled="{Binding CanEdit}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=tasks:PriorityChoice}" />
+                        ItemDisplayBinding="{Binding Name, x:DataType=tasks:PriorityChoice}"
+                        SemanticProperties.Description="{controls:Translate 'Priority'}" />
             </Grid>
 
             <Label Text="{controls:Translate 'Color'}" Style="{StaticResource FieldLabel}" />
@@ -227,12 +239,6 @@
                     FontSize="12" Padding="12,6" IsVisible="{Binding CanEdit}"
                     Style="{StaticResource SecondaryButton}"
                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseReminderCommand, x:DataType=calendar:CalendarEventDetailPage}" />
-
-            <Label Text="{controls:Translate 'Notification when the event is created'}"
-                   Style="{StaticResource FieldLabel}" />
-            <Button Text="{Binding CreationChannel.Name}" HorizontalOptions="Start" FontSize="13" Padding="12,6"
-                    IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}"
-                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseCreationChannelCommand, x:DataType=calendar:CalendarEventDetailPage}" />
 
             <Label Text="{controls:Translate 'Notification as the event approaches'}"
                    Style="{StaticResource FieldLabel}" />

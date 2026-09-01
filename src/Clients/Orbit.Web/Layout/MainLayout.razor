@@ -50,10 +50,6 @@
                 </a>
 
                 <nav class="topbar-nav">
-                    <NavLink class="nav-item nav-item-dashboard" href="/" Match="NavLinkMatch.All" title="@(T["Dashboard"])">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="2.5" y="11.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="11.5" width="6" height="6" rx="1.5" /></svg>
-                        <span class="label">@T["Dashboard"]</span>
-                    </NavLink>
                     <NavLink class="nav-item" href="/notes" title="@(T["Notes"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h7l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z" /><path d="M12 2.5v3h3" /><path d="M6.5 11h7M6.5 14h7M6.5 8h3" /></svg>
                         <span class="label">@T["Notes"]</span>
@@ -197,6 +193,15 @@
            the content - a bar pinned to the bottom of the window would take height from every screen
            to say something nobody reads twice. The phone says the same thing behind About. *@
         <footer class="app-footer">
+            @* The mark, at the start of the line the page ends on - the same one the bar opens with,
+               so the page is bracketed by it. Decorative here: the bar's copy is the one that goes
+               anywhere, and two links to the dashboard on one screen is one more than anybody needs. *@
+            <svg class="app-footer-mark" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 26 26" aria-hidden="true">
+                <circle cx="13" cy="13" r="3" fill="var(--accent)" />
+                <ellipse cx="13" cy="13" rx="11" ry="5.5" fill="none" stroke="var(--accent)"
+                         stroke-width="1.6" transform="rotate(-28 13 13)" />
+            </svg>
             <span>@OrbitRelease.Copyright</span>
             <span class="app-footer-separator">·</span>
             @* Pressed, it grows the rest of the hash - while debugging. A released build says the

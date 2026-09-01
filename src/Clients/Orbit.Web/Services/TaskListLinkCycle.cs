@@ -49,7 +49,7 @@ public static class TaskListLinkCycle
                 continue;
             }
 
-            foreach (var linkedId in items.Select(item => item.LinkedTaskListId).OfType<Guid>())
+            foreach (var linkedId in items.SelectMany(item => item.AllLinkedTaskListIds))
             {
                 toVisit.Enqueue(linkedId);
             }

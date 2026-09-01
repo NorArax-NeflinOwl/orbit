@@ -6,6 +6,7 @@ using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Presence;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Tests.TestDoubles;
@@ -389,6 +390,51 @@ public sealed class NavigationBarTests
         Assert.True(bar.HasUnread);
     }
 
+    /// <summary>
+    /// The bar is the one thing on every signed-in screen, which is why it draws the banner - the same
+    /// reason Orbit.Web draws its own in MainLayout.
+    /// </summary>
+    [Fact]
+    public async Task A_notification_arriving_with_the_app_open_appears_on_the_bar()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+
+        await context.Banners.ShowAsync(new ForegroundNotice("New message", "Ala wrote to you", "/chat/x"));
+
+        Assert.True(bar.HasBanner);
+        Assert.Equal("New message", bar.BannerTitle);
+        Assert.Equal("Ala wrote to you", bar.BannerBody);
+    }
+
+    [Fact]
+    public async Task Dismissing_the_banner_takes_it_away()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+        await context.Banners.ShowAsync(new ForegroundNotice("New message", "Ala wrote to you", null));
+
+        bar.DismissBannerCommand.Execute(null);
+
+        Assert.False(bar.HasBanner);
+    }
+
+    /// <summary>
+    /// Tapping it opens what it names, through the one place that knows which paths this build
+    /// understands - and takes the banner away, because it has been answered.
+    /// </summary>
+    [Fact]
+    public async Task Tapping_the_banner_takes_it_away_and_opens_what_it_names()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open();
+        await context.Banners.ShowAsync(new ForegroundNotice("Overdue task", "Buy milk", "/tasks/" + Guid.NewGuid()));
+
+        bar.OpenBannerCommand.Execute(null);
+
+        Assert.False(bar.HasBanner);
+    }
+
     private sealed class BarContext
     {
         private readonly SessionStore _sessionStore;
@@ -401,6 +447,13 @@ public sealed class NavigationBarTests
 
         /// <summary>Announcements without a hub, so a test can say the feed changed - see ILiveUpdates.</summary>
         public AnnouncedLiveUpdates LiveUpdates { get; } = new();
+
+        /// <summary>What a push arriving with the app in front puts on screen - see ForegroundNotices.</summary>
+        public ForegroundNotices Banners => _banners ??= new ForegroundNotices(
+            new NotificationsClient(Server.ToHttpClient()), TimeProvider.System,
+            NullLogger<ForegroundNotices>.Instance);
+
+        private ForegroundNotices? _banners;
 
         /// <summary>
         /// One of the four the bar counts copies from - see NavigationBarViewModel's copy stores. Notes
@@ -484,7 +537,9 @@ public sealed class NavigationBarTests
                     UnlockedPermissions.For(LocalStore), _sessionStore),
                 Network,
                 [Notes],
-                LiveUpdates);
+                LiveUpdates,
+                Banners,
+                Openers.AgainstNobody(LocalStore, Navigator));
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

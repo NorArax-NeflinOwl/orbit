@@ -227,7 +227,7 @@ public sealed partial class TaskItemEditor : ObservableObject
             Shelf = shelf,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkableTaskLists = lists,
-            ChosenLinkedTaskList = lists.FirstOrDefault(choice => choice.ServerId == item.LinkedTaskListId)
+            ChosenLinkedTaskList = lists.FirstOrDefault(choice => choice.ServerId == item.AllLinkedTaskListIds.FirstOrDefault())
                 ?? lists.FirstOrDefault(),
             Kind = item.Kind,
             // From the appointment when there is one, because that is where the place lives once the two
@@ -290,7 +290,14 @@ public sealed partial class TaskItemEditor : ObservableObject
     public TaskItemDto ToDto()
         => _item with
         {
-            LinkedTaskListId = ChosenLinkedTaskList?.ServerId,
+            // This screen offers one list where an entry may stand for several. Leaving the picker
+            // alone therefore keeps every one of them - the phone must not throw away what it cannot
+            // show. Actually choosing a different list is taken at its word: the entry then stands for
+            // that one and no others.
+            LinkedTaskListId = null,
+            LinkedTaskListIds = ChosenLinkedTaskList?.ServerId == _item.AllLinkedTaskListIds.FirstOrDefault()
+                ? _item.AllLinkedTaskListIds
+                : ChosenLinkedTaskList?.ServerId is { } chosenTaskListId ? [chosenTaskListId] : [],
             Description = Description.Trim(),
             // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
             // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,

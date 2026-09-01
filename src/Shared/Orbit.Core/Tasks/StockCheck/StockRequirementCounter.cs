@@ -44,7 +44,7 @@ public static class StockRequirementCounter
 
         foreach (var item in items)
         {
-            if (item.LinkedTaskListId is not null)
+            if (item.IsALinkToOtherLists)
             {
                 continue;
             }

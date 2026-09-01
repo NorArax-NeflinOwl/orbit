@@ -17,4 +17,6 @@ public sealed record ContactDto(
     /// "Offline" - see Orbit.Core.Users.PresenceStatus. Resolved when the list is read, so it ages the
     /// moment it arrives; the chat list already refreshes on a poll, which is what keeps it current.
     /// </summary>
-    string PresenceStatus = "Offline");
+    string PresenceStatus = "Offline",
+    /// <summary>Put away by this reader - see Orbit.Core.Chat.Contact.IsArchived.</summary>
+    bool IsArchived = false);

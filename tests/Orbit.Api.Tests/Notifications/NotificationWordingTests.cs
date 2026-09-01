@@ -34,12 +34,11 @@ public sealed class NotificationWordingTests
     {
         var details = new CalendarEventDetails(
             "Dentist", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false,
-            null, [], [], NotificationChannel.None, NotificationChannel.None);
+            null, [], [], NotificationChannel.None);
 
         return
         [
             ChatMessagePushContent.Build(Guid.NewGuid(), "Bea"),
-            EventCreationPushContent.Build(details, Guid.NewGuid()),
             // All three shapes a reminder takes: as it starts, hours before, minutes before.
             EventReminderPushContent.Build(details, Guid.NewGuid(), 0),
             EventReminderPushContent.Build(details, Guid.NewGuid(), 120),

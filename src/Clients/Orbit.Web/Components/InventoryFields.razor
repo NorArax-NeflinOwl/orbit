@@ -1,0 +1,62 @@
+@using Orbit.Contracts.Notifications
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What a shelf item is, drawn once: by the warehouse editor, and by a task list's restock errand,
+   which edits the same product from the other side. Two forms asking different things about one thing
+   is how an errand came to be able to set fields the warehouse could not, and the other way round.
+
+   The name and the two amounts are optional here because the two screens put them in different places:
+   the warehouse keeps them on the row, where a full shelf is read at a glance, while an errand has no
+   row of its own to keep them on. *@
+@if (ShowNameAndAmounts)
+{
+    <label>@T["Item name"]<InputText @bind-Value="Model.Name" placeholder="@(T["Item name"])" /></label>
+    <label title="@(T["How much of it there is"])">@T["Amount"]
+        <InputNumber TValue="decimal" @bind-Value="Model.Quantity" step="0.01" />
+    </label>
+    <label title="@(T["Restock once the amount drops below this"])">@T["Min"]
+        <InputNumber TValue="decimal?" @bind-Value="Model.MinimumQuantity" step="0.01" />
+    </label>
+}
+<label title="@(T["What this is counted in"])">@T["Unit"]
+    <select class="editor-item-unit" @bind="Model.Unit" aria-label="@(T["Unit"])">
+        @foreach (var option in InventoryUnitOption.All)
+        {
+            <option value="@option.Value" title="@T[option.Name]">@T[option.ShortName]</option>
+        }
+    </select>
+</label>
+<label>@T["Product type"]<InputText placeholder="@(T["Product type"])" @bind-Value="Model.ProductType" /></label>
+<label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="Model.Category" /></label>
+@* How long it keeps rather than the day it stops keeping - see ExpiresInField. A date is still what
+   gets stored; nobody stocking a shelf knows the 14th, they know "a fortnight". *@
+<label>@T["Expires in"]
+    <ExpiresInField Value="Model.ExpiryDate" ValueChanged="expiresOn => Model.ExpiryDate = expiresOn" />
+</label>
+<label>@T["Expiry notification"]
+    <select @bind="Model.ExpiryNotificationChannel">
+        @foreach (var option in NotificationChannelOption.All)
+        {
+            <option value="@option.Value" disabled="@option.IsDisabledBy(NotificationSettings)">@T[option.Label]</option>
+        }
+    </select>
+</label>
+@* Asked for every round, whatever the count says - see InventoryItem.BelongsOnTheRestockList. *@
+<label class="field-checkbox" title="@(T["Always on the restock list, however much there is"])">
+    <InputCheckbox @bind-Value="Model.IsCheckedRegularly" />@T["Check every round"]
+</label>
+
+@code {
+    [Parameter, EditorRequired] public InventoryItemFormModel Model { get; set; } = new();
+
+    /// <summary>Which channels this account can actually be reached on - one it cannot is offered greyed.</summary>
+    [Parameter] public NotificationSettingsDto NotificationSettings { get; set; }
+        = new(true, true, true, true, ShowExceptionDetails: false, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
+
+    /// <summary>
+    /// Whether this screen needs the name and the two amounts drawn here. False where the row above
+    /// already carries them - see the comment on the markup.
+    /// </summary>
+    [Parameter] public bool ShowNameAndAmounts { get; set; }
+}

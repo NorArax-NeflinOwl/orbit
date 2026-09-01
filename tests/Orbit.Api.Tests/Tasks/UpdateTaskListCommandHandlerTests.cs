@@ -158,7 +158,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Errands", []);
         await repository.AddAsync(taskList, CancellationToken.None);
-        var itemsLinkingToSelf = new[] { TaskItem.Create("Self reference", null, false, taskList.Id) };
+        var itemsLinkingToSelf = new[] { TaskItem.Create("Self reference", null, false, [taskList.Id]) };
 
         await Assert.ThrowsAsync<InvalidRequestException>(() => handler.HandleAsync(
             new UpdateTaskListCommand(userId, taskList.Id, "Errands", itemsLinkingToSelf, IsGroup: false, IsPrivate: false, EncryptedContent: null), CancellationToken.None));
@@ -174,7 +174,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var taskList = TaskList.Create(userId, "Renovation", []);
         await repository.AddAsync(member, CancellationToken.None);
         await repository.AddAsync(taskList, CancellationToken.None);
-        var items = new[] { TaskItem.Create("Kitchen done", null, false, member.Id) };
+        var items = new[] { TaskItem.Create("Kitchen done", null, false, [member.Id]) };
 
         await handler.HandleAsync(
             new UpdateTaskListCommand(userId, taskList.Id, "Renovation", items, IsGroup: true, IsPrivate: false, EncryptedContent: null), CancellationToken.None);

@@ -26,6 +26,18 @@ Google) shows "too many attempts, wait a minute" rather than the generic "an err
 it used to — which was both wrong and the worst possible advice, since trying again is what keeps the
 window shut.
 
+**Forgetting the password.** `POST /api/auth/password-reset` (`emailOrUserName`) emails a code to the
+address the account was registered with, and `POST /api/auth/password-reset/confirm`
+(`emailOrUserName`, `code`, `newPassword`) sets the new one. The phone offers this from its sign-in
+screen — "Forgotten your password?" — as a screen of its own: ask for a code, then type the new
+password twice, since there is nothing to check it against and a typo would lock the account a second
+time with the code already spent. Whatever the account turns out to be, the answer is the same
+conditional sentence: the request must not become a way of testing whether somebody has an Orbit
+account. Nothing is signed in afterwards, because the chat key is wrapped with the password that is
+gone — what replaces it is decided at the chat key gate, with the warning that messages sealed under
+the old password stay unreadable. **Orbit.Web still reaches the same flow only from its chat password
+gate, which is behind signing in**; giving `Login.razor` the same entry point is outstanding.
+
 `token` is a short-lived JWT (15 minutes by default, `Jwt:ExpiryMinutes`). `refreshToken` is a
 long-lived (30 days), single-use, opaque value: `POST /api/auth/refresh` (`refreshToken`) exchanges it
 for a new `{ token, refreshToken, ... }` pair and revokes the one that was redeemed, so a leaked refresh
@@ -180,7 +192,17 @@ Every share carries an **access level**, chosen when the share is offered: `Read
 underlying int value doubles as a rank: `ReadOnly < Share < CanEdit`). Only `CanEdit` unlocks actually
 editing the item — `UpdateNoteCommandHandler`/`UpdateTaskListCommandHandler`/`UpdateCalendarEventCommandHandler`
 all return "not found" for an update attempt by a grantee whose access level is `ReadOnly` *or* `Share`,
-and the Blazor editor pages disable their form (via a `<fieldset disabled>`) for the same grantees.
+and the Blazor editor pages disable their form (via a `<fieldset disabled>`) for the same grantees. **The
+phone does the same as of 2026-09-01, and did not before**: it asked only whether an offline edit was
+safe (`OfflineEditPolicy`) and never what the share allowed, so anything shared read-only opened as an
+ordinary editable screen the moment the phone was online. The edit was applied locally, queued, refused
+by the server, and given up on minutes later - work disappearing with nothing on the way saying why.
+`SharedItemAccess` (`Orbit.Mobile.Sync`) is the missing half: the four detail screens open read-only and
+say so, the four repositories refuse the write rather than queue it, and a copy-for-editing is not
+offered, since a copy of something shared to read could never be kept over the original. Both clients
+read the rules from `ShareAccess` in `Orbit.Core` rather than comparing strings - `EditOnly` permits
+editing too, and a check written as `== "CanEdit"` calls an editor a reader. Deleting is untouched on
+both: for a grantee it means taking the item off their own list, which is theirs to do.
 
 Every editor page shows a "shared by {name}" banner on any item the current user doesn't own, regardless
 of access level — not just the restricted ones — with the wording adapting to what the current access
@@ -1120,8 +1142,16 @@ because it is no longer something missing: a list that accumulates permanently c
 list that stops being read. The shelf item's pointer to the entry is cleared at the same time, or the
 next time that product went low Orbit would look up an entry that no longer exists.
 
+**The two halves no longer happen in the same breath.** The shelf fills on the save
+(`TopUpFinishedAsync`); the errand leaves on a refresh a few minutes later, which the checklist asks
+for five minutes after the last tick. Removing it immediately meant a row answered a tap by vanishing,
+and a tap on the wrong row could not be undone by untapping it - there was nothing left to untap. The
+delay measures from the *last* tick rather than each one, because somebody working down a list ticks
+six things in a minute and does not need six refreshes; it is also when they have stopped, and might
+look back.
+
 `RestockCompletion.ReconcileAsync` does all of it, and is safe to run twice - which is what lets it run
-in two places. It runs **on save**, so ticking an errand settles it, and again **when the list is
+in two places. It runs on that refresh, and again **when the list is
 opened** (`POST /api/tasks/{id}/restocking/reconcile`, asked for by `TaskListChecklist.razor` and by the
 phone's `TaskListDetailViewModel`), which is what clears errands that were ticked off before Orbit did
 any of this. Both clients ask, and on opening rather than on ticking: a list that settled itself in a
@@ -1297,6 +1327,12 @@ The number is stamped into the assembly at build time as its informational versi
 runtime (`OrbitVersion`), each client reading **its own** assembly. A build nobody stamped - a local
 `dotnet run`, a local `docker compose build` - says `0.0.0-dev` rather than inventing a number that looks
 real, because this is the string somebody pastes into a bug report.
+
+**An unstamped build still knows which commit it is.** The SDK writes its own `1.0.0` default next to
+the real `HEAD`, so a local build reads as `0.0.0-dev` and keeps the hash. That matters because the
+hash is the whole point of the line while debugging: nobody compares `0.0.0-dev` against anything,
+they are asking which code is running. Discarding the commit along with the number left a Debug build
+showing no hash and a footer that could not be opened - the one case the hash exists for.
 
 The Android release carries it twice over: `-p:InformationalVersion` for the About row, and the file name
 itself - **`orbit-android-0_1_32v.apk`**, so a download says which build it is without anybody opening
@@ -1659,6 +1695,44 @@ The three triggers:
   that links to another task list (see [Tasks](#tasks) above) is excluded from this check, since its true
   completion depends on the list it links to, not its own stored (always-false) completion flag.
 
+## Putting a conversation away
+
+`PUT /api/chat/conversations/{otherUserId}/archived` and `PUT /api/chat/groups/{groupId}/archived`,
+both taking `{ "isArchived": true }`.
+
+**Archiving is one-sided, and that is the whole point.** Nothing is deleted, nobody leaves, and the
+other party is told nothing - their list has its own row and its own answer. A group's flag lives on
+the *membership* rather than the group, so an admin tidying their own list cannot take the group off
+anybody else's, and archiving needs no rank at all: deciding to stop looking at something is not a
+moderation act.
+
+A member who archives a group is still in it and still receives what is posted. Leaving is the other
+thing, and this is not it.
+
+Both answer 404 when the caller has no such conversation - which for a group covers both "no such
+group" and "you are not in it", because from the caller's side those are the same fact.
+
+The change is announced to that account's **other devices** only (see
+[Live updates](#live-updates)): a conversation put away on a phone should not still be in the way on
+the laptop, and nobody else's screen changed.
+
+## Saying nothing about a field
+
+Descriptions on a task list and a warehouse, and a shelf item's regular-check flag, are all optional on
+the way in: **null means "not provided" and keeps what is stored; an empty string, or false, means the
+caller really said so.**
+
+This exists because a save replaces what it touches wholesale and the two clients learn about a field at
+different times - the browser deploys with the server, the phone whenever somebody installs it. Without
+the distinction, an older phone returning a row it does not fully understand would erase a description
+written on the web, which is the shape of bug this codebase has already had three times (a calendar
+entry's place, the phone's event place, and every entry's kind when a checklist box was ticked).
+
+The cost is one distinction to keep in mind. What it buys is that the two clients never have to ship in
+lockstep for a new field to be safe.
+
+On the way **out** these fields are always sent, so a reader never has to guess.
+
 ## Live updates
 
 The web client holds one WebSocket open to the API and is told when something changed, instead of
@@ -1819,7 +1893,12 @@ and each chat contact's avatar. A section's count is simply how many unread entr
 its prefix (`/tasks`, `/calendar`, `/inventory`, `/chat`), so a reminder shows up on the thing it is
 about. Chat subscribes to the same state instead of polling again. The poll also refreshes settings, so a
 change made on Options takes effect within one interval; when the unread count has just gone up and
-`AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport.
+`AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport. The
+phone reads the same three settings for its own banner (see
+[the foreground banner](orbit-maui-plan.md)) and, as of 2026-09-01, offers them: its Settings screen
+edits `AllowMobileBanner`, both banner timings and `RetentionDays` alongside the channel switches it
+already had. `ShowExceptionDetails` stays browser-only, since it governs what Orbit.Web prints on the
+page and nothing on the phone reads it.
 
 **A person with a message waiting is marked wherever that person appears** — the chat page's own
 conversation list, the contact list, and the dashboard's "Recent chats" card — all through one
@@ -1850,3 +1929,67 @@ environment-driven flag, the same shape as the existing VAPID public-key endpoin
 never be talked out of via a stored per-account preference. Options.razor's own "Diagnostics" section
 (the "Show exceptions" switch) is likewise only rendered at all when the server reports it's not running
 in Production.
+
+### A link opened on a phone
+
+A public link is an ordinary web address (`https://<host>/s/<token>`), and on a phone with Orbit
+installed Android hands it to the app instead of a browser: the app declares an intent filter for that
+path on the deployment's own host, and the same screen the browser would have shown appears inside
+Orbit - what was shared, who shared it, and one button to keep a read-only copy. It is the same
+destination pipeline a tapped notification travels (`NotificationDestination`), so there is one way into
+the app from outside it rather than two.
+
+The host is fixed when the app is built, from the deployment address it is already given
+(`OrbitShareLinkHost`, defaulting to the host of `OrbitApiBaseAddress`) - an intent filter is an
+attribute and takes compile-time constants, and a filter with no host would offer Orbit for every link
+on the phone. A build told no address gets a name that can never resolve.
+
+**Two halves are needed for a link to route on its own.** The app declares the filter with
+`autoVerify`; the deployment has to serve `https://<host>/.well-known/assetlinks.json` naming the app's
+package and the certificate the installed build was signed with. `orbit-web` writes that file at
+startup from `ANDROID_APP_SHA256` (see `write-android-app-links.sh`) and writes nothing when it is
+unset, which is the ordinary state for a local stack. Without it, Android 12 and later open the link in
+a browser and the reader has to allow the app by hand under Settings > Apps > Orbit > Open by default -
+the app half is complete either way, and was checked on an emulator with the domain approved.
+
+The fingerprint to set it to is the release keystore's, printed by the command the keystore's own notes
+already document for the Maps key, reading `SHA256` where that one reads `SHA1`. It is not a secret:
+Android hands it to every device that installs the app.
+
+Following a link, like following a notification, waits for an account: the app holds the destination
+and opens it once somebody is signed in, rather than showing a stranger's shared item over a signed-out
+app. Signing in now goes on to whatever was waiting instead of always landing on the dashboard.
+
+## The home screen widget (Android)
+
+A 3 × 2 widget showing the day and the few things still ahead in it: today's appointments that have
+not finished, and what falls due today and is not done, in the order they happen. Four lines fit;
+anything past that is counted rather than dropped ("2 more"). Tapping a line opens Orbit on it - an
+appointment on the calendar, an errand on the list it is ticked off on - through the same paths a
+tapped notification travels (`NotificationDestination`), so there is one way into the app from
+outside it rather than two.
+
+What it shows is `TodayAtAGlance` (`Orbit.Mobile.Widgets`), which is where the rules live and is
+covered by tests; `OrbitTodayWidget` (`Orbit.Maui/Platforms/Android`) is the drawing. Two rules are
+about the home screen specifically rather than copied from any screen:
+
+- **Nothing private is ever named.** A widget is on show to whoever is holding the phone, and on most
+  Androids to whoever can see the lock screen, with no unlocking in between. The gate that guards
+  private items inside the app (see [Private notes and task lists](#private-notes-and-task-lists)) has
+  no equivalent out there, so private lists are left off rather than hidden behind it.
+- **A phone nobody is signed in on shows no day at all**, only "Open Orbit to see your day". Signing
+  out clears the session but leaves the local database, so a widget reading it would go on showing the
+  previous account's day to the next person holding the phone.
+
+None of the app is running when the widget is drawn: the launcher asks for it in a broadcast that can
+arrive with no MAUI application, no service container and no session in memory. It reads the local
+database itself, through the secure store and the database file - the two things that outlive the app
+being closed - rather than a snapshot the app left behind, because "today" has a different answer every
+midnight and a snapshot taken at nine in the evening is wrong by morning. Android redraws it every half
+hour, which is what makes it right after midnight without the app being opened at all, and Orbit asks
+for a redraw itself whenever it is put down, which is the update carrying whatever just changed.
+
+It follows the system's light or dark mode rather than the theme chosen inside Orbit: a widget is drawn
+in the launcher's process, and the app's own choice is not something it can see.
+
+There is no iOS counterpart yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Sharing.SharedLinkPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:sharing="clr-namespace:Orbit.Mobile.Screens.Sharing;assembly=Orbit.Mobile"
+    x:DataType="sharing:SharedLinkViewModel"
+    Title="{controls:Translate 'Shared with a link'}">
+
+    <Grid RowDefinitions="Auto,*">
+        <controls:NavigationBar Grid.Row="0" />
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="20" Spacing="14">
+
+                <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                                   HorizontalOptions="Center" />
+
+                <Label Text="{Binding Kind}" IsVisible="{Binding WasFound}" FontSize="12"
+                       Style="{StaticResource SubtleLabel}" />
+
+                <Label Text="{Binding Title}" FontSize="24" FontAttributes="Bold" LineBreakMode="WordWrap" />
+
+                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}" />
+
+                <Label Text="{Binding SharedBy}" IsVisible="{Binding WasFound}" FontSize="12"
+                       Style="{StaticResource SubtleLabel}" />
+
+                <Label Text="{controls:Translate 'Nothing in it yet.'}" IsVisible="{Binding HasNothingInIt}"
+                       Style="{StaticResource SubtleLabel}" />
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Lines}" Spacing="8">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="sharing:SharedLine">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <!-- Disabled rather than absent, as on the web: the reader can see what
+                                     is done without being offered a control that would do nothing. -->
+                                <!-- Named after the line it belongs to: a screen reader lands on the box
+                                     itself, and "ticked" on its own says nothing about what is done. -->
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsTicked}" IsEnabled="False"
+                                          IsVisible="{Binding IsChecklistItem}" VerticalOptions="Center"
+                                          SemanticProperties.Description="{Binding Text}" />
+                                <Label Grid.Column="1" Text="{Binding Text}" LineBreakMode="WordWrap"
+                                       VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"
+                                       FontSize="12" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
+
+                <!-- The one action, and it needs an account: a copy has to belong to somebody. -->
+                <Button Text="{controls:Translate 'Save to my account'}" IsVisible="{Binding CanBeKept}"
+                        HorizontalOptions="Start" Command="{Binding KeepCommand}" />
+
+                <Label Text="{controls:Translate 'You get your own read-only copy. Nothing you do changes theirs.'}"
+                       IsVisible="{Binding CanBeKept}" FontSize="12" LineBreakMode="WordWrap"
+                       Style="{StaticResource SubtleLabel}" />
+
+                <Button Text="{controls:Translate 'Back'}" Command="{Binding GoBackCommand}"
+                        HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

@@ -1,7 +1,7 @@
 namespace Orbit.Core.Tasks;
 
 /// <summary>
-/// Resolves every task item that links to another task list to that list's current, live completion,
+/// Resolves every task item that links to other task lists to those lists' current, live completion,
 /// since a linked item's own stored completion is never the source of truth for it - see
 /// <see cref="TaskItem.Create"/>, which always stores "not completed" for a linked item regardless of
 /// what was requested. Resolution is transitive (a linked list can itself contain linked items) and
@@ -41,9 +41,9 @@ public sealed class LinkedTaskCompletionResolver
         }
 
         var resolvedItems = taskList.Items
-            .Select(item => item.LinkedTaskListId is { } linkedListId
+            .Select(item => item.IsALinkToOtherLists
                 ? TaskItem.FromPersistence(
-                    item.Id, item.Description, item.DueDateUtc, Resolve(linkedListId, context)?.IsCompleted ?? false, item.LinkedTaskListId,
+                    item.Id, item.Description, item.DueDateUtc, IsEveryLinkedListDone(item, context), item.LinkedTaskListIds,
                     item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay)
                 : item)
             .ToList();
@@ -64,6 +64,15 @@ public sealed class LinkedTaskCompletionResolver
         context.Visiting.Remove(taskListId);
         return resolvedTaskList;
     }
+
+    /// <summary>
+    /// Every list the entry names, or it is not done. An entry standing for several lists is one step -
+    /// "the flat is ready" - and a step that reads as finished while one of its lists still has work in
+    /// it would be worse than no answer at all. A list that cannot be resolved counts as not done, the
+    /// same as a single missing link always did.
+    /// </summary>
+    private static bool IsEveryLinkedListDone(TaskItem item, ResolutionContext context)
+        => item.LinkedTaskListIds.All(linkedListId => Resolve(linkedListId, context)?.IsCompleted ?? false);
 
     /// <summary>Working state threaded through the recursive resolution of one user's task lists.</summary>
     private sealed class ResolutionContext(IReadOnlyDictionary<Guid, TaskList> taskListsById)

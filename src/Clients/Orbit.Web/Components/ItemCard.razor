@@ -7,13 +7,15 @@
    a card carries beyond that is what differs between them.
 
        [handle][pin][action][name .................][collapse][menu]
-       [tags .....................................][extras]
+       [tags .....................................................]
        [description, or the list of what is on it]
+       [.......................extras.............................]
 
    Everything except the name is optional, and each part is left out rather than rendered empty: a
    handle appears only where the order can actually be changed, a collapse button only where there is
    a list underneath to fold away. *@
-<article class="item-card @(IsCollapsed ? "item-card-collapsed" : "") @ExtraClass">
+<article class="item-card @(IsCollapsed ? "item-card-collapsed" : "") @(AccentColour is null ? null : "item-card-accented") @ExtraClass"
+         style="@(AccentColour is null ? null : $"--item-card-accent:{AccentColour};")">
     <div class="item-card-head">
         @if (Handle is not null)
         {
@@ -54,16 +56,10 @@
         }
     </div>
 
-    @if (Tags is not null || Extras is not null)
+    @if (Tags is not null)
     {
-        @* One row for both, so a card with many tags and a counter keeps the counter at the end of it
-           rather than pushed onto a line of its own. *@
         <div class="item-card-meta">
             <span class="item-card-tags">@Tags</span>
-            @if (Extras is not null)
-            {
-                <span class="item-card-extras">@Extras</span>
-            }
         </div>
     }
 
@@ -86,6 +82,15 @@
              @onclick="OnBodySelected" @onkeydown="OpenOnEnterOrSpaceAsync">
             @Body
         </div>
+    }
+
+    @* What the card says about itself rather than about its subject - when it last changed, how many
+       things are on it. At the foot and centred: it used to sit at the end of the tag row, where a
+       card with no tags left it floating against the right margin looking like something that had
+       lost its line. *@
+    @if (Extras is not null)
+    {
+        <div class="item-card-footer">@Extras</div>
     }
 </article>
 
@@ -121,7 +126,10 @@
     /// <summary>Whatever this card is labelled with. Wraps onto further lines when it does not fit.</summary>
     [Parameter] public RenderFragment? Tags { get; set; }
 
-    /// <summary>Anything that belongs beside the tags but always at the end - a "3/7 done" count, say.</summary>
+    /// <summary>
+    /// What the card says about itself: when it last changed, how many things are on it. Rendered in a
+    /// footer of its own, centred, below everything else.
+    /// </summary>
     [Parameter] public RenderFragment? Extras { get; set; }
 
     /// <summary>A description, or the list of what is on this card.</summary>
@@ -135,6 +143,13 @@
 
     /// <summary>Opening the light editor. Without one the body is shown but is not a control.</summary>
     [Parameter] public EventCallback OnBodySelected { get; set; }
+
+    /// <summary>
+    /// A colour this card is about - an event's own, say. Painted along its edge rather than shown as
+    /// a dot beside the name: a dot is one more thing in a row already holding tags, and the point of
+    /// the colour is to be findable without reading, which an edge does and a dot does not.
+    /// </summary>
+    [Parameter] public string? AccentColour { get; set; }
 
     /// <summary>Anything the caller needs to hang its own rules on - a pinned card's outline, say.</summary>
     [Parameter] public string? ExtraClass { get; set; }

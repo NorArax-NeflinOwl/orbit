@@ -11,6 +11,9 @@ public sealed class TaskEntity
     public Guid UserId { get; set; }
     public string Title { get; set; } = string.Empty;
 
+    /// <summary>What it is about, under its name. Empty for one nobody described.</summary>
+    public string Description { get; set; } = string.Empty;
+
     /// <summary>Whether this task list is readable only by its owner - see Orbit.Core's IsPrivate.</summary>
     public bool IsPrivate { get; set; }
 

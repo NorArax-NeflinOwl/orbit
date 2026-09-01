@@ -16,7 +16,7 @@ public sealed class LinkedTaskListTreeTests
     private static TaskItem Work(string description) => TaskItem.Create(description, dueDateUtc: null, isCompleted: false);
 
     private static TaskItem LinkTo(TaskList target)
-        => TaskItem.Create($"{target.Title} done", dueDateUtc: null, isCompleted: false, linkedTaskListId: target.Id);
+        => TaskItem.Create($"{target.Title} done", dueDateUtc: null, isCompleted: false, linkedTaskListIds: [target.Id]);
 
     [Fact]
     public void The_work_of_the_whole_tree_is_gathered()
@@ -46,7 +46,7 @@ public sealed class LinkedTaskListTreeTests
     {
         var second = List("Second", isGroup: true, Work("Bolt"));
         var first = List("First", isGroup: true, LinkTo(second), Work("Nut"));
-        second.Update(second.Title, [.. second.Items, TaskItem.Create("Back", null, false, first.Id)],
+        second.Update(second.Title, [.. second.Items, TaskItem.Create("Back", null, false, [first.Id])],
             second.IsGroup, second.IsPrivate, second.EncryptedContent, second.Priority);
 
         var gathered = LinkedTaskListTree.Flatten(first, [first, second]);
@@ -58,7 +58,7 @@ public sealed class LinkedTaskListTreeTests
     public void A_list_that_is_not_a_group_is_the_whole_tree()
     {
         var other = List("Other", isGroup: false, Work("Something"));
-        var plain = List("Plain", isGroup: false, Work("Screw"), TaskItem.Create("Ignored link", null, false, other.Id));
+        var plain = List("Plain", isGroup: false, Work("Screw"), TaskItem.Create("Ignored link", null, false, [other.Id]));
 
         var gathered = LinkedTaskListTree.Flatten(plain, [plain, other]);
 
@@ -69,7 +69,7 @@ public sealed class LinkedTaskListTreeTests
     [Fact]
     public void A_link_pointing_at_nothing_reachable_is_skipped()
     {
-        var group = List("Group", isGroup: true, TaskItem.Create("Gone", null, false, Guid.NewGuid()), Work("Screw"));
+        var group = List("Group", isGroup: true, TaskItem.Create("Gone", null, false, [Guid.NewGuid()]), Work("Screw"));
 
         var work = LinkedTaskListTree.WorkIn(group, [group]);
 

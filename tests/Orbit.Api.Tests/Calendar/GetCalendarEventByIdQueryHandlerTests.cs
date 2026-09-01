@@ -10,8 +10,7 @@ namespace Orbit.Api.Tests.Calendar;
 public sealed class GetCalendarEventByIdQueryHandlerTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
-        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [],
-        CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.None);
+        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [], ReminderNotificationChannel: NotificationChannel.None);
 
     private static GetCalendarEventByIdQueryHandler CreateHandler(
         InMemoryCalendarEventRepository calendarEventRepository, InMemoryCalendarEventShareRepository? calendarEventShareRepository = null)

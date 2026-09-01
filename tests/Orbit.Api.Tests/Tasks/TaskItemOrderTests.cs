@@ -39,7 +39,7 @@ public sealed class TaskItemOrderTests : IDisposable
         var reread = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
         var withOneTicked = reread!.Items
             .Select(item => TaskItem.FromPersistence(
-                item.Id, item.Description, item.DueDateUtc, item.Description == "C", item.LinkedTaskListId,
+                item.Id, item.Description, item.DueDateUtc, item.Description == "C", item.LinkedTaskListIds,
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
                 item.DailyReminderTimeOfDay))
             .ToList();

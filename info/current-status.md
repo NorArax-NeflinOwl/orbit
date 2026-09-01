@@ -34,7 +34,8 @@ stated scope.
 | Google Calendar and Maps links (verified/Google accounts) | Implemented | [Functionality](functionality.md#handing-something-off-to-google) |
 | Two-way Google Calendar sync | Not started | [Future Plan](future-plan.md#what-real-google-calendar-sync-would-take) |
 | Mobile client (`Orbit.Maui`, iOS + Android) | Implemented — Android verified on a device, iOS unverified | [Orbit.Maui — Plan](orbit-maui-plan.md) |
-| Push delivery to a phone | Not working on Android yet — see below | [Orbit.Maui — Plan](orbit-maui-plan.md#42-push-notifications-web-push-apns-and-fcm-are-three-different-things) |
+| Push delivery to a phone | Implemented on Android, in the tray and in front of you; not on iOS — see below | [Orbit.Maui — Plan](orbit-maui-plan.md#42-push-notifications-web-push-apns-and-fcm-are-three-different-things) |
+| Home screen widget | Implemented on Android and driven on a device; nothing on iOS | [Functionality](functionality.md#the-home-screen-widget-android) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Name suggestions and duplicate warnings while typing | Implemented | [Functionality](functionality.md#names-you-have-already-used) |
 | Choosing what a warehouse's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |
@@ -145,8 +146,8 @@ developer account and signing key.
 - **Push delivered to an iPhone.** Android delivers (above). iOS cannot: FCM reaches it through APNs,
   which needs an auth key uploaded to the Firebase console, and `PhonePushNotifications` there still
   answers `NotAvailableHere` rather than registering a device the server would then count as
-  reachable. A push that arrives while the app is in front of somebody shows nothing on either
-  platform. Browser push works and is unaffected.
+  reachable. Browser push works and is unaffected, and on Android a push now shows whether the app is
+  in front of somebody or not.
 - **Google sign-in and maps depend on configuration that is not in the repository.** Each mobile head
   needs its own OAuth client id set on the server (`GOOGLE_ANDROID_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID`)
   or its Google button is hidden, and the Android map needs a Maps SDK key merged into the manifest or

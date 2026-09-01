@@ -166,11 +166,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [ObservableProperty]
     private ReminderChoice? _reminderToAdd;
 
-    /// <summary>How it is announced - when it is made, and as it approaches. Both are Orbit.Web's.</summary>
+    /// <summary>How it is announced as it approaches. The same choices Orbit.Web offers.</summary>
     public IReadOnlyList<NotificationChannelChoice> Channels { get; private set; } = [];
-
-    [ObservableProperty]
-    private NotificationChannelChoice? _creationChannel;
 
     [ObservableProperty]
     private NotificationChannelChoice? _reminderChannel;
@@ -502,7 +499,6 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Guests = [.. Guests.Select(guest => guest.UserId)],
             Color = _colour,
             ReminderMinutesBeforeStart = [.. Reminders.Select(reminder => reminder.MinutesBefore)],
-            CreationNotificationChannel = CreationChannel?.Value ?? current.CreationNotificationChannel,
             ReminderNotificationChannel = ReminderChannel?.Value ?? current.ReminderNotificationChannel,
             StartUtc = ChosenStartUtc,
             EndUtc = ChosenEndUtc,
@@ -510,9 +506,10 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Priority = ChosenPriority.Value
         };
 
-        if (await _events.UpdateAsync(_localId, details, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline)
+        var outcome = await _events.UpdateAsync(_localId, details, cancellationToken);
+        if (outcome.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -534,9 +531,10 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteAsync(CancellationToken cancellationToken)
     {
-        if (await _events.DeleteAsync(_localId, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline)
+        var deletion = await _events.DeleteAsync(_localId, cancellationToken);
+        if (deletion.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = deletion.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -600,7 +598,6 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Reminders.Add(new ReminderRow(minutes, ReminderChoice.Describe(minutes, _translations)));
         }
 
-        CreationChannel = NotificationChannelChoice.For(Channels, calendarEvent.Details.CreationNotificationChannel);
         ReminderChannel = NotificationChannelChoice.For(Channels, calendarEvent.Details.ReminderNotificationChannel);
 
         IsRecurring = calendarEvent.Details.Recurrence is not null;
@@ -624,8 +621,10 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         // Said in the same words the row on the list before it used - being told it cannot be
         // changed, without being told why, leaves a screen that simply looks broken.
         ReadOnlyReason = OfflineEditExplanation.For(
-            OfflineEditPolicy.Evaluate(calendarEvent, _networkStatus), hasUnsentChanges: false, _translations);
-        IsCopyOffered = IsReadOnly && calendarEvent.CopyOfLocalId is null;
+            calendarEvent, OfflineEditPolicy.Evaluate(calendarEvent, _networkStatus), hasUnsentChanges: false,
+            _translations);
+        // A copy is for editing offline what could be edited online - see TaskListDetailViewModel.
+        IsCopyOffered = IsReadOnly && calendarEvent.CopyOfLocalId is null && SharedItemAccess.AllowsEditing(calendarEvent);
 
         if (!IsReadOnly && calendarEvent.ServerId is { } lockedServerId)
         {

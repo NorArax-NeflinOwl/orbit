@@ -53,8 +53,12 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             await _taskRepository.GetHoldingItemsAsync(
                 taskList.UserId, request.Id, [.. request.Items.Select(item => item.Id)], cancellationToken));
 
+        // A caller that said nothing about the description keeps the one that is stored. That is what
+        // lets a client which has not learned about the field - the phone, an older tab - go on saving
+        // lists without erasing what was written somewhere else.
         taskList.Update(
-            request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority);
+            request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority,
+            request.Description ?? taskList.Description);
 
         // One save when another list had to be renamed too, so a failure cannot leave two entries
         // claiming one id in the database - the state this exists to prevent.
@@ -67,10 +71,11 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             await _taskRepository.UpdateAsync(taskList, cancellationToken);
         }
 
-        // Crossing off a restock errand says the shelf was filled and the errand is over - see
-        // RestockCompletion, which tops the shelf up and takes the entry off the list, and which does
-        // nothing at all for the ordinary lists this handler mostly saves.
-        await _restockCompletion.ReconcileAsync(request.Id, cancellationToken);
+        // Crossing off a restock errand says the shelf was filled, so the shelf is filled - but the
+        // entry stays, crossed off, rather than disappearing under the finger that just tapped it. The
+        // checklist asks for a refresh a few minutes later and that is what clears it. Does nothing at
+        // all for the ordinary lists this handler mostly saves.
+        await _restockCompletion.TopUpFinishedAsync(request.Id, cancellationToken);
 
         return EditOutcome.Success;
     }

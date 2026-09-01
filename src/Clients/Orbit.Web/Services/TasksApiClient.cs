@@ -211,9 +211,13 @@ public sealed class TasksApiClient
 
         var sealedItems = items
             .Select(item => new TaskItemDto(
-                Guid.Empty, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+                Guid.Empty, item.Description, item.DueDateUtc, item.IsCompleted,
+                // Sealed from whichever shape the caller used, and written into the new field: the
+                // single one carries only the first, and a private list would silently lose the rest.
+                LinkedTaskListId: null,
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.DailyReminderTimeOfDay,
+                LinkedTaskListIds: item.AllLinkedTaskListIds))
             .ToList();
         var encryptedContent = await _privateContentSealer.SealAsync(new SealedTaskList(title, sealedItems), cancellationToken);
         return (string.Empty, [], encryptedContent);

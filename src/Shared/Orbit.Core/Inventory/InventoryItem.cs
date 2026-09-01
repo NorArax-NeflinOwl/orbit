@@ -53,6 +53,26 @@ public sealed class InventoryItem
     /// </summary>
     public bool IsBelowMinimum => MinimumQuantity is { } minimumQuantity && Quantity < minimumQuantity;
 
+    /// <summary>
+    /// Something to look at every round rather than only when it runs low - milk, batteries, the things
+    /// whose level nobody notices until they are gone.
+    ///
+    /// The restock list asks for these whatever the shelf says, so the answer comes from looking rather
+    /// than from a count somebody forgot to keep up to date. That is the difference from
+    /// <see cref="IsBelowMinimum"/>, which is a fact about the number stored here.
+    /// </summary>
+    public bool IsCheckedRegularly { get; private set; }
+
+    /// <summary>
+    /// Whether the restock list should be asking for this at all. Two reasons, either of which is
+    /// enough: the shelf says it has run low, or somebody said this is one to look at every round.
+    ///
+    /// The second exists because the first only works for things whose count is kept up to date. Nobody
+    /// counts the milk; they look. An item marked for checking is on the list whatever the number says,
+    /// and crossing it off is the answer to "have you looked", not "is it above four".
+    /// </summary>
+    public bool BelongsOnTheRestockList => IsBelowMinimum || IsCheckedRegularly;
+
     private InventoryItem(
         Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
@@ -78,13 +98,17 @@ public sealed class InventoryItem
 
     public static InventoryItem Create(
         Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
-        InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, int position = 0)
+        InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, int position = 0,
+        bool isCheckedRegularly = false)
     {
         EnsureTheWordsFit(name, productType, category);
         var now = DateTimeOffset.UtcNow;
         return new InventoryItem(
             Guid.NewGuid(), warehouseId, name, productType, category, quantity, minimumQuantity, unit, expiryDate,
-            expiryNotificationChannel, pendingRestockTaskListId: null, pendingRestockTaskItemId: null, position, now, now);
+            expiryNotificationChannel, pendingRestockTaskListId: null, pendingRestockTaskItemId: null, position, now, now)
+        {
+            IsCheckedRegularly = isCheckedRegularly
+        };
     }
 
     /// <summary>Rebuilds an inventory item from already-persisted values, bypassing creation rules.</summary>
@@ -92,11 +116,14 @@ public sealed class InventoryItem
         Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
         Guid? pendingRestockTaskListId, Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc,
-        DateTimeOffset updatedAtUtc)
+        DateTimeOffset updatedAtUtc, bool isCheckedRegularly = false)
         => new(
             id, warehouseId, name, productType, category, quantity, minimumQuantity, unit, expiryDate,
             expiryNotificationChannel, pendingRestockTaskListId, pendingRestockTaskItemId, position, createdAtUtc,
-            updatedAtUtc);
+            updatedAtUtc)
+        {
+            IsCheckedRegularly = isCheckedRegularly
+        };
 
     /// <summary>
     /// Brings this item up to the level it is meant to be kept at, which is what finishing its restock
@@ -129,10 +156,12 @@ public sealed class InventoryItem
     /// </summary>
     public void Update(
         string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
-        InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel)
+        InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
+        bool isCheckedRegularly = false)
     {
         EnsureTheWordsFit(name, productType, category);
         Name = name;
+        IsCheckedRegularly = isCheckedRegularly;
         ProductType = productType;
         Category = category;
         Quantity = quantity;

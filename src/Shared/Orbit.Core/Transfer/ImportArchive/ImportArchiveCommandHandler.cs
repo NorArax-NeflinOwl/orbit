@@ -127,7 +127,8 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 Recurrence: null,
                 Guests: [],
                 archived.ReminderMinutesBeforeStart,
-                ParseChannel(archived.CreationNotificationChannel),
+                // The file's creation channel is read past: an event no longer tells its owner it was
+                // made, so importing one must not either.
                 ParseChannel(archived.ReminderNotificationChannel));
 
             await _calendarEventRepository.AddAsync(CalendarEvent.Create(userId, details), cancellationToken);
@@ -166,7 +167,9 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             item.Description,
             item.DueDateUtc,
             item.IsCompleted,
-            item.LinkedTaskListTitle is { } title && createdIdsByTitle.TryGetValue(title, out var linkedId) ? linkedId : null,
+            [.. item.AllLinkedTaskListTitles
+                .Select(title => createdIdsByTitle.TryGetValue(title, out var linkedId) ? linkedId : (Guid?)null)
+                .OfType<Guid>()],
             ParseChannel(item.OverdueNotificationChannel),
             item.RemindDaily,
             ParseChannel(item.DailyReminderNotificationChannel),

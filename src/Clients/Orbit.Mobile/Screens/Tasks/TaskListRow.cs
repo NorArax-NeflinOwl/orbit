@@ -52,7 +52,7 @@ public sealed record TaskListRow(
             taskList.LocalId, taskList.IsSealed ? hiddenTitle : translations.Written(taskList.Title), itemCount, completedCount, taskList.IsPinned,
             taskList.UpdatedAtUtc, hasUnsentChanges, refusal,
             Describe(itemCount, completedCount, translations),
-            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
+            OfflineEditExplanation.For(taskList, refusal, hasUnsentChanges, translations),
             TaskListView.Describe(taskList.Status, translations),
             next is { } thing ? translations.Written(thing.Description) : string.Empty,
             next is { OnList: { } onList } ? translations.Written(onList) : string.Empty,
@@ -136,22 +136,27 @@ public sealed record TaskListRow(
     {
         foreach (var item in taskList.Items.Where(item => !item.IsCompleted))
         {
-            if (item.LinkedTaskListId is not { } linkedTaskListId)
+            if (item.AllLinkedTaskListIds.Count == 0)
             {
                 return new ThingLeftToDo(item.Description, OnList: null);
             }
 
-            // A member list this reader cannot see, or one this phone has not synced: the row's own name
-            // is that list's title, which still says more than nothing.
-            var linked = everyList.FirstOrDefault(candidate => candidate.ServerId == linkedTaskListId);
-            if (linked is null)
+            // An entry can stand for several lists; they are looked through in order, so what comes back
+            // is the first outstanding thing on the first list that still has one.
+            foreach (var linkedTaskListId in item.AllLinkedTaskListIds)
             {
-                return new ThingLeftToDo(item.Description, OnList: null);
-            }
+                // A member list this reader cannot see, or one this phone has not synced: the row's own
+                // name is that list's title, which still says more than nothing.
+                var linked = everyList.FirstOrDefault(candidate => candidate.ServerId == linkedTaskListId);
+                if (linked is null)
+                {
+                    return new ThingLeftToDo(item.Description, OnList: null);
+                }
 
-            if (linked.Items.FirstOrDefault(candidate => !candidate.IsCompleted) is { } linkedItem)
-            {
-                return new ThingLeftToDo(linkedItem.Description, linked.Title);
+                if (linked.Items.FirstOrDefault(candidate => !candidate.IsCompleted) is { } linkedItem)
+                {
+                    return new ThingLeftToDo(linkedItem.Description, linked.Title);
+                }
             }
         }
 

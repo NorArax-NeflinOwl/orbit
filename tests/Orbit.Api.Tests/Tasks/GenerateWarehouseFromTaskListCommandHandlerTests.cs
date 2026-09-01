@@ -20,7 +20,7 @@ public sealed class GenerateWarehouseFromTaskListCommandHandlerTests
         => TaskItem.Create(description, dueDateUtc, isCompleted);
 
     private static TaskItem LinkTo(TaskList target)
-        => TaskItem.Create(target.Title, dueDateUtc: null, isCompleted: false, linkedTaskListId: target.Id);
+        => TaskItem.Create(target.Title, dueDateUtc: null, isCompleted: false, linkedTaskListIds: [target.Id]);
 
     private TaskList Store(string title, bool isGroup, params TaskItem[] items)
     {

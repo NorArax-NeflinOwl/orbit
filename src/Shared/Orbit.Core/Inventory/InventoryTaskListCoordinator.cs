@@ -99,7 +99,7 @@ public sealed class InventoryTaskListCoordinator
     public async Task<InventoryItem> EnsureRestockTaskAsync(InventoryItem item, CancellationToken cancellationToken)
     {
         item = await _pendingRestockTaskResolver.ResolveAsync(item, cancellationToken);
-        if (!item.IsBelowMinimum)
+        if (!item.BelongsOnTheRestockList)
         {
             return item;
         }

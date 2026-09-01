@@ -102,6 +102,12 @@ public partial class App : Application
 			// drops in Doze anyway, and what it would have carried is what push already delivers - see
 			// LiveUpdatesConnection.
 			_ = _services.GetRequiredService<LiveUpdatesConnection>().StopAsync();
+
+#if ANDROID
+			// The home screen is where somebody putting the app down is going, and what it shows was
+			// filled in before whatever they just did - see OrbitTodayWidget.
+			OrbitTodayWidget.Refresh(Android.App.Application.Context);
+#endif
 		};
 
 		window.Activated += (_, _) =>

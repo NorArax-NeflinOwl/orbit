@@ -10,6 +10,9 @@ public sealed class WarehouseEntity
     public Guid UserId { get; set; }
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>What it is about, under its name. Empty for one nobody described.</summary>
+    public string Description { get; set; } = string.Empty;
+
     /// <summary>Whether this warehouse is readable only by its owner - see Orbit.Core.Inventory.Warehouse.IsPrivate.</summary>
     public bool IsPrivate { get; set; }
 

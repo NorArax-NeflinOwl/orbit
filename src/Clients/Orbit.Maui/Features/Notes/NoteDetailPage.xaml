@@ -37,7 +37,8 @@
                 <Label Grid.Column="0" Text="{controls:Translate 'Priority'}" VerticalOptions="Center" />
                 <Picker Grid.Column="1" WidthRequest="160" ItemsSource="{Binding Priorities}"
                         SelectedItem="{Binding ChosenPriority}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=tasks:PriorityChoice}" />
+                        ItemDisplayBinding="{Binding Name, x:DataType=tasks:PriorityChoice}"
+                        SemanticProperties.Description="{controls:Translate 'Priority'}" />
             </Grid>
 
             <!-- The same checkbox Orbit.Web's note editor has: what it turns on is real encryption, so

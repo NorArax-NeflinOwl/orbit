@@ -94,6 +94,10 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(task => task.Id);
             entity.Property(task => task.Title).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            // Defaulted rather than nullable: every reader treats "no description" as an empty string,
+            // and a column that can also be null would give them a second way to spell the same thing.
+            entity.Property(task => task.Description).IsRequired()
+                .HasMaxLength(StoredTextLimits.EventDescription).HasDefaultValue(string.Empty);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(task => task.LockedByUserName).HasMaxLength(64);
             // Every task list query is scoped to a single user's task lists; this is the index that
@@ -120,6 +124,23 @@ public sealed class OrbitDbContext : DbContext
                 .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
             // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
             entity.Property(item => item.Location).IsRequired().HasMaxLength(StoredTextLimits.Address).HasDefaultValue(string.Empty);
+
+            // The lists this entry stands for. Owned by the entry and deleted with it, like the entries
+            // themselves are owned by their list.
+            entity.HasMany(item => item.LinkedTaskLists)
+                .WithOne()
+                .HasForeignKey(link => link.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaskItemTaskListLinkEntity>(entity =>
+        {
+            entity.HasKey(link => new { link.TaskItemId, link.LinkedTaskListId });
+
+            // No foreign key to the list being pointed at. A link to a list that has since been deleted
+            // reads as "not completed" rather than as a failure (see LinkedTaskCompletionResolver), and
+            // a constraint here would instead refuse the delete or silently take the entry with it.
+            entity.HasIndex(link => link.LinkedTaskListId);
         });
 
         modelBuilder.Entity<CalendarEventEntity>(entity =>
@@ -130,7 +151,6 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(calendarEvent => calendarEvent.LocationAddress).HasMaxLength(StoredTextLimits.Address);
             entity.Property(calendarEvent => calendarEvent.Color).HasMaxLength(StoredTextLimits.Color);
             entity.Property(calendarEvent => calendarEvent.RecurrenceFrequency).HasMaxLength(20);
-            entity.Property(calendarEvent => calendarEvent.CreationNotificationChannel).HasMaxLength(20);
             entity.Property(calendarEvent => calendarEvent.ReminderNotificationChannel).HasMaxLength(20);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(calendarEvent => calendarEvent.LockedByUserName).HasMaxLength(64);
@@ -383,6 +403,8 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(warehouse => warehouse.Id);
             entity.Property(warehouse => warehouse.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            entity.Property(warehouse => warehouse.Description).IsRequired()
+                .HasMaxLength(StoredTextLimits.EventDescription).HasDefaultValue(string.Empty);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(warehouse => warehouse.LockedByUserName).HasMaxLength(64);
             // Listing a user's own warehouses is the most common warehouse query.

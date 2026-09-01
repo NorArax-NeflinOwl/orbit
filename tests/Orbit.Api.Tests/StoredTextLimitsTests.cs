@@ -123,7 +123,7 @@ public sealed class StoredTextLimitsTests
             !fitting && tooLongOne == "colour" ? TooLongFor(StoredTextLimits.Color) : "#ffffff",
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
             IsAllDay: false, Recurrence: null, Guests: [], ReminderMinutesBeforeStart: [],
-            NotificationChannel.None, NotificationChannel.None);
+            NotificationChannel.None);
 
     /// <summary>
     /// The two an account is known by. Missed on the first pass at this - the probe that found the rest

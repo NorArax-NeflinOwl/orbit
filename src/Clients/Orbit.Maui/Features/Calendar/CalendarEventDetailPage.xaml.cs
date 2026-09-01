@@ -12,7 +12,7 @@ public partial class CalendarEventDetailPage : ContentPage
 
 	public CalendarEventDetailPage(CalendarEventDetailViewModel viewModel, Translations translations)
 	{
-		// Before InitializeComponent, not after: these three are bound from the static part of the tree,
+		// Before InitializeComponent, not after: these two are bound from the static part of the tree,
 		// which is built there and reads each property once. A command assigned afterwards is read as
 		// null and never looked at again - the page's own buttons then do nothing at all. (The chat's
 		// message menu gets away with the other order only because its binding is inside a DataTemplate,
@@ -20,9 +20,6 @@ public partial class CalendarEventDetailPage : ContentPage
 		_viewModel = viewModel;
 		_translations = translations;
 		ChooseReminderCommand = new Command(() => _ = ChooseReminderAsync());
-		ChooseCreationChannelCommand = new Command(() => _ = ChooseChannelAsync(
-			_translations["Notification when the event is created"],
-			channel => _viewModel.CreationChannel = channel));
 		ChooseReminderChannelCommand = new Command(() => _ = ChooseChannelAsync(
 			_translations["Notification as the event approaches"],
 			channel => _viewModel.ReminderChannel = channel));
@@ -41,7 +38,6 @@ public partial class CalendarEventDetailPage : ContentPage
 	/// </summary>
 	public ICommand ChooseReminderCommand { get; }
 
-	public ICommand ChooseCreationChannelCommand { get; }
 
 	public ICommand ChooseReminderChannelCommand { get; }
 

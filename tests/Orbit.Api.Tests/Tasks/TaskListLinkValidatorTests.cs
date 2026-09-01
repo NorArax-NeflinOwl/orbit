@@ -25,7 +25,7 @@ public sealed class TaskListLinkValidatorTests
         var otherList = TaskList.Create(userId, "Other list", []);
         await repository.AddAsync(otherList, CancellationToken.None);
         var validator = new TaskListLinkValidator(repository);
-        var items = new[] { TaskItem.Create("Depends on other list", null, false, otherList.Id) };
+        var items = new[] { TaskItem.Create("Depends on other list", null, false, [otherList.Id]) };
 
         // Should not throw.
         await validator.ValidateAsync(userId, taskListId: null, items, CancellationToken.None);
@@ -39,7 +39,7 @@ public sealed class TaskListLinkValidatorTests
         var taskList = TaskList.Create(userId, "Errands", []);
         await repository.AddAsync(taskList, CancellationToken.None);
         var validator = new TaskListLinkValidator(repository);
-        var items = new[] { TaskItem.Create("Self reference", null, false, taskList.Id) };
+        var items = new[] { TaskItem.Create("Self reference", null, false, [taskList.Id]) };
 
         await Assert.ThrowsAsync<InvalidRequestException>(
             () => validator.ValidateAsync(userId, taskList.Id, items, CancellationToken.None));
@@ -49,7 +49,7 @@ public sealed class TaskListLinkValidatorTests
     public async Task ValidateAsync_rejects_a_link_to_an_unknown_task_list_id()
     {
         var validator = new TaskListLinkValidator(new InMemoryTaskRepository());
-        var items = new[] { TaskItem.Create("Depends on nothing", null, false, Guid.NewGuid()) };
+        var items = new[] { TaskItem.Create("Depends on nothing", null, false, [Guid.NewGuid()]) };
 
         await Assert.ThrowsAsync<InvalidRequestException>(
             () => validator.ValidateAsync(Guid.NewGuid(), taskListId: null, items, CancellationToken.None));
@@ -62,7 +62,7 @@ public sealed class TaskListLinkValidatorTests
         var otherUsersList = TaskList.Create(Guid.NewGuid(), "Not mine", []);
         await repository.AddAsync(otherUsersList, CancellationToken.None);
         var validator = new TaskListLinkValidator(repository);
-        var items = new[] { TaskItem.Create("Depends on someone else's list", null, false, otherUsersList.Id) };
+        var items = new[] { TaskItem.Create("Depends on someone else's list", null, false, [otherUsersList.Id]) };
 
         await Assert.ThrowsAsync<InvalidRequestException>(
             () => validator.ValidateAsync(Guid.NewGuid(), taskListId: null, items, CancellationToken.None));
@@ -76,12 +76,12 @@ public sealed class TaskListLinkValidatorTests
         var listB = TaskList.Create(userId, "List B", []);
         await repository.AddAsync(listB, CancellationToken.None);
         // List A already links to List B.
-        var listA = TaskList.Create(userId, "List A", [TaskItem.Create("Depends on B", null, false, listB.Id)]);
+        var listA = TaskList.Create(userId, "List A", [TaskItem.Create("Depends on B", null, false, [listB.Id])]);
         await repository.AddAsync(listA, CancellationToken.None);
         var validator = new TaskListLinkValidator(repository);
 
         // Now trying to make List B link back to List A would close the loop.
-        var itemsForB = new[] { TaskItem.Create("Depends on A", null, false, listA.Id) };
+        var itemsForB = new[] { TaskItem.Create("Depends on A", null, false, [listA.Id]) };
 
         await Assert.ThrowsAsync<InvalidRequestException>(
             () => validator.ValidateAsync(userId, listB.Id, itemsForB, CancellationToken.None));
@@ -94,11 +94,11 @@ public sealed class TaskListLinkValidatorTests
         var userId = Guid.NewGuid();
         var listC = TaskList.Create(userId, "List C", []);
         await repository.AddAsync(listC, CancellationToken.None);
-        var listB = TaskList.Create(userId, "List B", [TaskItem.Create("Depends on C", null, false, listC.Id)]);
+        var listB = TaskList.Create(userId, "List B", [TaskItem.Create("Depends on C", null, false, [listC.Id])]);
         await repository.AddAsync(listB, CancellationToken.None);
         var validator = new TaskListLinkValidator(repository);
 
-        var itemsForA = new[] { TaskItem.Create("Depends on B", null, false, listB.Id) };
+        var itemsForA = new[] { TaskItem.Create("Depends on B", null, false, [listB.Id]) };
 
         // Should not throw: A -> B -> C is a chain, not a cycle.
         await validator.ValidateAsync(userId, taskListId: null, itemsForA, CancellationToken.None);

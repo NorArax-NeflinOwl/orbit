@@ -45,6 +45,12 @@
                     Command="{Binding SignInWithGoogleCommand}"
                     Style="{StaticResource SecondaryButton}" />
 
+            <!-- The one way back in for somebody who cannot get past this screen. It was reachable
+                 only from the chat key gate, which is behind signing in. -->
+            <Button Text="{controls:Translate 'Forgotten your password?'}"
+                    Command="{Binding GoToPasswordResetCommand}"
+                    Style="{StaticResource LinkButton}" />
+
             <Button Text="{controls:Translate 'Create an account'}"
                     Command="{Binding GoToRegisterCommand}"
                     Style="{StaticResource LinkButton}" />

@@ -47,212 +47,22 @@ else
     }
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
-    <fieldset disabled="@(!_canEditContent || _lockedByUserName is not null || _isSaving)">
+    <fieldset disabled="@IsLockedForEditing">
         <div class="field">
-            <label>@T["Title"]</label>
-            <InputText @bind-Value="_formModel.Title" />
+            <label for="eventTitleInput">@T["Title"]</label>
+            <input id="eventTitleInput" type="text" value="@_title"
+                   @oninput="args => _title = args.Value?.ToString() ?? string.Empty" />
         </div>
-        <div class="field">
-            <label>@T["Description"]</label>
-            <InputTextArea @bind-Value="_formModel.Description" />
-        </div>
-        <div class="field">
-            <label for="eventPrioritySelect">@T["Priority"]</label>
-            <InputSelect id="eventPrioritySelect" @bind-Value="_formModel.Priority">
-                <option value="Low">@T["Low"]</option>
-                <option value="Normal">@T["Normal"]</option>
-                <option value="High">@T["High"]</option>
-            </InputSelect>
-            <small>@T["Sorts this event against the others, and is what the dashboard's filter reads."]</small>
-        </div>
-        <div class="field">
-            <label>@T["Location"]</label>
-            <InputText @bind-Value="_formModel.LocationAddress" placeholder="@(T["Pick a point on the map, or type what to call this place"])" />
-            @* Said out loud, because the box used to read as something the map filled in. What is typed
-               here is only the name: the pin and its coordinates are what the map holds, and they are
-               untouched by anything written above. *@
-            <small>@T["The name is yours to write - the pin below keeps its exact position either way."]</small>
-            <div class="field-row">
-                <button type="button" class="btn-secondary" @onclick="ToggleMapAsync">@(_isMapVisible ? T["Hide map"] : T["Pick on map"])</button>
-                @if (IsTheAddressTheirOwn && _addressAsGeocoded.Length > 0)
-                {
-                    <button type="button" class="btn-secondary" @onclick="UseTheAddressFromTheMap"
-                            title="@(_addressAsGeocoded)">@T["Use the address from the map"]</button>
-                }
-                @if (_formModel.LocationLatitude is { } latitude && _formModel.LocationLongitude is { } longitude)
-                {
-                    <span>@T.Format("Coordinates: {0}, {1}", latitude.ToString("F5"), longitude.ToString("F5"))</span>
-                    <button type="button" class="btn-secondary" @onclick="ClearLocation">@T["Remove location"]</button>
-                }
-            </div>
-            @if (_isMapVisible)
-            {
-                <div id="@MapElementId" class="map-picker"></div>
-            }
-        </div>
-        <div class="field">
-            <label>@T["Color"]</label>
-            <input type="color" @bind="_formModel.Color" />
-        </div>
-        <div class="field field-checkbox">
-            <label>
-                <InputCheckbox @bind-Value="_formModel.IsAllDay" />@T["All-day event"]</label>
-        </div>
-        <div class="field">
-            <label>@T["Start"]</label>
-            <div class="field-row">
-                <DateField @bind-Value="_formModel.StartDate" @bind-Value:after="OnStartChanged" AriaLabel="@(T["Start"])" />
-                @if (!_formModel.IsAllDay)
-                {
-                    <TimeField @bind-Value="_formModel.StartTime" @bind-Value:after="OnStartChanged" AriaLabel="@(T["Start"])" />
-                }
-            </div>
-        </div>
-        <div class="field">
-            <label>@T["End"]</label>
-            <div class="field-row">
-                <DateField @bind-Value="_formModel.EndDate" @bind-Value:after="OnEndChanged" AriaLabel="@(T["End"])" />
-                @if (!_formModel.IsAllDay)
-                {
-                    <TimeField @bind-Value="_formModel.EndTime" @bind-Value:after="OnEndChanged" AriaLabel="@(T["End"])" />
-                }
-            </div>
-        </div>
-        <div class="field field-checkbox">
-            <label>
-                <InputCheckbox @bind-Value="_formModel.IsRecurring" />@T["Recurring event"]</label>
-        </div>
-        @if (_formModel.IsRecurring)
-        {
-            <div class="field">
-                <label>@T["Frequency"]</label>
-                <InputSelect @bind-Value="_formModel.RecurrenceFrequency">
-                    <option value="Daily">@T["Daily"]</option>
-                    <option value="Weekly">@T["Weekly"]</option>
-                    <option value="Monthly">@T["Monthly"]</option>
-                </InputSelect>
-            </div>
-            <div class="field">
-                <label>@T["Every"]</label>
-                <InputNumber @bind-Value="_formModel.RecurrenceIntervalCount" />
-            </div>
-            <div class="field">
-                <label>@T["Repeat until (optional)"]</label>
-                <DateField @bind-Value="_formModel.RecurrenceUntil" AriaLabel="@(T["Repeat until (optional)"])" />
-            </div>
-        }
-        <div class="field">
-            <label>@T["Reminders"]</label>
-            @if (_reminderRows.Count == 0)
-            {
-                <p>@T["No reminders."]</p>
-            }
-            else
-            {
-                @foreach (var row in _reminderRows)
-                {
-                    <div class="field-row reminder-row" id="reminderRows">
-                        <select @bind="row.PresetSelection">
-                            @foreach (var preset in ReminderPresets)
-                            {
-                                <option value="@preset.Minutes">@T[preset.Label]</option>
-                            }
-                            <option value="custom">@T["Custom"]</option>
-                        </select>
-                        @if (row.IsCustom)
-                        {
-                            <InputNumber @bind-Value="row.CustomAmount" @bind-Value:after="row.RecomputeFromCustom" min="1" />
-                            <select @bind="row.CustomUnit" @bind:after="row.RecomputeFromCustom">
-                                <option value="minutes">@T["minutes"]</option>
-                                <option value="hours">@T["hours"]</option>
-                                <option value="days">@T["days"]</option>
-                                <option value="weeks">@T["weeks"]</option>
-                            </select>
-                            <span>@T["before"]</span>
-                        }
-                        <button type="button" class="btn-secondary" @onclick="() => RemoveReminderRow(row)">@T["Remove"]</button>
-                    </div>
-                }
-            }
-            <button type="button" class="btn-secondary" @onclick="AddReminderRow">@T["Add reminder"]</button>
-        </div>
-        <div class="field">
-            <label>@T["Notification when the event is created"]<select @bind="_formModel.CreationNotificationChannel">
-                    @foreach (var option in NotificationChannelOption.All)
-                    {
-                        <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                    }
-                </select>
-            </label>
-        </div>
-        <div class="field">
-            <label for="reminderChannelSelect">@T["Notification as the event approaches"]</label>
-            <select id="reminderChannelSelect" @bind="_formModel.ReminderNotificationChannel">
-                @foreach (var option in NotificationChannelOption.All)
-                {
-                    <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                }
-            </select>
-        </div>
-
     </fieldset>
 
-    @if (_canShare)
-    {
-        <fieldset disabled="@_isSaving">
-            <div class="field">
-                <label>@T["Guests"]</label>
-                @if (_formModel.GuestUserIds.Count == 0)
-                {
-                    <p>@T["No guests."]</p>
-                }
-                else
-                {
-                    <ul id="guestList">
-                        @foreach (var guestUserId in _formModel.GuestUserIds)
-                        {
-                            <li>
-                                @GetGuestDisplayName(guestUserId)
-                                <button type="button" class="btn-secondary" @onclick="() => RemoveGuest(guestUserId)">@T["Remove"]</button>
-                            </li>
-                        }
-                    </ul>
-                }
-            </div>
-            <div class="field">
-                <label>@T["Add a guest from contacts"]</label>
-                @if (_shareableContacts.Count == 0)
-                {
-                    <p>@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
-                }
-                else
-                {
-                    <div class="field-row">
-                        <select id="guestContactSelect" @bind="_selectedContactUserId">
-                            <option value="">@T["-- select a contact --"]</option>
-                            @foreach (var contact in _shareableContacts)
-                            {
-                                <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
-                            }
-                        </select>
-                        <select id="guestAccessLevelSelect" @bind="_selectedAccessLevel">
-                            <option value="ReadOnly">@T["Read-only"]</option>
-                            <option value="Share">@T["Can share"]</option>
-                            @if (_canGrantEditOnly)
-                            {
-                                <option value="EditOnly">@T["Can edit, but not share editing"]</option>
-                            }
-                            @if (_canGrantCanEdit)
-                            {
-                                <option value="CanEdit">@T["Can edit"]</option>
-                            }
-                        </select>
-                        <button type="button" id="addGuestFromContactButton" class="btn-secondary" @onclick="AddSelectedContactAsGuest">@T["Add"]</button>
-                    </div>
-                }
-            </div>
-        </fieldset>
-    }
+    @* Everything else an event is, drawn by the control the task list's calendar entry uses too - see
+       EventFields.razor. One form, so the two cannot drift apart. *@
+    <EventFields Model="_formModel" NotificationSettings="_notificationSettings"
+                 IsReadOnly="IsLockedForEditing" OnMapRequested="OpenTheMap"
+                 CanInviteGuests="_canShare" Contacts="_contacts"
+                 CanGrantEditOnly="_canGrantEditOnly" CanGrantCanEdit="_canGrantCanEdit"
+                 GuestDisplayName="GetGuestDisplayName" GuestAccessLabel="GetGuestAccessLabel"
+                 OnGuestAdded="OnGuestAdded" OnGuestRemoved="OnGuestRemoved" />
 
     <div class="form-actions">
         <button type="submit" class="btn-primary" disabled="@_isSaving">@T["Save"]</button>
@@ -293,6 +103,11 @@ else
     }
 }
 
+@if (_isMapVisible)
+{
+    <LocationPickerOverlay Address="@_formModel.LocationAddress" OnPicked="UseThePickedPlace" OnCancelled="CloseTheMap" />
+}
+
 @code {
     private const string MapElementId = "eventLocationMap";
 
@@ -312,14 +127,18 @@ else
             ? $"{location.Latitude.ToString(CultureInfo.InvariantCulture)}, {location.Longitude.ToString(CultureInfo.InvariantCulture)}"
             : location.Address;
     private bool _isLoading = true;
-    private CalendarEventFormModel _formModel = new();
+    private EventFormModel _formModel = new();
+
+    /// <summary>The event's name. Its own field rather than the shared control's - see EventFields.razor.</summary>
+    private string _title = string.Empty;
+
+    /// <summary>Locked, read-only, or mid-save: three reasons the event itself must not move under anybody.</summary>
+    private bool IsLockedForEditing => !_canEditContent || _lockedByUserName is not null || _isSaving;
     private string? _errorMessage;
     private bool _isMapVisible;
     private IJSObjectReference? _mapPickerModule;
     private DotNetObjectReference<CalendarEventEditor>? _dotNetHelper;
     private IReadOnlyList<ContactDto> _contacts = [];
-    private string _selectedContactUserId = string.Empty;
-    private string _selectedAccessLevel = "ReadOnly";
     private Guid _ownUserId;
     private bool _isShared;
     private bool _isSharedReadOnly;
@@ -383,29 +202,6 @@ else
     /// leaves the moment itself unannounced. EventReminderPushContent already words a zero lead time as
     /// "starts now" - the picker was the only place it could not be chosen.
     /// </summary>
-    private static readonly (int Minutes, string Label)[] ReminderPresets =
-    [
-        (0, "When it starts"),
-        (5, "5 minutes before"),
-        (10, "10 minutes before"),
-        (15, "15 minutes before"),
-        (30, "30 minutes before"),
-        (60, "1 hour before"),
-        (120, "2 hours before"),
-        (720, "12 hours before"),
-        (1440, "1 day before"),
-        (2880, "2 days before"),
-        (10080, "1 week before")
-    ];
-
-    private List<ReminderRow> _reminderRows = [];
-
-    /// <summary>
-    /// The gap between start and end the last time both were valid (start on/before end) - reapplied to
-    /// End whenever Start is moved past it, so an event keeps its length instead of collapsing to zero
-    /// duration or being left invalid. Kept up to date by both OnStartChanged and OnEndChanged.
-    /// </summary>
-    private TimeSpan _lastKnownDuration = TimeSpan.FromHours(1);
     private NotificationSettingsDto _notificationSettings = new(true, true, true, true, true, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
 
     protected override async Task OnInitializedAsync()
@@ -443,7 +239,8 @@ else
                 var calendarEvent = await CalendarApiClient.GetCalendarEventByIdAsync(eventId);
                 if (calendarEvent is not null)
                 {
-                    _formModel = CalendarEventFormModel.FromDto(calendarEvent.Details);
+                    _formModel = EventFormModel.FromDto(calendarEvent.Details);
+                    _title = calendarEvent.Details.Title;
                     _savedDetails = calendarEvent.Details;
                     _isShared = calendarEvent.IsShared;
                     _access = SharedItemAccess.For(calendarEvent.IsShared, calendarEvent.AccessLevel);
@@ -473,15 +270,7 @@ else
                 // so a new event still told nobody anything - and ten minutes is what the Add button
                 // reaches for too. Only for a new event: an existing one keeps whatever it was given,
                 // including deliberately having none.
-                _formModel.ReminderMinutesBeforeStart = [DefaultReminderMinutesBeforeStart];
-            }
-
-            _reminderRows = _formModel.ReminderMinutesBeforeStart.Select(ReminderRow.FromMinutes).ToList();
-            var initialStart = ComputeStartInstant();
-            var initialEnd = ComputeEndInstant();
-            if (initialStart is { } start && initialEnd is { } end && end > start)
-            {
-                _lastKnownDuration = end - start;
+                _formModel.Reminders = [ReminderRow.FromMinutes(DefaultReminderMinutesBeforeStart)];
             }
 
             _contacts = await ChatApiClient.GetContactsAsync();
@@ -499,81 +288,24 @@ else
         _isLoading = false;
     }
 
-    private DateTime? ComputeStartInstant()
-        => _formModel.StartDate?.ToDateTime(_formModel.IsAllDay ? TimeOnly.MinValue : _formModel.StartTime ?? TimeOnly.MinValue);
-
-    private DateTime? ComputeEndInstant()
-        => _formModel.EndDate?.ToDateTime(_formModel.IsAllDay ? TimeOnly.MinValue : _formModel.EndTime ?? TimeOnly.MinValue);
-
-    /// <summary>
-    /// Auto-corrects the end date/time whenever moving the start pushes it past the current end - keeps
-    /// the previously-known duration (see <see cref="_lastKnownDuration"/>) instead of leaving the event
-    /// end before its start or collapsed to zero length, mirroring how Google Calendar shifts the end
-    /// when you drag the start past it.
-    /// </summary>
-    private void OnStartChanged()
-    {
-        var start = ComputeStartInstant();
-        if (start is null)
-        {
-            return;
-        }
-
-        var end = ComputeEndInstant();
-        if (end is null || start.Value > end.Value)
-        {
-            var corrected = start.Value + _lastKnownDuration;
-            _formModel.EndDate = DateOnly.FromDateTime(corrected);
-            _formModel.EndTime = TimeOnly.FromDateTime(corrected);
-        }
-        else
-        {
-            _lastKnownDuration = end.Value - start.Value;
-        }
-    }
-
-    /// <summary>Keeps <see cref="_lastKnownDuration"/> current when the user edits End directly instead of moving Start.</summary>
-    private void OnEndChanged()
-    {
-        var start = ComputeStartInstant();
-        var end = ComputeEndInstant();
-        if (start is { } startValue && end is { } endValue && endValue >= startValue)
-        {
-            _lastKnownDuration = endValue - startValue;
-        }
-    }
-
     private const int DefaultReminderMinutesBeforeStart = 10;
 
-    private void AddReminderRow() => _reminderRows.Add(ReminderRow.FromMinutes(DefaultReminderMinutesBeforeStart));
-
-    private void RemoveReminderRow(ReminderRow row) => _reminderRows.Remove(row);
-
     /// <summary>
-    /// Adds the currently selected contact as a guest by user id. Silently ignores an already-added
-    /// contact instead of creating a duplicate entry.
+    /// An invitation is two things: a guest on the event, which the control has already added, and a
+    /// share carrying what they are allowed to do, which is sent when the event is saved - see
+    /// ShareWithRecipientsAsync. Only then, because a share needs an event id and a new event has none.
     /// </summary>
-    private void AddSelectedContactAsGuest()
-    {
-        if (!Guid.TryParse(_selectedContactUserId, out var contactUserId))
-        {
-            return;
-        }
+    private void OnGuestAdded((Guid UserId, string AccessLevel) invitation)
+        => _shareRecipients.Add((invitation.UserId, invitation.AccessLevel));
 
-        if (_contacts.Any(candidate => candidate.UserId == contactUserId) && !_formModel.GuestUserIds.Contains(contactUserId))
-        {
-            _formModel.GuestUserIds.Add(contactUserId);
-            _shareRecipients.Add((contactUserId, _selectedAccessLevel));
-        }
+    private void OnGuestRemoved(Guid guestUserId)
+        => _shareRecipients.RemoveAll(recipient => recipient.RecipientUserId == guestUserId);
 
-        _selectedContactUserId = string.Empty;
-    }
-
-    private void RemoveGuest(Guid guestUserId)
-    {
-        _formModel.GuestUserIds.Remove(guestUserId);
-        _shareRecipients.RemoveAll(recipient => recipient.RecipientUserId == guestUserId);
-    }
+    /// <summary>What this guest was invited as, where this session is the one that invited them.</summary>
+    private string GetGuestAccessLabel(Guid guestUserId)
+        => _shareRecipients.FirstOrDefault(recipient => recipient.RecipientUserId == guestUserId) is { AccessLevel: { } level }
+            ? level
+            : string.Empty;
 
     /// <summary>
     /// Looks up guestUserId's login for display, preferring the already-loaded contact list and falling
@@ -611,77 +343,27 @@ else
         }
     }
 
-    /// <summary>
-    /// The map is only initialized once it becomes visible, and torn down again when hidden - it isn't
-    /// worth keeping a live Leaflet instance (and its tile requests) around for a panel the user closed.
-    /// </summary>
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (_isMapVisible && _mapPickerModule is null)
-        {
-            _mapPickerModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapPicker.js");
-            _dotNetHelper = DotNetObjectReference.Create(this);
-            await _mapPickerModule.InvokeVoidAsync(
-                "initializeMapPicker", MapElementId, _dotNetHelper, _formModel.LocationLatitude, _formModel.LocationLongitude);
-        }
-    }
+    /// <summary>The entry's place is pointed at over the page, in the same overlay the task editor uses.</summary>
+    private void OpenTheMap() => _isMapVisible = true;
 
-    private async Task ToggleMapAsync()
-    {
-        _isMapVisible = !_isMapVisible;
-        if (!_isMapVisible)
-        {
-            await DisposeMapAsync();
-        }
-    }
+    private void CloseTheMap() => _isMapVisible = false;
 
     /// <summary>
-    /// The address as reverse geocoding last wrote it, so a name somebody typed themselves can be told
-    /// from one Orbit guessed - see OnMapLocationPicked.
+    /// The pin was confirmed. Its address fills the box when the box is empty, and is left alone when
+    /// somebody wrote a name of their own there - "the back entrance" is the whole reason that box is
+    /// typed into. The place itself is set either way: the words are the reader's to choose, but where
+    /// it is was decided by the pin.
     /// </summary>
-    private string _addressAsGeocoded = string.Empty;
-
-    /// <summary>Whether the name in the box is the reader's own words rather than the map's.</summary>
-    private bool IsTheAddressTheirOwn
-        => _formModel.LocationAddress.Length > 0 && _formModel.LocationAddress != _addressAsGeocoded;
-
-    /// <summary>
-    /// Called from mapPicker.js when the user clicks a point on the map.
-    ///
-    /// The pin always moves. The name only follows it when it is still the one the map gave: a place
-    /// somebody named themselves - "the back entrance", "Mum's" - is the whole reason the box is
-    /// editable, and overwriting it with a street address every time the pin is nudged is what made
-    /// correcting it feel impossible.
-    /// </summary>
-    [JSInvokable]
-    public async Task OnMapLocationPicked(double latitude, double longitude)
+    private void UseThePickedPlace(PickedPlace place)
     {
-        var theirOwnName = IsTheAddressTheirOwn;
-        _formModel.LocationLatitude = latitude;
-        _formModel.LocationLongitude = longitude;
-
-        var geocoded = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude);
-        _addressAsGeocoded = geocoded ?? string.Empty;
-        if (!theirOwnName)
+        _formModel.LocationLatitude = place.Latitude;
+        _formModel.LocationLongitude = place.Longitude;
+        if (_formModel.LocationAddress.Trim().Length == 0)
         {
-            _formModel.LocationAddress = geocoded ?? _formModel.LocationAddress;
+            _formModel.LocationAddress = place.Address;
         }
 
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// Puts the map's own name back, for somebody who renamed a place and then wanted the street after
-    /// all. Only offered while the two differ, so it is never a button that does nothing.
-    /// </summary>
-    private void UseTheAddressFromTheMap() => _formModel.LocationAddress = _addressAsGeocoded;
-
-    private void ClearLocation()
-    {
-        _formModel.LocationAddress = string.Empty;
-        _addressAsGeocoded = string.Empty;
-        _formModel.LocationLatitude = null;
-        _formModel.LocationLongitude = null;
+        _isMapVisible = false;
     }
 
     private async Task SaveAsync()
@@ -689,8 +371,7 @@ else
         Logger.LogInformation(
             "User clicked 'Save' ({Mode}, EventId={EventId})", IsNewEvent ? "create" : "update", Id);
 
-        _formModel.ReminderMinutesBeforeStart = _reminderRows.Select(row => row.MinutesBeforeStart).ToList();
-        var details = _formModel.ToRequest();
+        var details = _formModel.ToRequest(_title);
         if (details.EndUtc < details.StartUtc)
         {
             // Also enforced server-side (CalendarEvent.ValidateTimeRange) - this just gives the user an
@@ -960,187 +641,6 @@ else
         else
         {
             StopLockHeartbeat();
-        }
-    }
-
-    private sealed class CalendarEventFormModel
-    {
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string LocationAddress { get; set; } = string.Empty;
-        public double? LocationLatitude { get; set; }
-        public double? LocationLongitude { get; set; }
-        public string Color { get; set; } = "#4a90d9";
-
-        /// <summary>ItemPriority by name, the way the API takes it - see CalendarEventDetailsDto.Priority.</summary>
-        public string Priority { get; set; } = "Normal";
-        public bool IsAllDay { get; set; }
-        public DateOnly? StartDate { get; set; }
-        public TimeOnly? StartTime { get; set; }
-        public DateOnly? EndDate { get; set; }
-        public TimeOnly? EndTime { get; set; }
-        public bool IsRecurring { get; set; }
-        public string RecurrenceFrequency { get; set; } = "Weekly";
-        public int RecurrenceIntervalCount { get; set; } = 1;
-        public DateOnly? RecurrenceUntil { get; set; }
-        public List<Guid> GuestUserIds { get; set; } = [];
-        public List<int> ReminderMinutesBeforeStart { get; set; } = [];
-        /// <summary>
-        /// Confirming something the reader just did themselves is noise, so this stays off unless asked
-        /// for - unlike the reminder below, which is about a moment they are not present for.
-        /// </summary>
-        public string CreationNotificationChannel { get; set; } = "None";
-
-        /// <summary>
-        /// Push by default, matching a task's overdue reminder and an inventory item's expiry. A new
-        /// event used to arrive with no reminder and no channel, so an event created without opening
-        /// either dropdown could never notify anyone - which reads, fairly, as reminders being broken.
-        /// </summary>
-        public string ReminderNotificationChannel { get; set; } = "Push";
-
-        /// <summary>
-        /// Defaults a new event to start now and end an hour later. Start and end are each derived from
-        /// a single timestamp (rather than combining DateTime.Today with a separately-computed time) so
-        /// the end date rolls over correctly when starting late enough that adding an hour crosses
-        /// midnight - otherwise the end date could default to the still-current day while the end time
-        /// wraps to just after midnight, putting the end before the start.
-        /// </summary>
-        public CalendarEventFormModel()
-        {
-            var start = DateTime.Now;
-            var end = start.AddHours(1);
-            StartDate = DateOnly.FromDateTime(start);
-            StartTime = TimeOnly.FromDateTime(start);
-            EndDate = DateOnly.FromDateTime(end);
-            EndTime = TimeOnly.FromDateTime(end);
-        }
-
-        public static CalendarEventFormModel FromDto(CalendarEventDetailsDto details)
-            => new()
-            {
-                Title = details.Title,
-                Description = details.Description ?? string.Empty,
-                LocationAddress = details.Location?.Address ?? string.Empty,
-                LocationLatitude = details.Location?.Latitude,
-                LocationLongitude = details.Location?.Longitude,
-                Color = string.IsNullOrWhiteSpace(details.Color) ? "#4a90d9" : details.Color,
-                IsAllDay = details.IsAllDay,
-                StartDate = DateOnly.FromDateTime(details.StartUtc.LocalDateTime),
-                StartTime = TimeOnly.FromDateTime(details.StartUtc.LocalDateTime),
-                EndDate = DateOnly.FromDateTime(details.EndUtc.LocalDateTime),
-                EndTime = TimeOnly.FromDateTime(details.EndUtc.LocalDateTime),
-                IsRecurring = details.Recurrence is not null,
-                RecurrenceFrequency = details.Recurrence?.Frequency ?? "Weekly",
-                RecurrenceIntervalCount = details.Recurrence?.IntervalCount ?? 1,
-                RecurrenceUntil = details.Recurrence?.UntilUtc is { } until ? DateOnly.FromDateTime(until.LocalDateTime) : null,
-                GuestUserIds = details.Guests.ToList(),
-                ReminderMinutesBeforeStart = details.ReminderMinutesBeforeStart.ToList(),
-                CreationNotificationChannel = details.CreationNotificationChannel,
-                ReminderNotificationChannel = details.ReminderNotificationChannel,
-                Priority = details.Priority
-            };
-
-        public CalendarEventDetailsRequest ToRequest()
-        {
-            var startUtc = ToDateTimeOffset(StartDate, StartTime, IsAllDay);
-            var endUtc = ToDateTimeOffset(EndDate, EndTime, IsAllDay);
-            var recurrence = IsRecurring
-                ? new RecurrenceRequest(RecurrenceFrequency, RecurrenceIntervalCount, ToOptionalDateTimeOffset(RecurrenceUntil))
-                : null;
-            var location = LocationLatitude is { } latitude && LocationLongitude is { } longitude
-                ? new EventLocationRequest(string.IsNullOrWhiteSpace(LocationAddress) ? null : LocationAddress, latitude, longitude)
-                : null;
-
-            return new CalendarEventDetailsRequest(
-                Title,
-                string.IsNullOrWhiteSpace(Description) ? null : Description,
-                location,
-                Color,
-                startUtc,
-                endUtc,
-                IsAllDay,
-                recurrence,
-                GuestUserIds,
-                ReminderMinutesBeforeStart,
-                CreationNotificationChannel,
-                ReminderNotificationChannel,
-                Priority);
-        }
-
-        /// <summary>
-        /// Combines the separately-edited date and time-of-day into the single timestamp the API
-        /// expects. All-day events are anchored to local midnight regardless of the time field.
-        /// </summary>
-        private static DateTimeOffset ToDateTimeOffset(DateOnly? date, TimeOnly? time, bool isAllDay)
-        {
-            var effectiveDate = date ?? DateOnly.FromDateTime(DateTime.Today);
-            var effectiveTime = isAllDay ? TimeOnly.MinValue : time ?? TimeOnly.MinValue;
-            return new DateTimeOffset(effectiveDate.ToDateTime(effectiveTime, DateTimeKind.Local)).ToUniversalTime();
-        }
-
-        private static DateTimeOffset? ToOptionalDateTimeOffset(DateOnly? date)
-            => date is { } value ? new DateTimeOffset(value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local)).ToUniversalTime() : null;
-    }
-
-    /// <summary>
-    /// One reminder row in the editor UI: either a picked preset (see <see cref="ReminderPresets"/>) or a
-    /// custom amount+unit pair (mirrors Google Calendar's reminder picker) - either way it always
-    /// resolves down to <see cref="MinutesBeforeStart"/>, the only thing the API actually stores.
-    /// </summary>
-    private sealed class ReminderRow
-    {
-        public int MinutesBeforeStart { get; set; }
-        public bool IsCustom { get; set; }
-        public int CustomAmount { get; set; } = 10;
-        public string CustomUnit { get; set; } = "minutes";
-
-        /// <summary>Bound to the row's &lt;select&gt; - "custom" or the preset's minutes value as a string.</summary>
-        public string PresetSelection
-        {
-            get => IsCustom ? "custom" : MinutesBeforeStart.ToString();
-            set
-            {
-                if (value == "custom")
-                {
-                    IsCustom = true;
-                    RecomputeFromCustom();
-                }
-                else if (int.TryParse(value, out var minutes))
-                {
-                    IsCustom = false;
-                    MinutesBeforeStart = minutes;
-                }
-            }
-        }
-
-        public void RecomputeFromCustom()
-        {
-            var unitMinutes = CustomUnit switch
-            {
-                "weeks" => 10080,
-                "days" => 1440,
-                "hours" => 60,
-                _ => 1
-            };
-            MinutesBeforeStart = Math.Max(1, CustomAmount) * unitMinutes;
-        }
-
-        /// <summary>Builds a row for minutes, matching it to a preset when one exists exactly, custom otherwise.</summary>
-        public static ReminderRow FromMinutes(int minutes)
-        {
-            if (ReminderPresets.Any(preset => preset.Minutes == minutes))
-            {
-                return new ReminderRow { MinutesBeforeStart = minutes, IsCustom = false };
-            }
-
-            var (amount, unit) = minutes switch
-            {
-                > 0 and _ when minutes % 10080 == 0 => (minutes / 10080, "weeks"),
-                > 0 and _ when minutes % 1440 == 0 => (minutes / 1440, "days"),
-                > 0 and _ when minutes % 60 == 0 => (minutes / 60, "hours"),
-                _ => (minutes, "minutes")
-            };
-            return new ReminderRow { MinutesBeforeStart = minutes, IsCustom = true, CustomAmount = amount, CustomUnit = unit };
         }
     }
 }

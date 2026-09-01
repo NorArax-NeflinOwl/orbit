@@ -45,7 +45,10 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
             return EditOutcome.LockedBy(warehouse.LockedByUserName!);
         }
 
-        warehouse.Update(request.Name, request.IsPrivate, request.EncryptedContent);
+        // Said nothing about the description, keep the stored one - see UpdateWarehouseCommand.
+        warehouse.Update(
+            request.Name, request.IsPrivate, request.EncryptedContent,
+            request.Description ?? warehouse.Description);
         await _warehouseRepository.UpdateAsync(warehouse, cancellationToken);
 
         if (warehouse.IsPrivate)
@@ -102,7 +105,8 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
 
             existing.Update(
                 input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
-                input.Unit, input.ExpiryDate, input.ExpiryNotificationChannel);
+                input.Unit, input.ExpiryDate, input.ExpiryNotificationChannel,
+                input.IsCheckedRegularly ?? existing.IsCheckedRegularly);
             existing.MoveTo(position);
             await SaveWithRestockTaskAsync(existing, cancellationToken);
         }
@@ -113,7 +117,8 @@ public sealed class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWareho
     {
         var item = InventoryItem.Create(
             warehouseId, input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
-            input.Unit, input.ExpiryDate, input.ExpiryNotificationChannel, position);
+            input.Unit, input.ExpiryDate, input.ExpiryNotificationChannel, position,
+            input.IsCheckedRegularly ?? false);
         await _inventoryRepository.AddAsync(item, cancellationToken);
         await SaveWithRestockTaskAsync(item, cancellationToken);
     }
