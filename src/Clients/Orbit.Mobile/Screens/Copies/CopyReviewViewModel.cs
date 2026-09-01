@@ -150,6 +150,10 @@ public sealed partial class CopyReviewViewModel : ObservableObject
         {
             LocalWriteOutcome.RefusedWhileOffline => _translations[
                 "Orbit can't be reached to check who else is editing. Try this again once you're back online."],
+            // A copy of something shared read-only: keeping it cannot replace the original, whatever the
+            // connection is like - see SharedItemAccess.
+            LocalWriteOutcome.RefusedAsReadOnly => _translations[
+                "Shared with you to read. Ask whoever shared it if you need to change it."],
             LocalWriteOutcome.NotFound => _translations["That is no longer here."],
             _ => string.Empty
         };

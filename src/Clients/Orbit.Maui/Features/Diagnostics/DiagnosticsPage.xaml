@@ -33,7 +33,8 @@
                         <Label Text="{controls:Translate 'Warnings and errors otherwise. Goes back to that on the next launch.'}"
                                FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                     </VerticalStackLayout>
-                    <Switch Grid.Column="1" IsToggled="{Binding IsVerbose}" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding IsVerbose}" VerticalOptions="Center"
+                            SemanticProperties.Description="{controls:Translate 'Record everything'}" />
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="8">

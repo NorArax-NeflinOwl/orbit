@@ -356,6 +356,53 @@ public static class PolishTranslations
         ["Orbit can't be reached to check who else is editing. Try this again once you're back online."] =
             "Nie można połączyć się z Orbitem, żeby sprawdzić, kto jeszcze to edytuje. Spróbuj ponownie, gdy wrócisz online.",
         ["That is no longer here."] = "Tego już tu nie ma.",
+        // What a share's second picker is called, so a screen reader does not read both as "Share with".
+        ["What they may do"] = "Co mogą robić",
+        ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
+        // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
+        ["Dismiss"] = "Odrzuć",
+        // ---- Shared without permission to edit - see SharedItemAccess. ----
+        ["Shared with you to read. Ask whoever shared it if you need to change it."] =
+            "Udostępnione Ci do odczytu. Poproś osobę, która udostępniła, jeśli musisz to zmienić.",
+        // ---- A public link opened in the app rather than a browser - see SharedLinkViewModel. ----
+        ["Shared with a link"] = "Udostępnione linkiem",
+        ["This link couldn't be opened. Try again."] = "Nie udało się otworzyć tego linku. Spróbuj ponownie.",
+        ["A link can only be opened online. Try again when you are back."] =
+            "Link da się otworzyć tylko online. Spróbuj ponownie, gdy wrócisz do sieci.",
+        ["This couldn't be saved to your account. Try again."] =
+            "Nie udało się zapisać tego na Twoim koncie. Spróbuj ponownie.",
+        ["Saved. It will appear once Orbit next syncs."] =
+            "Zapisano. Pojawi się przy następnej synchronizacji.",
+        ["You get your own read-only copy. Nothing you do changes theirs."] =
+            "Dostajesz własną kopię tylko do odczytu. Nic, co zrobisz, nie zmieni tamtej.",
+        // ---- Getting back in without the password - see PasswordResetViewModel. ----
+        ["Forgotten your password?"] = "Nie pamiętasz hasła?",
+        ["Forgotten password"] = "Nie pamiętam hasła",
+        ["Enter the account, and Orbit emails a code to the address it was registered with."] =
+            "Podaj konto, a Orbit wyśle kod na adres, na który zostało założone.",
+        ["Getting back into an account needs a connection to Orbit."] =
+            "Odzyskanie konta wymaga połączenia z Orbitem.",
+        ["Send a code"] = "Wyślij kod",
+        ["A new password starts your chat over: messages sealed with the old one stay unreadable, because Orbit never had their key."] =
+            "Nowe hasło zaczyna czat od nowa: wiadomości zapieczętowane starym pozostaną nie do odczytania, bo Orbit nigdy nie miał do nich klucza.",
+        ["Set the new password"] = "Ustaw nowe hasło",
+        ["Back to signing in"] = "Wróć do logowania",
+        ["If that account exists, a code is on its way to the address it was registered with."] =
+            "Jeśli takie konto istnieje, kod jest już w drodze na adres, na który je założono.",
+        ["Password changed. Sign in with the new one."] = "Hasło zmienione. Zaloguj się nowym.",
+        // ---- The notification settings the phone obeys and could not set - see NotificationSettingsViewModel. ----
+        ["Banner while Orbit is open"] = "Baner, gdy Orbit jest otwarty",
+        ["Shows what arrived at the top of the screen instead of only in the tray."] =
+            "Pokazuje to, co przyszło, u góry ekranu, a nie tylko na pasku powiadomień.",
+        ["How long it stays"] = "Jak długo widoczny",
+        ["Quiet gap before the next one"] = "Przerwa przed kolejnym",
+        ["Keep notifications for"] = "Przechowuj powiadomienia przez",
+        ["Clearing the panel only tidies them away. This is what deletes them for good."] =
+            "Wyczyszczenie panelu tylko je porządkuje. To ustawienie usuwa je na dobre.",
+        // ---- The home screen widget - see TodayAtAGlance. ----
+        ["Nothing left today"] = "Nic już na dziś",
+        ["Open Orbit to see your day"] = "Otwórz Orbita, żeby zobaczyć swój dzień",
+        ["{0} more"] = "jeszcze {0}",
         ["Saved, but that place could not be found - use your location to keep a point for it."] =
             "Zapisano, ale nie udało się znaleźć tego miejsca - użyj swojej lokalizacji, żeby zapisać punkt.",
         ["Saved, but that place could not be found - open the map and point at it to keep it."] =

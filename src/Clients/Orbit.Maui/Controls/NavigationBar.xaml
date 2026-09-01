@@ -23,7 +23,36 @@
 
     <!-- The same shape Orbit.Web takes on a narrow window: logo, then the section icons without their
          labels, then the avatar pushed to the far right. See app.css's 680px breakpoint. -->
-    <Grid ColumnDefinitions="Auto,*,Auto" Padding="12,10" ColumnSpacing="6"
+    <Grid RowDefinitions="Auto,Auto">
+
+    <!-- A push that arrived while somebody was looking at the app. Under the bar rather than over it,
+         so it pushes the page down for the few seconds it is up instead of covering what somebody is
+         reading - see ForegroundNotices for why a banner and not a second tray notification. -->
+    <Border Grid.Row="1" IsVisible="{Binding HasBanner}" Margin="8,0,8,6" Padding="12,8" StrokeThickness="0"
+            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="10" />
+        </Border.StrokeShape>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <VerticalStackLayout Grid.Column="0" Spacing="1">
+                <Label Text="{Binding BannerTitle}" FontAttributes="Bold" FontSize="13"
+                       LineBreakMode="TailTruncation" />
+                <Label Text="{Binding BannerBody}" FontSize="12" LineBreakMode="TailTruncation"
+                       Style="{StaticResource SubtleLabel}" />
+            </VerticalStackLayout>
+
+            <!-- The banner is the button, as a notification row is: tapping it opens what it names. -->
+            <Button Grid.Column="0" BackgroundColor="Transparent" Command="{Binding OpenBannerCommand}"
+                    SemanticProperties.Description="{Binding BannerTitle}" />
+
+            <Button Grid.Column="1" Text="✕" FontSize="13" Padding="8,0" BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                    Command="{Binding DismissBannerCommand}"
+                    SemanticProperties.Description="{controls:Translate 'Dismiss'}" />
+        </Grid>
+    </Border>
+
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="12,10" ColumnSpacing="6"
           BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
 
         <!-- The logo is the way back to the dashboard, exactly as it is on the web at this width. -->
@@ -108,5 +137,6 @@
             <Button Command="{Binding ToggleMenuCommand}" BackgroundColor="Transparent"
                     SemanticProperties.Description="{controls:Translate 'Account menu'}" />
         </Grid>
+    </Grid>
     </Grid>
 </ContentView>

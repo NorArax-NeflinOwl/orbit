@@ -283,6 +283,11 @@ public sealed class LocalNoteRepository : ICopyReviewStore
             return LocalWriteOutcome.NotFound;
         }
 
+        if (!SharedItemAccess.AllowsEditing(original))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
+        }
+
         if (!OfflineEditPolicy.IsAllowed(original, _networkStatus))
         {
             return LocalWriteOutcome.RefusedWhileOffline;
@@ -372,7 +377,7 @@ public sealed class LocalNoteRepository : ICopyReviewStore
         var note = await dbContext.Notes.AsNoTracking()
             .FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken);
 
-        return note is not null && OfflineEditPolicy.IsAllowed(note, _networkStatus);
+        return note is not null && SharedItemAccess.AllowsEditing(note) && OfflineEditPolicy.IsAllowed(note, _networkStatus);
     }
 
     /// <summary>
@@ -387,6 +392,11 @@ public sealed class LocalNoteRepository : ICopyReviewStore
         if (await dbContext.Notes.FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken) is not { } note)
         {
             return LocalWriteOutcome.NotFound;
+        }
+
+        if (!SharedItemAccess.AllowsEditing(note))
+        {
+            return LocalWriteOutcome.RefusedAsReadOnly;
         }
 
         if (!OfflineEditPolicy.IsAllowed(note, _networkStatus))

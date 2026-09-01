@@ -9,6 +9,7 @@ using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Notifications;
+using Orbit.Maui.Features.Sharing;
 using Orbit.Maui.Features.Tasks;
 using Orbit.Maui.Features.Update;
 using Orbit.Mobile.Authentication;
@@ -52,6 +53,8 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowRegister() => ShowAsRoot<RegisterPage>(Screen.Register);
 
+	public void ShowPasswordReset() => ShowAsRoot<PasswordResetPage>(Screen.PasswordReset);
+
 	public void ShowAccount() => ShowAsRoot<AccountPage>(Screen.Account);
 
 	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>(Screen.ChatKeyGate);
@@ -70,6 +73,9 @@ public sealed class AppNavigator : IScreenNavigator
 		=> ShowAsRoot<WarehouseDetailPage>(Screen.Warehouse, page => page.ViewModel.Open(localId));
 
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>(Screen.Notifications);
+
+	public void ShowSharedLink(string token)
+		=> ShowAsRoot<SharedLinkPage>(Screen.SharedLink, page => page.ViewModel.Open(token));
 
 	public void ShowUpdate() => ShowAsRoot<UpdatePage>(Screen.Update);
 

@@ -6,6 +6,7 @@ using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
 using Orbit.Core;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Notifications;
 using Orbit.Core.Permissions;
 using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Presence;
@@ -95,6 +96,16 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private bool _canUseConversations = true;
 
     /// <summary>
+    /// A push that arrived while somebody was looking at the app - see ForegroundNotices. Drawn here
+    /// because the bar is the one thing on every signed-in screen, which is the same reason Orbit.Web
+    /// draws its banner in MainLayout.
+    /// </summary>
+    private readonly Orbit.Mobile.Notifications.ForegroundNotices _foregroundNotices;
+
+    /// <summary>Where a banner's tap goes - the one place that knows which paths this build understands.</summary>
+    private readonly Orbit.Mobile.Notifications.NotificationOpener _notificationOpener;
+
+    /// <summary>
     /// The four repositories, as the two copy windows know them - see Data.ICopyReviewStore. The bar
     /// asks them how much is outstanding, which is what puts the review within reach from any screen:
     /// a copy can be of any of the four kinds, so no one list is the right place to wait for it.
@@ -107,8 +118,12 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
         MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator,
         EverythingSynchronizer synchronizer, INetworkStatus networkStatus,
-        IEnumerable<Data.ICopyReviewStore> copyStores, Live.ILiveUpdates liveUpdates)
+        IEnumerable<Data.ICopyReviewStore> copyStores, Live.ILiveUpdates liveUpdates,
+        Orbit.Mobile.Notifications.ForegroundNotices foregroundNotices, Orbit.Mobile.Notifications.NotificationOpener notificationOpener)
     {
+        _notificationOpener = notificationOpener;
+        _foregroundNotices = foregroundNotices;
+        _foregroundNotices.Changed += ShowTheBanner;
         _copyStores = [.. copyStores];
         // The badge is the one thing on this bar that changes because of somebody else, so it is the one
         // thing worth being told about rather than asked about - see ILiveUpdates.
@@ -551,6 +566,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         // so the next sign-in finds it already clear.
         await _localStore.ClearForAsync(Guid.Empty);
         _permissions.Forget();
+        // The banner settings belonged to them too, and a banner left on screen belongs to nobody.
+        _foregroundNotices.Forget();
         _navigator.ShowSignIn();
     }
 
@@ -593,4 +610,74 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         > 99 => "99+",
         _ => unread.ToString()
     };
+
+    /// <summary>What the banner says right now, or empty when there is nothing to show.</summary>
+    [ObservableProperty]
+    private string _bannerTitle = string.Empty;
+
+    /// <inheritdoc cref="BannerTitle"/>
+    [ObservableProperty]
+    private string _bannerBody = string.Empty;
+
+    public bool HasBanner => BannerTitle.Length > 0;
+
+    private string? _bannerUrl;
+
+    private CancellationTokenSource? _bannerTimer;
+
+    /// <summary>
+    /// Puts one up, and takes it down again after the time the account chose. The timer is replaced
+    /// rather than added to: a second banner restarts the clock rather than inheriting the first's.
+    /// </summary>
+    private void ShowTheBanner(ForegroundNotice? notice)
+    {
+        _bannerTimer?.Cancel();
+        _bannerTimer?.Dispose();
+        _bannerTimer = null;
+
+        BannerTitle = notice?.Title ?? string.Empty;
+        BannerBody = notice?.Body ?? string.Empty;
+        _bannerUrl = notice?.Url;
+
+        if (notice is null)
+        {
+            return;
+        }
+
+        _bannerTimer = new CancellationTokenSource();
+        _ = HideWhenItsTimeIsUpAsync(_foregroundNotices.VisibleFor, _bannerTimer.Token);
+    }
+
+    private async Task HideWhenItsTimeIsUpAsync(TimeSpan after, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(after, cancellationToken);
+            _foregroundNotices.Hide();
+        }
+        catch (OperationCanceledException)
+        {
+            // Replaced by a newer banner, or taken away by a tap. Neither is worth reporting.
+        }
+    }
+
+    /// <summary>
+    /// Opens what the banner is about, the way the feed opens the same entry - through the one place
+    /// that knows which paths this build understands.
+    /// </summary>
+    [RelayCommand]
+    private void OpenBanner()
+    {
+        var url = _bannerUrl;
+        _foregroundNotices.Hide();
+        if (url is { Length: > 0 })
+        {
+            _ = _notificationOpener.OpenAsync(url);
+        }
+    }
+
+    [RelayCommand]
+    private void DismissBanner() => _foregroundNotices.Hide();
+
+    partial void OnBannerTitleChanged(string value) => OnPropertyChanged(nameof(HasBanner));
 }

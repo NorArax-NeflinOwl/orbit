@@ -33,6 +33,17 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowRegister() => _destinations.Add(nameof(ShowRegister));
 
+    public void ShowPasswordReset() => _destinations.Add(nameof(ShowPasswordReset));
+
+    public void ShowSharedLink(string token)
+    {
+        LastSharedLinkToken = token;
+        _destinations.Add(nameof(ShowSharedLink));
+    }
+
+    /// <summary>The token out of the link that was followed - see NotificationDestination.</summary>
+    public string? LastSharedLinkToken { get; private set; }
+
     public void ShowAccount() => _destinations.Add(nameof(ShowAccount));
 
     public void ShowChatKeyGate() => _destinations.Add(nameof(ShowChatKeyGate));

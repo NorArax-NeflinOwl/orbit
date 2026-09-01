@@ -25,10 +25,14 @@
             <Label Text="{controls:Translate 'Share with'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
 
             <Picker ItemsSource="{Binding Recipients}" SelectedItem="{Binding Recipient}"
-                    ItemDisplayBinding="{Binding DisplayName, x:DataType=data:LocalContact}" />
+                    ItemDisplayBinding="{Binding DisplayName, x:DataType=data:LocalContact}"
+                    SemanticProperties.Description="{controls:Translate 'Share with'}" />
 
+            <!-- Named apart from the one above it: two pickers announcing "Share with" tell a reader
+                 who cannot see them that there is one question here, when there are two. -->
             <Picker ItemsSource="{Binding AccessLevels}" SelectedItem="{Binding AccessLevel}"
-                    ItemDisplayBinding="{Binding Name, x:DataType=sharing:AccessLevelChoice}" />
+                    ItemDisplayBinding="{Binding Name, x:DataType=sharing:AccessLevelChoice}"
+                    SemanticProperties.Description="{controls:Translate 'What they may do'}" />
 
             <HorizontalStackLayout Spacing="12">
                 <Button Text="{controls:Translate 'Share'}" FontSize="13" Padding="12,4"
