@@ -121,6 +121,8 @@ public static class PolishTranslations
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
         ["About this list"] = "O tej liście",
+        ["About this warehouse"] = "O tym magazynie",
+        ["No contacts yet."] = "Brak kontaktów.",
         ["Private note"] = "Notatka prywatna",
         ["Something happened here"] = "Coś się tu wydarzyło",
         ["Plan something here"] = "Zaplanuj tu coś",

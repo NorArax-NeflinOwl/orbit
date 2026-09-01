@@ -30,7 +30,6 @@ else
                 <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
             }
         </div>
-        <button class="btn-secondary" @onclick="GoToWarehouses">@T["All warehouses"]</button>
     </div>
 
     @if (_lockedByUserName is not null)
@@ -54,19 +53,6 @@ else
                 <NameSuggestions Kind="NameSuggestionKind.WarehouseName" Value="_formModel.Name"
                                  OnChosen="chosen => _formModel.Name = chosen" />
             </div>
-
-            @* Only the owner may turn this on: a warehouse reached through a share belongs to someone
-               else, and "private" means private to its creator. *@
-            @if (!_isShared)
-            {
-                <div class="field">
-                    <label>
-                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
-                    <small>
-                        @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, raises no restock or expiry reminders, and losing your password loses it."]
-                    </small>
-                </div>
-            }
 
             <h2 class="options-heading">@T["Items"]</h2>
 
@@ -243,6 +229,24 @@ else
 
     @if (!_formModel.IsPrivate)
     {
+        <h2>@T["About this warehouse"]</h2>
+        <div class="warehouse-editor-settings">
+            <fieldset disabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)">
+                @* Only the owner may turn this on: a warehouse reached through a share belongs to someone
+                   else, and "private" means private to its creator. *@
+                @if (!_isShared)
+                {
+                    <div class="field">
+                        <label>
+                                <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
+                        <small>
+                                @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, raises no restock or expiry reminders, and losing your password loses it."]
+                        </small>
+                    </div>
+                }
+            </fieldset>
+        </div>
+
         <h2>@T["Link"]</h2>
         <ShareLinkButton ItemType="Warehouse" ItemId="WarehouseId" />
     }

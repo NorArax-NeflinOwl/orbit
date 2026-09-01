@@ -380,6 +380,26 @@ while somebody scrolled a list beside it would be motion answering a question no
 Not attempted on the web deliberately. It is scroll-and-viewport behaviour, which no test in this
 project can cover, and the web has no problem for it to solve.
 
+## What the UI pass still needs a migration for
+
+The web redesign is done except for four things, and all four are the same shape: they need somewhere
+to store something the database has no column for. They are held together deliberately, so one
+migration, one deploy and one APK release cover them rather than three of each.
+
+- **Archiving a conversation.** The contacts page has its three tabs; the fourth - Archive, appearing
+  only when it holds something - needs a durable "archived" flag per contact and per group. Hiding a
+  row in the browser would unhide it on the next device, which is worse than not offering it.
+- **A description under a name.** A task list, a warehouse and a note all want the same control: first
+  line the title, the rest the description. Only the note has it, because only the note has a field to
+  put it in. See [[task-list-description-deferred]] in the session memory for the phone's half.
+- **"Needed" on a shelf item**, so the restock list can ask for what is checked regularly rather than
+  only what has fallen below a minimum.
+- **Sharing a warehouse from its own editor**, with the Inventories card on the dashboard that goes
+  with it. The share itself exists; the section and the card are new surface on top of it.
+
+Everything else on the pass - the top bar, the shared card and its footer, the calendar, the task and
+inventory lists, the contacts tabs, the chat menus - is built and needs no schema change.
+
 ## Smaller identified follow-ups
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

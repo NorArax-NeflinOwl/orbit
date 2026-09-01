@@ -28,6 +28,9 @@ public abstract class OrbitTestContext : TestContext
         // the one that answers localStorage, and it starts empty - so nothing is arranged, which is
         // the right answer for a test that has not arranged anything.
         Services.AddSingleton(new WarehouseArrangement(new StubJSRuntime()));
+        // The contacts page reads which conversations this reader keeps at the top. Same storage, same
+        // empty start - nothing is pinned until a test pins something.
+        Services.AddSingleton(new ConversationPins(new StubJSRuntime()));
         // Every overflow menu asks JS to place it inside the viewport when it opens - see
         // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
         // nothing; without it any test that opens a menu fails on the interop call rather than on

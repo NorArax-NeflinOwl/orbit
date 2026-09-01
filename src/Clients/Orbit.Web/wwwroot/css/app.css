@@ -4515,3 +4515,126 @@ span.calendar-task-chip {
     flex: 0 0 auto;
     vertical-align: middle;
 }
+
+/* Contacts.razor: the search takes the row, because it is what the page is for before there is
+   anybody on it. */
+.contacts-search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.contacts-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.contacts-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.contacts-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.contacts-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+.contacts-tab.chosen {
+    background: var(--accent-subtle);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.contacts-tab-count {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+}
+
+/* PersonRow.razor: a list of people or groups - see the component for why it is not an ItemCard. */
+.person-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.person-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 10px;
+}
+
+.person-row:hover {
+    background: var(--bg-subtle);
+}
+
+.person-row-pin,
+.person-row-menu {
+    flex: 0 0 auto;
+}
+
+/* Before the face rather than on it - a count drawn on an avatar reads as being about the person. */
+.person-row-action {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.person-row-open {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.person-row-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.person-row-name {
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.person-row-subtitle {
+    color: var(--text-tertiary);
+    font-size: 12.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.person-row.unread .person-row-name {
+    color: var(--text-primary);
+}

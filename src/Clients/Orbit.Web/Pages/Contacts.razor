@@ -11,6 +11,7 @@
 @inject ILogger<Contacts> Logger
 @inject UserPermissionState Permissions
 @inject Translations T
+@inject ConversationPins Pins
 
 <PageTitle>@T["Orbit — Contacts"]</PageTitle>
 
@@ -30,7 +31,9 @@
 else
 {
 
-    <div class="field-row" style="margin-bottom:24px;">
+    @* Across the width: this is the one thing the page is for before there is anybody on it, and a
+       box sized to its own text left most of the row empty. *@
+    <div class="contacts-search">
         <input @bind="_searchIdentifier" @bind:event="oninput" placeholder="@(T["Email address or login"])" />
         <button type="button" class="btn-primary" @onclick="SearchAsync" disabled="@_isSearching">@T["Search"]</button>
     </div>
@@ -63,72 +66,96 @@ else
         </div>
     }
 
-    @if (_contacts is not null && _pendingRequests.Any())
-    {
-        <h2>@T["New requests"]</h2>
-        <div class="card" style="margin-bottom:24px;">
-            @foreach (var contact in _pendingRequests)
-            {
-                <button type="button" class="chat-list-item" @onclick="() => OpenChat(contact.UserId)">
-                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
-                    <span class="chat-list-meta">
-                        <span class="chat-list-name">@contact.DisplayName</span>
-                        <span class="chat-list-preview">@contact.UserName</span>
-                    </span>
-                    <span class="chat-request-badge">@T["New request"]</span>
-                </button>
-            }
-        </div>
-    }
-
-    @if (_groups.Count > 0)
-    {
-        <h2>@T["Groups"]</h2>
-        <div class="card" style="margin-bottom:24px;">
-            @foreach (var group in _groups)
-            {
-                <button type="button" class="chat-list-item" @onclick="() => OpenGroup(group.Id)">
-                    <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
-                    <span class="chat-list-meta">
-                        <span class="chat-list-name">@group.Name</span>
-                        <span class="chat-list-preview">@T.Format("{0} in it", group.Members.Count)</span>
-                    </span>
-                </button>
-            }
-        </div>
-    }
-
-    <h2>@T["Chats"]</h2>
+    @* One list at a time rather than three stacked. They answer different questions - who do I know,
+       who am I talking to, which groups am I in - and a page that shows all three at once makes the
+       reader scroll past two of them to reach the one they came for. *@
+    <div class="contacts-tabs" role="tablist">
+        @foreach (var tab in Enum.GetValues<ContactsTab>())
+        {
+            <button type="button" role="tab" class="contacts-tab @(_tab == tab ? "chosen" : "")"
+                    aria-selected="@((_tab == tab).ToString().ToLowerInvariant())"
+                    @onclick="() => _tab = tab">
+                @NameOf(tab)
+                @if (CountFor(tab) is { } count)
+                {
+                    <span class="contacts-tab-count">@count</span>
+                }
+            </button>
+        }
+    </div>
 
     @if (_contacts is null)
     {
         <p>@T["Loading…"]</p>
     }
-    else if (!_establishedChats.Any())
-    {
-        <p>@T["No chats. Search for a user by email address or login to start a conversation."]</p>
-    }
     else
     {
-        <div class="card">
-            @* Two things to do with a name here, so two controls rather than one row that has to guess:
-               the row opens the conversation, and "Info" opens the person's card. *@
-            @foreach (var contact in _establishedChats)
+        @if (_pendingRequests.Any() && _tab is ContactsTab.Contacts or ContactsTab.Chats)
+        {
+            @* Above whichever list is showing: somebody waiting to be allowed to write is the one
+               thing on this page that is asking for an answer. *@
+            <h2>@T["New requests"]</h2>
+            <div class="person-list">
+                @foreach (var contact in _pendingRequests)
+                {
+                    <PersonRow Id="contact.UserId" Name="@contact.DisplayName" Subtitle="@contact.UserName"
+                               Status="Conversation.PresenceOf(contact)" HasUnseenAction="true"
+                               OnSelected="() => OpenChat(contact.UserId)" />
+                }
+            </div>
+        }
+
+        <div class="person-list">
+            @if (_tab == ContactsTab.Groups)
             {
-                <div class="contact-row">
-                    @* Marked as unread the same way the chat page's own list marks it: this is the other
-                       place somebody looks for "who is waiting on me", and a page that knows and does
-                       not say reads as nobody waiting. *@
-                    <button type="button" class="chat-list-item @(contact.UnreadCount > 0 ? "unread" : "")"
-                            @onclick="() => OpenChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<UnreadBadge Count="contact.UnreadCount" /><PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
-                        <span class="chat-list-meta">
-                            <span class="chat-list-name">@contact.DisplayName</span>
-                            <span class="chat-list-preview">@contact.UserName</span>
-                        </span>
-                    </button>
-                    <button type="button" class="btn-secondary contact-row-info" @onclick="() => OpenContactInfo(contact.UserId)">@T["Info"]</button>
-                </div>
+                @foreach (var group in ArrangedGroups)
+                {
+                    <PersonRow Id="group.Id" Name="@group.Name"
+                               Subtitle="@T.Format("{0} in it", group.Members.Count)"
+                               OnSelected="() => OpenGroup(group.Id)">
+                        <Pin>
+                            <PinButton IsPinned="Pins.IsPinned(group.Id)"
+                                       OnPinnedChanged="pinned => SetPinnedAsync(group.Id, pinned)" />
+                        </Pin>
+                        <Menu>
+                            <OverflowMenu>
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => OpenGroup(group.Id)">@T["Info"]</button>
+                            </OverflowMenu>
+                        </Menu>
+                    </PersonRow>
+                }
+                @if (ArrangedGroups.Count == 0)
+                {
+                    <p class="empty-hint">@T["No groups yet."]</p>
+                }
+            }
+            else
+            {
+                @foreach (var contact in RowsForTheChosenTab)
+                {
+                    <PersonRow Id="contact.UserId" Name="@contact.DisplayName" Subtitle="@contact.UserName"
+                               Status="Conversation.PresenceOf(contact)"
+                               HasUnseenAction="@(contact.UnreadCount > 0)"
+                               OnSelected="() => OpenChat(contact.UserId)">
+                        <Pin>
+                            <PinButton IsPinned="Pins.IsPinned(contact.UserId)"
+                                       OnPinnedChanged="pinned => SetPinnedAsync(contact.UserId, pinned)" />
+                        </Pin>
+                        <Menu>
+                            <OverflowMenu>
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => OpenContactInfo(contact.UserId)">@T["Info"]</button>
+                            </OverflowMenu>
+                        </Menu>
+                    </PersonRow>
+                }
+                @if (RowsForTheChosenTab.Count == 0)
+                {
+                    <p class="empty-hint">
+                        @(_tab == ContactsTab.Chats
+                            ? T["No chats. Search for a user by email address or login to start a conversation."]
+                            : T["No contacts yet."])
+                    </p>
+                }
             }
         </div>
     }
@@ -136,6 +163,61 @@ else
 }
 
 @code {
+    /// <summary>
+    /// Which list is showing. Archive is not here yet: hiding a conversation has to survive a reload
+    /// and a second device, which needs somewhere to store that - see info/future-plan.md.
+    /// </summary>
+    private enum ContactsTab
+    {
+        Contacts,
+        Chats,
+        Groups
+    }
+
+    private ContactsTab _tab = ContactsTab.Chats;
+
+    private string NameOf(ContactsTab tab) => tab switch
+    {
+        ContactsTab.Contacts => T["Contacts"],
+        ContactsTab.Chats => T["Chats"],
+        _ => T["Groups"]
+    };
+
+    /// <summary>
+    /// How many the tab holds, where the number tells the reader something. Contacts has none: it is
+    /// everybody, and a count of everybody is not news.
+    /// </summary>
+    private int? CountFor(ContactsTab tab) => tab switch
+    {
+        ContactsTab.Chats => _establishedChats.Count(),
+        ContactsTab.Groups => _groups.Count,
+        _ => null
+    };
+
+    /// <summary>
+    /// Contacts read alphabetically - the question there is "where is so-and-so", and a name is what
+    /// somebody is looking for. Chats read by when something last happened, which is the question that
+    /// list answers instead. Pinned rows come first either way, with nothing between them and the rest:
+    /// a pinned row is still one of the list, just at the top of it.
+    /// </summary>
+    private IReadOnlyList<ContactDto> RowsForTheChosenTab
+        => _tab == ContactsTab.Contacts
+            ? [.. Pins.PinnedFirst(
+                (_contacts ?? []).OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase),
+                contact => contact.UserId)]
+            : [.. Pins.PinnedFirst(
+                _establishedChats.OrderByDescending(contact => contact.LastMessageAtUtc),
+                contact => contact.UserId)];
+
+    private IReadOnlyList<ChatGroupDto> ArrangedGroups
+        => [.. Pins.PinnedFirst(_groups.OrderByDescending(group => group.LastMessageAtUtc), group => group.Id)];
+
+    private async Task SetPinnedAsync(Guid id, bool isPinned)
+    {
+        await Pins.SetPinnedAsync(id, isPinned);
+        StateHasChanged();
+    }
+
     private string _searchIdentifier = string.Empty;
     private bool _isSearching;
     private string? _searchError;
@@ -164,6 +246,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await Pins.InitializeAsync();
         // Waits for the first permission read, so this page never decides it is locked before it
         // has been told - see UserPermissionState.EnsureLoadedAsync.
         await Permissions.EnsureLoadedAsync();
