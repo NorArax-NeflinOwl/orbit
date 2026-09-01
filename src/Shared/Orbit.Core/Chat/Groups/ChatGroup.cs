@@ -206,6 +206,27 @@ public sealed class ChatGroup
     }
 
     /// <summary>
+    /// Puts this group away on one member's own list, or brings it back. Answers false when they are
+    /// not in it.
+    ///
+    /// No admin check, and none of the "a group needs an admin" rules above: archiving changes nothing
+    /// about the group, only about one person's view of it. An admin tidying their own list must not
+    /// take the group off anybody else's, and a member deciding they are done reading it does not need
+    /// permission to stop looking.
+    /// </summary>
+    public bool SetArchivedFor(Guid userId, bool isArchived)
+    {
+        if (FindMember(userId) is not { } member)
+        {
+            return false;
+        }
+
+        _members.Remove(member);
+        _members.Add(member with { IsArchived = isArchived });
+        return true;
+    }
+
+    /// <summary>
     /// Refuses unless actorUserId may hand this group's history to recipientUserId. An admin's to give,
     /// for the same reason the membership is: deciding what somebody sees on arrival is the same act as
     /// deciding they arrive at all, and a group where any member could replay the whole conversation to

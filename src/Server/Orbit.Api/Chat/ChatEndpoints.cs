@@ -1,3 +1,5 @@
+using Orbit.Core.Chat.Groups.SetGroupArchived;
+using Orbit.Core.Chat.SetConversationArchived;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Api.Permissions;
@@ -84,6 +86,17 @@ public static class ChatEndpoints
         // pair has never exchanged a message: Results.Ok(null) writes an empty response body instead of
         // the literal 4-byte "null", which made the client's GetFromJsonAsync throw on an empty body
         // instead of parsing null.
+        // Putting a conversation away, and bringing it back. On the caller's own list only - see
+        // SetConversationArchivedCommand for why there is no "archive for everybody".
+        chat.MapPut("/conversations/{otherUserId:guid}/archived", async (
+            Guid otherUserId, SetArchivedRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var changed = await dispatcher.SendAsync(
+                new SetConversationArchivedCommand(GetUserId(user), otherUserId, request.IsArchived), cancellationToken);
+            return changed ? Results.NoContent() : Results.NotFound();
+        });
+
         chat.MapGet("/conversations/{otherUserId:guid}/access", async (
             Guid otherUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -171,6 +184,16 @@ public static class ChatEndpoints
 
         // sinceUtc matches the one-to-one conversation's own cursor: a client polling a group can ask
         // for what it has not seen instead of the whole conversation every tick.
+        // The same for a group, and for the same reason: this is one member's view, not the group's.
+        groups.MapPut("/{groupId:guid}/archived", async (
+            Guid groupId, SetArchivedRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var changed = await dispatcher.SendAsync(
+                new SetGroupArchivedCommand(GetUserId(user), groupId, request.IsArchived), cancellationToken);
+            return changed ? Results.NoContent() : Results.NotFound();
+        });
+
         groups.MapGet("/{groupId:guid}/messages", async (
             Guid groupId, DateTimeOffset? sinceUtc, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
@@ -291,7 +314,9 @@ public static class ChatEndpoints
             group.Id, group.Name, group.CreatedByUserId, group.CreatedAtUtc,
             group.FindMember(callerUserId)?.Role.ToString() ?? ChatGroupRole.Member.ToString(),
             group.Members.Select(member => new ChatGroupMemberDto(member.UserId, member.Role.ToString(), member.JoinedAtUtc)).ToList(),
-            group.LastMessageAtUtc);
+            group.LastMessageAtUtc,
+            // The caller's own membership, not the group's - archiving is one member's view of it.
+            group.FindMember(callerUserId)?.IsArchived ?? false);
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {
@@ -304,7 +329,8 @@ public static class ChatEndpoints
         => new(
             contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64,
             contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty,
-            contact.UnreadCount, contact.User.Presence.StatusAt(DateTimeOffset.UtcNow).ToString());
+            contact.UnreadCount, contact.User.Presence.StatusAt(DateTimeOffset.UtcNow).ToString(),
+            contact.IsArchived);
 
     private static ChatMessageDto ToDto(GroupConversationEntry entry)
         => ToDto(entry.Message) with { ReadByEveryone = entry.ReadByEveryone };

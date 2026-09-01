@@ -49,3 +49,6 @@ public sealed record ShareGroupHistoryRequest(Guid RecipientUserId, IReadOnlyLis
 /// already holds, so re-sharing cannot restate who said what, or when.
 /// </summary>
 public sealed record SharedHistoryCopyDto(Guid GroupMessageId, string CiphertextBase64, string NonceBase64);
+
+/// <summary>Body for putting a conversation or a group away on the caller's own list, or bringing it back.</summary>
+public sealed record SetArchivedRequest(bool IsArchived);

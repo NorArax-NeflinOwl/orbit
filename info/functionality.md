@@ -1673,6 +1673,27 @@ The three triggers:
   that links to another task list (see [Tasks](#tasks) above) is excluded from this check, since its true
   completion depends on the list it links to, not its own stored (always-false) completion flag.
 
+## Putting a conversation away
+
+`PUT /api/chat/conversations/{otherUserId}/archived` and `PUT /api/chat/groups/{groupId}/archived`,
+both taking `{ "isArchived": true }`.
+
+**Archiving is one-sided, and that is the whole point.** Nothing is deleted, nobody leaves, and the
+other party is told nothing - their list has its own row and its own answer. A group's flag lives on
+the *membership* rather than the group, so an admin tidying their own list cannot take the group off
+anybody else's, and archiving needs no rank at all: deciding to stop looking at something is not a
+moderation act.
+
+A member who archives a group is still in it and still receives what is posted. Leaving is the other
+thing, and this is not it.
+
+Both answer 404 when the caller has no such conversation - which for a group covers both "no such
+group" and "you are not in it", because from the caller's side those are the same fact.
+
+The change is announced to that account's **other devices** only (see
+[Live updates](#live-updates)): a conversation put away on a phone should not still be in the way on
+the laptop, and nobody else's screen changed.
+
 ## Saying nothing about a field
 
 Descriptions on a task list and a warehouse, and a shelf item's regular-check flag, are all optional on

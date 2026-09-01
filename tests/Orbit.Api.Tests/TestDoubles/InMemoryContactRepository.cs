@@ -33,4 +33,13 @@ internal sealed class InMemoryContactRepository : IContactRepository
 
         return Task.CompletedTask;
     }
+
+    public Task<bool> SetArchivedAsync(
+        Guid ownerUserId, Guid contactUserId, bool isArchived, CancellationToken cancellationToken)
+    {
+        var contact = _contacts.FirstOrDefault(
+            existing => existing.OwnerUserId == ownerUserId && existing.ContactUserId == contactUserId);
+        contact?.SetArchived(isArchived);
+        return Task.FromResult(contact is not null);
+    }
 }

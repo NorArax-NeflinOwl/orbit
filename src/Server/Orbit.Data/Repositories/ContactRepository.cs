@@ -46,6 +46,24 @@ public sealed class ContactRepository : IContactRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<bool> SetArchivedAsync(
+        Guid ownerUserId, Guid contactUserId, bool isArchived, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Contacts
+            .FirstOrDefaultAsync(
+                contact => contact.OwnerUserId == ownerUserId && contact.ContactUserId == contactUserId,
+                cancellationToken);
+
+        if (entity is null)
+        {
+            return false;
+        }
+
+        entity.IsArchived = isArchived;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private static Contact ToDomain(ContactEntity entity)
         => Contact.FromPersistence(
             entity.Id, entity.OwnerUserId, entity.ContactUserId, entity.CreatedAtUtc, entity.LastMessageAtUtc,
