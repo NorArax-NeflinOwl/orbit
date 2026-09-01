@@ -4337,3 +4337,29 @@ input.note-editor-title {
 .item-card-pinned {
     border-color: var(--accent);
 }
+
+/* The note editor's one field: the first line is the note's title, so it is drawn as one. The rest of
+   the note is ordinary text under it - see NoteEditor.razor on why there is no separate title box. */
+.note-editor-titled .note-line:first-child {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+}
+
+/* What the note is about rather than what is in it - priority, private - under the writing. */
+.note-editor-settings fieldset {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* The affirmative one of the two actions in a page heading, so Save reads as the one to press. */
+.icon-btn.page-action-primary {
+    color: var(--accent);
+}
+
+.icon-btn.page-action-primary:disabled {
+    color: var(--text-muted);
+}

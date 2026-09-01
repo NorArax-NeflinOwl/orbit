@@ -116,6 +116,8 @@ public static class PolishTranslations
         ["This ends before it starts."] = "To kończy się przed rozpoczęciem.",
         ["This entry has an event in the calendar. Saving keeps the two in step."] = "Ta pozycja ma wydarzenie w kalendarzu. Zapis utrzymuje je w zgodzie.",
         ["Detach from the event"] = "Odłącz od wydarzenia",
+        ["About this note"] = "O tej notatce",
+        ["Write something in it."] = "Napisz w niej coś.",
         ["Private note"] = "Notatka prywatna",
         ["Something happened here"] = "Coś się tu wydarzyło",
         ["Plan something here"] = "Zaplanuj tu coś",

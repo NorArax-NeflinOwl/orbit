@@ -79,7 +79,7 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>();
 
-        Assert.Equal(string.Empty, cut.Find(".note-editor-title").GetAttribute("value"));
+        Assert.Empty(FirstWrittenLine(cut));
         // Nothing exists to share until it has been saved once.
         Assert.DoesNotContain("Sharing", cut.Markup);
     }
@@ -92,7 +92,7 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.Equal("Shopping", cut.Find(".note-editor-title").GetAttribute("value"));
+        Assert.Equal("Shopping", FirstWrittenLine(cut));
     }
 
     [Fact]
@@ -188,8 +188,8 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>();
 
         // Caught while the mistake is still being made, rather than left to fail on the server.
-        Assert.True(cut.Find("button[type=submit]").HasAttribute("disabled"));
-        Assert.Contains("Give it a title", cut.Markup);
+        Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
+        Assert.Contains("Write something in it", cut.Markup);
     }
 
     [Fact]
@@ -198,10 +198,10 @@ public sealed class NoteEditorTests : OrbitTestContext
         RegisterApiClients(note: null);
         var cut = RenderComponent<NoteEditor>();
 
-        cut.Find(".note-editor-title").Change("Dentist on Tuesday");
+        WriteFirstLine(cut, "Dentist on Tuesday");
 
-        Assert.False(cut.Find("button[type=submit]").HasAttribute("disabled"));
-        Assert.DoesNotContain("Give it a title", cut.Markup);
+        Assert.False(cut.Find(".page-action-primary").HasAttribute("disabled"));
+        Assert.DoesNotContain("Write something in it", cut.Markup);
     }
 
     [Fact]
@@ -211,7 +211,28 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, Note("Shopping").Id));
 
-        Assert.False(cut.Find("button[type=submit]").HasAttribute("disabled"));
+        Assert.False(cut.Find(".page-action-primary").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// What the note is called, which is the first line of the one field the editor has - there is no
+    /// separate title box any more, so this reads it where it actually lives.
+    /// </summary>
+    private static string FirstWrittenLine(IRenderedComponent<NoteEditor> cut)
+    {
+        var lines = cut.FindComponent<Web.Components.ChecklistTextEditor>().Instance.Lines;
+        return lines.Count > 0 ? lines[0].Text : string.Empty;
+    }
+
+    /// <summary>
+    /// Types the first line. The field is a contenteditable driven by JS, which bUnit cannot type
+    /// into, so this raises the same callback that JS raises after an edit.
+    /// </summary>
+    private static void WriteFirstLine(IRenderedComponent<NoteEditor> cut, string text)
+    {
+        var editor = cut.FindComponent<Web.Components.ChecklistTextEditor>();
+        cut.InvokeAsync(() => editor.Instance.LinesChanged.InvokeAsync(
+            [new Orbit.Contracts.Notes.NoteContentLineDto(text, false, false)])).GetAwaiter().GetResult();
     }
 
     /// <summary>
