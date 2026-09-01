@@ -751,6 +751,7 @@ public static class PolishTranslations
         ["Weekly"] = "Co tydzień",
         ["Monthly"] = "Co miesiąc",
         ["Frequency"] = "Częstotliwość",
+        ["It stops repeating before it starts."] = "Powtarzanie kończy się, zanim się zacznie.",
         ["Recurring event"] = "Wydarzenie cykliczne",
         ["Repeat until (optional)"] = "Powtarzaj do (opcjonalnie)",
         ["Repeats:"] = "Powtarza się:",

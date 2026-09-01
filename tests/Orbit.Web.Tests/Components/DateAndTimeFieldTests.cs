@@ -20,6 +20,51 @@ public sealed class DateAndTimeFieldTests : OrbitTestContext
         Assert.Equal("17:30", cut.Find("input").GetAttribute("value"));
     }
 
+    /// <summary>
+    /// The colon is written in as the digits arrive, so a time reads as a time while it is being typed
+    /// rather than only once the box is left.
+    /// </summary>
+    [Theory]
+    [InlineData("1", "1")]
+    [InlineData("14", "14")]
+    [InlineData("143", "14:3")]
+    [InlineData("1430", "14:30")]
+    [InlineData("14305", "14:30")]
+    public void The_colon_is_written_in_while_a_time_is_typed(string typed, string shown)
+    {
+        var cut = RenderComponent<TimeField>();
+
+        cut.Find("input").Input(typed);
+
+        Assert.Equal(shown, cut.Find("input").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// Two digits keep no colon after them. Written as soon as the second one lands, a backspace would
+    /// put it straight back and the box could not be cleared past it.
+    /// </summary>
+    [Fact]
+    public void Backspacing_past_the_colon_is_not_undone()
+    {
+        var cut = RenderComponent<TimeField>();
+        cut.Find("input").Input("143");
+
+        cut.Find("input").Input("14");
+
+        Assert.Equal("14", cut.Find("input").GetAttribute("value"));
+    }
+
+    /// <summary>Anything that is not a digit is dropped rather than left to fail the parse on leaving.</summary>
+    [Fact]
+    public void Only_the_digits_of_what_was_typed_are_kept()
+    {
+        var cut = RenderComponent<TimeField>();
+
+        cut.Find("input").Input("1a4-3o0");
+
+        Assert.Equal("14:30", cut.Find("input").GetAttribute("value"));
+    }
+
     [Fact]
     public void A_time_typed_without_its_colon_is_still_understood()
     {

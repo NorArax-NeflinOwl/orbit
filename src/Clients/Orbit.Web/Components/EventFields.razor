@@ -52,6 +52,13 @@
             </div>
         </div>
 
+        @* Said here rather than only when the form is saved: an end put before the start is a mistake
+           about the two rows above, and it belongs under them. *@
+        @if (Model.EndsBeforeItStarts)
+        {
+            <p class="error">@T["This ends before it starts."]</p>
+        }
+
         <div class="field field-checkbox">
             <label><InputCheckbox @bind-Value="Model.IsRecurring" />@T["Recurring event"]</label>
         </div>
@@ -84,6 +91,10 @@
                        placeholder="@(T["no limit"])" value="@Model.RecurrenceCount"
                        @onchange="args => Model.RecurrenceCount = ReadCount(args.Value, atLeast: 1)" />
             </div>
+            @if (Model.StopsRepeatingBeforeItStarts)
+            {
+                <p class="error">@T["It stops repeating before it starts."]</p>
+            }
         }
     </section>
 
