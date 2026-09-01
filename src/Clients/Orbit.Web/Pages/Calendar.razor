@@ -182,7 +182,7 @@
         @switch (_viewState.ViewMode)
         {
             case CalendarViewMode.Day:
-                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToDueTask" />
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" />
                 break;
             case CalendarViewMode.Year:
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
@@ -402,15 +402,19 @@
     /// Where an event leads from this list: to the entry that made it where there is one, and to the
     /// event's own form otherwise.
     /// </summary>
-    private void OpenTheEvent(CalendarEventDto calendarEvent)
-    {
-        if (TheEntryBehind(calendarEvent) is { } entry)
-        {
-            GoToDueTask(entry);
-            return;
-        }
+    private void OpenTheEvent(CalendarEventDto calendarEvent) => OpenTheEvent(calendarEvent.Id);
 
-        GoToEditEvent(calendarEvent.Id);
+    /// <summary>
+    /// Wherever an event is pressed on this page - a card in the list, a chip in the day grid - it
+    /// leads to the same place, which is the entry behind it where a task list made it. See
+    /// CalendarEventDestination, which the dashboard reads too.
+    /// </summary>
+    private void OpenTheEvent(Guid calendarEventId)
+    {
+        var destination = CalendarEventDestination.For(calendarEventId, _taskLists);
+        Logger.LogInformation(
+            "User opened calendar event {EventId} from the calendar, going to {Destination}", calendarEventId, destination);
+        NavigationManager.NavigateTo(destination);
     }
 
     private void GoToDueTask(DueTaskDto dueTask)

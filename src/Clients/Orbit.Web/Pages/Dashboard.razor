@@ -389,7 +389,9 @@ else
         FormatEventMeta(calendarEvent.Details),
         string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color,
         calendarEvent.Details.Priority,
-        $"/calendar/{calendarEvent.Id}");
+        // An event a task list raised opens as that entry, the same as it does on the calendar itself -
+        // see CalendarEventDestination.
+        CalendarEventDestination.For(calendarEvent.Id, _taskLists));
 
     /// <summary>
     /// The deadlines on task lists, named the way the calendar names them - "Shopping: Milk", since a

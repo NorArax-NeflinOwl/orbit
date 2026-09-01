@@ -33,7 +33,20 @@
     </div>
     @if (!_isLoading)
     {
-        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@_isSaving" />
+        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@_isSaving">
+            @* Deleting from here, not only from the calendar page: opening an event to look at it and
+               deciding it should go is the moment the wish arrives. In a menu rather than as a third
+               button, because it is not one of the two things this page is for - and only for an event
+               that is actually yours to change, the same gate the content fieldset uses. *@
+            @if (!IsNewEvent && _canEditContent)
+            {
+                <OverflowMenu>
+                    <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
+                        @T["Delete event"]
+                    </button>
+                </OverflowMenu>
+            }
+        </EditorActions>
     }
 </div>
 
@@ -95,19 +108,6 @@ else
         </fieldset>
     }
 
-    @* Saving and cancelling are at the head of the page now - see EditorActions. Deleting is not one of
-       the two and stays here, at the end of the thing it destroys. *@
-    <div class="form-actions">
-        @if (!IsNewEvent && _canEditContent)
-        {
-            @* Deleting from here, not only from the calendar page: opening an event to look at it and
-               deciding it should go is the moment the wish arrives. Only for an event that is actually
-               yours to change - the same gate the content fieldset uses. *@
-            <button type="button" class="btn-secondary form-actions-danger" disabled="@_isDeleting" @onclick="DeleteAsync">
-                @T["Delete event"]
-            </button>
-        }
-    </div>
     </EditForm>
 
     @if (!IsNewEvent && Id is { } calendarEventId)

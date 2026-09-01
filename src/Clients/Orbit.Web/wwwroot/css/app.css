@@ -265,6 +265,15 @@ textarea {
     gap: 6px;
 }
 
+/* A control with the sentence that explains it underneath rather than beside it - the button leads and
+   keeps its own width instead of stretching across the row. */
+.field-with-note {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
 .field > label {
     font-size: 12.5px;
     font-weight: 600;
