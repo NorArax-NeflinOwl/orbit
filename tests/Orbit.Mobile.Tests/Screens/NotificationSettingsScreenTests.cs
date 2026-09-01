@@ -29,11 +29,15 @@ public sealed class NotificationSettingsScreenTests
     }
 
     [Fact]
-    public async Task Saving_from_the_phone_leaves_the_browser_only_settings_alone()
+    public async Task Saving_from_the_phone_leaves_what_it_does_not_show_alone()
     {
         // The trap this screen exists to avoid. The endpoint takes the whole object, and a phone that
-        // sends defaults for the switches it does not show would silently undo somebody's tuning in the
-        // browser - a change nothing on the phone would ever reveal.
+        // sends defaults for what it does not show would silently undo a choice made in the browser - a
+        // change nothing on the phone would ever reveal.
+        //
+        // ShowExceptionDetails is the one left: it decides how much of a failure Orbit.Web prints on the
+        // page, and nothing on the phone reads it. The banner and retention settings used to be on this
+        // list, which was the problem - the phone obeyed them and could not change them.
         var context = new SettingsContext();
         context.Server.Settings = context.Server.Settings with
         {
@@ -45,12 +49,121 @@ public sealed class NotificationSettingsScreenTests
         screen.AllowEmail = true;
         await screen.SaveCommand.ExecuteAsync(null);
 
+        Assert.True(context.Server.Settings.ShowExceptionDetails);
+        // And what the phone does show goes back as it was read, rather than as a default.
         Assert.Equal(12, context.Server.Settings.BannerVisibleSeconds);
         Assert.Equal(30, context.Server.Settings.BannerMinimumGapSeconds);
-        Assert.True(context.Server.Settings.ShowExceptionDetails);
         Assert.Equal(45, context.Server.Settings.RetentionDays);
         // And the one the reader actually changed did change.
         Assert.True(context.Server.Settings.AllowEmail);
+    }
+
+    /// <summary>
+    /// The banner is the phone's own - ForegroundNotices shows it, and obeys all three of these - and
+    /// until this screen offered them they could be changed only from a browser.
+    /// </summary>
+    [Fact]
+    public async Task The_phones_own_banner_can_be_turned_off_from_the_phone()
+    {
+        var context = new SettingsContext();
+        context.Server.Settings = context.Server.Settings with { AllowMobileBanner = true };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.AllowMobileBanner);
+
+        screen.AllowMobileBanner = false;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.False(context.Server.Settings.AllowMobileBanner);
+    }
+
+    [Fact]
+    public async Task How_long_a_banner_stays_and_how_soon_the_next_may_follow_are_saved()
+    {
+        var context = new SettingsContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.AllowMobileBanner = true;
+        screen.BannerVisibleSeconds = 9;
+        screen.BannerMinimumGapSeconds = 25;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(9, context.Server.Settings.BannerVisibleSeconds);
+        Assert.Equal(25, context.Server.Settings.BannerMinimumGapSeconds);
+    }
+
+    [Fact]
+    public async Task How_long_notifications_are_kept_is_saved()
+    {
+        var context = new SettingsContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.RetentionDays = 30;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(30, context.Server.Settings.RetentionDays);
+    }
+
+    /// <summary>
+    /// The server clamps out-of-range numbers silently rather than refusing them, so a screen that sent
+    /// one and went on showing it would be describing a setting that does not exist. Clamped here too,
+    /// which is also what makes the two agree without a second round trip.
+    /// </summary>
+    [Theory]
+    [InlineData(999, 30)]
+    [InlineData(0, 1)]
+    public async Task A_banner_length_out_of_range_is_saved_as_the_nearest_one_allowed(int asked, int expected)
+    {
+        var context = new SettingsContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.BannerVisibleSeconds = asked;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(expected, context.Server.Settings.BannerVisibleSeconds);
+        Assert.Equal(expected, screen.BannerVisibleSeconds);
+    }
+
+    [Theory]
+    [InlineData(365, 90)]
+    [InlineData(0, 1)]
+    public async Task A_retention_out_of_range_is_saved_as_the_nearest_one_allowed(int asked, int expected)
+    {
+        var context = new SettingsContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.RetentionDays = asked;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(expected, context.Server.Settings.RetentionDays);
+        Assert.Equal(expected, screen.RetentionDays);
+    }
+
+    /// <summary>
+    /// How long a banner stays means nothing when no banner is shown - the same rule Orbit.Web's Options
+    /// applies to the same two fields.
+    /// </summary>
+    [Fact]
+    public async Task The_banner_timings_are_offered_only_while_a_banner_will_be_shown()
+    {
+        var context = new SettingsContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.AllowNotifications = true;
+        screen.AllowMobileBanner = false;
+        Assert.False(screen.CanChooseBannerTiming);
+
+        screen.AllowMobileBanner = true;
+        Assert.True(screen.CanChooseBannerTiming);
+
+        screen.AllowNotifications = false;
+        Assert.False(screen.CanChooseBannerTiming);
     }
 
     /// <summary>

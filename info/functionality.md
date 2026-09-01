@@ -1819,7 +1819,12 @@ and each chat contact's avatar. A section's count is simply how many unread entr
 its prefix (`/tasks`, `/calendar`, `/inventory`, `/chat`), so a reminder shows up on the thing it is
 about. Chat subscribes to the same state instead of polling again. The poll also refreshes settings, so a
 change made on Options takes effect within one interval; when the unread count has just gone up and
-`AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport.
+`AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport. The
+phone reads the same three settings for its own banner (see
+[the foreground banner](orbit-maui-plan.md)) and, as of 2026-09-01, offers them: its Settings screen
+edits `AllowMobileBanner`, both banner timings and `RetentionDays` alongside the channel switches it
+already had. `ShowExceptionDetails` stays browser-only, since it governs what Orbit.Web prints on the
+page and nothing on the phone reads it.
 
 **A person with a message waiting is marked wherever that person appears** — the chat page's own
 conversation list, the contact list, and the dashboard's "Recent chats" card — all through one

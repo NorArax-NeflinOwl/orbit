@@ -326,6 +326,15 @@ public static class PolishTranslations
         ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
         // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
         ["Dismiss"] = "Odrzuć",
+        // ---- The notification settings the phone obeys and could not set - see NotificationSettingsViewModel. ----
+        ["Banner while Orbit is open"] = "Baner, gdy Orbit jest otwarty",
+        ["Shows what arrived at the top of the screen instead of only in the tray."] =
+            "Pokazuje to, co przyszło, u góry ekranu, a nie tylko na pasku powiadomień.",
+        ["How long it stays"] = "Jak długo widoczny",
+        ["Quiet gap before the next one"] = "Przerwa przed kolejnym",
+        ["Keep notifications for"] = "Przechowuj powiadomienia przez",
+        ["Clearing the panel only tidies them away. This is what deletes them for good."] =
+            "Wyczyszczenie panelu tylko je porządkuje. To ustawienie usuwa je na dobre.",
         // ---- The home screen widget - see TodayAtAGlance. ----
         ["Nothing left today"] = "Nic już na dziś",
         ["Open Orbit to see your day"] = "Otwórz Orbita, żeby zobaczyć swój dzień",

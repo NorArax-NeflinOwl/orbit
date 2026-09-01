@@ -131,7 +131,60 @@
                             <Switch Grid.Column="1" IsToggled="{Binding AllowShareNotifications}" VerticalOptions="Center"
                                     SemanticProperties.Description="{controls:Translate 'When something is shared with me'}" />
                         </Grid>
+
+                        <!-- The phone's own banner, which until now could only be turned on and off from
+                             a browser - see ForegroundNotices for what obeys it. -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout Grid.Column="0">
+                                <Label Text="{controls:Translate 'Banner while Orbit is open'}" />
+                                <Label Text="{controls:Translate 'Shows what arrived at the top of the screen instead of only in the tray.'}"
+                                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowMobileBanner}" VerticalOptions="Center"
+                                    SemanticProperties.Description="{controls:Translate 'Banner while Orbit is open'}" />
+                        </Grid>
+
+                        <!-- Steppers rather than number fields: both settings are clamped rather than
+                             refused (see BannerTiming), and a stepper cannot produce a value to clamp. -->
+                        <VerticalStackLayout Spacing="14" IsVisible="{Binding CanChooseBannerTiming}">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{controls:Translate 'How long it stays'}" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{Binding BannerVisibleSeconds, StringFormat='{0} s'}"
+                                       VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                                <Stepper Grid.Column="2" Value="{Binding BannerVisibleSeconds}"
+                                         Minimum="{Binding ShortestBannerSeconds}" Maximum="{Binding LongestBannerSeconds}"
+                                         Increment="1" VerticalOptions="Center"
+                                         SemanticProperties.Description="{controls:Translate 'How long it stays'}" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{controls:Translate 'Quiet gap before the next one'}"
+                                       VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                <Label Grid.Column="1" Text="{Binding BannerMinimumGapSeconds, StringFormat='{0} s'}"
+                                       VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                                <Stepper Grid.Column="2" Value="{Binding BannerMinimumGapSeconds}"
+                                         Minimum="{Binding ShortestBannerSeconds}" Maximum="{Binding LongestGapSeconds}"
+                                         Increment="5" VerticalOptions="Center"
+                                         SemanticProperties.Description="{controls:Translate 'Quiet gap before the next one'}" />
+                            </Grid>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
+
+                    <!-- Outside the master switch, as Orbit.Web has it: what is already in the feed goes
+                         on ageing out whether or not anything new is being recorded. -->
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <VerticalStackLayout Grid.Column="0">
+                            <Label Text="{controls:Translate 'Keep notifications for'}" />
+                            <Label Text="{controls:Translate 'Clearing the panel only tidies them away. This is what deletes them for good.'}"
+                                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="{Binding RetentionDays, StringFormat='{0} d'}"
+                               VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                        <Stepper Grid.Column="2" Value="{Binding RetentionDays}"
+                                 Minimum="{Binding FewestRetentionDays}" Maximum="{Binding MostRetentionDays}"
+                                 Increment="1" VerticalOptions="Center"
+                                 SemanticProperties.Description="{controls:Translate 'Keep notifications for'}" />
+                    </Grid>
 
                     <Button Text="{controls:Translate 'Save'}" HorizontalOptions="Start" FontSize="13" Padding="14,6"
                             Command="{Binding SaveCommand}" />

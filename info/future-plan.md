@@ -24,13 +24,16 @@ rather than a pointer at one, and the build refuses to finish on a warning. What
   head; iOS has not been run since phase 1, and desktop has not been started at all.
 
   What is left of it: the iOS head beyond phase 1 (deferred — no Apple developer account or signing
-  key, which also blocks push there) and phase 8 — widgets and Live Activities. Phase 8's accessibility
-  half is done for the controls that had nothing to announce: every switch, picker, date or time picker
-  and checkbox on the phone now names itself to a screen reader, and a test fails on one that does not.
+  key, which also blocks push there) and phase 8's iOS half — Live Activities, the Dynamic Island, the
+  Action Button. Phase 8 is done on Android: every switch, picker, date or time picker and checkbox
+  names itself to a screen reader and a test fails on one that does not, and the home screen widget is
+  built and driven on a device (see
+  [Functionality](functionality.md#the-home-screen-widget-android)).
   A push
   arriving while the app is in front of somebody now shows a banner on the navigation bar, which is
   where the browser shows its own; it honours `AllowMobileBanner` and the two settings that pace it,
-  all three of which existed for this and had no reader on the phone. Push to an Android phone is delivered as of
+  all three of which existed for this and had no reader on the phone — and, since 2026-09-01, no way to
+  be set from it either: the phone's own banner was configured only from a browser. Push to an Android phone is delivered as of
   2026-08-31 and no longer on this list. Remaining design decisions are in
   [§12](orbit-maui-plan.md#12-open-questions); the local database staying unencrypted and iOS being
   deferred are both settled there.
