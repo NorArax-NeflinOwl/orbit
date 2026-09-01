@@ -83,7 +83,7 @@ public sealed class OrbitAuthenticationStateProvider : AuthenticationStateProvid
     /// every call re-triggered the very OnInitializedAsync it was called from, forever, with no delay -
     /// visible as a frozen tab within seconds of opening Chat/NoteEditor/TaskEditor/CalendarEventEditor.
     /// Only notifying when the local read actually needed a refresh keeps the common case (a still-valid
-    /// token) a no-op remount-wise, while still updating the sidebar/route gating promptly on the two
+    /// token) a no-op remount-wise, while still updating the top bar/route gating promptly on the two
     /// paths where something genuinely changed: a recovered session (remounts once more, this time with a
     /// now-locally-valid token, so it terminates immediately) or a genuinely-dead one (AuthorizeRouteView
     /// switches to NotAuthorized instead of remounting this component at all).

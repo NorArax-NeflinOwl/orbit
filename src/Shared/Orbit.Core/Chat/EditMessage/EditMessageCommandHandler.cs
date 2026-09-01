@@ -1,14 +1,18 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.EditMessage;
 
 public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageCommand, EditMessageResult>
 {
     private readonly IChatMessageRepository _chatMessageRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public EditMessageCommandHandler(IChatMessageRepository chatMessageRepository)
+    public EditMessageCommandHandler(
+        IChatMessageRepository chatMessageRepository, ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatMessageRepository = chatMessageRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     /// <summary>
@@ -33,6 +37,11 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
         var editedAtUtc = DateTimeOffset.UtcNow;
         await _chatMessageRepository.UpdateContentAsync(request.MessageId, request.CiphertextBase64, request.NonceBase64, editedAtUtc, cancellationToken);
         message.ApplyEdit(request.CiphertextBase64, request.NonceBase64, editedAtUtc);
+
+        // Both, as when it was sent: the recipient is reading words that just changed, and the sender
+        // may have another device showing the old ones.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [message.RecipientUserId, message.SenderUserId], cancellationToken);
 
         return EditMessageResult.Success(message);
     }

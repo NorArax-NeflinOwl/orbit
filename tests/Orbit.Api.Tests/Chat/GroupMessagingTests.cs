@@ -209,7 +209,8 @@ public sealed class GroupMessagingTests
                 new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository, new SilentLiveUpdatePublisher()),
                 new PushNotificationDispatcher(
                     new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
-                    NullLogger<PushNotificationDispatcher>.Instance))
+                    NullLogger<PushNotificationDispatcher>.Instance),
+                new SilentLiveUpdatePublisher())
             .HandleAsync(new AddChatGroupMemberCommand(admin.Id, group.Id, invitee.Id), CancellationToken.None);
 
         // Joining a group is the one thing that happens to a member without them doing anything, so
@@ -305,7 +306,7 @@ public sealed class GroupMessagingTests
         var group = ChatGroup.Create(owner, "Weekend trip");
         await groupRepository.AddAsync(group, CancellationToken.None);
 
-        var left = await new RemoveChatGroupMemberCommandHandler(groupRepository)
+        var left = await new RemoveChatGroupMemberCommandHandler(groupRepository, new SilentLiveUpdatePublisher())
             .HandleAsync(new RemoveChatGroupMemberCommand(owner, group.Id, owner), CancellationToken.None);
 
         // An emptied group is not something to keep - the same tidy-up the account-deletion path does.
@@ -318,7 +319,7 @@ public sealed class GroupMessagingTests
     {
         var context = new GroupMessagingTestContext();
 
-        var left = await new RemoveChatGroupMemberCommandHandler(context.GroupRepository)
+        var left = await new RemoveChatGroupMemberCommandHandler(context.GroupRepository, new SilentLiveUpdatePublisher())
             .HandleAsync(new RemoveChatGroupMemberCommand(context.MemberId, context.GroupId, context.MemberId), CancellationToken.None);
 
         Assert.True(left);
@@ -446,7 +447,8 @@ public sealed class GroupMessagingTests
                     GroupRepository, AnnouncementRepository, ContactRepository, UserRepository,
                     new NotificationRecorder(new InMemoryNotificationSettingsRepository(), NotificationEntryRepository, new SilentLiveUpdatePublisher()),
                     new PushNotificationDispatcher(
-                        new InMemoryPushSubscriptionRepository(), [PushSender], NullLogger<PushNotificationDispatcher>.Instance))
+                        new InMemoryPushSubscriptionRepository(), [PushSender], NullLogger<PushNotificationDispatcher>.Instance),
+                    new SilentLiveUpdatePublisher())
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
 
 
@@ -459,7 +461,7 @@ public sealed class GroupMessagingTests
                 .HandleAsync(new GetGroupMessageReceiptsQuery(callerId, GroupId, groupMessageId), CancellationToken.None);
 
         public Task<bool> EditAsync(Guid actorId, Guid groupMessageId, IReadOnlyList<Guid> recipientIds, string newText)
-            => new EditGroupMessageCommandHandler(MessageRepository)
+            => new EditGroupMessageCommandHandler(MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(
                     new EditGroupMessageCommand(
                         actorId, groupMessageId,
@@ -467,7 +469,7 @@ public sealed class GroupMessagingTests
                     CancellationToken.None);
 
         public Task<bool> DeleteAsync(Guid actorId, Guid messageId)
-            => new DeleteChatMessageCommandHandler(MessageRepository, GroupRepository)
+            => new DeleteChatMessageCommandHandler(MessageRepository, GroupRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(new DeleteChatMessageCommand(actorId, messageId), CancellationToken.None);
     }
 }

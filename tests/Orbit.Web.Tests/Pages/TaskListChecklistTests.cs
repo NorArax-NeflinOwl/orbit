@@ -182,21 +182,11 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
 
-    [Fact]
-    public void A_due_item_offers_to_go_into_google_calendar()
-    {
-        _googleExtrasAvailable = true;
-        var taskList = TaskList("Admin", Item("File the return", dueDateUtc: new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.Zero)));
-        RegisterTasksApiClient([taskList]);
+    // A_due_item_offers_to_go_into_google_calendar lived here. The checklist no longer offers to put
+    // a deadline into Google Calendar - the row is for reading and ticking off, and the link was a
+    // third control competing with the two that matter. GoogleCalendarEventLink itself is unchanged
+    // and still covered by its own tests; only this page stopped using it.
 
-        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
-
-        var link = cut.Find("a.google-link");
-        Assert.Contains("calendar.google.com", link.GetAttribute("href"));
-        // Opens away from Orbit, and without handing Google a referrer that names the page.
-        Assert.Equal("_blank", link.GetAttribute("target"));
-        Assert.Equal("noopener", link.GetAttribute("rel"));
-    }
 
     [Fact]
     public void An_account_without_the_google_extras_is_offered_none()
@@ -384,11 +374,13 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
     private static TaskItemDto Item(
-        string description, bool isCompleted = false, Guid? linkedTaskListId = null, DateTimeOffset? dueDateUtc = null)
+        string description, bool isCompleted = false, Guid? linkedTaskListId = null, DateTimeOffset? dueDateUtc = null,
+        string kind = "Checklist")
         => new(
             Guid.NewGuid(), description, dueDateUtc, isCompleted, linkedTaskListId,
             OverdueNotificationChannel: "None", RemindDaily: false,
-            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: default);
+            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: default,
+            Kind: kind);
 
     [Fact]
     public void A_group_shows_the_lists_below_its_own_members_too()
@@ -533,7 +525,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     [Fact]
     public void The_stock_check_can_be_read_shortfalls_first()
     {
-        var group = TaskList("Renovation", Item("Screw")) with { IsGroup = true };
+        var group = TaskList("Renovation", Item("Screw", kind: "Inventory")) with { IsGroup = true };
         RegisterTasksApiClient([group], new TaskListStockCheckDto(IsAchievable: false, [
             new StockRequirementDto("Anchor", 1, 1, 0),
             new StockRequirementDto("Screw", 2, 0, 2),
@@ -549,12 +541,14 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     [Fact]
     public void Putting_the_stock_check_away_is_remembered_without_pressing_Save_view()
     {
-        var group = TaskList("Renovation", Item("Screw")) with { IsGroup = true };
+        var group = TaskList("Renovation", Item("Screw", kind: "Inventory")) with { IsGroup = true };
         RegisterTasksApiClient([group], new TaskListStockCheckDto(IsAchievable: true, [
             new StockRequirementDto("Screw", 1, 1, 0)]));
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
 
-        ChooseInStockCheckMenu(cut, "Hide");
+        // Folded by the card itself - the name and the chevron do it, so the menu no longer carries a
+        // third way to say the same thing.
+        cut.FindAll(".item-card .item-card-collapse").First().Click();
 
         Assert.Empty(cut.FindAll(".permissions-table"));
         // Nothing left over to save: a panel somebody puts away has already been answered about.
@@ -565,11 +559,14 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     private static IReadOnlyList<string> StockCheckNames(IRenderedComponent<TaskListChecklist> cut)
         => [.. cut.FindAll(".permissions-table tbody tr td:first-child").Select(cell => cell.TextContent.Trim())];
 
-    /// <summary>Picks an entry out of the stock-check panel's own menu - the second one on the page.</summary>
+    /// <summary>
+    /// Picks an entry out of the Related inventory card's own menu. That card is the one ItemCard on
+    /// this page - the checklist's sections are not cards - so it is found by that.
+    /// </summary>
     private static void ChooseInStockCheckMenu(IRenderedComponent<TaskListChecklist> cut, string label)
     {
-        cut.FindAll(".stock-check-card .overflow-menu-trigger").First().Click();
-        cut.FindAll(".stock-check-card .overflow-menu-dropdown .avatar-dropdown-item")
+        cut.FindAll(".item-card .overflow-menu-trigger").First().Click();
+        cut.FindAll(".item-card .overflow-menu-dropdown .avatar-dropdown-item")
             .First(entry => entry.TextContent.Contains(label))
             .Click();
     }

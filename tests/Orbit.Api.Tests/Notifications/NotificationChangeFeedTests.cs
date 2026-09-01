@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Notifications.ClearNotifications;
 using Orbit.Core.Notifications.GetChangedNotifications;
@@ -109,11 +110,11 @@ public sealed class NotificationChangeFeedTests
         }
 
         public Task ClearAsync()
-            => new ClearNotificationsCommandHandler(_entryRepository)
+            => new ClearNotificationsCommandHandler(_entryRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(new ClearNotificationsCommand(_userId), CancellationToken.None);
 
         public Task MarkReadAtAsync(string url)
-            => new MarkNotificationsAtUrlReadCommandHandler(_entryRepository)
+            => new MarkNotificationsAtUrlReadCommandHandler(_entryRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(new MarkNotificationsAtUrlReadCommand(_userId, url), CancellationToken.None);
 
         public Task<IReadOnlyList<NotificationEntry>> ChangedSinceAsync(DateTimeOffset since)

@@ -43,7 +43,7 @@ public sealed class AuthorizationMessageHandler(
             // The session is genuinely over (the refresh token is invalid or expired too). Every
             // caller that lands here already has its own "catch the 401, NavigateTo /login" handling
             // for its own page content, but none of them think to also invalidate the authentication
-            // state - without this, MainLayout's sidebar (which listens for exactly this
+            // state - without this, MainLayout's top bar (which listens for exactly this
             // AuthenticationStateChanged notification, not the token itself) and any [Authorize]-gated
             // route would keep rendering as signed-in on top of whatever the caller navigates to, since
             // nothing else would have told them the session ended. Centralized here instead of at each

@@ -343,10 +343,11 @@ of that change rather than missed.
   drops, the unread badge and the feed hear about changes instead of waiting for the next screen, and the
   presence heartbeat goes over the connection when there is one. It does not listen for
   `PresenceChanged`: the phone shows nobody else's presence yet.
-- **Edits and deletions are only found by the slow poll.** A message being edited or removed announces
-  nothing, so it surfaces within twenty seconds instead of instantly. Adding it is a one-line publish in
-  each of `EditMessageCommandHandler`, `EditGroupMessageCommandHandler` and `DeleteMessageCommandHandler`
-  - left out only to keep the first change to the paths that carried the visible cost.
+- ~~**Edits and deletions are only found by the slow poll.**~~ Done, along with the rest of what was
+  left announcing nothing: editing and deleting a message in a conversation or a group, making a group,
+  adding or removing a member, changing a role, sharing history with a new member, and reading or
+  clearing a notification - the last of which reaches this account's *other* devices, so a badge
+  cleared on a phone does not stay lit on the laptop.
 - **Somebody going *away* can never be announced.** It happens by time passing, with nothing calling
   anything, so there is no moment at which the server could say so (see `UserPresence.StatusAt`). Making
   it instant would mean the server tracking timers per connected account and announcing on expiry - real
@@ -355,6 +356,29 @@ of that change rather than missed.
 
 Scaling `orbit-api` past one replica needs a backplane before any of this survives it - see
 [Azure setup](azure-setup.md#5-confirm-ingress).
+
+## The calendar that shrinks as you scroll - Android, not the web
+
+Decided 2026-09-01, while the web calendar was being reshaped. **The web keeps what it has**: side by
+side on a wide screen, and stacked - calendar above, list below - once there is no room for that. It
+does not shrink as the page scrolls, and it is not meant to.
+
+**The phone should.** On Android the calendar stays pinned while the list under it is read, and
+minimises to a single row as soon as the reader scrolls past it:
+
+| view | what is left when it is minimised |
+|---|---|
+| Day | one hour row |
+| Month | one week row |
+| Year | the month's name, and nothing else |
+
+Why there and not here: a phone has one column and a thumb, so the calendar is either taking the
+screen or getting out of the way, and the row that survives is the one the reader is standing on.
+A desktop window has room for both at once, so nothing has to move - and a grid that resized itself
+while somebody scrolled a list beside it would be motion answering a question nobody asked.
+
+Not attempted on the web deliberately. It is scroll-and-viewport behaviour, which no test in this
+project can cover, and the web has no problem for it to solve.
 
 ## Smaller identified follow-ups
 

@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.Groups.EditGroupMessage;
 
@@ -10,10 +11,13 @@ namespace Orbit.Core.Chat.Groups.EditGroupMessage;
 public sealed class EditGroupMessageCommandHandler : IRequestHandler<EditGroupMessageCommand, bool>
 {
     private readonly IChatMessageRepository _chatMessageRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public EditGroupMessageCommandHandler(IChatMessageRepository chatMessageRepository)
+    public EditGroupMessageCommandHandler(
+        IChatMessageRepository chatMessageRepository, ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatMessageRepository = chatMessageRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<bool> HandleAsync(EditGroupMessageCommand request, CancellationToken cancellationToken)
@@ -38,6 +42,13 @@ public sealed class EditGroupMessageCommandHandler : IRequestHandler<EditGroupMe
             await _chatMessageRepository.UpdateContentAsync(
                 copy.Id, replacement.CiphertextBase64, replacement.NonceBase64, editedAtUtc, cancellationToken);
         }
+
+        // Whoever holds a copy, which is who was in the group when it was posted - taken from the
+        // copies rather than from the group's membership now, so somebody who has since left is not
+        // told about words they can no longer read.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. copies.Select(copy => copy.RecipientUserId).Append(request.RequestingUserId).Distinct()],
+            cancellationToken);
 
         return true;
     }

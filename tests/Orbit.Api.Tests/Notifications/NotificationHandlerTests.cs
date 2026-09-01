@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
@@ -85,7 +86,7 @@ public sealed class NotificationHandlerTests
         var otherUserId = Guid.NewGuid();
         await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, new PushNotificationPayload("Mine", "Body", "")), CancellationToken.None);
         await repository.AddAsync(NotificationEntry.Create(otherUserId, NotificationEntryKind.PushReminder, new PushNotificationPayload("Theirs", "Body", "")), CancellationToken.None);
-        var handler = new ClearNotificationsCommandHandler(repository);
+        var handler = new ClearNotificationsCommandHandler(repository, new SilentLiveUpdatePublisher());
 
         await handler.HandleAsync(new ClearNotificationsCommand(userId), CancellationToken.None);
 
@@ -100,7 +101,7 @@ public sealed class NotificationHandlerTests
         var userId = Guid.NewGuid();
         await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.PushReminder, new PushNotificationPayload("One", "Body", "")), CancellationToken.None);
         await repository.AddAsync(NotificationEntry.Create(userId, NotificationEntryKind.ChatMessage, new PushNotificationPayload("Two", "Body", "")), CancellationToken.None);
-        var handler = new MarkAllNotificationsReadCommandHandler(repository);
+        var handler = new MarkAllNotificationsReadCommandHandler(repository, new SilentLiveUpdatePublisher());
 
         var result = await handler.HandleAsync(new MarkAllNotificationsReadCommand(userId), CancellationToken.None);
 

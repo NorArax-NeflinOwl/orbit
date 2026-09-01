@@ -104,27 +104,32 @@ else
         <p class="error">@_errorMessage</p>
     }
 
-    @* What this list's work costs against a warehouse. Offered for a group list, because that is what
-       gathers enough work to be worth counting - see StockRequirementCounter for the counting rule. *@
-    @if (_sections.Count > 0 && _sections[0].TaskList.IsGroup)
+    @* What this list's work costs against a warehouse. Offered where the list actually has errands
+       about stock - the panel used to appear on any group list, including ones with nothing on a shelf
+       to count, where it could only ever say "nothing to measure". *@
+    @if (HasInventoryWork)
     {
-        <div class="card stock-check-card">
-            <div class="card-header">
-                <span class="card-title">@T["Can this be done?"]</span>
-                <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync">
+        <ItemCard Name="@(T["Related inventory"])"
+                  OnNameSelected="@(HasSomethingToUnfold ? EventCallback.Factory.Create(this, ToggleStockCheckHiddenAsync) : default)"
+                  IsCollapsed="_reading.IsStockCheckHidden"
+                  OnCollapseToggled="@(HasSomethingToUnfold ? EventCallback.Factory.Create(this, ToggleStockCheckHiddenAsync) : default)">
+            @* Which shelf this is counted against. At the end of the meta row rather than inside the
+               body, because it is how the panel gets linked in the first place - unreachable while
+               folded would mean unreachable before it has anything to fold. *@
+            <Extras>
+                <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync"
+                        @onclick:stopPropagation="true">
                     <option value="">@T["Not measured against a warehouse"]</option>
                     @foreach (var warehouse in _warehouses)
                     {
                         <option value="@warehouse.Id">@warehouse.Name</option>
                     }
                 </select>
-                @* Whether this panel is in the way, and what order it lists things in - both settings
-                   rather than actions, so the menu stays open while they are being tried. Both are
-                   remembered as they are set: neither is worth pressing Save view for. *@
+            </Extras>
+            @* Only what order things are listed in. Show/Hide left: the card's own name and its
+               collapse do that now, so the menu row was a third way to say the same thing. *@
+            <Menu>
                 <OverflowMenu StaysOpen="true">
-                    <button type="button" class="avatar-dropdown-item" @onclick="ToggleStockCheckHiddenAsync">
-                        @(_reading.IsStockCheckHidden ? T["Show"] : T["Hide"])
-                    </button>
                     <span class="overflow-menu-heading">@T["Sort"]</span>
                     @foreach (var stockOrder in Enum.GetValues<StockCheckOrder>())
                     {
@@ -135,9 +140,9 @@ else
                         </button>
                     }
                 </OverflowMenu>
-            </div>
-
-            @if (_stockCheck is { } stockCheck && !_reading.IsStockCheckHidden)
+            </Menu>
+            <Body>
+            @if (_stockCheck is { } stockCheck)
             {
                 <p class="options-subtext">
                     @if (stockCheck.IsAchievable)
@@ -184,7 +189,8 @@ else
                     <p class="info">@_shortfallMessage</p>
                 }
             }
-        </div>
+            </Body>
+        </ItemCard>
     }
 
     @if (_reading.View == ChecklistView.Flat)
@@ -235,11 +241,16 @@ else
             {
                 @foreach (var item in ItemsToShow(section.TaskList))
                 {
-                    <label class="check-row @(item.IsCompleted ? "completed" : "") @(Highlight == item.Id ? "highlighted" : "")">
+                    <div class="check-row @(item.IsCompleted ? "completed" : "") @(Highlight == item.Id ? "highlighted" : "")">
                         <input type="checkbox" checked="@item.IsCompleted"
+                               aria-label="@T.Format("Done: {0}", Written(item.Description))"
                                disabled="@IsItemLocked(section, item)"
                                @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
-                        <span class="check-row-text">@Written(item.Description)</span>
+                        @* Opens the entry to be worked on rather than ticking it off. Ticking is the
+                           checkbox's job, and it was doing both: the row was a <label>, so reading a
+                           line by tapping it completed it. *@
+                        <button type="button" class="check-row-text"
+                                @onclick="() => GoToEditItem(section.TaskList.Id, item.Id)">@Written(item.Description)</button>
                         @* An inventory errand says which shelf it is about, and - when a second list is
                            asking for the same product - where else it is being asked for. Both are links
                            rather than labels: the reason to show them is to be able to go and look. *@
@@ -266,15 +277,8 @@ else
                         else if (item.DueDateUtc is { } dueDate)
                         {
                             <span class="row-meta">@T.Format("due {0}", dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
-                            @if (_hasGoogleExtras)
-                            {
-                                @* Google Calendar template links can't create a task, so a deadline
-                                   becomes a short event ending at it - see GoogleCalendarEventLink. *@
-                                <a class="google-link" href="@GoogleCalendarEventLink.ForTaskItem(item.Description, dueDate, section.TaskList.Title)"
-                                   target="_blank" rel="noopener" @onclick:stopPropagation="true">@T["Add to Google Calendar"]</a>
-                            }
                         }
-                    </label>
+                    </div>
                 }
             }
         </div>
@@ -572,7 +576,31 @@ else
     /// list to another is a parameter change Blazor can make in place - an ordinary href would reload
     /// the whole application to arrive at the same page.
     /// </summary>
+    /// <summary>
+    /// Whether anything on this list is an errand about stock. The panel counts inventory work, so a
+    /// list with none of it has nothing to count - it used to appear on every group list regardless,
+    /// where the only thing it could say was that there was nothing to measure.
+    /// </summary>
+    private bool HasInventoryWork
+        => _sections.Any(section => section.TaskList.Items.Any(
+            item => item.Kind == nameof(Orbit.Core.Tasks.TaskItemKind.Inventory)));
+
+    /// <summary>
+    /// Whether there is a count to fold away. Asked of the count itself rather than of the warehouse
+    /// picker: what makes the card worth unfolding is having something inside it, and keying the
+    /// offer to the link meant a card with a count in it that refused to fold.
+    /// </summary>
+    private bool HasSomethingToUnfold => _stockCheck is not null;
+
     private void GoTo(string href) => NavigationManager.NavigateTo(href);
+
+    /// <summary>
+    /// Opens the deep editor with this entry already unfolded. The checklist is for ticking things off;
+    /// changing what an entry actually is - its day, its place, what it is about - is the editor's job,
+    /// and this is the way there from the line itself.
+    /// </summary>
+    private void GoToEditItem(Guid taskListId, Guid itemId)
+        => NavigationManager.NavigateTo($"/tasks/{taskListId}/edit?item={itemId}");
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);

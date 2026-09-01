@@ -38,17 +38,18 @@
     }
     @if (_isAuthenticated)
     {
-            <aside class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
-                <div class="sidebar-logo" role="button" tabindex="0" title="@(T["Collapse sidebar"])"
-                     @onclick="OnLogoClickAsync" @onkeydown="OnLogoKeyDown">
+            @* Along the top rather than down the side. The phone has always shown it this way, and the
+               two now agree - which is what lets one habit carry between them. *@
+            <header class="topbar">
+                <a class="topbar-logo" href="/" title="@(T["Dashboard"])">
                     <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
                         <circle cx="13" cy="13" r="3" fill="var(--accent)" />
                         <ellipse cx="13" cy="13" rx="11" ry="5.5" fill="none" stroke="var(--accent)" stroke-width="1.6" transform="rotate(-28 13 13)" />
                     </svg>
-                    <span class="sidebar-logo-text">Orbit</span>
-                </div>
+                    <span class="topbar-logo-text">Orbit</span>
+                </a>
 
-                <nav class="sidebar-nav">
+                <nav class="topbar-nav">
                     <NavLink class="nav-item nav-item-dashboard" href="/" Match="NavLinkMatch.All" title="@(T["Dashboard"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="2.5" y="11.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="11.5" width="6" height="6" rx="1.5" /></svg>
                         <span class="label">@T["Dashboard"]</span>
@@ -92,35 +93,26 @@
                     </NavLink>
                     }
 
-                    <div class="nav-divider"></div>
-
-                    @* Below the divider with Options rather than among the sections above: this is not a
-                       part of Orbit to work in, it is somewhere to go once. The login page carries the
-                       same link for a reader who has not signed in yet - that is the other half, since
-                       the sidebar only exists after signing in. *@
-                    <NavLink class="nav-item nav-item-overflows" href="/download" title="@(T["Get the app"])">
-                        <PhoneIcon />
-                        <span class="label">@T["Get the app"]</span>
-                    </NavLink>
-
-                    <NavLink class="nav-item nav-item-overflows" href="/options" title="@(T["Options"])">
-                        <GearIcon />
-                        <span class="label">@T["Options"]</span>
-                    </NavLink>
                 </nav>
 
-                <div class="sidebar-footer">
+                <div class="topbar-account">
+                    @* Its own button beside the avatar rather than a badge on it. A count on a face
+                       says "you", not "unread", and reaching it meant opening a menu first - which is
+                       two steps for the one thing people check most. *@
+                    <button type="button" class="notifications-trigger" title="@(T["Notifications"])"
+                            aria-label="@(T["Notifications"])" @onclick="ToggleNotificationsMenuAsync"
+                            @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" /><path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" /></svg>
+                        @if (_unreadCount > 0)
+                        {
+                            <span class="notif-badge">@FormatUnreadCount(_unreadCount)</span>
+                        }
+                    </button>
+
                     <button type="button" class="avatar-trigger" @onclick="ToggleAvatarMenu" @onclick:stopPropagation="true">
                         <span class="avatar">
                             @GetInitials(_userName)
-                            @if (_unreadCount > 0)
-                            {
-                                <span class="notif-badge">@FormatUnreadCount(_unreadCount)</span>
-                            }
                             <PresenceDot Status="OwnStatus" />
-                        </span>
-                        <span class="user-meta">
-                            <span class="user-name">@_userName</span>
                         </span>
                     </button>
 
@@ -158,23 +150,14 @@
                                 <p class="availability-error">@_availabilityErrorMessage</p>
                             }
                             <div class="avatar-dropdown-divider"></div>
-                            @* Status, Notifications, Get the app, Options, Log out - what somebody uses
-                               most, first. The two in the middle are rows of the navigation rail, which
-                               a narrow screen has no room for, so they appear here instead and nowhere
-                               else; on a wide screen this menu is the three that are always here. *@
-                            <button type="button" class="avatar-dropdown-item" @onclick="ToggleNotificationsMenuAsync">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" /><path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" /></svg>
-                                @T["Notifications"]
-                                @if (_unreadCount > 0)
-                                {
-                                    <span class="avatar-dropdown-item-badge">@FormatUnreadCount(_unreadCount)</span>
-                                }
-                            </button>
-                            <a class="avatar-dropdown-item overflowed-nav-item" href="/download">
+                            @* Status, Get the app, Options, Log out. Notifications used to be here and
+                               is now a button of its own in the bar; these two are places you go once
+                               to set something up, which is exactly what this menu is for. *@
+                            <a class="avatar-dropdown-item" href="/download">
                                 <PhoneIcon Size="16" />
                                 @T["Get the app"]
                             </a>
-                            <a class="avatar-dropdown-item overflowed-nav-item" href="/options">
+                            <a class="avatar-dropdown-item" href="/options">
                                 <GearIcon Size="16" />
                                 @T["Options"]
                             </a>
@@ -204,7 +187,7 @@
                         </div>
                     }
                 </div>
-            </aside>
+            </header>
     }
 
     <main class="main-content" @onclick="CloseAvatarMenu">
@@ -274,11 +257,9 @@
         return $"ver:{server.Version}+gitHash:{hash}";
     }
 
-    private const string SidebarCollapsedStorageKey = "orbit.sidebarCollapsed";
 
 
 
-    private bool _sidebarCollapsed;
     private bool _avatarMenuOpen;
     private PeriodicTimer? _sessionHeartbeatTimer;
     private CancellationTokenSource? _sessionHeartbeatCancellation;
@@ -326,8 +307,8 @@
     private TimeSpan BannerVisibleDuration => TimeSpan.FromSeconds(_notificationSettings.BannerVisibleSeconds);
 
     /// <summary>
-    /// Whether to render the sidebar at all, and <see cref="_userName"/> for its avatar/name. Tracked
-    /// explicitly here instead of via a nested &lt;AuthorizeView&gt; so the sidebar's visibility doesn't
+    /// Whether to render the top bar at all, and <see cref="_userName"/> for its avatar/name. Tracked
+    /// explicitly here instead of via a nested &lt;AuthorizeView&gt; so the bar's visibility doesn't
     /// depend on anything but this component's own, always-correctly-scoped AuthenticationStateProvider
     /// instance (see the DI registration notes in Program.cs and AuthorizationMessageHandler's class
     /// remarks for the scoping pitfall that motivated this). Updated directly off the same
@@ -351,7 +332,6 @@
     {
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
         NavigationManager.LocationChanged += OnLocationChanged;
-        _sidebarCollapsed = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", SidebarCollapsedStorageKey) == "true";
         await RefreshAuthenticationDisplayStateAsync();
         // Syncs ThemeService.Current to whatever index.html's inline anti-flash script already applied
         // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
@@ -647,51 +627,9 @@
         }
     }
 
-    private async Task ToggleSidebarCollapsedAsync()
-    {
-        _sidebarCollapsed = !_sidebarCollapsed;
-        await JSRuntime.InvokeVoidAsync("localStorage.setItem", SidebarCollapsedStorageKey, _sidebarCollapsed ? "true" : "false");
-    }
 
-    /// <summary>
-    /// On a mobile viewport the sidebar is a horizontal top bar (see app.css's @media (max-width: 680px)
-    /// block) rather than the desktop collapse-to-icon-rail layout, so "collapse sidebar" doesn't apply
-    /// there - the logo instead acts as a shortcut back to the Dashboard, mirroring the now-hidden
-    /// Dashboard nav item (.nav-item-dashboard) it replaces on that breakpoint.
-    /// </summary>
-    private async Task OnLogoClickAsync()
-    {
-        if (await IsMobileViewportAsync())
-        {
-            NavigationManager.NavigateTo("/");
-            return;
-        }
 
-        await ToggleSidebarCollapsedAsync();
-    }
 
-    /// <summary>Matches app.css's own mobile breakpoint - see wwwroot/js/viewport.js, the single place both check it.</summary>
-    private async Task<bool> IsMobileViewportAsync()
-    {
-        try
-        {
-            return await JSRuntime.InvokeAsync<bool>("OrbitViewport.isMobile");
-        }
-        catch (JSException exception)
-        {
-            // Treated as desktop: the popup still works there, it is just less comfortable.
-            Logger.LogWarning(exception, "Failed to read the viewport size");
-            return false;
-        }
-    }
-
-    private async Task OnLogoKeyDown(KeyboardEventArgs args)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            await OnLogoClickAsync();
-        }
-    }
 
     private void ToggleAvatarMenu() => _avatarMenuOpen = !_avatarMenuOpen;
 
@@ -741,9 +679,9 @@
     /// on-demand recovery AuthorizationMessageHandler already does for a live API call, so a tab merely
     /// left idle past the access token's short lifetime doesn't lose a session that's still well within
     /// the refresh token's much longer one (30 days - see RefreshTokenService). Either way,
-    /// NotifyAuthenticationStateChanged is what actually makes this sidebar and every [Authorize]-gated
+    /// NotifyAuthenticationStateChanged is what actually makes this bar and every [Authorize]-gated
     /// route notice - on success it just confirms the (now-renewed) signed-in state; on failure it's
-    /// what finally hides the sidebar and redirects to /login instead of leaving both looking
+    /// what finally hides the bar and redirects to /login instead of leaving both looking
     /// signed-in indefinitely.
     /// </summary>
     private async Task CheckSessionHeartbeatAsync()
@@ -1055,6 +993,21 @@
         LiveUpdates.ConnectionStateChanged -= OnLiveConnectionStateChanged;
         await LiveUpdates.StopAsync();
         ApplyNotificationPollInterval();
+    }
+
+    /// <summary>Matches app.css's own mobile breakpoint - see wwwroot/js/viewport.js, the single place both check it.</summary>
+    private async Task<bool> IsMobileViewportAsync()
+    {
+        try
+        {
+            return await JSRuntime.InvokeAsync<bool>("OrbitViewport.isMobile");
+        }
+        catch (JSException exception)
+        {
+            // Treated as desktop: the popup still works there, it is just less comfortable.
+            Logger.LogWarning(exception, "Failed to read the viewport size");
+            return false;
+        }
     }
 
     public void Dispose()

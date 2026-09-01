@@ -1,0 +1,153 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* One card, used by every list that shows things: notes, task lists, events, conversations, and the
+   dashboard's columns. The shape is fixed so that a reader who learns it once knows where to look on
+   every page - the name is always in the same place, the menu is always in the same corner, and what
+   a card carries beyond that is what differs between them.
+
+       [handle][pin][action][name .................][collapse][menu]
+       [tags .....................................][extras]
+       [description, or the list of what is on it]
+
+   Everything except the name is optional, and each part is left out rather than rendered empty: a
+   handle appears only where the order can actually be changed, a collapse button only where there is
+   a list underneath to fold away. *@
+<article class="item-card @(IsCollapsed ? "item-card-collapsed" : "") @ExtraClass">
+    <div class="item-card-head">
+        @if (Handle is not null)
+        {
+            <span class="item-card-handle">@Handle</span>
+        }
+        @if (Pin is not null)
+        {
+            <span class="item-card-pin">@Pin</span>
+        }
+        @* Something happened here that the reader has not seen. Between the pin and the name because
+           that is where the eye already is when it reads down a list of names, and it is about this
+           one card rather than about the page. It goes out when the notifications are read or when
+           the card itself is opened - see HasUnseenAction. *@
+        @if (HasUnseenAction)
+        {
+            <span class="item-card-action" title="@(T["Something happened here"])"
+                  aria-label="@(T["Something happened here"])"></span>
+        }
+        <button type="button" class="item-card-name" @onclick="OnNameSelected" disabled="@(!OnNameSelected.HasDelegate)">
+            @Name
+        </button>
+        @if (OnCollapseToggled.HasDelegate)
+        {
+            <button type="button" class="icon-btn item-card-collapse"
+                    title="@(IsCollapsed ? T["Expand"] : T["Minimise"])"
+                    aria-expanded="@((!IsCollapsed).ToString().ToLowerInvariant())"
+                    aria-label="@(IsCollapsed ? T["Expand"] : T["Minimise"])"
+                    @onclick="OnCollapseToggled" @onclick:stopPropagation="true">
+                <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
+                     stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="@(IsCollapsed ? "m6 8 4 4 4-4" : "m6 12 4-4 4 4")" />
+                </svg>
+            </button>
+        }
+        @if (Menu is not null)
+        {
+            <span class="item-card-menu">@Menu</span>
+        }
+    </div>
+
+    @if (Tags is not null || Extras is not null)
+    {
+        @* One row for both, so a card with many tags and a counter keeps the counter at the end of it
+           rather than pushed onto a line of its own. *@
+        <div class="item-card-meta">
+            <span class="item-card-tags">@Tags</span>
+            @if (Extras is not null)
+            {
+                <span class="item-card-extras">@Extras</span>
+            }
+        </div>
+    }
+
+    @* Folded, a card can still say one line about itself - "not this week" is not the same as "forget
+       what this is". Callers that have nothing worth saying there pass nothing and the card ends at
+       its heading. *@
+    @if (IsCollapsed && CollapsedBody is not null)
+    {
+        <div class="item-card-body">@CollapsedBody</div>
+    }
+
+    @if (Body is not null && !IsCollapsed)
+    {
+        @* The whole area opens the light editor, not just a link inside it: on a card this size the
+           text is the target, and asking somebody to hit a word rather than the block it sits in is
+           the difference between one tap and three. *@
+        <div class="item-card-body @(OnBodySelected.HasDelegate ? "item-card-body-opens" : "")"
+             role="@(OnBodySelected.HasDelegate ? "button" : null)"
+             tabindex="@(OnBodySelected.HasDelegate ? 0 : null)"
+             @onclick="OnBodySelected" @onkeydown="OpenOnEnterOrSpaceAsync">
+            @Body
+        </div>
+    }
+</article>
+
+@code {
+    /// <summary>What the card is called. Wraps to a second line and is cut off after it - see app.css.</summary>
+    [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
+
+    /// <summary>Opening the thing itself. Without one the name is shown but is not a control.</summary>
+    [Parameter] public EventCallback OnNameSelected { get; set; }
+
+    /// <summary>The drag handle, for lists whose order can be changed. Left out everywhere else.</summary>
+    [Parameter] public RenderFragment? Handle { get; set; }
+
+    /// <summary>The pin control, where pinning means something - see PinButton.</summary>
+    [Parameter] public RenderFragment? Pin { get; set; }
+
+    /// <summary>
+    /// Whether something has happened here that this reader has not seen yet. Shown as a dot between
+    /// the pin and the name; the caller clears it when the notifications are read or when the card is
+    /// opened, because both of those are the reader having seen it.
+    /// </summary>
+    [Parameter] public bool HasUnseenAction { get; set; }
+
+    /// <summary>Whether the body is folded away. Only meaningful with <see cref="OnCollapseToggled"/>.</summary>
+    [Parameter] public bool IsCollapsed { get; set; }
+
+    /// <summary>Folding the body away. Without one no collapse button is offered.</summary>
+    [Parameter] public EventCallback OnCollapseToggled { get; set; }
+
+    /// <summary>The overflow menu, in the corner - see OverflowMenu.</summary>
+    [Parameter] public RenderFragment? Menu { get; set; }
+
+    /// <summary>Whatever this card is labelled with. Wraps onto further lines when it does not fit.</summary>
+    [Parameter] public RenderFragment? Tags { get; set; }
+
+    /// <summary>Anything that belongs beside the tags but always at the end - a "3/7 done" count, say.</summary>
+    [Parameter] public RenderFragment? Extras { get; set; }
+
+    /// <summary>A description, or the list of what is on this card.</summary>
+    [Parameter] public RenderFragment? Body { get; set; }
+
+    /// <summary>
+    /// The one line worth keeping while the body is folded away - what is still to be done, say.
+    /// Optional: a folded card with nothing to add ends at its heading.
+    /// </summary>
+    [Parameter] public RenderFragment? CollapsedBody { get; set; }
+
+    /// <summary>Opening the light editor. Without one the body is shown but is not a control.</summary>
+    [Parameter] public EventCallback OnBodySelected { get; set; }
+
+    /// <summary>Anything the caller needs to hang its own rules on - a pinned card's outline, say.</summary>
+    [Parameter] public string? ExtraClass { get; set; }
+
+    /// <summary>
+    /// A div given a button's role has to answer a keyboard like one; the browser does that for a real
+    /// button and for nothing else.
+    /// </summary>
+    private async Task OpenOnEnterOrSpaceAsync(KeyboardEventArgs args)
+    {
+        if (OnBodySelected.HasDelegate && args.Key is "Enter" or " ")
+        {
+            await OnBodySelected.InvokeAsync();
+        }
+    }
+}

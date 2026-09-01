@@ -20,150 +20,114 @@
 <PageTitle>@T["Orbit — Calendar"]</PageTitle>
 
 <div class="page-header">
-    <div>
+    <div class="page-heading">
+        <button type="button" class="icon-btn page-add" title="@(T["Add event"])" aria-label="@(T["Add event"])"
+                @onclick="GoToAddEvent">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
         <h1>@T["Calendar"]</h1>
-        <p class="page-subtitle">@T["Your events, and the ones you have been invited to."]</p>
     </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-primary" @onclick="GoToAddEvent">@T["Add event"]</button>
-    </div>
-</div>
-
-<div class="calendar-toolbar">
-    <button type="button" class="icon-btn @(_viewState.IsEventListVisible ? "active" : "")"
-            title="@(_viewState.IsEventListVisible ? T["Hide event list"] : T["Show event list"])"
-            aria-pressed="@AriaBool(_viewState.IsEventListVisible)" @onclick="ToggleEventListVisibilityAsync">
-        @if (_viewState.IsEventListVisible)
-        {
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.3" /></svg>
-        }
-        else
-        {
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.3" /><path d="M3 17L17 3" /></svg>
-        }
-    </button>
-    <button type="button" class="icon-btn @(_viewState.IsTaskListVisible ? "active" : "")"
-            title="@(_viewState.IsTaskListVisible ? T["Hide task list"] : T["Show task list"])"
-            aria-pressed="@AriaBool(_viewState.IsTaskListVisible)" @onclick="ToggleTaskListVisibilityAsync">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
-    </button>
 </div>
 
 <div class="calendar-layout">
-    @if (_viewState.IsEventListVisible || _viewState.IsTaskListVisible)
-    {
-        <div class="calendar-event-list-panel">
-            @if (_viewState.IsEventListVisible)
-            {
-                @if (_events is null)
+    <div class="calendar-event-list-panel">
+        @* One list, whatever kind of thing is on it. Events and deadlines answer the same
+           question - what is happening in this period - and two lists side by side made the
+           reader merge them by eye, in a period where they interleave by definition. *@
+        @if (_events is null || _dueTasks is null)
+        {
+            <p>@T["Loading…"]</p>
+        }
+        else if (ListedThings.Count == 0)
+        {
+            <p>@T["Nothing in this period."]</p>
+        }
+        else
+        {
+            <div class="item-card-list">
+                @foreach (var thing in ListedThings)
                 {
-                    <p>@T["Loading…"]</p>
-                }
-                else if (_listedEvents.Count == 0)
-                {
-                    <p>@T["Nothing in this period."]</p>
-                }
-                else
-                {
-                    <div class="event-list">
-                        @foreach (var calendarEvent in _listedEvents)
+                    @if (thing.Event is { } calendarEvent)
+                    {
+                        <ItemCard Name="@calendarEvent.Details.Title"
+                        OnNameSelected="() => GoToEditEvent(calendarEvent.Id)"
+                        IsCollapsed="@(!IsEventExpanded(calendarEvent.Id))"
+                        OnCollapseToggled="@(HasDetails(calendarEvent.Details) ? EventCallback.Factory.Create(this, () => ToggleEventExpanded(calendarEvent.Id)) : default)">
+                        <Tags>
+                            @* Which kind of thing this is, now that both kinds share one list. *@
+                            <span class="card-badge card-badge-event">@T["Event"]</span>
+                            @* The event's own colour, which is how a busy list is read at a glance
+                               before any of it is read properly. *@
+                            <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
+                            @if (calendarEvent.IsShared)
+                            {
+                                <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
+                            }
+                        </Tags>
+                        <Menu>
+                        <OverflowMenu>
+                        <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : T["Edit"])</button>
+                        <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
+                        </OverflowMenu>
+                        </Menu>
+                        <Body>
+                            @* When, first: it is the one thing every row on this list has, and the
+                               reason somebody is reading the list at all. *@
+                            <p class="event-when">@WhenItHappens(calendarEvent.Details)</p>
+                            <div class="editor-item-details">
+                        @if (calendarEvent.Details.Location is { } location)
                         {
-                            @* One row per event: colour, title, when. Location, repeats and guests
-                               open underneath, so a busy day stays a list rather than a wall. *@
-                            <div class="editor-item">
-                                <div class="editor-item-summary">
-                                    <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
-                                    <span class="editor-item-main">
-                                        <span class="event-title">@calendarEvent.Details.Title</span>
-                                        @if (calendarEvent.IsShared)
-                                        {
-                                            <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
-                                        }
-                                        <span class="row-meta event-when">@FormatTimeRange(calendarEvent.Details)</span>
-                                    </span>
-                                    <span class="editor-item-aside">
-                                        @if (HasDetails(calendarEvent.Details))
-                                        {
-                                            <button type="button" class="editor-item-toggle @(IsEventExpanded(calendarEvent.Id) ? "open" : "")"
-                                                    title="@(IsEventExpanded(calendarEvent.Id) ? T["Hide details"] : T["Show details"])"
-                                                    aria-expanded="@(IsEventExpanded(calendarEvent.Id) ? "true" : "false")"
-                                                    @onclick="() => ToggleEventExpanded(calendarEvent.Id)">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
-                                            </button>
-                                        }
-                                        <button type="button" class="btn-secondary" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : "Edit")</button>
-                                        <button type="button" class="btn-secondary" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
-                                    </span>
-                                </div>
-
-                                @if (IsEventExpanded(calendarEvent.Id))
-                                {
-                                    <div class="editor-item-details">
-                                        @if (calendarEvent.Details.Location is { } location)
-                                        {
-                                            <span>
-                                                <strong>@T["Location:"]</strong>
-                                                @* The address itself is the link, so the place is one click away rather than
-                                                   something to copy out - see GoogleMapsLink. *@
-                                                @if (_hasGoogleExtras)
-                                                {
-                                                    <a href="@GoogleMapsLink.ToPlace(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@FormatLocation(location)</a>
-                                                    <a class="google-link" href="@GoogleMapsLink.ToDirections(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@T["Directions"]</a>
-                                                }
-                                                else
-                                                {
-                                                    @FormatLocation(location)
-                                                }
-                                            </span>
-                                        }
-                                        @if (_hasGoogleExtras)
-                                        {
-                                            <span class="field-break"></span>
-                                            <a class="google-link" href="@GoogleCalendarLinkFor(calendarEvent)" target="_blank" rel="noopener">@T["Add to Google Calendar"]</a>
-                                        }
-                                        @if (calendarEvent.Details.Recurrence is { } recurrence)
-                                        {
-                                            <span><strong>@T["Repeats:"]</strong> @FormatRecurrence(recurrence)</span>
-                                        }
-                                        @if (calendarEvent.Details.Guests.Count > 0)
-                                        {
-                                            <span><strong>@T["Guests:"]</strong> @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</span>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-            }
-
-            @if (_viewState.IsTaskListVisible)
-            {
-                <h3>@T["Tasks with a due date"]</h3>
-                @if (_dueTasks is null)
-                {
-                    <p>@T["Loading…"]</p>
-                }
-                else if (_listedDueTasks.Count == 0)
-                {
-                    <p>@T["Nothing due in this period."]</p>
-                }
-                else
-                {
-                    <div class="event-list">
-                        @foreach (var dueTask in _listedDueTasks)
+                        <span>
+                        <strong>@T["Location:"]</strong>
+                        @* The address itself is the link, so the place is one click away rather than
+                        something to copy out - see GoogleMapsLink. *@
+                        @if (_hasGoogleExtras)
                         {
-                            <div class="list-row task-preview-row @(dueTask.IsCompleted ? "completed" : "")">
-                                <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
-                                <span class="row-title">@Written(dueTask.TaskListTitle): @Written(dueTask.Description)</span>
-                                <span class="row-meta">@dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-                                <button type="button" class="btn-secondary" @onclick="() => GoToDueTask(dueTask)">@T["Open"]</button>
-                            </div>
+                        <a href="@GoogleMapsLink.ToPlace(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@FormatLocation(location)</a>
+                        <a class="google-link" href="@GoogleMapsLink.ToDirections(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@T["Directions"]</a>
                         }
-                    </div>
+                        else
+                        {
+                        @FormatLocation(location)
+                        }
+                        </span>
+                        }
+                        @if (_hasGoogleExtras)
+                        {
+                        <span class="field-break"></span>
+                        <a class="google-link" href="@GoogleCalendarLinkFor(calendarEvent)" target="_blank" rel="noopener">@T["Add to Google Calendar"]</a>
+                        }
+                        @if (calendarEvent.Details.Recurrence is { } recurrence)
+                        {
+                        <span><strong>@T["Repeats:"]</strong> @FormatRecurrence(recurrence)</span>
+                        }
+                        @if (calendarEvent.Details.Guests.Count > 0)
+                        {
+                        <span><strong>@T["Guests:"]</strong> @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</span>
+                        }
+                        </div>
+                        </Body>
+                        </ItemCard>
+                    }
+                    else if (thing.DueTask is { } dueTask)
+                    {
+                        <ItemCard Name="@Written(dueTask.Description)"
+                                  OnNameSelected="() => GoToDueTask(dueTask)"
+                                  ExtraClass="@(dueTask.IsCompleted ? "item-card-done" : null)">
+                            <Tags>
+                                <span class="card-badge card-badge-task">@T["Task"]</span>
+                                <span class="card-badge">@Written(dueTask.TaskListTitle)</span>
+                            </Tags>
+                            <Body>
+                                <span class="event-when">@WhenItIsDue(dueTask)</span>
+                            </Body>
+                        </ItemCard>
+                    }
                 }
-            }
-        </div>
+            </div>
+        }
+    </div>
     }
 
     <div class="calendar-visualization-panel">
@@ -190,7 +154,7 @@
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
                 break;
             default:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToDueTask" />
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" />
                 break;
         }
     </div>
@@ -276,8 +240,6 @@
         Logger.LogInformation("Calendar page opened, loading events");
         // Before the first render, so the panels come back open rather than opening a moment later.
         await Panels.InitializeAsync();
-        _viewState.IsEventListVisible = Panels.IsOpen(PanelPreferences.Panel.CalendarEventList);
-        _viewState.IsTaskListVisible = Panels.IsOpen(PanelPreferences.Panel.CalendarTaskList);
         try
         {
             _events = await CalendarApiClient.GetCalendarEventsAsync();
@@ -458,17 +420,7 @@
         Logger.LogInformation("Calendar event {EventId} deleted", calendarEvent.Id);
     }
 
-    private async Task ToggleEventListVisibilityAsync()
-    {
-        _viewState.IsEventListVisible = !_viewState.IsEventListVisible;
-        await Panels.SetOpenAsync(PanelPreferences.Panel.CalendarEventList, _viewState.IsEventListVisible);
-    }
 
-    private async Task ToggleTaskListVisibilityAsync()
-    {
-        _viewState.IsTaskListVisible = !_viewState.IsTaskListVisible;
-        await Panels.SetOpenAsync(PanelPreferences.Panel.CalendarTaskList, _viewState.IsTaskListVisible);
-    }
 
     private void ToggleShowDueTasksInYearView()
     {
@@ -505,10 +457,44 @@
         _viewState.SwitchView(CalendarViewMode.Day);
     }
 
-    private static string FormatTimeRange(CalendarEventDetailsDto details)
-        => details.IsAllDay
-            ? $"{details.StartUtc.LocalDateTime:dd.MM.yyyy} (all day)"
-            : $"{details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm} – {details.EndUtc.LocalDateTime:dd.MM.yyyy HH:mm}";
+    /// <summary>
+    /// When an event happens, said the shortest way that is still unambiguous. Something starting and
+    /// ending on one day - which is nearly everything - says its date once and then the two times:
+    /// "01.09.2026 19:30 – 20:30". Printing the date twice for a one-hour appointment is most of the
+    /// line spent saying the same thing again.
+    /// </summary>
+    private string WhenItHappens(CalendarEventDetailsDto details)
+    {
+        var start = details.StartUtc.LocalDateTime;
+        var end = details.EndUtc.LocalDateTime;
+
+        if (details.IsAllDay)
+        {
+            return start.Date == end.Date
+                ? T.Format("{0} (all day)", start.ToString("dd.MM.yyyy"))
+                : $"{start:dd.MM.yyyy} – {end:dd.MM.yyyy}";
+        }
+
+        return start.Date == end.Date
+            ? $"{start:dd.MM.yyyy} {start:HH:mm} – {end:HH:mm}"
+            : $"{start:dd.MM.yyyy HH:mm} – {end:dd.MM.yyyy HH:mm}";
+    }
+
+    /// <summary>When a deadline falls. One instant, so there is no range to shorten.</summary>
+    private static string WhenItIsDue(DueTaskDto dueTask)
+        => dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+
+    /// <summary>
+    /// Everything in this period, both kinds together and in the order they happen. Two lists made the
+    /// reader interleave them by eye, which is the one thing a calendar is meant to have done already.
+    /// </summary>
+    private IReadOnlyList<ListedThing> ListedThings
+        => [.. _listedEvents.Select(calendarEvent => new ListedThing(calendarEvent.Details.StartUtc, calendarEvent, null))
+            .Concat(_listedDueTasks.Select(dueTask => new ListedThing(dueTask.DueDateUtc, null, dueTask)))
+            .OrderBy(thing => thing.At)];
+
+    /// <summary>One row of the list: an event or a deadline, and when it is, which is what orders them.</summary>
+    private sealed record ListedThing(DateTimeOffset At, CalendarEventDto? Event, DueTaskDto? DueTask);
 
     /// <summary>
     /// Whether to offer the Google links at all - see GoogleIntegrationAccess for who qualifies and why.
@@ -560,12 +546,6 @@
     {
         public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
         public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
-        /// <summary>Hidden by default, like <see cref="IsTaskListVisible"/> - the calendar grid is the primary view; both side lists are opt-in per visit.</summary>
-        public bool IsEventListVisible { get; set; }
-
-        /// <summary>Hidden by default - the due-task list is a secondary panel most users don't need open every visit.</summary>
-        public bool IsTaskListVisible { get; set; }
-
         /// <summary>
         /// Whether due-task dots are mixed in with event dots on the compact year view - each day cell
         /// there is tiny, so this lets the user opt back out if the combined dots feel too cluttered.

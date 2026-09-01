@@ -43,9 +43,9 @@
             @foreach (var placedDueTask in Grid.DueTasks)
             {
                 <button type="button" class="calendar-task-block @(placedDueTask.Task.IsCompleted ? "calendar-task-chip-completed" : "")"
-                        style="@DueTaskPositionStyle(placedDueTask)" @onclick@onclick="() => TaskSelectedAsync(placedDueTask.Task)">
+                        style="@DueTaskPositionStyle(placedDueTask)" @onclick="() => TaskSelectedAsync(placedDueTask.Task)">
                     <span class="calendar-event-block-time">@FormatDueTime(placedDueTask.Task)</span>
-                    <span class="calendar-event-block-title">@placedDueTask.Task.Label</span>
+                    <span class="calendar-event-block-title" title="@placedDueTask.Task.Label">@placedDueTask.Task.Label</span>
                 </button>
             }
         </div>
