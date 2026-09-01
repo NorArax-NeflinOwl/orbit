@@ -36,6 +36,16 @@ public abstract class OrbitTestContext : TestContext
         // nothing; without it any test that opens a menu fails on the interop call rather than on
         // whatever it was about.
         JSInterop.SetupModule("./js/menuAnchor.js").SetupVoid("anchorToTrigger", _ => true).SetVoidResult();
+        // The one field a task list and a warehouse are named in draws itself through a module too - see
+        // ChecklistTextEditor, which the note editor and TitledDescription both use. Same reason as the
+        // menu above: without this, every editor test fails on an interop call rather than on whatever
+        // it was about. Answered rather than made loose, so a call nobody expected is still an error.
+        var checklistEditor = JSInterop.SetupModule("./js/checklistTextEditor.js");
+        checklistEditor.SetupVoid("initialize", _ => true).SetVoidResult();
+        checklistEditor.SetupVoid("insertChecklistItem", _ => true).SetVoidResult();
+        checklistEditor.SetupVoid("dispose", _ => true).SetVoidResult();
+        // Nothing was typed into a surface that does not exist, so it reports the lines it was given.
+        checklistEditor.Setup<string>("getLinesAsJson", _ => true).SetResult("[]");
     }
 
     /// <summary>

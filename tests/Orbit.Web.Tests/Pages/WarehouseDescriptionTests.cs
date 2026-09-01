@@ -9,6 +9,9 @@ using Orbit.Contracts.Notifications;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using System.Text.Json;
+using Orbit.Contracts.Notes;
+using Orbit.Web.Components;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -27,6 +30,25 @@ public sealed class WarehouseDescriptionTests : OrbitTestContext
 
     public WarehouseDescriptionTests() => Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
 
+    /// <summary>
+    /// The name and what is under it, as the one field they are written in holds them - see
+    /// TitledDescription. Read through the surface rather than off the DOM: it is contenteditable driven
+    /// from JS, which a test renderer has none of.
+    /// </summary>
+    private static string[] WhatTheFieldHolds(IRenderedFragment cut)
+        => [.. cut.FindComponent<ChecklistTextEditor>().Instance.Lines.Select(line => line.Text)];
+
+    /// <summary>What that field reports after somebody types into it, called the way its own JS calls it.</summary>
+    private static void WriteIntoTheField(IRenderedFragment cut, params string[] lines)
+    {
+        var editor = cut.FindComponent<ChecklistTextEditor>().Instance;
+        var written = lines.Select(line => new NoteContentLineDto(line, IsChecklistItem: false, IsChecked: false));
+        cut.InvokeAsync(() => editor.OnLinesChangedFromJs(
+            JsonSerializer.Serialize(written, new JsonSerializerOptions(JsonSerializerDefaults.Web))))
+            .GetAwaiter().GetResult();
+    }
+
+
     [Fact]
     public void What_the_warehouse_is_for_is_shown_under_its_name()
     {
@@ -34,8 +56,7 @@ public sealed class WarehouseDescriptionTests : OrbitTestContext
 
         var cut = Render();
 
-        Assert.Equal("Everything that lives in the cellar", cut.Find(".titled-description-body").GetAttribute("value"));
-        Assert.Equal("Pantry", cut.Find(".titled-description-title").GetAttribute("value"));
+        Assert.Equal(["Pantry", "Everything that lives in the cellar"], WhatTheFieldHolds(cut));
     }
 
     [Fact]
@@ -44,7 +65,7 @@ public sealed class WarehouseDescriptionTests : OrbitTestContext
         RegisterApiClients(description: "Everything that lives in the cellar");
         var cut = Render();
 
-        cut.Find(".titled-description-body").Input("The cellar, and the shelf by the door");
+        WriteIntoTheField(cut, "Pantry", "The cellar, and the shelf by the door");
         ClickButtonSaying(cut, "Save");
 
         Assert.NotNull(_lastSavedJson);
