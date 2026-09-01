@@ -676,13 +676,20 @@ input.note-editor-title {
 
 .notifications-panel {
     position: absolute;
-    bottom: calc(100% + 8px);
-    left: 0;
+    /* Under the bar and flush with its right edge, the way the avatar's own menu beside it hangs. It
+       still opened upwards and leftwards from when the navigation ran down the side of the page: from
+       a bar along the top that puts it off the top of the screen, and 320px to the right of an account
+       block that is already at the right edge puts the rest of it past the other side. */
+    top: calc(100% + 8px);
+    right: 0;
     width: 320px;
-    /* As tall as it needs to be, up to what is actually on screen above the trigger. The panel used to
+    /* Never wider than the window it hangs in - on a narrow phone the panel is most of the width, and
+       what it cannot have it should not take. */
+    max-width: calc(100vw - 24px);
+    /* As tall as it needs to be, up to what is actually on screen below the trigger. The panel used to
        scroll as a whole at a fixed height, which took "See all notifications" off the bottom and made
        every visit a scroll. */
-    max-height: calc(100vh - 120px);
+    max-height: calc(100vh - 80px);
     display: flex;
     flex-direction: column;
     background: var(--bg-elevated);
