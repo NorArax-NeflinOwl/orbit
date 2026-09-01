@@ -10,12 +10,19 @@ namespace Orbit.Web.Services;
 /// </summary>
 public sealed record NotificationChannelOption(string Value, string Label)
 {
+    /// <summary>
+    /// "None" is called Banner because that is what it actually does. Every notification is written
+    /// into the in-app feed whichever channel is chosen - see NotificationRecorder, which records the
+    /// entry before the channel is even consulted - so "None" never meant silence, it meant "the
+    /// banner and nothing else". Naming it after the delivery it leaves out rather than the one it
+    /// keeps made the quietest option read as the broken one.
+    /// </summary>
     public static readonly IReadOnlyList<NotificationChannelOption> All =
     [
-        new("None", "None"),
-        new("Email", "Email"),
+        new("None", "Banner only"),
         new("Push", "Push"),
-        new("Both", "Email and push")
+        new("Email", "Email"),
+        new("Both", "Push and email")
     ];
 
     /// <summary>

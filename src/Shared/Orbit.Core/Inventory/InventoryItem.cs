@@ -63,6 +63,16 @@ public sealed class InventoryItem
     /// </summary>
     public bool IsCheckedRegularly { get; private set; }
 
+    /// <summary>
+    /// Whether the restock list should be asking for this at all. Two reasons, either of which is
+    /// enough: the shelf says it has run low, or somebody said this is one to look at every round.
+    ///
+    /// The second exists because the first only works for things whose count is kept up to date. Nobody
+    /// counts the milk; they look. An item marked for checking is on the list whatever the number says,
+    /// and crossing it off is the answer to "have you looked", not "is it above four".
+    /// </summary>
+    public bool BelongsOnTheRestockList => IsBelowMinimum || IsCheckedRegularly;
+
     private InventoryItem(
         Guid id, Guid warehouseId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,

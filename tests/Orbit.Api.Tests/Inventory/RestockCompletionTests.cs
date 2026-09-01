@@ -307,4 +307,39 @@ public sealed class RestockCompletionTests
         var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
         Assert.Equal(afterFirst, taskList!.UpdatedAtUtc);
     }
+
+    /// <summary>
+    /// Something marked as checked every round is asked for whatever the count says. That is the point
+    /// of the flag: a minimum only works for things somebody keeps counted, and nobody counts the milk -
+    /// they look. Crossing it off answers "have you looked", not "is it above four".
+    /// </summary>
+    [Fact]
+    public async Task Something_checked_every_round_is_asked_for_even_when_it_is_not_low()
+    {
+        var warehouse = Warehouse.Create(_userId, "Spiżarnia");
+        await _context.WarehouseRepository.AddAsync(warehouse, CancellationToken.None);
+        var item = InventoryItem.Create(
+            warehouse.Id, "Mleko", "Nabiał", "Jedzenie", quantity: 10, minimumQuantity: 1,
+            InventoryUnit.Piece, null, NotificationChannel.None, isCheckedRegularly: true);
+
+        Assert.False(item.IsBelowMinimum);
+        Assert.True(item.BelongsOnTheRestockList);
+    }
+
+    /// <summary>And one nobody marked is still only asked for when the shelf says so.</summary>
+    [Fact]
+    public async Task Something_nobody_marked_is_asked_for_only_when_it_runs_low()
+    {
+        var warehouse = Warehouse.Create(_userId, "Spiżarnia");
+        await _context.WarehouseRepository.AddAsync(warehouse, CancellationToken.None);
+        var plenty = InventoryItem.Create(
+            warehouse.Id, "Cukier", "Sypkie", "Jedzenie", quantity: 10, minimumQuantity: 1,
+            InventoryUnit.Piece, null, NotificationChannel.None);
+        var low = InventoryItem.Create(
+            warehouse.Id, "Sól", "Sypkie", "Jedzenie", quantity: 0, minimumQuantity: 1,
+            InventoryUnit.Piece, null, NotificationChannel.None);
+
+        Assert.False(plenty.BelongsOnTheRestockList);
+        Assert.True(low.BelongsOnTheRestockList);
+    }
 }

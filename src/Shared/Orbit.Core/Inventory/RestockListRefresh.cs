@@ -107,7 +107,7 @@ public sealed class RestockListRefresh
     {
         if (!settings.OnlyLinkedWithDueDate)
         {
-            return [.. shelf.Where(item => item.IsBelowMinimum).Select(item => item.Id)];
+            return [.. shelf.Where(item => item.BelongsOnTheRestockList).Select(item => item.Id)];
         }
 
         var onThisShelf = shelf.Select(item => item.Id).ToHashSet();

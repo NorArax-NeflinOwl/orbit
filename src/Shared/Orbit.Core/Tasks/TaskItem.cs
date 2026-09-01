@@ -143,7 +143,7 @@ public sealed class TaskItem
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
         // rather than telling anybody anything.
-        StoredTextLimits.OrRefuse(description, StoredTextLimits.TaskDescription, "line of work");
+        StoredTextLimits.OrRefuse(description, StoredTextLimits.TaskDescription, "task entry");
         StoredTextLimits.OrRefuse(location, StoredTextLimits.Address, "place's address");
 
         return new TaskItem(

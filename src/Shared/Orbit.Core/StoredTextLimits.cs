@@ -23,8 +23,12 @@ public static class StoredTextLimits
     /// <summary>The login somebody is found by. Short on purpose: it is typed by other people.</summary>
     public const int UserName = 64;
 
-    /// <summary>One line of work on a task list.</summary>
-    public const int TaskDescription = 500;
+    /// <summary>
+    /// What one entry on a task list says. Was 500 when an entry was a line typed into a single-line
+    /// box; it is written in a text area now, where a paragraph is a reasonable thing to write, so it
+    /// gets the same room an event's description has.
+    /// </summary>
+    public const int TaskDescription = 2000;
 
     /// <summary>What an event is about, at length - the one field meant to hold more than a line.</summary>
     public const int EventDescription = 2000;

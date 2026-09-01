@@ -120,6 +120,8 @@ else
                         <Menu>
                             <OverflowMenu>
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => OpenGroup(group.Id)">@T["Info"]</button>
+                                <button type="button" class="avatar-dropdown-item"
+                                        @onclick="() => SetGroupArchivedAsync(group.Id, true)">@T["Put away"]</button>
                             </OverflowMenu>
                         </Menu>
                     </PersonRow>
@@ -127,6 +129,44 @@ else
                 @if (ArrangedGroups.Count == 0)
                 {
                     <p class="empty-hint">@T["No groups yet."]</p>
+                }
+            }
+            else if (_tab == ContactsTab.Archive)
+            {
+                @* People and groups together here, unlike the other tabs. Archive answers one question -
+                   "where did that conversation go" - and somebody asking it is not thinking about which
+                   of the two kinds it was. *@
+                @foreach (var contact in ArchivedContacts)
+                {
+                    <PersonRow Id="contact.UserId" Name="@contact.DisplayName" Subtitle="@contact.UserName"
+                               Status="Conversation.PresenceOf(contact)"
+                               OnSelected="() => OpenChat(contact.UserId)">
+                        <Menu>
+                            <OverflowMenu>
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => OpenContactInfo(contact.UserId)">@T["Info"]</button>
+                                <button type="button" class="avatar-dropdown-item"
+                                        @onclick="() => SetContactArchivedAsync(contact.UserId, false)">@T["Put back"]</button>
+                            </OverflowMenu>
+                        </Menu>
+                    </PersonRow>
+                }
+                @foreach (var group in ArchivedGroups)
+                {
+                    <PersonRow Id="group.Id" Name="@group.Name"
+                               Subtitle="@T.Format("{0} in it", group.Members.Count)"
+                               OnSelected="() => OpenGroup(group.Id)">
+                        <Menu>
+                            <OverflowMenu>
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => OpenGroup(group.Id)">@T["Info"]</button>
+                                <button type="button" class="avatar-dropdown-item"
+                                        @onclick="() => SetGroupArchivedAsync(group.Id, false)">@T["Put back"]</button>
+                            </OverflowMenu>
+                        </Menu>
+                    </PersonRow>
+                }
+                @if (ArchivedCount == 0)
+                {
+                    <p class="empty-hint">@T["Nothing put away."]</p>
                 }
             }
             else
@@ -144,6 +184,8 @@ else
                         <Menu>
                             <OverflowMenu>
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => OpenContactInfo(contact.UserId)">@T["Info"]</button>
+                                <button type="button" class="avatar-dropdown-item"
+                                        @onclick="() => SetContactArchivedAsync(contact.UserId, true)">@T["Put away"]</button>
                             </OverflowMenu>
                         </Menu>
                     </PersonRow>
@@ -164,14 +206,15 @@ else
 
 @code {
     /// <summary>
-    /// Which list is showing. Archive is not here yet: hiding a conversation has to survive a reload
-    /// and a second device, which needs somewhere to store that - see info/future-plan.md.
+    /// Which list is showing. Archive is last because it is where things go, not where anybody starts,
+    /// and it holds people and groups together - see the markup for why.
     /// </summary>
     private enum ContactsTab
     {
         Contacts,
         Chats,
-        Groups
+        Groups,
+        Archive
     }
 
     private ContactsTab _tab = ContactsTab.Chats;
@@ -180,7 +223,8 @@ else
     {
         ContactsTab.Contacts => T["Contacts"],
         ContactsTab.Chats => T["Chats"],
-        _ => T["Groups"]
+        ContactsTab.Groups => T["Groups"],
+        _ => T["Archive"]
     };
 
     /// <summary>
@@ -190,7 +234,10 @@ else
     private int? CountFor(ContactsTab tab) => tab switch
     {
         ContactsTab.Chats => _establishedChats.Count(),
-        ContactsTab.Groups => _groups.Count,
+        ContactsTab.Groups => ArrangedGroups.Count,
+        // Nothing put away is the ordinary state, and a nought beside the tab reads as a thing to go
+        // and look at. The count appears once there is something there.
+        ContactsTab.Archive => ArchivedCount == 0 ? null : ArchivedCount,
         _ => null
     };
 
@@ -203,14 +250,65 @@ else
     private IReadOnlyList<ContactDto> RowsForTheChosenTab
         => _tab == ContactsTab.Contacts
             ? [.. Pins.PinnedFirst(
-                (_contacts ?? []).OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase),
+                (_contacts ?? []).Where(contact => !contact.IsArchived)
+                    .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase),
                 contact => contact.UserId)]
             : [.. Pins.PinnedFirst(
-                _establishedChats.OrderByDescending(contact => contact.LastMessageAtUtc),
+                _establishedChats.Where(contact => !contact.IsArchived)
+                    .OrderByDescending(contact => contact.LastMessageAtUtc),
                 contact => contact.UserId)];
 
     private IReadOnlyList<ChatGroupDto> ArrangedGroups
-        => [.. Pins.PinnedFirst(_groups.OrderByDescending(group => group.LastMessageAtUtc), group => group.Id)];
+        => [.. Pins.PinnedFirst(
+            _groups.Where(group => !group.IsArchived).OrderByDescending(group => group.LastMessageAtUtc),
+            group => group.Id)];
+
+    /// <summary>
+    /// What has been put away, newest first - somebody looking through the archive is usually after the
+    /// thing they archived last. Neither list is pinned-first: pinning says "keep this at the top of my
+    /// day", which is the opposite of what putting something away said.
+    /// </summary>
+    private IReadOnlyList<ContactDto> ArchivedContacts
+        => [.. (_contacts ?? []).Where(contact => contact.IsArchived)
+            .OrderByDescending(contact => contact.LastMessageAtUtc)];
+
+    private IReadOnlyList<ChatGroupDto> ArchivedGroups
+        => [.. _groups.Where(group => group.IsArchived).OrderByDescending(group => group.LastMessageAtUtc)];
+
+    private int ArchivedCount => ArchivedContacts.Count + ArchivedGroups.Count;
+
+    /// <summary>
+    /// Puts a conversation away, or brings it back, and reloads so the row leaves the list it was on.
+    /// A failure has to reach the reader: the row not moving looks exactly like a click that never
+    /// registered, and they will click it again.
+    /// </summary>
+    private async Task SetContactArchivedAsync(Guid otherUserId, bool isArchived)
+    {
+        await ApplyArchiveAsync(() => ChatApiClient.SetConversationArchivedAsync(otherUserId, isArchived), isArchived);
+    }
+
+    private async Task SetGroupArchivedAsync(Guid groupId, bool isArchived)
+    {
+        await ApplyArchiveAsync(() => ChatApiClient.SetGroupArchivedAsync(groupId, isArchived), isArchived);
+    }
+
+    private async Task ApplyArchiveAsync(Func<Task> archive, bool isArchived)
+    {
+        try
+        {
+            await archive();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Failed to change whether a conversation is archived");
+            _loadError = isArchived
+                ? T["Could not put that away. Check your connection and try again."]
+                : T["Could not put that back. Check your connection and try again."];
+            return;
+        }
+
+        await LoadContactsAsync();
+    }
 
     private async Task SetPinnedAsync(Guid id, bool isPinned)
     {

@@ -121,9 +121,13 @@ else
                     }
                     @* Reassigned on every row, so it holds the last one by the time the loop ends - which
                        is the row Add item just appended, and the one the cursor belongs in. *@
-                    <InputText class="editor-item-main" @ref="_lastItemDescription" @bind-Value="item.Description"
-                               placeholder="@(T["Item description"])"
-                               @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty" />
+                    @* A text area rather than a single-line box: an entry is allowed to be a sentence
+                       or two, and one that scrolled sideways inside a one-line field could not be read
+                       back without dragging through it. It starts one line tall and grows with what is
+                       written - see .editor-item-main in app.css. *@
+                    <textarea class="editor-item-main" @ref="_lastItemDescription" rows="1"
+                              placeholder="@(T["Item description"])" value="@item.Description"
+                              @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty"></textarea>
                     <NameSuggestions Kind="NameSuggestionKind.TaskItemDescription" Value="item.Description"
                                      OnChosen="chosen => item.Description = chosen" />
                     <span class="editor-item-aside">
@@ -272,6 +276,11 @@ else
                                 </label>
                                 <label>@T["Expires in"]<ExpiresInField Value="product.ExpiryDate"
                                                                       ValueChanged="expiresOn => product.ExpiryDate = expiresOn" />
+                                </label>
+                                @* Asked for every round, whatever the count says - see
+                                   InventoryItem.BelongsOnTheRestockList. *@
+                                <label class="field-checkbox" title="@(T["Always on the restock list, however much there is"])">
+                                    <InputCheckbox @bind-Value="product.IsCheckedRegularly" />@T["Check every round"]
                                 </label>
                                 <label>@T["Expiry notification"]<select @bind="product.ExpiryNotificationChannel">
                                         @foreach (var option in NotificationChannelOption.All)
@@ -1000,6 +1009,9 @@ else
         public DateTimeOffset? ExpiryDate { get; set; }
         public string ExpiryNotificationChannel { get; set; } = NotificationChannelOption.All[0].Value;
 
+        /// <summary>Asked for every round - see InventoryItem.BelongsOnTheRestockList.</summary>
+        public bool IsCheckedRegularly { get; set; }
+
         public static InventoryFieldsFormModel From(InventoryItemDto product, Guid warehouseId, string warehouseName)
             => new()
             {
@@ -1013,11 +1025,14 @@ else
                 MinimumQuantity = product.MinimumQuantity,
                 Unit = InventoryUnitOption.For(product.Unit).Value,
                 ExpiryDate = product.ExpiryDate,
-                ExpiryNotificationChannel = product.ExpiryNotificationChannel
+                ExpiryNotificationChannel = product.ExpiryNotificationChannel,
+                IsCheckedRegularly = product.IsCheckedRegularly
             };
 
         public WarehouseItemDto ToDto()
-            => new(Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit, ExpiryDate, ExpiryNotificationChannel);
+            => new(
+                Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit, ExpiryDate,
+                ExpiryNotificationChannel, IsCheckedRegularly);
     }
 
     /// <summary>
@@ -1178,7 +1193,7 @@ else
     /// The description box of the last row on the form - see where it is assigned. Held so a row added
     /// with Enter can be typed into straight away, which is the whole point of adding it that way.
     /// </summary>
-    private InputText? _lastItemDescription;
+    private ElementReference? _lastItemDescription;
     private bool _isWaitingToFocusTheNewItem;
 
     /// <summary>
@@ -1187,7 +1202,7 @@ else
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_isWaitingToFocusTheNewItem || _lastItemDescription?.Element is not { } element)
+        if (!_isWaitingToFocusTheNewItem || _lastItemDescription is not { } element)
         {
             return;
         }
@@ -1583,7 +1598,13 @@ else
         public string LinkedCalendarEventId { get; set; } = string.Empty;
 
         public string LinkedTaskListId { get; set; } = string.Empty;
-        public string OverdueNotificationChannel { get; set; } = "Push";
+        /// <summary>
+        /// The banner by default - which is not silence: every notification is written into the in-app
+        /// feed whatever the channel says (see NotificationRecorder). A new entry therefore says
+        /// something on screen and nothing on anybody's phone until asked, which is the quieter
+        /// default and the one a list of thirty errands needs.
+        /// </summary>
+        public string OverdueNotificationChannel { get; set; } = "None";
         public bool RemindDaily { get; set; }
         public string DailyReminderNotificationChannel { get; set; } = "Push";
         /// <summary>Optional here, though the request is not: an empty box is midnight, which is what an unanswered "what time?" has always meant on this form.</summary>

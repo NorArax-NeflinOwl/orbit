@@ -232,6 +232,26 @@ public sealed class ChatApiClient
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// Puts a one-to-one conversation away, or brings it back. Only for this reader - the other party
+    /// keeps theirs where it was, which is why the server takes no "archive for everybody".
+    /// </summary>
+    public async Task SetConversationArchivedAsync(
+        Guid otherUserId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/chat/conversations/{otherUserId}/archived", new SetArchivedRequest(isArchived), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>The same for a group, and equally only for this reader - nobody else's list moves.</summary>
+    public async Task SetGroupArchivedAsync(Guid groupId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/chat/groups/{groupId}/archived", new SetArchivedRequest(isArchived), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task AddGroupMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(
