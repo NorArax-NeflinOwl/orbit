@@ -123,6 +123,7 @@ builder.Services.AddScoped(services => new LiveUpdatesConnection(
     services.GetRequiredService<TokenRefreshService>(),
     apiBaseAddress,
     services.GetRequiredService<ILogger<LiveUpdatesConnection>>()));
+builder.Services.AddScoped<WarehouseArrangement>();
 builder.Services.AddScoped<PresenceService>();
 // Asked by the chat poll before every tick - see PageVisibility for why polling behind thirty other
 // tabs is waste rather than diligence.
